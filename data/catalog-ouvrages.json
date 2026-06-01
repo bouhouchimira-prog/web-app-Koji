@@ -1,0 +1,1218 @@
+[
+  {
+    "id": "carmur-001",
+    "code": "CARMUR-001",
+    "label": "Pose faïence mur 30×60 cm – salle de bains (ragréage + étanchéité + pose)",
+    "description": "Travaux complets sur mur salle de bains. Fourniture carreaux non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Mur / Faïence",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 1.536,
+    "artiprixCode": "13.3.2",
+    "parentCode": null,
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carmur-001-01",
+    "code": "CARMUR-001-01",
+    "label": "Ragréage et lissage mur intérieur – ép. 5 mm",
+    "description": "Mise à niveau avant pose de faïence.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Mur / Faïence",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.42,
+    "artiprixCode": "13.2.8",
+    "parentCode": "CARMUR-001",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carmur-001-02",
+    "code": "CARMUR-001-02",
+    "label": "Pose faïence 30×60 cm – simple encollage",
+    "description": "Sous-couche étanchéité incluse. Coupes, colle, joints étanches, nettoyage. Fourniture carreaux non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Mur / Faïence",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 1.116,
+    "artiprixCode": "13.3.2",
+    "parentCode": "CARMUR-001",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carrep-001",
+    "code": "CARREP-001",
+    "label": "Remplacement d'un carreau isolé 30×30 cm",
+    "description": "Remplacement d'un seul carreau cassé ou décollé. Fourniture du carreau non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Réparation",
+    "type": "POSTE",
+    "unit": "u",
+    "normativeTime": 0.5,
+    "artiprixCode": "13.2.12",
+    "parentCode": null,
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carrep-001-01",
+    "code": "CARREP-001-01",
+    "label": "Dépose de l'ancien carreau + préparation support",
+    "description": "Désolidarisation + nettoyage du lit de colle.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Réparation",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 0.2,
+    "artiprixCode": "13.2.12",
+    "parentCode": "CARREP-001",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carrep-001-02",
+    "code": "CARREP-001-02",
+    "label": "Pose nouveau carreau (colle + joints + nettoyage)",
+    "description": "Fourniture du carreau non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Réparation",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 0.3,
+    "artiprixCode": "13.2.12",
+    "parentCode": "CARREP-001",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-001",
+    "code": "CARSOL-001",
+    "label": "Préparation sol complet (primaire + ragréage P3)",
+    "description": "Ensemble préparatoire avant toute pose de carrelage ou revêtement souple.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.32,
+    "artiprixCode": "13.2.1/13.2.4",
+    "parentCode": null,
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-001-01",
+    "code": "CARSOL-001-01",
+    "label": "Primaire d'accrochage (Primroxol® ou similaire)",
+    "description": "Application primaire sur béton ou support absorbant. Obligatoire avant ragréage.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.1,
+    "artiprixCode": "13.2.1",
+    "parentCode": "CARSOL-001",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-001-02",
+    "code": "CARSOL-001-02",
+    "label": "Enduit de ragréage P3 – ép. 5 mm (environ 7,5 kg/m²)",
+    "description": "Mise à niveau du sol, ép. 5 mm. Indispensable si sol irrégulier.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.22,
+    "artiprixCode": "13.2.4",
+    "parentCode": "CARSOL-001",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-002",
+    "code": "CARSOL-002",
+    "label": "Pose carrelage sol 40×40 cm – rénovation sur ancien carrelage sain",
+    "description": "Travaux complets de rénovation sur support sain. Inclut préparation + pose. Fourniture carreaux non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 1.3,
+    "artiprixCode": "13.1.2/13.2.4",
+    "parentCode": null,
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-002-01",
+    "code": "CARSOL-002-01",
+    "label": "Ragréage et lissage sol P3 – ép. 5 mm",
+    "description": "Préparation support avant pose.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.22,
+    "artiprixCode": "13.2.4",
+    "parentCode": "CARSOL-002",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-002-02",
+    "code": "CARSOL-002-02",
+    "label": "Pose carrelage 40×40 cm simple encollage",
+    "description": "Dépoussiérage, lavage, colle, coupes, joints, nettoyage. Pose sur ancien carrelage sain. Fourniture carreaux non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.98,
+    "artiprixCode": "13.1.2",
+    "parentCode": "CARSOL-002",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-002-03",
+    "code": "CARSOL-002-03",
+    "label": "Rénovation joints carrelage 40×40 cm – joint 5 mm",
+    "description": "Joints au mortier alimentaire inclus dans le temps de pose.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.1,
+    "artiprixCode": "13.2.15",
+    "parentCode": "CARSOL-002",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-003",
+    "code": "CARSOL-003",
+    "label": "Pose carrelage sol 80×80 cm – support neuf (primaire + ragréage + pose double encollage)",
+    "description": "Travaux complets sur support neuf. Fourniture carreaux non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 1.48,
+    "artiprixCode": "13.3.3",
+    "parentCode": null,
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-003-01",
+    "code": "CARSOL-003-01",
+    "label": "Primaire d'accrochage (support neuf)",
+    "description": "Couche primaire obligatoire sur béton neuf.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.1,
+    "artiprixCode": "13.2.1",
+    "parentCode": "CARSOL-003",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-003-02",
+    "code": "CARSOL-003-02",
+    "label": "Enduit de ragréage P3 – ép. 5 mm (support neuf)",
+    "description": "Mise à niveau avant pose.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.22,
+    "artiprixCode": "13.2.4",
+    "parentCode": "CARSOL-003",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "carsol-003-03",
+    "code": "CARSOL-003-03",
+    "label": "Pose carrelage 80×80 cm – double encollage",
+    "description": "Double encollage obligatoire pour grands formats. Coupes, colle, joints, nettoyage. Fourniture carreaux non comprise.",
+    "profession": "Carrelage",
+    "family": "Carrelage",
+    "category": "Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 1.16,
+    "artiprixCode": "13.3.3",
+    "parentCode": "CARSOL-003",
+    "materialCategories": [
+      "carrelage",
+      "colle",
+      "joint"
+    ]
+  },
+  {
+    "id": "cloclo-001",
+    "code": "CLOCLO-001",
+    "label": "Cloison BA13 – 72/48 mm + laine de verre 45 mm (distribution standard, EI 30)",
+    "description": "Cloison distribution clé en main. Ossature métal, isolation, plaques, joints.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Cloison",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.64,
+    "artiprixCode": "12.2.14",
+    "parentCode": null,
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloclo-001-01",
+    "code": "CLOCLO-001-01",
+    "label": "Semelle résiliente basse (isolation phonique pied de cloison)",
+    "description": "Bande Phaltex® ou similaire sous le rail bas.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Cloison",
+    "type": "SOUS-POSTE",
+    "unit": "ml",
+    "normativeTime": 0.05,
+    "artiprixCode": "12.2.1",
+    "parentCode": "CLOCLO-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloclo-001-02",
+    "code": "CLOCLO-001-02",
+    "label": "Ossature métallique rail + montants, entraxe 60 cm",
+    "description": "Rail haut + rail bas + montants 48 mm vissés.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Cloison",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.18,
+    "artiprixCode": "12.2.13",
+    "parentCode": "CLOCLO-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloclo-001-03",
+    "code": "CLOCLO-001-03",
+    "label": "Laine de verre 45 mm entre montants",
+    "description": "Découpe et calage de la laine entre montants.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Cloison",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.06,
+    "artiprixCode": "12.2.14",
+    "parentCode": "CLOCLO-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloclo-001-04",
+    "code": "CLOCLO-001-04",
+    "label": "Pose 2 plaques BA13 vissées (1 face + 1 face) + traitement joints 2 faces",
+    "description": "Vissage, calicotage, enduit de joint, ponçage 2 faces.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Cloison",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.35,
+    "artiprixCode": "12.2.14",
+    "parentCode": "CLOCLO-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloplf-001",
+    "code": "CLOPLF-001",
+    "label": "Plafond BA13 EI 15 – vissé sur fourrure F47 (réfection ou création)",
+    "description": "Plaque BA13 EI 15 sur fourrure. Ossature et isolant non compris.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Plafond",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.484,
+    "artiprixCode": "12.1.8",
+    "parentCode": null,
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloplf-001-01",
+    "code": "CLOPLF-001-01",
+    "label": "Pose ossature fourrure F47 (rails + suspentes)",
+    "description": "Ossature porteuse du plafond.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.18,
+    "artiprixCode": "12.1.8",
+    "parentCode": "CLOPLF-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloplf-001-02",
+    "code": "CLOPLF-001-02",
+    "label": "Vissage plaque BA13 EI 15 sur fourrure",
+    "description": "Pose et vissage de la plaque.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.18,
+    "artiprixCode": "12.1.8",
+    "parentCode": "CLOPLF-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "cloplf-001-03",
+    "code": "CLOPLF-001-03",
+    "label": "Traitement des joints plafond (calicot + enduit + ponçage)",
+    "description": "Finition surface prête à peindre.",
+    "profession": "Plâtrerie",
+    "family": "Cloisons / Plafonds",
+    "category": "Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.124,
+    "artiprixCode": "12.1.8",
+    "parentCode": "CLOPLF-001",
+    "materialCategories": [
+      "placo",
+      "enduit",
+      "isolation"
+    ]
+  },
+  {
+    "id": "demsol-001",
+    "code": "DEMSOL-001",
+    "label": "Dépose carrelage sol + mise en sac (sans évacuation)",
+    "description": "Dépose à la masse ou piqueur. Évacuation gravats à facturer en supplément.",
+    "profession": "Démolition",
+    "family": "Démolition / Dépose",
+    "category": "Carrelage sol",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.5,
+    "artiprixCode": "1.x",
+    "parentCode": null,
+    "materialCategories": []
+  },
+  {
+    "id": "demsol-001-01",
+    "code": "DEMSOL-001-01",
+    "label": "Dépose et cassage carrelage (masse / piqueur électrique)",
+    "description": "Selon épaisseur et résistance de la colle.",
+    "profession": "Démolition",
+    "family": "Démolition / Dépose",
+    "category": "Carrelage sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.35,
+    "artiprixCode": "1.x",
+    "parentCode": "DEMSOL-001",
+    "materialCategories": []
+  },
+  {
+    "id": "demsol-001-02",
+    "code": "DEMSOL-001-02",
+    "label": "Mise en sac des gravats sur place",
+    "description": "Chargement dans sacs ou benne à proximité immédiate.",
+    "profession": "Démolition",
+    "family": "Démolition / Dépose",
+    "category": "Carrelage sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.15,
+    "artiprixCode": "1.x",
+    "parentCode": "DEMSOL-001",
+    "materialCategories": []
+  },
+  {
+    "id": "isoplf-001",
+    "code": "ISOPLF-001",
+    "label": "Isolation combles par soufflage laine de verre 330 mm – R = 7,00 m².K/W",
+    "description": "Améliore fortement le DPE. Soufflage mécanique.",
+    "profession": "Isolation",
+    "family": "Isolation",
+    "category": "Combles / Plafond",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.29,
+    "artiprixCode": "12.1.6",
+    "parentCode": null,
+    "materialCategories": [
+      "isolation"
+    ]
+  },
+  {
+    "id": "isoplf-001-01",
+    "code": "ISOPLF-001-01",
+    "label": "Mise en place guide + protection (pare-vapeur polyéthylène)",
+    "description": "Pose film plastique, calfeutrement des trappes.",
+    "profession": "Isolation",
+    "family": "Isolation",
+    "category": "Combles / Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.06,
+    "artiprixCode": "12.1.6",
+    "parentCode": "ISOPLF-001",
+    "materialCategories": [
+      "isolation"
+    ]
+  },
+  {
+    "id": "isoplf-001-02",
+    "code": "ISOPLF-001-02",
+    "label": "Soufflage laine de verre ép. 330 mm (machine souffleuse)",
+    "description": "Application mécanique uniforme, R = 7,00 m².K/W.",
+    "profession": "Isolation",
+    "family": "Isolation",
+    "category": "Combles / Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.23,
+    "artiprixCode": "12.1.6",
+    "parentCode": "ISOPLF-001",
+    "materialCategories": [
+      "isolation"
+    ]
+  },
+  {
+    "id": "menpar-001",
+    "code": "MENPAR-001",
+    "label": "Parquet stratifié 7 mm cl. 22 + sous-couche 4 mm + plinthes MDF (pose flottante)",
+    "description": "Fourniture et pose complète parquet flottant + finition plinthes. Prix plinthe calculé sur ratio 3 ML/M2.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Parquet / Sol",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.47,
+    "artiprixCode": "14.3.260/14.3.245",
+    "parentCode": null,
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpar-001-01",
+    "code": "MENPAR-001-01",
+    "label": "Pose sous-couche polystyrène expansé 4 mm + pare-vapeur",
+    "description": "Déroulage et découpe sous-couche.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Parquet / Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.08,
+    "artiprixCode": "14.3.260",
+    "parentCode": "MENPAR-001",
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpar-001-02",
+    "code": "MENPAR-001-02",
+    "label": "Pose parquet stratifié ép. 7 mm – pose flottante à clipser",
+    "description": "Fourniture et pose. Classe 22 usage domestique général. Coupes, nettoyage.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Parquet / Sol",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.39,
+    "artiprixCode": "14.3.260",
+    "parentCode": "MENPAR-001",
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpar-001-03",
+    "code": "MENPAR-001-03",
+    "label": "Pose plinthes MDF à peindre 14×75 mm (coupes, fixation, finitions)",
+    "description": "Environ 3 ML par M2 de pièce.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Parquet / Sol",
+    "type": "SOUS-POSTE",
+    "unit": "ml",
+    "normativeTime": 0.08,
+    "artiprixCode": "14.3.245",
+    "parentCode": "MENPAR-001",
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpor-001",
+    "code": "MENPOR-001",
+    "label": "Fourniture et pose bloc-porte isoplane prépeint 204×83 cm",
+    "description": "Fourniture + pose complète. Huisserie sapin, serrure ½ tour, paumelles, accessoires. Âme alvéolaire, cloison 70 mm.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Bloc-porte",
+    "type": "POSTE",
+    "unit": "u",
+    "normativeTime": 1.7,
+    "artiprixCode": "14.3.8",
+    "parentCode": null,
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpor-001-01",
+    "code": "MENPOR-001-01",
+    "label": "Pose huisserie + calage + fixation",
+    "description": "Mise à l'aplomb, scellement ou vissage de l'huisserie.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Bloc-porte",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 0.6,
+    "artiprixCode": "14.3.8",
+    "parentCode": "MENPOR-001",
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpor-001-02",
+    "code": "MENPOR-001-02",
+    "label": "Pose vantail + réglage paumelles + serrure",
+    "description": "Ferrage, calage, réglage précis de l'ouverture.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Bloc-porte",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 0.7,
+    "artiprixCode": "14.3.8",
+    "parentCode": "MENPOR-001",
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "menpor-001-03",
+    "code": "MENPOR-001-03",
+    "label": "Pose poignée + béquille + finitions",
+    "description": "Montage quincaillerie, test ouverture/fermeture.",
+    "profession": "Menuiserie",
+    "family": "Menuiseries intérieures",
+    "category": "Bloc-porte",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 0.4,
+    "artiprixCode": "14.3.8",
+    "parentCode": "MENPOR-001",
+    "materialCategories": [
+      "bois",
+      "quincaillerie"
+    ]
+  },
+  {
+    "id": "net-001",
+    "code": "NET-001",
+    "label": "Nettoyage fin de chantier + évacuation petits déchets",
+    "description": "Forfait demi-journée. Balayage, aspiration, vitrages, petits déchets en sac.",
+    "profession": "Nettoyage",
+    "family": "Nettoyage",
+    "category": "Fin de chantier",
+    "type": "POSTE",
+    "unit": "u",
+    "normativeTime": 3.0,
+    "artiprixCode": "20.x",
+    "parentCode": null,
+    "materialCategories": [
+      "nettoyage"
+    ]
+  },
+  {
+    "id": "net-001-01",
+    "code": "NET-001-01",
+    "label": "Balayage + aspiration sols",
+    "description": "Nettoyage général après chantier.",
+    "profession": "Nettoyage",
+    "family": "Nettoyage",
+    "category": "Fin de chantier",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 1.0,
+    "artiprixCode": "20.x",
+    "parentCode": "NET-001",
+    "materialCategories": [
+      "nettoyage"
+    ]
+  },
+  {
+    "id": "net-001-02",
+    "code": "NET-001-02",
+    "label": "Nettoyage vitrages + menuiseries souillées",
+    "description": "Décroutage colle, ciment, peinture sur vitres et châssis.",
+    "profession": "Nettoyage",
+    "family": "Nettoyage",
+    "category": "Fin de chantier",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 1.0,
+    "artiprixCode": "20.x",
+    "parentCode": "NET-001",
+    "materialCategories": [
+      "nettoyage"
+    ]
+  },
+  {
+    "id": "net-001-03",
+    "code": "NET-001-03",
+    "label": "Mise en sac + chargement petits déchets (≤ 1 m³)",
+    "description": "Évacuation déchets légers. Benne à facturer si volume important.",
+    "profession": "Nettoyage",
+    "family": "Nettoyage",
+    "category": "Fin de chantier",
+    "type": "SOUS-POSTE",
+    "unit": "u",
+    "normativeTime": 1.0,
+    "artiprixCode": "20.x",
+    "parentCode": "NET-001",
+    "materialCategories": [
+      "nettoyage"
+    ]
+  },
+  {
+    "id": "peimur-001",
+    "code": "PEIMUR-001",
+    "label": "Réfection mur complet – support dégradé (enduit + impression + 2 couches satinée)",
+    "description": "Travaux complets sur mur très dégradé. Pièce non meublée.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.785,
+    "artiprixCode": "16.1.38",
+    "parentCode": null,
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-001-01",
+    "code": "PEIMUR-001-01",
+    "label": "Lessivage + rinçage + fixateur de surface",
+    "description": "Préparation du fond avant enduit.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.18,
+    "artiprixCode": "16.1.9",
+    "parentCode": "PEIMUR-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-001-02",
+    "code": "PEIMUR-001-02",
+    "label": "Rebouchage + enduit de lissage (ép. 2 mm)",
+    "description": "Rebouchage trous et fissures mineures, lissage.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.18,
+    "artiprixCode": "16.2.x",
+    "parentCode": "PEIMUR-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-001-03",
+    "code": "PEIMUR-001-03",
+    "label": "Enduit pelliculaire de ratissage",
+    "description": "Finition avant impression, surface lisse.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.125,
+    "artiprixCode": "16.2.x",
+    "parentCode": "PEIMUR-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-001-04",
+    "code": "PEIMUR-001-04",
+    "label": "Impression en phase solvant (1 couche)",
+    "description": "Accrochage + régularisation de l'absorption.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.1,
+    "artiprixCode": "16.3.x",
+    "parentCode": "PEIMUR-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-001-05",
+    "code": "PEIMUR-001-05",
+    "label": "Peinture satinée aqueuse – 2 couches au rouleau",
+    "description": "Finition satinée, lavable. 2 couches.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.2,
+    "artiprixCode": "16.4.x",
+    "parentCode": "PEIMUR-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-002",
+    "code": "PEIMUR-002",
+    "label": "Peinture mur – rénovation sur ancienne peinture en bon état (2 couches)",
+    "description": "Sur ancienne peinture saine. Pièce non meublée. Masquage inclus.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.373,
+    "artiprixCode": "16.1.17",
+    "parentCode": null,
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-002-01",
+    "code": "PEIMUR-002-01",
+    "label": "Masquage menuiseries + plafonds + plinthes",
+    "description": "Adhésif de masquage, protection surfaces adjacentes.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.05,
+    "artiprixCode": "16.1.x",
+    "parentCode": "PEIMUR-002",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-002-02",
+    "code": "PEIMUR-002-02",
+    "label": "Léger ponçage + lessivage + rinçage du fond",
+    "description": "Préparation du support existant.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.123,
+    "artiprixCode": "16.1.17",
+    "parentCode": "PEIMUR-002",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-002-03",
+    "code": "PEIMUR-002-03",
+    "label": "Peinture mate ou satinée aqueuse – 2 couches au rouleau",
+    "description": "Finition. Nettoyage fin de chantier inclus.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.2,
+    "artiprixCode": "16.1.17",
+    "parentCode": "PEIMUR-002",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-003",
+    "code": "PEIMUR-003",
+    "label": "Détapissage papier peint + peinture 2 couches",
+    "description": "Enchaînement complet : dépose papier peint + peinture finition. Mur en bon état après dépose.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.573,
+    "artiprixCode": "16.1.13/16.1.17",
+    "parentCode": null,
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-003-01",
+    "code": "PEIMUR-003-01",
+    "label": "Détapissage manuel – papier peint ordinaire",
+    "description": "Grattage + lessivage + rinçage. Dépose papier peint standard.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.23,
+    "artiprixCode": "16.1.13",
+    "parentCode": "PEIMUR-003",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-003-02",
+    "code": "PEIMUR-003-02",
+    "label": "Ponçage + lessivage fond + masquage (après dépose papier)",
+    "description": "Préparation avant peinture après dépose papier.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.143,
+    "artiprixCode": "16.1.17",
+    "parentCode": "PEIMUR-003",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peimur-003-03",
+    "code": "PEIMUR-003-03",
+    "label": "Peinture mate ou satinée – 2 couches au rouleau (après dépose papier)",
+    "description": "Finition. Nettoyage inclus.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Mur",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.2,
+    "artiprixCode": "16.1.17",
+    "parentCode": "PEIMUR-003",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peiplf-001",
+    "code": "PEIPLF-001",
+    "label": "Peinture plafond – rénovation sur ancienne peinture en bon état (2 couches)",
+    "description": "Pièce non meublée. Protection sols incluse.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Plafond",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.53,
+    "artiprixCode": "16.1.1",
+    "parentCode": null,
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peiplf-001-01",
+    "code": "PEIPLF-001-01",
+    "label": "Protection des sols + léger ponçage plafond",
+    "description": "Protection bâche + ponçage léger du plafond.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.08,
+    "artiprixCode": "16.1.1",
+    "parentCode": "PEIPLF-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peiplf-001-02",
+    "code": "PEIPLF-001-02",
+    "label": "Lessivage + rinçage du fond (plafond)",
+    "description": "Nettoyage du support avant peinture.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.1,
+    "artiprixCode": "16.1.1",
+    "parentCode": "PEIPLF-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "peiplf-001-03",
+    "code": "PEIPLF-001-03",
+    "label": "Peinture mate aqueuse plafond – 2 couches au rouleau",
+    "description": "Application 2 couches, nettoyage fin de chantier inclus.",
+    "profession": "Peinture",
+    "family": "Peinture intérieure",
+    "category": "Plafond",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.35,
+    "artiprixCode": "16.1.1",
+    "parentCode": "PEIPLF-001",
+    "materialCategories": [
+      "peinture",
+      "enduit",
+      "primaire"
+    ]
+  },
+  {
+    "id": "solvin-001",
+    "code": "SOLVIN-001",
+    "label": "Pose revêtement vinyle lés cl. 22 – complet (dépose ancien + ragréage + pose)",
+    "description": "Travaux complets sur sol existant. Fourniture vinyle incluse.",
+    "profession": "Revêtement sol",
+    "family": "Revêtements sols souples",
+    "category": "Vinyle / Lino",
+    "type": "POSTE",
+    "unit": "m²",
+    "normativeTime": 0.7,
+    "artiprixCode": "19.1.1/19.1.5/19.3.1",
+    "parentCode": null,
+    "materialCategories": [
+      "sol",
+      "colle"
+    ]
+  },
+  {
+    "id": "solvin-001-01",
+    "code": "SOLVIN-001-01",
+    "label": "Arrachage moquette collée existante",
+    "description": "Arrachage + mise en sac. Évacuation en supplément.",
+    "profession": "Revêtement sol",
+    "family": "Revêtements sols souples",
+    "category": "Vinyle / Lino",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.15,
+    "artiprixCode": "19.1.1",
+    "parentCode": "SOLVIN-001",
+    "materialCategories": [
+      "sol",
+      "colle"
+    ]
+  },
+  {
+    "id": "solvin-001-02",
+    "code": "SOLVIN-001-02",
+    "label": "Primaire + enduit de lissage P2 – ép. 2 mm",
+    "description": "Ragréage indispensable pour sol souple.",
+    "profession": "Revêtement sol",
+    "family": "Revêtements sols souples",
+    "category": "Vinyle / Lino",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.28,
+    "artiprixCode": "19.1.4/19.1.5",
+    "parentCode": "SOLVIN-001",
+    "materialCategories": [
+      "sol",
+      "colle"
+    ]
+  },
+  {
+    "id": "solvin-001-03",
+    "code": "SOLVIN-001-03",
+    "label": "Fourniture et pose vinyle en lés cl. 22 – collée (coupes, nettoyage)",
+    "description": "Vinyle dossier mousse. Prévoir 10% de chutes.",
+    "profession": "Revêtement sol",
+    "family": "Revêtements sols souples",
+    "category": "Vinyle / Lino",
+    "type": "SOUS-POSTE",
+    "unit": "m²",
+    "normativeTime": 0.25,
+    "artiprixCode": "19.3.1",
+    "parentCode": "SOLVIN-001",
+    "materialCategories": [
+      "sol",
+      "colle"
+    ]
+  }
+]
