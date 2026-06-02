@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { publicUser, readDb, writeDb } from "../../../../lib/db";
+import { addHistory, publicUser, readDb, writeDb } from "../../../../lib/db";
 
 function findUser(db, userId) {
   if (userId) {
@@ -58,6 +58,19 @@ export async function PATCH(request) {
   if (body.accountType) {
     user.accountType = body.accountType;
   }
+  user.updatedAt = new Date().toISOString();
+
+  addHistory(db, {
+    userId: user.id,
+    type: "profile.updated",
+    label: "Profil enregistre",
+    entityId: user.id,
+    entityType: "user",
+    meta: {
+      businessInfoComplete: user.businessInfoComplete,
+      profileComplete: user.profileComplete
+    }
+  });
 
   await writeDb(db);
   return ok({ user: publicUser(user) });

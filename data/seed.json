@@ -1,9 +1,15 @@
-{
+﻿{
   "users": [],
   "projects": [],
   "quotes": [],
   "tasks": [],
   "supplies": [],
+  "suppliers": [],
   "workers": [],
-  "mailOutbox": []
+  "signatureSettings": [],
+  "ouvrages": [],
+  "deletedOuvrages": [],
+  "mailOutbox": [],
+  "history": []
 }
+
