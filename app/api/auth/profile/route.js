@@ -21,6 +21,7 @@ function createLocalUser(seed = {}) {
     businessInfoComplete: false,
     profileComplete: false,
     business: {},
+    personal: {},
     professions: []
   };
 }
@@ -50,6 +51,12 @@ export async function PATCH(request) {
   if (body.business) {
     user.business = { ...user.business, ...body.business };
     user.businessInfoComplete = true;
+  }
+  if (body.personal) {
+    user.personal = { ...user.personal, ...body.personal };
+    const fullName = [user.personal.firstName, user.personal.lastName].filter(Boolean).join(" ").trim();
+    if (fullName) user.name = fullName;
+    user.personalInfoComplete = Boolean(user.personal.firstName || user.personal.lastName || user.personal.phone || user.personal.address);
   }
   if (body.professions) {
     user.professions = body.professions;

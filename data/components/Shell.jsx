@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 const navItems = [
   { href: "/chantiers", label: "Chantiers", icon: "tools" },
   { href: "/devis", label: "Devis", icon: "file" },
+  { href: "/facturation", label: "Facturation", icon: "invoice" },
   { href: "/calendrier", label: "Calendrier", icon: "calendar" },
   { href: "/fournitures", label: "Fournitures", icon: "box" },
   { href: "/equipe", label: "Equipe", icon: "users" },
@@ -50,6 +51,13 @@ function Icon({ name, className = "" }) {
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
           <path {...base} d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" />
           <path {...base} d="M14 3v5h5M9 13h6M9 17h6" />
+        </svg>
+      );
+    case "invoice":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path {...base} d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" />
+          <path {...base} d="M9 8h6M9 12h6M9 16h4" />
         </svg>
       );
     case "tools":
@@ -155,7 +163,7 @@ export function Shell({ children }) {
           <img src="/koji-logo.svg" alt="Koji" />
         </Link>
         <div className="topbar-right">
-          <Link href="/calendrier" className="icon-round" aria-label="Notifications"><Icon name="bell" className="svg-icon" /></Link>
+          <Link href="/notifications" className="icon-round" aria-label="Notifications"><Icon name="bell" className="svg-icon" /></Link>
           <Link href="/parametres" className="icon-round" aria-label="Profil"><Icon name="user" className="svg-icon" /></Link>
         </div>
       </header>

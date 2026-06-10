@@ -2,6 +2,8 @@
   "users": [],
   "projects": [],
   "quotes": [],
+  "invoices": [],
+  "calendarEvents": [],
   "tasks": [],
   "supplies": [],
   "suppliers": [],
@@ -10,6 +12,10 @@
   "ouvrages": [],
   "deletedOuvrages": [],
   "mailOutbox": [],
-  "history": []
+  "history": [],
+  "projectDocuments": [],
+  "projectArchives": [],
+  "notifications": [],
+  "expenses": []
 }
 

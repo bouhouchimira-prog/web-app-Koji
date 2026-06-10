@@ -32,6 +32,7 @@ export async function POST(request) {
     endDate: body.endDate || "",
     startTime: body.startTime || "",
     endTime: body.endTime || "",
+    location: fixText(body.location || ""),
     durationHours: Number(body.durationHours || 1),
     assignedTo: fixText(body.assignedTo || "Equipe"),
     workerIds: Array.isArray(body.workerIds) ? body.workerIds : [],
@@ -92,11 +93,12 @@ export async function PATCH(request) {
     if (Object.prototype.hasOwnProperty.call(body, "dueDate")) task.dueDate = body.dueDate;
     if (Object.prototype.hasOwnProperty.call(body, "startTime")) task.startTime = body.startTime;
     if (Object.prototype.hasOwnProperty.call(body, "endTime")) task.endTime = body.endTime;
+    if (Object.prototype.hasOwnProperty.call(body, "location")) task.location = fixText(body.location);
     if (Object.prototype.hasOwnProperty.call(body, "supplyNeeds")) task.supplyNeeds = Array.isArray(body.supplyNeeds) ? fixObjectText(body.supplyNeeds) : [];
     task.status = "Planifiee";
     task.notifiedAt = new Date().toISOString();
   } else {
-    const allowed = ["label", "project", "projectId", "room", "dueDate", "startDate", "endDate", "startTime", "endTime", "durationHours", "assignedTo", "workerIds", "participantType", "status", "done", "quoteId", "quoteItemId", "code", "unit", "quantity", "supplyNeeds"];
+    const allowed = ["label", "project", "projectId", "room", "dueDate", "startDate", "endDate", "startTime", "endTime", "location", "durationHours", "assignedTo", "workerIds", "participantType", "status", "done", "quoteId", "quoteItemId", "code", "unit", "quantity", "supplyNeeds"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         task[key] = key === "durationHours" || key === "quantity" ? Number(body[key] || 0) : fixObjectText(body[key]);

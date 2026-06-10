@@ -25,6 +25,12 @@ export async function POST(request) {
     profession: body.profession || body.role || "Equipe",
     email: body.email || "",
     phone: body.phone || "",
+    address: body.address || "",
+    socialSecurityNumber: body.socialSecurityNumber || "",
+    idCardUrl: body.idCardUrl || "",
+    hourlyRate: Number(body.hourlyRate || 0),
+    hireDate: body.hireDate || "",
+    notes: body.notes || "",
     availability: body.availability || "Disponible",
     status: body.status || "Disponible",
     favorite: Boolean(body.favorite),
@@ -67,10 +73,31 @@ export async function PATCH(request) {
     return ok({ worker: { ...worker, deleted: true } });
   }
 
-  const allowed = ["type", "firstName", "lastName", "name", "role", "profession", "email", "phone", "availability", "status", "favorite", "imageUrl", "photoDataUrl", "hours"];
+  const allowed = [
+    "type",
+    "firstName",
+    "lastName",
+    "name",
+    "role",
+    "profession",
+    "email",
+    "phone",
+    "address",
+    "socialSecurityNumber",
+    "idCardUrl",
+    "hourlyRate",
+    "hireDate",
+    "notes",
+    "availability",
+    "status",
+    "favorite",
+    "imageUrl",
+    "photoDataUrl",
+    "hours"
+  ];
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
-      if (key === "hours") worker[key] = Number(body[key] || 0);
+      if (key === "hours" || key === "hourlyRate") worker[key] = Number(body[key] || 0);
       else if (key === "favorite") worker[key] = Boolean(body[key]);
       else worker[key] = body[key];
     }

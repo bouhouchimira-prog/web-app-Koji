@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -50,7 +50,7 @@ function SignupScreen() {
       window.localStorage.setItem("koji-user", JSON.stringify(data.user));
       setInfo(data.message || "Compte cree.");
       if (data.devActivationUrl) setActivationUrl(data.devActivationUrl);
-      router.push("/");
+      router.push(data.user?.accountType === "particulier" ? "/client" : "/");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -90,8 +90,8 @@ function SignupScreen() {
               {showPassword ? "Masquer" : "Afficher"}
             </button>
           </div>
-          {error ? <p style={{ color: "var(--red)", fontWeight: 900 }}>{error}</p> : null}
-          {info ? <p style={{ color: "#0f8e4c", fontWeight: 900 }}>{info}</p> : null}
+          {error ? <p style={{ color: "var(--red)", fontWeight: 400 }}>{error}</p> : null}
+          {info ? <p style={{ color: "#0f8e4c", fontWeight: 400 }}>{info}</p> : null}
           {activationUrl ? (
             <p className="muted" style={{ fontSize: 14 }}>
               Lien d&apos;activation de test: <a className="auth-link" href={activationUrl}>Activer mon compte</a>

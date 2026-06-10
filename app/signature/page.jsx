@@ -110,7 +110,7 @@ export default function SignaturePage() {
     <Shell>
       <section className="mobile-tool">
         <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => window.history.back()}>{"<"}</button>
+          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>Ma Signature</h1>
           <span />
         </header>

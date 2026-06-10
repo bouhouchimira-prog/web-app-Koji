@@ -23,6 +23,14 @@ const initialSupply = {
   sourceUrl: ""
 };
 
+const initialSupplier = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  notes: ""
+};
+
 export default function SuppliesPage() {
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: suppliers, setData: setSuppliers } = useApi("/api/suppliers", "suppliers");
@@ -31,7 +39,8 @@ export default function SuppliesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [viaUrl, setViaUrl] = useState(false);
   const [supplierDialog, setSupplierDialog] = useState(false);
-  const [supplierName, setSupplierName] = useState("");
+  const [supplierForm, setSupplierForm] = useState(initialSupplier);
+  const [editingSupply, setEditingSupply] = useState(null);
   const [form, setForm] = useState(initialSupply);
   const [message, setMessage] = useState("");
 
@@ -50,27 +59,31 @@ export default function SuppliesPage() {
 
   async function createSupply(event) {
     event.preventDefault();
-    const { supply } = await apiSend("/api/supplies", {
+    const payload = {
       ...form,
       supplierName: supplierLabel(form.supplierId),
       purchasePriceHt: Number(form.purchasePriceHt || 0),
       salePriceHt: Number(form.salePriceHt || form.purchasePriceHt || 0),
       quantity: Number(form.quantity || 0),
       stock: Number(form.quantity || 0)
-    });
-    setSupplies([supply, ...supplies]);
+    };
+    const { supply } = editingSupply
+      ? await apiSend("/api/supplies", { id: editingSupply.id, ...payload }, "PATCH")
+      : await apiSend("/api/supplies", payload);
+    setSupplies(editingSupply ? supplies.map((item) => item.id === supply.id ? supply : item) : [supply, ...supplies]);
     setForm(initialSupply);
+    setEditingSupply(null);
     setFormOpen(false);
-    setMessage(`Fourniture ajoutee: ${supply.name}`);
+    setMessage(editingSupply ? `Fourniture mise a jour: ${supply.name}` : `Fourniture ajoutee: ${supply.name}`);
   }
 
   async function createSupplier(event) {
     event.preventDefault();
-    const name = supplierName.trim();
+    const name = supplierForm.name.trim();
     if (!name) return;
-    const { supplier } = await apiSend("/api/suppliers", { name });
+    const { supplier } = await apiSend("/api/suppliers", { ...supplierForm, name });
     setSuppliers([supplier, ...suppliers]);
-    setSupplierName("");
+    setSupplierForm(initialSupplier);
     setSupplierDialog(false);
     setActiveTab("fournisseurs");
     setMessage(`Fournisseur ajoute: ${supplier.name}`);
@@ -86,13 +99,32 @@ export default function SuppliesPage() {
     if (supplier?.deleted) setSuppliers(suppliers.filter((candidate) => candidate.id !== item.id));
   }
 
+  function openEditSupply(item) {
+    setEditingSupply(item);
+    setForm({
+      name: item.name || "",
+      category: item.category || "Peinture",
+      supplierId: item.supplierId || "",
+      purchasePriceHt: String(item.purchasePriceHt ?? item.priceHt ?? ""),
+      salePriceHt: String(item.salePriceHt ?? item.priceHt ?? ""),
+      packaging: item.packaging || "",
+      quantity: String(item.quantity ?? item.stock ?? ""),
+      unit: item.unit || "Unite",
+      barcode: item.barcode || "",
+      imageUrl: item.imageUrl || "",
+      sourceUrl: item.sourceUrl || ""
+    });
+    setViaUrl(Boolean(item.sourceUrl));
+    setFormOpen(true);
+  }
+
   if (formOpen) {
     return (
       <Shell>
         <section className="mobile-tool tool-form-view">
           <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={() => setFormOpen(false)}>{"<"}</button>
-            <h1>Ajouter une fourniture</h1>
+            <button type="button" className="plain-back" onClick={() => { setFormOpen(false); setEditingSupply(null); setForm(initialSupply); }}>{"<"}</button>
+            <h1>{editingSupply ? "Modifier fourniture" : "Ajouter une fourniture"}</h1>
             <span />
           </header>
 
@@ -168,7 +200,7 @@ export default function SuppliesPage() {
               <input value={form.imageUrl} onChange={(event) => setField("imageUrl", event.target.value)} placeholder="URL de l'image" />
             </label>
 
-            <button className="mobile-primary">Enregistrer</button>
+            <button className="mobile-primary">{editingSupply ? "Enregistrer" : "Creer la fourniture"}</button>
           </form>
         </section>
       </Shell>
@@ -179,7 +211,7 @@ export default function SuppliesPage() {
     <Shell>
       <section className="mobile-tool">
         <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => window.history.back()}>{"<"}</button>
+          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>Fournitures</h1>
           <span />
         </header>
@@ -200,7 +232,7 @@ export default function SuppliesPage() {
                 <div className="supply-icon">FS</div>
                 <div>
                   <strong>{supplier.name}</strong>
-                  <small>{supplier.email || supplier.phone || "Fournisseur"}</small>
+                  <small>{[supplier.email, supplier.phone, supplier.address].filter(Boolean).join(" - ") || "Fournisseur"}</small>
                 </div>
                 <button type="button" className="mini-danger" onClick={() => deleteSupplier(supplier)}>Supprimer</button>
               </article>
@@ -220,6 +252,7 @@ export default function SuppliesPage() {
                   <strong>{euro(item.salePriceHt ?? item.priceHt)}</strong>
                   <small>H.T</small>
                 </div>
+                <button type="button" className="mini-button" onClick={() => openEditSupply(item)}>Modifier</button>
                 <button type="button" className="mini-danger" onClick={() => deleteSupply(item)}>Supprimer</button>
               </article>
             ))}
@@ -250,7 +283,11 @@ export default function SuppliesPage() {
           <div className="modal-overlay" onClick={() => setSupplierDialog(false)}>
             <form className="mini-modal" onSubmit={createSupplier} onClick={(event) => event.stopPropagation()}>
               <h2>Nouveau Fournisseur</h2>
-              <input value={supplierName} onChange={(event) => setSupplierName(event.target.value)} placeholder="Nom du fournisseur" autoFocus required />
+              <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nom du fournisseur" autoFocus required />
+              <input value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="Email" />
+              <input value={supplierForm.phone} onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Telephone" />
+              <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse" />
+              <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notes" />
               <div>
                 <button type="button" onClick={() => setSupplierDialog(false)}>Annuler</button>
                 <button type="submit">Creer</button>

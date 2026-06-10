@@ -29,13 +29,19 @@ function EmptyToday() {
 export default function HomePage() {
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
+  const { data: invoices } = useApi("/api/invoices", "invoices");
   const { data: tasks } = useApi("/api/tasks", "tasks");
 
   const activeProjects = projects.filter((project) => project.status !== "Archive");
-  const todoTasks = tasks.filter((task) => !task.done);
+  const today = new Date().toISOString().slice(0, 10);
+  const todoTasks = tasks.filter((task) => {
+    const taskDate = String(task.dueDate || task.startDate || "").slice(0, 10);
+    return !task.done && taskDate === today;
+  });
   const quotesInProgress = quotes.filter((quote) => ["Brouillon", "Pret a envoyer", "Envoye"].includes(quote.status));
-  const signedRevenue = quotes.filter((quote) => quote.status === "Signe").reduce((sum, quote) => sum + Number(quote.totalTtc || 0), 0);
-  const waitingRevenue = quotes.filter((quote) => quote.status === "Envoye").reduce((sum, quote) => sum + Number(quote.totalTtc || 0), 0);
+  const signedRevenue = quotes.filter((quote) => quote.status === "Signe" || quote.signatureStatus === "Signe").reduce((sum, quote) => sum + Number(quote.totalTtc || 0), 0);
+  const billedRevenue = invoices.filter((invoice) => invoice.status !== "Annulee").reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0);
+  const waitingRevenue = Math.max(0, signedRevenue - billedRevenue);
   const createLabel = activeProjects.length === 0 ? "Creer votre premier chantier" : "Creer votre chantier";
 
   return (
@@ -112,8 +118,8 @@ export default function HomePage() {
         <Section title="Chiffre d'affaires">
           <div className="home-revenue-list">
             <div>
-              <span>Facture</span>
-              <strong>{euro(signedRevenue)}</strong>
+              <span>Facturé</span>
+              <strong>{euro(billedRevenue)}</strong>
             </div>
             <div>
               <span>En attente de signature</span>

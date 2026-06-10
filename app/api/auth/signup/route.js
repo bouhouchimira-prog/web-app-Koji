@@ -33,6 +33,7 @@ export async function POST(request) {
     businessInfoComplete: false,
     profileComplete: false,
     business: {},
+    personal: {},
     professions: []
   };
 

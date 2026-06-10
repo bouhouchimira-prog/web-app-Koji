@@ -37,7 +37,7 @@ export default function ArchivesPage() {
     <Shell>
       <section className="mobile-tool">
         <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => window.history.back()}>{"<"}</button>
+          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>Archives</h1>
           <span />
         </header>

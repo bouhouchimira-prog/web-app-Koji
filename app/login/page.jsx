@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -60,7 +60,7 @@ function LoginScreen() {
         : await apiSend("/api/auth/quick-login", { email: emailValue, accountType });
       if (remember) saveKnownEmail(data.user?.email || emailValue);
       window.localStorage.setItem("koji-user", JSON.stringify(data.user));
-      router.push("/");
+      router.push(data.user?.accountType === "particulier" ? "/client" : "/");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -122,7 +122,7 @@ function LoginScreen() {
             </label>
             <Link className="auth-link" href={`/forgot-password?type=${accountType}`}>Mot de passe oublie ?</Link>
           </div>
-          {error ? <p style={{ color: "var(--red)", fontWeight: 900 }}>{error}</p> : null}
+          {error ? <p style={{ color: "var(--red)", fontWeight: 400 }}>{error}</p> : null}
           <button className="button blue" disabled={!valid || loading}>{loading ? "Connexion..." : "Connexion"}</button>
         </form>
         <p className="muted" style={{ marginTop: 22 }}>Pas encore de compte ? <Link className="auth-link" href={`/signup?type=${accountType}`}>S&apos;inscrire</Link></p>

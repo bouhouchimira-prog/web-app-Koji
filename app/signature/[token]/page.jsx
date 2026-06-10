@@ -9,8 +9,9 @@ export default function PublicSignaturePage() {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ signerName: "", signerEmail: "", consent: false });
+  const [form, setForm] = useState({ signerName: "", signerEmail: "", signerPhone: "", signaturePlace: "", consent: false });
   const [saved, setSaved] = useState(false);
+  const [clientAccess, setClientAccess] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -23,7 +24,9 @@ export default function PublicSignaturePage() {
           setForm((current) => ({
             ...current,
             signerName: payload.quote.client || "",
-            signerEmail: payload.quote.clientEmail || ""
+            signerEmail: payload.quote.clientEmail || "",
+            signerPhone: payload.quote.clientPhone || "",
+            signaturePlace: payload.quote.signaturePlace || ""
           }));
         }
       })
@@ -59,6 +62,7 @@ export default function PublicSignaturePage() {
       return;
     }
     setQuote(payload.quote);
+    setClientAccess(payload.clientAccess || null);
     setSaved(true);
   }
 
@@ -94,24 +98,24 @@ export default function PublicSignaturePage() {
               <div className="metric"><span>Statut</span><strong>{alreadySigned ? "Signe" : "A signer"}</strong></div>
             </div>
 
-            <section className="table-card" style={{ marginTop: 14 }}>
-              <table className="data-table">
-                <thead><tr><th>Ouvrage</th><th>Piece</th><th>Quantite</th><th>Total TTC</th></tr></thead>
-                <tbody>
-                  {(quote.items || []).length === 0 ? (
-                    <tr><td colSpan={4}><div className="empty-state">Aucune ligne detaillee.</div></td></tr>
-                  ) : (
-                    quote.items.map((item, index) => (
-                      <tr key={`${item.code || item.label}-${index}`}>
-                        <td><strong>{item.label}</strong><br /><span className="muted">{item.code}</span></td>
-                        <td>{item.room}</td>
-                        <td>{item.quantity} {item.unit}</td>
-                        <td>{euro(item.totalTtc || 0)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <section className="signature-quote-lines">
+              {(quote.items || []).length === 0 ? (
+                <div className="empty-state">Aucune ligne detaillee.</div>
+              ) : (
+                quote.items.map((item, index) => (
+                  <article key={`${item.code || item.label}-${index}`}>
+                    <div>
+                      <small>{item.room || "Chantier"}</small>
+                      <strong>{item.label}</strong>
+                      <span>{item.quantity} {item.unit}</span>
+                      {item.showMaterialsToClient !== false && item.materialLines?.length ? (
+                        <em>Fournitures: {item.materialLines.map((material) => material.productName || material.category).filter(Boolean).join(", ")}</em>
+                      ) : null}
+                    </div>
+                    <b>{euro(item.totalTtc || 0)}</b>
+                  </article>
+                ))
+              )}
             </section>
 
             <form className="panel" onSubmit={signQuote} style={{ marginTop: 14 }}>
@@ -119,7 +123,10 @@ export default function PublicSignaturePage() {
               <div className="form-grid">
                 <label className="field">Nom du signataire<input value={form.signerName} onChange={(event) => setField("signerName", event.target.value)} disabled={alreadySigned} required /></label>
                 <label className="field">E-mail<input type="email" value={form.signerEmail} onChange={(event) => setField("signerEmail", event.target.value)} disabled={alreadySigned} /></label>
+                <label className="field">Telephone<input value={form.signerPhone} onChange={(event) => setField("signerPhone", event.target.value)} placeholder="06 12 34 56 78" disabled={alreadySigned} /></label>
+                <label className="field">Lieu de signature<input value={form.signaturePlace} onChange={(event) => setField("signaturePlace", event.target.value)} placeholder="Ex: Paris" disabled={alreadySigned} /></label>
               </div>
+              <p className="muted">Fait à {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
               {!alreadySigned && (
                 <label className="checkline">
                   <input type="checkbox" checked={form.consent} onChange={(event) => setField("consent", event.target.checked)} />
@@ -127,7 +134,14 @@ export default function PublicSignaturePage() {
                 </label>
               )}
               {error ? <p className="form-error">{error}</p> : null}
-              {saved || alreadySigned ? <p className="profile-message">Devis signe et enregistre dans Koji.</p> : null}
+              {saved || alreadySigned ? (
+                <div className="profile-message">
+                  <p>Devis signe et enregistre dans Koji.</p>
+                  {clientAccess ? (
+                    <p>Votre acces Koji Particulier a ete envoye {clientAccess.sentByEmail ? "par e-mail" : ""}{clientAccess.sentByEmail && clientAccess.sentBySms ? " et " : ""}{clientAccess.sentBySms ? "par SMS" : ""}. Vous pourrez suivre l'avancement de vos travaux dans votre espace client.</p>
+                  ) : null}
+                </div>
+              ) : null}
               {!alreadySigned && <button className="button blue" style={{ marginTop: 12 }}>Signer le devis</button>}
             </form>
           </>

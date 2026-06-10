@@ -14,6 +14,12 @@ const initialWorker = {
   profession: "Peintre",
   phone: "",
   email: "",
+  address: "",
+  socialSecurityNumber: "",
+  idCardUrl: "",
+  hourlyRate: "",
+  hireDate: "",
+  notes: "",
   availability: "Disponible",
   favorite: true
 };
@@ -104,6 +110,28 @@ export default function TeamPage() {
               <span>Email</span>
               <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} placeholder="exemple@email.com" />
             </label>
+            <div className="mobile-form-grid">
+              <label className="mobile-input">
+                <span>Tarif horaire</span>
+                <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
+              </label>
+              <label className="mobile-input">
+                <span>Date d'entree</span>
+                <input type="date" value={form.hireDate} onChange={(event) => setField("hireDate", event.target.value)} />
+              </label>
+            </div>
+            <label className="mobile-input full">
+              <span>Adresse</span>
+              <input value={form.address} onChange={(event) => setField("address", event.target.value)} placeholder="Adresse du participant" />
+            </label>
+            <label className="mobile-input full">
+              <span>Numero securite sociale</span>
+              <input value={form.socialSecurityNumber} onChange={(event) => setField("socialSecurityNumber", event.target.value)} placeholder="Information interne" />
+            </label>
+            <label className="mobile-input full">
+              <span>Document d'identite</span>
+              <input value={form.idCardUrl} onChange={(event) => setField("idCardUrl", event.target.value)} placeholder="URL ou reference du document" />
+            </label>
             <label className="mobile-input full">
               <span>Disponibilite</span>
               <select value={form.availability} onChange={(event) => setField("availability", event.target.value)}>
@@ -111,6 +139,10 @@ export default function TeamPage() {
                 <option>Occupe</option>
                 <option>Absent</option>
               </select>
+            </label>
+            <label className="mobile-input full">
+              <span>Notes</span>
+              <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Competences, contrat, remarques..." />
             </label>
             <button className="mobile-primary">Enregistrer le profil</button>
           </form>
@@ -123,7 +155,7 @@ export default function TeamPage() {
     <Shell>
       <section className="mobile-tool">
         <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => window.history.back()}>{"<"}</button>
+          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>Equipe</h1>
           <button type="button" className="round-dark" onClick={() => setFormOpen(true)}>+</button>
         </header>
@@ -150,7 +182,8 @@ export default function TeamPage() {
               </div>
               <div>
                 <strong>{worker.name}</strong>
-                <small>{worker.profession || worker.role} - {worker.availability || "Disponible"}</small>
+                <small>{worker.profession || worker.role} - {worker.availability || "Disponible"}{worker.hourlyRate ? ` - ${worker.hourlyRate} EUR/h` : ""}</small>
+                {worker.phone || worker.email ? <small>{[worker.phone, worker.email].filter(Boolean).join(" - ")}</small> : null}
               </div>
               <button type="button" className={worker.favorite ? "select-dot selected" : "select-dot"} onClick={() => updateWorker(worker, { favorite: !worker.favorite })} aria-label="Favori" />
               <button type="button" className="mini-danger" onClick={() => deleteWorker(worker)}>Supprimer</button>

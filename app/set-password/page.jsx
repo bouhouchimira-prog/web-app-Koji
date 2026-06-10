@@ -65,8 +65,8 @@ function SetPasswordScreen() {
             <input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} />
             Afficher le mot de passe
           </label>
-          {error ? <p style={{ color: "var(--red)", fontWeight: 900 }}>{error}</p> : null}
-          {info ? <p style={{ color: "#0f8e4c", fontWeight: 900 }}>{info}</p> : null}
+          {error ? <p style={{ color: "var(--red)", fontWeight: 400 }}>{error}</p> : null}
+          {info ? <p style={{ color: "#0f8e4c", fontWeight: 400 }}>{info}</p> : null}
           <button className="button blue" disabled={!valid || loading}>
             {loading ? "Validation..." : "Enregistrer"}
           </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
 import { useApi } from "../../lib/use-api";
@@ -77,10 +77,22 @@ export default function OuvragesLibraryPage() {
 
   const grouped = useMemo(() => {
     const out = {};
+    const filteredCodes = new Set(filtered.map((item) => item.code));
     for (const item of filtered) {
+      if (item.parentCode && filteredCodes.has(item.parentCode)) continue;
       const key = item.family || "Autre";
       if (!out[key]) out[key] = [];
       out[key].push(item);
+    }
+    return out;
+  }, [filtered]);
+
+  const childrenByParent = useMemo(() => {
+    const out = {};
+    for (const item of filtered) {
+      if (!item.parentCode) continue;
+      if (!out[item.parentCode]) out[item.parentCode] = [];
+      out[item.parentCode].push(item);
     }
     return out;
   }, [filtered]);
@@ -90,6 +102,24 @@ export default function OuvragesLibraryPage() {
   }, [ouvrages, selectedIds]);
 
   const units = ["m²", "m³", "ml", "u", "h", "jour"];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") === "create") startCreate();
+    const keepSelection = params.get("keepSelection") === "1";
+    const resetSelection = params.get("resetSelection") === "1";
+    if (resetSelection || !keepSelection) {
+      window.localStorage.removeItem("koji-devis-ouvrages");
+      setSelectedIds([]);
+      return;
+    }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem("koji-devis-ouvrages") || "[]");
+      if (Array.isArray(stored)) setSelectedIds(stored.filter(Boolean));
+    } catch {
+      window.localStorage.removeItem("koji-devis-ouvrages");
+    }
+  }, []);
 
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -158,13 +188,54 @@ export default function OuvragesLibraryPage() {
   }
 
   function addSelectionToQuote() {
-    window.localStorage.setItem("koji-devis-ouvrages", JSON.stringify(selectedItems.map((item) => item.id)));
+    const nextIds = Array.from(new Set(selectedItems.map((item) => item.id).filter(Boolean)));
+    window.localStorage.setItem("koji-devis-ouvrages", JSON.stringify(nextIds));
     window.location.href = "/devis?selection=ouvrages";
   }
 
+  function goBack() {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.assign("/");
+  }
+
+  function renderOuvrageCard(item, { child = false } = {}) {
+    const selected = selectedIds.includes(item.id);
+
+    return (
+      <article key={item.id} className={`library-card ${child ? "library-card-child" : ""} ${selected ? "selected" : ""}`}>
+        <button type="button" className="library-select" onClick={() => toggleSelected(item.id)}>
+          {selected ? "OK" : ""}
+        </button>
+        <div className="library-card-main" onClick={() => toggleSelected(item.id)}>
+          <div className="library-code-row">
+            <span>{item.code}</span>
+            <b>{item.unit}</b>
+          </div>
+          <h3>{item.label}</h3>
+          <p className="library-stats">
+            <span>Temps: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
+            <span>Taux: <strong>{formatMoney(item.hourlyRate || 0)}</strong></span>
+            <span>MO/u: <strong>{formatMoney(moCost(item))}</strong></span>
+          </p>
+          {item.description ? <p className="library-description">{item.description}</p> : null}
+        </div>
+        <button type="button" className="library-menu-button" onClick={() => setOpenMenuId(openMenuId === item.id ? "" : item.id)}>...</button>
+        {openMenuId === item.id ? (
+          <div className="library-menu">
+            <button type="button" onClick={() => startEdit(item)}>Modifier</button>
+            <button type="button" className="danger" onClick={() => deleteOuvrage(item)}>Supprimer</button>
+          </div>
+        ) : null}
+      </article>
+    );
+  }
+
   if (formMode !== "list") {
-    const title = formMode === "edit" ? "Modifier ouvrage" : "Nouvel ouvrage";
-    const buttonLabel = formMode === "edit" ? "Enregistrer" : "Creer l'ouvrage";
+    const title = formMode === "edit" ? "Modifier ouvrage" : formMode === "sub" ? "Nouveau sous-ouvrage" : "Nouvel ouvrage";
+    const buttonLabel = formMode === "edit" ? "Enregistrer" : formMode === "sub" ? "Creer le sous-ouvrage" : "Creer l'ouvrage";
     const cost = moCost(form);
 
     return (
@@ -203,7 +274,7 @@ export default function OuvragesLibraryPage() {
     <Shell>
       <main className="library-page">
         <header className="library-top">
-          <button type="button" onClick={() => window.history.back()} aria-label="Retour">{"<"}</button>
+          <button type="button" onClick={goBack} aria-label="Retour">{"<"}</button>
           <h1>Choisir un ouvrage</h1>
           <button type="button" className="library-add" onClick={() => startCreate()} aria-label="Nouvel ouvrage">+</button>
         </header>
@@ -231,43 +302,17 @@ export default function OuvragesLibraryPage() {
           Object.entries(grouped).map(([title, items]) => (
             <section className="library-group" key={title}>
               <h2>{title}</h2>
-              {items.map((item) => {
-                const selected = selectedIds.includes(item.id);
-                return (
-                  <div key={item.id}>
-                    <article className={`library-card ${selected ? "selected" : ""}`}>
-                      <button type="button" className="library-select" onClick={() => toggleSelected(item.id)}>
-                        {selected ? "OK" : ""}
-                      </button>
-                      <div className="library-card-main" onClick={() => toggleSelected(item.id)}>
-                        <div className="library-code-row">
-                          <span>{item.code}</span>
-                          <b>{item.unit}</b>
-                        </div>
-                        <h3>{item.label}</h3>
-                        <p className="library-stats">
-                          <span>Temps: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
-                          <span>Taux: <strong>{formatMoney(item.hourlyRate || 0)}</strong></span>
-                          <span>MO/u: <strong>{formatMoney(moCost(item))}</strong></span>
-                        </p>
-                        {item.description ? <p className="library-description">{item.description}</p> : null}
-                      </div>
-                      <button type="button" className="library-menu-button" onClick={() => setOpenMenuId(openMenuId === item.id ? "" : item.id)}>...</button>
-                      {openMenuId === item.id ? (
-                        <div className="library-menu">
-                          <button type="button" onClick={() => startEdit(item)}>Modifier</button>
-                          <button type="button" className="danger" onClick={() => deleteOuvrage(item)}>Supprimer</button>
-                        </div>
-                      ) : null}
-                    </article>
+              {items.map((item) => (
+                  <div className="library-card-block" key={item.id}>
+                    {renderOuvrageCard(item)}
+                    {(childrenByParent[item.code] || []).map((child) => renderOuvrageCard(child, { child: true }))}
                     {item.type === "POSTE" ? (
                       <button type="button" className="sub-ouvrage-button" onClick={() => startCreate(item)}>
                         + Ajouter un sous-ouvrage
                       </button>
                     ) : null}
                   </div>
-                );
-              })}
+              ))}
             </section>
           ))
         )}
@@ -275,7 +320,9 @@ export default function OuvragesLibraryPage() {
         {selectedItems.length > 0 ? (
           <div className="library-selection-bar">
             <span>{selectedItems.length} ouvrage{selectedItems.length > 1 ? "s" : ""} selectionne{selectedItems.length > 1 ? "s" : ""}</span>
-            <button type="button" onClick={addSelectionToQuote}>Ajouter au devis</button>
+            <button type="button" onClick={addSelectionToQuote}>
+              Ajouter {selectedItems.length > 1 ? "les ouvrages" : "l'ouvrage"}
+            </button>
           </div>
         ) : null}
       </main>

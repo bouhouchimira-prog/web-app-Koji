@@ -32,7 +32,7 @@ export default function OnboardingPage() {
     <PhoneFrame>
       <section className="screen welcome-screen">
         <div style={{ textAlign: "right" }}>
-          <Link href="/welcome" className="muted" style={{ fontWeight: 800 }}>
+          <Link href="/welcome" className="muted" style={{ fontWeight: 400 }}>
             Passer
           </Link>
         </div>
