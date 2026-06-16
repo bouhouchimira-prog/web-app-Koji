@@ -20,7 +20,7 @@ export async function GET(request) {
   user.isActive = true;
   user.activationToken = null;
   user.activationExpiresAt = null;
-  await writeDb(db);
+  try { await writeDb(db); } catch { /* non-fatal on read-only filesystems */ }
   return ok({ activated: true, alreadyActive: false, message: "Compte active avec succes." });
 }
 

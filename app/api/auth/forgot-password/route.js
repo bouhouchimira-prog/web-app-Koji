@@ -27,7 +27,7 @@ export async function POST(request) {
 
   user.resetPasswordToken = token;
   user.resetPasswordExpiresAt = resetExpires(2);
-  await writeDb(db);
+  try { await writeDb(db); } catch { /* non-fatal on read-only filesystems */ }
 
   const queued = await queueResetPasswordEmail({
     email: user.email,

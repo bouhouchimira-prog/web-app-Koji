@@ -119,6 +119,15 @@ function Icon({ name, className = "" }) {
           <path {...base} d="M7 2v15a3 3 0 003 3" />
         </svg>
       );
+    case "market":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path {...base} d="M3 9l1-5h16l1 5" />
+          <path {...base} d="M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0" />
+          <path {...base} d="M5 9v11h14V9" />
+          <path {...base} d="M10 21v-6h4v6" />
+        </svg>
+      );
     case "settings":
       return (
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
@@ -144,6 +153,7 @@ export function Shell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profileType, setProfileType] = useState("entreprise");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -158,10 +168,15 @@ export function Shell({ children }) {
       if (parsed?.accountType === "particulier") setProfileType("particulier");
       else setProfileType("entreprise");
       if (parsed?.isAdmin) setIsAdmin(true);
+      const trialInfo = getTrialInfo(parsed);
+      setTrial(trialInfo);
+      if (trialInfo.expired && !FREE_PATHS.some((p) => pathname.startsWith(p))) {
+        router.replace("/abonnement");
+      }
     } catch {
       setProfileType("entreprise");
     }
-  }, []);
+  }, [pathname]);
 
   function logout() {
     if (typeof window !== "undefined") {
@@ -222,6 +237,17 @@ export function Shell({ children }) {
           <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />Deconnexion</button>
         </div>
       </aside>
+
+      {!trial.subscribed && !trial.expired && trial.daysLeft !== Infinity && (
+        <div className={`trial-banner${trial.daysLeft <= 3 ? " trial-banner-urgent" : ""}`}>
+          <span>
+            {trial.daysLeft === 0
+              ? "Votre essai gratuit est terminé."
+              : `Essai gratuit — il vous reste ${trial.daysLeft} jour${trial.daysLeft > 1 ? "s" : ""}`}
+          </span>
+          <a href="/abonnement" className="trial-banner-btn">Choisir mon abonnement</a>
+        </div>
+      )}
 
       <main className="web-main">{children}</main>
     </div>
