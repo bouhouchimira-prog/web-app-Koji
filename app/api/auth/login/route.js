@@ -45,7 +45,7 @@ export async function POST(request) {
   }
 
   user.lastLoginAt = nowIso();
-  await writeDb(db);
+  try { await writeDb(db); } catch { /* non-fatal on read-only filesystems */ }
 
   return ok({ user: publicUser(user), token: `demo-token-${user.id}` });
 }
