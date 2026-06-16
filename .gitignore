@@ -4,5 +4,4 @@ node_modules/
 .env.local
 *.log
 node_modules
-data/koji-db.json
 .git-backup*/
