@@ -46,10 +46,13 @@ export async function POST(request) {
   db.users.push(user);
   await writeDb(db);
   const queued = await queueActivationEmail({ email, name, activationUrl, accountType });
+  const emailSent = queued.sent || false;
   return ok({
     activationRequired: true,
-    emailSent: queued.sent || false,
-    message: "Compte créé. Vérifiez votre boîte mail pour activer votre compte.",
-    devActivationUrl: process.env.NODE_ENV !== "production" ? activationUrl : undefined
+    emailSent,
+    message: emailSent
+      ? "Compte créé. Vérifiez votre boîte mail pour activer votre compte."
+      : "Compte créé. Utilisez le lien ci-dessous pour activer votre compte.",
+    directActivationUrl: emailSent ? undefined : activationUrl
   }, 201);
 }

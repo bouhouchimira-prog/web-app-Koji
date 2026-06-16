@@ -82,7 +82,7 @@ function SignupScreen() {
         password,
         accountType
       });
-      if (data.devActivationUrl) setDevUrl(data.devActivationUrl);
+      if (data.directActivationUrl) setDevUrl(data.directActivationUrl);
       setStep("confirm");
     } catch (err) {
       setError(err.message);
@@ -104,9 +104,13 @@ function SignupScreen() {
               Cliquez sur le lien dans l&apos;email pour activer votre compte.
             </p>
             {devUrl ? (
-              <div className="auth-dev-box">
-                <span>Lien de développement (pas d&apos;SMTP configuré) :</span>
-                <a href={devUrl} className="auth-link">Activer mon compte →</a>
+              <div style={{ background: "#eef6ff", border: "1px solid #b3d4ff", borderRadius: 10, padding: "14px 16px", margin: "12px 0" }}>
+                <p style={{ margin: "0 0 10px", fontSize: "0.88rem", color: "#0a1538" }}>
+                  L&apos;e-mail n&apos;a pas pu être envoyé. Cliquez ici pour activer votre compte :
+                </p>
+                <a href={devUrl} className="auth-btn-primary" style={{ display: "block", textAlign: "center", textDecoration: "none" }}>
+                  Activer mon compte
+                </a>
               </div>
             ) : null}
             <p className="auth-confirm-hint">

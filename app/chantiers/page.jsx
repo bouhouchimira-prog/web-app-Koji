@@ -79,6 +79,7 @@ export default function ProjectsTrackingPage() {
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [budgetDraft, setBudgetDraft] = useState(null);
   const [message, setMessage] = useState("");
+  const [marketplaceDesc, setMarketplaceDesc] = useState("");
 
   const activeProjects = useMemo(() => projects.filter((project) => !isArchived(project)), [projects]);
   const selectedProject = activeProjects.find((project) => project.id === selectedProjectId) || null;
@@ -386,6 +387,15 @@ export default function ProjectsTrackingPage() {
     setMessage(action === "finish" ? "Chantier termine et archive creee." : "Chantier archive avec son historique.");
   }
 
+  async function publishMarketplace(action) {
+    if (!selectedProject) return;
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem("koji-user") : null;
+    const userId = raw ? (JSON.parse(raw).id || "") : "";
+    const { project } = await apiSend("/api/marketplace", { action, projectId: selectedProject.id, userId, description: marketplaceDesc });
+    setProjects(projects.map((item) => item.id === project.id ? project : item));
+    setMessage(action === "publish" ? "Chantier publié sur la marketplace." : "Chantier retiré de la marketplace.");
+  }
+
   if (selectedProject) {
     return (
       <Shell>
@@ -547,6 +557,31 @@ export default function ProjectsTrackingPage() {
                   {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
                 </details>
               ) : null}
+            </article>
+
+            <article className="project-overview-card">
+              <div className="follow-section-head">
+                <h2>Marketplace</h2>
+                <span>{selectedProject.marketplace?.published ? "Publié" : "Non publié"}</span>
+              </div>
+              {selectedProject.marketplace?.published ? (
+                <>
+                  <p className="marketplace-own-status">Ce chantier est visible sur la marketplace Koji.</p>
+                  <button type="button" className="mini-outline" onClick={() => publishMarketplace("unpublish")}>Retirer de la marketplace</button>
+                </>
+              ) : (
+                <>
+                  <p>Publiez ce chantier pour permettre à d'autres artisans Koji de vous contacter.</p>
+                  <textarea
+                    className="project-mini-textarea"
+                    placeholder="Description du chantier (travaux, surface, type...)"
+                    value={marketplaceDesc}
+                    onChange={(e) => setMarketplaceDesc(e.target.value)}
+                    rows={3}
+                  />
+                  <button type="button" className="button blue" style={{ marginTop: 8 }} onClick={() => publishMarketplace("publish")}>Publier sur la marketplace</button>
+                </>
+              )}
             </article>
           </section>
 

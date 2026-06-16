@@ -7728,3 +7728,255 @@ body :where(
     font-size: 0.82rem;
   }
 }
+
+/* ──────────────────────────────────────────
+   Trial banner
+────────────────────────────────────────── */
+.trial-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: #fff8e1;
+  border-bottom: 1px solid #ffe082;
+  font-size: 0.88rem;
+  color: #7a5c00;
+}
+
+.trial-banner-urgent {
+  background: #fff0f0;
+  border-color: #ffd6d6;
+  color: #c0392b;
+}
+
+.trial-banner-btn {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.trial-banner-btn:hover {
+  background: var(--blue);
+}
+
+/* ──────────────────────────────────────────
+   Abonnement / plans
+────────────────────────────────────────── */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  max-width: 960px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+.plan-card {
+  position: relative;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 4px 20px rgba(0,11,40,0.06);
+}
+
+.plan-card-featured {
+  border-color: #f5c842;
+  box-shadow: 0 8px 32px rgba(245,200,66,0.18);
+}
+
+.plan-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f5c842;
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 3px 14px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.plan-header h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.plan-amount {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--navy);
+}
+
+.plan-period {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.plan-check {
+  font-weight: 900;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ──────────────────────────────────────────
+   Marketplace
+────────────────────────────────────────── */
+.marketplace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 16px 0;
+}
+
+.marketplace-card {
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0,11,40,0.05);
+}
+
+.marketplace-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.marketplace-card-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0 0 2px;
+}
+
+.marketplace-address {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.marketplace-type-badge {
+  flex-shrink: 0;
+  background: var(--soft);
+  color: var(--navy);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.marketplace-description {
+  font-size: 0.88rem;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.marketplace-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.marketplace-interest-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.marketplace-message {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  resize: none;
+  font-family: inherit;
+}
+
+.marketplace-already {
+  font-size: 0.85rem;
+  color: var(--green);
+  font-weight: 600;
+  margin: 0;
+}
+
+.marketplace-feedback {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.marketplace-own-badge {
+  font-size: 0.8rem;
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.marketplace-own-status {
+  font-size: 0.88rem;
+  color: var(--green);
+  font-weight: 600;
+  margin: 0;
+}
+
+.marketplace-date {
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: block;
+}
+
+.project-mini-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
