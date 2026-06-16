@@ -1,63 +1,105 @@
-import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+﻿import { ok } from "../../../lib/http";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { fixText } from "../../../lib/text";
+import { hashPassword, makeTemporaryPassword, makeWorkerLoginId, publicWorker } from "../../../lib/worker-auth";
+
+function queueCredentialsMessage(db, worker, temporaryPassword) {
+  const loginId = worker.loginId || worker.identifier || "";
+  const message = `Bonjour ${worker.name}, votre acces Kôji Ouvrier est pret. Identifiant: ${loginId}. Mot de passe provisoire: ${temporaryPassword}`;
+  if (worker.email) {
+    db.mailOutbox.unshift({
+      id: `mail-worker-${Date.now()}`,
+      userId: worker.userId || "",
+      to: worker.email,
+      subject: "Vos acces Kôji Ouvrier",
+      body: message,
+      type: "worker.credentials",
+      createdAt: new Date().toISOString(),
+    });
+  }
+  if (worker.phone) {
+    db.smsOutbox.unshift({
+      id: `sms-worker-${Date.now()}`,
+      userId: worker.userId || "",
+      to: worker.phone,
+      body: message,
+      type: "worker.credentials",
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
-  return ok({ workers: scopedItems(db.workers, userId) });
+  const userId = getUserScope(request, db);
+  return ok({ workers: scopedItems(db.workers, userId).map(publicWorker) });
 }
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = body.userId || "";
-  const firstName = body.firstName || "";
-  const lastName = body.lastName || "";
-  const name = body.name || [firstName, lastName].filter(Boolean).join(" ") || "Nouveau contact";
+  const firstName = fixText(body.firstName || "");
+  const lastName = fixText(body.lastName || "");
+  const name = fixText(body.name || [firstName, lastName].filter(Boolean).join(" ") || "Nouvel ouvrier");
+  const loginId = fixText(body.loginId || makeWorkerLoginId(db.workers));
+  const temporaryPassword = body.password || body.temporaryPassword || makeTemporaryPassword();
+  const passwordData = hashPassword(temporaryPassword);
+  const now = new Date().toISOString();
+
   const worker = {
     id: `w-${Date.now()}`,
     userId,
-    type: body.type || "Ouvrier",
+    loginId,
+    identifier: loginId,
+    portalRole: "worker",
+    type: fixText(body.type || "Ouvrier"),
     firstName,
     lastName,
     name,
-    role: body.role || body.profession || "Equipe",
-    profession: body.profession || body.role || "Equipe",
-    email: body.email || "",
-    phone: body.phone || "",
-    address: body.address || "",
+    role: fixText(body.role || body.profession || "Ouvrier"),
+    profession: fixText(body.profession || body.role || "Ouvrier"),
+    email: fixText(body.email || ""),
+    phone: fixText(body.phone || ""),
+    address: fixText(body.address || ""),
     socialSecurityNumber: body.socialSecurityNumber || "",
     idCardUrl: body.idCardUrl || "",
     hourlyRate: Number(body.hourlyRate || 0),
     hireDate: body.hireDate || "",
-    notes: body.notes || "",
-    availability: body.availability || "Disponible",
-    status: body.status || "Disponible",
+    notes: fixText(body.notes || ""),
+    availability: fixText(body.availability || "Disponible"),
+    status: fixText(body.status || "Disponible"),
     favorite: Boolean(body.favorite),
     imageUrl: body.imageUrl || "",
     photoDataUrl: body.photoDataUrl || "",
     hours: Number(body.hours || 0),
-    createdAt: new Date().toISOString()
+    passwordHash: passwordData.passwordHash,
+    passwordSalt: passwordData.passwordSalt,
+    passwordSetupRequired: true,
+    credentialsIssuedAt: now,
+    createdAt: now,
   };
 
   db.workers.unshift(worker);
+  queueCredentialsMessage(db, worker, temporaryPassword);
   addHistory(db, {
     userId,
     type: "worker.created",
-    label: `Contact ajoute: ${worker.name}`,
+    label: `Ouvrier ajoute: ${worker.name}`,
     entityId: worker.id,
-    entityType: "worker"
+    entityType: "worker",
+    meta: { loginId: worker.loginId },
   });
   await writeDb(db);
-  return ok({ worker }, 201);
+  return ok({ worker: publicWorker(worker), credentials: { loginId, temporaryPassword } }, 201);
 }
 
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.workers, body.id, userId);
-  if (index === -1) return ok({ error: "Contact introuvable." }, 404);
+  if (index === -1) return ok({ error: "Ouvrier introuvable." }, 404);
 
   const worker = db.workers[index];
   if (body.action === "delete") {
@@ -65,12 +107,35 @@ export async function PATCH(request) {
     addHistory(db, {
       userId: worker.userId || userId,
       type: "worker.deleted",
-      label: `Contact supprime: ${worker.name}`,
+      label: `Ouvrier supprime: ${worker.name}`,
       entityId: worker.id,
-      entityType: "worker"
+      entityType: "worker",
     });
     await writeDb(db);
-    return ok({ worker: { ...worker, deleted: true } });
+    return ok({ worker: { ...publicWorker(worker), deleted: true } });
+  }
+
+  if (body.action === "resetCredentials") {
+    const loginId = worker.loginId || worker.identifier || makeWorkerLoginId(db.workers);
+    const temporaryPassword = makeTemporaryPassword();
+    const passwordData = hashPassword(temporaryPassword);
+    worker.loginId = loginId;
+    worker.identifier = loginId;
+    worker.passwordHash = passwordData.passwordHash;
+    worker.passwordSalt = passwordData.passwordSalt;
+    worker.passwordSetupRequired = true;
+    worker.credentialsIssuedAt = new Date().toISOString();
+    queueCredentialsMessage(db, worker, temporaryPassword);
+    addHistory(db, {
+      userId: worker.userId || userId,
+      type: "worker.credentials_reset",
+      label: `Identifiants ouvrier regeneres: ${worker.name}`,
+      entityId: worker.id,
+      entityType: "worker",
+      meta: { loginId },
+    });
+    await writeDb(db);
+    return ok({ worker: publicWorker(worker), credentials: { loginId, temporaryPassword } });
   }
 
   const allowed = [
@@ -99,11 +164,14 @@ export async function PATCH(request) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       if (key === "hours" || key === "hourlyRate") worker[key] = Number(body[key] || 0);
       else if (key === "favorite") worker[key] = Boolean(body[key]);
-      else worker[key] = body[key];
+      else worker[key] = fixText(body[key]);
     }
   }
+  if (!worker.loginId) worker.loginId = makeWorkerLoginId(db.workers);
+  worker.identifier = worker.loginId;
+  worker.portalRole = "worker";
   if (!worker.name || Object.prototype.hasOwnProperty.call(body, "firstName") || Object.prototype.hasOwnProperty.call(body, "lastName")) {
-    worker.name = [worker.firstName, worker.lastName].filter(Boolean).join(" ") || worker.name || "Nouveau contact";
+    worker.name = [worker.firstName, worker.lastName].filter(Boolean).join(" ") || worker.name || "Nouvel ouvrier";
   }
   if (worker.profession && !worker.role) worker.role = worker.profession;
   if (worker.role && !worker.profession) worker.profession = worker.role;
@@ -114,10 +182,10 @@ export async function PATCH(request) {
   addHistory(db, {
     userId: worker.userId || userId,
     type: "worker.updated",
-    label: `Contact mis a jour: ${worker.name}`,
+    label: `Ouvrier mis a jour: ${worker.name}`,
     entityId: worker.id,
-    entityType: "worker"
+    entityType: "worker",
   });
   await writeDb(db);
-  return ok({ worker });
+  return ok({ worker: publicWorker(worker) });
 }

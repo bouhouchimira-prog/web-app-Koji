@@ -1,5 +1,5 @@
 import { ok } from "../../../lib/http";
-import { getUserIdFromRequest, readDb, scopedItems } from "../../../lib/db";
+import { getUserScope, readDb, scopedItems } from "../../../lib/db";
 import { fixObjectText } from "../../../lib/text";
 
 function normalizeArchive(archive) {
@@ -8,7 +8,7 @@ function normalizeArchive(archive) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   let archives = scopedItems(db.projectArchives, userId);

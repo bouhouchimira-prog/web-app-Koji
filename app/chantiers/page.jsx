@@ -313,7 +313,7 @@ export default function ProjectsTrackingPage() {
       dueDate: taskForm.dueDate || new Date().toISOString().slice(0, 10),
       startDate: taskForm.dueDate || "",
       assignedTo: "Equipe",
-      status: "A faire",
+      status: "À faire",
       location: taskForm.location
     });
     setTasks([task, ...tasks]);
@@ -418,7 +418,7 @@ export default function ProjectsTrackingPage() {
           <section className="project-overview-grid">
             <article className="project-overview-card">
               <div className="follow-section-head">
-                <h2>Agenda / A faire</h2>
+                <h2>Agenda / À faire</h2>
                 <span>{upcomingTasks.length} a venir</span>
               </div>
               <form className="project-mini-form" onSubmit={addProjectTask}>

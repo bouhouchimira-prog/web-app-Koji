@@ -52,7 +52,7 @@ export default function HomePage() {
           {createLabel}
         </Link>
 
-        <Section title="A faire maintenant" href="/planning">
+        <Section title="À faire maintenant" href="/planning">
           {todoTasks.length === 0 ? (
             <EmptyToday />
           ) : (
@@ -64,7 +64,7 @@ export default function HomePage() {
                     <strong>{task.label}</strong>
                     <small>{task.project} - {task.assignedTo} - {shortDate(task.dueDate)}</small>
                   </div>
-                  <span className="home-list-meta">A faire</span>
+                  <span className="home-list-meta">À faire</span>
                 </article>
               ))}
             </div>

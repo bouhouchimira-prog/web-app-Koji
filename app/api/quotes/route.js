@@ -1,6 +1,7 @@
 import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, makeToken, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, getUserScope, makeToken, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
+import { applyQuoteTotals } from "../../../lib/quote-calculations";
 
 function normalizeQuote(quote) {
   return {
@@ -45,11 +46,16 @@ function makeTemporaryPassword() {
   return `Koji-${left}-${right}`;
 }
 
+function makeSignatureIdentifier() {
+  const chars = "ABCDEFGHIJKLMNPQRSTUVWXYZ0123456789";
+  return "Koji-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 function buildSignatureAccess(db, quote, body, request, now) {
   const email = normalizeEmail(body.clientEmail || quote.clientEmail || "");
   const phone = fixText(body.clientPhone || quote.clientPhone || "");
   const phoneDigits = normalizePhone(phone);
-  const identifier = email || (phoneDigits ? phone : `client-${quote.id}@koji.local`);
+  const identifier = quote.signatureAccessIdentifier || makeSignatureIdentifier();
   const password = makeTemporaryPassword();
   const links = buildSignatureLinks(request, quote, identifier);
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -80,11 +86,11 @@ function buildSignatureAccess(db, quote, body, request, now) {
   const clientName = fixText(quote.client || "Client");
   const messageLines = [
     `Bonjour ${clientName},`,
-    `Votre devis ${quote.quoteNumber} est pret a etre consulte et signe sur Koji Signature.`,
-    `Identifiant: ${identifier}`,
-    `Mot de passe provisoire: ${password}`,
-    `Lien de connexion: ${links.signatureUrl}`,
-    "Apres signature, vos acces Koji Particulier seront envoyes pour suivre le chantier."
+    `Votre devis ${quote.quoteNumber} est prêt à être consulté et signé sur Koji Signature.`,
+    `Identifiant : ${identifier}`,
+    `Mot de passe provisoire : ${password}`,
+    `Lien de connexion : ${links.signatureUrl}`,
+    "Après signature, vos accès Koji Particulier seront envoyés pour suivre le chantier."
   ];
 
   if (email) {
@@ -92,9 +98,9 @@ function buildSignatureAccess(db, quote, body, request, now) {
       id: `mail-signature-${quote.id}-${Date.now()}`,
       to: email,
       type: "quote-signature-access",
-      subject: `Votre devis ${quote.quoteNumber} a signer`,
+      subject: `Votre devis ${quote.quoteNumber} à signer`,
       text: messageLines.join("\n"),
-      html: `<p>Bonjour ${clientName},</p><p>Votre devis <strong>${quote.quoteNumber}</strong> est pret a etre consulte et signe sur Koji Signature.</p><p><strong>Identifiant:</strong> ${identifier}<br/><strong>Mot de passe provisoire:</strong> ${password}</p><p><a href="${links.signatureUrl}">Ouvrir Koji Signature</a></p><p>Apres signature, vos acces Koji Particulier seront envoyes pour suivre le chantier.</p>`,
+      html: `<p>Bonjour ${clientName},</p><p>Votre devis <strong>${quote.quoteNumber}</strong> est prêt à être consulté et signé sur Koji Signature.</p><p><strong>Identifiant :</strong> ${identifier}<br/><strong>Mot de passe provisoire :</strong> ${password}</p><p><a href="${links.signatureUrl}">Ouvrir Koji Signature</a></p><p>Après signature, vos accès Koji Particulier seront envoyés pour suivre le chantier.</p>`,
       quoteId: quote.id,
       projectId: quote.projectId || "",
       createdAt: now
@@ -163,7 +169,7 @@ function syncDraftNotification(db, quote, userId = "") {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   return ok({ quotes: scopedItems(db.quotes, userId).map(normalizeQuote) });
 }
 
@@ -173,10 +179,13 @@ export async function POST(request) {
   const userId = body.userId || "";
   const now = new Date().toISOString();
   const quoteDate = body.quoteDate || body.createdAt || now.slice(0, 10);
-  const quote = {
+  const quoteYear = new Date().getFullYear();
+  const quoteSeq = 1048 + db.quotes.length + 1;
+  const quoteBase = {
     id: `q-${Date.now()}`,
     userId,
-    quoteNumber: `DEV-${1048 + db.quotes.length}`,
+    quoteNumber: `${quoteYear}_${String(quoteSeq).padStart(4, "0")}`,
+    versionNumber: body.versionNumber || "001",
     client: fixText(body.client || "Client"),
     clientEmail: body.clientEmail || "",
     clientPhone: fixText(body.clientPhone || ""),
@@ -202,6 +211,7 @@ export async function POST(request) {
     createdAtIso: now,
     updatedAt: now
   };
+  const quote = applyQuoteTotals(quoteBase);
   db.quotes.unshift(quote);
   syncDraftNotification(db, quote, userId);
   const projectIndex = quote.projectId ? db.projects.findIndex((project) => project.id === quote.projectId) : -1;
@@ -226,7 +236,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.quotes, body.id, userId);
 
   if (index === -1) {
@@ -243,7 +253,7 @@ export async function PATCH(request) {
     addHistory(db, {
       userId: quote.userId || userId,
       type: "quote.ready",
-      label: `Devis pret a envoyer: ${quote.quoteNumber}`,
+      label: `Devis prêt à envoyer : ${quote.quoteNumber}`,
       entityId: quote.id,
       entityType: "quote"
     });
@@ -292,6 +302,18 @@ export async function PATCH(request) {
     });
   }
 
+  if (action === "cancel") {
+    quote.status = "Annule";
+    quote.cancelledAt = now;
+    addHistory(db, {
+      userId: quote.userId || userId,
+      type: "quote.cancelled",
+      label: `Devis annule: ${quote.quoteNumber}`,
+      entityId: quote.id,
+      entityType: "quote"
+    });
+  }
+
   if (action === "restore") {
     quote.status = body.status || (quote.signatureStatus === "Signe" ? "Signe" : "Brouillon");
     quote.archivedAt = "";
@@ -320,7 +342,7 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "chantierAddress", "startDate", "expectedDuration", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft"];
+    const allowed = ["client", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "chantierAddress", "startDate", "expectedDuration", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);
@@ -339,8 +361,10 @@ export async function PATCH(request) {
   }
 
   syncDraftNotification(db, quote, quote.userId || userId);
-  quote.updatedAt = now;
-  db.quotes[index] = quote;
+  const recalculatedQuote = applyQuoteTotals(quote);
+  recalculatedQuote.updatedAt = now;
+  db.quotes[index] = recalculatedQuote;
   await writeDb(db);
-  return ok({ quote: normalizeQuote(quote) });
+  return ok({ quote: normalizeQuote(recalculatedQuote) });
 }
+

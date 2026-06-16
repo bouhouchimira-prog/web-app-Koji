@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 const ACTIVE_INVOICE_STATUSES = new Set(["Brouillon", "Emise", "Payee"]);
@@ -69,14 +69,14 @@ function updateProjectBilling(project, summary, now) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   return ok({ invoices: scopedItems(db.invoices, userId).map(normalizeInvoice) });
 }
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const now = new Date().toISOString();
   const quoteIndex = findScopedIndex(db.quotes, body.quoteId, userId);
   const projectIndex = findScopedIndex(db.projects, body.projectId, userId);
@@ -92,9 +92,9 @@ export async function POST(request) {
   const before = buildBillingSummary(db, quote, project, userId);
   const amountTtc = toAmount(amountFromMode(body, before));
 
-  if (before.remaining <= 0.01) return badRequest("Ce devis est deja entierement facture.");
-  if (amountTtc <= 0) return badRequest("Le montant de la facture doit etre superieur a zero.");
-  if (amountTtc > before.remaining + 0.01) return badRequest("Le montant depasse le solde restant a facturer.");
+  if (before.remaining <= 0.01) return badRequest("Ce devis est déjà entièrement facturé.");
+  if (amountTtc <= 0) return badRequest("Le montant de la facture doit être supérieur à zéro.");
+  if (amountTtc > before.remaining + 0.01) return badRequest("Le montant dépasse le solde restant à facturer.");
 
   const invoice = {
     id: `fac-${Date.now()}`,
@@ -142,7 +142,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.invoices, body.id, userId);
   if (index === -1) return badRequest("Facture introuvable.", 404);
 

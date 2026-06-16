@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { nowIso } from "../../../../lib/auth";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
+import { hashPassword } from "../../../../lib/worker-auth";
 
 export async function POST(request) {
   const body = await request.json();
@@ -9,7 +10,7 @@ export async function POST(request) {
   const password = String(body.password || "");
 
   if (!token) return badRequest("Token manquant");
-  if (password.length < 6) return badRequest("Le mot de passe doit contenir au moins 6 caracteres");
+  if (password.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caractères");
 
   const db = await readDb();
   const tokenField = mode === "reset" ? "resetPasswordToken" : "activationToken";
@@ -24,7 +25,10 @@ export async function POST(request) {
     return badRequest(mode === "reset" ? "Lien de reinitialisation expire" : "Lien d'activation expire", 410);
   }
 
-  user.password = password;
+  const { passwordHash, passwordSalt } = hashPassword(password);
+  user.passwordHash = passwordHash;
+  user.passwordSalt = passwordSalt;
+  delete user.password;
   user.isActive = true;
   user.lastLoginAt = nowIso();
   user.activationToken = null;

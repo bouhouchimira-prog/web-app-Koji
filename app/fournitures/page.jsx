@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
 import { euro } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
 
-const categories = ["Materiaux", "Peinture", "Sol", "Accessoires", "Divers"];
 const units = ["Unite", "Piece", "m2", "ml", "kg", "L", "Cartouche", "Pot 10 L"];
 
 const initialSupply = {
   name: "",
-  category: "Peinture",
+  category: "",
+  subcategory: "",
   supplierId: "",
   purchasePriceHt: "",
   salePriceHt: "",
@@ -20,7 +20,8 @@ const initialSupply = {
   unit: "Unite",
   barcode: "",
   imageUrl: "",
-  sourceUrl: ""
+  sourceUrl: "",
+  supplierName: ""
 };
 
 const initialSupplier = {
@@ -28,40 +29,239 @@ const initialSupplier = {
   email: "",
   phone: "",
   address: "",
+  website: "",
   notes: ""
 };
+
+const initialCategoryForm = { name: "" };
 
 export default function SuppliesPage() {
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: suppliers, setData: setSuppliers } = useApi("/api/suppliers", "suppliers");
-  const [activeTab, setActiveTab] = useState("recents");
+  const { data: categories, setData: setCategories } = useApi("/api/categories", "categories");
+
+  const [activeTab, setActiveTab] = useState("categories");
+  const [activeCategory, setActiveCategory] = useState("");
+  const [fromDevis, setFromDevis] = useState(false);
+  const [devisTargetRoom, setDevisTargetRoom] = useState("Services");
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [viaUrl, setViaUrl] = useState(false);
   const [supplierDialog, setSupplierDialog] = useState(false);
   const [supplierForm, setSupplierForm] = useState(initialSupplier);
+  const [editingSupplier, setEditingSupplier] = useState(null);
   const [editingSupply, setEditingSupply] = useState(null);
   const [form, setForm] = useState(initialSupply);
   const [message, setMessage] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
+
+  const [categoryDialog, setCategoryDialog] = useState(false);
+  const [categoryForm, setCategoryForm] = useState(initialCategoryForm);
+  const [editingCategory, setEditingCategory] = useState(null);
+
+  const [pendingSupplyId, setPendingSupplyId] = useState(null);
+  const [pendingQty, setPendingQty] = useState(1);
 
   const visibleSupplies = useMemo(() => {
     if (activeTab === "divers") return supplies.filter((item) => !item.supplierId);
+    if (activeTab === "categories") {
+      if (activeCategory) return supplies.filter((item) => item.category === activeCategory);
+      return supplies;
+    }
     return supplies;
-  }, [activeTab, supplies]);
+  }, [activeTab, activeCategory, supplies]);
+
+  const uniqueSuppliers = useMemo(() => {
+    const seen = new Set();
+    return suppliers.filter((supplier) => {
+      const key = (supplier.name || "").trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [suppliers]);
 
   function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "category") next.subcategory = "";
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from") === "devis") {
+      setFromDevis(true);
+      setDevisTargetRoom(window.localStorage.getItem("koji-devis-target-room") || "Services");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !supplies.length) return;
+    const id = new URLSearchParams(window.location.search).get("supply");
+    if (!id || editingSupply?.id === id) return;
+    const target = supplies.find((item) => item.id === id);
+    if (target) openEditSupply(target);
+  }, [supplies, editingSupply?.id]);
+
+  function selectSupplyForDevis(supply, quantity = 1) {
+    if (typeof window === "undefined") return;
+    const room = window.localStorage.getItem("koji-devis-target-room") || devisTargetRoom;
+    window.localStorage.setItem("koji-devis-fourniture", JSON.stringify({ supply, quantity, room }));
+    window.location.assign("/devis?selection=fourniture");
+  }
+
+  function openQtyPicker(item) {
+    setPendingSupplyId(item.id);
+    setPendingQty(1);
+  }
+
+  function changeQty(delta) {
+    setPendingQty((q) => Math.max(1, q + delta));
+  }
+
+  function selectTreeCategory(cat) {
+    setActiveCategory(activeCategory === cat ? "" : cat);
+  }
+
+  async function fetchFromUrl() {
+    const url = form.sourceUrl.trim();
+    if (!url) return;
+    setImporting(true);
+    setImportMessage("");
+    try {
+      const { data } = await apiGet(`/api/supplies/import?url=${encodeURIComponent(url)}`);
+      let importedSupplierId = data.supplierName ? supplierIdFromName(data.supplierName) : "";
+      if (data.supplierName && !importedSupplierId) {
+        const { supplier } = await apiSend("/api/suppliers", { name: data.supplierName, website: officialSupplierUrl(data.supplierName) });
+        importedSupplierId = supplier.id;
+        setSuppliers((current) => current.some((item) => item.id === supplier.id) ? current : [supplier, ...current]);
+      }
+      const purchasePrice = data.purchasePriceHt ?? data.priceHt ?? "";
+      const salePrice = data.salePriceHt ?? data.priceHt ?? purchasePrice;
+      setForm((current) => ({
+        ...current,
+        sourceUrl: data.sourceUrl || url || current.sourceUrl,
+        name: data.name || current.name,
+        supplierId: importedSupplierId || current.supplierId,
+        supplierName: data.supplierName || current.supplierName,
+        purchasePriceHt: purchasePrice !== "" ? String(purchasePrice) : current.purchasePriceHt,
+        salePriceHt: salePrice !== "" ? String(salePrice) : current.salePriceHt,
+        unit: units.includes(data.unit) ? data.unit : current.unit,
+        quantity: data.quantity ? String(data.quantity) : current.quantity,
+        packaging: data.packaging || current.packaging,
+        imageUrl: data.imageUrl || current.imageUrl
+      }));
+      setImportMessage(data.name ? "Informations récupérées. Vérifiez le prix avant d'enregistrer." : "Lien conservé. Complétez les champs manquants.");
+    } catch (error) {
+      setImportMessage(error.message || "Impossible de récupérer les informations.");
+    } finally {
+      setImporting(false);
+    }
   }
 
   function supplierLabel(id) {
     return suppliers.find((item) => item.id === id)?.name || "";
   }
 
+  function supplierWebsite(id) {
+    const supplier = suppliers.find((item) => item.id === id);
+    if (!supplier) return "";
+    return supplier.website || officialSupplierUrl(supplier.name);
+  }
+
+  function supplyExternalUrl(item) {
+    if (item.sourceUrl) return item.sourceUrl;
+    if (item.supplierId) return supplierWebsite(item.supplierId);
+    return officialSupplierUrl(item.supplierName);
+  }
+
+  function normalizedText(value = "") {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function supplierIdFromName(name = "") {
+    const wanted = normalizedText(name);
+    if (!wanted) return "";
+    return suppliers.find((supplier) => normalizedText(supplier.name) === wanted)?.id || "";
+  }
+
+  function officialSupplierUrl(name = "") {
+    const value = normalizedText(name);
+    if (value.includes("leroy")) return "https://www.leroymerlin.fr/";
+    if (value.includes("castorama")) return "https://www.castorama.fr/";
+    if (value.includes("brico depot") || value.includes("bricodepot")) return "https://www.bricodepot.fr/";
+    if (value.includes("manomano")) return "https://www.manomano.fr/";
+    if (value.includes("point p") || value.includes("pointp")) return "https://www.pointp.fr/";
+    if (value.includes("chausson")) return "https://www.chausson.fr/";
+    if (value.includes("gedimat")) return "https://www.gedimat.fr/";
+    if (value.includes("lapeyre")) return "https://www.lapeyre.fr/";
+    if (/^https?:\/\//.test(String(name || ""))) return name;
+    return "";
+  }
+
+  function openExternal(url, event) {
+    event?.stopPropagation();
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function handleRowKey(event, action) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      action();
+    }
+  }
+
+  // ── Category management ────────────────────────────────────────────────────
+
+  function openCategoryDialog(cat = null) {
+    setEditingCategory(cat);
+    setCategoryForm(cat ? { name: cat.name } : initialCategoryForm);
+    setCategoryDialog(true);
+  }
+
+  function closeCategoryDialog() {
+    setCategoryDialog(false);
+    setEditingCategory(null);
+    setCategoryForm(initialCategoryForm);
+  }
+
+  async function submitCategoryForm(event) {
+    event.preventDefault();
+    const name = categoryForm.name.trim();
+    if (!name) return;
+    if (editingCategory) {
+      const { category } = await apiSend("/api/categories", { id: editingCategory.id, name }, "PATCH");
+      setCategories((current) => current.map((c) => c.id === category.id ? category : c));
+      setMessage(`Catégorie mise à jour : ${category.name}`);
+    } else {
+      const { category } = await apiSend("/api/categories", { name });
+      setCategories((current) => [...current, category]);
+      setMessage(`Catégorie créée : ${category.name}`);
+    }
+    closeCategoryDialog();
+  }
+
+  async function deleteCategory(cat) {
+    const { category } = await apiSend("/api/categories", { id: cat.id, action: "delete" }, "PATCH");
+    if (category?.deleted) {
+      setCategories((current) => current.filter((c) => c.id !== cat.id));
+      if (activeCategory === cat.name) setActiveCategory("");
+    }
+  }
+
+  // ── Supply management ──────────────────────────────────────────────────────
+
   async function createSupply(event) {
     event.preventDefault();
     const payload = {
       ...form,
-      supplierName: supplierLabel(form.supplierId),
+      importUrl: viaUrl ? form.sourceUrl : undefined,
+      supplierName: supplierLabel(form.supplierId) || form.supplierName || "",
       purchasePriceHt: Number(form.purchasePriceHt || 0),
       salePriceHt: Number(form.salePriceHt || form.purchasePriceHt || 0),
       quantity: Number(form.quantity || 0),
@@ -71,22 +271,30 @@ export default function SuppliesPage() {
       ? await apiSend("/api/supplies", { id: editingSupply.id, ...payload }, "PATCH")
       : await apiSend("/api/supplies", payload);
     setSupplies(editingSupply ? supplies.map((item) => item.id === supply.id ? supply : item) : [supply, ...supplies]);
+
+    if (fromDevis && !editingSupply) {
+      selectSupplyForDevis(supply);
+      return;
+    }
     setForm(initialSupply);
     setEditingSupply(null);
     setFormOpen(false);
-    setMessage(editingSupply ? `Fourniture mise a jour: ${supply.name}` : `Fourniture ajoutee: ${supply.name}`);
+    setMessage(editingSupply ? `Fourniture mise à jour : ${supply.name}` : `Fourniture ajoutée : ${supply.name}`);
   }
 
   async function createSupplier(event) {
     event.preventDefault();
     const name = supplierForm.name.trim();
     if (!name) return;
-    const { supplier } = await apiSend("/api/suppliers", { ...supplierForm, name });
-    setSuppliers([supplier, ...suppliers]);
+    const { supplier } = editingSupplier
+      ? await apiSend("/api/suppliers", { id: editingSupplier.id, ...supplierForm, name }, "PATCH")
+      : await apiSend("/api/suppliers", { ...supplierForm, name });
+    setSuppliers(editingSupplier ? suppliers.map((item) => item.id === supplier.id ? supplier : item) : [supplier, ...suppliers]);
     setSupplierForm(initialSupplier);
+    setEditingSupplier(null);
     setSupplierDialog(false);
     setActiveTab("fournisseurs");
-    setMessage(`Fournisseur ajoute: ${supplier.name}`);
+    setMessage(editingSupplier ? `Fournisseur mis à jour : ${supplier.name}` : `Fournisseur ajouté : ${supplier.name}`);
   }
 
   async function deleteSupply(item) {
@@ -103,7 +311,8 @@ export default function SuppliesPage() {
     setEditingSupply(item);
     setForm({
       name: item.name || "",
-      category: item.category || "Peinture",
+      category: item.category || "",
+      subcategory: item.subcategory || "",
       supplierId: item.supplierId || "",
       purchasePriceHt: String(item.purchasePriceHt ?? item.priceHt ?? ""),
       salePriceHt: String(item.salePriceHt ?? item.priceHt ?? ""),
@@ -112,21 +321,100 @@ export default function SuppliesPage() {
       unit: item.unit || "Unite",
       barcode: item.barcode || "",
       imageUrl: item.imageUrl || "",
-      sourceUrl: item.sourceUrl || ""
+      sourceUrl: item.sourceUrl || "",
+      supplierName: item.supplierName || ""
     });
     setViaUrl(Boolean(item.sourceUrl));
     setFormOpen(true);
   }
+
+  function openEditSupplier(item) {
+    setEditingSupplier(item);
+    setSupplierForm({
+      name: item.name || "",
+      email: item.email || "",
+      phone: item.phone || "",
+      address: item.address || "",
+      website: item.website || officialSupplierUrl(item.name),
+      notes: item.notes || ""
+    });
+    setSupplierDialog(true);
+  }
+
+  function closeSupplierDialog() {
+    setSupplierDialog(false);
+    setEditingSupplier(null);
+    setSupplierForm(initialSupplier);
+  }
+
+  // ── Supply row ──────────────────────────────────────────────────────────────
+
+  function SupplyRow({ item }) {
+    return (
+      <article
+        className={`supply-row ${fromDevis ? "" : "clickable"}`}
+        role={fromDevis ? undefined : "button"}
+        tabIndex={fromDevis ? undefined : 0}
+        onClick={fromDevis ? undefined : () => openEditSupply(item)}
+        onKeyDown={fromDevis ? undefined : (event) => handleRowKey(event, () => openEditSupply(item))}
+      >
+        <div className="supply-icon">PR</div>
+        <div>
+          <strong>{item.name}</strong>
+          <small>
+            {item.category || ""}
+            {item.subcategory ? ` › ${item.subcategory}` : ""}
+            {item.packaging ? ` — ${item.packaging}` : ""}
+            {item.supplierName ? ` — ${item.supplierName}` : ""}
+          </small>
+        </div>
+        <div className="supply-price">
+          <strong>{euro(item.salePriceHt ?? item.priceHt)}</strong>
+          <small>H.T</small>
+        </div>
+        {fromDevis ? (
+          pendingSupplyId === item.id ? (
+            <div className="supply-qty-picker" onClick={(event) => event.stopPropagation()}>
+              <button type="button" className="qty-btn" onClick={() => changeQty(-1)}>−</button>
+              <input
+                type="number"
+                className="qty-input"
+                min="1"
+                value={pendingQty}
+                onChange={(event) => setPendingQty(Math.max(1, Number(event.target.value) || 1))}
+              />
+              <button type="button" className="qty-btn" onClick={() => changeQty(1)}>+</button>
+              <button type="button" className="mini-button primary" onClick={() => selectSupplyForDevis(item, pendingQty)}>Valider</button>
+            </div>
+          ) : (
+            <button type="button" className="mini-button primary" onClick={(event) => { event.stopPropagation(); openQtyPicker(item); }}>Choisir</button>
+          )
+        ) : (
+          <>
+            {supplyExternalUrl(item) ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplyExternalUrl(item), event)}>{item.sourceUrl ? "Lien" : "Site"}</button> : null}
+            <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupply(item); }}>Modifier</button>
+            <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupply(item); }}>Supprimer</button>
+          </>
+        )}
+      </article>
+    );
+  }
+
+  // ── Supply form (full-page view) ────────────────────────────────────────────
 
   if (formOpen) {
     return (
       <Shell>
         <section className="mobile-tool tool-form-view">
           <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={() => { setFormOpen(false); setEditingSupply(null); setForm(initialSupply); }}>{"<"}</button>
+            <button type="button" className="plain-back" onClick={() => { setFormOpen(false); setEditingSupply(null); setForm(initialSupply); setImportMessage(""); }}>{"<"}</button>
             <h1>{editingSupply ? "Modifier fourniture" : "Ajouter une fourniture"}</h1>
             <span />
           </header>
+
+          {fromDevis && !editingSupply ? (
+            <p className="tool-message">Cette fourniture sera ajoutée directement à votre devis.</p>
+          ) : null}
 
           <form className="mobile-form" onSubmit={createSupply}>
             <div className="segmented large">
@@ -137,30 +425,43 @@ export default function SuppliesPage() {
             {viaUrl ? (
               <label className="mobile-input full">
                 <span>Lien produit</span>
-                <input value={form.sourceUrl} onChange={(event) => setField("sourceUrl", event.target.value)} placeholder="https://..." />
+                <div className="url-fetch-row">
+                  <input value={form.sourceUrl} onChange={(event) => setField("sourceUrl", event.target.value)} placeholder="https://..." />
+                  <button type="button" className="mini-button primary" onClick={fetchFromUrl} disabled={!form.sourceUrl.trim() || importing}>
+                    {importing ? "..." : "Récupérer"}
+                  </button>
+                </div>
+                {importMessage ? <small className="import-message">{importMessage}</small> : null}
               </label>
             ) : null}
 
             <label className="mobile-input full">
-              <span>Nom du produit</span>
-              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder="Nom du produit" required />
+              <span>Description</span>
+              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder="Nom du produit" required={!viaUrl} />
             </label>
 
             <div className="mobile-form-grid">
               <label className="mobile-input">
-                <span>Categorie</span>
+                <span>Catégorie</span>
                 <select value={form.category} onChange={(event) => setField("category", event.target.value)}>
-                  {categories.map((category) => <option key={category}>{category}</option>)}
+                  <option value="">— Sans catégorie —</option>
+                  {categories.map((cat) => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
               </label>
               <label className="mobile-input">
                 <span>Fournisseur</span>
                 <select value={form.supplierId} onChange={(event) => setField("supplierId", event.target.value)}>
                   <option value="">Aucun (Divers)</option>
-                  {suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
+                  {uniqueSuppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
                 </select>
               </label>
             </div>
+
+            {supplierWebsite(form.supplierId) ? (
+              <button type="button" className="supplier-site-button" onClick={(event) => openExternal(supplierWebsite(form.supplierId), event)}>
+                Ouvrir le site fournisseur
+              </button>
+            ) : null}
 
             <div className="mobile-form-grid">
               <label className="mobile-input">
@@ -175,16 +476,16 @@ export default function SuppliesPage() {
 
             <label className="mobile-input full">
               <span>Conditionnement</span>
-              <input value={form.packaging} onChange={(event) => setField("packaging", event.target.value)} placeholder="Pot 10 L, piece, carton..." />
+              <input value={form.packaging} onChange={(event) => setField("packaging", event.target.value)} placeholder="Pot 10 L, pièce, carton..." />
             </label>
 
             <div className="mobile-form-grid">
               <label className="mobile-input">
-                <span>Quantite</span>
+                <span>Quantité</span>
                 <input type="number" step="0.01" value={form.quantity} onChange={(event) => setField("quantity", event.target.value)} placeholder="0" />
               </label>
               <label className="mobile-input">
-                <span>Unite</span>
+                <span>Unité</span>
                 <select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
                   {units.map((unit) => <option key={unit}>{unit}</option>)}
                 </select>
@@ -200,62 +501,134 @@ export default function SuppliesPage() {
               <input value={form.imageUrl} onChange={(event) => setField("imageUrl", event.target.value)} placeholder="URL de l'image" />
             </label>
 
-            <button className="mobile-primary">{editingSupply ? "Enregistrer" : "Creer la fourniture"}</button>
+            <button className="mobile-primary">{editingSupply ? "Enregistrer" : fromDevis ? "Créer et ajouter au devis" : "Créer la fourniture"}</button>
           </form>
         </section>
       </Shell>
     );
   }
 
+  // ── Main list view ──────────────────────────────────────────────────────────
+
   return (
     <Shell>
       <section className="mobile-tool">
         <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
+          <button type="button" className="plain-back" onClick={() => fromDevis ? window.location.assign("/devis") : (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>Fournitures</h1>
           <span />
         </header>
 
+        {fromDevis ? (
+          <div className="fournitures-select-banner">
+            <span>Choisissez une fourniture à ajouter au devis</span>
+            <button type="button" className="mini-button" onClick={() => window.location.assign("/devis")}>Retour sans sélection</button>
+          </div>
+        ) : null}
+
         <div className="segmented">
-          <button type="button" className={activeTab === "recents" ? "active" : ""} onClick={() => setActiveTab("recents")}>Recents</button>
-          <button type="button" className={activeTab === "divers" ? "active" : ""} onClick={() => setActiveTab("divers")}>Divers</button>
+          <button type="button" className={activeTab === "categories" ? "active" : ""} onClick={() => setActiveTab("categories")}>Catégories</button>
           <button type="button" className={activeTab === "fournisseurs" ? "active" : ""} onClick={() => setActiveTab("fournisseurs")}>Fournisseurs</button>
+          <button type="button" className={activeTab === "divers" ? "active" : ""} onClick={() => setActiveTab("divers")}>Divers</button>
         </div>
 
         {message ? <p className="tool-message">{message}</p> : null}
 
-        {activeTab === "fournisseurs" ? (
-          <div className="tool-list">
-            {suppliers.length === 0 ? <div className="tool-empty">Aucun fournisseur pour le moment.</div> : null}
-            {suppliers.map((supplier) => (
-              <article className="supply-row" key={supplier.id}>
-                <div className="supply-icon">FS</div>
-                <div>
-                  <strong>{supplier.name}</strong>
-                  <small>{[supplier.email, supplier.phone, supplier.address].filter(Boolean).join(" - ") || "Fournisseur"}</small>
+        {activeTab === "categories" ? (
+          <div className="categories-layout">
+            {/* Left: category tree */}
+            <div className="category-tree">
+              <button
+                type="button"
+                className={`cat-tree-btn ${!activeCategory ? "active" : ""}`}
+                onClick={() => setActiveCategory("")}
+              >
+                Tout
+              </button>
+
+              {categories.map((cat) => {
+                const isCatActive = activeCategory === cat.name;
+                return (
+                  <div key={cat.id} className="cat-tree-row">
+                    <button
+                      type="button"
+                      className={`cat-tree-btn ${isCatActive ? "active" : ""}`}
+                      onClick={() => selectTreeCategory(cat.name)}
+                    >
+                      {cat.name}
+                    </button>
+                    <button type="button" className="cat-tree-edit" onClick={() => openCategoryDialog(cat)} title="Modifier">✎</button>
+                  </div>
+                );
+              })}
+
+              <button type="button" className="cat-tree-add" onClick={() => openCategoryDialog()}>
+                + Catégorie
+              </button>
+            </div>
+
+            {/* Right: supply list */}
+            <div className="cat-supply-panel">
+              <div className="panel-header">
+                <strong>{activeCategory || "Toutes les fournitures"}</strong>
+                <button
+                  type="button"
+                  className="mini-button primary"
+                  onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setFormOpen(true); }}
+                >
+                  + Ajouter
+                </button>
+              </div>
+              {visibleSupplies.length === 0 ? (
+                <div className="tool-empty">
+                  {activeCategory
+                    ? `Aucune fourniture dans "${activeCategory}". Cliquez "+ Ajouter" pour en créer une.`
+                    : categories.length === 0
+                      ? "Créez d'abord une catégorie via le bouton ci-contre."
+                      : "Aucune fourniture pour le moment."}
                 </div>
-                <button type="button" className="mini-danger" onClick={() => deleteSupplier(supplier)}>Supprimer</button>
-              </article>
-            ))}
+              ) : null}
+              {visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)}
+            </div>
+          </div>
+        ) : activeTab === "fournisseurs" ? (
+          <div className="tool-list">
+            <div className="panel-header">
+              <strong>Fournisseurs</strong>
+              <button type="button" className="mini-button primary" onClick={() => { setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>+ Ajouter</button>
+            </div>
+            {uniqueSuppliers.length === 0 ? <div className="tool-empty">Aucun fournisseur pour le moment.</div> : null}
+            {uniqueSuppliers.map((supplier) => {
+              const supplierUrl = supplier.website || officialSupplierUrl(supplier.name);
+              return (
+                <article
+                  className="supply-row clickable"
+                  key={supplier.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openEditSupplier(supplier)}
+                  onKeyDown={(event) => handleRowKey(event, () => openEditSupplier(supplier))}
+                >
+                  <div className="supply-icon">FS</div>
+                  <div>
+                    <strong>{supplier.name}</strong>
+                    <small>{[supplier.email, supplier.phone, supplier.address].filter(Boolean).join(" - ") || "Fournisseur"}</small>
+                  </div>
+                  {supplierUrl ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplierUrl, event)}>Site</button> : null}
+                  <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupplier(supplier); }}>Modifier</button>
+                  <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupplier(supplier); }}>Supprimer</button>
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="tool-list">
-            {visibleSupplies.length === 0 ? <div className="tool-empty">Aucune fourniture pour le moment.</div> : null}
-            {visibleSupplies.map((item) => (
-              <article className="supply-row" key={item.id}>
-                <div className="supply-icon">PR</div>
-                <div>
-                  <strong>{item.name}</strong>
-                  <small><span>{item.category}</span>{item.packaging ? ` - ${item.packaging}` : ""}{item.supplierName ? ` - ${item.supplierName}` : ""}</small>
-                </div>
-                <div className="supply-price">
-                  <strong>{euro(item.salePriceHt ?? item.priceHt)}</strong>
-                  <small>H.T</small>
-                </div>
-                <button type="button" className="mini-button" onClick={() => openEditSupply(item)}>Modifier</button>
-                <button type="button" className="mini-danger" onClick={() => deleteSupply(item)}>Supprimer</button>
-              </article>
-            ))}
+            <div className="panel-header">
+              <strong>Divers</strong>
+              <button type="button" className="mini-button primary" onClick={() => { setForm({ ...initialSupply, supplierId: "" }); setEditingSupply(null); setFormOpen(true); }}>+ Ajouter</button>
+            </div>
+            {visibleSupplies.length === 0 ? <div className="tool-empty">Aucune fourniture sans fournisseur pour le moment.</div> : null}
+            {visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)}
           </div>
         )}
 
@@ -270,9 +643,14 @@ export default function SuppliesPage() {
                 <div><strong>Ajouter une fourniture</strong><small>Ajouter manuellement ou via un lien</small></div>
                 <b>{">"}</b>
               </button>
-              <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); setSupplierDialog(true); }}>
+              <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>
                 <span>FS</span>
-                <div><strong>Ajouter un fournisseur</strong><small>Creer un nouveau fournisseur</small></div>
+                <div><strong>Ajouter un fournisseur</strong><small>Créer un nouveau fournisseur</small></div>
+                <b>{">"}</b>
+              </button>
+              <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); openCategoryDialog(); }}>
+                <span>CT</span>
+                <div><strong>Ajouter une catégorie</strong><small>Créer une catégorie avec sous-catégories</small></div>
                 <b>{">"}</b>
               </button>
             </div>
@@ -280,17 +658,66 @@ export default function SuppliesPage() {
         ) : null}
 
         {supplierDialog ? (
-          <div className="modal-overlay" onClick={() => setSupplierDialog(false)}>
-            <form className="mini-modal" onSubmit={createSupplier} onClick={(event) => event.stopPropagation()}>
-              <h2>Nouveau Fournisseur</h2>
-              <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nom du fournisseur" autoFocus required />
-              <input value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="Email" />
-              <input value={supplierForm.phone} onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Telephone" />
-              <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse" />
-              <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notes" />
-              <div>
-                <button type="button" onClick={() => setSupplierDialog(false)}>Annuler</button>
-                <button type="submit">Creer</button>
+          <div className="modal-overlay" onClick={closeSupplierDialog}>
+            <form className="mini-modal category-modal" onSubmit={createSupplier} onClick={(event) => event.stopPropagation()}>
+              <h2>{editingSupplier ? "Modifier fournisseur" : "Nouveau fournisseur"}</h2>
+              <label className="category-modal-field">
+                <span>Nom</span>
+                <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nom du fournisseur" autoFocus required />
+              </label>
+              <label className="category-modal-field">
+                <span>Email</span>
+                <input value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="email@fournisseur.fr" type="email" />
+              </label>
+              <label className="category-modal-field">
+                <span>Téléphone</span>
+                <input value={supplierForm.phone} onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))} placeholder="06 00 00 00 00" />
+              </label>
+              <label className="category-modal-field">
+                <span>Adresse</span>
+                <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse du fournisseur" />
+              </label>
+              <label className="category-modal-field">
+                <span>Site web</span>
+                <input value={supplierForm.website} onChange={(event) => setSupplierForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." />
+              </label>
+              <label className="category-modal-field">
+                <span>Notes</span>
+                <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notes libres" />
+              </label>
+              <div className="category-modal-actions">
+                {editingSupplier ? (
+                  <button type="button" className="button danger small" onClick={() => { closeSupplierDialog(); deleteSupplier(editingSupplier); }}>Supprimer</button>
+                ) : null}
+                <button type="button" onClick={closeSupplierDialog}>Annuler</button>
+                <button type="submit" className="button blue">{editingSupplier ? "Enregistrer" : "Créer"}</button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+
+        {categoryDialog ? (
+          <div className="modal-overlay" onClick={closeCategoryDialog}>
+            <form className="mini-modal category-modal" onSubmit={submitCategoryForm} onClick={(event) => event.stopPropagation()}>
+              <h2>{editingCategory ? "Modifier catégorie" : "Nouvelle catégorie"}</h2>
+
+              <label className="category-modal-field">
+                <span>Description</span>
+                <input
+                  value={categoryForm.name}
+                  onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
+                  placeholder="Nom de la catégorie"
+                  autoFocus
+                  required
+                />
+              </label>
+
+              <div className="category-modal-actions">
+                {editingCategory ? (
+                  <button type="button" className="button danger small" onClick={() => { closeCategoryDialog(); deleteCategory(editingCategory); }}>Supprimer</button>
+                ) : null}
+                <button type="button" onClick={closeCategoryDialog}>Annuler</button>
+                <button type="submit" className="button blue">{editingCategory ? "Enregistrer" : "Créer"}</button>
               </div>
             </form>
           </div>

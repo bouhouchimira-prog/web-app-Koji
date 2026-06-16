@@ -18,7 +18,11 @@ const initialBusiness = {
   tva: "",
   dailyRate: 0,
   hoursPerDay: 7,
-  logoDataUrl: ""
+  logoDataUrl: "",
+  iban: "",
+  bic: "",
+  bankHolder: "",
+  paymentTerms: ""
 };
 
 function readLocalUser() {
@@ -53,6 +57,10 @@ function icon(name) {
       return "M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2";
     case "camera":
       return "M4 8h4l2-2h4l2 2h4v10H4zM12 16a3 3 0 100-6 3 3 0 000 6z";
+    case "bank":
+      return "M3 21h18M3 10h18M5 10V21M19 10V21M12 3L3 10h18L12 3z";
+    case "text":
+      return "M4 6h16M4 10h16M4 14h10M4 18h6";
     default:
       return "";
   }
@@ -223,6 +231,31 @@ export default function ParametresPage() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="profile-block">
+          <h2>Coordonnées bancaires</h2>
+          <p className="muted">Ces informations apparaissent sur vos devis et factures pour le règlement.</p>
+          <div className="profile-grid">
+            <Field label="IBAN" iconName="bank" value={business.iban || ""} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
+            <Field label="BIC / SWIFT" iconName="bank" value={business.bic || ""} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
+            <Field label="Titulaire du compte" iconName="id" value={business.bankHolder || ""} onChange={(event) => setField("bankHolder", event.target.value)} placeholder="Nom du titulaire" />
+          </div>
+        </section>
+
+        <section className="profile-block">
+          <h2>Conditions de règlement</h2>
+          <p className="muted">Texte affiché en bas de vos devis (modalités de paiement, acompte, délais...).</p>
+          <label className="profile-field wide">
+            <span>Modalités de paiement</span>
+            <textarea
+              className="profile-textarea"
+              value={business.paymentTerms || ""}
+              onChange={(event) => setField("paymentTerms", event.target.value)}
+              placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
+              rows={4}
+            />
+          </label>
         </section>
 
         {message ? <p className="profile-message">{message}</p> : null}

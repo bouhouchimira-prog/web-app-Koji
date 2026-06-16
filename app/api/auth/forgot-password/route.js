@@ -19,7 +19,7 @@ export async function POST(request) {
   const user = userByType || db.users.find((candidate) => candidate.email.toLowerCase() === email);
 
   if (!user) {
-    return ok({ message: "Si ce compte existe, un e-mail a ete envoye." });
+    return ok({ message: "Si ce compte existe, un e-mail a été envoyé." });
   }
 
   const token = makeResetToken();
@@ -37,7 +37,7 @@ export async function POST(request) {
   });
 
   return ok({
-    message: "Si ce compte existe, un e-mail a ete envoye.",
+    message: "Si ce compte existe, un e-mail a été envoyé.",
     devResetUrl: resetUrl,
     mailQueued: queued.id
   });

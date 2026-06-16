@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -34,7 +34,7 @@ export default function ClientHomePage() {
   }, []);
 
   const signedQuotes = useMemo(() => quotes.filter((quote) => quote.status === "Signe"), [quotes]);
-  const activeTasks = useMemo(() => quotes.flatMap((quote) => quote.tasks || []).filter((task) => task.status !== "Terminee"), [quotes]);
+  const activeTasks = useMemo(() => quotes.flatMap((quote) => quote.tasks || []).filter((task) => !["Terminee", "Termine", "Terminé"].includes(task.status)), [quotes]);
 
   if (!user?.email) {
     return (
@@ -89,8 +89,8 @@ export default function ClientHomePage() {
           ) : quotes.map((quote) => (
             <article className="client-row" key={quote.id}>
               <div>
-                <strong>{quote.reference}</strong>
-                <span>{quote.project?.name || quote.projectName || "Chantier"} · {shortDate(quote.createdAt)}</span>
+                <strong>{quote.reference || quote.quoteNumber}</strong>
+                <span>{quote.project?.name || quote.projectName || "Chantier"} ? {shortDate(quote.createdAt)}</span>
               </div>
               <div className="client-row-actions">
                 <span className="client-amount">{euro(quote.totalTtc || quote.total || 0)}</span>
@@ -113,10 +113,10 @@ export default function ClientHomePage() {
           ) : activeTasks.map((task) => (
             <article className="client-row" key={task.id}>
               <div>
-                <strong>{task.title}</strong>
+                <strong>{task.title || task.label || task.name}</strong>
                 <span>Date : {task.dueDate ? shortDate(task.dueDate) : "Date a definir"}</span>
               </div>
-              <span className="status-pill">{task.status || "A faire"}</span>
+              <span className="status-pill">{task.status || "À faire"}</span>
             </article>
           ))}
         </div>
@@ -132,3 +132,4 @@ export default function ClientHomePage() {
     </main>
   );
 }
+

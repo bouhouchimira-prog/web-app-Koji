@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 function toAmount(value) {
@@ -16,7 +16,7 @@ function normalizeExpense(expense) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   const quoteId = url.searchParams.get("quoteId") || "";
@@ -36,7 +36,7 @@ export async function POST(request) {
   const amount = toAmount(body.amount);
 
   if (!body.projectId) return badRequest("Chantier obligatoire.", 400);
-  if (amount <= 0) return badRequest("Le montant doit etre superieur a zero.", 400);
+  if (amount <= 0) return badRequest("Le montant doit être supérieur à zéro.", 400);
 
   const project = db.projects.find((item) => item.id === body.projectId);
   const expense = {
@@ -74,7 +74,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.expenses, body.id, userId);
   if (index === -1) return badRequest("Depense introuvable.", 404);
 

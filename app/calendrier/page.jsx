@@ -62,7 +62,7 @@ export default function CalendrierPage() {
         projectTitle: fixText(task.project),
         startAt: task.startDate || task.dueDate,
         endAt: task.endDate || task.dueDate,
-        status: task.status || (task.done ? "Termine" : "A faire"),
+        status: task.status || (task.done ? "Termine" : "À faire"),
         progress: task.done ? 100 : 0,
         workerNames: task.assignedTo && task.assignedTo !== "Equipe" ? fixText(task.assignedTo) : "Non assignee"
       }));

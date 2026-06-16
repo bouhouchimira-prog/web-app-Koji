@@ -1,6 +1,7 @@
-import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+﻿import { ok } from "../../../lib/http";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
+import { addWorkerNotification } from "../../../lib/worker-portal";
 
 function normalizeTask(task) {
   return {
@@ -10,9 +11,23 @@ function normalizeTask(task) {
   };
 }
 
+function notifyAssignedWorkers(db, task, workers) {
+  workers.forEach((worker) => {
+    addWorkerNotification(db, {
+      userId: task.userId,
+      workerId: worker.id,
+      projectId: task.projectId || "",
+      taskId: task.id,
+      type: "worker.assignment",
+      title: "Nouvelle affectation",
+      message: `${task.project || "Chantier"} - ${task.label}`,
+    });
+  });
+}
+
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   return ok({ tasks: scopedItems(db.tasks, userId).map(normalizeTask) });
 }
 
@@ -34,6 +49,7 @@ export async function POST(request) {
     endTime: body.endTime || "",
     location: fixText(body.location || ""),
     durationHours: Number(body.durationHours || 1),
+    estimatedHours: Number(body.estimatedHours || body.durationHours || 1),
     assignedTo: fixText(body.assignedTo || "Equipe"),
     workerIds: Array.isArray(body.workerIds) ? body.workerIds : [],
     participantType: body.participantType || "Ouvriers",
@@ -43,11 +59,18 @@ export async function POST(request) {
     unit: fixText(body.unit || ""),
     quantity: Number(body.quantity || 0),
     supplyNeeds: Array.isArray(body.supplyNeeds) ? fixObjectText(body.supplyNeeds) : [],
-    status: body.status || "A faire",
+    subWorks: Array.isArray(body.subWorks) ? fixObjectText(body.subWorks) : [],
+    status: body.status || "À faire",
     done: false,
     createdAt: new Date().toISOString()
   };
   db.tasks.unshift(task);
+  const assignedWorkers = db.workers.filter((worker) => task.workerIds.includes(worker.id));
+  if (assignedWorkers.length) {
+    task.assignedTo = fixText(assignedWorkers.map((worker) => worker.name).join(", "));
+    task.notifiedAt = new Date().toISOString();
+    notifyAssignedWorkers(db, task, assignedWorkers);
+  }
   addHistory(db, {
     userId,
     type: "task.created",
@@ -62,7 +85,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.tasks, body.id, userId);
   if (index === -1) return ok({ error: "Tache introuvable." }, 404);
 
@@ -81,10 +104,11 @@ export async function PATCH(request) {
   }
   if (body.action === "toggle") {
     task.done = !task.done;
-    task.status = task.done ? "Terminee" : "A faire";
+    task.status = task.done ? "Terminee" : "À faire";
   } else if (body.action === "assign") {
     const workerIds = Array.isArray(body.workerIds) ? body.workerIds : [];
     const workers = db.workers.filter((worker) => workerIds.includes(worker.id));
+    const previousWorkerIds = new Set(Array.isArray(task.workerIds) ? task.workerIds : []);
     task.workerIds = workerIds;
     task.assignedTo = fixText(workers.map((worker) => worker.name).join(", ") || task.assignedTo || "Equipe");
     task.participantType = fixText(body.participantType || task.participantType || "Ouvriers");
@@ -95,13 +119,15 @@ export async function PATCH(request) {
     if (Object.prototype.hasOwnProperty.call(body, "endTime")) task.endTime = body.endTime;
     if (Object.prototype.hasOwnProperty.call(body, "location")) task.location = fixText(body.location);
     if (Object.prototype.hasOwnProperty.call(body, "supplyNeeds")) task.supplyNeeds = Array.isArray(body.supplyNeeds) ? fixObjectText(body.supplyNeeds) : [];
+    if (Object.prototype.hasOwnProperty.call(body, "subWorks")) task.subWorks = Array.isArray(body.subWorks) ? fixObjectText(body.subWorks) : [];
     task.status = "Planifiee";
     task.notifiedAt = new Date().toISOString();
+    notifyAssignedWorkers(db, task, workers.filter((worker) => !previousWorkerIds.has(worker.id)));
   } else {
-    const allowed = ["label", "project", "projectId", "room", "dueDate", "startDate", "endDate", "startTime", "endTime", "location", "durationHours", "assignedTo", "workerIds", "participantType", "status", "done", "quoteId", "quoteItemId", "code", "unit", "quantity", "supplyNeeds"];
+    const allowed = ["label", "project", "projectId", "room", "dueDate", "startDate", "endDate", "startTime", "endTime", "location", "durationHours", "estimatedHours", "assignedTo", "workerIds", "participantType", "status", "done", "quoteId", "quoteItemId", "code", "unit", "quantity", "supplyNeeds", "subWorks"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
-        task[key] = key === "durationHours" || key === "quantity" ? Number(body[key] || 0) : fixObjectText(body[key]);
+        task[key] = key === "durationHours" || key === "estimatedHours" || key === "quantity" ? Number(body[key] || 0) : fixObjectText(body[key]);
       }
     }
   }

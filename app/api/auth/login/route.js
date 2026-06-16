@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { nowIso } from "../../../../lib/auth";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
+import { verifyUserPassword } from "../../../../lib/worker-auth";
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -33,7 +34,7 @@ export async function POST(request) {
   const user = userByType || db.users.find((candidate) => matchesIdentifier(candidate, email));
 
   if (!user) return badRequest("Compte introuvable. Creez un compte d'abord.", 404);
-  if (user.password !== password) return badRequest("Email ou mot de passe incorrect", 401);
+  if (!verifyUserPassword(user, password)) return badRequest("Email ou mot de passe incorrect", 401);
 
   if ((user.accountType || "entreprise") !== accountType) {
     return badRequest("Ce compte appartient a l'autre profil. Changez de profil puis reconnectez-vous.", 403);

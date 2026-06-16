@@ -1,9 +1,9 @@
 import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   return ok({ signatureSettings: scopedItems(db.signatureSettings, userId) });
 }
 
@@ -11,7 +11,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = body.userId || "";
-  const existingIndex = db.signatureSettings.findIndex((item) => (!userId || item.userId === userId));
+  const existingIndex = db.signatureSettings.findIndex((item) => item.userId === userId);
   const now = new Date().toISOString();
   const setting = {
     id: existingIndex === -1 ? `sgn-${Date.now()}` : db.signatureSettings[existingIndex].id,
@@ -39,7 +39,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.signatureSettings, body.id, userId);
   if (index === -1) return ok({ error: "Signature introuvable." }, 404);
 

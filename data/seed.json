@@ -1,21 +1,71 @@
 ﻿{
-  "users": [],
-  "projects": [],
-  "quotes": [],
-  "invoices": [],
-  "calendarEvents": [],
-  "tasks": [],
-  "supplies": [],
-  "suppliers": [],
-  "workers": [],
-  "signatureSettings": [],
-  "ouvrages": [],
-  "deletedOuvrages": [],
-  "mailOutbox": [],
-  "history": [],
-  "projectDocuments": [],
-  "projectArchives": [],
-  "notifications": [],
-  "expenses": []
-}
+    "users":  [
 
+              ],
+    "projects":  [
+
+                 ],
+    "quotes":  [
+
+               ],
+    "invoices":  [
+
+                 ],
+    "calendarEvents":  [
+
+                       ],
+    "tasks":  [
+
+              ],
+    "supplies":  [
+
+                 ],
+    "suppliers":  [
+
+                  ],
+    "workers":  [
+
+                ],
+    "signatureSettings":  [
+
+                          ],
+    "ouvrages":  [
+
+                 ],
+    "deletedOuvrages":  [
+
+                        ],
+    "mailOutbox":  [
+
+                   ],
+    "history":  [
+
+                ],
+    "projectDocuments":  [
+
+                         ],
+    "projectArchives":  [
+
+                        ],
+    "notifications":  [
+
+                      ],
+    "expenses":  [
+
+                 ],
+    "workerClaims":  [
+
+                     ],
+    "workerDelayReports":  [
+
+                           ],
+    "workerTimeEvents":  [
+
+                         ],
+    "smsOutbox":  [
+
+                  ],
+    "categories":  [
+
+                   ]
+}

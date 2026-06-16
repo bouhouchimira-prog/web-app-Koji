@@ -1,56 +1,89 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
 
-const KNOWN_EMAILS_KEY = "koji-known-emails";
+function EyeIcon({ open }) {
+  return open ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
 
-function saveKnownEmail(nextEmail) {
-  const email = String(nextEmail || "").trim().toLowerCase();
-  if (!email) return;
-  try {
-    const raw = window.localStorage.getItem(KNOWN_EMAILS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const known = Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-    if (known.includes(email)) return;
-    window.localStorage.setItem(KNOWN_EMAILS_KEY, JSON.stringify([email, ...known].slice(0, 12)));
-  } catch {
-    window.localStorage.setItem(KNOWN_EMAILS_KEY, JSON.stringify([email]));
-  }
+function MailIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#0a1538" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
+    </svg>
+  );
 }
 
 function SignupScreen() {
-  const router = useRouter();
   const params = useSearchParams();
   const typeParam = params.get("type");
-  const accountType = useMemo(() => (typeParam === "particulier" ? "particulier" : "entreprise"), [typeParam]);
-  const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState(typeParam === "particulier" ? "particulier" : "entreprise");
+
+  // step: "email" | "details" | "confirm"
+  const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [info, setInfo] = useState("");
-  const [activationUrl, setActivationUrl] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const valid = name.trim() && email.trim() && password.length >= 6;
+  const [devUrl, setDevUrl] = useState("");
 
-  async function submit(event) {
+  function passwordStrength(pwd) {
+    if (!pwd) return 0;
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    return score;
+  }
+
+  const strength = passwordStrength(password);
+  const strengthLabel = ["", "Très faible", "Faible", "Moyen", "Bon", "Excellent"][strength] || "";
+  const strengthColor = ["", "#e53e3e", "#dd6b20", "#d69e2e", "#38a169", "#2b6cb0"][strength] || "";
+
+  async function handleEmailStep(event) {
     event.preventDefault();
-    if (!valid) return;
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError("Entrez une adresse email valide.");
+      return;
+    }
+    setError("");
+    setStep("details");
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!name.trim()) { setError("Entrez votre nom complet."); return; }
+    if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     setError("");
-    setInfo("");
-    setActivationUrl("");
     try {
-      const data = await apiSend("/api/auth/signup", { name, email, password, accountType });
-      saveKnownEmail(data.user?.email || email);
-      window.localStorage.setItem("koji-user", JSON.stringify(data.user));
-      setInfo(data.message || "Compte cree.");
-      if (data.devActivationUrl) setActivationUrl(data.devActivationUrl);
-      router.push(data.user?.accountType === "particulier" ? "/client" : "/");
+      const data = await apiSend("/api/auth/signup", {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        accountType
+      });
+      if (data.devActivationUrl) setDevUrl(data.devActivationUrl);
+      setStep("confirm");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -58,48 +91,154 @@ function SignupScreen() {
     }
   }
 
+  if (step === "confirm") {
+    return (
+      <main className="auth-screen-v2">
+        <AuthBrandPanel />
+        <section className="auth-panel-v2">
+          <div className="auth-confirm-card">
+            <div className="auth-confirm-icon"><MailIcon /></div>
+            <h2>Vérifiez votre boîte mail</h2>
+            <p className="auth-confirm-sub">
+              Un email d&apos;activation a été envoyé à <strong>{email}</strong>.<br />
+              Cliquez sur le lien dans l&apos;email pour activer votre compte.
+            </p>
+            {devUrl ? (
+              <div className="auth-dev-box">
+                <span>Lien de développement (pas d&apos;SMTP configuré) :</span>
+                <a href={devUrl} className="auth-link">Activer mon compte →</a>
+              </div>
+            ) : null}
+            <p className="auth-confirm-hint">
+              Vous n&apos;avez pas reçu d&apos;email ?{" "}
+              <button type="button" className="auth-text-btn" onClick={() => setStep("email")}>
+                Recommencer
+              </button>
+            </p>
+            <Link className="auth-link" href="/login">Aller à la connexion</Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="auth-screen">
+    <main className="auth-screen-v2">
       <AuthBrandPanel />
+      <section className="auth-panel-v2">
+        <div className="auth-card">
 
-      <section className="auth-panel">
-        <div className="auth-switch">
-          <Link href="/signup?type=entreprise" className={accountType === "entreprise" ? "active" : ""}>Profil entreprise</Link>
-          <Link href="/signup?type=particulier" className={accountType === "particulier" ? "active" : ""}>Profil particulier</Link>
-        </div>
-
-        <h2>Inscription</h2>
-        <form className="auth-form" onSubmit={submit}>
-          <input className="auth-input" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nom complet" />
-          <input className="auth-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Adresse e-mail" type="email" />
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              className="auth-input"
-              style={{ flex: 1 }}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mot de passe (6 caracteres min.)"
-              type={showPassword ? "text" : "password"}
-            />
+          {/* Account type toggle */}
+          <div className="auth-type-toggle">
             <button
               type="button"
-              className="button secondary"
-              style={{ minWidth: 88 }}
-              onClick={() => setShowPassword((value) => !value)}
+              className={accountType === "entreprise" ? "active" : ""}
+              onClick={() => setAccountType("entreprise")}
             >
-              {showPassword ? "Masquer" : "Afficher"}
+              Entreprise
+            </button>
+            <button
+              type="button"
+              className={accountType === "particulier" ? "active" : ""}
+              onClick={() => setAccountType("particulier")}
+            >
+              Particulier
             </button>
           </div>
-          {error ? <p style={{ color: "var(--red)", fontWeight: 400 }}>{error}</p> : null}
-          {info ? <p style={{ color: "#0f8e4c", fontWeight: 400 }}>{info}</p> : null}
-          {activationUrl ? (
-            <p className="muted" style={{ fontSize: 14 }}>
-              Lien d&apos;activation de test: <a className="auth-link" href={activationUrl}>Activer mon compte</a>
-            </p>
-          ) : null}
-          <button className="button blue" disabled={!valid || loading}>{loading ? "Creation..." : "Creer mon compte"}</button>
-        </form>
-        <p className="muted" style={{ marginTop: 22 }}>Deja un compte ? <Link className="auth-link" href={`/login?type=${accountType}`}>Connexion</Link></p>
+
+          <h2 className="auth-title">Créer un compte</h2>
+          <p className="auth-subtitle">
+            {step === "email"
+              ? "Entrez votre adresse email pour commencer."
+              : "Complétez vos informations pour finaliser l'inscription."}
+          </p>
+
+          {/* Step 1: email */}
+          {step === "email" && (
+            <form className="auth-form-v2" onSubmit={handleEmailStep}>
+              <div className="auth-field">
+                <label>Adresse email</label>
+                <input
+                  type="email"
+                  className="auth-input-v2"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                  placeholder="vous@exemple.fr"
+                  autoFocus
+                  autoComplete="email"
+                />
+              </div>
+              {error ? <p className="auth-error">{error}</p> : null}
+              <button type="submit" className="auth-btn-primary">Continuer</button>
+              <p className="auth-alt-link">
+                Déjà un compte ?{" "}
+                <Link className="auth-link" href={`/login?type=${accountType}`}>Se connecter</Link>
+              </p>
+            </form>
+          )}
+
+          {/* Step 2: name + password */}
+          {step === "details" && (
+            <form className="auth-form-v2" onSubmit={handleSubmit}>
+              <div className="auth-email-badge">
+                <span>{email}</span>
+                <button type="button" className="auth-text-btn" onClick={() => { setStep("email"); setError(""); }}>
+                  Modifier
+                </button>
+              </div>
+
+              <div className="auth-field">
+                <label>Nom complet</label>
+                <input
+                  className="auth-input-v2"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); setError(""); }}
+                  placeholder="Prénom et nom"
+                  autoFocus
+                  autoComplete="name"
+                />
+              </div>
+
+              <div className="auth-field">
+                <label>Mot de passe</label>
+                <div className="auth-input-wrap">
+                  <input
+                    className="auth-input-v2"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                    placeholder="8 caractères minimum"
+                    autoComplete="new-password"
+                  />
+                  <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label="Afficher/masquer">
+                    <EyeIcon open={showPassword} />
+                  </button>
+                </div>
+                {password ? (
+                  <div className="auth-strength">
+                    <div className="auth-strength-bar">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="auth-strength-seg" style={{ background: i <= strength ? strengthColor : "#e2e8f0" }} />
+                      ))}
+                    </div>
+                    <span style={{ color: strengthColor }}>{strengthLabel}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {error ? <p className="auth-error">{error}</p> : null}
+
+              <button type="submit" className="auth-btn-primary" disabled={loading}>
+                {loading ? "Création en cours..." : "Créer mon compte"}
+              </button>
+
+              <p className="auth-alt-link">
+                Déjà un compte ?{" "}
+                <Link className="auth-link" href={`/login?type=${accountType}`}>Se connecter</Link>
+              </p>
+            </form>
+          )}
+        </div>
       </section>
     </main>
   );

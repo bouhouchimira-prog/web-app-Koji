@@ -1,5 +1,5 @@
 import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 function toAmount(value) {
@@ -146,7 +146,7 @@ function createBudgetAlerts(db, project, userId) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   return ok({ projects: scopedItems(db.projects, userId).map((project) => ({
     ...fixObjectText(project),
     budgetItems: normalizeBudgetItems(project.budgetItems, project.budgetHt)
@@ -193,7 +193,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.projects, body.id, userId);
   if (index === -1) return ok({ error: "Chantier introuvable." }, 404);
 

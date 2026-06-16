@@ -1,5 +1,5 @@
 import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 function normalizeEvent(event, db) {
@@ -25,7 +25,7 @@ function normalizeEvent(event, db) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
+  const userId = getUserScope(request, db);
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   const day = url.searchParams.get("day") || "";
@@ -89,7 +89,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = resolveUserId(body.userId || "", db);
   const index = findScopedIndex(db.calendarEvents, body.id, userId);
   if (index === -1) return ok({ error: "Evenement introuvable." }, 404);
 

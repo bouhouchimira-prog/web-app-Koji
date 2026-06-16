@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../../lib/http";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
 import { activationExpires, makeActivationToken, nowIso } from "../../../../lib/auth";
 import { queueActivationEmail } from "../../../../lib/mailer";
+import { hashPassword } from "../../../../lib/worker-auth";
 
 export async function POST(request) {
   const body = await request.json();
@@ -11,6 +12,7 @@ export async function POST(request) {
   const accountType = body.accountType || "entreprise";
 
   if (!email || !password) return badRequest("Email et mot de passe obligatoires");
+  if (password.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caractères");
 
   const db = await readDb();
   const existing = db.users.find((candidate) => candidate.email.toLowerCase() === email);
@@ -18,20 +20,24 @@ export async function POST(request) {
 
   const activationToken = makeActivationToken();
   const activationUrl = `${new URL(request.url).origin}/activate?token=${activationToken}`;
+  const { passwordHash, passwordSalt } = hashPassword(password);
 
   const user = {
     id: `u-${Date.now()}`,
     email,
-    password,
+    passwordHash,
+    passwordSalt,
     name,
     accountType,
-    isActive: true,
+    isActive: false,
     activationToken,
     activationExpiresAt: activationExpires(24),
     createdAt: nowIso(),
     lastLoginAt: nowIso(),
     businessInfoComplete: false,
     profileComplete: false,
+    plan: "trial",
+    trialStartedAt: nowIso(),
     business: {},
     personal: {},
     professions: []
@@ -41,11 +47,9 @@ export async function POST(request) {
   await writeDb(db);
   const queued = await queueActivationEmail({ email, name, activationUrl, accountType });
   return ok({
-    user: publicUser(user),
-    token: `demo-token-${user.id}`,
-    activationRequired: false,
-    message: "Compte cree et connexion directe activee.",
-    devActivationUrl: activationUrl,
-    mailQueued: queued.id
+    activationRequired: true,
+    emailSent: queued.sent || false,
+    message: "Compte créé. Vérifiez votre boîte mail pour activer votre compte.",
+    devActivationUrl: process.env.NODE_ENV !== "production" ? activationUrl : undefined
   }, 201);
 }

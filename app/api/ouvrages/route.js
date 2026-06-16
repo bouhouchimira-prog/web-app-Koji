@@ -1,6 +1,6 @@
 import catalog from "../../../data/catalog-ouvrages.json";
 import { ok, badRequest } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserIdFromRequest, readDb, scopedItems, writeDb } from "../../../lib/db";
+import { addHistory, findScopedIndex, readDb, writeDb } from "../../../lib/db";
 import { fixText } from "../../../lib/text";
 
 function normalizeOuvrage(item) {
@@ -23,9 +23,10 @@ function normalizeOuvrage(item) {
   };
 }
 
-function mergedOuvrages(db, userId) {
+// Ouvrages library is shared across all users — no userId scoping on reads.
+function mergedOuvrages(db) {
   const deleted = new Set(db.deletedOuvrages || []);
-  const custom = scopedItems(db.ouvrages || [], userId).map(normalizeOuvrage);
+  const custom = (db.ouvrages || []).map(normalizeOuvrage);
   const customById = new Map(custom.map((item) => [item.id, item]));
   const base = catalog
     .filter((item) => !deleted.has(item.id))
@@ -36,8 +37,7 @@ function mergedOuvrages(db, userId) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserIdFromRequest(request);
-  return ok({ ouvrages: mergedOuvrages(db, userId) });
+  return ok({ ouvrages: mergedOuvrages(db) });
 }
 
 export async function POST(request) {
@@ -78,7 +78,7 @@ export async function POST(request) {
     entityType: "ouvrage"
   });
   await writeDb(db);
-  return ok({ ouvrage, ouvrages: mergedOuvrages(db, userId) }, 201);
+  return ok({ ouvrage, ouvrages: mergedOuvrages(db) }, 201);
 }
 
 export async function PATCH(request) {
@@ -88,7 +88,7 @@ export async function PATCH(request) {
   const db = await readDb();
   const userId = body.userId || "";
   const now = new Date().toISOString();
-  const index = findScopedIndex(db.ouvrages, body.id, userId);
+  const index = findScopedIndex(db.ouvrages, body.id, ""); // shared library — anyone can edit
   const source = index === -1 ? catalog.find((item) => item.id === body.id) : db.ouvrages[index];
   if (!source) return badRequest("Ouvrage introuvable.", 404);
 
@@ -114,7 +114,7 @@ export async function PATCH(request) {
     entityType: "ouvrage"
   });
   await writeDb(db);
-  return ok({ ouvrage: updated, ouvrages: mergedOuvrages(db, userId) });
+  return ok({ ouvrage: updated, ouvrages: mergedOuvrages(db) });
 }
 
 export async function DELETE(request) {
@@ -124,7 +124,7 @@ export async function DELETE(request) {
   if (!id) return badRequest("Ouvrage introuvable.");
 
   const db = await readDb();
-  const index = findScopedIndex(db.ouvrages, id, userId);
+  const index = findScopedIndex(db.ouvrages, id, ""); // shared library — anyone can delete
   const existing = index === -1 ? catalog.find((item) => item.id === id) : db.ouvrages[index];
   if (!existing) return badRequest("Ouvrage introuvable.", 404);
 
@@ -142,5 +142,5 @@ export async function DELETE(request) {
     entityType: "ouvrage"
   });
   await writeDb(db);
-  return ok({ ouvrages: mergedOuvrages(db, userId) });
+  return ok({ ouvrages: mergedOuvrages(db) });
 }
