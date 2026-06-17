@@ -2398,6 +2398,11 @@ p {
   box-shadow: 0 1px 6px rgba(0,0,0,0.1);
 }
 
+.auth-type-toggle-3 button {
+  font-size: 0.82rem;
+  padding: 7px 6px;
+}
+
 .auth-title {
   font-size: 1.5rem;
   font-weight: 800;
