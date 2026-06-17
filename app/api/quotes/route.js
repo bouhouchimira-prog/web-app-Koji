@@ -15,16 +15,14 @@ function normalizeQuote(quote) {
 
 function buildSignatureLinks(request, quote, identifier = "") {
   const origin = new URL(request.url).origin;
-  const signatureBase = process.env.PUBLIC_SIGNATURE_BASE_URL || "https://koji-signature.vercel.app";
-  const signaturePath = process.env.PUBLIC_SIGNATURE_LOGIN_PATH || "/auth/login";
+  // Default to self-hosted signature login (no external app required)
+  const signatureBase = process.env.PUBLIC_SIGNATURE_BASE_URL || origin;
+  const signaturePath = process.env.PUBLIC_SIGNATURE_LOGIN_PATH || "/signature/login";
   const cleanSignatureBase = String(signatureBase).replace(/\/$/, "");
   const cleanSignaturePath = signaturePath.startsWith("/") ? signaturePath : `/${signaturePath}`;
   const localSignatureUrl = `${origin}/signature/${quote.signatureToken}`;
   const signatureUrl = new URL(`${cleanSignatureBase}${cleanSignaturePath}`);
   signatureUrl.searchParams.set("signatureToken", quote.signatureToken);
-  signatureUrl.searchParams.set("quoteId", quote.id);
-  signatureUrl.searchParams.set("source", "koji-web");
-  signatureUrl.searchParams.set("returnUrl", localSignatureUrl);
   if (identifier) signatureUrl.searchParams.set("identifier", identifier);
   return {
     signatureUrl: signatureUrl.toString(),
