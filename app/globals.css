@@ -6060,18 +6060,18 @@ body :where(
 }
 
 .quote-sub-items {
-  border-top: 2px dashed #d0e2f8;
-  padding: 10px 12px 12px;
+  border-top: 1px solid #dde8f7;
+  padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: #f2f7fd;
+  background: #f4f8fe;
 }
 
 .quote-sub-item-card {
   background: white;
-  border: 1px solid #d4e2f5;
-  border-left: 4px solid #5b8fdb;
+  border: 1px solid #cdddf5;
+  border-left: 4px solid #4a7fd4;
   border-radius: 10px;
   overflow: hidden;
   display: flex;
@@ -6079,7 +6079,7 @@ body :where(
 }
 
 .quote-sub-item-card header {
-  background: #f0f5fc;
+  background: #eef4fc;
   border-bottom: 1px solid #dde9f7;
 }
 
@@ -6092,14 +6092,26 @@ body :where(
   border-top: 1px solid #dde9f7;
 }
 
-.quote-sub-add-bar {
+.quote-sub-add-btn {
   display: flex;
-  padding: 4px 0 2px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 16px;
+  border: 1.5px dashed #7aaae8;
+  border-radius: 12px;
+  background: #f0f6ff;
+  color: #2f62c9;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.quote-sub-add-bar .quote-toolbar-button {
-  font-size: 0.85rem;
-  padding: 7px 16px;
+.quote-sub-add-btn:hover {
+  background: #e3eeff;
+  border-color: #4a7fd4;
 }
 
 .button.danger {
