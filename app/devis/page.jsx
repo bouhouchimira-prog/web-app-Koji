@@ -167,6 +167,26 @@ function recalculateLine(line, settings = {}) {
   };
 }
 
+function computeSubItemLine(subItem, parentLine = {}) {
+  const billingMode = subItem.billingMode || "fixed";
+  const vatRate = subItem.vatRate != null && subItem.vatRate !== ""
+    ? Number(subItem.vatRate)
+    : (parentLine.vatRate || 0.2);
+  let totalHt = 0;
+  if (billingMode === "fixed") {
+    const input = Number(subItem.fixedAmountInput || 0);
+    totalHt = subItem.fixedAmountMode === "ttc"
+      ? round2(input / (1 + vatRate))
+      : round2(input);
+  } else {
+    totalHt = round2(
+      Number(subItem.quantity || 0) * Number(subItem.normativeTime || 0) * Number(subItem.hourlyRate || parentLine.hourlyRate || 0)
+    );
+  }
+  const vatAmount = round2(totalHt * vatRate);
+  return { ...subItem, totalHt, totalTtc: round2(totalHt + vatAmount), vatAmount, vatRate };
+}
+
 export default function QuotesPage() {
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
@@ -405,7 +425,7 @@ export default function QuotesPage() {
         pricingProfile: { ...pricingProfile, hourlyRate: lineHourlyRate },
         selectedProducts: supplies
       });
-      return recalculateLine({
+      const line = recalculateLine({
         id: task.id,
         code: task.code,
         label: task.label,
@@ -429,6 +449,13 @@ export default function QuotesPage() {
         fixedDuration: settings.fixedDuration != null ? Number(settings.fixedDuration) : null,
         fixedDurationUnit: settings.fixedDurationUnit || "h"
       }, settings);
+
+      const rawSubItems = Array.isArray(settings.subItems) ? settings.subItems : [];
+      if (!rawSubItems.length) return line;
+      const subItems = rawSubItems.map((sub) => computeSubItemLine(sub, line));
+      const subTotalHt = round2(subItems.reduce((s, sub) => s + sub.totalHt, 0));
+      const subTotalTtc = round2(subItems.reduce((s, sub) => s + sub.totalTtc, 0));
+      return { ...line, totalHt: subTotalHt, totalTtc: subTotalTtc, vatAmount: round2(subTotalTtc - subTotalHt), subItems };
     });
   }, [lineSettings, selectedSources, supplies, company]);
 
@@ -650,6 +677,36 @@ export default function QuotesPage() {
       const settings = current[lineId] || {};
       const materials = (settings.materialLines || line?.materialLines || []).filter((_, itemIndex) => itemIndex !== index);
       return { ...current, [lineId]: { ...settings, materialLines: materials } };
+    });
+  }
+
+  function addSubItem(parentId) {
+    setGeneratedQuote(null);
+    setLineSettings((current) => {
+      const settings = current[parentId] || {};
+      const subItems = Array.isArray(settings.subItems) ? settings.subItems : [];
+      return {
+        ...current,
+        [parentId]: { ...settings, subItems: [...subItems, { id: `sub-${Date.now()}`, label: "", billingMode: "fixed", fixedAmountInput: "", fixedAmountMode: "ht", vatRate: "" }] }
+      };
+    });
+  }
+
+  function updateSubItem(parentId, subItemId, field, value) {
+    setGeneratedQuote(null);
+    setLineSettings((current) => {
+      const settings = current[parentId] || {};
+      const subItems = (settings.subItems || []).map((sub) => sub.id === subItemId ? { ...sub, [field]: value } : sub);
+      return { ...current, [parentId]: { ...settings, subItems } };
+    });
+  }
+
+  function removeSubItem(parentId, subItemId) {
+    setGeneratedQuote(null);
+    setLineSettings((current) => {
+      const settings = current[parentId] || {};
+      const subItems = (settings.subItems || []).filter((sub) => sub.id !== subItemId);
+      return { ...current, [parentId]: { ...settings, subItems } };
     });
   }
 
@@ -1131,6 +1188,152 @@ export default function QuotesPage() {
     ? `https://wa.me/${signaturePhoneDigits || ""}?text=${encodeURIComponent(signatureText)}`
     : "#";
 
+  function renderLineCard(line) {
+    const settings = lineSettings[line.id] || {};
+    const subItems = Array.isArray(line.subItems) ? line.subItems : [];
+    const hasSubItems = subItems.length > 0;
+    return (
+      <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
+        <header>
+          <div className="quote-final-line-header-actions">
+            <b>{money(line.totalHt)} HT</b>
+            <button type="button" className="quote-line-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer cette ligne">×</button>
+          </div>
+        </header>
+        <input className="quote-line-label-input" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder="Désignation de l'ouvrage..." />
+        {!hasSubItems ? (
+          <>
+            <div className="quote-mode-row">
+              <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>Temps réel</button>
+              <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>Forfait</button>
+              <label>Pièce<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
+                <option value="Services">— Sans pièce —</option>
+                {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
+              </select></label>
+            </div>
+            <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only" : ""}`}>
+              {line.billingMode === "fixed" ? (
+                <>
+                  <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
+                  <label className="forfait-mode-field">Type<select value={line.fixedAmountMode || "ht"} onChange={(event) => updateLine(line.id, "fixedAmountMode", event.target.value)}>
+                    <option value="ht">HT</option>
+                    <option value="ttc">TTC</option>
+                  </select></label>
+                  <label>TVA %<input type="number" min="0" max="100" step="any" value={settings.vatRate != null && settings.vatRate !== "" ? Math.round(settings.vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
+                  <label>Durée<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
+                  <label>Unité<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
+                    <option value="h">Heures</option>
+                    <option value="j">Jours</option>
+                  </select></label>
+                </>
+              ) : (
+                <>
+                  <label>Quantité<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
+                  <label>Temps h/{line.unit}<input type="number" min="0" step="any" value={settings.normativeTime ?? ""} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
+                  <label>Taux horaire<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
+                  <label>Ajustement %<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
+                  <label>Réduction %<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
+                  <label>TVA %<input type="number" min="0" max="100" step="any" value={settings.vatRate != null && settings.vatRate !== "" ? Math.round(settings.vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
+                  <label className="wide">Raison d'ajustement<input value={line.adjustmentReason || ""} onChange={(event) => updateLine(line.id, "adjustmentReason", event.target.value)} placeholder="Accès difficile, support dégradé..." /></label>
+                </>
+              )}
+            </div>
+            <div className="quote-line-breakdown">
+              {line.billingMode === "fixed" ? (
+                <>
+                  {settings.fixedDuration ? <span>Durée: {settings.fixedDuration} {settings.fixedDurationUnit ?? "h"}</span> : null}
+                  <span>Forfait {line.fixedAmountMode === "ttc" ? "TTC" : "HT"}: {money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}</span>
+                </>
+              ) : (
+                <>
+                  <span>Heures: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
+                  <span>Main-d'œuvre: {money(line.laborCost)}</span>
+                  <span>Fournitures: {money(line.materialCost)}</span>
+                </>
+              )}
+              <span>HT: {money(line.totalHt)}</span>
+              <span>TVA {Math.round((line.vatRate ?? 0.2) * 100)} %: {money(line.vatAmount)}</span>
+              <span>Total TTC: {money(line.totalTtc)}</span>
+            </div>
+            {(() => {
+              const visibleMaterials = (line.materialLines || []).filter((m) => m.productId || Number(m.unitPrice || 0) > 0);
+              if (!visibleMaterials.length) return null;
+              return (
+                <div className="quote-line-supplies">
+                  <div className="quote-line-supplies-head">
+                    <span>Fournitures</span>
+                    <label className="material-visibility">
+                      <input type="checkbox" checked={line.showMaterialsToClient !== false} onChange={(event) => updateLine(line.id, "showMaterialsToClient", event.target.checked)} />
+                      Afficher au client
+                    </label>
+                  </div>
+                  {visibleMaterials.map((material) => {
+                    const linkedSupply = findSupplyForMaterial(supplies, material);
+                    const originalIndex = (line.materialLines || []).indexOf(material);
+                    return (
+                      <div className={`supply-review-row ${linkedSupply ? "" : "needs-link"}`} key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
+                        <button type="button" className={linkedSupply ? "supply-open-button" : "supply-create-button"} onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? "Ouvrir" : "Creer"}</button>
+                        <input value={material.productName || material.category || ""} onChange={(event) => updateMaterial(line.id, originalIndex, "productName", event.target.value)} placeholder="Fourniture" />
+                        <input type="number" min="0" step="0.01" value={material.unitsToBuy} onChange={(event) => updateMaterial(line.id, originalIndex, "unitsToBuy", event.target.value)} />
+                        <input type="number" min="0" step="0.01" value={material.unitPrice} onChange={(event) => updateMaterial(line.id, originalIndex, "unitPrice", event.target.value)} />
+                        <strong>{money(material.total)}</strong>
+                        <div className="supply-row-actions">
+                          <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>Via lien</button>
+                          <button type="button" className="danger-ghost" onClick={() => removeMaterial(line.id, originalIndex)}>Supprimer</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </>
+        ) : (
+          <div className="quote-line-breakdown sub-items-summary">
+            <span>{subItems.length} sous-ouvrage{subItems.length > 1 ? "s" : ""}</span>
+            <span>HT: {money(line.totalHt)}</span>
+            <span>Total TTC: {money(line.totalTtc)}</span>
+          </div>
+        )}
+        <div className="quote-sub-items">
+          {subItems.map((sub) => (
+            <div key={sub.id} className="quote-sub-item">
+              <div className="sub-item-top">
+                <input className="sub-item-label-input" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder="Désignation du sous-ouvrage..." />
+                <div className="sub-item-mode-row">
+                  <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>Temps</button>
+                  <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>Forfait</button>
+                </div>
+                <strong className="sub-item-total">{money(sub.totalHt)} HT</strong>
+                <button type="button" className="sub-item-remove" onClick={() => removeSubItem(line.id, sub.id)} aria-label="Supprimer">×</button>
+              </div>
+              {sub.billingMode === "fixed" ? (
+                <div className="sub-item-inputs">
+                  <label>Montant<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} placeholder="0" /></label>
+                  <label>Type<select value={sub.fixedAmountMode || "ht"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountMode", e.target.value)}>
+                    <option value="ht">HT</option>
+                    <option value="ttc">TTC</option>
+                  </select></label>
+                  <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
+                  <span className="sub-item-ttc">TTC: {money(sub.totalTtc)}</span>
+                </div>
+              ) : (
+                <div className="sub-item-inputs">
+                  <label>Quantité<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
+                  <label>h/u<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
+                  <label>Taux €/h<input type="number" min="0" step="any" value={sub.hourlyRate || ""} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={company.hourlyRate || "0"} /></label>
+                  <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
+                  <span className="sub-item-ttc">TTC: {money(sub.totalTtc)}</span>
+                </div>
+              )}
+            </div>
+          ))}
+          <button type="button" className="sub-item-add-btn" onClick={() => addSubItem(line.id)}>+ Ajouter un sous-ouvrage</button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <Shell>
       <header className="page-header quote-final-header">
@@ -1299,73 +1502,10 @@ export default function QuotesPage() {
 
           {(linesByRoom["Services"] || []).length > 0 ? (
             <div className="quote-final-lines">
-              {(linesByRoom["Services"] || []).map((line) => (
-                <article key={line.id} className="quote-final-line">
-                  <header>
-                    <div className="quote-final-line-header-actions">
-                      <b>{money(line.totalHt)} HT</b>
-                      <button type="button" className="quote-line-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer cette ligne">×</button>
-                    </div>
-                  </header>
-                  <input className="quote-line-label-input" value={lineSettings[line.id]?.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder="Désignation de l'ouvrage..." />
-                  <div className="quote-mode-row">
-                    <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>Temps réel</button>
-                    <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>Forfait</button>
-                    {roomGroups.filter(r => r !== "Services").length > 0 ? (
-                      <label>Pièce<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
-                        <option value="Services">— Sans pièce —</option>
-                        {roomGroups.filter(r => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
-                      </select></label>
-                    ) : null}
-                  </div>
-                  <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only" : ""}`}>
-                    {line.billingMode === "fixed" ? (
-                      <>
-                        <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={lineSettings[line.id]?.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
-                        <label className="forfait-mode-field">Type<select value={line.fixedAmountMode || "ht"} onChange={(event) => updateLine(line.id, "fixedAmountMode", event.target.value)}>
-                          <option value="ht">HT</option>
-                          <option value="ttc">TTC</option>
-                        </select></label>
-                        <label>TVA %<input type="number" min="0" max="100" step="any" value={lineSettings[line.id]?.vatRate != null && lineSettings[line.id]?.vatRate !== "" ? Math.round(lineSettings[line.id].vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
-                        <label>Durée<input type="number" min="0" step="any" value={lineSettings[line.id]?.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
-                        <label>Unité<select value={lineSettings[line.id]?.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
-                          <option value="h">Heures</option>
-                          <option value="j">Jours</option>
-                        </select></label>
-                      </>
-                    ) : (
-                      <>
-                        <label>Quantité<input type="number" min="0" step="any" value={lineSettings[line.id]?.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
-                        <label>Temps h/{line.unit}<input type="number" min="0" step="any" value={lineSettings[line.id]?.normativeTime ?? ""} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
-                        <label>Taux horaire<input type="number" min="0" step="any" value={lineSettings[line.id]?.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
-                        <label>Ajustement %<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
-                        <label>Réduction %<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
-                        <label>TVA %<input type="number" min="0" max="100" step="any" value={lineSettings[line.id]?.vatRate != null && lineSettings[line.id]?.vatRate !== "" ? Math.round(lineSettings[line.id].vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
-                        <label className="wide">Raison d'ajustement<input value={line.adjustmentReason || ""} onChange={(event) => updateLine(line.id, "adjustmentReason", event.target.value)} placeholder="Accès difficile, support dégradé..." /></label>
-                      </>
-                    )}
-                  </div>
-                  <div className="quote-line-breakdown">
-                    {line.billingMode === "fixed" ? (
-                      <>
-                        {lineSettings[line.id]?.fixedDuration ? <span>Durée: {lineSettings[line.id].fixedDuration} {lineSettings[line.id]?.fixedDurationUnit ?? "h"}</span> : null}
-                        <span>Forfait {line.fixedAmountMode === "ttc" ? "TTC" : "HT"}: {money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Heures: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
-                        <span>Main-d'œuvre: {money(line.laborCost)}</span>
-                        <span>Fournitures: {money(line.materialCost)}</span>
-                      </>
-                    )}
-                    <span>HT: {money(line.totalHt)}</span>
-                    <span>TVA {Math.round((line.vatRate ?? 0.2) * 100)} %: {money(line.vatAmount)}</span>
-                    <span>Total TTC: {money(line.totalTtc)}</span>
-                  </div>
-                </article>
-              ))}
+              {(linesByRoom["Services"] || []).map((line) => renderLineCard(line))}
             </div>
           ) : null}
+
         </section>
 
         {roomGroups.filter((room) => room !== "Services").map((room) => {
@@ -1416,116 +1556,7 @@ export default function QuotesPage() {
                 <div className="empty-state">Aucun ouvrage pour cette pièce. Utilisez les boutons ci-dessus pour en ajouter.</div>
               ) : (
                 <div className="quote-final-lines">
-                  {roomLines.map((line) => (
-                    <article key={line.id} className="quote-final-line">
-                      <header>
-                        <div className="quote-final-line-header-actions">
-                          <b>{money(line.totalHt)} HT</b>
-                          <button type="button" className="quote-line-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer cette ligne">×</button>
-                        </div>
-                      </header>
-
-                      <input
-                        className="quote-line-label-input"
-                        value={lineSettings[line.id]?.label ?? line.label ?? ""}
-                        onChange={(event) => updateLineLabel(line.id, event.target.value)}
-                        placeholder="Désignation de l'ouvrage..."
-                      />
-
-                      <div className="quote-mode-row">
-                        <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>Temps réel</button>
-                        <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>Forfait</button>
-                        <label>Pièce<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
-                          <option value="Services">— Sans pièce —</option>
-                          {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
-                        </select></label>
-                      </div>
-
-                      <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only" : ""}`}>
-                        {line.billingMode === "fixed" ? (
-                          <>
-                            <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={lineSettings[line.id]?.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
-                            <label className="forfait-mode-field">Type<select value={line.fixedAmountMode || "ht"} onChange={(event) => updateLine(line.id, "fixedAmountMode", event.target.value)}>
-                              <option value="ht">HT</option>
-                              <option value="ttc">TTC</option>
-                            </select></label>
-                            <label>TVA %<input type="number" min="0" max="100" step="any" value={lineSettings[line.id]?.vatRate != null && lineSettings[line.id]?.vatRate !== "" ? Math.round(lineSettings[line.id].vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
-                            <label>Durée<input type="number" min="0" step="any" value={lineSettings[line.id]?.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
-                            <label>Unité<select value={lineSettings[line.id]?.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
-                              <option value="h">Heures</option>
-                              <option value="j">Jours</option>
-                            </select></label>
-                          </>
-                        ) : (
-                          <>
-                            <label>Quantité<input type="number" min="0" step="any" value={lineSettings[line.id]?.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
-                            <label>Temps h/{line.unit}<input type="number" min="0" step="any" value={lineSettings[line.id]?.normativeTime ?? ""} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
-                            <label>Taux horaire<input type="number" min="0" step="any" value={lineSettings[line.id]?.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
-                            <label>Ajustement %<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
-                            <label>Réduction %<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
-                            <label>TVA %<input type="number" min="0" max="100" step="any" value={lineSettings[line.id]?.vatRate != null && lineSettings[line.id]?.vatRate !== "" ? Math.round(lineSettings[line.id].vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
-                            <label className="wide">Raison d'ajustement<input value={line.adjustmentReason || ""} onChange={(event) => updateLine(line.id, "adjustmentReason", event.target.value)} placeholder="Accès difficile, support dégradé..." /></label>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="quote-line-breakdown">
-                        {line.billingMode === "fixed" ? (
-                          <span>Forfait {line.fixedAmountMode === "ttc" ? "TTC" : "HT"}: {money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}</span>
-                        ) : (
-                          <>
-                            <span>Heures: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
-                            <span>Main-d'œuvre: {money(line.laborCost)}</span>
-                            <span>Fournitures: {money(line.materialCost)}</span>
-                          </>
-                        )}
-                        <span>HT: {money(line.totalHt)}</span>
-                        <span>TVA {Math.round((line.vatRate ?? 0.2) * 100)} %: {money(line.vatAmount)}</span>
-                        <span>Total TTC: {money(line.totalTtc)}</span>
-                      </div>
-
-                      {(() => {
-                        const visibleMaterials = (line.materialLines || []).filter(
-                          (m) => m.productId || Number(m.unitPrice || 0) > 0
-                        );
-                        if (!visibleMaterials.length) return null;
-                        return (
-                          <div className="quote-line-supplies">
-                            <div className="quote-line-supplies-head">
-                              <span>Fournitures</span>
-                              <label className="material-visibility">
-                                <input type="checkbox" checked={line.showMaterialsToClient !== false} onChange={(event) => updateLine(line.id, "showMaterialsToClient", event.target.checked)} />
-                                Afficher au client
-                              </label>
-                            </div>
-                            {visibleMaterials.map((material, index) => {
-                              const linkedSupply = findSupplyForMaterial(supplies, material);
-                              const originalIndex = (line.materialLines || []).indexOf(material);
-                              return (
-                                <div className={`supply-review-row ${linkedSupply ? "" : "needs-link"}`} key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
-                                  <button
-                                    type="button"
-                                    className={linkedSupply ? "supply-open-button" : "supply-create-button"}
-                                    onClick={() => openSupplyReference(line.id, originalIndex, material)}
-                                  >
-                                    {linkedSupply ? "Ouvrir" : "Creer"}
-                                  </button>
-                                  <input value={material.productName || material.category || ""} onChange={(event) => updateMaterial(line.id, originalIndex, "productName", event.target.value)} placeholder="Fourniture" />
-                                  <input type="number" min="0" step="0.01" value={material.unitsToBuy} onChange={(event) => updateMaterial(line.id, originalIndex, "unitsToBuy", event.target.value)} />
-                                  <input type="number" min="0" step="0.01" value={material.unitPrice} onChange={(event) => updateMaterial(line.id, originalIndex, "unitPrice", event.target.value)} />
-                                  <strong>{money(material.total)}</strong>
-                                  <div className="supply-row-actions">
-                                    <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>Via lien</button>
-                                    <button type="button" className="danger-ghost" onClick={() => removeMaterial(line.id, originalIndex)}>Supprimer</button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-                    </article>
-                  ))}
+                  {roomLines.map((line) => renderLineCard(line))}
                 </div>
               )}
             </section>
