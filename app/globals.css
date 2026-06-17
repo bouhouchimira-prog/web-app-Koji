@@ -5583,7 +5583,7 @@ body :where(
 
 .supply-card-extra {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
   gap: 10px;
   align-items: end;
   padding: 6px 12px 10px;
@@ -6202,6 +6202,25 @@ body :where(
   color: #2a4a8c;
 }
 
+.quote-room-subtotal {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  border-top: 2px solid #c6d6f0;
+  background: #eef4ff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.quote-room-subtotal-label {
+  flex: 1;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .quote-sub-items {
   border-top: 1px solid #dde8f7;
   padding: 12px 14px 14px;
@@ -6760,9 +6779,12 @@ body :where(
   .supply-review-row,
   .supply-composer-grid,
   .supply-detail-list,
-  .supply-card-main,
-  .supply-card-extra {
+  .supply-card-main {
     grid-template-columns: 1fr;
+  }
+
+  .supply-card-extra {
+    grid-template-columns: 1fr 1fr;
   }
 
   .supply-row-actions {
