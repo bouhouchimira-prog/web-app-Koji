@@ -18,6 +18,15 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function nextQuoteNumberFromList(quotes) {
+  const year = new Date().getFullYear();
+  const maxSeq = (quotes || []).reduce((max, q) => {
+    const match = (q.quoteNumber || "").match(/_(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, 1048);
+  return `${year}_${String(maxSeq + 1).padStart(4, "0")}`;
+}
+
 function money(value) {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
@@ -95,7 +104,7 @@ function sourceToTask(source, settings = {}) {
     code: source.code,
     label: settings.label || source.label,
     unit: source.unit || "u",
-    normativeTime: round2(settings.normativeTime ?? 0),
+    normativeTime: round2(settings.normativeTime ?? source.normativeTime ?? 0),
     isFixedTime: source.unit === "u",
     billingMode: settings.billingMode || "time",
     fixedAmountHt: fixedAmountHtFromSettings(settings),
@@ -115,9 +124,7 @@ function sourceToTask(source, settings = {}) {
 }
 
 function recalculateLine(line, settings = {}) {
-  const lineVatRate = settings.vatRate != null && settings.vatRate !== ""
-    ? Number(settings.vatRate)
-    : Number(pricingProfile.vatRate || 0.2);
+  const lineVatRate = Number(pricingProfile.vatRate || 0.2);
   const editedMaterials = Array.isArray(settings.materialLines) ? settings.materialLines : null;
   const materialLines = (editedMaterials || line.materialLines || []).map((material) => {
     const unitsToBuy = Math.max(0, Number(material.unitsToBuy ?? material.quantityNeeded ?? 0));
@@ -137,7 +144,7 @@ function recalculateLine(line, settings = {}) {
   const isFixedTtcMode = isFixed && (settings.fixedAmountMode ?? line.fixedAmountMode) === "ttc";
   // round2 the HT amount immediately to avoid float drift on TTC→HT division
   const fixedAmountHt = isFixed ? round2(fixedAmountHtFromSettings(settings)) : Number(line.fixedAmountHt || 0);
-  const laborCost = isFixed ? fixedAmountHt : Number(line.laborCost || 0);
+  const laborCost = isFixed ? fixedAmountHt : round2(Number(line.laborCost || 0));
   const totalHtBase = isFixed ? fixedAmountHt : laborCost + materialCost;
   const adjustmentPercent = isFixed ? 0 : Math.max(0, Number(settings.adjustmentPercent ?? line.adjustmentPercent ?? 0));
   const discountPercent = isFixed ? 0 : Math.max(0, Number(settings.discountPercent ?? line.discountPercent ?? 0));
@@ -175,9 +182,7 @@ function recalculateLine(line, settings = {}) {
 
 function computeSubItemLine(subItem, parentLine = {}) {
   const billingMode = subItem.billingMode || "fixed";
-  const vatRate = subItem.vatRate != null && subItem.vatRate !== ""
-    ? Number(subItem.vatRate)
-    : (parentLine.vatRate || 0.2);
+  const vatRate = Number(pricingProfile.vatRate || 0.2);
   let totalHt = 0;
   if (billingMode === "fixed") {
     const input = Number(subItem.fixedAmountInput || 0);
@@ -194,7 +199,7 @@ function computeSubItemLine(subItem, parentLine = {}) {
 }
 
 export default function QuotesPage() {
-  const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
+  const { data: quotes, setData: setQuotes, loading: quotesLoading } = useApi("/api/quotes", "quotes");
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: ouvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
@@ -412,9 +417,9 @@ export default function QuotesPage() {
   // Freeze the preview number once quotes are loaded; only regenerate on "Nouveau devis"
   useEffect(() => {
     if (draftQuoteNumber || generatedQuote?.quoteNumber) return;
-    const year = new Date().getFullYear();
-    setDraftQuoteNumber(`${year}_${String(1048 + quotes.length + 1).padStart(4, "0")}`);
-  }, [quotes]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (quotesLoading) return;
+    setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
+  }, [quotes, quotesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSources = useMemo(() => {
     const fromCatalog = selectedIds.map((id) => postes.find((item) => item.id === id)).filter(Boolean);
@@ -548,6 +553,21 @@ export default function QuotesPage() {
   function removeRoom(label) {
     setRooms((current) => current.filter((item) => item !== label));
     clearLineOverride("room", label);
+  }
+
+  function renameRoom(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    setRooms((prev) => prev.map((r) => r === oldName ? trimmed : r));
+    setLineSettings((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((id) => {
+        if (next[id].room === oldName) next[id] = { ...next[id], room: trimmed };
+      });
+      return next;
+    });
+    setRoomNotes((prev) => prev.map((note) => note.room === oldName ? { ...note, room: trimmed } : note));
+    setGeneratedQuote(null);
   }
 
   function removeQuoteLine(lineId) {
@@ -948,6 +968,12 @@ export default function QuotesPage() {
     setSurcharges((current) => current.filter((s) => s.id !== id));
   }
 
+  function cycleSurchargeMode(id, current) {
+    const order = ["excluded", "internal", "client"];
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    updateSurcharge(id, "mode", next);
+  }
+
   function notify(text, type = "info") {
     setMessage(text);
     setMessageType(type);
@@ -1124,8 +1150,7 @@ export default function QuotesPage() {
     ]);
     setQuoteVatRate(20);
     setVatManual(false);
-    const nextYear = new Date().getFullYear();
-    setDraftQuoteNumber(`${nextYear}_${String(1048 + quotes.length + 1).padStart(4, "0")}`);
+    setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
     setForm({ client: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", validityDays: 30 });
     setIsNewChantier(false);
     if (typeof window !== "undefined") {
@@ -1214,7 +1239,6 @@ export default function QuotesPage() {
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
           <div className="quote-final-line-header-actions">
-            <b>{money(line.totalHt)} HT</b>
             <button type="button" className="quote-line-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer cette ligne">×</button>
           </div>
         </header>
@@ -1229,15 +1253,10 @@ export default function QuotesPage() {
                 {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
               </select></label>
             </div>
-            <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only" : ""}`}>
+            <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
               {line.billingMode === "fixed" ? (
                 <>
                   <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
-                  <label className="forfait-mode-field">Type<select value={line.fixedAmountMode || "ht"} onChange={(event) => updateLine(line.id, "fixedAmountMode", event.target.value)}>
-                    <option value="ht">HT</option>
-                    <option value="ttc">TTC</option>
-                  </select></label>
-                  <label>TVA %<input type="number" min="0" max="100" step="any" value={settings.vatRate != null && settings.vatRate !== "" ? Math.round(settings.vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
                   <label>Durée<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
                   <label>Unité<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
                     <option value="h">Heures</option>
@@ -1247,12 +1266,10 @@ export default function QuotesPage() {
               ) : (
                 <>
                   <label>Quantité<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
-                  <label>Temps h/{line.unit}<input type="number" min="0" step="any" value={settings.normativeTime ?? ""} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
+                  <label>Temps h/{line.unit}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
                   <label>Taux horaire<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
                   <label>Ajustement %<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
                   <label>Réduction %<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
-                  <label>TVA %<input type="number" min="0" max="100" step="any" value={settings.vatRate != null && settings.vatRate !== "" ? Math.round(settings.vatRate * 10000) / 100 : ""} onChange={(event) => updateLine(line.id, "vatRate", event.target.value === "" ? "" : Number(event.target.value) / 100)} placeholder="20" /></label>
-                  <label className="wide">Raison d'ajustement<input value={line.adjustmentReason || ""} onChange={(event) => updateLine(line.id, "adjustmentReason", event.target.value)} placeholder="Accès difficile, support dégradé..." /></label>
                 </>
               )}
             </div>
@@ -1270,8 +1287,6 @@ export default function QuotesPage() {
                 </>
               )}
               <span>HT: {money(line.totalHt)}</span>
-              <span>TVA {Math.round((line.vatRate ?? 0.2) * 100)} %: {money(line.vatAmount)}</span>
-              <span>Total TTC: {money(line.totalTtc)}</span>
             </div>
             {(() => {
               const visibleMaterials = (line.materialLines || []).filter((m) => m.productId || m.productName || Number(m.unitPrice || 0) > 0);
@@ -1367,14 +1382,12 @@ export default function QuotesPage() {
                       <option value="ht">HT</option>
                       <option value="ttc">TTC</option>
                     </select></label>
-                    <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
                   </>
                 ) : (
                   <>
                     <label>Quantité<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
                     <label>Temps h/u<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
                     <label>Taux horaire<input type="number" min="0" step="any" value={sub.hourlyRate || ""} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
-                    <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
                   </>
                 )}
               </div>
@@ -1385,8 +1398,6 @@ export default function QuotesPage() {
                   <span>{Number(sub.quantity || 0)} u × {Number(sub.normativeTime || 0)} h × {money(sub.hourlyRate || line.hourlyRate || 0)}/h</span>
                 )}
                 <span>HT : {money(sub.totalHt)}</span>
-                <span>TVA {Math.round(Number(sub.vatRate || 0.2) * 100)} % : {money(sub.vatAmount)}</span>
-                <span>Total TTC : {money(sub.totalTtc)}</span>
               </div>
             </article>
           ))}
@@ -1483,7 +1494,7 @@ export default function QuotesPage() {
           <div className="quote-section-title">
             <div>
               <span>Organisation</span>
-              <h2>Pièces du chantier</h2>
+              <h2>Lots du chantier</h2>
             </div>
             <button type="button" className={`quote-meta-toggle ${roomsOpen ? "open" : ""}`} onClick={() => setRoomsOpen((open) => !open)} aria-expanded={roomsOpen} aria-label={roomsOpen ? "Réduire les pièces" : "Afficher les pièces"}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
@@ -1578,9 +1589,16 @@ export default function QuotesPage() {
           return (
             <section className="quote-final-card quote-room-card" key={room}>
               <div className="quote-section-title">
-                <div>
-                  <span>Pièce</span>
-                  <h2>{room}</h2>
+                <div style={{ flex: 1 }}>
+                  <span>LOT</span>
+                  <input
+                    key={room}
+                    className="quote-room-name-input"
+                    defaultValue={room}
+                    onBlur={(e) => renameRoom(room, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                    placeholder="Nom du lot…"
+                  />
                 </div>
               </div>
 
@@ -1618,7 +1636,7 @@ export default function QuotesPage() {
               ))}
 
               {!roomLines.length ? (
-                <div className="empty-state">Aucun ouvrage pour cette pièce. Utilisez les boutons ci-dessus pour en ajouter.</div>
+                <div className="empty-state">Aucun ouvrage pour ce lot. Utilisez les boutons ci-dessus pour en ajouter.</div>
               ) : (
                 <>
                   <div className="quote-final-lines">
@@ -1645,15 +1663,15 @@ export default function QuotesPage() {
 
         <section className="quote-recap-card">
           <div className="recap-title-row">
-            <h2 className="recap-title">CONDITIONNEMENT DU CHANTIER</h2>
-            <label className="recap-global-toggle" title="Afficher / masquer tout au client">
-              <input
-                type="checkbox"
-                checked={surcharges.length > 0 && surcharges.every((s) => s.mode === "client")}
-                onChange={(e) => setSurcharges((current) => current.map((s) => ({ ...s, mode: e.target.checked ? "client" : "excluded" })))}
-              />
-              <span>{surcharges.every((s) => s.mode === "client") ? "Affiché au client" : "Masqué au client"}</span>
-            </label>
+            <div>
+              <h2 className="recap-title">CONDITIONNEMENT DU CHANTIER</h2>
+              <p className="recap-title-hint">Cliquez sur l'état de chaque ligne pour choisir ce que voit le client.</p>
+            </div>
+            <div className="recap-mode-legend">
+              <span className="recap-legend-chip recap-legend-excluded">Non compté</span>
+              <span className="recap-legend-chip recap-legend-internal">Inclus (caché)</span>
+              <span className="recap-legend-chip recap-legend-client">Visible client</span>
+            </div>
           </div>
 
           {roomGroups.map((room) => {
@@ -1671,12 +1689,23 @@ export default function QuotesPage() {
             const line = summaryTotals.surchargeLines.find((x) => x.id === s.id);
             return (
               <div className={`recap-row recap-surcharge-row recap-surcharge-mode-${s.mode ?? "excluded"}`} key={s.id}>
-                <div className="recap-mode-toggle">
-                  {["excluded", "internal", "client"].map((m) => (
-                    <button key={m} type="button" className={`recap-mode-btn${(s.mode ?? "excluded") === m ? " active" : ""}`} onClick={() => updateSurcharge(s.id, "mode", m)} title={m === "excluded" ? "Exclu du total, non affiché" : m === "internal" ? "Compté dans le total, non affiché au client" : "Compté dans le total et affiché au client"}>
-                      {m === "excluded" ? "Exclu" : m === "internal" ? "Interne" : "Client"}
-                    </button>
-                  ))}
+                <div className="recap-surcharge-checks">
+                  <label className="recap-check-label">
+                    <input
+                      type="checkbox"
+                      checked={(s.mode ?? "excluded") !== "excluded"}
+                      onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "internal" : "excluded")}
+                    />
+                    Compté
+                  </label>
+                  <label className="recap-check-label">
+                    <input
+                      type="checkbox"
+                      checked={s.mode === "client"}
+                      onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "client" : "internal")}
+                    />
+                    Affiché
+                  </label>
                 </div>
                 <input
                   className="recap-surcharge-label"
