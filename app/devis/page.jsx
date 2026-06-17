@@ -1291,44 +1291,64 @@ export default function QuotesPage() {
         ) : (
           <div className="quote-line-breakdown sub-items-summary">
             <span>{subItems.length} sous-ouvrage{subItems.length > 1 ? "s" : ""}</span>
-            <span>HT: {money(line.totalHt)}</span>
-            <span>Total TTC: {money(line.totalTtc)}</span>
+            <span>HT total : {money(line.totalHt)}</span>
+            <span>TTC total : {money(line.totalTtc)}</span>
           </div>
         )}
         <div className="quote-sub-items">
           {subItems.map((sub) => (
-            <div key={sub.id} className="quote-sub-item">
-              <div className="sub-item-top">
-                <input className="sub-item-label-input" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder="Désignation du sous-ouvrage..." />
-                <div className="sub-item-mode-row">
-                  <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>Temps</button>
-                  <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>Forfait</button>
+            <article key={sub.id} className="quote-sub-item-card">
+              <header>
+                <div className="quote-final-line-header-actions">
+                  <b>{money(sub.totalHt)} HT</b>
+                  <button type="button" className="quote-line-remove" onClick={() => removeSubItem(line.id, sub.id)} aria-label="Supprimer">×</button>
                 </div>
-                <strong className="sub-item-total">{money(sub.totalHt)} HT</strong>
-                <button type="button" className="sub-item-remove" onClick={() => removeSubItem(line.id, sub.id)} aria-label="Supprimer">×</button>
+              </header>
+              <input className="quote-line-label-input" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder="Désignation du sous-ouvrage..." />
+              <div className="quote-mode-row">
+                <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>Temps réel</button>
+                <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>Forfait</button>
               </div>
-              {sub.billingMode === "fixed" ? (
-                <div className="sub-item-inputs">
-                  <label>Montant<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} placeholder="0" /></label>
-                  <label>Type<select value={sub.fixedAmountMode || "ht"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountMode", e.target.value)}>
-                    <option value="ht">HT</option>
-                    <option value="ttc">TTC</option>
-                  </select></label>
-                  <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
-                  <span className="sub-item-ttc">TTC: {money(sub.totalTtc)}</span>
-                </div>
-              ) : (
-                <div className="sub-item-inputs">
-                  <label>Quantité<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
-                  <label>h/u<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
-                  <label>Taux €/h<input type="number" min="0" step="any" value={sub.hourlyRate || ""} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={company.hourlyRate || "0"} /></label>
-                  <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
-                  <span className="sub-item-ttc">TTC: {money(sub.totalTtc)}</span>
-                </div>
-              )}
-            </div>
+              <div className={`quote-line-inputs compact ${sub.billingMode === "fixed" ? "fixed-only" : ""}`}>
+                {sub.billingMode === "fixed" ? (
+                  <>
+                    <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} /></label>
+                    <label className="forfait-mode-field">Type<select value={sub.fixedAmountMode || "ht"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountMode", e.target.value)}>
+                      <option value="ht">HT</option>
+                      <option value="ttc">TTC</option>
+                    </select></label>
+                    <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
+                  </>
+                ) : (
+                  <>
+                    <label>Quantité<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
+                    <label>Temps h/u<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
+                    <label>Taux horaire<input type="number" min="0" step="any" value={sub.hourlyRate || ""} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
+                    <label>TVA %<input type="number" min="0" max="100" step="any" value={sub.vatRate != null && sub.vatRate !== "" ? Math.round(Number(sub.vatRate) * 10000) / 100 : ""} onChange={(e) => updateSubItem(line.id, sub.id, "vatRate", e.target.value === "" ? "" : Number(e.target.value) / 100)} placeholder="20" /></label>
+                  </>
+                )}
+              </div>
+              <div className="quote-line-breakdown">
+                {sub.billingMode === "fixed" ? (
+                  <span>Forfait {sub.fixedAmountMode === "ttc" ? "TTC" : "HT"} : {money(sub.fixedAmountMode === "ttc" ? sub.totalTtc : sub.totalHt)}</span>
+                ) : (
+                  <span>{Number(sub.quantity || 0)} u × {Number(sub.normativeTime || 0)} h × {money(sub.hourlyRate || line.hourlyRate || 0)}/h</span>
+                )}
+                <span>HT : {money(sub.totalHt)}</span>
+                <span>TVA {Math.round(Number(sub.vatRate || 0.2) * 100)} % : {money(sub.vatAmount)}</span>
+                <span>Total TTC : {money(sub.totalTtc)}</span>
+              </div>
+            </article>
           ))}
-          <button type="button" className="sub-item-add-btn" onClick={() => addSubItem(line.id)}>+ Ajouter un sous-ouvrage</button>
+          <div className="quote-sub-add-bar">
+            <button type="button" className="quote-toolbar-button blue" onClick={() => addSubItem(line.id)}>
+              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" />
+              </svg>
+              Créer un sous-ouvrage
+            </button>
+          </div>
         </div>
       </article>
     );
