@@ -7,6 +7,24 @@ import { apiSend } from "../../lib/client-api";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
 
+function Toast({ message, onClose }) {
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [message, onClose]);
+
+  if (!message) return null;
+  const isError = message.toLowerCase().includes("erreur") || message.toLowerCase().includes("veuillez");
+  return (
+    <div className={`sig-toast${isError ? " sig-toast-error" : " sig-toast-success"}`} role="status">
+      <span className="sig-toast-icon">{isError ? "⚠️" : "✓"}</span>
+      <span>{message}</span>
+      <button type="button" className="sig-toast-close" onClick={onClose} aria-label="Fermer">×</button>
+    </div>
+  );
+}
+
 export default function SignaturePage() {
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: signatureSettings, setData: setSignatureSettings } = useApi("/api/signature-settings", "signatureSettings");
@@ -200,7 +218,7 @@ export default function SignaturePage() {
           <button type="button" className="mobile-primary" onClick={saveSignature} style={{ marginTop: "14px" }}>Sauvegarder</button>
         </section>
 
-        {message ? <p className="tool-message">{message}</p> : null}
+        <Toast message={message} onClose={() => setMessage("")} />
 
         <section className="signature-list">
           <h2>Devis à signer</h2>

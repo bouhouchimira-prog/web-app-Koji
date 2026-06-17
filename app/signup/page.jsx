@@ -38,7 +38,9 @@ function SignupScreen() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [devUrl, setDevUrl] = useState("");
@@ -73,6 +75,7 @@ function SignupScreen() {
     event.preventDefault();
     if (!name.trim()) { setError("Entrez votre nom complet."); return; }
     if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
+    if (password !== confirmPassword) { setError("Les mots de passe ne correspondent pas."); return; }
     setLoading(true);
     setError("");
     try {
@@ -227,6 +230,33 @@ function SignupScreen() {
                     </div>
                     <span style={{ color: strengthColor }}>{strengthLabel}</span>
                   </div>
+                ) : null}
+              </div>
+
+              <div className="auth-field">
+                <label>Confirmer le mot de passe</label>
+                <div className="auth-input-wrap">
+                  <input
+                    className="auth-input-v2"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
+                    placeholder="Répétez le mot de passe"
+                    autoComplete="new-password"
+                  />
+                  <button type="button" className="auth-eye-btn" onClick={() => setShowConfirmPassword((v) => !v)} aria-label="Afficher/masquer">
+                    <EyeIcon open={showConfirmPassword} />
+                  </button>
+                </div>
+                {confirmPassword && password !== confirmPassword ? (
+                  <p className="auth-field-hint" style={{ color: "#e53e3e", marginTop: 4, fontSize: "0.82rem" }}>
+                    Les mots de passe ne correspondent pas.
+                  </p>
+                ) : null}
+                {confirmPassword && password === confirmPassword ? (
+                  <p className="auth-field-hint" style={{ color: "#38a169", marginTop: 4, fontSize: "0.82rem" }}>
+                    Les mots de passe correspondent.
+                  </p>
                 ) : null}
               </div>
 

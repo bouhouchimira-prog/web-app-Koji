@@ -165,10 +165,26 @@ function syncDraftNotification(db, quote, userId = "") {
 }
 
 
+function computeNextQuoteSeq(db) {
+  const maxFromQuotes = db.quotes.reduce((max, q) => {
+    const match = (q.quoteNumber || "").match(/_(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, 1048);
+  const current = Math.max(db.quoteSeqCounter || 0, maxFromQuotes);
+  db.quoteSeqCounter = current + 1;
+  return db.quoteSeqCounter;
+}
+
 export async function GET(request) {
   const db = await readDb();
   const userId = getUserScope(request, db);
-  return ok({ quotes: scopedItems(db.quotes, userId).map(normalizeQuote) });
+  const maxFromQuotes = db.quotes.reduce((max, q) => {
+    const match = (q.quoteNumber || "").match(/_(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, 1048);
+  const nextSeq = Math.max(db.quoteSeqCounter || 0, maxFromQuotes) + 1;
+  const nextQuoteNumber = `${new Date().getFullYear()}_${String(nextSeq).padStart(4, "0")}`;
+  return ok({ quotes: scopedItems(db.quotes, userId).map(normalizeQuote), nextQuoteNumber });
 }
 
 export async function POST(request) {
@@ -178,7 +194,7 @@ export async function POST(request) {
   const now = new Date().toISOString();
   const quoteDate = body.quoteDate || body.createdAt || now.slice(0, 10);
   const quoteYear = new Date().getFullYear();
-  const quoteSeq = 1048 + db.quotes.length + 1;
+  const quoteSeq = computeNextQuoteSeq(db);
   const quoteBase = {
     id: `q-${Date.now()}`,
     userId,
@@ -349,10 +365,12 @@ export async function PATCH(request) {
         else quote[key] = fixObjectText(body[key]);
       }
     }
+    const currentVer = parseInt(quote.versionNumber || "001", 10);
+    quote.versionNumber = String(currentVer + 1).padStart(3, "0");
     addHistory(db, {
       userId: quote.userId || userId,
       type: "quote.updated",
-      label: `Devis mis a jour: ${quote.quoteNumber}`,
+      label: `Devis mis a jour: ${quote.quoteNumber} v${quote.versionNumber}`,
       entityId: quote.id,
       entityType: "quote"
     });
