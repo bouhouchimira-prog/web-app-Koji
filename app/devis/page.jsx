@@ -122,12 +122,13 @@ function recalculateLine(line, settings = {}) {
   const materialLines = (editedMaterials || line.materialLines || []).map((material) => {
     const unitsToBuy = Math.max(0, Number(material.unitsToBuy ?? material.quantityNeeded ?? 0));
     const rawPrice = Math.max(0, Number(material.unitPrice || 0));
-    const unitPrice = material.salePriceMode === "ttc" ? round2(rawPrice / (1 + lineVatRate)) : rawPrice;
+    // unitPriceHt = HT price used for totals; unitPrice (raw user input) is never overwritten
+    const unitPriceHt = material.salePriceMode === "ttc" ? round2(rawPrice / (1 + lineVatRate)) : rawPrice;
     return {
       ...material,
       unitsToBuy,
-      unitPrice,
-      total: round2(unitsToBuy * unitPrice),
+      unitPriceHt,
+      total: round2(unitsToBuy * unitPriceHt),
       showToClient: material.showInDevis !== false && settings.showMaterialsToClient !== false
     };
   });
@@ -318,6 +319,7 @@ export default function QuotesPage() {
           if (Array.isArray(draft.roomNotes) && draft.roomNotes.length) setRoomNotes(draft.roomNotes);
           if (Array.isArray(draft.surcharges)) setSurcharges(draft.surcharges);
           if (draft.quoteVatRate != null) setQuoteVatRate(Number(draft.quoteVatRate));
+          if (draft.form && typeof draft.form === "object") setForm((current) => ({ ...current, ...draft.form }));
           if (draft.vatManual != null) setVatManual(Boolean(draft.vatManual));
           if (draft.draftQuoteNumber) setDraftQuoteNumber(draft.draftQuoteNumber);
           if (Array.isArray(draft.selectedIds)) draftIds = draft.selectedIds;
@@ -402,9 +404,10 @@ export default function QuotesPage() {
       quoteVatRate,
       vatManual,
       draftQuoteNumber,
+      form,
       generatedQuote: generatedQuote || null
     }));
-  }, [selectedIds, customSources, lineSettings, roomNotes, surcharges, quoteVatRate, vatManual, draftQuoteNumber, generatedQuote]);
+  }, [selectedIds, customSources, lineSettings, roomNotes, surcharges, quoteVatRate, vatManual, draftQuoteNumber, generatedQuote, form]);
 
   // Freeze the preview number once quotes are loaded; only regenerate on "Nouveau devis"
   useEffect(() => {
