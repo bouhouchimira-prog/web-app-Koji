@@ -270,6 +270,11 @@ export default function QuotesPage() {
   useEffect(() => {
     const draft = getChantierDraft();
     if (!draft) return;
+    // Nouveau chantier → repartir d'un devis vierge, pas restaurer l'ancien brouillon
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("koji-devis-draft");
+      window.localStorage.removeItem("koji-devis-ouvrages");
+    }
     setForm((current) => ({
       ...current,
       client: draft.client || current.client,
