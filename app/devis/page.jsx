@@ -40,7 +40,11 @@ function formatNumberInput(value, digits = 2) {
 function fixedAmountHtFromSettings(settings = {}) {
   const amount = Math.max(0, Number(settings.fixedAmountInput ?? settings.fixedAmountHt ?? 0));
   const mode = settings.fixedAmountMode === "ttc" ? "ttc" : "ht";
-  return mode === "ttc" ? amount / (1 + Number(pricingProfile.vatRate || 0)) : amount;
+  if (mode !== "ttc") return amount;
+  const vatRate = settings.vatRate != null && settings.vatRate !== ""
+    ? Number(settings.vatRate)
+    : Number(pricingProfile.vatRate || 0);
+  return amount / (1 + vatRate);
 }
 
 function supplyPrice(supply = {}) {
@@ -719,16 +723,21 @@ export default function QuotesPage() {
   function supplyMaterialPayload(supply, quantity = 1) {
     const unitsToBuy = Math.max(0, Number(quantity || 1));
     const unitPrice = Math.max(0, supplyPrice(supply));
+    const purchasePrice = Number(supply.purchasePriceHt || 0);
     return {
       category: supply.category || "Divers",
       productId: supply.id,
       productName: supply.name,
       supplierName: supply.supplierName || "",
       sourceUrl: supply.sourceUrl || "",
+      packaging: supply.packaging || "",
       quantityNeeded: unitsToBuy,
       unitsToBuy,
       unitPrice,
-      total: unitsToBuy * unitPrice
+      total: unitsToBuy * unitPrice,
+      purchasePriceInput: purchasePrice > 0 ? String(purchasePrice) : "",
+      purchasePriceMode: "ht",
+      salePriceMode: "ht"
     };
   }
 
@@ -1300,6 +1309,9 @@ export default function QuotesPage() {
                               </select>
                             </div>
                           </label>
+                          <label className="supply-price-field">Conditionnement
+                            <input value={material.packaging || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "packaging", e.target.value)} placeholder="ex: Pot 5L, Boîte 12..." />
+                          </label>
                           <label className="supply-price-field">Liée à
                             <select value={material.linkedTo || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "linkedTo", e.target.value)}>
                               <option value="">Cet ouvrage</option>
@@ -1605,9 +1617,16 @@ export default function QuotesPage() {
               {!roomLines.length ? (
                 <div className="empty-state">Aucun ouvrage pour cette pièce. Utilisez les boutons ci-dessus pour en ajouter.</div>
               ) : (
-                <div className="quote-final-lines">
-                  {roomLines.map((line) => renderLineCard(line))}
-                </div>
+                <>
+                  <div className="quote-final-lines">
+                    {roomLines.map((line) => renderLineCard(line))}
+                  </div>
+                  <div className="quote-room-subtotal">
+                    <span className="quote-room-subtotal-label">Sous-total {room}</span>
+                    <span>{money(roomLines.reduce((s, l) => s + l.totalHt, 0))} HT</span>
+                    <span>{money(roomLines.reduce((s, l) => s + l.totalTtc, 0))} TTC</span>
+                  </div>
+                </>
               )}
             </section>
           );
