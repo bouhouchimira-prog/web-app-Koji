@@ -1340,15 +1340,10 @@ export default function QuotesPage() {
               </div>
             </article>
           ))}
-          <div className="quote-sub-add-bar">
-            <button type="button" className="quote-toolbar-button blue" onClick={() => addSubItem(line.id)}>
-              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-                <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" />
-              </svg>
-              Créer un sous-ouvrage
-            </button>
-          </div>
+          <button type="button" className="quote-sub-add-btn" onClick={() => addSubItem(line.id)}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
+            Ajouter un sous-ouvrage
+          </button>
         </div>
       </article>
     );
