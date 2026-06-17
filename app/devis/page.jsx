@@ -111,16 +111,20 @@ function sourceToTask(source, settings = {}) {
 }
 
 function recalculateLine(line, settings = {}) {
+  const lineVatRate = settings.vatRate != null && settings.vatRate !== ""
+    ? Number(settings.vatRate)
+    : Number(pricingProfile.vatRate || 0.2);
   const editedMaterials = Array.isArray(settings.materialLines) ? settings.materialLines : null;
   const materialLines = (editedMaterials || line.materialLines || []).map((material) => {
     const unitsToBuy = Math.max(0, Number(material.unitsToBuy ?? material.quantityNeeded ?? 0));
-    const unitPrice = Math.max(0, Number(material.unitPrice || 0));
+    const rawPrice = Math.max(0, Number(material.unitPrice || 0));
+    const unitPrice = material.salePriceMode === "ttc" ? round2(rawPrice / (1 + lineVatRate)) : rawPrice;
     return {
       ...material,
       unitsToBuy,
       unitPrice,
-      total: unitsToBuy * unitPrice,
-      showToClient: settings.showMaterialsToClient !== false
+      total: round2(unitsToBuy * unitPrice),
+      showToClient: material.showInDevis !== false && settings.showMaterialsToClient !== false
     };
   });
   const materialCost = materialLines.reduce((sum, material) => sum + Number(material.total || 0), 0);
@@ -138,9 +142,6 @@ function recalculateLine(line, settings = {}) {
   const totalHtBeforeMargin = Math.max(0, totalHtAfterAdjustment - discountAmount);
   const marginAmount = isFixed ? 0 : totalHtBeforeMargin * Number(pricingProfile.marginRate || 0);
   const totalHt = totalHtBeforeMargin + marginAmount;
-  const lineVatRate = settings.vatRate != null && settings.vatRate !== ""
-    ? Number(settings.vatRate)
-    : Number(pricingProfile.vatRate || 0.2);
   const vatAmount = totalHt * lineVatRate;
   // For TTC forfait: use the typed value directly to avoid HT→TTC float round-trip errors
   const totalTtc = isFixedTtcMode
@@ -1261,30 +1262,59 @@ export default function QuotesPage() {
               <span>Total TTC: {money(line.totalTtc)}</span>
             </div>
             {(() => {
-              const visibleMaterials = (line.materialLines || []).filter((m) => m.productId || Number(m.unitPrice || 0) > 0);
+              const visibleMaterials = (line.materialLines || []).filter((m) => m.productId || m.productName || Number(m.unitPrice || 0) > 0);
               if (!visibleMaterials.length) return null;
               return (
                 <div className="quote-line-supplies">
                   <div className="quote-line-supplies-head">
                     <span>Fournitures</span>
-                    <label className="material-visibility">
-                      <input type="checkbox" checked={line.showMaterialsToClient !== false} onChange={(event) => updateLine(line.id, "showMaterialsToClient", event.target.checked)} />
-                      Afficher au client
-                    </label>
                   </div>
                   {visibleMaterials.map((material) => {
                     const linkedSupply = findSupplyForMaterial(supplies, material);
                     const originalIndex = (line.materialLines || []).indexOf(material);
                     return (
-                      <div className={`supply-review-row ${linkedSupply ? "" : "needs-link"}`} key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
-                        <button type="button" className={linkedSupply ? "supply-open-button" : "supply-create-button"} onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? "Ouvrir" : "Creer"}</button>
-                        <input value={material.productName || material.category || ""} onChange={(event) => updateMaterial(line.id, originalIndex, "productName", event.target.value)} placeholder="Fourniture" />
-                        <input type="number" min="0" step="0.01" value={material.unitsToBuy} onChange={(event) => updateMaterial(line.id, originalIndex, "unitsToBuy", event.target.value)} />
-                        <input type="number" min="0" step="0.01" value={material.unitPrice} onChange={(event) => updateMaterial(line.id, originalIndex, "unitPrice", event.target.value)} />
-                        <strong>{money(material.total)}</strong>
-                        <div className="supply-row-actions">
-                          <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>Via lien</button>
-                          <button type="button" className="danger-ghost" onClick={() => removeMaterial(line.id, originalIndex)}>Supprimer</button>
+                      <div className="supply-card" key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
+                        <div className={`supply-card-main ${linkedSupply ? "" : "needs-link"}`}>
+                          <button type="button" className={linkedSupply ? "supply-open-button" : "supply-create-button"} onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? "Ouvrir" : "Creer"}</button>
+                          <input value={material.productName || material.category || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "productName", e.target.value)} placeholder="Désignation fourniture" />
+                          <input type="number" min="0" step="0.01" value={material.unitsToBuy || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitsToBuy", e.target.value)} placeholder="Qté" />
+                          <strong>{money(material.total)}</strong>
+                          <button type="button" className="supply-delete-btn" onClick={() => removeMaterial(line.id, originalIndex)} aria-label="Supprimer">×</button>
+                        </div>
+                        <div className="supply-card-extra">
+                          <label className="supply-price-field">Prix d&apos;achat
+                            <div className="supply-price-input-group">
+                              <input type="number" min="0" step="0.01" value={material.purchasePriceInput || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceInput", e.target.value)} placeholder="0.00" />
+                              <select className="supply-price-mode-select" value={material.purchasePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceMode", e.target.value)}>
+                                <option value="ht">HT</option>
+                                <option value="ttc">TTC</option>
+                              </select>
+                            </div>
+                          </label>
+                          <label className="supply-price-field">Prix de vente
+                            <div className="supply-price-input-group">
+                              <input type="number" min="0" step="0.01" value={material.unitPrice || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitPrice", e.target.value)} placeholder="0.00" />
+                              <select className="supply-price-mode-select" value={material.salePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "salePriceMode", e.target.value)}>
+                                <option value="ht">HT</option>
+                                <option value="ttc">TTC</option>
+                              </select>
+                            </div>
+                          </label>
+                          <label className="supply-price-field">Liée à
+                            <select value={material.linkedTo || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "linkedTo", e.target.value)}>
+                              <option value="">Cet ouvrage</option>
+                              {subItems.map((sub) => <option key={sub.id} value={`sub:${sub.id}`}>{sub.label || "Sous-ouvrage"}</option>)}
+                              {roomGroups.filter((r) => r !== "Services").map((room) => <option key={`room:${room}`} value={`room:${room}`}>{room}</option>)}
+                              <option value="autre">Autre</option>
+                            </select>
+                          </label>
+                          <div className="supply-card-actions">
+                            <label className="material-visibility">
+                              <input type="checkbox" checked={material.showInDevis !== false} onChange={(e) => updateMaterial(line.id, originalIndex, "showInDevis", e.target.checked)} />
+                              Afficher dans le devis
+                            </label>
+                            <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>Via lien</button>
+                          </div>
                         </div>
                       </div>
                     );

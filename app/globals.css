@@ -5407,7 +5407,7 @@ body :where(
 }
 
 .quote-line-inputs.compact.fixed-only {
-  grid-template-columns: minmax(220px, 1fr) 120px;
+  grid-template-columns: 1fr 110px 110px;
 }
 
 .quote-line-inputs.compact .forfait-amount-field {
@@ -5511,6 +5511,149 @@ body :where(
   background: #fff5f5;
   border-color: #ffd6d6;
   color: #d94444;
+}
+
+.supply-card {
+  border-top: 1px solid #f0f3f7;
+}
+
+.supply-card-main {
+  display: grid;
+  grid-template-columns: 82px 1fr 72px 90px 36px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px 6px;
+}
+
+.supply-card-main.needs-link {
+  background: #fbfdff;
+}
+
+.supply-card-main input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #d6dfec;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 0.88rem;
+}
+
+.supply-card-main strong {
+  color: var(--navy);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+.supply-card-main button {
+  min-height: 34px;
+  border: 1px solid #d6dfec;
+  border-radius: 10px;
+  background: white;
+  color: var(--navy);
+  padding: 0 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.supply-card-main .supply-open-button {
+  background: #eef6ff;
+  border-color: #bad7ff;
+  color: var(--blue);
+}
+
+.supply-card-main .supply-create-button {
+  background: #fff8ec;
+  border-color: #f1d7b9;
+  color: #b55b10;
+}
+
+.supply-delete-btn {
+  min-height: 34px;
+  border: 1px solid #ffd6d6;
+  border-radius: 10px;
+  background: #fff5f5;
+  color: #d94444;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.supply-card-extra {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  padding: 6px 12px 10px;
+  background: #f8faff;
+  border-top: 1px solid #edf3fa;
+}
+
+.supply-price-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.supply-price-field select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #d6dfec;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 0.88rem;
+  background: white;
+  color: var(--navy);
+}
+
+.supply-price-input-group {
+  display: flex;
+  gap: 4px;
+}
+
+.supply-price-input-group input {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid #d6dfec;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 0.88rem;
+}
+
+.supply-price-mode-select {
+  flex: 0 0 64px;
+  min-height: 36px;
+  border: 1px solid #d6dfec;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  padding: 0 4px;
+  background: white;
+  color: var(--navy);
+}
+
+.supply-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.supply-card-actions .supply-link-button {
+  padding: 6px 14px;
+  min-height: 34px;
+  border: 1px solid #bceacb;
+  border-radius: 10px;
+  background: #eefbf3;
+  color: #15975a;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .supply-detail-modal,
@@ -6616,7 +6759,9 @@ body :where(
 
   .supply-review-row,
   .supply-composer-grid,
-  .supply-detail-list {
+  .supply-detail-list,
+  .supply-card-main,
+  .supply-card-extra {
     grid-template-columns: 1fr;
   }
 
@@ -6626,6 +6771,10 @@ body :where(
 
   .supply-row-actions button {
     flex: 1;
+  }
+
+  .supply-card-actions {
+    align-items: stretch;
   }
 
   .quote-identity-grid,
