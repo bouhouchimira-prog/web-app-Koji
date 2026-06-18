@@ -55,6 +55,14 @@ function IconTrash() {
   );
 }
 
+function IconArchive() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
+    </svg>
+  );
+}
+
 function StatusBadge({ status }) {
   const map = {
     "En cours": { bg: "#e0f2fe", color: "#0369a1" },
@@ -96,12 +104,14 @@ function Section({ title, href, children, count }) {
 }
 
 export default function HomePage() {
-  const { data: projects } = useApi("/api/projects", "projects");
-  const { data: quotes } = useApi("/api/quotes", "quotes");
+  const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
+  const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
 
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDeleteQuote, setConfirmDeleteQuote] = useState(null);
+  const [confirmDeleteProject, setConfirmDeleteProject] = useState(null);
 
   const activeProjects = projects.filter((p) => p.status !== "Archive");
   const today = new Date().toISOString().slice(0, 10);
@@ -127,6 +137,36 @@ export default function HomePage() {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
     } catch { /**/ }
     setConfirmDelete(null);
+  }
+
+  async function archiveQuote(quoteId) {
+    try {
+      const { quote } = await apiSend("/api/quotes", { id: quoteId, action: "archive" }, "PATCH");
+      setQuotes((prev) => prev.map((q) => q.id === quote.id ? quote : q));
+    } catch { /**/ }
+  }
+
+  async function deleteQuote(quoteId) {
+    try {
+      await apiSend("/api/quotes", { id: quoteId, action: "delete" }, "PATCH");
+      setQuotes((prev) => prev.filter((q) => q.id !== quoteId));
+    } catch { /**/ }
+    setConfirmDeleteQuote(null);
+  }
+
+  async function archiveProject(projectId) {
+    try {
+      const { project } = await apiSend("/api/projects", { id: projectId, action: "archive" }, "PATCH");
+      setProjects((prev) => prev.map((p) => p.id === project.id ? project : p));
+    } catch { /**/ }
+  }
+
+  async function deleteProject(projectId) {
+    try {
+      await apiSend("/api/projects", { id: projectId, action: "delete" }, "PATCH");
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch { /**/ }
+    setConfirmDeleteProject(null);
   }
 
   return (
@@ -199,16 +239,43 @@ export default function HomePage() {
           ) : (
             <div className="home-list">
               {activeProjects.slice(0, 5).map((project) => (
-                <Link href="/chantiers" key={project.id} className="home-list-item home-list-link">
-                  <div className="home-list-icon home-icon-project">
-                    <IconProject />
+                <article className="home-list-item home-quote-item" key={project.id}>
+                  <Link href="/chantiers" className="home-list-link home-quote-link">
+                    <div className="home-list-icon home-icon-project">
+                      <IconProject />
+                    </div>
+                    <div className="home-list-main">
+                      <strong>{project.title}</strong>
+                      <small>{[project.client, project.startDate ? shortDate(project.startDate) : null].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <StatusBadge status={project.status} />
+                  </Link>
+                  <div className="home-task-actions">
+                    {confirmDeleteProject === project.id ? (
+                      <span className="home-task-confirm">
+                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteProject(project.id)}>Suppr.</button>
+                        <button className="home-task-btn" onClick={() => setConfirmDeleteProject(null)}>Non</button>
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          className="home-task-btn"
+                          title="Archiver"
+                          onClick={() => archiveProject(project.id)}
+                        >
+                          <IconArchive />
+                        </button>
+                        <button
+                          className="home-task-btn home-task-btn-delete"
+                          title="Supprimer"
+                          onClick={() => setConfirmDeleteProject(project.id)}
+                        >
+                          <IconTrash />
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <div className="home-list-main">
-                    <strong>{project.title}</strong>
-                    <small>{[project.client, project.startDate ? shortDate(project.startDate) : null].filter(Boolean).join(" · ")}</small>
-                  </div>
-                  <StatusBadge status={project.status} />
-                </Link>
+                </article>
               ))}
               {activeProjects.length > 5 ? (
                 <Link href="/chantiers" className="home-more-link">
@@ -230,19 +297,46 @@ export default function HomePage() {
           ) : (
             <div className="home-list">
               {quotesInProgress.slice(0, 5).map((quote) => (
-                <Link href="/devis" key={quote.id} className="home-list-item home-list-link">
-                  <div className="home-list-icon home-icon-quote">
-                    <IconQuote />
+                <article className="home-list-item home-quote-item" key={quote.id}>
+                  <Link href="/devis" className="home-list-link home-quote-link">
+                    <div className="home-list-icon home-icon-quote">
+                      <IconQuote />
+                    </div>
+                    <div className="home-list-main">
+                      <strong>{quote.client}</strong>
+                      <small>{[quote.quoteNumber, quote.project].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <StatusBadge status={quote.status} />
+                      <div style={{ fontSize: "0.78rem", color: "#7e715f", fontWeight: 700, marginTop: 3 }}>{euro(quote.totalTtc)}</div>
+                    </div>
+                  </Link>
+                  <div className="home-task-actions">
+                    {confirmDeleteQuote === quote.id ? (
+                      <span className="home-task-confirm">
+                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteQuote(quote.id)}>Suppr.</button>
+                        <button className="home-task-btn" onClick={() => setConfirmDeleteQuote(null)}>Non</button>
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          className="home-task-btn"
+                          title="Archiver"
+                          onClick={() => archiveQuote(quote.id)}
+                        >
+                          <IconArchive />
+                        </button>
+                        <button
+                          className="home-task-btn home-task-btn-delete"
+                          title="Supprimer"
+                          onClick={() => setConfirmDeleteQuote(quote.id)}
+                        >
+                          <IconTrash />
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <div className="home-list-main">
-                    <strong>{quote.client}</strong>
-                    <small>{[quote.quoteNumber, quote.project].filter(Boolean).join(" · ")}</small>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <StatusBadge status={quote.status} />
-                    <div style={{ fontSize: "0.78rem", color: "#7e715f", fontWeight: 700, marginTop: 3 }}>{euro(quote.totalTtc)}</div>
-                  </div>
-                </Link>
+                </article>
               ))}
               {quotesInProgress.length > 5 ? (
                 <Link href="/devis" className="home-more-link">
