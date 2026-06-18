@@ -160,6 +160,16 @@ export function Shell({ children }) {
   }, [pathname]);
 
   useEffect(() => {
+    function blurNumberInputOnWheel(event) {
+      if (document.activeElement?.tagName === "INPUT" && document.activeElement.type === "number") {
+        document.activeElement.blur();
+      }
+    }
+    document.addEventListener("wheel", blurNumberInputOnWheel, { passive: true });
+    return () => document.removeEventListener("wheel", blurNumberInputOnWheel);
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem("koji-user");

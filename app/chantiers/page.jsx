@@ -81,7 +81,14 @@ export default function ProjectsTrackingPage() {
   const [message, setMessage] = useState("");
   const [marketplaceDesc, setMarketplaceDesc] = useState("");
 
-  const activeProjects = useMemo(() => projects.filter((project) => !isArchived(project)), [projects]);
+  const activeProjects = useMemo(() => {
+    return projects.filter((project) => {
+      if (isArchived(project)) return false;
+      const linkedQuote = quotes.find((q) => q.projectId === project.id);
+      if (!linkedQuote) return false;
+      return linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe";
+    });
+  }, [projects, quotes]);
   const selectedProject = activeProjects.find((project) => project.id === selectedProjectId) || null;
   const selectedQuote = useMemo(() => {
     if (!selectedProject) return null;
@@ -541,8 +548,11 @@ export default function ProjectsTrackingPage() {
               </div>
               <p>La cloture regroupe taches, RDV, devis, factures, tickets, photos, documents, depenses et historique.</p>
               <div className="archive-action-row">
-                <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>Terminer</button>
-                <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>Archiver</button>
+                {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
+                  <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>Archiver le chantier</button>
+                ) : (
+                  <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>Marquer comme terminé</button>
+                )}
               </div>
               {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
                 <div className="archive-summary-grid">
@@ -694,7 +704,7 @@ export default function ProjectsTrackingPage() {
             <span>{activeProjects.length} chantier(s)</span>
           </div>
           {activeProjects.length === 0 ? (
-            <div className="tool-empty">Aucun chantier accepte pour le moment.</div>
+            <div className="tool-empty">Aucun chantier avec devis signé pour le moment. Un devis doit être signé par le client pour démarrer le suivi.</div>
           ) : (
             <div className="project-track-list">
               {activeProjects.map((project) => {

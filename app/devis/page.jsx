@@ -103,7 +103,7 @@ function sourceToTask(source, settings = {}) {
     id: source.id,
     code: source.code,
     label: settings.label || source.label,
-    unit: source.unit || "u",
+    unit: settings.unit ?? source.unit ?? "u",
     normativeTime: round2(settings.normativeTime ?? source.normativeTime ?? 0),
     isFixedTime: source.unit === "u",
     billingMode: settings.billingMode || "time",
@@ -185,14 +185,14 @@ function computeSubItemLine(subItem, parentLine = {}) {
   const vatRate = Number(pricingProfile.vatRate || 0.2);
   let totalHt = 0;
   if (billingMode === "fixed") {
-    const input = Number(subItem.fixedAmountInput || 0);
-    totalHt = subItem.fixedAmountMode === "ttc"
-      ? round2(input / (1 + vatRate))
-      : round2(input);
+    totalHt = round2(Number(subItem.fixedAmountInput || 0));
   } else {
-    totalHt = round2(
-      Number(subItem.quantity || 0) * Number(subItem.normativeTime || 0) * Number(subItem.hourlyRate || parentLine.hourlyRate || 0)
-    );
+    const totalHtBase = Number(subItem.quantity || 0) * Number(subItem.normativeTime || 0) * Number(subItem.hourlyRate || parentLine.hourlyRate || 0);
+    const adjustmentPercent = Math.max(0, Number(subItem.adjustmentPercent || 0));
+    const discountPercent = Math.max(0, Number(subItem.discountPercent || 0));
+    const totalHtAfterAdjustment = totalHtBase + totalHtBase * (adjustmentPercent / 100);
+    const discountAmount = totalHtAfterAdjustment * (discountPercent / 100);
+    totalHt = round2(Math.max(0, totalHtAfterAdjustment - discountAmount));
   }
   const vatAmount = round2(totalHt * vatRate);
   return { ...subItem, totalHt, totalTtc: round2(totalHt + vatAmount), vatAmount, vatRate };
@@ -211,6 +211,13 @@ export default function QuotesPage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info");
   const [generatedQuote, setGeneratedQuote] = useState(null);
+  const [savedLineId, setSavedLineId] = useState(null);
+  const [confirmDeleteLineId, setConfirmDeleteLineId] = useState(null);
+  const [confirmDeleteSubId, setConfirmDeleteSubId] = useState(null);
+  const [clientMessage, setClientMessage] = useState("");
+  const [openRooms, setOpenRooms] = useState(() => new Set());
+  const [savingCompany, setSavingCompany] = useState(false);
+  const [savingClient, setSavingClient] = useState(false);
   const [signatureDelivery, setSignatureDelivery] = useState(null);
   const [copyMessage, setCopyMessage] = useState("");
   const [selectedSupply, setSelectedSupply] = useState(null);
@@ -239,6 +246,7 @@ export default function QuotesPage() {
     quoteDate: todayIso(),
     startDate: "",
     expectedDuration: "",
+    workDescription: "",
     validityDays: 30
   });
   const [rooms, setRooms] = useState([]);
@@ -315,13 +323,14 @@ export default function QuotesPage() {
         const draft = JSON.parse(raw);
         let currentUserId = "";
         try { currentUserId = JSON.parse(window.localStorage.getItem("koji-user") || "null")?.id || ""; } catch { /**/ }
-        if (!draft.userId || draft.userId !== currentUserId) {
-          // Draft has no userId (old format) or belongs to a different user — discard it
+        if (draft.userId && currentUserId && draft.userId !== currentUserId) {
+          // Draft belongs to a different, identified user — discard it
           window.localStorage.removeItem("koji-devis-draft");
         } else {
           if (Array.isArray(draft.customSources) && draft.customSources.length) setCustomSources(draft.customSources);
           if (draft.lineSettings && Object.keys(draft.lineSettings).length) setLineSettings(draft.lineSettings);
           if (Array.isArray(draft.roomNotes) && draft.roomNotes.length) setRoomNotes(draft.roomNotes);
+          if (Array.isArray(draft.rooms) && draft.rooms.length) setRooms(draft.rooms);
           if (Array.isArray(draft.surcharges)) setSurcharges(draft.surcharges);
           if (draft.quoteVatRate != null) setQuoteVatRate(Number(draft.quoteVatRate));
           if (draft.form && typeof draft.form === "object") setForm((current) => ({ ...current, ...draft.form }));
@@ -395,7 +404,7 @@ export default function QuotesPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hasContent = selectedIds.length || customSources.length ||
-      Object.keys(lineSettings).length || roomNotes.length || generatedQuote?.id;
+      Object.keys(lineSettings).length || roomNotes.length || rooms.length || generatedQuote?.id;
     if (!hasContent) return;
     let currentUserId = "";
     try { currentUserId = JSON.parse(window.localStorage.getItem("koji-user") || "null")?.id || ""; } catch { /**/ }
@@ -405,6 +414,7 @@ export default function QuotesPage() {
       customSources,
       lineSettings,
       roomNotes,
+      rooms,
       surcharges,
       quoteVatRate,
       vatManual,
@@ -412,7 +422,7 @@ export default function QuotesPage() {
       form,
       generatedQuote: generatedQuote || null
     }));
-  }, [selectedIds, customSources, lineSettings, roomNotes, surcharges, quoteVatRate, vatManual, draftQuoteNumber, generatedQuote, form]);
+  }, [selectedIds, customSources, lineSettings, roomNotes, rooms, surcharges, quoteVatRate, vatManual, draftQuoteNumber, generatedQuote, form]);
 
   // Freeze the preview number once quotes are loaded; only regenerate on "Nouveau devis"
   useEffect(() => {
@@ -553,6 +563,24 @@ export default function QuotesPage() {
   function removeRoom(label) {
     setRooms((current) => current.filter((item) => item !== label));
     clearLineOverride("room", label);
+  }
+
+  function scrollToRoom(room) {
+    if (typeof window === "undefined") return;
+    setOpenRooms((current) => new Set(current).add(room));
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`lot-section-${encodeURIComponent(room)}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function toggleRoomOpen(room) {
+    setOpenRooms((current) => {
+      const next = new Set(current);
+      if (next.has(room)) next.delete(room);
+      else next.add(room);
+      return next;
+    });
   }
 
   function renameRoom(oldName, newName) {
@@ -720,7 +748,7 @@ export default function QuotesPage() {
       const subItems = Array.isArray(settings.subItems) ? settings.subItems : [];
       return {
         ...current,
-        [parentId]: { ...settings, subItems: [...subItems, { id: `sub-${Date.now()}`, label: "", billingMode: "fixed", fixedAmountInput: "", fixedAmountMode: "ht", vatRate: "" }] }
+        [parentId]: { ...settings, subItems: [...subItems, { id: `sub-${Date.now()}`, label: "", billingMode: "time", fixedAmountInput: "", fixedAmountMode: "ht", vatRate: "" }] }
       };
     });
   }
@@ -903,20 +931,6 @@ export default function QuotesPage() {
     }
   }
 
-  function clearSelection() {
-    setSelectedIds([]);
-    setCustomSources([]);
-    setLineSettings({});
-    setRooms([]);
-    setRoomNotes([]);
-    setGeneratedQuote(null);
-    setSignatureDelivery(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("koji-devis-ouvrages");
-      window.localStorage.removeItem("koji-devis-draft");
-    }
-  }
-
   function openOuvragesLibrary(room = "Services") {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem("koji-devis-ouvrages");
@@ -979,6 +993,45 @@ export default function QuotesPage() {
     setMessageType(type);
   }
 
+  async function saveCompanyProfile() {
+    if (typeof window === "undefined") return;
+    setSavingCompany(true);
+    try {
+      let localUser = null;
+      try { localUser = JSON.parse(window.localStorage.getItem("koji-user") || "null"); } catch { /**/ }
+      const payload = {
+        userId: localUser?.id,
+        name: localUser?.name || company.name,
+        email: localUser?.email || company.email,
+        accountType: localUser?.accountType || "entreprise",
+        business: {
+          raisonSociale: company.name,
+          addressLine1: company.address,
+          emailPro: company.email,
+          phone: company.phone,
+          siret: company.siret,
+          tva: company.tva,
+          logoDataUrl: company.logoDataUrl
+        }
+      };
+      const response = await apiSend("/api/auth/profile", payload, "PATCH");
+      window.localStorage.setItem("koji-user", JSON.stringify(response.user));
+      notify("Informations entreprise enregistrées.", "success");
+    } catch (error) {
+      notify(error.message || "Impossible d'enregistrer les informations.", "error");
+    } finally {
+      setSavingCompany(false);
+    }
+  }
+
+  function saveClientInfo() {
+    setSavingClient(true);
+    setTimeout(() => {
+      setSavingClient(false);
+      notify("Informations client et chantier enregistrées.", "success");
+    }, 300);
+  }
+
   function requireLines() {
     if (quoteLines.length) return true;
     notify("Ajoutez au moins un ouvrage ou une fourniture avant de continuer.", "error");
@@ -1015,6 +1068,7 @@ export default function QuotesPage() {
       chantierAddress: form.chantierAddress,
       startDate: form.startDate,
       expectedDuration: form.expectedDuration,
+      workDescription: form.workDescription,
       validityDays: Number(form.validityDays || 30),
       quoteDate: form.quoteDate || todayIso(),
       createdAt: form.quoteDate || todayIso(),
@@ -1063,6 +1117,17 @@ export default function QuotesPage() {
     return quote;
   }
 
+  async function saveLineDraft(lineId) {
+    setSavedLineId(`saving-${lineId}`);
+    try {
+      await persistQuote();
+      setSavedLineId(`saved-${lineId}`);
+      setTimeout(() => setSavedLineId(null), 2000);
+    } catch {
+      setSavedLineId(null);
+    }
+  }
+
   async function sendQuoteToSignature(quoteId) {
     const { quote } = await apiSend("/api/quotes", {
       id: quoteId,
@@ -1095,11 +1160,11 @@ export default function QuotesPage() {
     }
   }
 
-  async function handlePreview() {
+  async function handlePreview(type = "quote") {
     if (!requireLines()) return;
     try {
       const quote = await persistQuote();
-      window.open(`/api/quotes/${quote.id}/documents?type=quote&format=pdf&preview=1`, "_blank");
+      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=pdf&preview=1`, "_blank");
       notify("Aperçu ouvert dans un nouvel onglet.", "success");
     } catch (error) {
       notify(error.message || "Impossible de générer l'aperçu.", "error");
@@ -1151,20 +1216,13 @@ export default function QuotesPage() {
     setQuoteVatRate(20);
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
-    setForm({ client: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", validityDays: 30 });
+    setForm({ client: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
     setIsNewChantier(false);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("koji-devis-ouvrages");
       window.localStorage.removeItem("koji-devis-draft");
       window.localStorage.removeItem("koji-devis-target-room");
     }
-  }
-
-  function startFreshDevis() {
-    const hasContent = selectedIds.length || customSources.length || rooms.length || quoteLines.length;
-    if (hasContent && !window.confirm("Démarrer un nouveau devis ? Le devis en cours sera perdu.")) return;
-    resetDevisState();
-    notify("Nouveau devis prêt.", "success");
   }
 
   async function handleCancel() {
@@ -1220,7 +1278,7 @@ export default function QuotesPage() {
     }
   }
 
-  const signatureText = signatureShareText();
+  const signatureText = clientMessage || signatureShareText();
   const signatureEmail = signatureDelivery?.email || form.clientEmail || generatedQuote?.clientEmail || "";
   const signaturePhone = signatureDelivery?.phone || form.clientPhone || generatedQuote?.clientPhone || "";
   const signaturePhoneDigits = String(signaturePhone).replace(/[^\d]/g, "");
@@ -1231,6 +1289,12 @@ export default function QuotesPage() {
     ? `https://wa.me/${signaturePhoneDigits || ""}?text=${encodeURIComponent(signatureText)}`
     : "#";
 
+  useEffect(() => {
+    if (signatureDelivery && !clientMessage) {
+      setClientMessage(signatureShareText());
+    }
+  }, [signatureDelivery]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function renderLineCard(line) {
     const settings = lineSettings[line.id] || {};
     const subItems = Array.isArray(line.subItems) ? line.subItems : [];
@@ -1238,11 +1302,8 @@ export default function QuotesPage() {
     return (
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
-          <div className="quote-final-line-header-actions">
-            <button type="button" className="quote-line-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer cette ligne">×</button>
-          </div>
+          <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder="Désignation de l'ouvrage..." />
         </header>
-        <input className="quote-line-label-input" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder="Désignation de l'ouvrage..." />
         {!hasSubItems ? (
           <>
             <div className="quote-mode-row">
@@ -1266,7 +1327,18 @@ export default function QuotesPage() {
               ) : (
                 <>
                   <label>Quantité<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
-                  <label>Temps h/{line.unit}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
+                  <label>Unité<select value={settings.unit ?? line.unit ?? "u"} onChange={(event) => updateLine(line.id, "unit", event.target.value)}>
+                    <option value="u">U</option>
+                    <option value="m">M</option>
+                    <option value="m2">M²</option>
+                    <option value="l">L</option>
+                    <option value="pce">Pièce</option>
+                    <option value="ens">Ens</option>
+                    <option value="forfait">Forfait</option>
+                    <option value="ml">ML</option>
+                    <option value="autre">Autre</option>
+                  </select></label>
+                  <label>Temps h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
                   <label>Taux horaire<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
                   <label>Ajustement %<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
                   <label>Réduction %<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
@@ -1363,41 +1435,66 @@ export default function QuotesPage() {
         <div className="quote-sub-items">
           {subItems.map((sub) => (
             <article key={sub.id} className="quote-sub-item-card">
-              <header>
-                <div className="quote-final-line-header-actions">
-                  <b>{money(sub.totalHt)} HT</b>
-                  <button type="button" className="quote-line-remove" onClick={() => removeSubItem(line.id, sub.id)} aria-label="Supprimer">×</button>
-                </div>
+              <header className="quote-sub-item-header">
+                <input className="quote-line-label-input quote-line-label-input-header" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder="Désignation du sous-ouvrage..." />
+                <b>{money(sub.totalHt)} HT</b>
               </header>
-              <input className="quote-line-label-input" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder="Désignation du sous-ouvrage..." />
               <div className="quote-mode-row">
                 <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>Temps réel</button>
                 <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>Forfait</button>
               </div>
-              <div className={`quote-line-inputs compact ${sub.billingMode === "fixed" ? "fixed-only" : ""}`}>
+              <div className={`quote-line-inputs compact ${sub.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
                 {sub.billingMode === "fixed" ? (
                   <>
                     <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} /></label>
-                    <label className="forfait-mode-field">Type<select value={sub.fixedAmountMode || "ht"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountMode", e.target.value)}>
-                      <option value="ht">HT</option>
-                      <option value="ttc">TTC</option>
+                    <label>Durée<input type="number" min="0" step="any" value={sub.fixedDuration ?? ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDuration", e.target.value)} placeholder="0" /></label>
+                    <label>Unité<select value={sub.fixedDurationUnit ?? "h"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDurationUnit", e.target.value)}>
+                      <option value="h">Heures</option>
+                      <option value="j">Jours</option>
                     </select></label>
                   </>
                 ) : (
                   <>
                     <label>Quantité<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
-                    <label>Temps h/u<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
-                    <label>Taux horaire<input type="number" min="0" step="any" value={sub.hourlyRate || ""} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
+                    <label>Unité<select value={sub.unit || "u"} onChange={(e) => updateSubItem(line.id, sub.id, "unit", e.target.value)}>
+                      <option value="u">U</option>
+                      <option value="m">M</option>
+                      <option value="m2">M²</option>
+                      <option value="l">L</option>
+                      <option value="pce">Pièce</option>
+                      <option value="ens">Ens</option>
+                      <option value="forfait">Forfait</option>
+                      <option value="ml">ML</option>
+                      <option value="autre">Autre</option>
+                    </select></label>
+                    <label>Temps h/{sub.unit || "u"}<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
+                    <label>Taux horaire<input type="number" min="0" step="any" value={sub.hourlyRate || line.hourlyRate || (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
+                    <label>Ajustement %<input type="number" min="0" step="0.5" value={sub.adjustmentPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "adjustmentPercent", e.target.value)} /></label>
+                    <label>Réduction %<input type="number" min="0" step="0.5" value={sub.discountPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "discountPercent", e.target.value)} /></label>
                   </>
                 )}
               </div>
               <div className="quote-line-breakdown">
                 {sub.billingMode === "fixed" ? (
-                  <span>Forfait {sub.fixedAmountMode === "ttc" ? "TTC" : "HT"} : {money(sub.fixedAmountMode === "ttc" ? sub.totalTtc : sub.totalHt)}</span>
+                  <>
+                    {sub.fixedDuration ? <span>Durée: {sub.fixedDuration} {sub.fixedDurationUnit ?? "h"}</span> : null}
+                    <span>Forfait HT : {money(sub.totalHt)}</span>
+                  </>
                 ) : (
-                  <span>{Number(sub.quantity || 0)} u × {Number(sub.normativeTime || 0)} h × {money(sub.hourlyRate || line.hourlyRate || 0)}/h</span>
+                  <span>{Number(sub.quantity || 0)} {sub.unit || "u"} × {Number(sub.normativeTime || 0)} h × {money(sub.hourlyRate || line.hourlyRate || 0)}/h</span>
                 )}
                 <span>HT : {money(sub.totalHt)}</span>
+              </div>
+              <div className="quote-sub-item-delete-bar">
+                {confirmDeleteSubId === sub.id ? (
+                  <span className="quote-line-confirm-delete">
+                    <span>Supprimer ce sous-ouvrage ?</span>
+                    <button type="button" className="quote-line-confirm-yes" onClick={() => removeSubItem(line.id, sub.id)}>Oui, supprimer</button>
+                    <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteSubId(null)}>Annuler</button>
+                  </span>
+                ) : (
+                  <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteSubId(sub.id)}>Supprimer</button>
+                )}
               </div>
             </article>
           ))}
@@ -1406,19 +1503,38 @@ export default function QuotesPage() {
             Ajouter un sous-ouvrage
           </button>
         </div>
+        <div className="quote-line-save-bar">
+          {confirmDeleteLineId === line.id ? (
+            <span className="quote-line-confirm-delete">
+              <span>Supprimer cet ouvrage ?</span>
+              <button type="button" className="quote-line-confirm-yes" onClick={() => removeQuoteLine(line.id)}>Oui, supprimer</button>
+              <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteLineId(null)}>Annuler</button>
+            </span>
+          ) : (
+            <>
+              <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteLineId(line.id)}>Supprimer</button>
+              <button
+                type="button"
+                className={`quote-line-save-btn${savedLineId === `saving-${line.id}` ? " saving" : ""}${savedLineId === `saved-${line.id}` ? " saved" : ""}`}
+                onClick={() => saveLineDraft(line.id)}
+              >
+                {savedLineId === `saving-${line.id}` ? "Enregistrement..." : savedLineId === `saved-${line.id}` ? "Enregistré ✓" : "Enregistrer"}
+              </button>
+            </>
+          )}
+        </div>
       </article>
     );
   }
 
   return (
     <Shell>
-      <header className="page-header quote-final-header">
-        <div>
+      <header className="page-header quote-final-header quote-final-header-centered">
+        <div className="quote-final-header-title">
           <p className="eyebrow">DEVIS</p>
           <h1>Générer mon devis</h1>
         </div>
         <div className="quote-final-actions">
-          <button type="button" className="button secondary" onClick={startFreshDevis}>Nouveau devis</button>
           <Link className="button secondary" href="/signature">Ma Signature</Link>
         </div>
       </header>
@@ -1437,7 +1553,11 @@ export default function QuotesPage() {
         {identityOpen ? (
           <section className="quote-identity-grid">
             <article className="quote-identity-card quote-identity-card-editable">
-              <div className="koji-mini-logo">KJ</div>
+              {company.logoDataUrl ? (
+                <img src={company.logoDataUrl} alt="Logo entreprise" className="koji-mini-logo koji-mini-logo-img" />
+              ) : (
+                <div className="koji-mini-logo">{(company.name || "KJ").slice(0, 2).toUpperCase()}</div>
+              )}
               <div className="quote-identity-fields">
                 <span>Entreprise</span>
                 <div className="quote-client-grid quote-company-grid">
@@ -1447,6 +1567,15 @@ export default function QuotesPage() {
                   <label>Téléphone<input value={company.phone} onChange={(event) => setCompanyField("phone", event.target.value)} placeholder="+33..." /></label>
                   <label>SIRET<input value={company.siret} onChange={(event) => setCompanyField("siret", event.target.value)} placeholder="12345678901234" /></label>
                   <label>TVA<input value={company.tva} onChange={(event) => setCompanyField("tva", event.target.value)} placeholder="FR..." /></label>
+                </div>
+                <div className="quote-identity-card-save">
+                  <button
+                    type="button"
+                    className={`quote-identity-save-btn${savingCompany ? " saving" : ""}`}
+                    onClick={saveCompanyProfile}
+                  >
+                    {savingCompany ? "Enregistrement..." : "Enregistrer"}
+                  </button>
                 </div>
               </div>
             </article>
@@ -1485,10 +1614,35 @@ export default function QuotesPage() {
                     <option>Autre</option>
                   </select></label>
                 </div>
+                <div className="quote-identity-card-save">
+                  <button
+                    type="button"
+                    className={`quote-identity-save-btn${savingClient ? " saving" : ""}`}
+                    onClick={saveClientInfo}
+                  >
+                    {savingClient ? "Enregistrement..." : "Enregistrer"}
+                  </button>
+                </div>
               </div>
             </article>
           </section>
         ) : null}
+
+        <section className="quote-final-card">
+          <div className="quote-section-title">
+            <div>
+              <span>Présentation</span>
+              <h2>Description des travaux</h2>
+            </div>
+          </div>
+          <textarea
+            className="quote-work-description"
+            value={form.workDescription}
+            onChange={(event) => setField("workDescription", event.target.value)}
+            placeholder="Décrivez en quelques lignes la nature générale des travaux..."
+            rows={3}
+          />
+        </section>
 
         <section className="quote-final-card">
           <div className="quote-section-title">
@@ -1518,12 +1672,12 @@ export default function QuotesPage() {
                   <button type="button" onClick={addCustomRoom}>+</button>
                 </div>
               </div>
-              {rooms.length ? (
-                <div className="added-chip-list">
-                  {rooms.map((room) => (
-                    <span className="added-chip" key={room}>
-                      {room}
-                      <button type="button" onClick={() => removeRoom(room)} aria-label={`Retirer ${room}`}>x</button>
+              {roomGroups.filter((room) => room !== "Services").length ? (
+                <div className="lot-chip-list">
+                  {roomGroups.filter((room) => room !== "Services").map((room) => (
+                    <span className="lot-chip lot-chip-clickable" key={room}>
+                      <button type="button" className="lot-chip-label" onClick={() => scrollToRoom(room)}>{room}</button>
+                      <button type="button" className="lot-chip-remove" onClick={(e) => { e.stopPropagation(); removeRoom(room); }} aria-label={`Retirer ${room}`}>x</button>
                     </span>
                   ))}
                 </div>
@@ -1533,16 +1687,27 @@ export default function QuotesPage() {
         </section>
 
         <section className="quote-final-card">
-          <div className="quote-section-title">
+          <div className="quote-section-title quote-room-title-row">
             <div>
               <span>Travaux</span>
               <h2>Ouvrages et fournitures</h2>
             </div>
-            {(quoteLines.length > 0 || rooms.length > 0) ? (
-              <button type="button" className="button secondary" onClick={clearSelection}>Réinitialiser les ouvrages</button>
-            ) : null}
+            <div className="quote-room-header-right">
+              <span className="quote-room-subtotal-badge">{money((linesByRoom["Services"] || []).reduce((s, l) => s + l.totalHt, 0))} HT</span>
+              <button
+                type="button"
+                className={`quote-meta-toggle ${openRooms.has("Services") ? "open" : ""}`}
+                onClick={() => toggleRoomOpen("Services")}
+                aria-expanded={openRooms.has("Services")}
+                aria-label={openRooms.has("Services") ? "Réduire les ouvrages sans lot" : "Ouvrir les ouvrages sans lot"}
+              >
+                <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </button>
+            </div>
           </div>
 
+          {openRooms.has("Services") ? (
+          <>
           <div className="quote-toolbar">
             <button type="button" className="quote-toolbar-button purple" onClick={() => openNoteComposer("Services")}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -1581,14 +1746,17 @@ export default function QuotesPage() {
               {(linesByRoom["Services"] || []).map((line) => renderLineCard(line))}
             </div>
           ) : null}
-
+          </>
+          ) : null}
         </section>
 
         {roomGroups.filter((room) => room !== "Services").map((room) => {
           const roomLines = linesByRoom[room] || [];
+          const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+          const isRoomOpen = openRooms.has(room);
           return (
-            <section className="quote-final-card quote-room-card" key={room}>
-              <div className="quote-section-title">
+            <section className={`quote-final-card quote-room-card${isRoomOpen ? "" : " collapsed"}`} id={`lot-section-${encodeURIComponent(room)}`} key={room}>
+              <div className="quote-section-title quote-room-title-row">
                 <div style={{ flex: 1 }}>
                   <span>LOT</span>
                   <input
@@ -1600,8 +1768,22 @@ export default function QuotesPage() {
                     placeholder="Nom du lot…"
                   />
                 </div>
+                <div className="quote-room-header-right">
+                  <span className="quote-room-subtotal-badge">{money(roomTotalHt)} HT</span>
+                  <button
+                    type="button"
+                    className={`quote-meta-toggle ${isRoomOpen ? "open" : ""}`}
+                    onClick={() => toggleRoomOpen(room)}
+                    aria-expanded={isRoomOpen}
+                    aria-label={isRoomOpen ? `Réduire ${room}` : `Ouvrir ${room}`}
+                  >
+                    <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                </div>
               </div>
 
+              {isRoomOpen ? (
+              <>
               <div className="quote-toolbar">
                 <button type="button" className="quote-toolbar-button purple" onClick={() => openNoteComposer(room)}>
                   <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -1644,14 +1826,31 @@ export default function QuotesPage() {
                   </div>
                   <div className="quote-room-subtotal">
                     <span className="quote-room-subtotal-label">Sous-total {room}</span>
-                    <span>{money(roomLines.reduce((s, l) => s + l.totalHt, 0))} HT</span>
-                    <span>{money(roomLines.reduce((s, l) => s + l.totalTtc, 0))} TTC</span>
+                    <span>{money(roomTotalHt)} HT</span>
                   </div>
                 </>
               )}
+              </>
+              ) : null}
             </section>
           );
         })}
+
+        <section className="room-add-bottom-card">
+          <span className="room-add-bottom-label">Rajouter un lot</span>
+          <div className="room-add-card">
+            <div className="room-add-row">
+              <input
+                value={customRoom}
+                onChange={(event) => setCustomRoom(event.target.value)}
+                placeholder="Nom de la pièce (ex: Salon, Cuisine...)"
+                list="room-suggestions"
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoom(); } }}
+              />
+              <button type="button" onClick={addCustomRoom}>+</button>
+            </div>
+          </div>
+        </section>
 
         <section className="quote-total-panel">
           <div><span>Total heures</span><strong>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</strong></div>
@@ -1837,7 +2036,7 @@ export default function QuotesPage() {
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 
         <div className="quote-action-row">
-          <button type="button" className="button secondary" onClick={handlePreview}>Aperçu</button>
+          <button type="button" className="button secondary" onClick={() => handlePreview()}>Aperçu</button>
           <button type="button" className="button danger" onClick={handleCancel}>Annuler</button>
           <button type="button" className="button secondary" onClick={handleConfirm}>Confirmer</button>
           <button type="button" className="button blue" onClick={handleSend}>Envoyer</button>
@@ -1852,38 +2051,42 @@ export default function QuotesPage() {
                 <h2>{generatedQuote.quoteNumber}</h2>
                 <p>Les documents sont générés et prêts à être envoyés au client.</p>
               </div>
-              <div className="quote-ready-progress"><strong>100%</strong><i /></div>
+              <div className="quote-ready-docs-stack">
+                <div className="quote-ready-doc-row" onClick={() => handleDownload("quote", "pdf")}>
+                  <span className="quote-ready-doc-label">
+                    <strong>Devis final</strong>
+                    <small>PDF A4</small>
+                  </span>
+                  <button
+                    type="button"
+                    className="quote-ready-doc-eye"
+                    onClick={(event) => { event.stopPropagation(); handlePreview("quote"); }}
+                    aria-label="Ouvrir l'aperçu du devis"
+                  >
+                    👁
+                  </button>
+                </div>
+                <div className="quote-ready-doc-row" onClick={() => handleDownload("supplies", "pdf")}>
+                  <span className="quote-ready-doc-label">
+                    <strong>Fournitures</strong>
+                    <small>PDF A4</small>
+                  </span>
+                  <button
+                    type="button"
+                    className="quote-ready-doc-eye"
+                    onClick={(event) => { event.stopPropagation(); handlePreview("supplies"); }}
+                    aria-label="Ouvrir l'aperçu des fournitures"
+                  >
+                    👁
+                  </button>
+                </div>
+              </div>
             </article>
 
-            <section className="quote-documents-grid quote-documents-grid-polished">
-              <button type="button" className="quote-document-download primary" onClick={() => handleDownload("quote", "pdf")}>
-                <span>PDF</span>
-                <strong>Devis final</strong>
-                <small>PDF A4</small>
-              </button>
-              <button type="button" className="quote-document-download" onClick={() => handleDownload("quote", "word")}>
-                <span>DOC</span>
-                <strong>Devis Word</strong>
-                <small>.docx</small>
-              </button>
-              <button type="button" className="quote-document-download" onClick={() => handleDownload("supplies", "pdf")}>
-                <span>MAT</span>
-                <strong>Fournitures</strong>
-                <small>PDF A4</small>
-              </button>
-              <button type="button" className="quote-document-download" onClick={() => handleDownload("supplies", "word")}>
-                <span>DOC</span>
-                <strong>Liste Word</strong>
-                <small>.docx</small>
-              </button>
-            </section>
-
             <section className="quote-final-card signature-delivery-card signature-send-card">
-              <div className="signature-send-heading">
-                <div className="signature-send-icon">-&gt;</div>
+              <div className="signature-send-heading signature-send-heading-simple">
                 <div>
-                  <span>Signature client</span>
-                  <h2>Envoyer le lien de signature</h2>
+                  <h2>Signature du client</h2>
                   <p>Le client reçoit un lien Kôji Signature avec un identifiant et un mot de passe provisoire.</p>
                 </div>
                 <button type="button" className="button blue" onClick={resendSignatureLink}>
@@ -1893,17 +2096,37 @@ export default function QuotesPage() {
 
               {signatureDelivery ? (
                 <>
-                  <div className="signature-access-box">
-                    <div>
-                      <span>Lien Kôji Signature</span>
-                      <a href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{signatureDelivery.loginUrl}</a>
+                  <div className="signature-access-box signature-access-box-unified">
+                    <div className="signature-access-row signature-access-row-copy">
+                      <div>
+                        <span>Lien Kôji Signature</span>
+                        <a href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{signatureDelivery.loginUrl}</a>
+                      </div>
+                      <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>Copier</button>
                     </div>
-                    <div><span>Identifiant provisoire</span><strong>{signatureDelivery.identifier}</strong></div>
-                    <div><span>Mot de passe provisoire</span><strong>{signatureDelivery.password}</strong></div>
+                    <div className="signature-access-row-pair">
+                      <div className="signature-access-row-copy">
+                        <div><span>Identifiant provisoire</span><strong>{signatureDelivery.identifier}</strong></div>
+                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.identifier, "Identifiant copié")}>Copier</button>
+                      </div>
+                      <div className="signature-access-row-copy">
+                        <div><span>Mot de passe provisoire</span><strong>{signatureDelivery.password}</strong></div>
+                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.password, "Mot de passe copié")}>Copier</button>
+                      </div>
+                    </div>
+                    <div className="signature-access-row">
+                      <span>Message au client</span>
+                      <textarea
+                        className="signature-message-input"
+                        value={clientMessage}
+                        onChange={(event) => setClientMessage(event.target.value)}
+                        rows={5}
+                      />
+                    </div>
                   </div>
                   <div className="signature-channel-row">
                     <a className="signature-channel primary" href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">Ouvrir le lien</a>
-                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copi?")}>Copier le lien</button>
+                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>Copier le lien</button>
                     <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureText, "Message prêt à envoyer")}>Copier le message</button>
                     <a className="signature-channel" href={signatureMailHref}>E-mail client</a>
                     <a className="signature-channel" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>
@@ -1911,9 +2134,9 @@ export default function QuotesPage() {
                   {copyMessage ? <p className="signature-copy-message">{copyMessage}</p> : null}
                 </>
               ) : (
-                <div className="signature-empty-card">
+                <p className="signature-empty-hint">
                   Cliquez sur "Envoyer le lien" pour créer les accès client et préparer l'envoi vers Kôji Signature.
-                </div>
+                </p>
               )}
             </section>
           </section>
