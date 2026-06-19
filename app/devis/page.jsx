@@ -1171,6 +1171,16 @@ export default function QuotesPage() {
     }
   }
 
+  async function handleGenerate() {
+    if (!requireLines()) return;
+    try {
+      const quote = await persistQuote();
+      notify(`Devis ${quote.quoteNumber} généré. Les documents sont prêts.`, "success");
+    } catch (error) {
+      notify(error.message || "Impossible de générer le devis.", "error");
+    }
+  }
+
   async function handleConfirm() {
     if (!requireLines()) return;
     if (!window.confirm("Confirmer ce devis ? Il sera enregistré et vous pourrez y revenir plus tard.")) {
@@ -2036,6 +2046,7 @@ export default function QuotesPage() {
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 
         <div className="quote-action-row">
+          <button type="button" className="button blue" onClick={handleGenerate}>Générer votre devis</button>
           <button type="button" className="button secondary" onClick={() => handlePreview()}>Aperçu</button>
           <button type="button" className="button danger" onClick={handleCancel}>Annuler</button>
           <button type="button" className="button secondary" onClick={handleConfirm}>Confirmer</button>
