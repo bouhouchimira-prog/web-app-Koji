@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "@vercel/postgres": "^0.10.0",
     "next": "latest",
     "nodemailer": "^9.0.0",
     "react": "latest",

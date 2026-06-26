@@ -298,7 +298,7 @@ export default function HomePage() {
             <div className="home-list">
               {quotesInProgress.slice(0, 5).map((quote) => (
                 <article className="home-list-item home-quote-item" key={quote.id}>
-                  <Link href="/devis" className="home-list-link home-quote-link">
+                  <Link href={`/devis?id=${quote.id}`} className="home-list-link home-quote-link">
                     <div className="home-list-icon home-icon-quote">
                       <IconQuote />
                     </div>

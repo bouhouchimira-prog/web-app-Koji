@@ -3,18 +3,18 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useApi } from "../lib/use-api";
 
 const navItems = [
+  { href: "/archives", label: "Archives", icon: "archive" },
+  { href: "/bibliotheque-ouvrages", label: "Bibliothèque d'ouvrages", icon: "book" },
+  { href: "/calendrier", label: "Calendrier", icon: "calendar" },
   { href: "/chantiers", label: "Chantiers", icon: "tools" },
   { href: "/devis", label: "Devis", icon: "file" },
-  { href: "/facturation", label: "Facturation", icon: "invoice" },
-  { href: "/calendrier", label: "Calendrier", icon: "calendar" },
-  { href: "/fournitures", label: "Fournitures", icon: "box" },
   { href: "/equipe", label: "Equipe", icon: "users" },
-  { href: "/signature", label: "Signatures", icon: "pen" },
-  { href: "/marketplace", label: "Marketplace", icon: "market" },
-  { href: "/archives", label: "Archives", icon: "archive" },
-  { href: "/bibliotheque-ouvrages", label: "Bibliothèque d'ouvrages", icon: "book" }
+  { href: "/facturation", label: "Facturation", icon: "invoice" },
+  { href: "/fournitures", label: "Fournitures", icon: "box" },
+  { href: "/marketplace", label: "Marketplace", icon: "market" }
 ];
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
@@ -154,6 +154,8 @@ export function Shell({ children }) {
   const [profileType, setProfileType] = useState("entreprise");
   const [isAdmin, setIsAdmin] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
+  const { data: notifications } = useApi("/api/notifications", "notifications");
+  const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -205,7 +207,10 @@ export function Shell({ children }) {
           <img src="/koji-logo.svg" alt="Koji" />
         </Link>
         <div className="topbar-right">
-          <Link href="/notifications" className="icon-round" aria-label="Notifications"><Icon name="bell" className="svg-icon" /></Link>
+          <Link href="/notifications" className="icon-round notif-bell-link" aria-label="Notifications">
+            <Icon name="bell" className="svg-icon" />
+            {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+          </Link>
           <Link href="/parametres" className="icon-round" aria-label="Profil"><Icon name="user" className="svg-icon" /></Link>
         </div>
       </header>

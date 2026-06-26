@@ -140,6 +140,8 @@ function ensureClientPortalAccess(db, quote, body, request, now) {
   return {
     userId: user.id,
     identifier: signedEmail || signedPhone,
+    portalIdentifier: user.portalIdentifier,
+    password,
     email: signedEmail,
     phone: signedPhone,
     loginUrl,
@@ -173,7 +175,8 @@ export async function GET(_request, context) {
       clientPhone: fixText(quote.clientPhone || ""),
       clientPortalUserId: quote.clientPortalUserId || "",
       clientPortalAccessSentAt: quote.clientPortalAccessSentAt || "",
-      signaturePlace: fixText(quote.signaturePlace || "")
+      signaturePlace: fixText(quote.signaturePlace || ""),
+      signerMessage: fixText(quote.signerMessage || "")
     }
   });
 }
@@ -196,6 +199,7 @@ export async function POST(request, context) {
     clientEmail: normalizeEmail(body.signerEmail || quote.clientEmail || ""),
     clientPhone: fixText(body.signerPhone || quote.clientPhone || ""),
     signaturePlace: fixText(body.signaturePlace || ""),
+    signerMessage: fixText(body.signerMessage || ""),
     signedAt: now,
     updatedAt: now
   };
@@ -212,6 +216,9 @@ export async function POST(request, context) {
     message: `Votre devis N° : ${updated.quoteNumber} a été signé par ${updated.signerName || updated.client || "votre client"}.`,
     quoteId: updated.id,
     projectId: updated.projectId || "",
+    actionUrl: `/devis?id=${updated.id}`,
+    actionLabel: "Voir le devis",
+    meta: { signerName: updated.signerName || "", quoteNumber: updated.quoteNumber || "" },
     read: false,
     createdAt: now
   });
@@ -240,9 +247,19 @@ export async function POST(request, context) {
       userId: updated.userId || "",
       type: "client.access.sent",
       title: "Accès espace particulier envoyé",
-      message: `L'identifiant ${clientAccess?.userId ? (db.users.find(u => u.id === clientAccess.userId)?.portalIdentifier || "") : ""} a été envoyé au client pour suivre le chantier.`,
+      message: `L'identifiant ${clientAccess.portalIdentifier || ""} a été envoyé au client pour suivre le chantier.`,
       quoteId: updated.id,
       projectId: updated.projectId || "",
+      actionUrl: updated.projectId ? `/chantiers?project=${updated.projectId}` : "",
+      actionLabel: "Voir le chantier",
+      meta: {
+        portalIdentifier: clientAccess.portalIdentifier || "",
+        password: clientAccess.password || "",
+        email: clientAccess.email || "",
+        phone: clientAccess.phone || "",
+        loginUrl: clientAccess.loginUrl || "",
+        quoteNumber: updated.quoteNumber || ""
+      },
       read: false,
       createdAt: now
     });

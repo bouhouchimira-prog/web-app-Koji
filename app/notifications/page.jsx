@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
@@ -26,6 +27,7 @@ const TYPE_META = {
   "budget.alert":         { label: "Budget",          bg: "#fee2e2", color: "#dc2626", icon: "⚠️" },
   "marketplace.interest": { label: "Marché",          bg: "#ede9fe", color: "#5b21b6", icon: "🌟" },
   "company.worker_claim": { label: "Réclamation",     bg: "#fee2e2", color: "#dc2626", icon: "🔧" },
+  "task.completed":       { label: "À valider",       bg: "#fef9c3", color: "#854d0e", icon: "🛠️" },
   "worker.time_overrun":  { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
   "company.time_overrun": { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
 };
@@ -89,6 +91,7 @@ const TABS = [
 ];
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
@@ -205,7 +208,11 @@ export default function NotificationsPage() {
             {filtered.map((notif) => (
               <article
                 key={notif.id}
-                className={`notif-row${notif.read ? " notif-read" : " notif-unread"}${notif.archived ? " notif-archived" : ""}`}
+                className={`notif-row notif-row-clickable${notif.read ? " notif-read" : " notif-unread"}${notif.archived ? " notif-archived" : ""}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/notifications/${notif.id}`)}
+                onKeyDown={(event) => { if (event.key === "Enter") router.push(`/notifications/${notif.id}`); }}
               >
                 {/* Point non lu */}
                 <div className="notif-dot-col">
@@ -227,7 +234,7 @@ export default function NotificationsPage() {
 
                   {/* Actions spéciales */}
                   {notif.type === "quote.draft" && !notif.archived ? (
-                    <div className="notif-inline-actions">
+                    <div className="notif-inline-actions" onClick={(event) => event.stopPropagation()}>
                       <Link className="notif-action-link" href={notif.actionUrl || "/chantier/new"}>
                         Reprendre le brouillon →
                       </Link>
@@ -236,7 +243,7 @@ export default function NotificationsPage() {
                       </button>
                     </div>
                   ) : notif.actionUrl && !notif.archived ? (
-                    <div className="notif-inline-actions">
+                    <div className="notif-inline-actions" onClick={(event) => event.stopPropagation()}>
                       <Link className="notif-action-link" href={notif.actionUrl} onClick={() => markRead(notif)}>
                         {notif.actionLabel || "Voir"} →
                       </Link>
@@ -245,7 +252,7 @@ export default function NotificationsPage() {
                 </div>
 
                 {/* Actions droite */}
-                <div className="notif-actions-col">
+                <div className="notif-actions-col" onClick={(event) => event.stopPropagation()}>
                   {!notif.read && !notif.archived && (
                     <button
                       type="button"

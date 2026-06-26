@@ -105,6 +105,17 @@ export async function PATCH(request) {
   if (body.action === "toggle") {
     task.done = !task.done;
     task.status = task.done ? "Terminee" : "À faire";
+    task.pendingValidation = false;
+    if (task.done) {
+      task.validatedAt = new Date().toISOString();
+      task.validatedBy = "patron";
+    }
+  } else if (body.action === "validate") {
+    task.done = true;
+    task.pendingValidation = false;
+    task.status = "Terminee";
+    task.validatedAt = new Date().toISOString();
+    task.validatedBy = "patron";
   } else if (body.action === "assign") {
     const workerIds = Array.isArray(body.workerIds) ? body.workerIds : [];
     const workers = db.workers.filter((worker) => workerIds.includes(worker.id));

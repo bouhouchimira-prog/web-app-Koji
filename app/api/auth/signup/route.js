@@ -1,6 +1,6 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
-import { activationExpires, makeActivationToken, nowIso } from "../../../../lib/auth";
+import { activationExpires, isAdminEmail, makeActivationToken, nowIso } from "../../../../lib/auth";
 import { queueActivationEmail } from "../../../../lib/mailer";
 import { hashPassword } from "../../../../lib/worker-auth";
 
@@ -36,6 +36,7 @@ export async function POST(request) {
     lastLoginAt: nowIso(),
     businessInfoComplete: false,
     profileComplete: false,
+    isAdmin: isAdminEmail(email),
     plan: "trial",
     trialStartedAt: nowIso(),
     business: {},
