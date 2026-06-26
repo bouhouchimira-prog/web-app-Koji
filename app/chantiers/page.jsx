@@ -1,11 +1,19 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
+
+function CardChevron({ collapsed }) {
+  return (
+    <svg className="card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 
 function quoteItemId(item, index) {
   return `${item.roomId || item.room || "chantier"}-${item.taskId || item.code || index}`;
@@ -80,6 +88,23 @@ export default function ProjectsTrackingPage() {
   const [budgetDraft, setBudgetDraft] = useState(null);
   const [message, setMessage] = useState("");
   const [marketplaceDesc, setMarketplaceDesc] = useState("");
+  const [collapsedCards, setCollapsedCards] = useState(() => new Set());
+  const [expandedLineKey, setExpandedLineKey] = useState(null);
+
+  function toggleCard(key) {
+    setCollapsedCards((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const projectId = new URLSearchParams(window.location.search).get("project");
+    if (projectId) setSelectedProjectId(projectId);
+  }, []);
 
   const activeProjects = useMemo(() => {
     return projects.filter((project) => {
@@ -290,6 +315,14 @@ export default function ProjectsTrackingPage() {
     await refreshProjectProgress(nextTasks);
   }
 
+  async function validateTask(task) {
+    const { task: updatedTask } = await apiSend("/api/tasks", { id: task.id, action: "validate" }, "PATCH");
+    const nextTasks = tasks.map((item) => item.id === updatedTask.id ? updatedTask : item);
+    setTasks(nextTasks);
+    await refreshProjectProgress(nextTasks);
+    setMessage(`Ouvrage "${updatedTask.label}" valide.`);
+  }
+
   function setBudgetValue(rowId, field, value) {
     if (!selectedProject) return;
     const source = budgetDraft?.projectId === selectedProject.id ? budgetDraft.items : budgetRows;
@@ -407,6 +440,20 @@ export default function ProjectsTrackingPage() {
     return (
       <Shell>
         <div className="mobile-tool chantier-follow">
+          {selectedQuote?.clientPortalAccess?.portalIdentifier ? (
+            <div className="client-portal-id-banner">
+              <div>
+                <span>Identifiant client à partager</span>
+                <strong>{selectedQuote.clientPortalAccess.portalIdentifier}</strong>
+              </div>
+              {selectedQuote.clientPortalAccess.password ? (
+                <div>
+                  <span>Mot de passe</span>
+                  <strong>{selectedQuote.clientPortalAccess.password}</strong>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <header className="tool-topline compact">
             <button type="button" className="plain-back" onClick={() => setSelectedProjectId("")}>{"<"}</button>
             <div className="follow-title">
@@ -434,164 +481,192 @@ export default function ProjectsTrackingPage() {
 
           <section className="project-overview-grid">
             <article className="project-overview-card">
-              <div className="follow-section-head">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("agenda")}>
                 <h2>Agenda / À faire</h2>
                 <span>{upcomingTasks.length} a venir</span>
-              </div>
-              <form className="project-mini-form" onSubmit={addProjectTask}>
-                <input value={taskForm.label} onChange={(event) => setTaskForm((current) => ({ ...current, label: event.target.value }))} placeholder="Nouvelle tache" />
-                <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((current) => ({ ...current, dueDate: event.target.value }))} />
-                <input value={taskForm.location} onChange={(event) => setTaskForm((current) => ({ ...current, location: event.target.value }))} placeholder="Lieu (optionnel)" />
-                <button type="submit">Ajouter</button>
-              </form>
-              <div className="project-mini-list">
-                {upcomingTasks.length === 0 ? <p>Aucune tache a venir.</p> : upcomingTasks.slice(0, 4).map((task) => (
-                  <button type="button" key={task.id} onClick={() => toggleDone(task)}>
-                    <strong>{task.label}</strong>
-                    <span>{formatDate(task.dueDate || task.startDate)} - {task.assignedTo || "Equipe"}</span>
-                  </button>
-                ))}
-              </div>
-              {completedTasks.length > 0 ? (
-                <details className="project-history-details">
-                  <summary>Historique des taches realisees</summary>
-                  {completedTasks.slice(0, 6).map((task) => <p key={task.id}>{task.label} - {formatDate(task.updatedAt || task.createdAt)}</p>)}
-                </details>
+                <CardChevron collapsed={collapsedCards.has("agenda")} />
+              </button>
+              {!collapsedCards.has("agenda") ? (
+                <>
+                  <form className="project-mini-form" onSubmit={addProjectTask}>
+                    <input value={taskForm.label} onChange={(event) => setTaskForm((current) => ({ ...current, label: event.target.value }))} placeholder="Nouvelle tache" />
+                    <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((current) => ({ ...current, dueDate: event.target.value }))} />
+                    <input value={taskForm.location} onChange={(event) => setTaskForm((current) => ({ ...current, location: event.target.value }))} placeholder="Lieu (optionnel)" />
+                    <button type="submit">Ajouter</button>
+                  </form>
+                  <div className="project-mini-list">
+                    {upcomingTasks.length === 0 ? <p>Aucune tache a venir.</p> : upcomingTasks.slice(0, 4).map((task) => (
+                      <button type="button" key={task.id} onClick={() => toggleDone(task)}>
+                        <strong>{task.label}</strong>
+                        <span>{formatDate(task.dueDate || task.startDate)} - {task.assignedTo || "Equipe"}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {completedTasks.length > 0 ? (
+                    <details className="project-history-details">
+                      <summary>Historique des taches realisees</summary>
+                      {completedTasks.slice(0, 6).map((task) => <p key={task.id}>{task.label} - {formatDate(task.updatedAt || task.createdAt)}</p>)}
+                    </details>
+                  ) : null}
+                </>
               ) : null}
             </article>
 
             <article className="project-overview-card">
-              <div className="follow-section-head">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("budget")}>
                 <h2>Budget</h2>
                 <span>Total: {euro(budgetTotal.real)} / {euro(budgetTotal.estimated)}</span>
-              </div>
-              <div className="budget-follow-list">
-                {budgetRows.map((row) => {
-                  const overBudget = Number(row.real || 0) > Number(row.estimated || 0);
-                  return (
-                    <div className={`budget-follow-row ${overBudget ? "over-budget" : ""}`} key={row.id}>
-                      <strong>{row.label}</strong>
-                      <label>Estime<input type="number" value={row.estimated} onChange={(event) => setBudgetValue(row.id, "estimated", event.target.value)} /></label>
-                      <label>Reel<input type="number" value={row.real} onChange={(event) => setBudgetValue(row.id, "real", event.target.value)} /></label>
-                      <span>{overBudget ? "Depassement" : "OK"}</span>
+                <CardChevron collapsed={collapsedCards.has("budget")} />
+              </button>
+              {!collapsedCards.has("budget") ? (
+                <>
+                  <div className="budget-follow-list">
+                    {budgetRows.map((row) => {
+                      const overBudget = Number(row.real || 0) > Number(row.estimated || 0);
+                      return (
+                        <div className={`budget-follow-row ${overBudget ? "over-budget" : ""}`} key={row.id}>
+                          <strong>{row.label}</strong>
+                          <label>Estime<input type="number" value={row.estimated} onChange={(event) => setBudgetValue(row.id, "estimated", event.target.value)} /></label>
+                          <label>Reel<input type="number" value={row.real} onChange={(event) => setBudgetValue(row.id, "real", event.target.value)} /></label>
+                          <span>{overBudget ? "Depassement" : "OK"}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button type="button" className="mini-outline" onClick={saveBudgetRows}>Enregistrer le budget</button>
+                  <form className="project-mini-form expense-mini-form" onSubmit={addExpense}>
+                    <input value={expenseForm.label} onChange={(event) => setExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder="Depense reelle" />
+                    <select value={expenseForm.category} onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))}>
+                      {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
+                    </select>
+                    <input type="number" value={expenseForm.amount} onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Montant" />
+                    <input value={expenseForm.location} onChange={(event) => setExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder="Lieu (optionnel)" />
+                    <input value={expenseForm.notes} onChange={(event) => setExpenseForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Note" />
+                    <button type="submit">Ajouter depense</button>
+                  </form>
+                  {linkedExpenses.length > 0 ? (
+                    <div className="project-mini-list">
+                      {linkedExpenses.slice(0, 4).map((expense) => (
+                        <span key={expense.id}>{expense.category}: {expense.label} - {euro(expense.amount)}</span>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-              <button type="button" className="mini-outline" onClick={saveBudgetRows}>Enregistrer le budget</button>
-              <form className="project-mini-form expense-mini-form" onSubmit={addExpense}>
-                <input value={expenseForm.label} onChange={(event) => setExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder="Depense reelle" />
-                <select value={expenseForm.category} onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))}>
-                  {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
-                </select>
-                <input type="number" value={expenseForm.amount} onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Montant" />
-                <input value={expenseForm.location} onChange={(event) => setExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder="Lieu (optionnel)" />
-                <input value={expenseForm.notes} onChange={(event) => setExpenseForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Note" />
-                <button type="submit">Ajouter depense</button>
-              </form>
-              {linkedExpenses.length > 0 ? (
-                <div className="project-mini-list">
-                  {linkedExpenses.slice(0, 4).map((expense) => (
-                    <span key={expense.id}>{expense.category}: {expense.label} - {euro(expense.amount)}</span>
-                  ))}
-                </div>
+                  ) : null}
+                </>
               ) : null}
             </article>
 
             <article className="project-overview-card">
-              <div className="follow-section-head">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("rdv")}>
                 <h2>Rendez-vous</h2>
                 <span>{projectEvents.length} RDV</span>
-              </div>
-              <div className="next-rdv-card">
-                <strong>{nextRdv ? nextRdv.title : "Aucun RDV"}</strong>
-                <span>{nextRdv ? dateTimeFromEvent(nextRdv) : "Pas de rendez-vous prevu"}</span>
-                <small>{nextRdv?.clientName || ""} {nextRdv?.address ? `- ${nextRdv.address}` : ""}</small>
-              </div>
-              <form className="project-mini-form" onSubmit={addRdv}>
-                <input value={rdvForm.title} onChange={(event) => setRdvForm((current) => ({ ...current, title: event.target.value }))} placeholder="Objet du RDV" />
-                <input type="date" value={rdvForm.date} onChange={(event) => setRdvForm((current) => ({ ...current, date: event.target.value }))} />
-                <input type="time" value={rdvForm.time} onChange={(event) => setRdvForm((current) => ({ ...current, time: event.target.value }))} />
-                <input value={rdvForm.contact} onChange={(event) => setRdvForm((current) => ({ ...current, contact: event.target.value }))} placeholder="Contact" />
-                <input value={rdvForm.address} onChange={(event) => setRdvForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse" />
-                <button type="submit">Ajouter</button>
-              </form>
+                <CardChevron collapsed={collapsedCards.has("rdv")} />
+              </button>
+              {!collapsedCards.has("rdv") ? (
+                <>
+                  <div className="next-rdv-card">
+                    <strong>{nextRdv ? nextRdv.title : "Aucun RDV"}</strong>
+                    <span>{nextRdv ? dateTimeFromEvent(nextRdv) : "Pas de rendez-vous prevu"}</span>
+                    <small>{nextRdv?.clientName || ""} {nextRdv?.address ? `- ${nextRdv.address}` : ""}</small>
+                  </div>
+                  <form className="project-mini-form" onSubmit={addRdv}>
+                    <input value={rdvForm.title} onChange={(event) => setRdvForm((current) => ({ ...current, title: event.target.value }))} placeholder="Objet du RDV" />
+                    <input type="date" value={rdvForm.date} onChange={(event) => setRdvForm((current) => ({ ...current, date: event.target.value }))} />
+                    <input type="time" value={rdvForm.time} onChange={(event) => setRdvForm((current) => ({ ...current, time: event.target.value }))} />
+                    <input value={rdvForm.contact} onChange={(event) => setRdvForm((current) => ({ ...current, contact: event.target.value }))} placeholder="Contact" />
+                    <input value={rdvForm.address} onChange={(event) => setRdvForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse" />
+                    <button type="submit">Ajouter</button>
+                  </form>
+                </>
+              ) : null}
             </article>
 
             <article className="project-overview-card">
-              <div className="follow-section-head">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("documents")}>
                 <h2>Documents</h2>
                 <span>{linkedDocuments.length + linkedInvoices.length + linkedExpenses.length + (selectedQuote ? 1 : 0)} total</span>
-              </div>
-              <div className="project-mini-list">
-                {selectedQuote ? <a href={`/api/quotes/${selectedQuote.id}/documents?type=quote&format=pdf`}>Devis {selectedQuote.quoteNumber}</a> : <p>Aucun devis genere.</p>}
-                {linkedInvoices.map((invoice) => <span key={invoice.id}>{invoice.invoiceNumber} - {euro(invoice.amountTtc)}</span>)}
-                {linkedDocuments.map((document) => <span key={document.id}>{document.type}: {document.title}</span>)}
-              </div>
-              <form className="project-mini-form" onSubmit={addDocument}>
-                <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder="Nom du document ou photo" />
-                <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))}>
-                  {["Document", "Photo", "Facture", "Ticket", "Bon de commande", "Justificatif"].map((type) => <option key={type}>{type}</option>)}
-                </select>
-                <input value={documentForm.category} onChange={(event) => setDocumentForm((current) => ({ ...current, category: event.target.value }))} placeholder="Categorie" />
-                <input type="number" value={documentForm.amount} onChange={(event) => setDocumentForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Montant" />
-                <input value={documentForm.location} onChange={(event) => setDocumentForm((current) => ({ ...current, location: event.target.value }))} placeholder="Localisation (optionnel)" />
-                <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder="Lien fichier ou photo" />
-                <button type="submit">Lier au chantier</button>
-              </form>
+                <CardChevron collapsed={collapsedCards.has("documents")} />
+              </button>
+              {!collapsedCards.has("documents") ? (
+                <>
+                  <div className="project-mini-list">
+                    {selectedQuote ? <a href={`/api/quotes/${selectedQuote.id}/documents?type=quote&format=pdf`}>Devis {selectedQuote.quoteNumber}</a> : <p>Aucun devis genere.</p>}
+                    {linkedInvoices.map((invoice) => <span key={invoice.id}>{invoice.invoiceNumber} - {euro(invoice.amountTtc)}</span>)}
+                    {linkedDocuments.map((document) => <span key={document.id}>{document.type}: {document.title}</span>)}
+                  </div>
+                  <form className="project-mini-form" onSubmit={addDocument}>
+                    <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder="Nom du document ou photo" />
+                    <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))}>
+                      {["Document", "Photo", "Facture", "Ticket", "Bon de commande", "Justificatif"].map((type) => <option key={type}>{type}</option>)}
+                    </select>
+                    <input value={documentForm.category} onChange={(event) => setDocumentForm((current) => ({ ...current, category: event.target.value }))} placeholder="Categorie" />
+                    <input type="number" value={documentForm.amount} onChange={(event) => setDocumentForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Montant" />
+                    <input value={documentForm.location} onChange={(event) => setDocumentForm((current) => ({ ...current, location: event.target.value }))} placeholder="Localisation (optionnel)" />
+                    <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder="Lien fichier ou photo" />
+                    <button type="submit">Lier au chantier</button>
+                  </form>
+                </>
+              ) : null}
             </article>
 
             <article className="project-overview-card project-archive-card">
-              <div className="follow-section-head">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("archive")}>
                 <h2>Archive</h2>
                 <span>{selectedProject.archiveId || linkedArchive ? "Creee" : "En attente"}</span>
-              </div>
-              <p>La cloture regroupe taches, RDV, devis, factures, tickets, photos, documents, depenses et historique.</p>
-              <div className="archive-action-row">
-                {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
-                  <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>Archiver le chantier</button>
-                ) : (
-                  <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>Marquer comme terminé</button>
-                )}
-              </div>
-              {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
-                <div className="archive-summary-grid">
-                  {Object.entries(selectedProject.archiveSummary || linkedArchive.summary).filter(([, value]) => typeof value === "number").map(([key, value]) => (
-                    <span key={key}><small>{key}</small><strong>{typeof value === "number" ? euro(value) : String(value)}</strong></span>
-                  ))}
-                </div>
-              ) : null}
-              {linkedHistory.length > 0 ? (
-                <details className="project-history-details">
-                  <summary>Historique du chantier</summary>
-                  {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
-                </details>
+                <CardChevron collapsed={collapsedCards.has("archive")} />
+              </button>
+              {!collapsedCards.has("archive") ? (
+                <>
+                  <p>La cloture regroupe taches, RDV, devis, factures, tickets, photos, documents, depenses et historique.</p>
+                  <div className="archive-action-row">
+                    {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
+                      <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>Archiver le chantier</button>
+                    ) : (
+                      <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>Marquer comme terminé</button>
+                    )}
+                  </div>
+                  {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
+                    <div className="archive-summary-grid">
+                      {Object.entries(selectedProject.archiveSummary || linkedArchive.summary).filter(([, value]) => typeof value === "number").map(([key, value]) => (
+                        <span key={key}><small>{key}</small><strong>{typeof value === "number" ? euro(value) : String(value)}</strong></span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {linkedHistory.length > 0 ? (
+                    <details className="project-history-details">
+                      <summary>Historique du chantier</summary>
+                      {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
+                    </details>
+                  ) : null}
+                </>
               ) : null}
             </article>
 
             <article className="project-overview-card">
-              <div className="follow-section-head">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("marketplace")}>
                 <h2>Marketplace</h2>
                 <span>{selectedProject.marketplace?.published ? "Publié" : "Non publié"}</span>
-              </div>
-              {selectedProject.marketplace?.published ? (
-                <>
-                  <p className="marketplace-own-status">Ce chantier est visible sur la marketplace Koji.</p>
-                  <button type="button" className="mini-outline" onClick={() => publishMarketplace("unpublish")}>Retirer de la marketplace</button>
-                </>
-              ) : (
-                <>
-                  <p>Publiez ce chantier pour permettre à d'autres artisans Koji de vous contacter.</p>
-                  <textarea
-                    className="project-mini-textarea"
-                    placeholder="Description du chantier (travaux, surface, type...)"
-                    value={marketplaceDesc}
-                    onChange={(e) => setMarketplaceDesc(e.target.value)}
-                    rows={3}
-                  />
-                  <button type="button" className="button blue" style={{ marginTop: 8 }} onClick={() => publishMarketplace("publish")}>Publier sur la marketplace</button>
-                </>
-              )}
+                <CardChevron collapsed={collapsedCards.has("marketplace")} />
+              </button>
+              {!collapsedCards.has("marketplace") ? (
+                selectedProject.marketplace?.published ? (
+                  <>
+                    <p className="marketplace-own-status">Ce chantier est visible sur la marketplace Koji.</p>
+                    <button type="button" className="mini-outline" onClick={() => publishMarketplace("unpublish")}>Retirer de la marketplace</button>
+                  </>
+                ) : (
+                  <>
+                    <p>Publiez ce chantier pour permettre à d'autres artisans Koji de vous contacter.</p>
+                    <textarea
+                      className="project-mini-textarea"
+                      placeholder="Description du chantier (travaux, surface, type...)"
+                      value={marketplaceDesc}
+                      onChange={(e) => setMarketplaceDesc(e.target.value)}
+                      rows={3}
+                    />
+                    <button type="button" className="button blue" style={{ marginTop: 8 }} onClick={() => publishMarketplace("publish")}>Publier sur la marketplace</button>
+                  </>
+                )
+              ) : null}
             </article>
           </section>
 
@@ -600,6 +675,27 @@ export default function ProjectsTrackingPage() {
               <h2>Ouvrages du devis</h2>
               <span>{trackingLines.length} ligne(s)</span>
             </div>
+
+            {selectedQuote ? (
+              <div className="quote-tracking-summary">
+                <a className="quote-tracking-pdf" href={`/api/quotes/${selectedQuote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">
+                  Devis {selectedQuote.quoteNumber} - PDF
+                </a>
+                <div className="quote-tracking-dates">
+                  <span><small>Date de creation</small><strong>{formatDate(selectedQuote.quoteDate || selectedQuote.createdAt)}</strong></span>
+                  <span><small>Date d'envoi</small><strong>{formatDate(selectedQuote.sentAt) || "-"}</strong></span>
+                  <span><small>Date de signature</small><strong>{formatDate(selectedQuote.signedAt) || "-"}</strong></span>
+                  <span><small>Lieu de signature</small><strong>{selectedQuote.signaturePlace || "-"}</strong></span>
+                </div>
+                {selectedQuote.signerMessage ? (
+                  <div className="quote-tracking-message">
+                    <small>Message du client</small>
+                    <p>{selectedQuote.signerMessage}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {trackingLines.length === 0 ? (
               <div className="tool-empty">Aucun ouvrage lie au devis pour le moment.</div>
             ) : (
@@ -607,22 +703,47 @@ export default function ProjectsTrackingPage() {
                 {trackingLines.map((line) => {
                   const item = line.quoteLine || line.task || {};
                   const task = line.task;
+                  const expanded = expandedLineKey === line.key;
                   return (
-                    <article className="follow-line" key={line.key}>
-                      <button type="button" className={`select-dot ${task?.done ? "selected" : ""}`} onClick={() => task ? toggleDone(task) : openPlanner(line)} />
-                      <div className="follow-line-main">
-                        <span>{item.room || task?.room || "Chantier"}</span>
-                        <strong>{item.label || task?.label}</strong>
-                        <small>
-                          {item.code || task?.code || "Ouvrage"} - {item.quantity || task?.quantity || 1} {item.unit || task?.unit || ""}
-                        </small>
-                        <small>
-                          Equipe: {task?.assignedTo || "Non assignee"} - {formatDate(task?.startDate)} vers {formatDate(task?.endDate || task?.dueDate)}
-                        </small>
-                      </div>
-                      <button type="button" className="mini-outline" onClick={() => openPlanner(line)}>
-                        {task ? "Modifier" : "Planifier"}
+                    <article className={`follow-line follow-line-collapsible${expanded ? " open" : ""}`} key={line.key}>
+                      <button
+                        type="button"
+                        className="follow-line-head"
+                        onClick={() => setExpandedLineKey(expanded ? null : line.key)}
+                      >
+                        <span className={`select-dot ${task?.done ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); if (task) toggleDone(task); else openPlanner(line); }} />
+                        <div className="follow-line-main">
+                          <span>{item.room || task?.room || "Chantier"}</span>
+                          <strong>{item.label || task?.label}</strong>
+                          {task?.pendingValidation ? <em className="follow-line-pending">À valider</em> : null}
+                        </div>
+                        <CardChevron collapsed={!expanded} />
                       </button>
+                      {expanded ? (
+                        <div className="follow-line-body">
+                          <small>
+                            {item.code || task?.code || "Ouvrage"} - {item.quantity || task?.quantity || 1} {item.unit || task?.unit || ""}
+                          </small>
+                          <small>
+                            Equipe: {task?.assignedTo || "Non assignee"} - {formatDate(task?.startDate)} vers {formatDate(task?.endDate || task?.dueDate)}
+                          </small>
+                          {task?.pendingValidation ? (
+                            <small className="follow-line-pending-detail">
+                              Termine par {task.completedByName} ({task.completedByType?.toLowerCase()}) le {formatDate(task.finishedAt)}
+                            </small>
+                          ) : null}
+                          <div className="follow-line-actions">
+                            <button type="button" className="mini-outline" onClick={() => openPlanner(line)}>
+                              {task ? "Modifier" : "Planifier"}
+                            </button>
+                            {task?.pendingValidation ? (
+                              <button type="button" className="mobile-primary" onClick={() => validateTask(task)}>Valider l'ouvrage</button>
+                            ) : task ? (
+                              <button type="button" className="mini-outline" onClick={() => toggleDone(task)}>{task.done ? "Marquer non termine" : "Marquer termine"}</button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
@@ -16,6 +17,11 @@ const CUSTOM_OUVRAGE_UNITS = ["u", "m²", "ml", "m³", "h"];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function editQuoteIdFromUrl() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("id") || "";
 }
 
 function nextQuoteNumberFromList(quotes) {
@@ -199,6 +205,7 @@ function computeSubItemLine(subItem, parentLine = {}) {
 }
 
 export default function QuotesPage() {
+  const router = useRouter();
   const { data: quotes, setData: setQuotes, loading: quotesLoading } = useApi("/api/quotes", "quotes");
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
@@ -287,6 +294,7 @@ export default function QuotesPage() {
   }, []);
 
   useEffect(() => {
+    if (editQuoteIdFromUrl()) return;
     const draft = getChantierDraft();
     if (!draft) return;
     // Nouveau chantier → repartir d'un devis vierge, pas restaurer l'ancien brouillon
@@ -308,6 +316,7 @@ export default function QuotesPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (editQuoteIdFromUrl()) return;
     const params = new URLSearchParams(window.location.search);
     const ouvrage = params.get("ouvrage");
     const fromSelection = params.get("selection") === "ouvrages";
@@ -403,6 +412,7 @@ export default function QuotesPage() {
   // Persist working draft to localStorage on every relevant change
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (editQuoteIdFromUrl()) return;
     const hasContent = selectedIds.length || customSources.length ||
       Object.keys(lineSettings).length || roomNotes.length || rooms.length || generatedQuote?.id;
     if (!hasContent) return;
@@ -426,10 +436,94 @@ export default function QuotesPage() {
 
   // Freeze the preview number once quotes are loaded; only regenerate on "Nouveau devis"
   useEffect(() => {
+    if (editQuoteIdFromUrl()) return;
     if (draftQuoteNumber || generatedQuote?.quoteNumber) return;
     if (quotesLoading) return;
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
   }, [quotes, quotesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore an existing quote (opened via /devis?id=...) with everything that was noted on it
+  const restoredEditQuoteRef = useRef(false);
+  useEffect(() => {
+    const editId = editQuoteIdFromUrl();
+    if (!editId || quotesLoading || restoredEditQuoteRef.current) return;
+    const quote = quotes.find((item) => item.id === editId);
+    if (!quote) return;
+    restoredEditQuoteRef.current = true;
+
+    const items = Array.isArray(quote.items) ? quote.items : [];
+    const nextCustomSources = items.map((item) => ({
+      id: item.id,
+      code: item.code || "",
+      label: item.label || "Ouvrage",
+      unit: item.unit || "u",
+      normativeTime: Number(item.normativeTime || 0),
+      materialCategories: Array.from(new Set((item.materialLines || []).map((material) => material.category).filter(Boolean)))
+    }));
+    const nextLineSettings = {};
+    items.forEach((item) => {
+      nextLineSettings[item.id] = {
+        room: item.room || "Services",
+        quantity: item.quantity ?? 0,
+        normativeTime: item.normativeTime,
+        billingMode: item.billingMode || "time",
+        fixedAmountInput: item.fixedAmountInput ?? item.fixedAmountHt ?? "",
+        fixedAmountMode: item.fixedAmountMode || "ht",
+        adjustmentPercent: item.adjustmentPercent || 0,
+        discountPercent: item.discountPercent || 0,
+        adjustmentReason: item.adjustmentReason || "",
+        hourlyRate: item.hourlyRate,
+        showMaterialsToClient: item.showMaterialsToClient !== false,
+        fixedDuration: item.fixedDuration ?? null,
+        fixedDurationUnit: item.fixedDurationUnit || "h",
+        subItems: Array.isArray(item.subItems) ? item.subItems : undefined
+      };
+    });
+
+    setSelectedIds([]);
+    setCustomSources(nextCustomSources);
+    setLineSettings(nextLineSettings);
+    setRooms(Array.isArray(quote.rooms) ? quote.rooms : []);
+    setRoomNotes(Array.isArray(quote.notes) ? quote.notes : []);
+    if (Array.isArray(quote.surcharges)) setSurcharges(quote.surcharges);
+    if (quote.vatRate != null) setQuoteVatRate(Number(quote.vatRate));
+    setVatManual(true);
+    setDraftQuoteNumber(quote.quoteNumber || null);
+    setForm((current) => ({
+      ...current,
+      client: quote.client || "",
+      clientEmail: quote.clientEmail || "",
+      clientPhone: quote.clientPhone || "",
+      projectId: quote.projectId || "",
+      project: quote.project || "",
+      chantierAddress: quote.chantierAddress || "",
+      quoteDate: quote.quoteDate || (quote.createdAt || "").slice(0, 10) || todayIso(),
+      startDate: quote.startDate || "",
+      expectedDuration: quote.expectedDuration || "",
+      workDescription: quote.workDescription || "",
+      validityDays: quote.validityDays || 30
+    }));
+    if (quote.company) setCompany((current) => ({ ...current, ...quote.company }));
+    setGeneratedQuote(quote);
+  }, [quotes, quotesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Autosave: once a quote exists, further edits are persisted automatically -
+  // no need to keep pressing the "Enregistrer" buttons for each change to stick.
+  const autosaveTimerRef = useRef(null);
+  const autosaveReadyRef = useRef(false);
+  useEffect(() => {
+    if (!generatedQuote?.id) return;
+    if (!autosaveReadyRef.current) {
+      // Skip the run that fires right when a quote is loaded/restored.
+      autosaveReadyRef.current = true;
+      return;
+    }
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      persistQuote(false).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(autosaveTimerRef.current);
+  }, [form, rooms, roomNotes, surcharges, quoteVatRate, customSources, lineSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSources = useMemo(() => {
     const fromCatalog = selectedIds.map((id) => postes.find((item) => item.id === id)).filter(Boolean);
@@ -993,6 +1087,13 @@ export default function QuotesPage() {
     setMessageType(type);
   }
 
+  function notifyError(error, fallback) {
+    notify(error?.message || fallback, "error");
+    if (error?.upgradeRequired) {
+      window.setTimeout(() => router.push("/abonnement"), 2200);
+    }
+  }
+
   async function saveCompanyProfile() {
     if (typeof window === "undefined") return;
     setSavingCompany(true);
@@ -1024,12 +1125,16 @@ export default function QuotesPage() {
     }
   }
 
-  function saveClientInfo() {
+  async function saveClientInfo() {
     setSavingClient(true);
-    setTimeout(() => {
-      setSavingClient(false);
+    try {
+      await persistQuote();
       notify("Informations client et chantier enregistrées.", "success");
-    }, 300);
+    } catch (error) {
+      notifyError(error, "Impossible d'enregistrer les informations.");
+    } finally {
+      setSavingClient(false);
+    }
   }
 
   function requireLines() {
@@ -1038,7 +1143,7 @@ export default function QuotesPage() {
     return false;
   }
 
-  async function persistQuote() {
+  async function persistQuote(manual = true) {
     let projectId = selectedProject?.id || form.projectId || "";
     let projectReference = selectedProject?.reference || "";
     let nextProjects = projects;
@@ -1101,7 +1206,7 @@ export default function QuotesPage() {
 
     const isUpdate = Boolean(generatedQuote?.id);
     const { quote } = isUpdate
-      ? await apiSend("/api/quotes", { id: generatedQuote.id, action: "update", ...payload }, "PATCH")
+      ? await apiSend("/api/quotes", { id: generatedQuote.id, action: "update", manualSave: manual, ...payload }, "PATCH")
       : await apiSend("/api/quotes", { ...payload, status: "Brouillon" });
 
     if (projectId) {
@@ -1144,10 +1249,13 @@ export default function QuotesPage() {
   async function resendSignatureLink() {
     if (!generatedQuote?.id) return;
     try {
-      await sendQuoteToSignature(generatedQuote.id);
+      const quote = await sendQuoteToSignature(generatedQuote.id);
+      // Always re-sync the message with the freshly generated access -
+      // a stale message with the previous password would no longer work to log in.
+      setClientMessage(signatureShareText(quote.signatureClientAccess));
       notify("Le devis a été envoyé vers Kôji Signature. Les accès provisoires client sont prêts.", "success");
     } catch (error) {
-      notify(error.message || "Impossible d'envoyer le devis vers Kôji Signature.", "error");
+      notifyError(error, "Impossible d'envoyer le devis vers Kôji Signature.");
     }
   }
 
@@ -1156,7 +1264,7 @@ export default function QuotesPage() {
       const quote = await persistQuote();
       window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=${format}`, "_blank");
     } catch (error) {
-      notify(error.message || "Impossible de générer le document.", "error");
+      notifyError(error, "Impossible de générer le document.");
     }
   }
 
@@ -1167,7 +1275,7 @@ export default function QuotesPage() {
       window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=pdf&preview=1`, "_blank");
       notify("Aperçu ouvert dans un nouvel onglet.", "success");
     } catch (error) {
-      notify(error.message || "Impossible de générer l'aperçu.", "error");
+      notifyError(error, "Impossible de générer l'aperçu.");
     }
   }
 
@@ -1177,7 +1285,7 @@ export default function QuotesPage() {
       const quote = await persistQuote();
       notify(`Devis ${quote.quoteNumber} généré. Les documents sont prêts.`, "success");
     } catch (error) {
-      notify(error.message || "Impossible de générer le devis.", "error");
+      notifyError(error, "Impossible de générer le devis.");
     }
   }
 
@@ -1191,7 +1299,7 @@ export default function QuotesPage() {
       const quote = await persistQuote();
       notify(`Devis ${quote.quoteNumber} confirmé et enregistré. Les documents sont prêts.`, "success");
     } catch (error) {
-      notify(error.message || "Impossible de confirmer le devis.", "error");
+      notifyError(error, "Impossible de confirmer le devis.");
     }
   }
 
@@ -1206,7 +1314,7 @@ export default function QuotesPage() {
       await sendQuoteToSignature(quote.id);
       notify("Devis envoyé au client. Lien de signature généré.", "success");
     } catch (error) {
-      notify(error.message || "Impossible d'envoyer le devis au client.", "error");
+      notifyError(error, "Impossible d'envoyer le devis au client.");
     }
   }
 
@@ -1439,7 +1547,6 @@ export default function QuotesPage() {
           <div className="quote-line-breakdown sub-items-summary">
             <span>{subItems.length} sous-ouvrage{subItems.length > 1 ? "s" : ""}</span>
             <span>HT total : {money(line.totalHt)}</span>
-            <span>TTC total : {money(line.totalTtc)}</span>
           </div>
         )}
         <div className="quote-sub-items">

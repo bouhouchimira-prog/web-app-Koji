@@ -1,7 +1,8 @@
-import { ok } from "../../../lib/http";
+import { ok, paywallRequired } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, makeToken, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
+import { checkQuoteCreationLimit, checkTrialEditLimit, checkTrialSendLimit } from "../../../lib/plan";
 
 function normalizeQuote(quote) {
   return {
@@ -175,6 +176,25 @@ function computeNextQuoteSeq(db) {
   return db.quoteSeqCounter;
 }
 
+// Backfills the client portal password/identifier on quotes that were sent before these
+// fields were stored on clientPortalAccess, so existing chantiers don't need a resend.
+function withClientPortalAccess(quote, db) {
+  if (!quote.clientPortalUserId) return quote;
+  const hasPassword = quote.clientPortalAccess?.password;
+  const hasIdentifier = quote.clientPortalAccess?.portalIdentifier;
+  if (hasPassword && hasIdentifier) return quote;
+  const clientUser = db.users.find((item) => item.id === quote.clientPortalUserId);
+  if (!clientUser) return quote;
+  return {
+    ...quote,
+    clientPortalAccess: {
+      ...(quote.clientPortalAccess || {}),
+      portalIdentifier: quote.clientPortalAccess?.portalIdentifier || clientUser.portalIdentifier || "",
+      password: quote.clientPortalAccess?.password || clientUser.password || ""
+    }
+  };
+}
+
 export async function GET(request) {
   const db = await readDb();
   const userId = getUserScope(request, db);
@@ -184,13 +204,17 @@ export async function GET(request) {
   }, 1048);
   const nextSeq = Math.max(db.quoteSeqCounter || 0, maxFromQuotes) + 1;
   const nextQuoteNumber = `${new Date().getFullYear()}_${String(nextSeq).padStart(4, "0")}`;
-  return ok({ quotes: scopedItems(db.quotes, userId).map(normalizeQuote), nextQuoteNumber });
+  const quotes = scopedItems(db.quotes, userId).map((quote) => normalizeQuote(withClientPortalAccess(quote, db)));
+  return ok({ quotes, nextQuoteNumber });
 }
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = body.userId || "";
+  const user = db.users.find((item) => item.id === userId);
+  const creationGate = checkQuoteCreationLimit(db, user);
+  if (!creationGate.allowed) return paywallRequired(creationGate.reason);
   const now = new Date().toISOString();
   const quoteDate = body.quoteDate || body.createdAt || now.slice(0, 10);
   const quoteYear = new Date().getFullYear();
@@ -261,6 +285,22 @@ export async function PATCH(request) {
   const now = new Date().toISOString();
   const quote = db.quotes[index];
   const action = body.action || "update";
+  const user = db.users.find((item) => item.id === (body.userId || ""));
+
+  if (action === "update" && body.manualSave) {
+    const editGate = checkTrialEditLimit(user, quote.id);
+    if (!editGate.allowed) return paywallRequired(editGate.reason);
+    if (user) {
+      if (editGate.claim) user.trialQuoteId = quote.id;
+      user.trialSaveCount = editGate.nextCount;
+    }
+  }
+
+  if (action === "send") {
+    const sendGate = checkTrialSendLimit(user, quote);
+    if (!sendGate.allowed) return paywallRequired(sendGate.reason);
+    if (user && !user.trialQuoteId) user.trialQuoteId = quote.id;
+  }
 
   if (action === "ready") {
     quote.status = "Pret a envoyer";
@@ -277,6 +317,11 @@ export async function PATCH(request) {
   if (action === "send") {
     if (!quote.signatureToken) {
       quote.signatureToken = makeToken("sig");
+    }
+    // A new version is only minted when re-sending a quote that was already delivered before.
+    if (quote.sentAt) {
+      const currentVer = parseInt(quote.versionNumber || "001", 10);
+      quote.versionNumber = String(currentVer + 1).padStart(3, "0");
     }
     const signatureAccess = buildSignatureAccess(db, quote, body, request, now);
     quote.signatureProvider = "koji-signature";
@@ -366,15 +411,8 @@ export async function PATCH(request) {
         else quote[key] = fixObjectText(body[key]);
       }
     }
-    const currentVer = parseInt(quote.versionNumber || "001", 10);
-    quote.versionNumber = String(currentVer + 1).padStart(3, "0");
-    addHistory(db, {
-      userId: quote.userId || userId,
-      type: "quote.updated",
-      label: `Devis mis a jour: ${quote.quoteNumber} v${quote.versionNumber}`,
-      entityId: quote.id,
-      entityType: "quote"
-    });
+    // Drafting/preview/autosave never bumps the version number. A new version only
+    // exists once the quote is (re-)sent to the client - see the "send" action below.
   }
 
   syncDraftNotification(db, quote, quote.userId || userId);

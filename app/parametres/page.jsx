@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
 
@@ -61,6 +62,8 @@ function icon(name) {
       return "M3 21h18M3 10h18M5 10V21M19 10V21M12 3L3 10h18L12 3z";
     case "text":
       return "M4 6h16M4 10h16M4 14h10M4 18h6";
+    case "pen":
+      return "M3 21l4-1 11-11-3-3L4 17l-1 4zM14 6l3 3";
     default:
       return "";
   }
@@ -187,6 +190,15 @@ export default function ParametresPage() {
           </div>
           <p>Changer le logo</p>
           <input ref={fileRef} type="file" accept="image/*" onChange={onLogoChange} style={{ display: "none" }} />
+        </section>
+
+        <section className="profile-block">
+          <h2>Signatures</h2>
+          <p className="muted">Gerez vos devis envoyes en signature electronique et leurs accès client.</p>
+          <Link href="/signature" className="button secondary profile-link-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("pen")} /></svg>
+            Ouvrir Signatures
+          </Link>
         </section>
 
         <section className="profile-block">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
 import { useApi } from "../../lib/use-api";
@@ -9,16 +9,13 @@ const professions = ["Peintre", "Carreleur", "Electricien", "Plombier", "Menuisi
 
 const initialWorker = {
   type: "Ouvrier",
-  firstName: "",
-  lastName: "",
+  name: "",
   profession: "Peintre",
   phone: "",
   email: "",
   address: "",
-  socialSecurityNumber: "",
-  idCardUrl: "",
+  photoDataUrl: "",
   hourlyRate: "",
-  hireDate: "",
   notes: "",
   availability: "Disponible",
   favorite: true
@@ -31,6 +28,7 @@ export default function TeamPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(initialWorker);
   const [message, setMessage] = useState("");
+  const photoInputRef = useRef(null);
 
   const filteredWorkers = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -46,13 +44,19 @@ export default function TeamPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function onPhotoChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setField("photoDataUrl", String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
   async function createWorker(event) {
     event.preventDefault();
-    const name = [form.firstName, form.lastName].filter(Boolean).join(" ");
     const { worker } = await apiSend("/api/workers", {
       ...form,
       type: activeTab,
-      name,
       role: form.profession,
       status: form.availability
     });
@@ -84,23 +88,16 @@ export default function TeamPage() {
 
           <form className="mobile-form" onSubmit={createWorker}>
             <div className="worker-photo-box">
-              <div>Photo</div>
-              <span>+</span>
-              <small>Photo de {activeTab.toLowerCase()}</small>
+              <div className="worker-photo-frame">
+                {form.photoDataUrl ? <img src={form.photoDataUrl} alt="Photo" /> : null}
+                <button type="button" className="worker-photo-upload" onClick={() => photoInputRef.current?.click()} aria-label="Ajouter une photo">+</button>
+              </div>
+              <small>Photo</small>
+              <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
             </div>
             <label className="mobile-input full">
-              <span>Prenom</span>
-              <input value={form.firstName} onChange={(event) => setField("firstName", event.target.value)} placeholder="Rajouter votre texte..." required />
-            </label>
-            <label className="mobile-input full">
-              <span>Nom</span>
-              <input value={form.lastName} onChange={(event) => setField("lastName", event.target.value)} placeholder="Rajouter votre texte..." />
-            </label>
-            <label className="mobile-input full">
-              <span>Profession</span>
-              <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
-                {professions.map((profession) => <option key={profession}>{profession}</option>)}
-              </select>
+              <span>Nom et prenom</span>
+              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder="Rajouter votre texte..." required />
             </label>
             <label className="mobile-input full">
               <span>Numero de telephone</span>
@@ -110,27 +107,15 @@ export default function TeamPage() {
               <span>Email</span>
               <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} placeholder="exemple@email.com" />
             </label>
-            <div className="mobile-form-grid">
-              <label className="mobile-input">
-                <span>Tarif horaire</span>
-                <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
-              </label>
-              <label className="mobile-input">
-                <span>Date d'entree</span>
-                <input type="date" value={form.hireDate} onChange={(event) => setField("hireDate", event.target.value)} />
-              </label>
-            </div>
             <label className="mobile-input full">
-              <span>Adresse</span>
+              <span>Adresse postale</span>
               <input value={form.address} onChange={(event) => setField("address", event.target.value)} placeholder="Adresse du participant" />
             </label>
             <label className="mobile-input full">
-              <span>Numero securite sociale</span>
-              <input value={form.socialSecurityNumber} onChange={(event) => setField("socialSecurityNumber", event.target.value)} placeholder="Information interne" />
-            </label>
-            <label className="mobile-input full">
-              <span>Document d'identite</span>
-              <input value={form.idCardUrl} onChange={(event) => setField("idCardUrl", event.target.value)} placeholder="URL ou reference du document" />
+              <span>Profession</span>
+              <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
+                {professions.map((profession) => <option key={profession}>{profession}</option>)}
+              </select>
             </label>
             <label className="mobile-input full">
               <span>Disponibilite</span>
@@ -139,6 +124,10 @@ export default function TeamPage() {
                 <option>Occupe</option>
                 <option>Absent</option>
               </select>
+            </label>
+            <label className="mobile-input full">
+              <span>Taux horaire / journalier</span>
+              <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
             </label>
             <label className="mobile-input full">
               <span>Notes</span>
@@ -177,7 +166,11 @@ export default function TeamPage() {
           {filteredWorkers.map((worker) => (
             <article className="person-row" key={worker.id}>
               <div className="avatar">
-                {(worker.name || "AB").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                {worker.photoDataUrl ? (
+                  <img src={worker.photoDataUrl} alt={worker.name} />
+                ) : (
+                  (worker.name || "AB").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()
+                )}
                 <i className={worker.availability === "Disponible" ? "online" : ""} />
               </div>
               <div>

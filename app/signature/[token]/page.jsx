@@ -9,7 +9,7 @@ export default function PublicSignaturePage() {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ signerName: "", signerEmail: "", signerPhone: "", signaturePlace: "", consent: false });
+  const [form, setForm] = useState({ signerName: "", signerEmail: "", signerPhone: "", signaturePlace: "", signerMessage: "", consent: false });
   const [saved, setSaved] = useState(false);
   const [clientAccess, setClientAccess] = useState(null);
 
@@ -26,7 +26,8 @@ export default function PublicSignaturePage() {
             signerName: payload.quote.client || "",
             signerEmail: payload.quote.clientEmail || "",
             signerPhone: payload.quote.clientPhone || "",
-            signaturePlace: payload.quote.signaturePlace || ""
+            signaturePlace: payload.quote.signaturePlace || "",
+            signerMessage: payload.quote.signerMessage || ""
           }));
         }
       })
@@ -126,6 +127,16 @@ export default function PublicSignaturePage() {
                 <label className="field">Telephone<input value={form.signerPhone} onChange={(event) => setField("signerPhone", event.target.value)} placeholder="06 12 34 56 78" disabled={alreadySigned} /></label>
                 <label className="field">Lieu de signature<input value={form.signaturePlace} onChange={(event) => setField("signaturePlace", event.target.value)} placeholder="Ex: Paris" disabled={alreadySigned} /></label>
               </div>
+              <label className="field" style={{ marginTop: 10 }}>
+                Message pour l'entreprise (optionnel)
+                <textarea
+                  value={form.signerMessage}
+                  onChange={(event) => setField("signerMessage", event.target.value)}
+                  placeholder="Une remarque, une question, une precision sur le chantier..."
+                  rows={3}
+                  disabled={alreadySigned}
+                />
+              </label>
               <p className="muted">Fait à {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
               {!alreadySigned && (
                 <label className="checkline">

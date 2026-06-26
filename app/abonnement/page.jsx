@@ -5,29 +5,29 @@ import { useRouter } from "next/navigation";
 
 const PLANS = [
   {
-    id: "starter",
-    name: "Starter",
-    price: 29,
+    id: "go",
+    name: "Koji GO",
+    price: 19.99,
     period: "mois",
     color: "#2563eb",
     features: [
-      "Devis illimités",
-      "Jusqu'à 5 chantiers actifs",
+      "4 devis",
+      "Nombre illimité de versions par devis",
       "Génération PDF & Word",
       "Signature électronique",
       "Espace client particulier"
     ]
   },
   {
-    id: "pro",
-    name: "Pro",
-    price: 59,
+    id: "premium",
+    name: "Koji Premium",
+    price: 49.99,
     period: "mois",
     color: "#f5c842",
     badge: "Populaire",
     features: [
-      "Tout le plan Starter",
-      "Chantiers illimités",
+      "Devis illimités",
+      "Nombre illimité de versions par devis",
       "Accès Marketplace",
       "Bibliothèque d'ouvrages avancée",
       "Gestion d'équipe",
@@ -35,21 +35,25 @@ const PLANS = [
     ]
   },
   {
-    id: "enterprise",
-    name: "Entreprise",
-    price: 99,
+    id: "business",
+    name: "Koji Business",
+    price: 99.99,
     period: "mois",
     color: "#1f8a4c",
     features: [
-      "Tout le plan Pro",
+      "Accès illimité à Koji et à tous ses outils",
+      "Devis et chantiers illimités",
       "Multi-utilisateurs",
-      "Compte admin dédié",
       "Support prioritaire",
       "Intégration comptable",
       "Rapports personnalisés"
     ]
   }
 ];
+
+function formatPrice(value) {
+  return value.toFixed(2).replace(".", ",");
+}
 
 export default function AbonnementPage() {
   const router = useRouter();
@@ -75,7 +79,7 @@ export default function AbonnementPage() {
             <div className="plan-header">
               <h2 style={{ color: plan.color }}>{plan.name}</h2>
               <div className="plan-price">
-                <span className="plan-amount">{plan.price} €</span>
+                <span className="plan-amount">{formatPrice(plan.price)} €</span>
                 <span className="plan-period">/ {plan.period}</span>
               </div>
             </div>
@@ -93,7 +97,7 @@ export default function AbonnementPage() {
               style={{ background: plan.color, color: "#fff", border: "none", width: "100%" }}
               onClick={() => handleSubscribe(plan)}
             >
-              Souscrire — {plan.price} €/mois
+              Souscrire — {formatPrice(plan.price)} €/mois
             </button>
           </article>
         ))}

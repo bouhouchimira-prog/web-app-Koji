@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { nowIso } from "../../../../lib/auth";
+import { isAdminEmail, nowIso } from "../../../../lib/auth";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
 import { verifyUserPassword } from "../../../../lib/worker-auth";
 
@@ -45,6 +45,7 @@ export async function POST(request) {
   }
 
   user.lastLoginAt = nowIso();
+  if (isAdminEmail(user.email) && !user.isAdmin) user.isAdmin = true;
   try { await writeDb(db); } catch { /* non-fatal on read-only filesystems */ }
 
   return ok({ user: publicUser(user), token: `demo-token-${user.id}` });

@@ -85,6 +85,11 @@ function buildProjectArchive(db, project, userId) {
   });
   const expenses = expensesForProject(db, project.id, userId);
   const expenseSummary = summarizeExpenses(expenses);
+  const projectQuoteIds = new Set(projectQuotes.map((quote) => quote.id));
+  const messages = [
+    ...(db.mailOutbox || []).filter((mail) => mail.projectId === project.id || projectQuoteIds.has(mail.quoteId)).map((mail) => ({ ...mail, channel: "email" })),
+    ...(db.smsOutbox || []).filter((sms) => sms.projectId === project.id || projectQuoteIds.has(sms.quoteId)).map((sms) => ({ ...sms, channel: "sms" }))
+  ].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   const signedQuote = projectQuotes.find((quote) => quote.status === "Signe" || quote.signatureStatus === "Signe") || projectQuotes[0];
   const signedQuoteTotal = toAmount(signedQuote?.totalTtc || signedQuote?.totalHt || project.budgetHt || 0);
   const billedTotal = toAmount(projectInvoices.filter((invoice) => invoice.status !== "Annulee").reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0));
@@ -117,6 +122,8 @@ function buildProjectArchive(db, project, userId) {
     invoices: projectInvoices,
     documents: projectDocuments,
     expenses,
+    messages,
+    notes: project.notes || "",
     history: projectHistory,
     updatedAt: now
   };
@@ -171,6 +178,7 @@ export async function POST(request) {
     budgetHt: toAmount(body.budgetHt),
     budgetItems: normalizeBudgetItems(body.budgetItems, body.budgetHt),
     notes: fixText(body.notes || ""),
+    source: fixText(body.source || ""),
     dueDate: body.dueDate || now.slice(0, 10),
     startDate: body.startDate || "",
     endDate: body.endDate || "",
