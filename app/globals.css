@@ -9421,6 +9421,40 @@ body :where(
   padding: 16px 0;
 }
 
+.marketplace-soon-card {
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(0, 11, 40, 0.1);
+}
+
+.marketplace-soon-card .auth-brand-animated {
+  min-height: 320px;
+  padding: 48px 32px 28px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.marketplace-soon-card .brand-hero {
+  flex-direction: column;
+  gap: 18px;
+  min-height: auto;
+}
+
+.marketplace-soon-card .brand-hero-letters {
+  min-height: auto;
+}
+
+.marketplace-soon-text {
+  margin: 0;
+  background: var(--navy);
+  color: rgba(255, 255, 255, 0.86);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 0 24px 40px;
+}
+
 .marketplace-card {
   background: #fff;
   border: 1.5px solid var(--line);
