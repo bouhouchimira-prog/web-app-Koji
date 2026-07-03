@@ -13254,6 +13254,35 @@
   ],
   "tasks": [
     {
+      "id": "t-1783090497545",
+      "userId": "u-1780183669286",
+      "label": "Call",
+      "project": "Amira",
+      "projectId": "project-1782478898812-mt08zhtg",
+      "room": "Piece",
+      "dueDate": "2026-07-03",
+      "startDate": "2026-07-03",
+      "endDate": "",
+      "startTime": "",
+      "endTime": "",
+      "location": "",
+      "durationHours": 1,
+      "estimatedHours": 1,
+      "assignedTo": "Équipe",
+      "workerIds": [],
+      "participantType": "Ouvriers",
+      "quoteId": "",
+      "quoteItemId": "",
+      "code": "",
+      "unit": "",
+      "quantity": 0,
+      "supplyNeeds": [],
+      "subWorks": [],
+      "status": "À faire",
+      "done": false,
+      "createdAt": "2026-07-03T14:54:57.545Z"
+    },
+    {
       "id": "task-1783016652531-5y7uyjw5",
       "userId": "u-1780183669286",
       "projectId": "project-1783016652529-w0uz8e24",
@@ -14129,6 +14158,16 @@
     }
   ],
   "history": [
+    {
+      "id": "h-1783090497545-a8c626",
+      "userId": "u-1780183669286",
+      "type": "task.created",
+      "label": "Tache ajoutee: Call",
+      "entityId": "t-1783090497545",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-03T14:54:57.546Z"
+    },
     {
       "id": "h-1783033174859-7240fd",
       "userId": "",
@@ -18937,5 +18976,6 @@
   "workerTimeEvents": [],
   "categories": [],
   "marketplaceInterests": [],
-  "quoteSeqCounter": 1103
+  "quoteSeqCounter": 1103,
+  "urgentAlerts": []
 }
