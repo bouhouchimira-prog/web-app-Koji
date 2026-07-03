@@ -28,6 +28,7 @@ const TYPE_META = {
   "marketplace.interest": { label: "Marché",          bg: "#ede9fe", color: "#5b21b6", icon: "🌟" },
   "company.worker_claim": { label: "Réclamation",     bg: "#fee2e2", color: "#dc2626", icon: "🔧" },
   "task.completed":       { label: "À valider",       bg: "#fef9c3", color: "#854d0e", icon: "🛠️" },
+  "client.note":          { label: "Message client",  bg: "#f0f9ff", color: "#0369a1", icon: "💬" },
   "worker.time_overrun":  { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
   "company.time_overrun": { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
 };

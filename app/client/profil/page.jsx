@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ClientTopbar } from "../../../components/ClientTopbar";
 import { useEffect, useState } from "react";
 
 const fields = [
@@ -25,11 +26,22 @@ export default function ClientProfilePage() {
   const [user, setUser] = useState(null);
   const [personal, setPersonal] = useState({});
   const [saved, setSaved] = useState(false);
+  const [company, setCompany] = useState(null);
 
   useEffect(() => {
     const stored = getStoredUser();
     setUser(stored);
     setPersonal(stored?.personal || {});
+    if (stored?.email) {
+      const params = new URLSearchParams({ email: stored.email, userId: stored.id || "" });
+      fetch(`/api/client/quotes?${params.toString()}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const firstQuote = data.quotes?.[0];
+          if (firstQuote?.company) setCompany(firstQuote.company);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   async function saveProfile(event) {
@@ -51,15 +63,22 @@ export default function ClientProfilePage() {
 
   return (
     <main className="client-space">
-      <header className="client-topbar compact-topbar">
-        <Link className="icon-button" href="/client"><span aria-hidden="true">&lt;</span></Link>
-        <div>
-          <p className="eyebrow">Profil particulier</p>
-          <h1>Mes informations</h1>
+      <ClientTopbar showBack backHref="/client" />
+
+      {company?.name ? (
+        <div className="ct-profil-company">
+          <p className="ct-profil-company-label">Votre entreprise</p>
+          {company.logoDataUrl ? <img src={company.logoDataUrl} alt="Logo" className="ct-company-logo" /> : null}
+          <strong>{company.name}</strong>
+          {company.addressLine1 ? <small>{company.addressLine1}{company.addressLine2 ? `, ${company.addressLine2}` : ""}</small> : null}
+          {company.email ? <small>{company.email}</small> : null}
+          {company.phone ? <small>{company.phone}</small> : null}
+          {company.siret ? <small>SIRET : {company.siret}</small> : null}
         </div>
-      </header>
+      ) : null}
 
       <form className="client-card client-form" onSubmit={saveProfile}>
+        <p className="ct-profil-company-label">Mes informations</p>
         <label>
           Adresse e-mail
           <input value={user?.email || ""} disabled />

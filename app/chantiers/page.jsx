@@ -1,11 +1,127 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
+
+function TaskMessageThread({ task, projectDocuments }) {
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyFile, setReplyFile] = useState(null);
+  const [replyUrl, setReplyUrl] = useState("");
+  const [sending, setSending] = useState(false);
+  const [localDocs, setLocalDocs] = useState(null);
+  const fileRef = useRef(null);
+
+  const allDocs = localDocs || projectDocuments.filter(
+    (d) => ["client", "company"].includes(d.source) && d.taskId === task.id
+  );
+
+  const clientNotes = allDocs.filter((d) => d.source === "client");
+  if (clientNotes.length === 0) return null;
+
+  async function onFileChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { setReplyUrl(String(reader.result || "")); setReplyFile(file.name); };
+    reader.readAsDataURL(file);
+  }
+
+  async function sendReply(noteId) {
+    if (!replyText.trim() && !replyUrl) return;
+    setSending(true);
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem("koji-user") : null;
+    const currentUserId = raw ? (JSON.parse(raw).id || "") : "";
+    try {
+      const r = await fetch("/api/task-replies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUserId,
+          taskId: task.id,
+          replyToId: noteId,
+          message: replyText,
+          fileName: replyFile || "",
+          fileUrl: replyUrl
+        })
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setLocalDocs([data.reply, ...allDocs]);
+        setReplyText(""); setReplyFile(null); setReplyUrl("");
+        setReplyingTo(null);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    } finally { setSending(false); }
+  }
+
+  return (
+    <div className="follow-client-notes">
+      <span className="follow-client-notes-label">💬 Messages du client</span>
+      {clientNotes.map((note) => {
+        const replies = allDocs.filter((d) => d.source === "company" && d.replyToId === note.id);
+        const isReplying = replyingTo === note.id;
+        return (
+          <div key={note.id}>
+            <div className="follow-client-note">
+              <div className="follow-client-note-head">
+                <span className="archive-document-type">{note.type}</span>
+                <strong>{note.clientName || "Client"}</strong>
+                <small>{note.createdAt ? shortDate(note.createdAt) : ""}</small>
+              </div>
+              {note.notes ? <p>{note.notes}</p> : null}
+              {note.url ? <a href={note.url} download={note.fileName || note.title} target="_blank" rel="noreferrer">Télécharger le fichier</a> : null}
+              <button type="button" className="reply-trigger-btn" onClick={() => { setReplyingTo(isReplying ? null : note.id); setReplyText(""); }}>
+                {isReplying ? "Annuler" : "↩ Répondre"}
+              </button>
+            </div>
+
+            {replies.map((rep) => (
+              <div key={rep.id} className="follow-company-reply">
+                <div className="follow-client-note-head">
+                  <span className="archive-document-type reply-badge">Réponse</span>
+                  <strong>{rep.senderName || "Entreprise"}</strong>
+                  <small>{rep.createdAt ? shortDate(rep.createdAt) : ""}</small>
+                </div>
+                {rep.notes ? <p>{rep.notes}</p> : null}
+                {rep.url ? <a href={rep.url} download={rep.fileName || rep.title} target="_blank" rel="noreferrer">Télécharger</a> : null}
+              </div>
+            ))}
+
+            {isReplying ? (
+              <div className="follow-reply-form">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Votre réponse au client..."
+                  rows={2}
+                />
+                <div className="follow-reply-actions">
+                  <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={onFileChange} />
+                  <button type="button" className="mini-button" onClick={() => fileRef.current?.click()}>
+                    {replyFile ? `📎 ${replyFile}` : "Joindre"}
+                  </button>
+                  <button
+                    type="button"
+                    className="mobile-primary"
+                    disabled={sending || (!replyText.trim() && !replyUrl)}
+                    onClick={() => sendReply(note.id)}
+                  >
+                    {sending ? "Envoi..." : "Envoyer"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function CardChevron({ collapsed }) {
   return (
@@ -90,6 +206,7 @@ export default function ProjectsTrackingPage() {
   const [marketplaceDesc, setMarketplaceDesc] = useState("");
   const [collapsedCards, setCollapsedCards] = useState(() => new Set());
   const [expandedLineKey, setExpandedLineKey] = useState(null);
+  const [clientPortalAccess, setClientPortalAccess] = useState(null);
 
   function toggleCard(key) {
     setCollapsedCards((current) => {
@@ -105,6 +222,13 @@ export default function ProjectsTrackingPage() {
     const projectId = new URLSearchParams(window.location.search).get("project");
     if (projectId) setSelectedProjectId(projectId);
   }, []);
+
+  useEffect(() => {
+    if (!selectedProjectId) { setClientPortalAccess(null); return; }
+    apiGet(`/api/client-portal-info?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setClientPortalAccess(data.access || null))
+      .catch(() => setClientPortalAccess(null));
+  }, [selectedProjectId]);
 
   const activeProjects = useMemo(() => {
     return projects.filter((project) => {
@@ -440,16 +564,22 @@ export default function ProjectsTrackingPage() {
     return (
       <Shell>
         <div className="mobile-tool chantier-follow">
-          {selectedQuote?.clientPortalAccess?.portalIdentifier ? (
+          {(clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier) ? (
             <div className="client-portal-id-banner">
               <div>
                 <span>Identifiant client à partager</span>
-                <strong>{selectedQuote.clientPortalAccess.portalIdentifier}</strong>
+                <strong>{clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier}</strong>
               </div>
-              {selectedQuote.clientPortalAccess.password ? (
+              {(clientPortalAccess?.password || selectedQuote?.clientPortalAccess?.password) ? (
                 <div>
                   <span>Mot de passe</span>
-                  <strong>{selectedQuote.clientPortalAccess.password}</strong>
+                  <strong>{clientPortalAccess?.password || selectedQuote?.clientPortalAccess?.password}</strong>
+                </div>
+              ) : null}
+              {clientPortalAccess?.email ? (
+                <div>
+                  <span>Email client</span>
+                  <strong>{clientPortalAccess.email}</strong>
                 </div>
               ) : null}
             </div>
@@ -732,6 +862,7 @@ export default function ProjectsTrackingPage() {
                               Termine par {task.completedByName} ({task.completedByType?.toLowerCase()}) le {formatDate(task.finishedAt)}
                             </small>
                           ) : null}
+                          {task ? <TaskMessageThread task={task} projectDocuments={projectDocuments} projects={projects} /> : null}
                           <div className="follow-line-actions">
                             <button type="button" className="mini-outline" onClick={() => openPlanner(line)}>
                               {task ? "Modifier" : "Planifier"}
@@ -816,8 +947,13 @@ export default function ProjectsTrackingPage() {
         <header className="tool-topline compact">
           <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>Chantiers</h1>
-          <Link className="round-dark" href="/chantier/new" aria-label="Creer un chantier">+</Link>
+          <span />
         </header>
+
+        <Link href="/chantier/new" className="new-chantier-bar">
+          <span className="new-chantier-icon">+</span>
+          Créer un nouveau chantier
+        </Link>
 
         <section className="follow-section">
           <div className="follow-section-head">
