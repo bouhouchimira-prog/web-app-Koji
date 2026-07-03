@@ -182,6 +182,31 @@ export default function WorkerPage() {
     setForms((current) => ({ ...current, [taskId]: { ...(current[taskId] || {}), ...patch } }));
   }
 
+  async function sendUrgentAlert(task) {
+    const form = forms[task.id] || {};
+    const message = (form.urgMsg || "").trim();
+    if (!message) return;
+    updateTaskForm(task.id, { urgSending: true });
+    try {
+      await fetchJson("/api/urgent-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "worker",
+          senderName: text(worker?.name || worker?.loginId || "Ouvrier"),
+          type: form.urgType || "urgence",
+          message,
+          projectId: task.projectId || "",
+          taskIds: [task.id],
+          taskLabels: [taskTitle(task)]
+        })
+      });
+      updateTaskForm(task.id, { urgSent: true, urgSending: false, urgMsg: "", showUrgence: false });
+    } catch {
+      updateTaskForm(task.id, { urgSending: false });
+    }
+  }
+
   function logout() {
     window.localStorage.removeItem(SESSION_KEY);
     setWorker(null);
@@ -384,6 +409,42 @@ export default function WorkerPage() {
             <textarea placeholder="Commentaire" value={form.delayComment || ""} onChange={(event) => updateTaskForm(task.id, { delayComment: event.target.value })} />
             <button onClick={() => runAction({ action: "delay", taskId: task.id, reason: form.delayReason, estimatedDelay: form.estimatedDelay, comment: form.delayComment })}>Signaler un retard</button>
           </div>
+        </div>
+
+        <div className="worker-urgence-block">
+          {form.urgSent ? (
+            <div className="worker-urgence-sent">✅ Alerte urgente transmise à l'entreprise</div>
+          ) : !form.showUrgence ? (
+            <button className="worker-urgence-btn" onClick={() => updateTaskForm(task.id, { showUrgence: true })}>
+              🚨 Signaler une urgence
+            </button>
+          ) : (
+            <div className="worker-urgence-form">
+              <strong>🚨 Alerte urgente — {taskTitle(task)}</strong>
+              <select value={form.urgType || "urgence"} onChange={(e) => updateTaskForm(task.id, { urgType: e.target.value })}>
+                <option value="urgence">⚡ Urgence générale</option>
+                <option value="degat">🧱 Dégât matériel</option>
+                <option value="fuite">💧 Fuite / dégât des eaux</option>
+                <option value="incendie">🔥 Incendie / fumée</option>
+                <option value="autre">⚠️ Autre problème urgent</option>
+              </select>
+              <textarea
+                placeholder="Décrivez le problème urgent (localisation, gravité…)"
+                value={form.urgMsg || ""}
+                onChange={(e) => updateTaskForm(task.id, { urgMsg: e.target.value })}
+              />
+              <div className="worker-urgence-actions">
+                <button onClick={() => updateTaskForm(task.id, { showUrgence: false })}>Annuler</button>
+                <button
+                  className="worker-urgence-send"
+                  disabled={!form.urgMsg?.trim() || form.urgSending}
+                  onClick={() => sendUrgentAlert(task)}
+                >
+                  {form.urgSending ? "Envoi..." : "Envoyer l'alerte"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </article>
     );
