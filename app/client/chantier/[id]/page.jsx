@@ -50,7 +50,15 @@ function StatusBar({ step }) {
   );
 }
 
-function TaskCard({ task, userId, projectId, onValidate }) {
+const URGENCE_TYPES = [
+  { value: "urgence", label: "⚡ Urgence générale" },
+  { value: "degat", label: "🧱 Dégât matériel" },
+  { value: "fuite", label: "💧 Fuite / dégât des eaux" },
+  { value: "incendie", label: "🔥 Incendie / fumée" },
+  { value: "autre", label: "⚠️ Autre problème urgent" },
+];
+
+function TaskCard({ task, userId, projectId, quoteId, onValidate }) {
   const [open, setOpen] = useState(false);
   const [noteType, setNoteType] = useState("Note");
   const [noteTitle, setNoteTitle] = useState("");
@@ -59,9 +67,39 @@ function TaskCard({ task, userId, projectId, onValidate }) {
   const [noteUrl, setNoteUrl] = useState("");
   const [docs, setDocs] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [showUrgence, setShowUrgence] = useState(false);
+  const [urgType, setUrgType] = useState("urgence");
+  const [urgMsg, setUrgMsg] = useState("");
+  const [urgSending, setUrgSending] = useState(false);
+  const [urgSent, setUrgSent] = useState(false);
   const fileRef = useRef(null);
   const step = getStep(task);
   const canValidate = step === 1 && (task.pendingValidation || task.status === "Terminee (a valider)");
+
+  async function submitUrgence() {
+    if (!urgMsg.trim() || urgSending) return;
+    setUrgSending(true);
+    try {
+      const user = getStoredUser();
+      await fetch("/api/urgent-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "client",
+          senderName: user?.name || user?.email?.split("@")[0] || "Client",
+          type: urgType,
+          message: urgMsg.trim(),
+          projectId: projectId || "",
+          quoteId: quoteId || "",
+          taskIds: [task.id],
+          taskLabels: [task.label || task.name || "Ouvrage"]
+        })
+      });
+      setUrgSent(true);
+      setUrgMsg("");
+      setTimeout(() => { setShowUrgence(false); setUrgSent(false); }, 3000);
+    } finally { setUrgSending(false); }
+  }
 
   useEffect(() => {
     if (!open || !task.id) return;
@@ -181,6 +219,36 @@ function TaskCard({ task, userId, projectId, onValidate }) {
               </button>
             </div>
           </form>
+
+          {/* Signalement urgence par ouvrage */}
+          <div className="ccd-urgence-block">
+            {urgSent ? (
+              <div className="ccd-urgence-sent">✅ Alerte urgente envoyée à l'entreprise</div>
+            ) : !showUrgence ? (
+              <button type="button" className="ccd-urgence-trigger" onClick={() => setShowUrgence(true)}>
+                🚨 Signaler une urgence sur cet ouvrage
+              </button>
+            ) : (
+              <div className="ccd-urgence-form">
+                <p className="ccd-urgence-title">🚨 Signaler une urgence — <em>{task.label || task.name}</em></p>
+                <select value={urgType} onChange={(e) => setUrgType(e.target.value)}>
+                  {URGENCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <textarea
+                  value={urgMsg}
+                  onChange={(e) => setUrgMsg(e.target.value)}
+                  placeholder="Décrivez précisément le problème (localisation, gravité…)"
+                  rows={3}
+                />
+                <div className="ccd-urgence-actions">
+                  <button type="button" className="ghost-button" onClick={() => setShowUrgence(false)}>Annuler</button>
+                  <button type="button" className="urgence-send-btn" onClick={submitUrgence} disabled={!urgMsg.trim() || urgSending}>
+                    {urgSending ? "Envoi..." : "Envoyer l'alerte"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       ) : null}
     </article>
@@ -194,6 +262,12 @@ export default function ClientChantierPage() {
   const [quote, setQuote] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showGeneralUrgence, setShowGeneralUrgence] = useState(false);
+  const [genUrgType, setGenUrgType] = useState("urgence");
+  const [genUrgMsg, setGenUrgMsg] = useState("");
+  const [genUrgTasks, setGenUrgTasks] = useState([]);
+  const [genUrgSending, setGenUrgSending] = useState(false);
+  const [genUrgSent, setGenUrgSent] = useState(false);
 
   useEffect(() => {
     const stored = getStoredUser();
@@ -214,6 +288,38 @@ export default function ClientChantierPage() {
       })
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  async function submitGeneralUrgence() {
+    if (!genUrgMsg.trim() || genUrgSending) return;
+    setGenUrgSending(true);
+    const allTasks = quote?.tasks || [];
+    const selectedTasks = genUrgTasks.length > 0
+      ? allTasks.filter((t) => genUrgTasks.includes(t.id))
+      : [];
+    try {
+      await fetch("/api/urgent-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "client",
+          senderName: user?.name || user?.email?.split("@")[0] || "Client",
+          type: genUrgType,
+          message: genUrgMsg.trim(),
+          projectId: quote?.projectId || "",
+          quoteId: params.id || "",
+          taskIds: selectedTasks.map((t) => t.id),
+          taskLabels: selectedTasks.map((t) => t.label || t.name || "Ouvrage")
+        })
+      });
+      setGenUrgSent(true);
+      setGenUrgMsg(""); setGenUrgTasks([]);
+      setTimeout(() => { setShowGeneralUrgence(false); setGenUrgSent(false); }, 3000);
+    } finally { setGenUrgSending(false); }
+  }
+
+  function toggleGenTask(taskId) {
+    setGenUrgTasks((prev) => prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]);
+  }
 
   async function handleValidate(taskId) {
     if (!user?.id) return;
@@ -273,13 +379,59 @@ export default function ClientChantierPage() {
             </div>
           </div>
 
+          {/* Urgence générale */}
+          <div className="ccd-general-urgence">
+            {genUrgSent ? (
+              <div className="ccd-urgence-sent">✅ Alerte urgente envoyée à votre entreprise</div>
+            ) : !showGeneralUrgence ? (
+              <button type="button" className="ccd-urgence-trigger full" onClick={() => setShowGeneralUrgence(true)}>
+                🚨 Signaler une urgence (dégât, fuite, problème grave...)
+              </button>
+            ) : (
+              <div className="ccd-urgence-form open">
+                <p className="ccd-urgence-title">🚨 Signaler une situation urgente</p>
+                <select value={genUrgType} onChange={(e) => setGenUrgType(e.target.value)}>
+                  {URGENCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <textarea
+                  value={genUrgMsg}
+                  onChange={(e) => setGenUrgMsg(e.target.value)}
+                  placeholder="Décrivez précisément le problème urgent (localisation, gravité, danger immédiat…)"
+                  rows={4}
+                />
+                {tasks.length > 0 ? (
+                  <div className="ccd-urgence-tasks">
+                    <p className="ccd-urgence-tasks-label">Ouvrages concernés (optionnel) :</p>
+                    {tasks.map((task) => (
+                      <label key={task.id} className="ccd-urgence-task-check">
+                        <input
+                          type="checkbox"
+                          checked={genUrgTasks.includes(task.id)}
+                          onChange={() => toggleGenTask(task.id)}
+                        />
+                        <span>{task.label || task.name || "Ouvrage"}</span>
+                        {task.room ? <small>{task.room}</small> : null}
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="ccd-urgence-actions">
+                  <button type="button" className="ghost-button" onClick={() => setShowGeneralUrgence(false)}>Annuler</button>
+                  <button type="button" className="urgence-send-btn" onClick={submitGeneralUrgence} disabled={!genUrgMsg.trim() || genUrgSending}>
+                    {genUrgSending ? "Envoi..." : "Envoyer l'alerte urgente"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Ouvrages */}
           <section className="ccd-section">
             <h2 className="ccd-section-title">Ouvrages du chantier</h2>
             {tasks.length === 0 ? (
               <div className="client-empty">Aucun ouvrage planifié pour ce chantier.</div>
             ) : tasks.map((task) => (
-              <TaskCard key={task.id} task={task} userId={user?.id} projectId={quote.projectId} onValidate={handleValidate} />
+              <TaskCard key={task.id} task={task} userId={user?.id} projectId={quote.projectId} quoteId={params.id} onValidate={handleValidate} />
             ))}
           </section>
 

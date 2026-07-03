@@ -1,11 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../components/Shell";
 import { apiSend } from "../lib/client-api";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
+
+const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
+const URGENT_ICONS  = { degat: "🧱", fuite: "💧", urgence: "⚡", incendie: "🔥", autre: "⚠️" };
+
+function timeAgo(value) {
+  if (!value) return "";
+  const diff = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
+  if (diff < 60) return "À l'instant";
+  if (diff < 3600) return `Il y a ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)} h`;
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(value));
+}
 
 function ChevronRight() {
   return (
@@ -104,10 +117,12 @@ function Section({ title, href, children, count }) {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
+  const { data: urgentAlerts, setData: setUrgentAlerts } = useApi("/api/urgent-alerts", "alerts");
 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState(null);
@@ -169,9 +184,73 @@ export default function HomePage() {
     setConfirmDeleteProject(null);
   }
 
+  async function resolveAlert(alertId) {
+    try {
+      await apiSend("/api/urgent-alerts", { id: alertId, action: "resolve" }, "PATCH");
+      setUrgentAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    } catch { /**/ }
+  }
+
   return (
     <Shell>
       <div className="home-feed">
+
+        {/* Alertes urgentes */}
+        {urgentAlerts.length > 0 ? (
+          <div className="home-urgent-section">
+            <div className="home-urgent-header">
+              <span className="home-urgent-pulse" />
+              <strong>Alertes urgentes</strong>
+              <span className="home-urgent-count">{urgentAlerts.length}</span>
+            </div>
+            <div className="home-urgent-list">
+              {urgentAlerts.map((alert) => (
+                <div key={alert.id} className="home-urgent-card">
+                  <button
+                    type="button"
+                    className="home-urgent-card-body"
+                    onClick={() => router.push(`/chantiers?project=${alert.projectId}`)}
+                  >
+                    <div className="home-urgent-top">
+                      <span className="home-urgent-type-badge">
+                        {URGENT_ICONS[alert.type] || "⚠️"} {URGENT_LABELS[alert.type] || "Urgence"}
+                      </span>
+                      <span className="home-urgent-source-badge">
+                        {alert.source === "client" ? "👤 Client" : "👷 Ouvrier"} · {alert.senderName}
+                      </span>
+                      <span className="home-urgent-time">{timeAgo(alert.createdAt)}</span>
+                    </div>
+                    <strong className="home-urgent-project">{alert.projectTitle}</strong>
+                    <p className="home-urgent-msg">{alert.message}</p>
+                    {alert.taskLabels?.length > 0 ? (
+                      <div className="home-urgent-tasks">
+                        {alert.taskLabels.map((label, i) => (
+                          <span key={i} className="home-urgent-task-tag">{label}</span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </button>
+                  <div className="home-urgent-actions">
+                    <button
+                      type="button"
+                      className="home-urgent-goto"
+                      onClick={() => router.push(`/chantiers?project=${alert.projectId}`)}
+                    >
+                      Voir le chantier →
+                    </button>
+                    <button
+                      type="button"
+                      className="home-urgent-resolve"
+                      onClick={() => resolveAlert(alert.id)}
+                    >
+                      Résoudre
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <Link className="home-primary-action" href="/chantier/new">
           <span className="home-primary-plus">+</span>
