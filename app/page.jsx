@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { apiSend } from "../lib/client-api";
 import { euro, shortDate } from "../lib/pricing";
@@ -10,6 +10,25 @@ import { useApi } from "../lib/use-api";
 
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 const URGENT_ICONS  = { degat: "🧱", fuite: "💧", urgence: "⚡", incendie: "🔥", autre: "⚠️" };
+
+const QA_TYPES = [
+  { key: "tache",   label: "Tâche",   emoji: "✅" },
+  { key: "rdv",     label: "RDV",     emoji: "📅" },
+  { key: "depense", label: "Dépense", emoji: "💰" },
+  { key: "note",    label: "Note",    emoji: "📝" },
+];
+
+const QA_SHORTCUTS = [
+  "Passer un appel",
+  "Prendre un RDV client",
+  "Acheter du matériel",
+  "Envoyer un devis",
+  "Vérifier le chantier",
+  "Ajouter une dépense",
+];
+
+const QA_EVENT_TYPES = ["RDV Client", "Réunion chantier", "Visite technique", "Livraison", "Inspection", "Autre"];
+const QA_EXPENSE_CATS = ["Matériaux", "Main d'œuvre", "Transport", "Sous-traitance", "Outillage", "Autres frais"];
 
 function timeAgo(value) {
   if (!value) return "";
@@ -24,14 +43,6 @@ function ChevronRight() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
-function IconTask() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="6" height="6" rx="1" /><path d="M3 17h6M13 6h8M13 12h8M13 18h5" />
     </svg>
   );
 }
@@ -76,6 +87,375 @@ function IconArchive() {
   );
 }
 
+function IconCalendar() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+function IconMapPin() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function IconWorker() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function formatAgendaDate(dateStr) {
+  if (!dateStr) return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const d = new Date(dateStr + "T00:00:00");
+  if (d.getTime() === today.getTime()) return "Aujourd'hui";
+  if (d.getTime() === tomorrow.getTime()) return "Demain";
+  return new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(d);
+}
+
+function extractTime(isoStr) {
+  if (!isoStr) return null;
+  const m = String(isoStr).match(/T(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+function AgendaCard({ item, onMarkDone }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const isRdv = item.type === "rdv";
+
+  return (
+    <article className={`home-agenda-item${open ? " open" : ""}`}>
+      <button
+        type="button"
+        className="home-agenda-head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className={`home-agenda-date-badge${item.isToday ? " today" : ""}`}>
+          {item.dateLabel}
+          {item.time ? <em className="home-agenda-time-em">{item.time}</em> : null}
+        </span>
+        <span className={`home-agenda-type-chip${isRdv ? " rdv" : " task"}`}>
+          {isRdv ? "RDV" : "Ouvrage"}
+        </span>
+        <div className="home-agenda-main">
+          <strong>{item.title}</strong>
+          {item.subtitle ? <small>{item.subtitle}</small> : null}
+        </div>
+        <svg
+          className={`home-agenda-chevron${open ? " open" : ""}`}
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open ? (
+        <div className="home-agenda-body">
+          {isRdv ? (
+            <>
+              {item.address ? (
+                <div className="home-agenda-detail"><IconMapPin /> {item.address}</div>
+              ) : null}
+              {item.workers?.length > 0 ? (
+                <div className="home-agenda-detail">
+                  <IconWorker /> {item.workers.map((w) => w.name || w).filter(Boolean).join(", ")}
+                </div>
+              ) : null}
+              {item.eventType ? (
+                <div className="home-agenda-detail"><IconCalendar /> {item.eventType}</div>
+              ) : null}
+              {item.notes ? <p className="home-agenda-notes">{item.notes}</p> : null}
+              <div className="home-agenda-footer">
+                <button type="button" className="home-agenda-nav" onClick={() => router.push("/planning")}>
+                  Voir dans le planning →
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {item.assignedTo ? (
+                <div className="home-agenda-detail"><IconWorker /> {item.assignedTo}</div>
+              ) : null}
+              <div className="home-agenda-footer">
+                <button type="button" className="home-agenda-done" onClick={() => onMarkDone(item.raw)}>
+                  <IconCheck /> Marquer fait
+                </button>
+                {item.projectId ? (
+                  <button
+                    type="button"
+                    className="home-agenda-nav"
+                    onClick={() => router.push(`/chantiers?project=${item.projectId}`)}
+                  >
+                    Voir le chantier →
+                  </button>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [type, setType]         = useState("tache");
+  const [label, setLabel]       = useState("");
+  const [date, setDate]         = useState(todayStr);
+  const [time, setTime]         = useState("09:00");
+  const [client, setClient]     = useState("");
+  const [amount, setAmount]     = useState("");
+  const [category, setCategory] = useState("Matériaux");
+  const [eventType, setEventType] = useState("RDV Client");
+  const [notes, setNotes]       = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [sending, setSending]   = useState(false);
+  const [done, setDone]         = useState(false);
+  const [error, setError]       = useState("");
+
+  const activeProjects = projects.filter((p) => p.status !== "Archive");
+  const selectedProject = activeProjects.find((p) => p.id === projectId);
+
+  function resetForm() {
+    setLabel(""); setDate(todayStr); setTime("09:00");
+    setClient(""); setAmount(""); setNotes(""); setAssignedTo(""); setError("");
+  }
+
+  function switchType(t) {
+    setType(t);
+    resetForm();
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    if (!label.trim()) { setError("Le champ est obligatoire."); return; }
+    if (type === "depense") {
+      if (!projectId) { setError("Veuillez sélectionner un chantier."); return; }
+      if (Number(amount) <= 0) { setError("Le montant doit être supérieur à 0."); return; }
+    }
+    setSending(true);
+    try {
+      if (type === "tache" || type === "note") {
+        const { task } = await apiSend("/api/tasks", {
+          label: label.trim(),
+          project: selectedProject?.title || "",
+          projectId: projectId || "",
+          startDate: date,
+          dueDate: date,
+          assignedTo: assignedTo.trim() || "Équipe",
+          notes: notes.trim(),
+        }, "POST");
+        onTaskAdded?.(task);
+      } else if (type === "rdv") {
+        const { calendarEvent } = await apiSend("/api/calendar-events", {
+          title: label.trim(),
+          eventType,
+          clientName: client.trim() || selectedProject?.client || "",
+          projectId: projectId || "",
+          projectTitle: selectedProject?.title || "",
+          startAt: `${date}T${time}:00`,
+          endAt: `${date}T${time}:00`,
+          allDay: false,
+          notes: notes.trim(),
+        }, "POST");
+        onEventAdded?.(calendarEvent);
+      } else if (type === "depense") {
+        await apiSend("/api/expenses", {
+          label: label.trim(),
+          amount: Number(amount),
+          category,
+          projectId,
+          projectTitle: selectedProject?.title || "",
+          notes: notes.trim(),
+        }, "POST");
+      }
+      setDone(true);
+      setTimeout(() => onClose(), 1100);
+    } catch {
+      setError("Une erreur est survenue.");
+      setSending(false);
+    }
+  }
+
+  const submitLabel = {
+    tache: "Créer la tâche",
+    rdv:   "Créer le RDV",
+    depense: "Enregistrer la dépense",
+    note:  "Ajouter la note",
+  }[type];
+
+  return (
+    <div className="qa-overlay" onClick={onClose}>
+      <div className="qa-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="qa-header">
+          <strong>Ajout rapide</strong>
+          <button type="button" className="qa-close" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+
+        <div className="qa-tabs">
+          {QA_TYPES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={`qa-tab${type === t.key ? " active" : ""}`}
+              onClick={() => switchType(t.key)}
+            >
+              <span>{t.emoji}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {done ? (
+          <div className="qa-success">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><polyline points="9 12 12 15 16 9" />
+            </svg>
+            Ajouté avec succès !
+          </div>
+        ) : (
+          <form className="qa-form" onSubmit={submit}>
+
+            {/* Label / texte principal */}
+            <div className="qa-field">
+              <label className="qa-label">
+                {type === "note" ? "Note" : type === "depense" ? "Libellé" : type === "rdv" ? "Titre du RDV" : "À faire"}
+              </label>
+              <input
+                type="text"
+                className="qa-input"
+                autoFocus
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={
+                  type === "rdv"     ? "Ex : Visite technique salon" :
+                  type === "depense" ? "Ex : Ciment Lafarge 50 kg" :
+                  type === "note"    ? "Écrire une note rapide…" :
+                  "Ex : Passer un appel client"
+                }
+              />
+              {type === "tache" ? (
+                <div className="qa-chips">
+                  {QA_SHORTCUTS.map((s) => (
+                    <button key={s} type="button" className="qa-chip" onClick={() => setLabel(s)}>{s}</button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Date (toutes sauf note pure) */}
+            {type !== "note" ? (
+              <div className="qa-row">
+                <div className="qa-field">
+                  <label className="qa-label">Date</label>
+                  <input type="date" className="qa-input" value={date} onChange={(e) => setDate(e.target.value)} />
+                </div>
+                {type === "rdv" ? (
+                  <div className="qa-field">
+                    <label className="qa-label">Heure</label>
+                    <input type="time" className="qa-input" value={time} onChange={(e) => setTime(e.target.value)} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* RDV — type + client */}
+            {type === "rdv" ? (
+              <div className="qa-row">
+                <div className="qa-field">
+                  <label className="qa-label">Type de RDV</label>
+                  <select className="qa-input" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+                    {QA_EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="qa-field">
+                  <label className="qa-label">Client</label>
+                  <input type="text" className="qa-input" placeholder="Nom du client" value={client} onChange={(e) => setClient(e.target.value)} />
+                </div>
+              </div>
+            ) : null}
+
+            {/* Dépense — montant + catégorie */}
+            {type === "depense" ? (
+              <div className="qa-row">
+                <div className="qa-field">
+                  <label className="qa-label">Montant (€) *</label>
+                  <input type="number" step="0.01" min="0.01" className="qa-input" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
+                <div className="qa-field">
+                  <label className="qa-label">Catégorie</label>
+                  <select className="qa-input" value={category} onChange={(e) => setCategory(e.target.value)}>
+                    {QA_EXPENSE_CATS.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Tâche — assigné à */}
+            {type === "tache" ? (
+              <div className="qa-field">
+                <label className="qa-label">Assigné à <span className="qa-opt">(optionnel)</span></label>
+                <input type="text" className="qa-input" placeholder="Ex : Jean, Équipe…" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} />
+              </div>
+            ) : null}
+
+            {/* Lier à un chantier */}
+            <div className="qa-field">
+              <label className="qa-label">
+                Lier à un chantier
+                {type === "depense"
+                  ? <span className="qa-req"> *</span>
+                  : <span className="qa-opt"> (optionnel)</span>}
+              </label>
+              <select className="qa-input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="">— Aucun chantier —</option>
+                {activeProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}{p.client ? ` · ${p.client}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Notes (RDV + note) */}
+            {type === "rdv" || type === "note" ? (
+              <div className="qa-field">
+                <label className="qa-label">Notes <span className="qa-opt">(optionnel)</span></label>
+                <textarea className="qa-input qa-textarea" rows={3} placeholder="Détails supplémentaires…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
+            ) : null}
+
+            {error ? <div className="qa-error">{error}</div> : null}
+
+            <div className="qa-actions">
+              <button type="button" className="qa-cancel" onClick={onClose}>Annuler</button>
+              <button type="submit" className="qa-submit" disabled={sending || !label.trim()}>
+                {sending ? "Ajout…" : submitLabel}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ status }) {
   const map = {
     "En cours": { bg: "#e0f2fe", color: "#0369a1" },
@@ -95,7 +475,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function Section({ title, href, children, count }) {
+function Section({ title, href, children, count, headerAction }) {
   return (
     <section className="home-section">
       <div className="home-section-head">
@@ -110,6 +490,7 @@ function Section({ title, href, children, count }) {
             <h2>{title}</h2>
           </div>
         )}
+        {headerAction || null}
       </div>
       <div className="home-section-card">{children}</div>
     </section>
@@ -122,18 +503,68 @@ export default function HomePage() {
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
+  const { data: calendarEvents, setData: setCalendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: urgentAlerts, setData: setUrgentAlerts } = useApi("/api/urgent-alerts", "alerts");
 
-  const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState(null);
   const [confirmDeleteProject, setConfirmDeleteProject] = useState(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   const activeProjects = projects.filter((p) => p.status !== "Archive");
   const today = new Date().toISOString().slice(0, 10);
-  const todoTasks = tasks.filter((task) => {
-    const taskDate = String(task.dueDate || task.startDate || "").slice(0, 10);
-    return !task.done && taskDate === today;
-  });
+
+  const agendaItems = useMemo(() => {
+    const rdvItems = calendarEvents
+      .filter((e) => {
+        const d = (e.startAt || "").slice(0, 10);
+        return d >= today && e.status !== "Termine";
+      })
+      .map((e) => {
+        const dateStr = (e.startAt || "").slice(0, 10);
+        return {
+          type: "rdv",
+          id: `rdv-${e.id}`,
+          sortKey: e.startAt || dateStr,
+          dateLabel: formatAgendaDate(dateStr),
+          isToday: dateStr === today,
+          time: e.allDay ? null : extractTime(e.startAt),
+          title: e.title,
+          subtitle: [e.clientName, e.projectTitle].filter(Boolean).join(" · "),
+          address: e.address,
+          workers: e.workers || [],
+          notes: e.notes,
+          eventType: e.eventType,
+          projectId: e.projectId,
+          raw: e,
+        };
+      });
+
+    const taskItems = tasks
+      .filter((t) => {
+        if (t.done) return false;
+        const d = (t.startDate || t.dueDate || "").slice(0, 10);
+        return d && d >= today;
+      })
+      .map((t) => {
+        const dateStr = (t.startDate || t.dueDate || "").slice(0, 10);
+        return {
+          type: "ouvrage",
+          id: `task-${t.id}`,
+          sortKey: dateStr + (t.startTime ? `T${t.startTime}` : "T00:00"),
+          dateLabel: formatAgendaDate(dateStr),
+          isToday: dateStr === today,
+          time: t.startTime || null,
+          title: t.label,
+          subtitle: t.project || "",
+          assignedTo: t.assignedTo,
+          projectId: t.projectId,
+          raw: t,
+        };
+      });
+
+    return [...rdvItems, ...taskItems].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  }, [calendarEvents, tasks, today]);
+
   const quotesInProgress = quotes.filter((q) => ["Brouillon", "Pret a envoyer", "Envoye"].includes(q.status));
   const signedRevenue = quotes.filter((q) => q.status === "Signe" || q.signatureStatus === "Signe").reduce((s, q) => s + Number(q.totalTtc || 0), 0);
   const billedRevenue = invoices.filter((i) => i.status !== "Annulee").reduce((s, i) => s + Number(i.amountTtc || 0), 0);
@@ -144,14 +575,6 @@ export default function HomePage() {
       const { task: updated } = await apiSend("/api/tasks", { id: task.id, action: "toggle" }, "PATCH");
       setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
     } catch { /**/ }
-  }
-
-  async function deleteTask(taskId) {
-    try {
-      await apiSend("/api/tasks", { id: taskId, action: "delete" }, "PATCH");
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    } catch { /**/ }
-    setConfirmDelete(null);
   }
 
   async function archiveQuote(quoteId) {
@@ -193,6 +616,14 @@ export default function HomePage() {
 
   return (
     <Shell>
+      {showQuickAdd ? (
+        <QuickAddModal
+          projects={projects}
+          onClose={() => setShowQuickAdd(false)}
+          onTaskAdded={(task) => setTasks((prev) => [task, ...prev])}
+          onEventAdded={(event) => setCalendarEvents((prev) => [event, ...prev])}
+        />
+      ) : null}
       <div className="home-feed">
 
         {/* Alertes urgentes */}
@@ -258,50 +689,26 @@ export default function HomePage() {
         </Link>
 
         {/* À faire maintenant */}
-        <Section title="À faire maintenant" href="/planning" count={todoTasks.length || null}>
-          {todoTasks.length === 0 ? (
+        <Section
+          title="À faire maintenant"
+          href="/planning"
+          count={agendaItems.length || null}
+          headerAction={
+            <button type="button" className="home-section-add-btn" onClick={() => setShowQuickAdd(true)}>
+              + Ajouter
+            </button>
+          }
+        >
+          {agendaItems.length === 0 ? (
             <div className="home-empty">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><polyline points="20 6 9 17 4 12" /></svg>
               <strong>Tout est à jour !</strong>
-              <span>Aucune tâche prévue pour aujourd'hui.</span>
+              <span>Aucun RDV ni ouvrage planifié à venir.</span>
             </div>
           ) : (
-            <div className="home-list">
-              {todoTasks.map((task) => (
-                <article className="home-list-item home-task-item" key={task.id}>
-                  <div className="home-list-icon home-icon-task">
-                    <IconTask />
-                  </div>
-                  <div className="home-list-main">
-                    <strong>{task.label}</strong>
-                    <small>
-                      {[task.project, task.assignedTo, task.dueDate ? shortDate(task.dueDate) : null].filter(Boolean).join(" · ")}
-                    </small>
-                  </div>
-                  <div className="home-task-actions">
-                    <button
-                      className="home-task-btn home-task-btn-done"
-                      title="Marquer comme fait"
-                      onClick={() => markTaskDone(task)}
-                    >
-                      <IconCheck />
-                    </button>
-                    {confirmDelete === task.id ? (
-                      <span className="home-task-confirm">
-                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteTask(task.id)}>Suppr.</button>
-                        <button className="home-task-btn" onClick={() => setConfirmDelete(null)}>Non</button>
-                      </span>
-                    ) : (
-                      <button
-                        className="home-task-btn home-task-btn-delete"
-                        title="Supprimer"
-                        onClick={() => setConfirmDelete(task.id)}
-                      >
-                        <IconTrash />
-                      </button>
-                    )}
-                  </div>
-                </article>
+            <div className="home-agenda-list">
+              {agendaItems.map((item) => (
+                <AgendaCard key={item.id} item={item} onMarkDone={markTaskDone} />
               ))}
             </div>
           )}

@@ -31,6 +31,7 @@ const TYPE_META = {
   "client.note":          { label: "Message client",  bg: "#f0f9ff", color: "#0369a1", icon: "💬" },
   "worker.time_overrun":  { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
   "company.time_overrun": { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
+  "urgent.alert":         { label: "🚨 URGENT",       bg: "#fee2e2", color: "#991b1b", icon: "🚨" },
 };
 
 function TypeBadge({ type }) {
