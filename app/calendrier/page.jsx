@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { shortDate } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
@@ -43,12 +44,16 @@ function formatEventDate(value) {
 }
 
 export default function CalendrierPage() {
+  const { L } = useLocale();
   const { data: calendarEvents, setData: setCalendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: workers } = useApi("/api/workers", "workers");
   const { data: tasks } = useApi("/api/tasks", "tasks");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(initialEvent);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [detailTask, setDetailTask] = useState(null);
+  const [filter, setFilter] = useState("all");
   const [message, setMessage] = useState("");
 
   const plannedTasks = useMemo(() => {
@@ -77,6 +82,19 @@ export default function CalendrierPage() {
       .sort((a, b) => String(a.startAt || "").localeCompare(String(b.startAt || "")));
   }, [calendarEvents, plannedTasks]);
 
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  const filteredTimeline = useMemo(() => {
+    if (filter === "today") return timeline.filter((event) => String(event.startAt || "").slice(0, 10) === todayKey);
+    if (filter === "chantier") return timeline.filter((event) => event.eventType === "Chantier");
+    if (filter === "planning") return timeline.filter((event) => String(event.id || "").startsWith("task-"));
+    return timeline;
+  }, [timeline, filter, todayKey]);
+
+  function toggleFilter(value) {
+    setFilter((current) => (current === value ? "all" : value));
+  }
+
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
   }
@@ -101,7 +119,46 @@ export default function CalendrierPage() {
     }));
   }
 
-  async function createEvent(event) {
+  function closeForm() {
+    setFormOpen(false);
+    setEditingEventId(null);
+  }
+
+  function openCreateEvent() {
+    const now = datetimeLocal(new Date().toISOString());
+    setForm({ ...initialEvent, startAt: now, endAt: now });
+    setEditingEventId(null);
+    setFormOpen(true);
+  }
+
+  function openEditEvent(event) {
+    setForm({
+      title: event.title || "",
+      eventType: event.eventType || "Chantier",
+      projectId: event.projectId || "",
+      clientName: event.clientName || "",
+      address: event.address || "",
+      startAt: datetimeLocal(event.startAt),
+      endAt: datetimeLocal(event.endAt),
+      allDay: Boolean(event.allDay),
+      status: event.status || "En attente",
+      progress: Number(event.progress || 0),
+      notes: event.notes || "",
+      workerIds: Array.isArray(event.workerIds) ? event.workerIds : []
+    });
+    setEditingEventId(event.id);
+    setFormOpen(true);
+  }
+
+  function openRow(event) {
+    if (String(event.id || "").startsWith("task-")) {
+      setDetailTask(event);
+    } else {
+      openEditEvent(event);
+    }
+  }
+
+  async function submitEvent(event) {
     event.preventDefault();
     const selectedProject = projects.find((project) => project.id === form.projectId);
     const payload = {
@@ -112,11 +169,17 @@ export default function CalendrierPage() {
       endAt: form.endAt ? new Date(form.endAt).toISOString() : (form.startAt ? new Date(form.startAt).toISOString() : new Date().toISOString()),
       progress: Number(form.progress || 0)
     };
-    const { calendarEvent } = await apiSend("/api/calendar-events", payload);
-    setCalendarEvents([calendarEvent, ...calendarEvents]);
+    if (editingEventId) {
+      const { calendarEvent } = await apiSend("/api/calendar-events", { id: editingEventId, ...payload }, "PATCH");
+      setCalendarEvents(calendarEvents.map((item) => (item.id === calendarEvent.id ? calendarEvent : item)));
+      setMessage(`Evenement mis a jour: ${calendarEvent.title}`);
+    } else {
+      const { calendarEvent } = await apiSend("/api/calendar-events", payload);
+      setCalendarEvents([calendarEvent, ...calendarEvents]);
+      setMessage(`Evenement ajoute: ${calendarEvent.title}`);
+    }
     setForm(initialEvent);
-    setFormOpen(false);
-    setMessage(`Evenement ajoute: ${calendarEvent.title}`);
+    closeForm();
   }
 
   async function deleteEvent(event) {
@@ -125,71 +188,95 @@ export default function CalendrierPage() {
     if (calendarEvent?.deleted) setCalendarEvents(calendarEvents.filter((item) => item.id !== event.id));
   }
 
+  if (detailTask) {
+    return (
+      <Shell>
+        <section className="mobile-tool tool-form-view">
+          <header className="tool-topline compact">
+            <button type="button" className="plain-back" onClick={() => setDetailTask(null)}>{"<"}</button>
+            <h1>{fixText(detailTask.title)}</h1>
+            <span />
+          </header>
+
+          <div className="mobile-form">
+            <div className="mobile-input full"><span>{L.calendrier.eventType}</span><strong>{fixText(detailTask.eventType)}</strong></div>
+            <div className="mobile-input full"><span>{L.calendrier.project}</span><strong>{fixText(detailTask.projectTitle || L.calendrier.noProject)}</strong></div>
+            <div className="mobile-input full"><span>{L.calendrier.startAt}</span><strong>{formatEventDate(detailTask.startAt)}</strong></div>
+            <div className="mobile-input full"><span>{L.calendrier.endAt}</span><strong>{formatEventDate(detailTask.endAt)}</strong></div>
+            <div className="mobile-input full"><span>{L.calendrier.workers}</span><strong>{fixText(detailTask.workerNames)}</strong></div>
+            <div className="mobile-input full"><span>{L.calendrier.status}</span><strong>{fixText(detailTask.status)}</strong></div>
+            <p className="tool-muted">{L.calendrier.taskFromPlanning}</p>
+          </div>
+        </section>
+      </Shell>
+    );
+  }
+
   if (formOpen) {
     return (
       <Shell>
         <section className="mobile-tool tool-form-view">
           <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={() => setFormOpen(false)}>{"<"}</button>
-            <h1>Nouvel evenement</h1>
+            <button type="button" className="plain-back" onClick={closeForm}>{"<"}</button>
+            <h1>{editingEventId ? L.calendrier.editEvent : L.calendrier.newEvent}</h1>
             <span />
           </header>
 
-          <form className="mobile-form" onSubmit={createEvent}>
+          <form className="mobile-form" onSubmit={submitEvent}>
             <div className="mobile-form-grid">
               <label className="mobile-input full">
-                <span>Titre</span>
-                <input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="RDV client, intervention..." />
+                <span>{L.calendrier.eventTitle}</span>
+                <input value={form.title} onChange={(event) => setField("title", event.target.value)} />
               </label>
               <label className="mobile-input">
-                <span>Type</span>
+                <span>{L.calendrier.eventType}</span>
                 <select value={form.eventType} onChange={(event) => setField("eventType", event.target.value)}>
                   {eventTypes.map((type) => <option key={type}>{type}</option>)}
                 </select>
               </label>
               <label className="mobile-input">
-                <span>Statut</span>
+                <span>{L.calendrier.status}</span>
                 <select value={form.status} onChange={(event) => setField("status", event.target.value)}>
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
               </label>
               <label className="mobile-input full">
-                <span>Chantier lie</span>
+                <span>{L.calendrier.project}</span>
                 <select value={form.projectId} onChange={(event) => chooseProject(event.target.value)}>
-                  <option value="">Sans chantier</option>
+                  <option value="">{L.calendrier.noProject}</option>
                   {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
                 </select>
               </label>
               <label className="mobile-input">
-                <span>Client</span>
-                <input value={form.clientName} onChange={(event) => setField("clientName", event.target.value)} placeholder="Nom client" />
+                <span>{L.calendrier.client}</span>
+                <input value={form.clientName} onChange={(event) => setField("clientName", event.target.value)} />
               </label>
               <label className="mobile-input">
-                <span>Progression</span>
+                <span>%</span>
                 <input type="number" min="0" max="100" value={form.progress} onChange={(event) => setField("progress", event.target.value)} />
               </label>
               <label className="mobile-input">
-                <span>Debut</span>
+                <span>{L.calendrier.startAt}</span>
                 <input type="datetime-local" value={form.startAt} onChange={(event) => setField("startAt", event.target.value)} required />
               </label>
               <label className="mobile-input">
-                <span>Fin</span>
+                <span>{L.calendrier.endAt}</span>
                 <input type="datetime-local" value={form.endAt} onChange={(event) => setField("endAt", event.target.value)} />
               </label>
               <label className="mobile-input full">
-                <span>Adresse</span>
-                <input value={form.address} onChange={(event) => setField("address", event.target.value)} placeholder="Lieu du rendez-vous" />
+                <span>{L.calendrier.address}</span>
+                <input value={form.address} onChange={(event) => setField("address", event.target.value)} />
               </label>
               <label className="mobile-input full">
-                <span>Notes</span>
-                <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Informations utiles" />
+                <span>{L.calendrier.notes}</span>
+                <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
               </label>
             </div>
 
             <div className="calendar-worker-box">
-              <h2>Equipe affectee</h2>
+              <h2>{L.calendrier.workers}</h2>
               <div className="worker-chip-grid">
-                {workers.length === 0 ? <p className="tool-muted">Aucun ouvrier ou sous-traitant ajoute.</p> : null}
+                {workers.length === 0 ? <p className="tool-muted">{L.calendrier.noParticipants}</p> : null}
                 {workers.map((worker) => (
                   <button type="button" className={form.workerIds.includes(worker.id) ? "active" : ""} key={worker.id} onClick={() => toggleWorker(worker.id)}>
                     <span>{worker.name}</span>
@@ -199,7 +286,7 @@ export default function CalendrierPage() {
               </div>
             </div>
 
-            <button className="mobile-primary">Enregistrer l'evenement</button>
+            <button className="mobile-primary">{L.calendrier.save}</button>
           </form>
         </section>
       </Shell>
@@ -211,26 +298,53 @@ export default function CalendrierPage() {
       <section className="mobile-tool calendar-tool">
         <header className="tool-topline compact">
           <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>Calendrier</h1>
-          <button type="button" className="round-dark" onClick={() => {
-            const now = datetimeLocal(new Date().toISOString());
-            setForm({ ...initialEvent, startAt: now, endAt: now });
-            setFormOpen(true);
-          }}>+</button>
+          <h1>{L.calendrier.title}</h1>
+          <button type="button" className="round-dark" onClick={openCreateEvent}>+</button>
         </header>
 
         {message ? <p className="tool-message">{message}</p> : null}
 
         <section className="calendar-summary">
-          <div><span>Aujourd'hui</span><strong>{timeline.filter((event) => String(event.startAt || "").slice(0, 10) === new Date().toISOString().slice(0, 10)).length}</strong></div>
-          <div><span>Chantiers</span><strong>{timeline.filter((event) => event.eventType === "Chantier").length}</strong></div>
-          <div><span>Taches</span><strong>{plannedTasks.length}</strong></div>
+          <div
+            className={filter === "today" ? "active" : ""}
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleFilter("today")}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleFilter("today"); } }}
+          >
+            <span>{L.agenda.today}</span><strong>{timeline.filter((event) => String(event.startAt || "").slice(0, 10) === todayKey).length}</strong>
+          </div>
+          <div
+            className={filter === "chantier" ? "active" : ""}
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleFilter("chantier")}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleFilter("chantier"); } }}
+          >
+            <span>{L.nav.projects}</span><strong>{timeline.filter((event) => event.eventType === "Chantier").length}</strong>
+          </div>
+          <div
+            className={filter === "planning" ? "active" : ""}
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleFilter("planning")}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleFilter("planning"); } }}
+          >
+            <span>{L.planning.title}</span><strong>{plannedTasks.length}</strong>
+          </div>
         </section>
 
         <div className="calendar-list">
-          {timeline.length === 0 ? <div className="tool-empty">Aucun evenement planifie.</div> : null}
-          {timeline.map((event) => (
-            <article className="calendar-row" key={event.id}>
+          {filteredTimeline.length === 0 ? <div className="tool-empty">{L.calendrier.noEvents}</div> : null}
+          {filteredTimeline.map((event) => (
+            <article
+              className="calendar-row clickable"
+              key={event.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => openRow(event)}
+              onKeyDown={(keyEvent) => { if (keyEvent.key === "Enter" || keyEvent.key === " ") { keyEvent.preventDefault(); openRow(event); } }}
+            >
               <div className="calendar-date">
                 <strong>{formatEventDate(event.startAt)}</strong>
                 <span>{event.eventType}</span>
@@ -242,7 +356,7 @@ export default function CalendrierPage() {
               </div>
               <span className="status">{fixText(event.status || "En attente")}</span>
               {!String(event.id || "").startsWith("task-") ? (
-                <button type="button" className="mini-danger" onClick={() => deleteEvent(event)}>Supprimer</button>
+                <button type="button" className="mini-danger" onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event); }}>{L.calendrier.delete}</button>
               ) : null}
             </article>
           ))}

@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
+import { LangSwitcher } from "../../components/LangSwitcher";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 
 const KNOWN_EMAILS_KEY = "koji-known-emails";
 const WORKER_SESSION_KEY = "koji-worker-session";
@@ -40,7 +42,7 @@ function EyeIcon({ open }) {
   );
 }
 
-function EntrepriseLogin() {
+function EntrepriseLogin({ L }) {
   const router = useRouter();
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
@@ -58,7 +60,7 @@ function EntrepriseLogin() {
     event.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError("Entrez une adresse email valide.");
+      setError(L.auth.errEmail);
       return;
     }
     setError("");
@@ -67,7 +69,7 @@ function EntrepriseLogin() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!password) { setError("Entrez votre mot de passe."); return; }
+    if (!password) { setError(L.auth.errPassword); return; }
     setLoading(true);
     setError("");
     try {
@@ -88,16 +90,16 @@ function EntrepriseLogin() {
 
   return (
     <>
-      <h2 className="auth-title">Connexion Entreprise</h2>
+      <h2 className="auth-title">{L.auth.loginCompany}</h2>
       <p className="auth-subtitle">
-        {step === "email" ? "Entrez votre adresse email." : "Entrez votre mot de passe."}
+        {step === "email" ? L.auth.subtitleEmail : L.auth.subtitlePassword}
       </p>
 
       {step === "email" && (
         <form className="auth-form-v2" onSubmit={handleEmailStep}>
           {knownEmails.length > 0 ? (
             <div className="auth-known-list">
-              <p className="auth-known-label">Comptes récents</p>
+              <p className="auth-known-label">{L.auth.recentAccounts}</p>
               {knownEmails.map((k) => (
                 <button
                   key={k}
@@ -110,26 +112,26 @@ function EntrepriseLogin() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
                 </button>
               ))}
-              <div className="auth-known-divider">ou utilisez un autre compte</div>
+              <div className="auth-known-divider">{L.auth.orUseAnother}</div>
             </div>
           ) : null}
           <div className="auth-field">
-            <label>Adresse email</label>
+            <label>{L.auth.email}</label>
             <input
               type="email"
               className="auth-input-v2"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(""); }}
-              placeholder="vous@exemple.fr"
+              placeholder={L.auth.emailPlaceholder}
               autoFocus={!knownEmails.length}
               autoComplete="email"
             />
           </div>
           {error ? <p className="auth-error">{error}</p> : null}
-          <button type="submit" className="auth-btn-primary">Continuer</button>
+          <button type="submit" className="auth-btn-primary">{L.auth.continueBtn}</button>
           <p className="auth-alt-link">
-            Pas encore de compte ?{" "}
-            <Link className="auth-link" href="/signup?type=entreprise">S&apos;inscrire</Link>
+            {L.auth.noAccount}{" "}
+            <Link className="auth-link" href="/signup?type=entreprise">{L.auth.register}</Link>
           </p>
         </form>
       )}
@@ -139,14 +141,14 @@ function EntrepriseLogin() {
           <div className="auth-email-badge">
             <span>{email}</span>
             <button type="button" className="auth-text-btn" onClick={() => { setStep("email"); setPassword(""); setError(""); }}>
-              Modifier
+              {L.auth.modify}
             </button>
           </div>
           <div className="auth-field">
             <div className="auth-field-label-row">
-              <label>Mot de passe</label>
+              <label>{L.auth.password}</label>
               <Link className="auth-link" href="/forgot-password?type=entreprise" style={{ fontSize: "0.82rem" }}>
-                Mot de passe oublié ?
+                {L.auth.forgotPassword}
               </Link>
             </div>
             <div className="auth-input-wrap">
@@ -155,22 +157,22 @@ function EntrepriseLogin() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                placeholder="Votre mot de passe"
+                placeholder={L.auth.passwordPlaceholder}
                 autoFocus
                 autoComplete="current-password"
               />
-              <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label="Afficher/masquer">
+              <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
                 <EyeIcon open={showPassword} />
               </button>
             </div>
           </div>
           {error ? <p className="auth-error">{error}</p> : null}
           <button type="submit" className="auth-btn-primary" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
+            {loading ? L.auth.loggingIn : L.auth.loginBtn}
           </button>
           <p className="auth-alt-link">
-            Pas encore de compte ?{" "}
-            <Link className="auth-link" href="/signup?type=entreprise">S&apos;inscrire</Link>
+            {L.auth.noAccount}{" "}
+            <Link className="auth-link" href="/signup?type=entreprise">{L.auth.register}</Link>
           </p>
         </form>
       )}
@@ -178,7 +180,7 @@ function EntrepriseLogin() {
   );
 }
 
-function ParticulierLogin() {
+function ParticulierLogin({ L }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -189,7 +191,7 @@ function ParticulierLogin() {
   async function handleSubmit(event) {
     event.preventDefault();
     if (!identifier.trim() || !password.trim()) {
-      setError("Renseignez l'identifiant et le mot de passe.");
+      setError(L.auth.errIdentifier);
       return;
     }
     setLoading(true);
@@ -210,13 +212,11 @@ function ParticulierLogin() {
 
   return (
     <>
-      <h2 className="auth-title">Espace Client</h2>
-      <p className="auth-subtitle">
-        Entrez l&apos;identifiant et le mot de passe reçus de votre artisan.
-      </p>
+      <h2 className="auth-title">{L.auth.loginClient}</h2>
+      <p className="auth-subtitle">{L.auth.subtitleClient}</p>
       <form className="auth-form-v2" onSubmit={handleSubmit}>
         <div className="auth-field">
-          <label>Identifiant</label>
+          <label>{L.auth.identifier}</label>
           <input
             type="text"
             className="auth-input-v2"
@@ -228,7 +228,7 @@ function ParticulierLogin() {
           />
         </div>
         <div className="auth-field">
-          <label>Mot de passe</label>
+          <label>{L.auth.password}</label>
           <div className="auth-input-wrap">
             <input
               className="auth-input-v2"
@@ -238,7 +238,7 @@ function ParticulierLogin() {
               placeholder="Koji-XXXX-XXXX"
               autoComplete="current-password"
             />
-            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label="Afficher/masquer">
+            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
               <EyeIcon open={showPassword} />
             </button>
           </div>
@@ -249,17 +249,17 @@ function ParticulierLogin() {
           className="auth-btn-primary"
           disabled={loading || !identifier.trim() || !password.trim()}
         >
-          {loading ? "Vérification..." : "Accéder à mon espace"}
+          {loading ? L.auth.verifying : L.auth.accessBtn}
         </button>
         <p className="auth-alt-link" style={{ color: "#9aa5b4", fontSize: "0.82rem", textAlign: "center" }}>
-          Vous avez reçu ces identifiants par e-mail ou SMS de votre artisan.
+          {L.auth.clientHint}
         </p>
       </form>
     </>
   );
 }
 
-function OuvrierLogin() {
+function OuvrierLogin({ L }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -270,7 +270,7 @@ function OuvrierLogin() {
   async function handleSubmit(event) {
     event.preventDefault();
     if (!identifier.trim() || !password.trim()) {
-      setError("Renseignez l'identifiant et le mot de passe.");
+      setError(L.auth.errIdentifier);
       return;
     }
     setLoading(true);
@@ -291,13 +291,11 @@ function OuvrierLogin() {
 
   return (
     <>
-      <h2 className="auth-title">Espace Ouvrier</h2>
-      <p className="auth-subtitle">
-        Entrez votre identifiant et mot de passe pour suivre vos tâches.
-      </p>
+      <h2 className="auth-title">{L.auth.loginWorker}</h2>
+      <p className="auth-subtitle">{L.auth.subtitleWorker}</p>
       <form className="auth-form-v2" onSubmit={handleSubmit}>
         <div className="auth-field">
-          <label>Identifiant</label>
+          <label>{L.auth.identifier}</label>
           <input
             type="text"
             className="auth-input-v2"
@@ -309,7 +307,7 @@ function OuvrierLogin() {
           />
         </div>
         <div className="auth-field">
-          <label>Mot de passe</label>
+          <label>{L.auth.password}</label>
           <div className="auth-input-wrap">
             <input
               className="auth-input-v2"
@@ -319,7 +317,7 @@ function OuvrierLogin() {
               placeholder="KJ-XXXX-XXXX"
               autoComplete="current-password"
             />
-            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label="Afficher/masquer">
+            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
               <EyeIcon open={showPassword} />
             </button>
           </div>
@@ -330,10 +328,10 @@ function OuvrierLogin() {
           className="auth-btn-primary"
           disabled={loading || !identifier.trim() || !password.trim()}
         >
-          {loading ? "Vérification..." : "Accéder à mon espace"}
+          {loading ? L.auth.verifying : L.auth.accessBtn}
         </button>
         <p className="auth-alt-link" style={{ color: "#9aa5b4", fontSize: "0.82rem", textAlign: "center" }}>
-          Votre identifiant vous a été transmis par votre entreprise.
+          {L.auth.workerHint}
         </p>
       </form>
     </>
@@ -341,6 +339,7 @@ function OuvrierLogin() {
 }
 
 function LoginScreen() {
+  const { L } = useLocale();
   const params = useSearchParams();
   const typeParam = params.get("type");
 
@@ -352,6 +351,7 @@ function LoginScreen() {
       <AuthBrandPanel />
       <section className="auth-panel-v2">
         <div className="auth-card">
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
           <div className="auth-type-toggle auth-type-toggle-3">
             <button
@@ -359,27 +359,27 @@ function LoginScreen() {
               className={accountType === "entreprise" ? "active" : ""}
               onClick={() => setAccountType("entreprise")}
             >
-              Entreprise
+              {L.auth.tabCompany}
             </button>
             <button
               type="button"
               className={accountType === "particulier" ? "active" : ""}
               onClick={() => setAccountType("particulier")}
             >
-              Client
+              {L.auth.tabClient}
             </button>
             <button
               type="button"
               className={accountType === "ouvrier" ? "active" : ""}
               onClick={() => setAccountType("ouvrier")}
             >
-              Ouvrier
+              {L.auth.tabWorker}
             </button>
           </div>
 
-          {accountType === "entreprise" && <EntrepriseLogin />}
-          {accountType === "particulier" && <ParticulierLogin />}
-          {accountType === "ouvrier" && <OuvrierLogin />}
+          {accountType === "entreprise" && <EntrepriseLogin L={L} />}
+          {accountType === "particulier" && <ParticulierLogin L={L} />}
+          {accountType === "ouvrier" && <OuvrierLogin L={L} />}
 
         </div>
       </section>

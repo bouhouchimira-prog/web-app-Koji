@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
 
@@ -27,6 +28,7 @@ function formatDate(value) {
 }
 
 export default function ArchivesPage() {
+  const { L } = useLocale();
   const router = useRouter();
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
@@ -96,7 +98,7 @@ export default function ArchivesPage() {
       <section className="mobile-tool">
         <header className="tool-topline">
           <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>Archives</h1>
+          <h1>{L.archives.title}</h1>
           <button
             type="button"
             className="round-dark"
@@ -112,55 +114,54 @@ export default function ArchivesPage() {
 
         {creating ? (
           <form className="archive-create-form" onSubmit={createPastProject}>
-            <h3>Ancien chantier deja termine</h3>
-            <p className="tool-muted">Digitalisez un chantier passe pour la comptabilite : devis, photos, factures, recus et notes.</p>
+            <h3>{L.archives.createProject}</h3>
             <label className="mobile-input full">
-              <span>Nom du chantier</span>
-              <input value={newProject.title} onChange={(event) => setNewProjectField("title", event.target.value)} placeholder="Ex: Renovation appartement Dupont" required />
+              <span>{L.archives.projectTitle}</span>
+              <input value={newProject.title} onChange={(event) => setNewProjectField("title", event.target.value)} required />
             </label>
             <label className="mobile-input full">
-              <span>Client</span>
-              <input value={newProject.client} onChange={(event) => setNewProjectField("client", event.target.value)} placeholder="Nom du client" />
+              <span>{L.archives.client}</span>
+              <input value={newProject.client} onChange={(event) => setNewProjectField("client", event.target.value)} />
             </label>
             <label className="mobile-input full">
-              <span>Adresse</span>
-              <input value={newProject.address} onChange={(event) => setNewProjectField("address", event.target.value)} placeholder="Adresse du chantier" />
+              <span>{L.archives.address}</span>
+              <input value={newProject.address} onChange={(event) => setNewProjectField("address", event.target.value)} />
             </label>
             <div className="mobile-form-grid">
               <label className="mobile-input">
-                <span>Date de debut</span>
+                <span>{L.archives.startDate}</span>
                 <input type="date" value={newProject.startDate} onChange={(event) => setNewProjectField("startDate", event.target.value)} />
               </label>
               <label className="mobile-input">
-                <span>Date de fin</span>
+                <span>{L.archives.endDate}</span>
                 <input type="date" value={newProject.endDate} onChange={(event) => setNewProjectField("endDate", event.target.value)} />
               </label>
             </div>
             <label className="mobile-input full">
-              <span>Montant total TTC</span>
+              <span>{L.archives.budget}</span>
               <input type="number" step="0.01" value={newProject.budgetHt} onChange={(event) => setNewProjectField("budgetHt", event.target.value)} placeholder="0.00" />
             </label>
             <label className="mobile-input full">
-              <span>Notes</span>
-              <input value={newProject.notes} onChange={(event) => setNewProjectField("notes", event.target.value)} placeholder="Remarques, contexte du chantier..." />
+              <span>{L.archives.notes}</span>
+              <input value={newProject.notes} onChange={(event) => setNewProjectField("notes", event.target.value)} />
             </label>
             <div className="archive-create-actions">
-              <button type="button" className="mini-button" onClick={() => { setCreating(false); setNewProject(emptyNewProject); }}>Annuler</button>
-              <button type="submit" className="mobile-primary">Creer le chantier archive</button>
+              <button type="button" className="mini-button" onClick={() => { setCreating(false); setNewProject(emptyNewProject); }}>{L.archives.cancel}</button>
+              <button type="submit" className="mobile-primary">{L.archives.save}</button>
             </div>
           </form>
         ) : null}
 
         <div className="segmented">
-          <button type="button" className={activeTab === "projects" ? "active" : ""} onClick={() => setActiveTab("projects")}>Chantiers</button>
-          <button type="button" className={activeTab === "quotes" ? "active" : ""} onClick={() => setActiveTab("quotes")}>Devis</button>
-          <button type="button" className={activeTab === "other" ? "active" : ""} onClick={() => setActiveTab("other")}>Autre</button>
+          <button type="button" className={activeTab === "projects" ? "active" : ""} onClick={() => setActiveTab("projects")}>{L.nav.projects}</button>
+          <button type="button" className={activeTab === "quotes" ? "active" : ""} onClick={() => setActiveTab("quotes")}>{L.nav.quotes}</button>
+          <button type="button" className={activeTab === "other" ? "active" : ""} onClick={() => setActiveTab("other")}>{L.archives.manual}</button>
         </div>
 
         <div className="archive-list">
-          {activeTab === "projects" && archivedProjects.length === 0 ? <div className="tool-empty">Aucun chantier archive.</div> : null}
-          {activeTab === "quotes" && archivedQuotes.length === 0 ? <div className="tool-empty">Aucun devis archive.</div> : null}
-          {activeTab === "other" && otherProjects.length === 0 ? <div className="tool-empty">Aucun ancien chantier ajoute. Utilisez le bouton + pour en digitaliser un.</div> : null}
+          {activeTab === "projects" && archivedProjects.length === 0 ? <div className="tool-empty">{L.archives.noProjects}</div> : null}
+          {activeTab === "quotes" && archivedQuotes.length === 0 ? <div className="tool-empty">{L.archives.noQuotes}</div> : null}
+          {activeTab === "other" && otherProjects.length === 0 ? <div className="tool-empty">{L.archives.noProjects}</div> : null}
 
           {(activeTab === "projects" ? archivedProjects : activeTab === "other" ? otherProjects : []).map((project) => (
             <article className="archive-row" key={project.id}>
@@ -169,13 +170,13 @@ export default function ArchivesPage() {
                 <strong>{project.title}</strong>
                 <small>{project.client || project.reference}</small>
                 <small className="archive-row-dates">
-                  Ref {project.reference || "-"} · Debut {formatDate(project.startDate)} · Fin {formatDate(project.endDate)}
+                  {project.reference || "-"} · {formatDate(project.startDate)} · {formatDate(project.endDate)}
                 </small>
               </div>
               <div className="archive-row-actions">
-                <button type="button" onClick={() => router.push(`/archives/${project.id}`)}>Voir le détail</button>
-                <button type="button" onClick={() => restoreProject(project)}>Restaurer</button>
-                <button type="button" className="danger" onClick={() => deleteProject(project)}>Supprimer</button>
+                <button type="button" onClick={() => router.push(`/archives/${project.id}`)}>{L.archives.view}</button>
+                <button type="button" onClick={() => restoreProject(project)}>{L.archives.restore}</button>
+                <button type="button" className="danger" onClick={() => deleteProject(project)}>{L.archives.delete}</button>
               </div>
             </article>
           ))}
@@ -187,9 +188,9 @@ export default function ArchivesPage() {
                 <strong>{quote.quoteNumber}</strong>
                 <small>{quote.client} - {euro(quote.totalTtc)}</small>
               </div>
-              <a className="mini-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">Télécharger</a>
-              <button type="button" onClick={() => restoreQuote(quote)}>Restaurer</button>
-              <button type="button" className="danger" onClick={() => deleteQuote(quote)}>Supprimer</button>
+              <a className="mini-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a>
+              <button type="button" onClick={() => restoreQuote(quote)}>{L.archives.restore}</button>
+              <button type="button" className="danger" onClick={() => deleteQuote(quote)}>{L.archives.delete}</button>
             </article>
           )) : null}
         </div>

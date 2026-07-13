@@ -5,30 +5,15 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { apiSend } from "../lib/client-api";
+import { useLocale } from "../lib/i18n";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
 
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 const URGENT_ICONS  = { degat: "🧱", fuite: "💧", urgence: "⚡", incendie: "🔥", autre: "⚠️" };
 
-const QA_TYPES = [
-  { key: "tache",   label: "Tâche",   emoji: "✅" },
-  { key: "rdv",     label: "RDV",     emoji: "📅" },
-  { key: "depense", label: "Dépense", emoji: "💰" },
-  { key: "note",    label: "Note",    emoji: "📝" },
-];
-
-const QA_SHORTCUTS = [
-  "Passer un appel",
-  "Prendre un RDV client",
-  "Acheter du matériel",
-  "Envoyer un devis",
-  "Vérifier le chantier",
-  "Ajouter une dépense",
-];
-
-const QA_EVENT_TYPES = ["RDV Client", "Réunion chantier", "Visite technique", "Livraison", "Inspection", "Autre"];
-const QA_EXPENSE_CATS = ["Matériaux", "Main d'œuvre", "Transport", "Sous-traitance", "Outillage", "Autres frais"];
+const QA_TYPE_KEYS  = ["tache", "rdv", "depense", "note"];
+const QA_TYPE_EMOJIS = { tache: "✅", rdv: "📅", depense: "💰", note: "📝" };
 
 function timeAgo(value) {
   if (!value) return "";
@@ -131,6 +116,7 @@ function extractTime(isoStr) {
 
 function AgendaCard({ item, onMarkDone }) {
   const router = useRouter();
+  const { L } = useLocale();
   const [open, setOpen] = useState(false);
   const isRdv = item.type === "rdv";
 
@@ -147,7 +133,7 @@ function AgendaCard({ item, onMarkDone }) {
           {item.time ? <em className="home-agenda-time-em">{item.time}</em> : null}
         </span>
         <span className={`home-agenda-type-chip${isRdv ? " rdv" : " task"}`}>
-          {isRdv ? "RDV" : "Ouvrage"}
+          {isRdv ? L.agenda.rdv : L.agenda.task}
         </span>
         <div className="home-agenda-main">
           <strong>{item.title}</strong>
@@ -180,7 +166,7 @@ function AgendaCard({ item, onMarkDone }) {
               {item.notes ? <p className="home-agenda-notes">{item.notes}</p> : null}
               <div className="home-agenda-footer">
                 <button type="button" className="home-agenda-nav" onClick={() => router.push("/planning")}>
-                  Voir dans le planning →
+                  {L.agenda.seePlan}
                 </button>
               </div>
             </>
@@ -191,7 +177,7 @@ function AgendaCard({ item, onMarkDone }) {
               ) : null}
               <div className="home-agenda-footer">
                 <button type="button" className="home-agenda-done" onClick={() => onMarkDone(item.raw)}>
-                  <IconCheck /> Marquer fait
+                  <IconCheck /> {L.agenda.markDone}
                 </button>
                 {item.projectId ? (
                   <button
@@ -199,7 +185,7 @@ function AgendaCard({ item, onMarkDone }) {
                     className="home-agenda-nav"
                     onClick={() => router.push(`/chantiers?project=${item.projectId}`)}
                   >
-                    Voir le chantier →
+                    {L.agenda.seeProject}
                   </button>
                 ) : null}
               </div>
@@ -212,6 +198,7 @@ function AgendaCard({ item, onMarkDone }) {
 }
 
 function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
+  const { L } = useLocale();
   const todayStr = new Date().toISOString().slice(0, 10);
   const [type, setType]         = useState("tache");
   const [label, setLabel]       = useState("");
@@ -244,10 +231,10 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
   async function submit(e) {
     e.preventDefault();
     setError("");
-    if (!label.trim()) { setError("Le champ est obligatoire."); return; }
+    if (!label.trim()) { setError(L.common.error + " — champ vide"); return; }
     if (type === "depense") {
-      if (!projectId) { setError("Veuillez sélectionner un chantier."); return; }
-      if (Number(amount) <= 0) { setError("Le montant doit être supérieur à 0."); return; }
+      if (!projectId) { setError(L.common.error); return; }
+      if (Number(amount) <= 0) { setError(L.common.error); return; }
     }
     setSending(true);
     try {
@@ -258,7 +245,7 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
           projectId: projectId || "",
           startDate: date,
           dueDate: date,
-          assignedTo: assignedTo.trim() || "Équipe",
+          assignedTo: assignedTo.trim() || L.nav.team,
           notes: notes.trim(),
         }, "POST");
         onTaskAdded?.(task);
@@ -288,28 +275,29 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
       setDone(true);
       setTimeout(() => onClose(), 1100);
     } catch {
-      setError("Une erreur est survenue.");
+      setError(L.common.error);
       setSending(false);
     }
   }
 
-  const submitLabel = {
-    tache: "Créer la tâche",
-    rdv:   "Créer le RDV",
-    depense: "Enregistrer la dépense",
-    note:  "Ajouter la note",
-  }[type];
+  const qa = L.quickAdd;
+  const submitLabel = { tache: qa.submitTask, rdv: qa.submitRdv, depense: qa.submitExpense, note: qa.submitNote }[type];
+  const qaTypes = QA_TYPE_KEYS.map((k) => ({
+    key: k,
+    emoji: QA_TYPE_EMOJIS[k],
+    label: { tache: qa.typeTask, rdv: qa.typeRdv, depense: qa.typeExpense, note: qa.typeNote }[k],
+  }));
 
   return (
     <div className="qa-overlay" onClick={onClose}>
       <div className="qa-modal" onClick={(e) => e.stopPropagation()}>
         <div className="qa-header">
-          <strong>Ajout rapide</strong>
-          <button type="button" className="qa-close" onClick={onClose} aria-label="Fermer">✕</button>
+          <strong>{qa.title}</strong>
+          <button type="button" className="qa-close" onClick={onClose} aria-label={L.common.close}>✕</button>
         </div>
 
         <div className="qa-tabs">
-          {QA_TYPES.map((t) => (
+          {qaTypes.map((t) => (
             <button
               key={t.key}
               type="button"
@@ -327,7 +315,7 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="9 12 12 15 16 9" />
             </svg>
-            Ajouté avec succès !
+            {qa.success}
           </div>
         ) : (
           <form className="qa-form" onSubmit={submit}>
@@ -335,7 +323,7 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
             {/* Label / texte principal */}
             <div className="qa-field">
               <label className="qa-label">
-                {type === "note" ? "Note" : type === "depense" ? "Libellé" : type === "rdv" ? "Titre du RDV" : "À faire"}
+                {type === "note" ? qa.fieldNote : type === "depense" ? qa.fieldLabel : type === "rdv" ? qa.fieldRdv : qa.fieldTask}
               </label>
               <input
                 type="text"
@@ -344,10 +332,10 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={
-                  type === "rdv"     ? "Ex : Visite technique salon" :
-                  type === "depense" ? "Ex : Ciment Lafarge 50 kg" :
-                  type === "note"    ? "Écrire une note rapide…" :
-                  "Ex : Passer un appel client"
+                  type === "rdv"     ? (qa.shortcuts[1] || "") :
+                  type === "depense" ? (qa.shortcuts[2] || "") :
+                  type === "note"    ? qa.fieldNote :
+                  (qa.shortcuts[0] || "")
                 }
               />
               {type === "tache" ? (
@@ -363,68 +351,64 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
             {type !== "note" ? (
               <div className="qa-row">
                 <div className="qa-field">
-                  <label className="qa-label">Date</label>
+                  <label className="qa-label">{qa.fieldDate}</label>
                   <input type="date" className="qa-input" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
                 {type === "rdv" ? (
                   <div className="qa-field">
-                    <label className="qa-label">Heure</label>
+                    <label className="qa-label">{qa.fieldTime}</label>
                     <input type="time" className="qa-input" value={time} onChange={(e) => setTime(e.target.value)} />
                   </div>
                 ) : null}
               </div>
             ) : null}
 
-            {/* RDV — type + client */}
             {type === "rdv" ? (
               <div className="qa-row">
                 <div className="qa-field">
-                  <label className="qa-label">Type de RDV</label>
+                  <label className="qa-label">{qa.fieldRdvType}</label>
                   <select className="qa-input" value={eventType} onChange={(e) => setEventType(e.target.value)}>
-                    {QA_EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}
+                    {qa.rdvTypes.map((t) => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="qa-field">
-                  <label className="qa-label">Client</label>
-                  <input type="text" className="qa-input" placeholder="Nom du client" value={client} onChange={(e) => setClient(e.target.value)} />
+                  <label className="qa-label">{qa.fieldClient}</label>
+                  <input type="text" className="qa-input" placeholder={qa.fieldClient} value={client} onChange={(e) => setClient(e.target.value)} />
                 </div>
               </div>
             ) : null}
 
-            {/* Dépense — montant + catégorie */}
             {type === "depense" ? (
               <div className="qa-row">
                 <div className="qa-field">
-                  <label className="qa-label">Montant (€) *</label>
+                  <label className="qa-label">{qa.fieldAmount} <span className="qa-req">*</span></label>
                   <input type="number" step="0.01" min="0.01" className="qa-input" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
                 </div>
                 <div className="qa-field">
-                  <label className="qa-label">Catégorie</label>
+                  <label className="qa-label">{qa.fieldCategory}</label>
                   <select className="qa-input" value={category} onChange={(e) => setCategory(e.target.value)}>
-                    {QA_EXPENSE_CATS.map((c) => <option key={c}>{c}</option>)}
+                    {qa.expenseCats.map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
             ) : null}
 
-            {/* Tâche — assigné à */}
             {type === "tache" ? (
               <div className="qa-field">
-                <label className="qa-label">Assigné à <span className="qa-opt">(optionnel)</span></label>
-                <input type="text" className="qa-input" placeholder="Ex : Jean, Équipe…" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} />
+                <label className="qa-label">{qa.fieldAssign} <span className="qa-opt">{qa.optional}</span></label>
+                <input type="text" className="qa-input" placeholder={qa.fieldAssign} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} />
               </div>
             ) : null}
 
-            {/* Lier à un chantier */}
             <div className="qa-field">
               <label className="qa-label">
-                Lier à un chantier
+                {qa.fieldProject}
                 {type === "depense"
                   ? <span className="qa-req"> *</span>
-                  : <span className="qa-opt"> (optionnel)</span>}
+                  : <span className="qa-opt"> {qa.optional}</span>}
               </label>
               <select className="qa-input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                <option value="">— Aucun chantier —</option>
+                <option value="">{qa.noProject}</option>
                 {activeProjects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title}{p.client ? ` · ${p.client}` : ""}
@@ -433,20 +417,19 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
               </select>
             </div>
 
-            {/* Notes (RDV + note) */}
             {type === "rdv" || type === "note" ? (
               <div className="qa-field">
-                <label className="qa-label">Notes <span className="qa-opt">(optionnel)</span></label>
-                <textarea className="qa-input qa-textarea" rows={3} placeholder="Détails supplémentaires…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <label className="qa-label">{qa.fieldNotes} <span className="qa-opt">{qa.optional}</span></label>
+                <textarea className="qa-input qa-textarea" rows={3} placeholder={qa.fieldNotes} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
             ) : null}
 
             {error ? <div className="qa-error">{error}</div> : null}
 
             <div className="qa-actions">
-              <button type="button" className="qa-cancel" onClick={onClose}>Annuler</button>
+              <button type="button" className="qa-cancel" onClick={onClose}>{qa.cancel}</button>
               <button type="submit" className="qa-submit" disabled={sending || !label.trim()}>
-                {sending ? "Ajout…" : submitLabel}
+                {sending ? qa.adding : submitLabel}
               </button>
             </div>
           </form>
@@ -499,6 +482,7 @@ function Section({ title, href, children, count, headerAction }) {
 
 export default function HomePage() {
   const router = useRouter();
+  const { L } = useLocale();
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
@@ -674,7 +658,7 @@ export default function HomePage() {
                       className="home-urgent-resolve"
                       onClick={() => resolveAlert(alert.id)}
                     >
-                      Résoudre
+                      {L.agenda.resolve}
                     </button>
                   </div>
                 </div>
@@ -685,25 +669,25 @@ export default function HomePage() {
 
         <Link className="home-primary-action" href="/chantier/new">
           <span className="home-primary-plus">+</span>
-          {activeProjects.length === 0 ? "Créer votre premier chantier" : "Créer un nouveau chantier"}
+          {activeProjects.length === 0 ? L.home.firstProject : L.home.newProject}
         </Link>
 
         {/* À faire maintenant */}
         <Section
-          title="À faire maintenant"
+          title={L.home.todoNow}
           href="/planning"
           count={agendaItems.length || null}
           headerAction={
             <button type="button" className="home-section-add-btn" onClick={() => setShowQuickAdd(true)}>
-              + Ajouter
+              {L.home.add}
             </button>
           }
         >
           {agendaItems.length === 0 ? (
             <div className="home-empty">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><polyline points="20 6 9 17 4 12" /></svg>
-              <strong>Tout est à jour !</strong>
-              <span>Aucun RDV ni ouvrage planifié à venir.</span>
+              <strong>{L.home.upToDate}</strong>
+              <span>{L.home.upToDateSub}</span>
             </div>
           ) : (
             <div className="home-agenda-list">
@@ -715,12 +699,12 @@ export default function HomePage() {
         </Section>
 
         {/* Chantiers */}
-        <Section title="Chantiers" href="/chantiers" count={activeProjects.length || null}>
+        <Section title={L.home.projects} href="/chantiers" count={activeProjects.length || null}>
           {activeProjects.length === 0 ? (
             <div className="home-empty">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
-              <strong>Aucun chantier</strong>
-              <span>Commencez par créer votre premier chantier.</span>
+              <strong>{L.home.noProjects}</strong>
+              <span>{L.home.noProjectsSub}</span>
             </div>
           ) : (
             <div className="home-list">
@@ -739,23 +723,15 @@ export default function HomePage() {
                   <div className="home-task-actions">
                     {confirmDeleteProject === project.id ? (
                       <span className="home-task-confirm">
-                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteProject(project.id)}>Suppr.</button>
-                        <button className="home-task-btn" onClick={() => setConfirmDeleteProject(null)}>Non</button>
+                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteProject(project.id)}>{L.common.delete}</button>
+                        <button className="home-task-btn" onClick={() => setConfirmDeleteProject(null)}>{L.common.no}</button>
                       </span>
                     ) : (
                       <>
-                        <button
-                          className="home-task-btn"
-                          title="Archiver"
-                          onClick={() => archiveProject(project.id)}
-                        >
+                        <button className="home-task-btn" title={L.common.archive} onClick={() => archiveProject(project.id)}>
                           <IconArchive />
                         </button>
-                        <button
-                          className="home-task-btn home-task-btn-delete"
-                          title="Supprimer"
-                          onClick={() => setConfirmDeleteProject(project.id)}
-                        >
+                        <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteProject(project.id)}>
                           <IconTrash />
                         </button>
                       </>
@@ -765,7 +741,7 @@ export default function HomePage() {
               ))}
               {activeProjects.length > 5 ? (
                 <Link href="/chantiers" className="home-more-link">
-                  Voir les {activeProjects.length - 5} autres chantiers <ChevronRight />
+                  {L.home.seeMore(activeProjects.length - 5)} <ChevronRight />
                 </Link>
               ) : null}
             </div>
@@ -773,12 +749,12 @@ export default function HomePage() {
         </Section>
 
         {/* Devis en cours */}
-        <Section title="Devis en cours" href="/devis" count={quotesInProgress.length || null}>
+        <Section title={L.home.quotesSection} href="/devis" count={quotesInProgress.length || null}>
           {quotesInProgress.length === 0 ? (
             <div className="home-empty">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-              <strong>Aucun devis en cours</strong>
-              <span>Les devis apparaîtront ici.</span>
+              <strong>{L.home.noQuotes}</strong>
+              <span>{L.home.noQuotesSub}</span>
             </div>
           ) : (
             <div className="home-list">
@@ -800,23 +776,15 @@ export default function HomePage() {
                   <div className="home-task-actions">
                     {confirmDeleteQuote === quote.id ? (
                       <span className="home-task-confirm">
-                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteQuote(quote.id)}>Suppr.</button>
-                        <button className="home-task-btn" onClick={() => setConfirmDeleteQuote(null)}>Non</button>
+                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteQuote(quote.id)}>{L.common.delete}</button>
+                        <button className="home-task-btn" onClick={() => setConfirmDeleteQuote(null)}>{L.common.no}</button>
                       </span>
                     ) : (
                       <>
-                        <button
-                          className="home-task-btn"
-                          title="Archiver"
-                          onClick={() => archiveQuote(quote.id)}
-                        >
+                        <button className="home-task-btn" title={L.common.archive} onClick={() => archiveQuote(quote.id)}>
                           <IconArchive />
                         </button>
-                        <button
-                          className="home-task-btn home-task-btn-delete"
-                          title="Supprimer"
-                          onClick={() => setConfirmDeleteQuote(quote.id)}
-                        >
+                        <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteQuote(quote.id)}>
                           <IconTrash />
                         </button>
                       </>
@@ -826,7 +794,7 @@ export default function HomePage() {
               ))}
               {quotesInProgress.length > 5 ? (
                 <Link href="/devis" className="home-more-link">
-                  Voir les {quotesInProgress.length - 5} autres devis <ChevronRight />
+                  {L.home.seeMore(quotesInProgress.length - 5)} <ChevronRight />
                 </Link>
               ) : null}
             </div>
@@ -834,14 +802,14 @@ export default function HomePage() {
         </Section>
 
         {/* Chiffre d'affaires */}
-        <Section title="Chiffre d'affaires">
+        <Section title={L.home.revenue}>
           <div className="home-revenue-grid">
             <div className="home-revenue-card home-revenue-billed">
-              <span>Facturé</span>
+              <span>{L.home.billed}</span>
               <strong>{euro(billedRevenue)}</strong>
             </div>
             <div className="home-revenue-card home-revenue-waiting">
-              <span>En attente de signature</span>
+              <span>{L.home.waitingSig}</span>
               <strong>{euro(waitingRevenue)}</strong>
             </div>
           </div>

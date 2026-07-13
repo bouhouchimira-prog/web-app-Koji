@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { euro } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
 
@@ -36,6 +37,7 @@ const initialSupplier = {
 const initialCategoryForm = { name: "" };
 
 export default function SuppliesPage() {
+  const { L } = useLocale();
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: suppliers, setData: setSuppliers } = useApi("/api/suppliers", "suppliers");
   const { data: categories, setData: setCategories } = useApi("/api/categories", "categories");
@@ -384,16 +386,16 @@ export default function SuppliesPage() {
                 onChange={(event) => setPendingQty(Math.max(1, Number(event.target.value) || 1))}
               />
               <button type="button" className="qty-btn" onClick={() => changeQty(1)}>+</button>
-              <button type="button" className="mini-button primary" onClick={() => selectSupplyForDevis(item, pendingQty)}>Valider</button>
+              <button type="button" className="mini-button primary" onClick={() => selectSupplyForDevis(item, pendingQty)}>{L.fournitures.validate}</button>
             </div>
           ) : (
-            <button type="button" className="mini-button primary" onClick={(event) => { event.stopPropagation(); openQtyPicker(item); }}>Choisir</button>
+            <button type="button" className="mini-button primary" onClick={(event) => { event.stopPropagation(); openQtyPicker(item); }}>{L.fournitures.choose}</button>
           )
         ) : (
           <>
-            {supplyExternalUrl(item) ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplyExternalUrl(item), event)}>{item.sourceUrl ? "Lien" : "Site"}</button> : null}
-            <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupply(item); }}>Modifier</button>
-            <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupply(item); }}>Supprimer</button>
+            {supplyExternalUrl(item) ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplyExternalUrl(item), event)}>{item.sourceUrl ? L.fournitures.link : L.fournitures.site}</button> : null}
+            <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupply(item); }}>{L.common.edit}</button>
+            <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupply(item); }}>{L.common.delete}</button>
           </>
         )}
       </article>
@@ -408,7 +410,7 @@ export default function SuppliesPage() {
         <section className="mobile-tool tool-form-view">
           <header className="tool-topline">
             <button type="button" className="plain-back" onClick={() => { setFormOpen(false); setEditingSupply(null); setForm(initialSupply); setImportMessage(""); }}>{"<"}</button>
-            <h1>{editingSupply ? "Modifier fourniture" : "Ajouter une fourniture"}</h1>
+            <h1>{editingSupply ? L.fournitures.editSupply : L.fournitures.addSupply}</h1>
             <span />
           </header>
 
@@ -418,17 +420,17 @@ export default function SuppliesPage() {
 
           <form className="mobile-form" onSubmit={createSupply}>
             <div className="segmented large">
-              <button type="button" className={!viaUrl ? "active" : ""} onClick={() => setViaUrl(false)}>Manuel</button>
-              <button type="button" className={viaUrl ? "active" : ""} onClick={() => setViaUrl(true)}>Via URL</button>
+              <button type="button" className={!viaUrl ? "active" : ""} onClick={() => setViaUrl(false)}>{L.fournitures.manual}</button>
+              <button type="button" className={viaUrl ? "active" : ""} onClick={() => setViaUrl(true)}>{L.fournitures.addViaUrl}</button>
             </div>
 
             {viaUrl ? (
               <label className="mobile-input full">
-                <span>Lien produit</span>
+                <span>{L.fournitures.productLink}</span>
                 <div className="url-fetch-row">
                   <input value={form.sourceUrl} onChange={(event) => setField("sourceUrl", event.target.value)} placeholder="https://..." />
                   <button type="button" className="mini-button primary" onClick={fetchFromUrl} disabled={!form.sourceUrl.trim() || importing}>
-                    {importing ? "..." : "Récupérer"}
+                    {importing ? "..." : L.fournitures.fetch}
                   </button>
                 </div>
                 {importMessage ? <small className="import-message">{importMessage}</small> : null}
@@ -436,22 +438,22 @@ export default function SuppliesPage() {
             ) : null}
 
             <label className="mobile-input full">
-              <span>Description</span>
-              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder="Nom du produit" required={!viaUrl} />
+              <span>{L.fournitures.description}</span>
+              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder={L.fournitures.name} required={!viaUrl} />
             </label>
 
             <div className="mobile-form-grid">
               <label className="mobile-input">
-                <span>Catégorie</span>
+                <span>{L.fournitures.category}</span>
                 <select value={form.category} onChange={(event) => setField("category", event.target.value)}>
-                  <option value="">— Sans catégorie —</option>
+                  <option value="">{L.fournitures.noCategory}</option>
                   {categories.map((cat) => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
               </label>
               <label className="mobile-input">
-                <span>Fournisseur</span>
+                <span>{L.fournitures.supplier}</span>
                 <select value={form.supplierId} onChange={(event) => setField("supplierId", event.target.value)}>
-                  <option value="">Aucun (Divers)</option>
+                  <option value="">{L.fournitures.noSupplierOpt}</option>
                   {uniqueSuppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
                 </select>
               </label>
@@ -459,33 +461,33 @@ export default function SuppliesPage() {
 
             {supplierWebsite(form.supplierId) ? (
               <button type="button" className="supplier-site-button" onClick={(event) => openExternal(supplierWebsite(form.supplierId), event)}>
-                Ouvrir le site fournisseur
+                {L.fournitures.openSite}
               </button>
             ) : null}
 
             <div className="mobile-form-grid">
               <label className="mobile-input">
-                <span>Prix d'achat H.T</span>
+                <span>{L.fournitures.purchasePrice}</span>
                 <input type="number" step="0.01" value={form.purchasePriceHt} onChange={(event) => setField("purchasePriceHt", event.target.value)} placeholder="0.00" />
               </label>
               <label className="mobile-input">
-                <span>Prix de vente H.T</span>
+                <span>{L.fournitures.salePrice}</span>
                 <input type="number" step="0.01" value={form.salePriceHt} onChange={(event) => setField("salePriceHt", event.target.value)} placeholder="0.00" />
               </label>
             </div>
 
             <label className="mobile-input full">
-              <span>Conditionnement</span>
+              <span>{L.fournitures.packaging}</span>
               <input value={form.packaging} onChange={(event) => setField("packaging", event.target.value)} placeholder="Pot 10 L, pièce, carton..." />
             </label>
 
             <div className="mobile-form-grid">
               <label className="mobile-input">
-                <span>Quantité</span>
+                <span>{L.fournitures.quantity}</span>
                 <input type="number" step="0.01" value={form.quantity} onChange={(event) => setField("quantity", event.target.value)} placeholder="0" />
               </label>
               <label className="mobile-input">
-                <span>Unité</span>
+                <span>{L.fournitures.unit}</span>
                 <select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
                   {units.map((unit) => <option key={unit}>{unit}</option>)}
                 </select>
@@ -493,15 +495,15 @@ export default function SuppliesPage() {
             </div>
 
             <label className="mobile-input full">
-              <span>Code-barres</span>
-              <input value={form.barcode} onChange={(event) => setField("barcode", event.target.value)} placeholder="Code-barres" />
+              <span>{L.fournitures.barcode}</span>
+              <input value={form.barcode} onChange={(event) => setField("barcode", event.target.value)} placeholder={L.fournitures.barcode} />
             </label>
             <label className="mobile-input full">
-              <span>URL de l'image</span>
-              <input value={form.imageUrl} onChange={(event) => setField("imageUrl", event.target.value)} placeholder="URL de l'image" />
+              <span>{L.fournitures.image}</span>
+              <input value={form.imageUrl} onChange={(event) => setField("imageUrl", event.target.value)} placeholder={L.fournitures.image} />
             </label>
 
-            <button className="mobile-primary">{editingSupply ? "Enregistrer" : fromDevis ? "Créer et ajouter au devis" : "Créer la fourniture"}</button>
+            <button className="mobile-primary">{editingSupply ? L.common.save : fromDevis ? L.fournitures.addToDevisBtn : L.fournitures.createSupply}</button>
           </form>
         </section>
       </Shell>
@@ -515,21 +517,21 @@ export default function SuppliesPage() {
       <section className="mobile-tool">
         <header className="tool-topline">
           <button type="button" className="plain-back" onClick={() => fromDevis ? window.location.assign("/devis") : (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>Fournitures</h1>
+          <h1>{L.fournitures.title}</h1>
           <span />
         </header>
 
         {fromDevis ? (
           <div className="fournitures-select-banner">
-            <span>Choisissez une fourniture à ajouter au devis</span>
-            <button type="button" className="mini-button" onClick={() => window.location.assign("/devis")}>Retour sans sélection</button>
+            <span>{L.fournitures.selectForDevis}</span>
+            <button type="button" className="mini-button" onClick={() => window.location.assign("/devis")}>{L.fournitures.backNoSelect}</button>
           </div>
         ) : null}
 
         <div className="segmented">
-          <button type="button" className={activeTab === "categories" ? "active" : ""} onClick={() => setActiveTab("categories")}>Catégories</button>
-          <button type="button" className={activeTab === "fournisseurs" ? "active" : ""} onClick={() => setActiveTab("fournisseurs")}>Fournisseurs</button>
-          <button type="button" className={activeTab === "divers" ? "active" : ""} onClick={() => setActiveTab("divers")}>Divers</button>
+          <button type="button" className={activeTab === "categories" ? "active" : ""} onClick={() => setActiveTab("categories")}>{L.fournitures.categories}</button>
+          <button type="button" className={activeTab === "fournisseurs" ? "active" : ""} onClick={() => setActiveTab("fournisseurs")}>{L.fournitures.bySupplier}</button>
+          <button type="button" className={activeTab === "divers" ? "active" : ""} onClick={() => setActiveTab("divers")}>{L.fournitures.various}</button>
         </div>
 
         {message ? <p className="tool-message">{message}</p> : null}
@@ -543,7 +545,7 @@ export default function SuppliesPage() {
                 className={`cat-tree-btn ${!activeCategory ? "active" : ""}`}
                 onClick={() => setActiveCategory("")}
               >
-                Tout
+                {L.fournitures.all}
               </button>
 
               {categories.map((cat) => {
@@ -563,30 +565,24 @@ export default function SuppliesPage() {
               })}
 
               <button type="button" className="cat-tree-add" onClick={() => openCategoryDialog()}>
-                + Catégorie
+                + {L.fournitures.addCategory}
               </button>
             </div>
 
             {/* Right: supply list */}
             <div className="cat-supply-panel">
               <div className="panel-header">
-                <strong>{activeCategory || "Toutes les fournitures"}</strong>
+                <strong>{activeCategory || L.fournitures.allSupplies}</strong>
                 <button
                   type="button"
                   className="mini-button primary"
                   onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setFormOpen(true); }}
                 >
-                  + Ajouter
+                  + {L.common.add}
                 </button>
               </div>
               {visibleSupplies.length === 0 ? (
-                <div className="tool-empty">
-                  {activeCategory
-                    ? `Aucune fourniture dans "${activeCategory}". Cliquez "+ Ajouter" pour en créer une.`
-                    : categories.length === 0
-                      ? "Créez d'abord une catégorie via le bouton ci-contre."
-                      : "Aucune fourniture pour le moment."}
-                </div>
+                <div className="tool-empty">{L.fournitures.noSupplies}</div>
               ) : null}
               {visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)}
             </div>
@@ -594,10 +590,10 @@ export default function SuppliesPage() {
         ) : activeTab === "fournisseurs" ? (
           <div className="tool-list">
             <div className="panel-header">
-              <strong>Fournisseurs</strong>
-              <button type="button" className="mini-button primary" onClick={() => { setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>+ Ajouter</button>
+              <strong>{L.fournitures.bySupplier}</strong>
+              <button type="button" className="mini-button primary" onClick={() => { setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>+ {L.common.add}</button>
             </div>
-            {uniqueSuppliers.length === 0 ? <div className="tool-empty">Aucun fournisseur pour le moment.</div> : null}
+            {uniqueSuppliers.length === 0 ? <div className="tool-empty">{L.fournitures.noSuppliers}</div> : null}
             {uniqueSuppliers.map((supplier) => {
               const supplierUrl = supplier.website || officialSupplierUrl(supplier.name);
               return (
@@ -612,11 +608,11 @@ export default function SuppliesPage() {
                   <div className="supply-icon">FS</div>
                   <div>
                     <strong>{supplier.name}</strong>
-                    <small>{[supplier.email, supplier.phone, supplier.address].filter(Boolean).join(" - ") || "Fournisseur"}</small>
+                    <small>{[supplier.email, supplier.phone, supplier.address].filter(Boolean).join(" - ") || L.fournitures.supplier}</small>
                   </div>
-                  {supplierUrl ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplierUrl, event)}>Site</button> : null}
-                  <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupplier(supplier); }}>Modifier</button>
-                  <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupplier(supplier); }}>Supprimer</button>
+                  {supplierUrl ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplierUrl, event)}>{L.fournitures.site}</button> : null}
+                  <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupplier(supplier); }}>{L.common.edit}</button>
+                  <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupplier(supplier); }}>{L.common.delete}</button>
                 </article>
               );
             })}
@@ -624,10 +620,10 @@ export default function SuppliesPage() {
         ) : (
           <div className="tool-list">
             <div className="panel-header">
-              <strong>Divers</strong>
-              <button type="button" className="mini-button primary" onClick={() => { setForm({ ...initialSupply, supplierId: "" }); setEditingSupply(null); setFormOpen(true); }}>+ Ajouter</button>
+              <strong>{L.fournitures.various}</strong>
+              <button type="button" className="mini-button primary" onClick={() => { setForm({ ...initialSupply, supplierId: "" }); setEditingSupply(null); setFormOpen(true); }}>+ {L.common.add}</button>
             </div>
-            {visibleSupplies.length === 0 ? <div className="tool-empty">Aucune fourniture sans fournisseur pour le moment.</div> : null}
+            {visibleSupplies.length === 0 ? <div className="tool-empty">{L.fournitures.noDivers}</div> : null}
             {visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)}
           </div>
         )}
@@ -640,17 +636,17 @@ export default function SuppliesPage() {
               <span className="sheet-handle" />
               <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); setFormOpen(true); }}>
                 <span>PR</span>
-                <div><strong>Ajouter une fourniture</strong><small>Ajouter manuellement ou via un lien</small></div>
+                <div><strong>{L.fournitures.addSupply}</strong><small>{L.fournitures.addSupplySub}</small></div>
                 <b>{">"}</b>
               </button>
               <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>
                 <span>FS</span>
-                <div><strong>Ajouter un fournisseur</strong><small>Créer un nouveau fournisseur</small></div>
+                <div><strong>{L.fournitures.addSupplier}</strong><small>{L.fournitures.addSupplierSub}</small></div>
                 <b>{">"}</b>
               </button>
               <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); openCategoryDialog(); }}>
                 <span>CT</span>
-                <div><strong>Ajouter une catégorie</strong><small>Créer une catégorie avec sous-catégories</small></div>
+                <div><strong>{L.fournitures.addCategory}</strong><small>{L.fournitures.addCategorySub}</small></div>
                 <b>{">"}</b>
               </button>
             </div>
@@ -660,37 +656,37 @@ export default function SuppliesPage() {
         {supplierDialog ? (
           <div className="modal-overlay" onClick={closeSupplierDialog}>
             <form className="mini-modal category-modal" onSubmit={createSupplier} onClick={(event) => event.stopPropagation()}>
-              <h2>{editingSupplier ? "Modifier fournisseur" : "Nouveau fournisseur"}</h2>
+              <h2>{editingSupplier ? L.fournitures.editSupplier : L.fournitures.newSupplier}</h2>
               <label className="category-modal-field">
-                <span>Nom</span>
-                <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nom du fournisseur" autoFocus required />
+                <span>{L.fournitures.supplierName}</span>
+                <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} placeholder={L.fournitures.supplierName} autoFocus required />
               </label>
               <label className="category-modal-field">
-                <span>Email</span>
-                <input value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="email@fournisseur.fr" type="email" />
+                <span>{L.fournitures.supplierEmail}</span>
+                <input value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="email@..." type="email" />
               </label>
               <label className="category-modal-field">
-                <span>Téléphone</span>
+                <span>{L.fournitures.supplierPhone}</span>
                 <input value={supplierForm.phone} onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))} placeholder="06 00 00 00 00" />
               </label>
               <label className="category-modal-field">
-                <span>Adresse</span>
-                <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse du fournisseur" />
+                <span>{L.fournitures.supplierAddress}</span>
+                <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} placeholder={L.fournitures.supplierAddress} />
               </label>
               <label className="category-modal-field">
-                <span>Site web</span>
+                <span>{L.fournitures.supplierWebsite}</span>
                 <input value={supplierForm.website} onChange={(event) => setSupplierForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." />
               </label>
               <label className="category-modal-field">
-                <span>Notes</span>
-                <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Notes libres" />
+                <span>{L.fournitures.supplierNotes}</span>
+                <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} placeholder={L.fournitures.supplierNotes} />
               </label>
               <div className="category-modal-actions">
                 {editingSupplier ? (
-                  <button type="button" className="button danger small" onClick={() => { closeSupplierDialog(); deleteSupplier(editingSupplier); }}>Supprimer</button>
+                  <button type="button" className="button danger small" onClick={() => { closeSupplierDialog(); deleteSupplier(editingSupplier); }}>{L.common.delete}</button>
                 ) : null}
-                <button type="button" onClick={closeSupplierDialog}>Annuler</button>
-                <button type="submit" className="button blue">{editingSupplier ? "Enregistrer" : "Créer"}</button>
+                <button type="button" onClick={closeSupplierDialog}>{L.common.cancel}</button>
+                <button type="submit" className="button blue">{editingSupplier ? L.common.save : L.common.create}</button>
               </div>
             </form>
           </div>
@@ -699,14 +695,14 @@ export default function SuppliesPage() {
         {categoryDialog ? (
           <div className="modal-overlay" onClick={closeCategoryDialog}>
             <form className="mini-modal category-modal" onSubmit={submitCategoryForm} onClick={(event) => event.stopPropagation()}>
-              <h2>{editingCategory ? "Modifier catégorie" : "Nouvelle catégorie"}</h2>
+              <h2>{editingCategory ? L.fournitures.editCategory : L.fournitures.newCategory}</h2>
 
               <label className="category-modal-field">
-                <span>Description</span>
+                <span>{L.fournitures.description}</span>
                 <input
                   value={categoryForm.name}
                   onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="Nom de la catégorie"
+                  placeholder={L.fournitures.category}
                   autoFocus
                   required
                 />
@@ -714,10 +710,10 @@ export default function SuppliesPage() {
 
               <div className="category-modal-actions">
                 {editingCategory ? (
-                  <button type="button" className="button danger small" onClick={() => { closeCategoryDialog(); deleteCategory(editingCategory); }}>Supprimer</button>
+                  <button type="button" className="button danger small" onClick={() => { closeCategoryDialog(); deleteCategory(editingCategory); }}>{L.common.delete}</button>
                 ) : null}
-                <button type="button" onClick={closeCategoryDialog}>Annuler</button>
-                <button type="submit" className="button blue">{editingCategory ? "Enregistrer" : "Créer"}</button>
+                <button type="button" onClick={closeCategoryDialog}>{L.common.cancel}</button>
+                <button type="submit" className="button blue">{editingCategory ? L.common.save : L.common.create}</button>
               </div>
             </form>
           </div>

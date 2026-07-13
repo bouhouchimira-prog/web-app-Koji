@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale } from "../../../lib/i18n";
 
 function SignatureLoginScreen() {
+  const { L } = useLocale();
   const router = useRouter();
   const params = useSearchParams();
   const [identifier, setIdentifier] = useState(params.get("identifier") || "");
@@ -22,7 +24,7 @@ function SignatureLoginScreen() {
   async function handleSubmit(event) {
     event.preventDefault();
     if (!identifier.trim() || !password.trim()) {
-      setError("Renseignez l'identifiant et le mot de passe.");
+      setError(L.signaturePub.errRequired);
       return;
     }
     setLoading(true);
@@ -35,12 +37,12 @@ function SignatureLoginScreen() {
       });
       const data = await response.json();
       if (!response.ok) {
-        setError(data.error || "Identifiant ou mot de passe incorrect.");
+        setError(data.error || L.signaturePub.errWrong);
         return;
       }
       router.push(`/signature/${data.signatureToken}`);
     } catch {
-      setError("Une erreur est survenue. Réessayez.");
+      setError(L.signaturePub.errGeneric);
     } finally {
       setLoading(false);
     }
@@ -53,20 +55,20 @@ function SignatureLoginScreen() {
           <img src="/koji-logo.svg" alt="Koji" style={{ width: 48, height: 48 }} />
           <div>
             <strong>Kôji</strong>
-            <span>Signature client</span>
+            <span>{L.signaturePub.clientSig}</span>
           </div>
         </div>
 
         <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0a1538", margin: "20px 0 6px" }}>
-          Connexion
+          {L.signaturePub.loginTitle}
         </h1>
         <p style={{ color: "#737b88", fontSize: "0.9rem", marginBottom: 24 }}>
-          Entrez l&apos;identifiant et le mot de passe reçus par message pour accéder à votre devis.
+          {L.signaturePub.loginDesc}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <label className="field">
-            Identifiant
+            {L.signaturePub.identifier}
             <input
               type="text"
               value={identifier}
@@ -78,7 +80,7 @@ function SignatureLoginScreen() {
           </label>
 
           <label className="field">
-            Mot de passe
+            {L.signaturePub.password}
             <input
               type="password"
               value={password}
@@ -100,12 +102,12 @@ function SignatureLoginScreen() {
             disabled={loading || !identifier.trim() || !password.trim()}
             style={{ marginTop: 4 }}
           >
-            {loading ? "Vérification..." : "Accéder à mon devis"}
+            {loading ? L.signaturePub.verifying : L.signaturePub.accessQuote}
           </button>
         </form>
 
         <p style={{ marginTop: 20, fontSize: "0.82rem", color: "#9aa5b4", textAlign: "center" }}>
-          Vous avez reçu ce lien par e-mail ou SMS de votre artisan.
+          {L.signaturePub.receivedHint}
         </p>
       </section>
     </main>

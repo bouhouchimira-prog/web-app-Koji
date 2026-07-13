@@ -8,6 +8,7 @@ import { apiGet, apiSend } from "../../lib/client-api";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
 import { calculateTaskPrice } from "../../lib/pricing";
+import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import catalog from "../../data/catalog-ouvrages.json";
 
@@ -205,11 +206,13 @@ function computeSubItemLine(subItem, parentLine = {}) {
 }
 
 export default function QuotesPage() {
+  const { L } = useLocale();
   const router = useRouter();
   const { data: quotes, setData: setQuotes, loading: quotesLoading } = useApi("/api/quotes", "quotes");
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: ouvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
+  const { data: clients, setData: setClients } = useApi("/api/clients", "clients");
 
   const postes = useMemo(() => ouvrages.filter((item) => item.type === "POSTE" || item.type === "SOUS-POSTE"), [ouvrages]);
   const [company, setCompany] = useState(profileCompany(null));
@@ -260,6 +263,7 @@ export default function QuotesPage() {
   const [roomNotes, setRoomNotes] = useState([]);
   const [customRoom, setCustomRoom] = useState("");
   const [isNewChantier, setIsNewChantier] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [identityOpen, setIdentityOpen] = useState(false);
   const [roomsOpen, setRoomsOpen] = useState(true);
   const [customSources, setCustomSources] = useState([]);
@@ -790,6 +794,28 @@ export default function QuotesPage() {
       clientPhone: project?.clientPhone || current.clientPhone,
       chantierAddress: project?.address || project?.fullAddress || current.chantierAddress
     }));
+    if (project) syncClientRefFromProject(project.client, project.clientEmail);
+  }
+
+  function selectClientRef(value) {
+    setSelectedClientId(value);
+    if (!value || value === "nouveau") return;
+    const client = clients.find((c) => c.id === value);
+    if (!client) return;
+    setForm((current) => ({
+      ...current,
+      client: client.name || current.client,
+      clientEmail: client.email || current.clientEmail,
+      clientPhone: client.phone || current.clientPhone,
+    }));
+  }
+
+  function syncClientRefFromProject(projectClient, projectEmail) {
+    if (!projectClient) return;
+    const match = clients.find(
+      (c) => c.name === projectClient || c.email === projectEmail
+    );
+    setSelectedClientId(match ? match.id : "");
   }
 
   function updateLine(id, field, value) {
@@ -1128,6 +1154,16 @@ export default function QuotesPage() {
   async function saveClientInfo() {
     setSavingClient(true);
     try {
+      // Sauvegarder comme nouvelle référence client si applicable
+      if (selectedClientId === "nouveau" && form.client.trim()) {
+        const { client: saved } = await apiSend("/api/clients", {
+          name: form.client.trim(),
+          email: form.clientEmail.trim(),
+          phone: form.clientPhone.trim(),
+        }, "POST");
+        setClients((prev) => [saved, ...prev]);
+        setSelectedClientId(saved.id);
+      }
       await persistQuote();
       notify("Informations client et chantier enregistrées.", "success");
     } catch (error) {
@@ -1336,6 +1372,7 @@ export default function QuotesPage() {
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
     setForm({ client: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
     setIsNewChantier(false);
+    setSelectedClientId("");
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("koji-devis-ouvrages");
       window.localStorage.removeItem("koji-devis-draft");
@@ -1420,32 +1457,32 @@ export default function QuotesPage() {
     return (
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
-          <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder="Désignation de l'ouvrage..." />
+          <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
         </header>
         {!hasSubItems ? (
           <>
             <div className="quote-mode-row">
-              <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>Temps réel</button>
-              <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>Forfait</button>
-              <label>Pièce<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
-                <option value="Services">— Sans pièce —</option>
+              <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>{L.devis.realTime}</button>
+              <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
+              <label>{L.devis.room}<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
+                <option value="Services">{L.devis.noRoom}</option>
                 {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
               </select></label>
             </div>
             <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
               {line.billingMode === "fixed" ? (
                 <>
-                  <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
-                  <label>Durée<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
-                  <label>Unité<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
-                    <option value="h">Heures</option>
+                  <label className="forfait-amount-field">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
+                  <label>{L.devis.duration}<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
+                  <label>{L.bibliotheque.unit}<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
+                    <option value="h">{L.devis.hours}</option>
                     <option value="j">Jours</option>
                   </select></label>
                 </>
               ) : (
                 <>
-                  <label>Quantité<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
-                  <label>Unité<select value={settings.unit ?? line.unit ?? "u"} onChange={(event) => updateLine(line.id, "unit", event.target.value)}>
+                  <label>{L.devis.quantity}<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
+                  <label>{L.bibliotheque.unit}<select value={settings.unit ?? line.unit ?? "u"} onChange={(event) => updateLine(line.id, "unit", event.target.value)}>
                     <option value="u">U</option>
                     <option value="m">M</option>
                     <option value="m2">M²</option>
@@ -1456,24 +1493,24 @@ export default function QuotesPage() {
                     <option value="ml">ML</option>
                     <option value="autre">Autre</option>
                   </select></label>
-                  <label>Temps h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
-                  <label>Taux horaire<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
-                  <label>Ajustement %<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
-                  <label>Réduction %<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
+                  <label>{L.bibliotheque.time} h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
+                  <label>{L.devis.hourlyRate}<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
+                  <label>{L.devis.adjustment}<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
+                  <label>{L.devis.discountPct}<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
                 </>
               )}
             </div>
             <div className="quote-line-breakdown">
               {line.billingMode === "fixed" ? (
                 <>
-                  {settings.fixedDuration ? <span>Durée: {settings.fixedDuration} {settings.fixedDurationUnit ?? "h"}</span> : null}
-                  <span>Forfait {line.fixedAmountMode === "ttc" ? "TTC" : "HT"}: {money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}</span>
+                  {settings.fixedDuration ? <span>{L.devis.duration}: {settings.fixedDuration} {settings.fixedDurationUnit ?? "h"}</span> : null}
+                  <span>{L.devis.forfait} {line.fixedAmountMode === "ttc" ? "TTC" : "HT"}: {money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}</span>
                 </>
               ) : (
                 <>
-                  <span>Heures: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
-                  <span>Main-d'œuvre: {money(line.laborCost)}</span>
-                  <span>Fournitures: {money(line.materialCost)}</span>
+                  <span>{L.devis.hours}: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
+                  <span>{L.devis.labor}: {money(line.laborCost)}</span>
+                  <span>{L.nav.fournitures}: {money(line.materialCost)}</span>
                 </>
               )}
               <span>HT: {money(line.totalHt)}</span>
@@ -1484,7 +1521,7 @@ export default function QuotesPage() {
               return (
                 <div className="quote-line-supplies">
                   <div className="quote-line-supplies-head">
-                    <span>Fournitures</span>
+                    <span>{L.nav.fournitures}</span>
                   </div>
                   {visibleMaterials.map((material) => {
                     const linkedSupply = findSupplyForMaterial(supplies, material);
@@ -1492,14 +1529,14 @@ export default function QuotesPage() {
                     return (
                       <div className="supply-card" key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
                         <div className={`supply-card-main ${linkedSupply ? "" : "needs-link"}`}>
-                          <button type="button" className={linkedSupply ? "supply-open-button" : "supply-create-button"} onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? "Ouvrir" : "Creer"}</button>
-                          <input value={material.productName || material.category || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "productName", e.target.value)} placeholder="Désignation fourniture" />
+                          <button type="button" className={linkedSupply ? "supply-open-button" : "supply-create-button"} onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? L.devis.openBtn : L.devis.createBtn}</button>
+                          <input value={material.productName || material.category || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "productName", e.target.value)} placeholder={L.devis.supplyDesig} />
                           <input type="number" min="0" step="0.01" value={material.unitsToBuy || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitsToBuy", e.target.value)} placeholder="Qté" />
                           <strong>{money(material.total)}</strong>
                           <button type="button" className="supply-delete-btn" onClick={() => removeMaterial(line.id, originalIndex)} aria-label="Supprimer">×</button>
                         </div>
                         <div className="supply-card-extra">
-                          <label className="supply-price-field">Prix d&apos;achat
+                          <label className="supply-price-field">{L.devis.purchasePrice}
                             <div className="supply-price-input-group">
                               <input type="number" min="0" step="0.01" value={material.purchasePriceInput || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceInput", e.target.value)} placeholder="0.00" />
                               <select className="supply-price-mode-select" value={material.purchasePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceMode", e.target.value)}>
@@ -1508,7 +1545,7 @@ export default function QuotesPage() {
                               </select>
                             </div>
                           </label>
-                          <label className="supply-price-field">Prix de vente
+                          <label className="supply-price-field">{L.devis.salePrice}
                             <div className="supply-price-input-group">
                               <input type="number" min="0" step="0.01" value={material.unitPrice || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitPrice", e.target.value)} placeholder="0.00" />
                               <select className="supply-price-mode-select" value={material.salePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "salePriceMode", e.target.value)}>
@@ -1517,13 +1554,13 @@ export default function QuotesPage() {
                               </select>
                             </div>
                           </label>
-                          <label className="supply-price-field">Conditionnement
+                          <label className="supply-price-field">{L.devis.packaging}
                             <input value={material.packaging || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "packaging", e.target.value)} placeholder="ex: Pot 5L, Boîte 12..." />
                           </label>
-                          <label className="supply-price-field">Liée à
+                          <label className="supply-price-field">{L.devis.linkedTo}
                             <select value={material.linkedTo || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "linkedTo", e.target.value)}>
-                              <option value="">Cet ouvrage</option>
-                              {subItems.map((sub) => <option key={sub.id} value={`sub:${sub.id}`}>{sub.label || "Sous-ouvrage"}</option>)}
+                              <option value="">{L.devis.thisWork}</option>
+                              {subItems.map((sub) => <option key={sub.id} value={`sub:${sub.id}`}>{sub.label || L.devis.designation}</option>)}
                               {roomGroups.filter((r) => r !== "Services").map((room) => <option key={`room:${room}`} value={`room:${room}`}>{room}</option>)}
                               <option value="autre">Autre</option>
                             </select>
@@ -1531,9 +1568,9 @@ export default function QuotesPage() {
                           <div className="supply-card-actions">
                             <label className="material-visibility">
                               <input type="checkbox" checked={material.showInDevis !== false} onChange={(e) => updateMaterial(line.id, originalIndex, "showInDevis", e.target.checked)} />
-                              Afficher dans le devis
+                              {L.devis.showInQuote}
                             </label>
-                            <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>Via lien</button>
+                            <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>{L.devis.viaLink}</button>
                           </div>
                         </div>
                       </div>
@@ -1545,7 +1582,7 @@ export default function QuotesPage() {
           </>
         ) : (
           <div className="quote-line-breakdown sub-items-summary">
-            <span>{subItems.length} sous-ouvrage{subItems.length > 1 ? "s" : ""}</span>
+            <span>{L.devis.subWorks(subItems.length)}</span>
             <span>HT total : {money(line.totalHt)}</span>
           </div>
         )}
@@ -1553,27 +1590,27 @@ export default function QuotesPage() {
           {subItems.map((sub) => (
             <article key={sub.id} className="quote-sub-item-card">
               <header className="quote-sub-item-header">
-                <input className="quote-line-label-input quote-line-label-input-header" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder="Désignation du sous-ouvrage..." />
+                <input className="quote-line-label-input quote-line-label-input-header" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder={L.devis.designation} />
                 <b>{money(sub.totalHt)} HT</b>
               </header>
               <div className="quote-mode-row">
-                <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>Temps réel</button>
-                <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>Forfait</button>
+                <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>{L.devis.realTime}</button>
+                <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
               </div>
               <div className={`quote-line-inputs compact ${sub.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
                 {sub.billingMode === "fixed" ? (
                   <>
-                    <label className="forfait-amount-field">Montant forfaitaire<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} /></label>
-                    <label>Durée<input type="number" min="0" step="any" value={sub.fixedDuration ?? ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDuration", e.target.value)} placeholder="0" /></label>
-                    <label>Unité<select value={sub.fixedDurationUnit ?? "h"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDurationUnit", e.target.value)}>
-                      <option value="h">Heures</option>
+                    <label className="forfait-amount-field">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} /></label>
+                    <label>{L.devis.duration}<input type="number" min="0" step="any" value={sub.fixedDuration ?? ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDuration", e.target.value)} placeholder="0" /></label>
+                    <label>{L.bibliotheque.unit}<select value={sub.fixedDurationUnit ?? "h"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDurationUnit", e.target.value)}>
+                      <option value="h">{L.devis.hours}</option>
                       <option value="j">Jours</option>
                     </select></label>
                   </>
                 ) : (
                   <>
-                    <label>Quantité<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
-                    <label>Unité<select value={sub.unit || "u"} onChange={(e) => updateSubItem(line.id, sub.id, "unit", e.target.value)}>
+                    <label>{L.devis.quantity}<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
+                    <label>{L.bibliotheque.unit}<select value={sub.unit || "u"} onChange={(e) => updateSubItem(line.id, sub.id, "unit", e.target.value)}>
                       <option value="u">U</option>
                       <option value="m">M</option>
                       <option value="m2">M²</option>
@@ -1584,18 +1621,18 @@ export default function QuotesPage() {
                       <option value="ml">ML</option>
                       <option value="autre">Autre</option>
                     </select></label>
-                    <label>Temps h/{sub.unit || "u"}<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
-                    <label>Taux horaire<input type="number" min="0" step="any" value={sub.hourlyRate || line.hourlyRate || (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
-                    <label>Ajustement %<input type="number" min="0" step="0.5" value={sub.adjustmentPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "adjustmentPercent", e.target.value)} /></label>
-                    <label>Réduction %<input type="number" min="0" step="0.5" value={sub.discountPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "discountPercent", e.target.value)} /></label>
+                    <label>{L.bibliotheque.time} h/{sub.unit || "u"}<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
+                    <label>{L.devis.hourlyRate}<input type="number" min="0" step="any" value={sub.hourlyRate || line.hourlyRate || (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
+                    <label>{L.devis.adjustment}<input type="number" min="0" step="0.5" value={sub.adjustmentPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "adjustmentPercent", e.target.value)} /></label>
+                    <label>{L.devis.discountPct}<input type="number" min="0" step="0.5" value={sub.discountPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "discountPercent", e.target.value)} /></label>
                   </>
                 )}
               </div>
               <div className="quote-line-breakdown">
                 {sub.billingMode === "fixed" ? (
                   <>
-                    {sub.fixedDuration ? <span>Durée: {sub.fixedDuration} {sub.fixedDurationUnit ?? "h"}</span> : null}
-                    <span>Forfait HT : {money(sub.totalHt)}</span>
+                    {sub.fixedDuration ? <span>{L.devis.duration}: {sub.fixedDuration} {sub.fixedDurationUnit ?? "h"}</span> : null}
+                    <span>{L.devis.forfait} HT : {money(sub.totalHt)}</span>
                   </>
                 ) : (
                   <span>{Number(sub.quantity || 0)} {sub.unit || "u"} × {Number(sub.normativeTime || 0)} h × {money(sub.hourlyRate || line.hourlyRate || 0)}/h</span>
@@ -1605,37 +1642,37 @@ export default function QuotesPage() {
               <div className="quote-sub-item-delete-bar">
                 {confirmDeleteSubId === sub.id ? (
                   <span className="quote-line-confirm-delete">
-                    <span>Supprimer ce sous-ouvrage ?</span>
-                    <button type="button" className="quote-line-confirm-yes" onClick={() => removeSubItem(line.id, sub.id)}>Oui, supprimer</button>
-                    <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteSubId(null)}>Annuler</button>
+                    <span>{L.devis.deleteSubWork}</span>
+                    <button type="button" className="quote-line-confirm-yes" onClick={() => removeSubItem(line.id, sub.id)}>{L.devis.yesDelete}</button>
+                    <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteSubId(null)}>{L.common.cancel}</button>
                   </span>
                 ) : (
-                  <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteSubId(sub.id)}>Supprimer</button>
+                  <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteSubId(sub.id)}>{L.common.delete}</button>
                 )}
               </div>
             </article>
           ))}
           <button type="button" className="quote-sub-add-btn" onClick={() => addSubItem(line.id)}>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
-            Ajouter un sous-ouvrage
+            {L.devis.addSubWork}
           </button>
         </div>
         <div className="quote-line-save-bar">
           {confirmDeleteLineId === line.id ? (
             <span className="quote-line-confirm-delete">
-              <span>Supprimer cet ouvrage ?</span>
-              <button type="button" className="quote-line-confirm-yes" onClick={() => removeQuoteLine(line.id)}>Oui, supprimer</button>
-              <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteLineId(null)}>Annuler</button>
+              <span>{L.devis.deleteWork}</span>
+              <button type="button" className="quote-line-confirm-yes" onClick={() => removeQuoteLine(line.id)}>{L.devis.yesDelete}</button>
+              <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteLineId(null)}>{L.common.cancel}</button>
             </span>
           ) : (
             <>
-              <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteLineId(line.id)}>Supprimer</button>
+              <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteLineId(line.id)}>{L.common.delete}</button>
               <button
                 type="button"
                 className={`quote-line-save-btn${savedLineId === `saving-${line.id}` ? " saving" : ""}${savedLineId === `saved-${line.id}` ? " saved" : ""}`}
                 onClick={() => saveLineDraft(line.id)}
               >
-                {savedLineId === `saving-${line.id}` ? "Enregistrement..." : savedLineId === `saved-${line.id}` ? "Enregistré ✓" : "Enregistrer"}
+                {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : L.devis.save}
               </button>
             </>
           )}
@@ -1648,19 +1685,19 @@ export default function QuotesPage() {
     <Shell>
       <header className="page-header quote-final-header quote-final-header-centered">
         <div className="quote-final-header-title">
-          <p className="eyebrow">DEVIS</p>
-          <h1>Générer mon devis</h1>
+          <p className="eyebrow">{L.devis.title}</p>
+          <h1>{L.devis.generate}</h1>
         </div>
         <div className="quote-final-actions">
-          <Link className="button secondary" href="/signature">Ma Signature</Link>
+          <Link className="button secondary" href="/signature">{L.devis.mySignature}</Link>
         </div>
       </header>
 
       <form className="quote-final-page" onSubmit={(event) => event.preventDefault()}>
         <div className="quote-meta-bar">
           <div className="quote-meta-number">
-            <span>Devis N° : {previewQuoteNumber}</span>
-            <span className="quote-meta-version">Version N° : {previewVersionNumber}</span>
+            <span>{L.devis.quoteNum} : {previewQuoteNumber}</span>
+            <span className="quote-meta-version">{L.devis.versionNum} : {previewVersionNumber}</span>
           </div>
           <button type="button" className={`quote-meta-toggle ${identityOpen ? "open" : ""}`} onClick={() => setIdentityOpen((open) => !open)} aria-expanded={identityOpen} aria-label={identityOpen ? "Réduire les informations" : "Afficher les informations"}>
             <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
@@ -1676,14 +1713,14 @@ export default function QuotesPage() {
                 <div className="koji-mini-logo">{(company.name || "KJ").slice(0, 2).toUpperCase()}</div>
               )}
               <div className="quote-identity-fields">
-                <span>Entreprise</span>
+                <span>{L.devis.companySection}</span>
                 <div className="quote-client-grid quote-company-grid">
-                  <label>Nom entreprise<input value={company.name} onChange={(event) => setCompanyField("name", event.target.value)} placeholder="Nom de l'entreprise" /></label>
-                  <label className="wide">Adresse<input value={company.address} onChange={(event) => setCompanyField("address", event.target.value)} placeholder="Adresse complète" /></label>
-                  <label>E-mail<input type="email" value={company.email} onChange={(event) => setCompanyField("email", event.target.value)} placeholder="contact@entreprise.fr" /></label>
-                  <label>Téléphone<input value={company.phone} onChange={(event) => setCompanyField("phone", event.target.value)} placeholder="+33..." /></label>
-                  <label>SIRET<input value={company.siret} onChange={(event) => setCompanyField("siret", event.target.value)} placeholder="12345678901234" /></label>
-                  <label>TVA<input value={company.tva} onChange={(event) => setCompanyField("tva", event.target.value)} placeholder="FR..." /></label>
+                  <label>{L.devis.companyName}<input value={company.name} onChange={(event) => setCompanyField("name", event.target.value)} placeholder={L.devis.companyName} /></label>
+                  <label className="wide">{L.devis.address}<input value={company.address} onChange={(event) => setCompanyField("address", event.target.value)} placeholder={L.devis.address} /></label>
+                  <label>{L.devis.clientEmail}<input type="email" value={company.email} onChange={(event) => setCompanyField("email", event.target.value)} placeholder="contact@entreprise.fr" /></label>
+                  <label>{L.parametres.phone}<input value={company.phone} onChange={(event) => setCompanyField("phone", event.target.value)} placeholder="+33..." /></label>
+                  <label>{L.parametres.siret}<input value={company.siret} onChange={(event) => setCompanyField("siret", event.target.value)} placeholder="12345678901234" /></label>
+                  <label>{L.parametres.tva}<input value={company.tva} onChange={(event) => setCompanyField("tva", event.target.value)} placeholder="FR..." /></label>
                 </div>
                 <div className="quote-identity-card-save">
                   <button
@@ -1691,7 +1728,7 @@ export default function QuotesPage() {
                     className={`quote-identity-save-btn${savingCompany ? " saving" : ""}`}
                     onClick={saveCompanyProfile}
                   >
-                    {savingCompany ? "Enregistrement..." : "Enregistrer"}
+                    {savingCompany ? L.devis.saving : L.devis.save}
                   </button>
                 </div>
               </div>
@@ -1699,12 +1736,52 @@ export default function QuotesPage() {
 
             <article className="quote-identity-card">
               <div>
-                <span>Client et chantier</span>
+                <span>{L.devis.clientSite}</span>
                 <div className="quote-client-grid">
-                  <label>Client<input value={form.client} onChange={(event) => setField("client", event.target.value)} placeholder="Nom et prénom" /></label>
-                  <label>E-mail<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
-                  <label>Téléphone<input value={form.clientPhone} onChange={(event) => setField("clientPhone", event.target.value)} placeholder="06 12 34 56 78" /></label>
-                  <label>Chantier<select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
+
+                  {/* Référence client */}
+                  <label className="wide client-ref-label">
+                    {L.devis.clientRef}
+                    <div className="client-ref-row">
+                      <select
+                        className="client-ref-select"
+                        value={selectedClientId}
+                        onChange={(e) => selectClientRef(e.target.value)}
+                      >
+                        <option value="">{L.devis.chooseRef}</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{c.email ? ` · ${c.email}` : ""}{c.phone ? ` · ${c.phone}` : ""}
+                          </option>
+                        ))}
+                        <option value="nouveau">{L.devis.newRef}</option>
+                      </select>
+                      {selectedClientId && selectedClientId !== "nouveau" ? (
+                        <button
+                          type="button"
+                          className="client-ref-clear"
+                          title="Désélectionner"
+                          onClick={() => setSelectedClientId("")}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                    {selectedClientId === "nouveau" ? (
+                      <p className="client-ref-hint">
+                        {L.devis.newRefHint}
+                      </p>
+                    ) : selectedClientId ? (
+                      <p className="client-ref-hint client-ref-hint--linked">
+                        {L.devis.linkedRef}
+                      </p>
+                    ) : null}
+                  </label>
+
+                  <label>{L.devis.client}<input value={form.client} onChange={(event) => setField("client", event.target.value)} placeholder={L.devis.client} /></label>
+                  <label>{L.devis.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
+                  <label>{L.devis.clientPhone}<input value={form.clientPhone} onChange={(event) => setField("clientPhone", event.target.value)} placeholder="06 12 34 56 78" /></label>
+                  <label>{L.devis.project}<select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
                     if (event.target.value === "nouveau") {
                       setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "" }));
                       setIsNewChantier(true);
@@ -1713,18 +1790,18 @@ export default function QuotesPage() {
                       selectProject(event.target.value);
                     }
                   }}>
-                    <option value="">Choisir un chantier</option>
+                    <option value="">{L.devis.chooseSite}</option>
                     {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
-                    <option value="nouveau">— Créer à la main —</option>
+                    <option value="nouveau">{L.devis.newSite}</option>
                   </select></label>
                   {isNewChantier && !form.projectId ? (
-                    <label>Nom du chantier<input value={form.project} onChange={(event) => setField("project", event.target.value)} placeholder="Ex: Rénovation cuisine Dupont" autoFocus /></label>
+                    <label>{L.devis.siteName}<input value={form.project} onChange={(event) => setField("project", event.target.value)} placeholder={L.devis.siteName} autoFocus /></label>
                   ) : null}
-                  <label className="wide">Adresse du chantier<input value={form.chantierAddress} onChange={(event) => setField("chantierAddress", event.target.value)} placeholder="Lieu d'exécution des travaux" /></label>
-                  <label>Date de création<input type="date" value={form.quoteDate} onChange={(event) => setField("quoteDate", event.target.value)} /></label>
-                  <label>Début prévu<input type="date" value={form.startDate} onChange={(event) => setField("startDate", event.target.value)} /></label>
-                  <label>Durée prévue<input value={form.expectedDuration} onChange={(event) => setField("expectedDuration", event.target.value)} placeholder="Ex: 10 jours" /></label>
-                  <label>Type du bien<select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
+                  <label className="wide">{L.devis.clientAddress}<input value={form.chantierAddress} onChange={(event) => setField("chantierAddress", event.target.value)} placeholder={L.devis.clientAddress} /></label>
+                  <label>{L.devis.creationDate}<input type="date" value={form.quoteDate} onChange={(event) => setField("quoteDate", event.target.value)} /></label>
+                  <label>{L.devis.startDate}<input type="date" value={form.startDate} onChange={(event) => setField("startDate", event.target.value)} /></label>
+                  <label>{L.devis.expectedDur}<input value={form.expectedDuration} onChange={(event) => setField("expectedDuration", event.target.value)} placeholder="Ex: 10 jours" /></label>
+                  <label>{L.devis.propertyType}<select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
                     <option>Maison</option>
                     <option>Appartement</option>
                     <option>Local</option>
@@ -1737,7 +1814,7 @@ export default function QuotesPage() {
                     className={`quote-identity-save-btn${savingClient ? " saving" : ""}`}
                     onClick={saveClientInfo}
                   >
-                    {savingClient ? "Enregistrement..." : "Enregistrer"}
+                    {savingClient ? L.devis.saving : L.devis.save}
                   </button>
                 </div>
               </div>
@@ -1748,15 +1825,15 @@ export default function QuotesPage() {
         <section className="quote-final-card">
           <div className="quote-section-title">
             <div>
-              <span>Présentation</span>
-              <h2>Description des travaux</h2>
+              <span>{L.devis.presentation}</span>
+              <h2>{L.devis.workDescTitle}</h2>
             </div>
           </div>
           <textarea
             className="quote-work-description"
             value={form.workDescription}
             onChange={(event) => setField("workDescription", event.target.value)}
-            placeholder="Décrivez en quelques lignes la nature générale des travaux..."
+            placeholder={L.devis.workDescPh}
             rows={3}
           />
         </section>
@@ -1764,8 +1841,8 @@ export default function QuotesPage() {
         <section className="quote-final-card">
           <div className="quote-section-title">
             <div>
-              <span>Organisation</span>
-              <h2>Lots du chantier</h2>
+              <span>{L.devis.organization}</span>
+              <h2>{L.devis.lotsTitle}</h2>
             </div>
             <button type="button" className={`quote-meta-toggle ${roomsOpen ? "open" : ""}`} onClick={() => setRoomsOpen((open) => !open)} aria-expanded={roomsOpen} aria-label={roomsOpen ? "Réduire les pièces" : "Afficher les pièces"}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
@@ -1779,7 +1856,7 @@ export default function QuotesPage() {
                   <input
                     value={customRoom}
                     onChange={(event) => setCustomRoom(event.target.value)}
-                    placeholder="Nom de la pièce (ex: Salon, Cuisine...)"
+                    placeholder={L.devis.roomPh}
                     list="room-suggestions"
                     onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoom(); } }}
                   />
@@ -1806,8 +1883,8 @@ export default function QuotesPage() {
         <section className="quote-final-card">
           <div className="quote-section-title quote-room-title-row">
             <div>
-              <span>Travaux</span>
-              <h2>Ouvrages et fournitures</h2>
+              <span>{L.devis.works}</span>
+              <h2>{L.devis.worksTitle}</h2>
             </div>
             <div className="quote-room-header-right">
               <span className="quote-room-subtotal-badge">{money((linesByRoom["Services"] || []).reduce((s, l) => s + l.totalHt, 0))} HT</span>
@@ -1828,19 +1905,19 @@ export default function QuotesPage() {
           <div className="quote-toolbar">
             <button type="button" className="quote-toolbar-button purple" onClick={() => openNoteComposer("Services")}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-              Note
+              {L.devis.noteBtn}
             </button>
             <button type="button" className="quote-toolbar-button orange" onClick={() => openOuvragesLibrary("Services")}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 6.5C10.5 5.5 8 5 4 5v13c4 0 6.5.5 8 1.5M12 6.5c1.5-1 4-1.5 8-1.5v13c-4 0-6.5.5-8 1.5M12 6.5v13" /></svg>
-              Bibliothèque d'ouvrages
+              {L.devis.library}
             </button>
             <button type="button" className="quote-toolbar-button blue" onClick={() => openOuvrageComposer("Services")}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" /></svg>
-              Créer une ouvrage
+              {L.devis.createWork}
             </button>
             <button type="button" className="quote-toolbar-button green" onClick={() => openFournitureComposer("Services")}>
               <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5" fill="currentColor" /><circle cx="18" cy="20" r="1.5" fill="currentColor" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" /></svg>
-              Ajouter fourniture
+              {L.devis.addSupplyBtn}
             </button>
           </div>
 
@@ -1848,7 +1925,7 @@ export default function QuotesPage() {
             <div key={note.id} className="room-note-card">
               <div className="room-note-header">
                 <span className="room-note-type">
-                  {note.type === "photo" ? "Photo" : note.type === "attachment" ? "Pièce jointe" : "Message"}
+                  {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
                 </span>
                 <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
               </div>
@@ -1908,15 +1985,15 @@ export default function QuotesPage() {
                 </button>
                 <button type="button" className="quote-toolbar-button orange" onClick={() => openOuvragesLibrary(room)}>
                   <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 6.5C10.5 5.5 8 5 4 5v13c4 0 6.5.5 8 1.5M12 6.5c1.5-1 4-1.5 8-1.5v13c-4 0-6.5.5-8 1.5M12 6.5v13" /></svg>
-                  Bibliothèque d'ouvrages
+                  {L.devis.library}
                 </button>
                 <button type="button" className="quote-toolbar-button blue" onClick={() => openOuvrageComposer(room)}>
                   <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" /></svg>
-                  Créer une ouvrage
+                  {L.devis.createWork}
                 </button>
                 <button type="button" className="quote-toolbar-button green" onClick={() => openFournitureComposer(room)}>
                   <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5" fill="currentColor" /><circle cx="18" cy="20" r="1.5" fill="currentColor" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" /></svg>
-                  Ajouter fourniture
+                  {L.devis.addSupplyBtn}
                 </button>
               </div>
 
@@ -1924,7 +2001,7 @@ export default function QuotesPage() {
                 <div key={note.id} className="room-note-card">
                   <div className="room-note-header">
                     <span className="room-note-type">
-                      {note.type === "photo" ? "Photo" : note.type === "attachment" ? "Pièce jointe" : "Message"}
+                      {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
                     </span>
                     <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
                   </div>
@@ -1935,14 +2012,14 @@ export default function QuotesPage() {
               ))}
 
               {!roomLines.length ? (
-                <div className="empty-state">Aucun ouvrage pour ce lot. Utilisez les boutons ci-dessus pour en ajouter.</div>
+                <div className="empty-state">{L.devis.noWorkForLot}</div>
               ) : (
                 <>
                   <div className="quote-final-lines">
                     {roomLines.map((line) => renderLineCard(line))}
                   </div>
                   <div className="quote-room-subtotal">
-                    <span className="quote-room-subtotal-label">Sous-total {room}</span>
+                    <span className="quote-room-subtotal-label">{L.devis.subtotal} {room}</span>
                     <span>{money(roomTotalHt)} HT</span>
                   </div>
                 </>
@@ -1954,7 +2031,7 @@ export default function QuotesPage() {
         })}
 
         <section className="room-add-bottom-card">
-          <span className="room-add-bottom-label">Rajouter un lot</span>
+          <span className="room-add-bottom-label">{L.devis.addLot}</span>
           <div className="room-add-card">
             <div className="room-add-row">
               <input
@@ -1970,23 +2047,23 @@ export default function QuotesPage() {
         </section>
 
         <section className="quote-total-panel">
-          <div><span>Total heures</span><strong>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</strong></div>
-          <div><span>Main-d'œuvre HT</span><strong>{money(totals.labor)}</strong></div>
-          <div><span>Fournitures HT</span><strong>{money(totals.supplies)}</strong></div>
-          <div><span>Sous-total HT</span><strong>{money(totals.ht)}</strong></div>
-          <div className="total"><span>Total TTC</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
+          <div><span>{L.devis.totalHours}</span><strong>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</strong></div>
+          <div><span>{L.devis.laborHt}</span><strong>{money(totals.labor)}</strong></div>
+          <div><span>{L.devis.suppliesHt}</span><strong>{money(totals.supplies)}</strong></div>
+          <div><span>{L.devis.subtotalHt}</span><strong>{money(totals.ht)}</strong></div>
+          <div className="total"><span>{L.devis.total}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
         </section>
 
         <section className="quote-recap-card">
           <div className="recap-title-row">
             <div>
-              <h2 className="recap-title">CONDITIONNEMENT DU CHANTIER</h2>
-              <p className="recap-title-hint">Cliquez sur l'état de chaque ligne pour choisir ce que voit le client.</p>
+              <h2 className="recap-title">{L.devis.conditioning}</h2>
+              <p className="recap-title-hint">{L.devis.clickStatus}</p>
             </div>
             <div className="recap-mode-legend">
-              <span className="recap-legend-chip recap-legend-excluded">Non compté</span>
-              <span className="recap-legend-chip recap-legend-internal">Inclus (caché)</span>
-              <span className="recap-legend-chip recap-legend-client">Visible client</span>
+              <span className="recap-legend-chip recap-legend-excluded">{L.devis.notCounted}</span>
+              <span className="recap-legend-chip recap-legend-internal">{L.devis.includedHidden}</span>
+              <span className="recap-legend-chip recap-legend-client">{L.devis.visibleClient}</span>
             </div>
           </div>
 
@@ -1995,7 +2072,7 @@ export default function QuotesPage() {
             if (roomHt === 0 && room === "Services") return null;
             return (
               <div className="recap-row recap-room-row" key={room}>
-                <span>{room === "Services" ? "Travaux généraux" : room}</span>
+                <span>{room === "Services" ? L.devis.generalWorks : room}</span>
                 <strong>{money(roomHt)}</strong>
               </div>
             );
@@ -2012,7 +2089,7 @@ export default function QuotesPage() {
                       checked={(s.mode ?? "excluded") !== "excluded"}
                       onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "internal" : "excluded")}
                     />
-                    Compté
+                    {L.devis.counted}
                   </label>
                   <label className="recap-check-label">
                     <input
@@ -2020,7 +2097,7 @@ export default function QuotesPage() {
                       checked={s.mode === "client"}
                       onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "client" : "internal")}
                     />
-                    Affiché
+                    {L.devis.shown}
                   </label>
                 </div>
                 <input
@@ -2047,17 +2124,17 @@ export default function QuotesPage() {
             );
           })}
 
-          <button type="button" className="recap-add-surcharge" onClick={addSurcharge}>+ Ajouter une ligne</button>
+          <button type="button" className="recap-add-surcharge" onClick={addSurcharge}>{L.devis.addLine}</button>
 
           <div className="recap-divider" />
 
           <div className="recap-row recap-total-ht">
-            <span>TOTAL GÉNÉRAL H.T.</span>
+            <span>{L.devis.totalHtGen}</span>
             <strong>{money(summaryTotals.totalHt)}</strong>
           </div>
 
           <div className="recap-row recap-tva-row">
-            <span>TVA</span>
+            <span>TVA / VAT</span>
             <div className="recap-tva-controls">
               {vatManual ? (
                 <>
@@ -2071,7 +2148,7 @@ export default function QuotesPage() {
                     onChange={(e) => setQuoteVatRate(Math.max(0, Number(e.target.value) || 0))}
                   />
                   <span className="recap-pct-sym">%</span>
-                  <button type="button" className="recap-tva-switch" onClick={() => setVatManual(false)}>Choisir</button>
+                  <button type="button" className="recap-tva-switch" onClick={() => setVatManual(false)}>{L.devis.choose}</button>
                 </>
               ) : (
                 <>
@@ -2089,7 +2166,7 @@ export default function QuotesPage() {
                     <option value="5.5">5,5 %</option>
                     <option value="10">10 %</option>
                     <option value="20">20 %</option>
-                    <option value="autre">Autre...</option>
+                    <option value="autre">{L.devis.vatOther}</option>
                   </select>
                 </>
               )}
@@ -2098,7 +2175,7 @@ export default function QuotesPage() {
           </div>
 
           <div className="recap-row recap-total-ttc">
-            <span>TOTAL GÉNÉRAL T.T.C.</span>
+            <span>{L.devis.totalTtcGen}</span>
             <strong>{money(summaryTotals.totalTtc)}</strong>
           </div>
         </section>
@@ -2106,8 +2183,8 @@ export default function QuotesPage() {
         <section className="quote-final-card quote-payment-card">
           <div className="quote-section-title">
             <div>
-              <span>Règlement</span>
-              <h2>Modalités de paiement</h2>
+              <span>{L.devis.payment}</span>
+              <h2>{L.devis.paymentTitle}</h2>
             </div>
           </div>
 
@@ -2129,7 +2206,7 @@ export default function QuotesPage() {
               />
             </label>
             <label className="payment-field">
-              <span>Titulaire du compte</span>
+              <span>{L.devis.accountHolder}</span>
               <input
                 value={company.bankHolder || ""}
                 onChange={(e) => setCompanyField("bankHolder", e.target.value)}
@@ -2139,7 +2216,7 @@ export default function QuotesPage() {
           </div>
 
           <label className="payment-field payment-field-wide">
-            <span>Conditions de règlement</span>
+            <span>{L.devis.paymentCond}</span>
             <textarea
               className="payment-terms-textarea"
               value={company.paymentTerms || ""}
@@ -2153,11 +2230,11 @@ export default function QuotesPage() {
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 
         <div className="quote-action-row">
-          <button type="button" className="button blue" onClick={handleGenerate}>Générer votre devis</button>
-          <button type="button" className="button secondary" onClick={() => handlePreview()}>Aperçu</button>
-          <button type="button" className="button danger" onClick={handleCancel}>Annuler</button>
-          <button type="button" className="button secondary" onClick={handleConfirm}>Confirmer</button>
-          <button type="button" className="button blue" onClick={handleSend}>Envoyer</button>
+          <button type="button" className="button blue" onClick={handleGenerate}>{L.devis.generateQuote}</button>
+          <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
+          <button type="button" className="button danger" onClick={handleCancel}>{L.common.cancel}</button>
+          <button type="button" className="button secondary" onClick={handleConfirm}>{L.devis.confirm}</button>
+          <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
         </div>
 
         {generatedQuote ? (
@@ -2165,14 +2242,14 @@ export default function QuotesPage() {
             <article className="quote-ready-card">
               <div className="quote-ready-check">OK</div>
               <div>
-                <span>Devis prêt</span>
+                <span>{L.devis.quoteReady}</span>
                 <h2>{generatedQuote.quoteNumber}</h2>
-                <p>Les documents sont générés et prêts à être envoyés au client.</p>
+                <p>{L.devis.docsReady}</p>
               </div>
               <div className="quote-ready-docs-stack">
                 <div className="quote-ready-doc-row" onClick={() => handleDownload("quote", "pdf")}>
                   <span className="quote-ready-doc-label">
-                    <strong>Devis final</strong>
+                    <strong>{L.devis.finalQuote}</strong>
                     <small>PDF A4</small>
                   </span>
                   <button
@@ -2186,7 +2263,7 @@ export default function QuotesPage() {
                 </div>
                 <div className="quote-ready-doc-row" onClick={() => handleDownload("supplies", "pdf")}>
                   <span className="quote-ready-doc-label">
-                    <strong>Fournitures</strong>
+                    <strong>{L.devis.suppliesDoc}</strong>
                     <small>PDF A4</small>
                   </span>
                   <button
@@ -2204,11 +2281,11 @@ export default function QuotesPage() {
             <section className="quote-final-card signature-delivery-card signature-send-card">
               <div className="signature-send-heading signature-send-heading-simple">
                 <div>
-                  <h2>Signature du client</h2>
-                  <p>Le client reçoit un lien Kôji Signature avec un identifiant et un mot de passe provisoire.</p>
+                  <h2>{L.devis.signatureTitle}</h2>
+                  <p>{L.devis.signatureHint}</p>
                 </div>
                 <button type="button" className="button blue" onClick={resendSignatureLink}>
-                  {signatureDelivery ? "Renvoyer le lien" : "Envoyer le lien"}
+                  {signatureDelivery ? L.devis.resendLink : L.devis.sendLink}
                 </button>
               </div>
 
@@ -2217,23 +2294,23 @@ export default function QuotesPage() {
                   <div className="signature-access-box signature-access-box-unified">
                     <div className="signature-access-row signature-access-row-copy">
                       <div>
-                        <span>Lien Kôji Signature</span>
+                        <span>{L.devis.signatureLink}</span>
                         <a href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{signatureDelivery.loginUrl}</a>
                       </div>
-                      <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>Copier</button>
+                      <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>{L.devis.copy}</button>
                     </div>
                     <div className="signature-access-row-pair">
                       <div className="signature-access-row-copy">
-                        <div><span>Identifiant provisoire</span><strong>{signatureDelivery.identifier}</strong></div>
-                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.identifier, "Identifiant copié")}>Copier</button>
+                        <div><span>{L.devis.tempId}</span><strong>{signatureDelivery.identifier}</strong></div>
+                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.identifier, "Identifiant copié")}>{L.devis.copy}</button>
                       </div>
                       <div className="signature-access-row-copy">
-                        <div><span>Mot de passe provisoire</span><strong>{signatureDelivery.password}</strong></div>
-                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.password, "Mot de passe copié")}>Copier</button>
+                        <div><span>{L.devis.tempPass}</span><strong>{signatureDelivery.password}</strong></div>
+                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.password, "Mot de passe copié")}>{L.devis.copy}</button>
                       </div>
                     </div>
                     <div className="signature-access-row">
-                      <span>Message au client</span>
+                      <span>{L.devis.clientMsg}</span>
                       <textarea
                         className="signature-message-input"
                         value={clientMessage}
@@ -2243,17 +2320,17 @@ export default function QuotesPage() {
                     </div>
                   </div>
                   <div className="signature-channel-row">
-                    <a className="signature-channel primary" href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">Ouvrir le lien</a>
-                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>Copier le lien</button>
-                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureText, "Message prêt à envoyer")}>Copier le message</button>
-                    <a className="signature-channel" href={signatureMailHref}>E-mail client</a>
+                    <a className="signature-channel primary" href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{L.devis.openLink}</a>
+                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>{L.devis.copyLink}</button>
+                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureText, "Message prêt à envoyer")}>{L.devis.copyMsg}</button>
+                    <a className="signature-channel" href={signatureMailHref}>{L.devis.emailClient}</a>
                     <a className="signature-channel" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>
                   </div>
                   {copyMessage ? <p className="signature-copy-message">{copyMessage}</p> : null}
                 </>
               ) : (
                 <p className="signature-empty-hint">
-                  Cliquez sur "Envoyer le lien" pour créer les accès client et préparer l'envoi vers Kôji Signature.
+                  {L.devis.signatureEmpty}
                 </p>
               )}
             </section>
@@ -2264,18 +2341,18 @@ export default function QuotesPage() {
           <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSelectedSupply(null)}>
             <div className="mini-modal supply-detail-modal" onClick={(event) => event.stopPropagation()}>
               <h2>{selectedSupply.name}</h2>
-              <p>Fourniture liee au module Fournitures.</p>
+              <p>{L.devis.supplyLinked}</p>
               <dl className="supply-detail-list">
-                <div><dt>Categorie</dt><dd>{selectedSupply.category || "Divers"}</dd></div>
-                <div><dt>Fournisseur</dt><dd>{selectedSupply.supplierName || "Non renseigne"}</dd></div>
-                <div><dt>Prix HT</dt><dd>{money(supplyPrice(selectedSupply))}</dd></div>
-                <div><dt>Stock</dt><dd>{selectedSupply.stock ?? selectedSupply.quantity ?? 0}</dd></div>
+                <div><dt>{L.devis.catLabel}</dt><dd>{selectedSupply.category || "Divers"}</dd></div>
+                <div><dt>{L.devis.supLabel}</dt><dd>{selectedSupply.supplierName || "Non renseigne"}</dd></div>
+                <div><dt>{L.devis.priceHt}</dt><dd>{money(supplyPrice(selectedSupply))}</dd></div>
+                <div><dt>{L.devis.stockLabel}</dt><dd>{selectedSupply.stock ?? selectedSupply.quantity ?? 0}</dd></div>
               </dl>
-              {selectedSupply.sourceUrl ? <a className="supply-source-link" href={selectedSupply.sourceUrl} target="_blank" rel="noreferrer">Voir le lien source</a> : null}
+              {selectedSupply.sourceUrl ? <a className="supply-source-link" href={selectedSupply.sourceUrl} target="_blank" rel="noreferrer">{L.devis.sourceLink}</a> : null}
               <div className="supply-modal-actions">
-                <button type="button" onClick={() => setSelectedSupply(null)}>Fermer</button>
-                <Link className="button secondary" href={`/fournitures?supply=${selectedSupply.id}`}>Ouvrir dans Fournitures</Link>
-                <button type="button" className="button blue" onClick={() => { applySupplyToLine(selectedSupply.lineId, selectedSupply, selectedSupply.materialIndex); setSelectedSupply(null); }}>Utiliser</button>
+                <button type="button" onClick={() => setSelectedSupply(null)}>{L.devis.closeBtn}</button>
+                <Link className="button secondary" href={`/fournitures?supply=${selectedSupply.id}`}>{L.devis.openInSupply}</Link>
+                <button type="button" className="button blue" onClick={() => { applySupplyToLine(selectedSupply.lineId, selectedSupply, selectedSupply.materialIndex); setSelectedSupply(null); }}>{L.devis.useBtn}</button>
               </div>
             </div>
           </div>
@@ -2284,25 +2361,25 @@ export default function QuotesPage() {
         {supplyComposer.open ? (
           <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeSupplyComposer}>
             <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{supplyComposer.mode === "url" ? "Ajouter via lien" : "Ajouter une fourniture"}</h2>
+              <h2>{supplyComposer.mode === "url" ? L.devis.addViaLink : L.devis.addSupplyTitle}</h2>
               <div className="supply-composer-tabs">
-                <button type="button" className={supplyComposer.mode === "manual" ? "active" : ""} onClick={() => setSupplyComposerField("mode", "manual")}>Manuel</button>
-                <button type="button" className={supplyComposer.mode === "url" ? "active" : ""} onClick={() => setSupplyComposerField("mode", "url")}>Via lien</button>
+                <button type="button" className={supplyComposer.mode === "manual" ? "active" : ""} onClick={() => setSupplyComposerField("mode", "manual")}>{L.devis.manual}</button>
+                <button type="button" className={supplyComposer.mode === "url" ? "active" : ""} onClick={() => setSupplyComposerField("mode", "url")}>{L.devis.viaLink}</button>
               </div>
               {supplyComposer.mode === "url" ? (
-                <label className="supply-composer-field full"><span>Lien produit</span><input value={supplyComposer.sourceUrl} onChange={(event) => setSupplyComposerField("sourceUrl", event.target.value)} placeholder="https://..." /></label>
+                <label className="supply-composer-field full"><span>{L.devis.productLink}</span><input value={supplyComposer.sourceUrl} onChange={(event) => setSupplyComposerField("sourceUrl", event.target.value)} placeholder="https://..." /></label>
               ) : null}
-              <label className="supply-composer-field full"><span>Nom</span><input value={supplyComposer.name} onChange={(event) => setSupplyComposerField("name", event.target.value)} placeholder="Nom de la fourniture" /></label>
+              <label className="supply-composer-field full"><span>{L.devis.name}</span><input value={supplyComposer.name} onChange={(event) => setSupplyComposerField("name", event.target.value)} placeholder={L.devis.name} /></label>
               <div className="supply-composer-grid">
-                <label className="supply-composer-field"><span>Categorie</span><input value={supplyComposer.category} onChange={(event) => setSupplyComposerField("category", event.target.value)} /></label>
-                <label className="supply-composer-field"><span>Fournisseur</span><input value={supplyComposer.supplierName} onChange={(event) => setSupplyComposerField("supplierName", event.target.value)} /></label>
-                <label className="supply-composer-field"><span>Quantite</span><input type="number" min="0" step="0.01" value={supplyComposer.quantity} onChange={(event) => setSupplyComposerField("quantity", event.target.value)} /></label>
-                <label className="supply-composer-field"><span>Prix HT</span><input type="number" min="0" step="0.01" value={supplyComposer.unitPrice} onChange={(event) => setSupplyComposerField("unitPrice", event.target.value)} placeholder="Auto si lien" /></label>
+                <label className="supply-composer-field"><span>{L.devis.catLabel}</span><input value={supplyComposer.category} onChange={(event) => setSupplyComposerField("category", event.target.value)} /></label>
+                <label className="supply-composer-field"><span>{L.devis.supLabel}</span><input value={supplyComposer.supplierName} onChange={(event) => setSupplyComposerField("supplierName", event.target.value)} /></label>
+                <label className="supply-composer-field"><span>{L.devis.qtyLabel}</span><input type="number" min="0" step="0.01" value={supplyComposer.quantity} onChange={(event) => setSupplyComposerField("quantity", event.target.value)} /></label>
+                <label className="supply-composer-field"><span>{L.devis.priceHt}</span><input type="number" min="0" step="0.01" value={supplyComposer.unitPrice} onChange={(event) => setSupplyComposerField("unitPrice", event.target.value)} placeholder="Auto si lien" /></label>
               </div>
               {supplyComposer.error ? <p className="profile-message error">{supplyComposer.error}</p> : null}
               <div className="supply-modal-actions">
-                <button type="button" onClick={closeSupplyComposer}>Annuler</button>
-                <button type="button" className="button blue" onClick={saveSupplyFromComposer} disabled={supplyComposer.loading}>{supplyComposer.loading ? "Import..." : "Ajouter"}</button>
+                <button type="button" onClick={closeSupplyComposer}>{L.common.cancel}</button>
+                <button type="button" className="button blue" onClick={saveSupplyFromComposer} disabled={supplyComposer.loading}>{supplyComposer.loading ? L.devis.importing : L.common.add}</button>
               </div>
             </div>
           </div>
@@ -2311,9 +2388,9 @@ export default function QuotesPage() {
         {ouvrageComposer.open ? (
           <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeOuvrageComposer}>
             <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>Créer une ouvrage</h2>
+              <h2>{L.devis.createWork}</h2>
               <label className="supply-composer-field full">
-                <span>Désignation</span>
+                <span>{L.devis.designation}</span>
                 <input
                   value={ouvrageComposer.label}
                   onChange={(event) => setOuvrageComposerField("label", event.target.value)}
@@ -2324,17 +2401,17 @@ export default function QuotesPage() {
               </label>
               {roomGroups.filter((r) => r !== "Services").length > 0 ? (
                 <label className="supply-composer-field full">
-                  <span>Pièce</span>
+                  <span>{L.devis.room}</span>
                   <select value={ouvrageComposer.room} onChange={(event) => setOuvrageComposerField("room", event.target.value)}>
-                    <option value="Services">— Sans pièce —</option>
+                    <option value="Services">{L.devis.noRoom}</option>
                     {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
                   </select>
                 </label>
               ) : null}
               {ouvrageComposer.error ? <p className="profile-message error">{ouvrageComposer.error}</p> : null}
               <div className="supply-modal-actions">
-                <button type="button" onClick={closeOuvrageComposer}>Annuler</button>
-                <button type="button" className="button blue" onClick={submitOuvrageComposer}>Ajouter au devis</button>
+                <button type="button" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
+                <button type="button" className="button blue" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
               </div>
             </div>
           </div>
@@ -2343,25 +2420,25 @@ export default function QuotesPage() {
         {noteComposer.open ? (
           <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeNoteComposer}>
             <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>Ajouter une note</h2>
+              <h2>{L.devis.noteTitle}</h2>
               <div className="supply-composer-tabs">
-                <button type="button" className={noteComposer.type === "message" ? "active" : ""} onClick={() => setNoteComposerField("type", "message")}>Message</button>
-                <button type="button" className={noteComposer.type === "photo" ? "active" : ""} onClick={() => setNoteComposerField("type", "photo")}>Photo</button>
-                <button type="button" className={noteComposer.type === "attachment" ? "active" : ""} onClick={() => setNoteComposerField("type", "attachment")}>Pièce jointe</button>
+                <button type="button" className={noteComposer.type === "message" ? "active" : ""} onClick={() => setNoteComposerField("type", "message")}>{L.devis.messageType}</button>
+                <button type="button" className={noteComposer.type === "photo" ? "active" : ""} onClick={() => setNoteComposerField("type", "photo")}>{L.devis.photo}</button>
+                <button type="button" className={noteComposer.type === "attachment" ? "active" : ""} onClick={() => setNoteComposerField("type", "attachment")}>{L.devis.attachment}</button>
               </div>
               <label className="supply-composer-field full">
-                <span>Message</span>
+                <span>{L.devis.messageType}</span>
                 <textarea
                   className="note-composer-textarea"
                   value={noteComposer.message}
                   onChange={(event) => setNoteComposerField("message", event.target.value)}
-                  placeholder="Votre note..."
+                  placeholder={L.devis.noteMsg}
                   rows={3}
                 />
               </label>
               {noteComposer.type === "photo" ? (
                 <label className="supply-composer-field full">
-                  <span>Photo</span>
+                  <span>{L.devis.photo}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -2378,7 +2455,7 @@ export default function QuotesPage() {
                 </label>
               ) : noteComposer.type === "attachment" ? (
                 <label className="supply-composer-field full">
-                  <span>Pièce jointe</span>
+                  <span>{L.devis.attachment}</span>
                   <input
                     type="file"
                     onChange={(event) => {
@@ -2391,8 +2468,8 @@ export default function QuotesPage() {
               ) : null}
               {noteComposer.error ? <p className="profile-message error">{noteComposer.error}</p> : null}
               <div className="supply-modal-actions">
-                <button type="button" onClick={closeNoteComposer}>Annuler</button>
-                <button type="button" className="button blue" onClick={submitNoteComposer}>Ajouter</button>
+                <button type="button" onClick={closeNoteComposer}>{L.common.cancel}</button>
+                <button type="button" className="button blue" onClick={submitNoteComposer}>{L.common.add}</button>
               </div>
             </div>
           </div>

@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { euro } from "../../../lib/pricing";
+import { useLocale } from "../../../lib/i18n";
 
 export default function PublicSignaturePage() {
+  const { L } = useLocale();
   const { token } = useParams();
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,15 +33,9 @@ export default function PublicSignaturePage() {
           }));
         }
       })
-      .catch((err) => {
-        if (alive) setError(err.message);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
+      .catch((err) => { if (alive) setError(err.message); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, [token]);
 
   const alreadySigned = quote?.signatureStatus === "Signe";
@@ -74,19 +70,19 @@ export default function PublicSignaturePage() {
           <img src="/koji-logo.svg" alt="Koji" />
           <div>
             <strong>Koji</strong>
-            <span>Signature client</span>
+            <span>{L.signaturePub.clientSig}</span>
           </div>
         </div>
 
         {loading ? (
-          <div className="empty-state">Chargement du devis...</div>
+          <div className="empty-state">{L.signaturePub.loadingQuote}</div>
         ) : error && !quote ? (
           <div className="empty-state">{error}</div>
         ) : (
           <>
             <header className="signature-summary">
               <div>
-                <p className="eyebrow">DEVIS A SIGNER</p>
+                <p className="eyebrow">{L.signaturePub.quoteToSign}</p>
                 <h1>{quote.quoteNumber}</h1>
                 <p className="muted">{quote.project} - {quote.client}</p>
               </div>
@@ -94,14 +90,14 @@ export default function PublicSignaturePage() {
             </header>
 
             <div className="grid cols-3">
-              <div className="metric"><span>Pieces</span><strong>{quote.rooms?.length || 0}</strong></div>
-              <div className="metric"><span>Lignes</span><strong>{totalItems}</strong></div>
-              <div className="metric"><span>Statut</span><strong>{alreadySigned ? "Signe" : "A signer"}</strong></div>
+              <div className="metric"><span>{L.signaturePub.rooms}</span><strong>{quote.rooms?.length || 0}</strong></div>
+              <div className="metric"><span>{L.signaturePub.lines}</span><strong>{totalItems}</strong></div>
+              <div className="metric"><span>{L.signaturePub.status}</span><strong>{alreadySigned ? L.signaturePub.signedStatus : L.signaturePub.toSignStatus}</strong></div>
             </div>
 
             <section className="signature-quote-lines">
               {(quote.items || []).length === 0 ? (
-                <div className="empty-state">Aucune ligne detaillee.</div>
+                <div className="empty-state">{L.signaturePub.noLines}</div>
               ) : (
                 quote.items.map((item, index) => (
                   <article key={`${item.code || item.label}-${index}`}>
@@ -110,7 +106,7 @@ export default function PublicSignaturePage() {
                       <strong>{item.label}</strong>
                       <span>{item.quantity} {item.unit}</span>
                       {item.showMaterialsToClient !== false && item.materialLines?.length ? (
-                        <em>Fournitures: {item.materialLines.map((material) => material.productName || material.category).filter(Boolean).join(", ")}</em>
+                        <em>{L.signaturePub.supplies} {item.materialLines.map((material) => material.productName || material.category).filter(Boolean).join(", ")}</em>
                       ) : null}
                     </div>
                     <b>{euro(item.totalTtc || 0)}</b>
@@ -120,40 +116,40 @@ export default function PublicSignaturePage() {
             </section>
 
             <form className="panel" onSubmit={signQuote} style={{ marginTop: 14 }}>
-              <h2>{alreadySigned ? "Signature enregistree" : "Valider le devis"}</h2>
+              <h2>{alreadySigned ? L.signaturePub.signedTitle : L.signaturePub.validateTitle}</h2>
               <div className="form-grid">
-                <label className="field">Nom du signataire<input value={form.signerName} onChange={(event) => setField("signerName", event.target.value)} disabled={alreadySigned} required /></label>
-                <label className="field">E-mail<input type="email" value={form.signerEmail} onChange={(event) => setField("signerEmail", event.target.value)} disabled={alreadySigned} /></label>
-                <label className="field">Telephone<input value={form.signerPhone} onChange={(event) => setField("signerPhone", event.target.value)} placeholder="06 12 34 56 78" disabled={alreadySigned} /></label>
-                <label className="field">Lieu de signature<input value={form.signaturePlace} onChange={(event) => setField("signaturePlace", event.target.value)} placeholder="Ex: Paris" disabled={alreadySigned} /></label>
+                <label className="field">{L.signaturePub.signerName}<input value={form.signerName} onChange={(event) => setField("signerName", event.target.value)} disabled={alreadySigned} required /></label>
+                <label className="field">{L.signaturePub.email}<input type="email" value={form.signerEmail} onChange={(event) => setField("signerEmail", event.target.value)} disabled={alreadySigned} /></label>
+                <label className="field">{L.signaturePub.phone}<input value={form.signerPhone} onChange={(event) => setField("signerPhone", event.target.value)} placeholder="06 12 34 56 78" disabled={alreadySigned} /></label>
+                <label className="field">{L.signaturePub.sigPlace}<input value={form.signaturePlace} onChange={(event) => setField("signaturePlace", event.target.value)} placeholder="Ex: Paris" disabled={alreadySigned} /></label>
               </div>
               <label className="field" style={{ marginTop: 10 }}>
-                Message pour l'entreprise (optionnel)
+                {L.signaturePub.sigMsg}
                 <textarea
                   value={form.signerMessage}
                   onChange={(event) => setField("signerMessage", event.target.value)}
-                  placeholder="Une remarque, une question, une precision sur le chantier..."
+                  placeholder={L.signaturePub.sigMsgPh}
                   rows={3}
                   disabled={alreadySigned}
                 />
               </label>
-              <p className="muted">Fait à {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
+              <p className="muted">{L.signaturePub.madeAt} {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
               {!alreadySigned && (
                 <label className="checkline">
                   <input type="checkbox" checked={form.consent} onChange={(event) => setField("consent", event.target.checked)} />
-                  J'accepte ce devis et je confirme ma signature.
+                  {L.signaturePub.consent}
                 </label>
               )}
               {error ? <p className="form-error">{error}</p> : null}
               {saved || alreadySigned ? (
                 <div className="profile-message">
-                  <p>Devis signe et enregistre dans Koji.</p>
+                  <p>{L.signaturePub.signedConfirm}</p>
                   {clientAccess ? (
-                    <p>Votre acces Koji Particulier a ete envoye {clientAccess.sentByEmail ? "par e-mail" : ""}{clientAccess.sentByEmail && clientAccess.sentBySms ? " et " : ""}{clientAccess.sentBySms ? "par SMS" : ""}. Vous pourrez suivre l'avancement de vos travaux dans votre espace client.</p>
+                    <p>{L.signaturePub.clientAccessMsg(clientAccess.sentByEmail, clientAccess.sentBySms)} {L.signaturePub.clientAccessEnd}</p>
                   ) : null}
                 </div>
               ) : null}
-              {!alreadySigned && <button className="button blue" style={{ marginTop: 12 }}>Signer le devis</button>}
+              {!alreadySigned && <button className="button blue" style={{ marginTop: 12 }}>{L.signaturePub.signBtn}</button>}
             </form>
           </>
         )}

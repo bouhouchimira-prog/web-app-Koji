@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ClientTopbar } from "../../components/ClientTopbar";
 import { euro, shortDate } from "../../lib/pricing";
+import { useLocale } from "../../lib/i18n";
 
 function getStoredUser() {
   if (typeof window === "undefined") return null;
@@ -31,8 +32,6 @@ function ProgressRing({ percent, size = 72 }) {
   );
 }
 
-const TASK_STEPS = ["Début", "En cours", "Validé", "Terminé"];
-
 function getTaskStep(task) {
   if (task.done) return 3;
   if (task.clientValidationStatus === "Valide" || task.status === "Valide par client") return 2;
@@ -40,7 +39,7 @@ function getTaskStep(task) {
   return 0;
 }
 
-function TaskRow({ task, onValidate }) {
+function TaskRow({ task, onValidate, taskSteps }) {
   const [open, setOpen] = useState(false);
   const step = getTaskStep(task);
   const canValidate = step === 1 && (task.pendingValidation || task.status === "Terminee (a valider)");
@@ -53,17 +52,17 @@ function TaskRow({ task, onValidate }) {
           <span className="ct-task-room">{task.room || "Chantier"}</span>
           <strong>{task.label || task.title || task.name}</strong>
         </div>
-        <span className={`ct-task-badge step-${step}`}>{TASK_STEPS[step]}</span>
+        <span className={`ct-task-badge step-${step}`}>{taskSteps[step]}</span>
         <svg className={`ct-chevron${open ? " open" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {open ? (
         <div className="ct-task-body">
           <div className="ct-status-bar">
-            {TASK_STEPS.map((label, i) => (
+            {taskSteps.map((label, i) => (
               <div key={label} className={`ct-step${i <= step ? " active" : ""}${i === step ? " current" : ""}`}>
                 <div className="ct-step-dot" />
-                {i < TASK_STEPS.length - 1 && <div className="ct-step-line" />}
+                {i < taskSteps.length - 1 && <div className="ct-step-line" />}
                 <span>{label}</span>
               </div>
             ))}
@@ -71,7 +70,7 @@ function TaskRow({ task, onValidate }) {
 
           <div className="ct-task-meta">
             {task.startDate || task.dueDate ? <div><small>Planifié</small><span>{formatDate(task.startDate || task.dueDate)}{task.endDate ? ` → ${formatDate(task.endDate)}` : ""}</span></div> : null}
-            <div><small>Équipe</small><span>{task.assignedTo || "Non assignée"}</span></div>
+            <div><small>Équipe</small><span>{task.assignedTo || "—"}</span></div>
             {task.completedByName ? <div><small>Terminé par</small><span>{task.completedByName}</span></div> : null}
           </div>
 
@@ -91,7 +90,7 @@ function TaskRow({ task, onValidate }) {
   );
 }
 
-function ChantierCard({ quote }) {
+function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel }) {
   const router = useRouter();
   const tasks = quote.tasks || [];
   const done = tasks.filter((t) => t.done).length;
@@ -105,51 +104,59 @@ function ChantierCard({ quote }) {
         <div className="ct-chantier-info">
           <strong>{quote.project?.title || quote.projectName || quote.project || "Chantier"}</strong>
           <small>{quote.client} · {euro(quote.totalTtc || 0)}</small>
-          <small>Devis {quote.quoteNumber} · {isSigned ? "Signé" : quote.status}</small>
+          <small>Devis {quote.quoteNumber} · {isSigned ? signedLabel : quote.status}</small>
         </div>
         <div className="ct-chantier-right">
-          <span className={`ct-task-badge step-${isSigned ? 3 : 0}`}>{isSigned ? "Signé" : (quote.status || "En attente")}</span>
+          <span className={`ct-task-badge step-${isSigned ? 3 : 0}`}>{isSigned ? signedLabel : (quote.status || waitingLabel)}</span>
         </div>
         <svg className="ct-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
       </div>
       <div className="ct-chantier-footer">
-        <span>{done} / {tasks.length} ouvrage(s) terminé(s)</span>
+        <span>{done} / {tasks.length}</span>
         <div className="ct-progress-bar"><div style={{ width: `${percent}%` }} /></div>
       </div>
     </button>
   );
 }
 
-function DevisTrialModal({ onClose, alreadyUsed }) {
+function DevisTrialModal({ onClose, alreadyUsed, L }) {
   return (
     <div className="ct-modal-overlay" onClick={onClose}>
       <div className="ct-modal" onClick={(e) => e.stopPropagation()}>
         <div className="ct-modal-logo"><img src="/koji-logo.svg" alt="Koji" /></div>
-        <h2>Essayez Koji en tant qu'entreprise</h2>
+        <h2>{L.clientSpace.trialTitle}</h2>
         {alreadyUsed ? (
           <>
-            <p>Vous avez déjà utilisé votre devis d'essai gratuit. Pour créer des devis illimités et gérer vos chantiers, passez à Koji Pro.</p>
-            <Link className="primary-button" href="/abonnement">Découvrir Koji Pro</Link>
+            <p>{L.clientSpace.trialUsedMsg}</p>
+            <Link className="primary-button" href="/abonnement">{L.clientSpace.trialDiscoverBtn}</Link>
           </>
         ) : (
           <>
-            <p>Créez un premier devis gratuitement pour découvrir toute la puissance de Koji côté entreprise — sans engagement.</p>
-            <Link className="primary-button" href="/signup?type=entreprise&ref=client-trial">Créer mon compte Koji</Link>
-            <p className="ct-modal-note">14 jours d'essai · Aucune carte bancaire requise</p>
+            <p>{L.clientSpace.trialFirstMsg}</p>
+            <Link className="primary-button" href="/signup?type=entreprise&ref=client-trial">{L.clientSpace.trialCreateBtn}</Link>
+            <p className="ct-modal-note">{L.clientSpace.trialNote}</p>
           </>
         )}
-        <button type="button" className="ghost-button" style={{ marginTop: 8 }} onClick={onClose}>Fermer</button>
+        <button type="button" className="ghost-button" style={{ marginTop: 8 }} onClick={onClose}>{L.clientSpace.close}</button>
       </div>
     </div>
   );
 }
 
 export default function ClientHomePage() {
+  const { L } = useLocale();
   const [user, setUser] = useState(null);
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTrial, setShowTrial] = useState(false);
   const [trialUsed, setTrialUsed] = useState(false);
+
+  const taskSteps = [
+    L.clientSpace.taskStepStart,
+    L.clientSpace.taskStepInProgress,
+    L.clientSpace.taskStepValidated,
+    L.clientSpace.taskStepDone,
+  ];
 
   useEffect(() => {
     const stored = getStoredUser();
@@ -192,9 +199,9 @@ export default function ClientHomePage() {
       <main className="client-space">
         <section className="client-auth-card">
           <div className="koji-mark small">KJ</div>
-          <h1>Espace particulier</h1>
-          <p>Connectez-vous avec les identifiants reçus de votre artisan.</p>
-          <Link className="primary-button" href="/login?type=particulier">Connexion client</Link>
+          <h1>{L.clientSpace.clientPortal}</h1>
+          <p>{L.clientSpace.loginMsg}</p>
+          <Link className="primary-button" href="/login?type=particulier">{L.clientSpace.loginBtn}</Link>
         </section>
       </main>
     );
@@ -204,31 +211,36 @@ export default function ClientHomePage() {
     <main className="client-space">
       <ClientTopbar />
 
-      {showTrial ? <DevisTrialModal onClose={() => setShowTrial(false)} alreadyUsed={trialUsed} /> : null}
+      {showTrial ? <DevisTrialModal onClose={() => setShowTrial(false)} alreadyUsed={trialUsed} L={L} /> : null}
 
       <button type="button" className="new-chantier-bar" onClick={handleDevisTrial}>
         <span className="new-chantier-icon">+</span>
-        Créer un devis
+        {L.clientSpace.createQuote}
       </button>
 
       <div className="ct-welcome">
-        <strong>Bonjour, {user.name || user.email.split("@")[0]}</strong>
-        <small>Espace client Koji</small>
+        <strong>{L.clientSpace.hello} {user.name || user.email.split("@")[0]}</strong>
+        <small>{L.clientSpace.clientSpaceName}</small>
       </div>
 
       <div className="ct-stats">
-        <div className="ct-stat"><span>{quotes.length}</span><small>Devis reçus</small></div>
-        <div className="ct-stat"><span>{signedQuotes.length}</span><small>Signés</small></div>
-        <div className="ct-stat"><span>{allTasks.filter((t) => t.done).length}/{allTasks.length}</span><small>Ouvrages</small></div>
+        <div className="ct-stat"><span>{quotes.length}</span><small>{L.clientSpace.quotesReceived}</small></div>
+        <div className="ct-stat"><span>{signedQuotes.length}</span><small>{L.clientSpace.signedQuotes}</small></div>
+        <div className="ct-stat"><span>{allTasks.filter((t) => t.done).length}/{allTasks.length}</span><small>{L.clientSpace.worksLabel}</small></div>
       </div>
 
-
       <section className="ct-section">
-        <h2 className="ct-section-title">Mes chantiers</h2>
-        {loading ? <div className="client-empty">Chargement...</div> : null}
-        {!loading && quotes.length === 0 ? <div className="client-empty">Aucun devis lié à votre compte.</div> : null}
+        <h2 className="ct-section-title">{L.clientSpace.myProjects}</h2>
+        {loading ? <div className="client-empty">{L.clientSpace.loading}</div> : null}
+        {!loading && quotes.length === 0 ? <div className="client-empty">{L.clientSpace.noQuotes}</div> : null}
         {quotes.map((quote) => (
-          <ChantierCard key={quote.id} quote={quote} />
+          <ChantierCard
+            key={quote.id}
+            quote={quote}
+            signedLabel={L.clientSpace.signedLabel}
+            inProgressLabel={L.clientSpace.taskStepInProgress}
+            waitingLabel={L.clientSpace.waiting}
+          />
         ))}
       </section>
     </main>

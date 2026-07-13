@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
 
-const navItems = [
-  { href: "/archives", label: "Archives", icon: "archive" },
-  { href: "/bibliotheque-ouvrages", label: "Bibliothèque d'ouvrages", icon: "book" },
-  { href: "/calendrier", label: "Calendrier", icon: "calendar" },
-  { href: "/chantiers", label: "Chantiers", icon: "tools" },
-  { href: "/devis", label: "Devis", icon: "file" },
-  { href: "/equipe", label: "Equipe", icon: "users" },
-  { href: "/facturation", label: "Facturation", icon: "invoice" },
-  { href: "/fournitures", label: "Fournitures", icon: "box" },
-  { href: "/marketplace", label: "Marketplace", icon: "market" }
-];
+function getNavItems(L) {
+  return [
+    { href: "/archives",              label: L.nav.archives,    icon: "archive"  },
+    { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book"     },
+    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar" },
+    { href: "/chantiers",             label: L.nav.projects,    icon: "tools"    },
+    { href: "/devis",                 label: L.nav.quotes,      icon: "file"     },
+    { href: "/equipe",                label: L.nav.team,        icon: "users"    },
+    { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice"  },
+    { href: "/fournitures",           label: L.nav.supplies,    icon: "box"      },
+    { href: "/marketplace",           label: L.nav.marketplace, icon: "market"   },
+  ];
+}
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
@@ -150,12 +153,24 @@ function Icon({ name, className = "" }) {
 export function Shell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { lang, setLang, L } = useLocale();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (langRef.current && !langRef.current.contains(e.target)) setLangOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
   const [profileType, setProfileType] = useState("entreprise");
   const [isAdmin, setIsAdmin] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
   const { data: notifications } = useApi("/api/notifications", "notifications");
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
+  const navItems = getNavItems(L);
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -200,38 +215,72 @@ export function Shell({ children }) {
   return (
     <div className="web-shell">
       <header className="app-topbar">
-        <button type="button" className="icon-round" onClick={() => setDrawerOpen(true)} aria-label="Ouvrir le menu">
+        <button type="button" className="icon-round" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
           <Icon name="menu" className="svg-icon" />
         </button>
-        <Link href="/" className="topbar-logo" aria-label="Aller au tableau de bord">
+        <Link href="/" className="topbar-logo" aria-label={L.shell.spaceCompany}>
           <img src="/koji-logo.svg" alt="Koji" />
         </Link>
         <div className="topbar-right">
-          <Link href="/notifications" className="icon-round notif-bell-link" aria-label="Notifications">
+          <div className="topbar-lang" ref={langRef}>
+            <button
+              type="button"
+              className="topbar-lang-btn"
+              onClick={() => setLangOpen((o) => !o)}
+              aria-haspopup="listbox"
+              aria-expanded={langOpen}
+            >
+              <span>{lang === "fr" ? "FR" : lang === "en" ? "EN" : lang === "ar" ? "AR" : lang === "de" ? "DE" : "IT"}</span>
+              <svg viewBox="0 0 10 6" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 3, opacity: 0.7 }}><path d="M1 1l4 4 4-4"/></svg>
+            </button>
+            {langOpen && (
+              <ul className="topbar-lang-dropdown" role="listbox">
+                {[
+                  { code: "fr", flag: "🇫🇷" },
+                  { code: "en", flag: "🇬🇧" },
+                  { code: "ar", flag: "🇸🇦" },
+                  { code: "de", flag: "🇩🇪" },
+                  { code: "it", flag: "🇮🇹" },
+                ].map(({ code, flag }) => (
+                  <li key={code} role="option" aria-selected={lang === code}>
+                    <button
+                      type="button"
+                      className={lang === code ? "active" : ""}
+                      onClick={() => { setLang(code); setLangOpen(false); }}
+                    >
+                      <span>{flag}</span>
+                      <span>{code.toUpperCase()}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Link href="/notifications" className="icon-round notif-bell-link" aria-label={L.shell.notifications}>
             <Icon name="bell" className="svg-icon" />
             {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
           </Link>
-          <Link href="/parametres" className="icon-round" aria-label="Profil"><Icon name="user" className="svg-icon" /></Link>
+          <Link href="/parametres" className="icon-round" aria-label={L.nav.settings}><Icon name="user" className="svg-icon" /></Link>
         </div>
       </header>
 
       <div className={`drawer-backdrop ${drawerOpen ? "open" : ""}`} onClick={() => setDrawerOpen(false)} />
-      <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-label="Menu lateral">
+      <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-label={L.nav.settings}>
         <div className="drawer-brand">
           <img src="/koji-logo.svg" alt="Koji" />
           <div>
             <strong>Koji</strong>
-            <small>Espace {profileType}</small>
+            <small>{profileType === "particulier" ? L.shell.spacePersonal : L.shell.spaceCompany}</small>
           </div>
         </div>
         {isAdmin && (
           <div className="admin-badge">
-            <span>Admin</span>
-            <small>Vue globale — toutes les données</small>
+            <span>{L.shell.admin}</span>
+            <small>{L.shell.adminHint}</small>
           </div>
         )}
 
-        <nav className="drawer-nav" aria-label="Outils">
+        <nav className="drawer-nav" aria-label="nav">
           {navItems.map((item) => {
             const active = item.href === "/calendrier"
               ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
@@ -248,8 +297,8 @@ export function Shell({ children }) {
         <div className="drawer-divider" />
 
         <div className="drawer-footer">
-          <Link href="/parametres"><Icon name="settings" className="svg-icon" />Parametres</Link>
-          <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />Deconnexion</button>
+          <Link href="/parametres"><Icon name="settings" className="svg-icon" />{L.nav.settings}</Link>
+          <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />{L.nav.logout}</button>
         </div>
       </aside>
 
@@ -257,10 +306,10 @@ export function Shell({ children }) {
         <div className={`trial-banner${trial.daysLeft <= 3 ? " trial-banner-urgent" : ""}`}>
           <span>
             {trial.daysLeft === 0
-              ? "Votre essai gratuit est terminé."
-              : `Essai gratuit — il vous reste ${trial.daysLeft} jour${trial.daysLeft > 1 ? "s" : ""}`}
+              ? L.shell.trialExpired
+              : L.shell.trialLeft(trial.daysLeft)}
           </span>
-          <a href="/abonnement" className="trial-banner-btn">Choisir mon abonnement</a>
+          <a href="/abonnement" className="trial-banner-btn">{L.shell.choosePlan}</a>
         </div>
       )}
 

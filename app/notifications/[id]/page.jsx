@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Shell } from "../../../components/Shell";
 import { apiSend } from "../../../lib/client-api";
 import { useApi } from "../../../lib/use-api";
+import { useLocale } from "../../../lib/i18n";
 
 function formatFullDate(value) {
   if (!value) return "-";
@@ -45,6 +46,7 @@ const META_LABELS = {
 };
 
 export default function NotificationDetailPage() {
+  const { L } = useLocale();
   const params = useParams();
   const router = useRouter();
   const { data: notifications, setData: setNotifications, loading } = useApi("/api/notifications", "notifications");
@@ -74,7 +76,7 @@ export default function NotificationDetailPage() {
   if (loading) {
     return (
       <Shell>
-        <section className="panel"><div className="empty-state">Chargement...</div></section>
+        <section className="panel"><div className="empty-state">{L.clientSpace.loading}</div></section>
       </Shell>
     );
   }
@@ -85,11 +87,11 @@ export default function NotificationDetailPage() {
         <header className="page-header compact-page-header">
           <div>
             <p className="eyebrow">NOTIFICATION</p>
-            <h1>Introuvable</h1>
+            <h1>{L.notifications.notFound}</h1>
           </div>
         </header>
-        <div className="empty-state">Cette notification n'existe plus.</div>
-        <Link className="notif-action-link" href="/notifications">← Retour aux notifications</Link>
+        <div className="empty-state">{L.notifications.notifGone}</div>
+        <Link className="notif-action-link" href="/notifications">{L.notifications.backToList}</Link>
       </Shell>
     );
   }
@@ -101,9 +103,9 @@ export default function NotificationDetailPage() {
       <header className="page-header compact-page-header">
         <div>
           <p className="eyebrow">NOTIFICATION</p>
-          <h1>Détail</h1>
+          <h1>{L.notifications.detail}</h1>
         </div>
-        <Link className="notif-action-link" href="/notifications">← Retour</Link>
+        <Link className="notif-action-link" href="/notifications">{L.notifications.back}</Link>
       </header>
 
       <section className="notif-detail-card">
@@ -133,13 +135,13 @@ export default function NotificationDetailPage() {
 
         {notif.actionUrl ? (
           <Link className="notif-action-link notif-detail-action" href={notif.actionUrl}>
-            {notif.actionLabel || "Voir"} →
+            {notif.actionLabel || L.notifications.see} →
           </Link>
         ) : null}
 
         <div className="notif-detail-actions">
-          {!notif.archived ? <button type="button" className="mini-button" onClick={archiveNotif}>Archiver</button> : null}
-          <button type="button" className="mini-danger" onClick={deleteNotif}>Supprimer</button>
+          {!notif.archived ? <button type="button" className="mini-button" onClick={archiveNotif}>{L.notifications.archive}</button> : null}
+          <button type="button" className="mini-danger" onClick={deleteNotif}>{L.notifications.delete}</button>
         </div>
       </section>
     </Shell>

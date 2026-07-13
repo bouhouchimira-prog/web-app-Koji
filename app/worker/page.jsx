@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import "./worker.css";
+import { useLocale } from "../../lib/i18n";
+import { LangSwitcher } from "../../components/LangSwitcher";
 
 const SESSION_KEY = "koji-worker-session";
 
@@ -17,8 +19,8 @@ function text(value, fallback = "") {
   return String(value || fallback || "").trim();
 }
 
-function formatDate(value) {
-  if (!value) return "À définir";
+function formatDate(value, noneLabel = "—") {
+  if (!value) return noneLabel;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
@@ -86,6 +88,7 @@ function readFile(file) {
 }
 
 export default function WorkerPage() {
+  const { L } = useLocale();
   const [worker, setWorker] = useState(null);
   const [portal, setPortal] = useState(null);
   const [view, setView] = useState("home");
@@ -216,7 +219,7 @@ export default function WorkerPage() {
   }
 
   if (loading) {
-    return <main className="worker-page"><div className="worker-loader">Chargement du portail ouvrier...</div></main>;
+    return <main className="worker-page"><div className="worker-loader">{L.worker.loading}</div></main>;
   }
 
   if (!worker) {
@@ -224,14 +227,15 @@ export default function WorkerPage() {
       <main className="worker-login-shell">
         <section className="worker-brand-panel">
           <div className="worker-brand-mark">KJ</div>
-          <p>Espace ouvrier</p>
-          <h1>Vos chantiers, vos tâches et votre planning.</h1>
+          <p>{L.worker.title}</p>
+          <h1>{L.worker.tagline}</h1>
         </section>
         <form className="worker-login-card" onSubmit={handleLogin}>
-          <span className="worker-kicker">Connexion Worker</span>
-          <h2>Accès ouvrier</h2>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}><LangSwitcher /></div>
+          <span className="worker-kicker">{L.worker.loginKicker}</span>
+          <h2>{L.worker.loginTitle}</h2>
           <label>
-            Identifiant OUV, e-mail ou téléphone
+            {L.worker.identifierLabel}
             <input
               value={login.identifier}
               onChange={(event) => setLogin({ ...login, identifier: event.target.value })}
@@ -240,18 +244,18 @@ export default function WorkerPage() {
             />
           </label>
           <label>
-            Mot de passe
+            {L.worker.passwordPh}
             <input
               type="password"
               value={login.password}
               onChange={(event) => setLogin({ ...login, password: event.target.value })}
-              placeholder="Mot de passe provisoire"
+              placeholder={L.worker.passwordPh}
               required
             />
           </label>
           {error ? <p className="worker-error">{error}</p> : null}
-          <button className="worker-primary" disabled={busy}>{busy ? "Connexion..." : "Connexion"}</button>
-          <small>Les identifiants sont envoyés par l'entreprise lors de l'ajout du profil ouvrier.</small>
+          <button className="worker-primary" disabled={busy}>{busy ? L.worker.loggingIn : L.worker.loginBtn}</button>
+          <small>{L.worker.loginHint}</small>
         </form>
       </main>
     );
@@ -266,12 +270,13 @@ export default function WorkerPage() {
           <p>{worker.profession || worker.role || "Ouvrier"} · {worker.loginId}</p>
         </div>
         <nav className="worker-nav" aria-label="Navigation worker">
-          <button className={view === "home" ? "active" : ""} onClick={() => { setView("home"); setSelectedProjectId(""); }}>Home</button>
-          <button className={view === "archives" ? "active" : ""} onClick={() => { setView("archives"); setSelectedProjectId(""); }}>Archives</button>
+          <button className={view === "home" ? "active" : ""} onClick={() => { setView("home"); setSelectedProjectId(""); }}>{L.worker.home}</button>
+          <button className={view === "archives" ? "active" : ""} onClick={() => { setView("archives"); setSelectedProjectId(""); }}>{L.worker.archives}</button>
           <button className={view === "notifications" ? "active" : ""} onClick={() => { setView("notifications"); setSelectedProjectId(""); }}>
-            Notifications {portal?.unreadCount ? <b>{portal.unreadCount}</b> : null}
+            {L.worker.notifications} {portal?.unreadCount ? <b>{portal.unreadCount}</b> : null}
           </button>
-          <button onClick={logout}>Déconnexion</button>
+          <LangSwitcher />
+          <button onClick={logout}>{L.worker.logout}</button>
         </nav>
       </header>
 
@@ -289,36 +294,36 @@ export default function WorkerPage() {
       <div className="worker-stack">
         <section className="worker-section">
           <div className="worker-section-head">
-            <h2>Mes chantiers en cours</h2>
-            <span>{portal?.activeProjects?.length || 0} actif(s)</span>
+            <h2>{L.worker.activeProjects}</h2>
+            <span>{portal?.activeProjects?.length || 0}</span>
           </div>
           <div className="worker-project-grid">
             {(portal?.activeProjects || []).map((project) => (
               <button className="worker-project-card" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
-                <span className="worker-status">{project.status || "En cours"}</span>
+                <span className="worker-status">{project.status || L.worker.inProgress}</span>
                 <h3>{project.name || "Chantier"}</h3>
-                <p>{project.address || "Adresse à compléter"}</p>
-                <small>{project.companyName || project.clientName || "Entreprise Kôji"}</small>
+                <p>{project.address || "—"}</p>
+                <small>{project.companyName || project.clientName || "Kôji"}</small>
                 <div className="worker-date-grid">
-                  <span>Début<br /><strong>{formatDate(project.startDate || project.plannedStartDate)}</strong></span>
-                  <span>Fin prévue<br /><strong>{formatDate(project.endDate || project.plannedEndDate)}</strong></span>
+                  <span>{L.worker.start2}<br /><strong>{formatDate(project.startDate || project.plannedStartDate, L.worker.toDefine)}</strong></span>
+                  <span>{L.worker.endPlanned}<br /><strong>{formatDate(project.endDate || project.plannedEndDate, L.worker.toDefine)}</strong></span>
                 </div>
                 <div className="worker-progress"><i style={{ width: `${project.progress || 0}%` }} /></div>
-                <em>{project.progress || 0}% d'avancement</em>
+                <em>{L.worker.progress(project.progress || 0)}</em>
               </button>
             ))}
-            {!portal?.activeProjects?.length ? <div className="worker-empty">Aucun chantier affecté pour le moment.</div> : null}
+            {!portal?.activeProjects?.length ? <div className="worker-empty">{L.worker.noProjects}</div> : null}
           </div>
         </section>
 
         <section className="worker-section">
           <div className="worker-section-head">
-            <h2>À faire maintenant</h2>
-            <span>{todayTasks.length} tâche(s)</span>
+            <h2>{L.worker.todoNow}</h2>
+            <span>{todayTasks.length}</span>
           </div>
           <div className="worker-task-list">
             {todayTasks.map((task) => renderTaskCard(task))}
-            {!todayTasks.length ? <div className="worker-empty">Aucune tâche prévue aujourd'hui.</div> : null}
+            {!todayTasks.length ? <div className="worker-empty">{L.worker.noTodayTasks}</div> : null}
           </div>
         </section>
       </div>
@@ -329,17 +334,17 @@ export default function WorkerPage() {
     const tasks = project.tasks || (portal?.tasks || []).filter((task) => task.projectId === project.id);
     return (
       <div className="worker-stack">
-        <button className="worker-back" onClick={() => setSelectedProjectId("")}>Retour</button>
+        <button className="worker-back" onClick={() => setSelectedProjectId("")}>{L.worker.back}</button>
         <section className="worker-section worker-project-detail">
-          <span className="worker-status">{project.status || "En cours"}</span>
+          <span className="worker-status">{project.status || L.worker.inProgress}</span>
           <h2>{project.name || "Chantier"}</h2>
-          <p>{project.address || "Adresse à compléter"}</p>
+          <p>{project.address || "—"}</p>
           <div className="worker-progress"><i style={{ width: `${project.progress || 0}%` }} /></div>
         </section>
         <section className="worker-section">
           <div className="worker-section-head">
-            <h2>Ouvrages affectés</h2>
-            <span>{tasks.length} élément(s)</span>
+            <h2>{L.worker.affectedWorks}</h2>
+            <span>{tasks.length}</span>
           </div>
           <div className="worker-task-list">{tasks.map((task) => renderTaskCard(task))}</div>
         </section>
@@ -359,14 +364,14 @@ export default function WorkerPage() {
         <div className="worker-task-main">
           <span>{task.piece || task.room || taskProjectName(task)}</span>
           <h3>{taskTitle(task)}</h3>
-          <p>{task.description || "Aucune description renseignée."}</p>
+          <p>{task.description || L.worker.noDesc}</p>
           <div className="worker-task-meta">
-            <small>Durée prévue: {minutesLabel(planned)}</small>
-            <small>Temps consommé: {minutesLabel(consumed)}</small>
-            <small>Statut: {taskStatus(task)}</small>
+            <small>{L.worker.plannedDur}: {minutesLabel(planned)}</small>
+            <small>{L.worker.consumed}: {minutesLabel(consumed)}</small>
+            <small>{L.worker.status}: {taskStatus(task)}</small>
           </div>
           <div className="worker-progress"><i style={{ width: `${progress}%` }} /></div>
-          {overrun ? <strong className="worker-alert">Le temps prévu est dépassé de {minutesLabel(consumed - planned)}.</strong> : null}
+          {overrun ? <strong className="worker-alert">{L.worker.timeOverrun(minutesLabel(consumed - planned))}</strong> : null}
         </div>
 
         {task.subWorks?.length ? (
@@ -382,45 +387,45 @@ export default function WorkerPage() {
         ) : null}
 
         <div className="worker-action-row">
-          <button onClick={() => runAction({ action: "start", taskId: task.id })} disabled={busy}>Démarrer</button>
-          <button onClick={() => runAction({ action: "pause", taskId: task.id })} disabled={busy}>Pause</button>
-          <button onClick={() => runAction({ action: "resume", taskId: task.id })} disabled={busy}>Reprendre</button>
-          <button onClick={() => runAction({ action: "finish", taskId: task.id })} disabled={busy}>Terminer</button>
+          <button onClick={() => runAction({ action: "start", taskId: task.id })} disabled={busy}>{L.worker.start}</button>
+          <button onClick={() => runAction({ action: "pause", taskId: task.id })} disabled={busy}>{L.worker.pause}</button>
+          <button onClick={() => runAction({ action: "resume", taskId: task.id })} disabled={busy}>{L.worker.resume}</button>
+          <button onClick={() => runAction({ action: "finish", taskId: task.id })} disabled={busy}>{L.worker.finish}</button>
         </div>
 
         <div className="worker-file-row">
-          <label>Ajouter photo<input type="file" accept="image/*" capture="environment" onChange={(event) => handleFile(task, "photo", event)} /></label>
-          <label>Ajouter document<input type="file" accept="application/pdf,image/*" onChange={(event) => handleFile(task, "document", event)} /></label>
+          <label>{L.worker.addPhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => handleFile(task, "photo", event)} /></label>
+          <label>{L.worker.addDocument}<input type="file" accept="application/pdf,image/*" onChange={(event) => handleFile(task, "document", event)} /></label>
         </div>
 
         <div className="worker-report-grid">
           <div>
-            <h4>Réclamation</h4>
+            <h4>{L.worker.claim}</h4>
             <select value={form.category || CLAIM_CATEGORIES[0]} onChange={(event) => updateTaskForm(task.id, { category: event.target.value })}>
               {CLAIM_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
             </select>
-            <textarea placeholder="Commentaire" value={form.claimMessage || ""} onChange={(event) => updateTaskForm(task.id, { claimMessage: event.target.value })} />
-            <button onClick={() => runAction({ action: "claim", taskId: task.id, category: form.category, message: form.claimMessage })}>Faire une réclamation</button>
+            <textarea placeholder={L.worker.comment} value={form.claimMessage || ""} onChange={(event) => updateTaskForm(task.id, { claimMessage: event.target.value })} />
+            <button onClick={() => runAction({ action: "claim", taskId: task.id, category: form.category, message: form.claimMessage })}>{L.worker.makeClaim}</button>
           </div>
           <div>
-            <h4>Retard</h4>
-            <input placeholder="Motif" value={form.delayReason || ""} onChange={(event) => updateTaskForm(task.id, { delayReason: event.target.value })} />
-            <input placeholder="Durée estimée" value={form.estimatedDelay || ""} onChange={(event) => updateTaskForm(task.id, { estimatedDelay: event.target.value })} />
-            <textarea placeholder="Commentaire" value={form.delayComment || ""} onChange={(event) => updateTaskForm(task.id, { delayComment: event.target.value })} />
-            <button onClick={() => runAction({ action: "delay", taskId: task.id, reason: form.delayReason, estimatedDelay: form.estimatedDelay, comment: form.delayComment })}>Signaler un retard</button>
+            <h4>{L.worker.delay}</h4>
+            <input placeholder={L.worker.reason} value={form.delayReason || ""} onChange={(event) => updateTaskForm(task.id, { delayReason: event.target.value })} />
+            <input placeholder={L.worker.estimatedDelay} value={form.estimatedDelay || ""} onChange={(event) => updateTaskForm(task.id, { estimatedDelay: event.target.value })} />
+            <textarea placeholder={L.worker.comment} value={form.delayComment || ""} onChange={(event) => updateTaskForm(task.id, { delayComment: event.target.value })} />
+            <button onClick={() => runAction({ action: "delay", taskId: task.id, reason: form.delayReason, estimatedDelay: form.estimatedDelay, comment: form.delayComment })}>{L.worker.reportDelay}</button>
           </div>
         </div>
 
         <div className="worker-urgence-block">
           {form.urgSent ? (
-            <div className="worker-urgence-sent">✅ Alerte urgente transmise à l'entreprise</div>
+            <div className="worker-urgence-sent">{L.worker.urgentSent}</div>
           ) : !form.showUrgence ? (
             <button className="worker-urgence-btn" onClick={() => updateTaskForm(task.id, { showUrgence: true })}>
-              🚨 Signaler une urgence
+              {L.worker.reportUrgent}
             </button>
           ) : (
             <div className="worker-urgence-form">
-              <strong>🚨 Alerte urgente — {taskTitle(task)}</strong>
+              <strong>{L.worker.urgentTitle(taskTitle(task))}</strong>
               <select value={form.urgType || "urgence"} onChange={(e) => updateTaskForm(task.id, { urgType: e.target.value })}>
                 <option value="urgence">⚡ Urgence générale</option>
                 <option value="degat">🧱 Dégât matériel</option>
@@ -434,13 +439,13 @@ export default function WorkerPage() {
                 onChange={(e) => updateTaskForm(task.id, { urgMsg: e.target.value })}
               />
               <div className="worker-urgence-actions">
-                <button onClick={() => updateTaskForm(task.id, { showUrgence: false })}>Annuler</button>
+                <button onClick={() => updateTaskForm(task.id, { showUrgence: false })}>{L.common.cancel}</button>
                 <button
                   className="worker-urgence-send"
                   disabled={!form.urgMsg?.trim() || form.urgSending}
                   onClick={() => sendUrgentAlert(task)}
                 >
-                  {form.urgSending ? "Envoi..." : "Envoyer l'alerte"}
+                  {form.urgSending ? "..." : L.worker.sendAlert}
                 </button>
               </div>
             </div>
@@ -454,28 +459,28 @@ export default function WorkerPage() {
     return (
       <div className="worker-stack">
         <section className="worker-section">
-          <div className="worker-section-head"><h2>Chantiers terminés</h2><span>{portal?.archivedProjects?.length || 0}</span></div>
+          <div className="worker-section-head"><h2>{L.worker.doneProjects}</h2><span>{portal?.archivedProjects?.length || 0}</span></div>
           <div className="worker-project-grid">
             {(portal?.archivedProjects || []).map((project) => (
               <button className="worker-project-card" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
-                <span className="worker-status">Terminé</span>
+                <span className="worker-status">{L.worker.finished}</span>
                 <h3>{project.name || "Chantier"}</h3>
-                <p>{project.address || "Adresse à compléter"}</p>
-                <small>{project.companyName || "Entreprise Kôji"}</small>
+                <p>{project.address || "—"}</p>
+                <small>{project.companyName || "Kôji"}</small>
                 <div className="worker-date-grid">
-                  <span>Début<br /><strong>{formatDate(project.startDate)}</strong></span>
-                  <span>Fin<br /><strong>{formatDate(project.endDate || project.updatedAt)}</strong></span>
+                  <span>{L.worker.start2}<br /><strong>{formatDate(project.startDate, L.worker.toDefine)}</strong></span>
+                  <span>{L.worker.end}<br /><strong>{formatDate(project.endDate || project.updatedAt, L.worker.toDefine)}</strong></span>
                 </div>
               </button>
             ))}
-            {!portal?.archivedProjects?.length ? <div className="worker-empty">Aucun chantier terminé.</div> : null}
+            {!portal?.archivedProjects?.length ? <div className="worker-empty">{L.worker.noArchived}</div> : null}
           </div>
         </section>
         <section className="worker-section">
-          <div className="worker-section-head"><h2>Historique complet</h2><span>{portal?.history?.length || 0}</span></div>
+          <div className="worker-section-head"><h2>{L.worker.fullHistory}</h2><span>{portal?.history?.length || 0}</span></div>
           <div className="worker-history-list">
             {(portal?.history || []).map((item) => <p key={item.id || `${item.type}-${item.createdAt}`}><strong>{item.label || item.type}</strong><span>{formatDateTime(item.createdAt)}</span></p>)}
-            {!portal?.history?.length ? <div className="worker-empty">Aucun historique pour le moment.</div> : null}
+            {!portal?.history?.length ? <div className="worker-empty">{L.worker.noHistory}</div> : null}
           </div>
         </section>
       </div>
@@ -486,19 +491,19 @@ export default function WorkerPage() {
     return (
       <section className="worker-section">
         <div className="worker-section-head">
-          <h2>Centre de notifications</h2>
-          <button onClick={() => runAction({ action: "bulk-read-notifications" })}>Tout marquer comme lu</button>
+          <h2>{L.worker.notifCenter}</h2>
+          <button onClick={() => runAction({ action: "bulk-read-notifications" })}>{L.worker.markAllRead}</button>
         </div>
         <div className="worker-notification-list">
           {(portal?.notifications || []).map((notification) => (
             <article className={notification.read ? "is-read" : ""} key={notification.id}>
-              <span>{notification.title || "Notification"}</span>
+              <span>{notification.title || L.worker.notifications}</span>
               <p>{notification.message}</p>
               <small>{formatDateTime(notification.createdAt)}</small>
-              {!notification.read ? <button onClick={() => runAction({ action: "read-notification", notificationId: notification.id })}>Lu</button> : null}
+              {!notification.read ? <button onClick={() => runAction({ action: "read-notification", notificationId: notification.id })}>{L.worker.markRead}</button> : null}
             </article>
           ))}
-          {!portal?.notifications?.length ? <div className="worker-empty">Aucune notification.</div> : null}
+          {!portal?.notifications?.length ? <div className="worker-empty">{L.worker.noNotifications}</div> : null}
         </div>
       </section>
     );
