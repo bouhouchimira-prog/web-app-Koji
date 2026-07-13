@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 
 function readLocalUser() {
   if (typeof window === "undefined") return null;
@@ -15,6 +16,7 @@ function readLocalUser() {
 }
 
 export default function ComptePage() {
+  const { L } = useLocale();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -34,29 +36,29 @@ export default function ComptePage() {
     <Shell>
       <header className="page-header">
         <div>
-          <p className="eyebrow">COMPTE</p>
-          <h1>Mon compte</h1>
-          <p className="muted">Profil, type de compte et informations de connexion.</p>
+          <p className="eyebrow">{L.nav.parametres}</p>
+          <h1>{L.auth.myAccount}</h1>
+          <p className="muted">{L.auth.accountSub}</p>
         </div>
       </header>
 
       {!user ? (
         <section className="panel">
-          <div className="empty-state">Aucun utilisateur connecte.</div>
+          <div className="empty-state">{L.auth.noUser}</div>
         </section>
       ) : (
         <section className="grid cols-2">
           <article className="panel">
-            <h2>Informations</h2>
-            <p className="muted">Nom: {user.name || "Non renseigne"}</p>
-            <p className="muted">E-mail: {user.email || "Non renseigne"}</p>
-            <p className="muted">Type: {user.accountType === "particulier" ? "Profil particulier" : "Profil entreprise"}</p>
+            <h2>{L.auth.info}</h2>
+            <p className="muted">{L.auth.fullName}: {user.name || "—"}</p>
+            <p className="muted">{L.auth.email}: {user.email || "—"}</p>
+            <p className="muted">{L.devis.propertyType}: {user.accountType === "particulier" ? L.auth.profilePersonal : L.auth.profileCompany}</p>
           </article>
           <article className="panel">
-            <h2>Etat</h2>
-            <p className="muted">Compte active: {user.isActive ? "Oui" : "Non"}</p>
-            <p className="muted">Profil metier complete: {user.profileComplete ? "Oui" : "Non"}</p>
-            <p className="muted">Infos entreprise completees: {user.businessInfoComplete ? "Oui" : "Non"}</p>
+            <h2>{L.auth.stateTitle}</h2>
+            <p className="muted">{L.auth.accountActive}: {user.isActive ? L.common.yes : L.common.no}</p>
+            <p className="muted">{L.auth.tradeComplete}: {user.profileComplete ? L.common.yes : L.common.no}</p>
+            <p className="muted">{L.auth.businessComplete}: {user.businessInfoComplete ? L.common.yes : L.common.no}</p>
           </article>
         </section>
       )}

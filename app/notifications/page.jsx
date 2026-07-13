@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 
 function formatDate(value) {
@@ -86,18 +87,20 @@ function IconDot({ read }) {
   );
 }
 
-const TABS = [
-  { key: "all",      label: "Toutes" },
-  { key: "unread",   label: "Non lues" },
-  { key: "archived", label: "Archivées" },
-];
 
 export default function NotificationsPage() {
+  const { L, lang } = useLocale();
   const router = useRouter();
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
   const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const TABS = [
+    { key: "all",      label: L.notifications.filterAll },
+    { key: "unread",   label: L.notifications.filterUnread },
+    { key: "archived", label: L.common.archive },
+  ];
 
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
 
@@ -158,11 +161,11 @@ export default function NotificationsPage() {
       <header className="page-header compact-page-header">
         <div>
           <p className="eyebrow">CENTRE DE NOTIFICATIONS</p>
-          <h1>Notifications</h1>
+          <h1>{L.notifications.title}</h1>
         </div>
         {unreadCount > 0 && (
           <button type="button" className="notif-mark-all-btn" onClick={markAllRead}>
-            Tout marquer comme lu
+            {L.notifications.markAllRead}
           </button>
         )}
       </header>
@@ -173,7 +176,7 @@ export default function NotificationsPage() {
         <input
           className="notif-search-input"
           type="text"
-          placeholder="Rechercher dans les notifications…"
+          placeholder={L.notifications.search}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -203,7 +206,7 @@ export default function NotificationsPage() {
       <section className="notif-list-card">
         {filtered.length === 0 ? (
           <div className="empty-state" style={{ minHeight: 140 }}>
-            {search ? `Aucun résultat pour "${search}".` : tab === "unread" ? "Aucune notification non lue." : tab === "archived" ? "Aucune notification archivée." : "Aucune notification."}
+            {search ? `${L.notifications.noResults} "${search}"` : L.notifications.noResults}
           </div>
         ) : (
           <div className="notif-list">
@@ -259,17 +262,17 @@ export default function NotificationsPage() {
                     <button
                       type="button"
                       className="notif-btn notif-btn-read"
-                      title="Marquer comme lu"
+                      title={L.notifications.markRead}
                       onClick={() => markRead(notif)}
                     >
-                      Lu
+                      {L.notifications.markRead}
                     </button>
                   )}
                   {!notif.archived ? (
                     <button
                       type="button"
                       className="notif-btn notif-btn-archive"
-                      title="Archiver"
+                      title={L.notifications.archive}
                       onClick={() => archiveNotif(notif)}
                     >
                       <IconArchive />
@@ -278,7 +281,7 @@ export default function NotificationsPage() {
                     <button
                       type="button"
                       className="notif-btn notif-btn-unarchive"
-                      title="Désarchiver"
+                      title={L.common.back}
                       onClick={() => unarchiveNotif(notif)}
                     >
                       ↩
@@ -286,14 +289,14 @@ export default function NotificationsPage() {
                   )}
                   {confirmDelete === notif.id ? (
                     <span className="notif-confirm-delete">
-                      <button className="notif-btn notif-btn-danger" onClick={() => deleteNotif(notif.id)}>Suppr.</button>
-                      <button className="notif-btn" onClick={() => setConfirmDelete(null)}>Non</button>
+                      <button className="notif-btn notif-btn-danger" onClick={() => deleteNotif(notif.id)}>{L.common.delete}</button>
+                      <button className="notif-btn" onClick={() => setConfirmDelete(null)}>{L.common.no}</button>
                     </span>
                   ) : (
                     <button
                       type="button"
                       className="notif-btn notif-btn-trash"
-                      title="Supprimer"
+                      title={L.notifications.delete}
                       onClick={() => setConfirmDelete(notif.id)}
                     >
                       <IconTrash />

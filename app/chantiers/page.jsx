@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
 
 function TaskMessageThread({ task, projectDocuments }) {
+  const { L } = useLocale();
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [replyFile, setReplyFile] = useState(null);
@@ -61,7 +63,7 @@ function TaskMessageThread({ task, projectDocuments }) {
 
   return (
     <div className="follow-client-notes">
-      <span className="follow-client-notes-label">💬 Messages du client</span>
+      <span className="follow-client-notes-label">💬 {L.chantiers.clientMessages}</span>
       {clientNotes.map((note) => {
         const replies = allDocs.filter((d) => d.source === "company" && d.replyToId === note.id);
         const isReplying = replyingTo === note.id;
@@ -74,21 +76,21 @@ function TaskMessageThread({ task, projectDocuments }) {
                 <small>{note.createdAt ? shortDate(note.createdAt) : ""}</small>
               </div>
               {note.notes ? <p>{note.notes}</p> : null}
-              {note.url ? <a href={note.url} download={note.fileName || note.title} target="_blank" rel="noreferrer">Télécharger le fichier</a> : null}
+              {note.url ? <a href={note.url} download={note.fileName || note.title} target="_blank" rel="noreferrer">{L.chantiers.downloadFile}</a> : null}
               <button type="button" className="reply-trigger-btn" onClick={() => { setReplyingTo(isReplying ? null : note.id); setReplyText(""); }}>
-                {isReplying ? "Annuler" : "↩ Répondre"}
+                {isReplying ? L.common.cancel : `↩ ${L.chantiers.reply}`}
               </button>
             </div>
 
             {replies.map((rep) => (
               <div key={rep.id} className="follow-company-reply">
                 <div className="follow-client-note-head">
-                  <span className="archive-document-type reply-badge">Réponse</span>
+                  <span className="archive-document-type reply-badge">{L.chantiers.replyLabel}</span>
                   <strong>{rep.senderName || "Entreprise"}</strong>
                   <small>{rep.createdAt ? shortDate(rep.createdAt) : ""}</small>
                 </div>
                 {rep.notes ? <p>{rep.notes}</p> : null}
-                {rep.url ? <a href={rep.url} download={rep.fileName || rep.title} target="_blank" rel="noreferrer">Télécharger</a> : null}
+                {rep.url ? <a href={rep.url} download={rep.fileName || rep.title} target="_blank" rel="noreferrer">{L.common.download}</a> : null}
               </div>
             ))}
 
@@ -97,13 +99,13 @@ function TaskMessageThread({ task, projectDocuments }) {
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Votre réponse au client..."
+                  placeholder={L.chantiers.replyPlaceholder}
                   rows={2}
                 />
                 <div className="follow-reply-actions">
                   <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={onFileChange} />
                   <button type="button" className="mini-button" onClick={() => fileRef.current?.click()}>
-                    {replyFile ? `📎 ${replyFile}` : "Joindre"}
+                    {replyFile ? `📎 ${replyFile}` : L.chantiers.attach}
                   </button>
                   <button
                     type="button"
@@ -111,7 +113,7 @@ function TaskMessageThread({ task, projectDocuments }) {
                     disabled={sending || (!replyText.trim() && !replyUrl)}
                     onClick={() => sendReply(note.id)}
                   >
-                    {sending ? "Envoi..." : "Envoyer"}
+                    {sending ? L.chantiers.sending : L.common.send}
                   </button>
                 </div>
               </div>
@@ -182,6 +184,7 @@ function dateTimeFromEvent(event) {
 }
 
 export default function ProjectsTrackingPage() {
+  const { L } = useLocale();
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
@@ -588,44 +591,44 @@ export default function ProjectsTrackingPage() {
             <button type="button" className="plain-back" onClick={() => setSelectedProjectId("")}>{"<"}</button>
             <div className="follow-title">
               <h1>{selectedProject.title}</h1>
-              <p>{selectedProject.client || "Client"} - {selectedProject.status}</p>
+              <p>{selectedProject.client || L.chantiers.contact} - {selectedProject.status}</p>
             </div>
             <Link className="round-pill" href="/planning">Planning</Link>
           </header>
 
           {!projectReady ? (
-            <div className="tool-message">Le suivi complet s'active apres acceptation du devis par le client.</div>
+            <div className="tool-message">{L.chantiers.trackingActive}</div>
           ) : null}
           {message ? <div className="tool-message">{message}</div> : null}
 
           <section className="follow-summary">
             <div>
-              <span>Progression</span>
+              <span>{L.chantiers.progress}</span>
               <strong>{progress}%</strong>
               <i><b style={{ width: `${progress}%` }} /></i>
             </div>
-            <div><span>Budget devis</span><strong>{euro(selectedQuote?.totalTtc || selectedProject.budgetHt || 0)}</strong></div>
-            <div><span>Debut</span><strong>{formatDate(selectedProject.startDate)}</strong></div>
-            <div><span>Fin</span><strong>{formatDate(selectedProject.endDate || selectedProject.dueDate)}</strong></div>
+            <div><span>{L.chantiers.budgetDevis}</span><strong>{euro(selectedQuote?.totalTtc || selectedProject.budgetHt || 0)}</strong></div>
+            <div><span>{L.chantiers.start}</span><strong>{formatDate(selectedProject.startDate)}</strong></div>
+            <div><span>{L.chantiers.end}</span><strong>{formatDate(selectedProject.endDate || selectedProject.dueDate)}</strong></div>
           </section>
 
           <section className="project-overview-grid">
             <article className="project-overview-card">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("agenda")}>
-                <h2>Agenda / À faire</h2>
-                <span>{upcomingTasks.length} a venir</span>
+                <h2>{L.chantiers.agenda}</h2>
+                <span>{L.chantiers.upcoming(upcomingTasks.length)}</span>
                 <CardChevron collapsed={collapsedCards.has("agenda")} />
               </button>
               {!collapsedCards.has("agenda") ? (
                 <>
                   <form className="project-mini-form" onSubmit={addProjectTask}>
-                    <input value={taskForm.label} onChange={(event) => setTaskForm((current) => ({ ...current, label: event.target.value }))} placeholder="Nouvelle tache" />
+                    <input value={taskForm.label} onChange={(event) => setTaskForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.newTask} />
                     <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((current) => ({ ...current, dueDate: event.target.value }))} />
-                    <input value={taskForm.location} onChange={(event) => setTaskForm((current) => ({ ...current, location: event.target.value }))} placeholder="Lieu (optionnel)" />
-                    <button type="submit">Ajouter</button>
+                    <input value={taskForm.location} onChange={(event) => setTaskForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
+                    <button type="submit">{L.chantiers.add}</button>
                   </form>
                   <div className="project-mini-list">
-                    {upcomingTasks.length === 0 ? <p>Aucune tache a venir.</p> : upcomingTasks.slice(0, 4).map((task) => (
+                    {upcomingTasks.length === 0 ? <p>{L.chantiers.noTasks}</p> : upcomingTasks.slice(0, 4).map((task) => (
                       <button type="button" key={task.id} onClick={() => toggleDone(task)}>
                         <strong>{task.label}</strong>
                         <span>{formatDate(task.dueDate || task.startDate)} - {task.assignedTo || "Equipe"}</span>
@@ -634,7 +637,7 @@ export default function ProjectsTrackingPage() {
                   </div>
                   {completedTasks.length > 0 ? (
                     <details className="project-history-details">
-                      <summary>Historique des taches realisees</summary>
+                      <summary>{L.chantiers.taskHistory}</summary>
                       {completedTasks.slice(0, 6).map((task) => <p key={task.id}>{task.label} - {formatDate(task.updatedAt || task.createdAt)}</p>)}
                     </details>
                   ) : null}
@@ -644,8 +647,8 @@ export default function ProjectsTrackingPage() {
 
             <article className="project-overview-card">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("budget")}>
-                <h2>Budget</h2>
-                <span>Total: {euro(budgetTotal.real)} / {euro(budgetTotal.estimated)}</span>
+                <h2>{L.chantiers.budget}</h2>
+                <span>{L.chantiers.total}: {euro(budgetTotal.real)} / {euro(budgetTotal.estimated)}</span>
                 <CardChevron collapsed={collapsedCards.has("budget")} />
               </button>
               {!collapsedCards.has("budget") ? (
@@ -656,23 +659,23 @@ export default function ProjectsTrackingPage() {
                       return (
                         <div className={`budget-follow-row ${overBudget ? "over-budget" : ""}`} key={row.id}>
                           <strong>{row.label}</strong>
-                          <label>Estime<input type="number" value={row.estimated} onChange={(event) => setBudgetValue(row.id, "estimated", event.target.value)} /></label>
-                          <label>Reel<input type="number" value={row.real} onChange={(event) => setBudgetValue(row.id, "real", event.target.value)} /></label>
-                          <span>{overBudget ? "Depassement" : "OK"}</span>
+                          <label>{L.chantiers.estimated}<input type="number" value={row.estimated} onChange={(event) => setBudgetValue(row.id, "estimated", event.target.value)} /></label>
+                          <label>{L.chantiers.real}<input type="number" value={row.real} onChange={(event) => setBudgetValue(row.id, "real", event.target.value)} /></label>
+                          <span>{overBudget ? L.chantiers.overBudget : L.chantiers.ok}</span>
                         </div>
                       );
                     })}
                   </div>
-                  <button type="button" className="mini-outline" onClick={saveBudgetRows}>Enregistrer le budget</button>
+                  <button type="button" className="mini-outline" onClick={saveBudgetRows}>{L.chantiers.saveBudget}</button>
                   <form className="project-mini-form expense-mini-form" onSubmit={addExpense}>
-                    <input value={expenseForm.label} onChange={(event) => setExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder="Depense reelle" />
+                    <input value={expenseForm.label} onChange={(event) => setExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.realExpense} />
                     <select value={expenseForm.category} onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))}>
                       {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
                     </select>
-                    <input type="number" value={expenseForm.amount} onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Montant" />
-                    <input value={expenseForm.location} onChange={(event) => setExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder="Lieu (optionnel)" />
-                    <input value={expenseForm.notes} onChange={(event) => setExpenseForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Note" />
-                    <button type="submit">Ajouter depense</button>
+                    <input type="number" value={expenseForm.amount} onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.chantiers.amount} />
+                    <input value={expenseForm.location} onChange={(event) => setExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
+                    <input value={expenseForm.notes} onChange={(event) => setExpenseForm((current) => ({ ...current, notes: event.target.value }))} placeholder={L.facturation.note} />
+                    <button type="submit">{L.chantiers.addExpense}</button>
                   </form>
                   {linkedExpenses.length > 0 ? (
                     <div className="project-mini-list">
@@ -687,24 +690,24 @@ export default function ProjectsTrackingPage() {
 
             <article className="project-overview-card">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("rdv")}>
-                <h2>Rendez-vous</h2>
+                <h2>{L.chantiers.rdv}</h2>
                 <span>{projectEvents.length} RDV</span>
                 <CardChevron collapsed={collapsedCards.has("rdv")} />
               </button>
               {!collapsedCards.has("rdv") ? (
                 <>
                   <div className="next-rdv-card">
-                    <strong>{nextRdv ? nextRdv.title : "Aucun RDV"}</strong>
-                    <span>{nextRdv ? dateTimeFromEvent(nextRdv) : "Pas de rendez-vous prevu"}</span>
+                    <strong>{nextRdv ? nextRdv.title : L.chantiers.noRdv}</strong>
+                    <span>{nextRdv ? dateTimeFromEvent(nextRdv) : L.chantiers.noRdvPlanned}</span>
                     <small>{nextRdv?.clientName || ""} {nextRdv?.address ? `- ${nextRdv.address}` : ""}</small>
                   </div>
                   <form className="project-mini-form" onSubmit={addRdv}>
-                    <input value={rdvForm.title} onChange={(event) => setRdvForm((current) => ({ ...current, title: event.target.value }))} placeholder="Objet du RDV" />
+                    <input value={rdvForm.title} onChange={(event) => setRdvForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.rdvObject} />
                     <input type="date" value={rdvForm.date} onChange={(event) => setRdvForm((current) => ({ ...current, date: event.target.value }))} />
                     <input type="time" value={rdvForm.time} onChange={(event) => setRdvForm((current) => ({ ...current, time: event.target.value }))} />
-                    <input value={rdvForm.contact} onChange={(event) => setRdvForm((current) => ({ ...current, contact: event.target.value }))} placeholder="Contact" />
-                    <input value={rdvForm.address} onChange={(event) => setRdvForm((current) => ({ ...current, address: event.target.value }))} placeholder="Adresse" />
-                    <button type="submit">Ajouter</button>
+                    <input value={rdvForm.contact} onChange={(event) => setRdvForm((current) => ({ ...current, contact: event.target.value }))} placeholder={L.chantiers.contact} />
+                    <input value={rdvForm.address} onChange={(event) => setRdvForm((current) => ({ ...current, address: event.target.value }))} placeholder={L.chantiers.address} />
+                    <button type="submit">{L.chantiers.add}</button>
                   </form>
                 </>
               ) : null}
@@ -712,7 +715,7 @@ export default function ProjectsTrackingPage() {
 
             <article className="project-overview-card">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("documents")}>
-                <h2>Documents</h2>
+                <h2>{L.chantiers.documents}</h2>
                 <span>{linkedDocuments.length + linkedInvoices.length + linkedExpenses.length + (selectedQuote ? 1 : 0)} total</span>
                 <CardChevron collapsed={collapsedCards.has("documents")} />
               </button>
@@ -724,15 +727,15 @@ export default function ProjectsTrackingPage() {
                     {linkedDocuments.map((document) => <span key={document.id}>{document.type}: {document.title}</span>)}
                   </div>
                   <form className="project-mini-form" onSubmit={addDocument}>
-                    <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder="Nom du document ou photo" />
+                    <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.docNameOrPhoto} />
                     <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))}>
                       {["Document", "Photo", "Facture", "Ticket", "Bon de commande", "Justificatif"].map((type) => <option key={type}>{type}</option>)}
                     </select>
-                    <input value={documentForm.category} onChange={(event) => setDocumentForm((current) => ({ ...current, category: event.target.value }))} placeholder="Categorie" />
-                    <input type="number" value={documentForm.amount} onChange={(event) => setDocumentForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Montant" />
-                    <input value={documentForm.location} onChange={(event) => setDocumentForm((current) => ({ ...current, location: event.target.value }))} placeholder="Localisation (optionnel)" />
-                    <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder="Lien fichier ou photo" />
-                    <button type="submit">Lier au chantier</button>
+                    <input value={documentForm.category} onChange={(event) => setDocumentForm((current) => ({ ...current, category: event.target.value }))} placeholder={L.chantiers.category} />
+                    <input type="number" value={documentForm.amount} onChange={(event) => setDocumentForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.chantiers.amount} />
+                    <input value={documentForm.location} onChange={(event) => setDocumentForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
+                    <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder={L.chantiers.fileLink} />
+                    <button type="submit">{L.chantiers.linkToProject}</button>
                   </form>
                 </>
               ) : null}
@@ -740,18 +743,18 @@ export default function ProjectsTrackingPage() {
 
             <article className="project-overview-card project-archive-card">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("archive")}>
-                <h2>Archive</h2>
-                <span>{selectedProject.archiveId || linkedArchive ? "Creee" : "En attente"}</span>
+                <h2>{L.chantiers.archive}</h2>
+                <span>{selectedProject.archiveId || linkedArchive ? L.chantiers.archiveCreated : L.chantiers.archivePending}</span>
                 <CardChevron collapsed={collapsedCards.has("archive")} />
               </button>
               {!collapsedCards.has("archive") ? (
                 <>
-                  <p>La cloture regroupe taches, RDV, devis, factures, tickets, photos, documents, depenses et historique.</p>
+                  <p>{L.chantiers.archiveDesc}</p>
                   <div className="archive-action-row">
                     {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
-                      <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>Archiver le chantier</button>
+                      <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>{L.chantiers.archiveProject}</button>
                     ) : (
-                      <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>Marquer comme terminé</button>
+                      <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>{L.chantiers.markFinished}</button>
                     )}
                   </div>
                   {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
@@ -763,7 +766,7 @@ export default function ProjectsTrackingPage() {
                   ) : null}
                   {linkedHistory.length > 0 ? (
                     <details className="project-history-details">
-                      <summary>Historique du chantier</summary>
+                      <summary>{L.chantiers.projectHistory}</summary>
                       {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
                     </details>
                   ) : null}
@@ -773,27 +776,27 @@ export default function ProjectsTrackingPage() {
 
             <article className="project-overview-card">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("marketplace")}>
-                <h2>Marketplace</h2>
-                <span>{selectedProject.marketplace?.published ? "Publié" : "Non publié"}</span>
+                <h2>{L.chantiers.marketplace}</h2>
+                <span>{selectedProject.marketplace?.published ? L.chantiers.published : L.chantiers.unpublished}</span>
                 <CardChevron collapsed={collapsedCards.has("marketplace")} />
               </button>
               {!collapsedCards.has("marketplace") ? (
                 selectedProject.marketplace?.published ? (
                   <>
-                    <p className="marketplace-own-status">Ce chantier est visible sur la marketplace Koji.</p>
-                    <button type="button" className="mini-outline" onClick={() => publishMarketplace("unpublish")}>Retirer de la marketplace</button>
+                    <p className="marketplace-own-status">{L.chantiers.marketplacePublic}</p>
+                    <button type="button" className="mini-outline" onClick={() => publishMarketplace("unpublish")}>{L.chantiers.unpublishBtn}</button>
                   </>
                 ) : (
                   <>
-                    <p>Publiez ce chantier pour permettre à d'autres artisans Koji de vous contacter.</p>
+                    <p>{L.chantiers.marketplaceDesc}</p>
                     <textarea
                       className="project-mini-textarea"
-                      placeholder="Description du chantier (travaux, surface, type...)"
+                      placeholder={L.chantiers.marketplacePlaceholder}
                       value={marketplaceDesc}
                       onChange={(e) => setMarketplaceDesc(e.target.value)}
                       rows={3}
                     />
-                    <button type="button" className="button blue" style={{ marginTop: 8 }} onClick={() => publishMarketplace("publish")}>Publier sur la marketplace</button>
+                    <button type="button" className="button blue" style={{ marginTop: 8 }} onClick={() => publishMarketplace("publish")}>{L.chantiers.publishBtn}</button>
                   </>
                 )
               ) : null}
@@ -802,8 +805,8 @@ export default function ProjectsTrackingPage() {
 
           <section className="follow-section">
             <div className="follow-section-head">
-              <h2>Ouvrages du devis</h2>
-              <span>{trackingLines.length} ligne(s)</span>
+              <h2>{L.chantiers.quoteLines}</h2>
+              <span>{L.chantiers.lines(trackingLines.length)}</span>
             </div>
 
             {selectedQuote ? (
@@ -812,14 +815,14 @@ export default function ProjectsTrackingPage() {
                   Devis {selectedQuote.quoteNumber} - PDF
                 </a>
                 <div className="quote-tracking-dates">
-                  <span><small>Date de creation</small><strong>{formatDate(selectedQuote.quoteDate || selectedQuote.createdAt)}</strong></span>
-                  <span><small>Date d'envoi</small><strong>{formatDate(selectedQuote.sentAt) || "-"}</strong></span>
-                  <span><small>Date de signature</small><strong>{formatDate(selectedQuote.signedAt) || "-"}</strong></span>
-                  <span><small>Lieu de signature</small><strong>{selectedQuote.signaturePlace || "-"}</strong></span>
+                  <span><small>{L.chantiers.quoteCreated}</small><strong>{formatDate(selectedQuote.quoteDate || selectedQuote.createdAt)}</strong></span>
+                  <span><small>{L.chantiers.quoteSent}</small><strong>{formatDate(selectedQuote.sentAt) || "-"}</strong></span>
+                  <span><small>{L.chantiers.quoteSigned}</small><strong>{formatDate(selectedQuote.signedAt) || "-"}</strong></span>
+                  <span><small>{L.chantiers.quoteSignPlace}</small><strong>{selectedQuote.signaturePlace || "-"}</strong></span>
                 </div>
                 {selectedQuote.signerMessage ? (
                   <div className="quote-tracking-message">
-                    <small>Message du client</small>
+                    <small>{L.chantiers.clientMessage}</small>
                     <p>{selectedQuote.signerMessage}</p>
                   </div>
                 ) : null}
@@ -827,7 +830,7 @@ export default function ProjectsTrackingPage() {
             ) : null}
 
             {trackingLines.length === 0 ? (
-              <div className="tool-empty">Aucun ouvrage lie au devis pour le moment.</div>
+              <div className="tool-empty">{L.chantiers.noQuoteLines}</div>
             ) : (
               <div className="follow-line-list">
                 {trackingLines.map((line) => {
@@ -865,12 +868,12 @@ export default function ProjectsTrackingPage() {
                           {task ? <TaskMessageThread task={task} projectDocuments={projectDocuments} projects={projects} /> : null}
                           <div className="follow-line-actions">
                             <button type="button" className="mini-outline" onClick={() => openPlanner(line)}>
-                              {task ? "Modifier" : "Planifier"}
+                              {task ? L.chantiers.modify : L.chantiers.plan}
                             </button>
                             {task?.pendingValidation ? (
-                              <button type="button" className="mobile-primary" onClick={() => validateTask(task)}>Valider l'ouvrage</button>
+                              <button type="button" className="mobile-primary" onClick={() => validateTask(task)}>{L.chantiers.validate}</button>
                             ) : task ? (
-                              <button type="button" className="mini-outline" onClick={() => toggleDone(task)}>{task.done ? "Marquer non termine" : "Marquer termine"}</button>
+                              <button type="button" className="mini-outline" onClick={() => toggleDone(task)}>{task.done ? L.chantiers.markNotDone : L.chantiers.markDone}</button>
                             ) : null}
                           </div>
                         </div>
@@ -884,11 +887,11 @@ export default function ProjectsTrackingPage() {
 
           <section className="follow-section">
             <div className="follow-section-head">
-              <h2>Fournitures chantier</h2>
-              <Link href="/fournitures">Gerer</Link>
+              <h2>{L.chantiers.supplies}</h2>
+              <Link href="/fournitures">{L.chantiers.manageSupplies}</Link>
             </div>
             {supplyNeeds.length === 0 ? (
-              <div className="tool-empty">Aucun manque de fourniture signale.</div>
+              <div className="tool-empty">{L.chantiers.noSupplies}</div>
             ) : (
               <div className="follow-supply-list">
                 {supplyNeeds.map((need, index) => (
@@ -906,16 +909,16 @@ export default function ProjectsTrackingPage() {
             <div className="modal-overlay open">
               <div className="tracking-modal">
                 <div className="follow-section-head">
-                  <h2>Planifier l'ouvrage</h2>
-                  <button type="button" className="mini-danger" onClick={() => setTrackingTarget(null)}>Fermer</button>
+                  <h2>{L.chantiers.planModal}</h2>
+                  <button type="button" className="mini-danger" onClick={() => setTrackingTarget(null)}>{L.chantiers.close}</button>
                 </div>
                 <div className="mobile-form-grid">
-                  <label>Date de debut<input type="date" value={planForm.startDate} onChange={(event) => setPlanForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
-                  <label>Date de fin<input type="date" value={planForm.endDate} onChange={(event) => setPlanForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
+                  <label>{L.chantiers.startDate}<input type="date" value={planForm.startDate} onChange={(event) => setPlanForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
+                  <label>{L.chantiers.endDate}<input type="date" value={planForm.endDate} onChange={(event) => setPlanForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
                 </div>
-                <h3>Equipe</h3>
+                <h3>{L.chantiers.team}</h3>
                 <div className="worker-chip-grid">
-                  {workers.length === 0 ? <p className="tool-muted">Ajoutez d'abord des ouvriers ou sous-traitants dans Equipe.</p> : null}
+                  {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
                   {workers.map((worker) => (
                     <button type="button" className={planForm.workerIds.includes(worker.id) ? "active" : ""} key={worker.id} onClick={() => toggleWorker(worker.id)}>
                       <span>{worker.name}</span>
@@ -923,16 +926,16 @@ export default function ProjectsTrackingPage() {
                     </button>
                   ))}
                 </div>
-                <h3>Fourniture manquante</h3>
+                <h3>{L.chantiers.missingSupply}</h3>
                 <div className="mobile-form-grid">
-                  <label>Fourniture<select value={planForm.supplyId} onChange={(event) => setPlanForm((current) => ({ ...current, supplyId: event.target.value }))}>
-                    <option value="">Aucun manque</option>
+                  <label>{L.chantiers.supply}<select value={planForm.supplyId} onChange={(event) => setPlanForm((current) => ({ ...current, supplyId: event.target.value }))}>
+                    <option value="">{L.chantiers.noShortage}</option>
                     {supplies.map((supply) => <option value={supply.id} key={supply.id}>{supply.name}</option>)}
                   </select></label>
-                  <label>Quantite<input value={planForm.supplyQuantity} onChange={(event) => setPlanForm((current) => ({ ...current, supplyQuantity: event.target.value }))} placeholder="Ex: 2" /></label>
-                  <label className="full">Note<input value={planForm.supplyNote} onChange={(event) => setPlanForm((current) => ({ ...current, supplyNote: event.target.value }))} placeholder="Ex: a commander pendant le chantier" /></label>
+                  <label>{L.chantiers.quantity}<input value={planForm.supplyQuantity} onChange={(event) => setPlanForm((current) => ({ ...current, supplyQuantity: event.target.value }))} placeholder="Ex: 2" /></label>
+                  <label className="full">{L.chantiers.note}<input value={planForm.supplyNote} onChange={(event) => setPlanForm((current) => ({ ...current, supplyNote: event.target.value }))} placeholder="Ex: a commander" /></label>
                 </div>
-                <button type="button" className="mobile-primary" onClick={savePlanning}>Enregistrer le suivi</button>
+                <button type="button" className="mobile-primary" onClick={savePlanning}>{L.chantiers.savePlanning}</button>
               </div>
             </div>
           ) : null}
@@ -946,22 +949,22 @@ export default function ProjectsTrackingPage() {
       <div className="mobile-tool chantier-follow">
         <header className="tool-topline compact">
           <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>Chantiers</h1>
+          <h1>{L.chantiers.title}</h1>
           <span />
         </header>
 
         <Link href="/chantier/new" className="new-chantier-bar">
           <span className="new-chantier-icon">+</span>
-          Créer un nouveau chantier
+          {L.chantiers.newProject}
         </Link>
 
         <section className="follow-section">
           <div className="follow-section-head">
-            <h2>Suivi des chantiers</h2>
-            <span>{activeProjects.length} chantier(s)</span>
+            <h2>{L.chantiers.tracking}</h2>
+            <span>{activeProjects.length}</span>
           </div>
           {activeProjects.length === 0 ? (
-            <div className="tool-empty">Aucun chantier avec devis signé pour le moment. Un devis doit être signé par le client pour démarrer le suivi.</div>
+            <div className="tool-empty">{L.chantiers.noSigned}</div>
           ) : (
             <div className="project-track-list">
               {activeProjects.map((project) => {

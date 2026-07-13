@@ -5,8 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 
 function SetPasswordScreen() {
+  const { L } = useLocale();
   const params = useSearchParams();
   const token = params.get("token") || "";
   const mode = params.get("mode") === "reset" ? "reset" : "activation";
@@ -45,35 +47,35 @@ function SetPasswordScreen() {
       <AuthBrandPanel />
 
       <section className="auth-panel">
-        <h2>{mode === "reset" ? "Nouveau mot de passe" : "Activation du compte"}</h2>
+        <h2>{mode === "reset" ? L.auth.newPassword : L.auth.activateAccount}</h2>
         <form className="auth-form" onSubmit={submit}>
           <input
             className="auth-input"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Nouveau mot de passe"
+            placeholder={L.auth.newPassword}
             type={showPassword ? "text" : "password"}
           />
           <input
             className="auth-input"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
-            placeholder="Confirmer le mot de passe"
+            placeholder={L.auth.confirmPassPh}
             type={showPassword ? "text" : "password"}
           />
           <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} />
-            Afficher le mot de passe
+            {L.auth.showPassword}
           </label>
           {error ? <p style={{ color: "var(--red)", fontWeight: 400 }}>{error}</p> : null}
           {info ? <p style={{ color: "#0f8e4c", fontWeight: 400 }}>{info}</p> : null}
           <button className="button blue" disabled={!valid || loading}>
-            {loading ? "Validation..." : "Enregistrer"}
+            {loading ? L.auth.validating : L.common.save}
           </button>
         </form>
 
         <p className="muted" style={{ marginTop: 22 }}>
-          Retour a la <Link className="auth-link" href={`/login?type=${accountType}`}>connexion</Link>
+          {L.auth.backToLogin} <Link className="auth-link" href={`/login?type=${accountType}`}>{L.auth.loginBtn}</Link>
         </p>
       </section>
     </main>

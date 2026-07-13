@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 
 const professionsList = ["Electricien", "Plombier", "Carreleur", "Menuisier", "Peintre", "Tout corps d'etat"];
 
@@ -82,6 +83,7 @@ function Field({ label, iconName, value, onChange, placeholder = "", type = "tex
 }
 
 export default function ParametresPage() {
+  const { L } = useLocale();
   const fileRef = useRef(null);
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(initialBusiness);
@@ -163,13 +165,13 @@ export default function ParametresPage() {
     }
   }
 
-  const accountLabel = user?.accountType === "particulier" ? "Profil Particulier" : "Profil Entreprise";
+  const accountLabel = user?.accountType === "particulier" ? L.auth.profilePersonal : L.auth.profileCompany;
   const logoSrc = business.logoDataUrl || "/koji-logo.svg";
 
   if (loading) {
     return (
       <Shell>
-        <section className="panel"><div className="empty-state">Chargement du profil...</div></section>
+        <section className="panel"><div className="empty-state">{L.common.loading}</div></section>
       </Shell>
     );
   }
@@ -188,49 +190,49 @@ export default function ParametresPage() {
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("camera")} /></svg>
             </button>
           </div>
-          <p>Changer le logo</p>
+          <p>{L.parametres.changeLogo}</p>
           <input ref={fileRef} type="file" accept="image/*" onChange={onLogoChange} style={{ display: "none" }} />
         </section>
 
         <section className="profile-block">
-          <h2>Signatures</h2>
-          <p className="muted">Gerez vos devis envoyes en signature electronique et leurs accès client.</p>
+          <h2>{L.parametres.signatures}</h2>
+          <p className="muted">{L.parametres.signaturesSub}</p>
           <Link href="/signature" className="button secondary profile-link-button">
             <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("pen")} /></svg>
-            Ouvrir Signatures
+            {L.parametres.openSignatures}
           </Link>
         </section>
 
         <section className="profile-block">
-          <h2>Informations Entreprise</h2>
+          <h2>{L.parametres.company}</h2>
           <div className="profile-grid">
-            <Field label="Raison sociale" iconName="building" value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder="Nom entreprise" />
-            <Field label="Forme juridique" iconName="gavel" value={business.formeJuridique} onChange={(event) => setField("formeJuridique", event.target.value)} placeholder="SARL, SAS..." />
-            <Field label="SIRET (14 chiffres)" iconName="id" value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
-            <Field label="RCS / SIREN (9 chiffres)" iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
-            <Field label="Email professionnel" iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
-            <Field label="Telephone" iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
-            <Field label="Adresse" iconName="pin" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder="Numero et rue" />
-            <Field label="Ville / code postal" iconName="pin" value={business.addressLine2} onChange={(event) => setField("addressLine2", event.target.value)} placeholder="75000 Paris" />
-            <Field label="Numero TVA" iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
+            <Field label={L.parametres.raisonSociale} iconName="building" value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
+            <Field label={L.parametres.formeJuridique} iconName="gavel" value={business.formeJuridique} onChange={(event) => setField("formeJuridique", event.target.value)} placeholder="SARL, SAS..." />
+            <Field label={L.parametres.siret} iconName="id" value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
+            <Field label={L.parametres.siren} iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
+            <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
+            <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
+            <Field label={L.parametres.addressLine1} iconName="pin" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder={L.parametres.addressLine1} />
+            <Field label={L.parametres.addressLine2} iconName="pin" value={business.addressLine2} onChange={(event) => setField("addressLine2", event.target.value)} placeholder={L.parametres.addressLine2} />
+            <Field label={L.parametres.tva} iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
           </div>
         </section>
 
         <section className="profile-block">
-          <h2>Tarification</h2>
+          <h2>{L.parametres.pricing}</h2>
           <div className="profile-grid cols-2">
-            <Field label="Tarif journalier (EUR HT / jour)" iconName="money" type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
-            <Field label="Heures par jour" iconName="clock" type="number" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
+            <Field label={L.parametres.dailyRate} iconName="money" type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
+            <Field label={L.parametres.hoursPerDay} iconName="clock" type="number" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
           </div>
           <div className="hourly-box">
-            <span>Cout horaire</span>
+            <span>{L.parametres.hourlyCost}</span>
             <strong>{hourlyCost.toFixed(2)} EUR / h</strong>
           </div>
         </section>
 
         <section className="profile-block">
-          <h2>Metiers</h2>
-          <p className="muted">Selectionnez un ou plusieurs metiers.</p>
+          <h2>{L.parametres.trades}</h2>
+          <p className="muted">{L.parametres.tradesSub}</p>
           <div className="metiers-list">
             {professionsList.map((item) => (
               <button
@@ -246,25 +248,25 @@ export default function ParametresPage() {
         </section>
 
         <section className="profile-block">
-          <h2>Coordonnées bancaires</h2>
-          <p className="muted">Ces informations apparaissent sur vos devis et factures pour le règlement.</p>
+          <h2>{L.parametres.bank}</h2>
+          <p className="muted">{L.parametres.bankSub}</p>
           <div className="profile-grid">
-            <Field label="IBAN" iconName="bank" value={business.iban || ""} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
-            <Field label="BIC / SWIFT" iconName="bank" value={business.bic || ""} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
-            <Field label="Titulaire du compte" iconName="id" value={business.bankHolder || ""} onChange={(event) => setField("bankHolder", event.target.value)} placeholder="Nom du titulaire" />
+            <Field label={L.parametres.iban} iconName="bank" value={business.iban || ""} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
+            <Field label={L.parametres.bic} iconName="bank" value={business.bic || ""} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
+            <Field label={L.parametres.bankHolder} iconName="id" value={business.bankHolder || ""} onChange={(event) => setField("bankHolder", event.target.value)} placeholder={L.parametres.bankHolder} />
           </div>
         </section>
 
         <section className="profile-block">
-          <h2>Conditions de règlement</h2>
-          <p className="muted">Texte affiché en bas de vos devis (modalités de paiement, acompte, délais...).</p>
+          <h2>{L.parametres.paymentTerms}</h2>
+          <p className="muted">{L.parametres.paymentTermsSub}</p>
           <label className="profile-field wide">
-            <span>Modalités de paiement</span>
+            <span>{L.parametres.paymentTermsLabel}</span>
             <textarea
               className="profile-textarea"
               value={business.paymentTerms || ""}
               onChange={(event) => setField("paymentTerms", event.target.value)}
-              placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
+              placeholder={L.parametres.paymentTermsLabel}
               rows={4}
             />
           </label>
@@ -273,7 +275,7 @@ export default function ParametresPage() {
         {message ? <p className="profile-message">{message}</p> : null}
 
         <footer className="profile-actions">
-          <button className="button blue" disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer"}</button>
+          <button className="button blue" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button>
         </footer>
       </form>
     </Shell>

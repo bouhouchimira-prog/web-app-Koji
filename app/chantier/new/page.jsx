@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../../../components/Shell";
 import { saveChantierDraft } from "../../../lib/chantier-draft";
+import { useLocale } from "../../../lib/i18n";
 
 const initialForm = {
   title: "",
@@ -16,6 +17,7 @@ const initialForm = {
 };
 
 export default function ChantierNewPage() {
+  const { L } = useLocale();
   const router = useRouter();
   const [form, setForm] = useState(initialForm);
 
@@ -39,27 +41,27 @@ export default function ChantierNewPage() {
         <header className="wizard-top">
           <button type="button" className="wizard-back" onClick={goBack}>{"<"}</button>
           <div>
-            <h1>Creer un nouveau chantier</h1>
+            <h1>{L.setup.newTitle}</h1>
           </div>
           <span />
         </header>
 
         <section className="wizard-form-card">
           <div className="wizard-form-grid">
-            <label className="wizard-field full">Reference du chantier<input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="Loft Durand - Cuisine ..." /></label>
-            <label className="wizard-field full">Numero / Rue<input value={form.street} onChange={(event) => setField("street", event.target.value)} placeholder="Rajouter votre texte..." /></label>
-            <label className="wizard-field">Code postale<input value={form.postalCode} onChange={(event) => setField("postalCode", event.target.value)} placeholder="Rajouter votre texte..." /></label>
-            <label className="wizard-field">Ville<input value={form.city} onChange={(event) => setField("city", event.target.value)} placeholder="Rajouter votre texte..." /></label>
-            <label className="wizard-field">Client<input value={form.client} onChange={(event) => setField("client", event.target.value)} placeholder="Nom client" /></label>
-            <label className="wizard-field">Adresse e-mail du client<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@exemple.com" /></label>
-            <label className="wizard-field full">Type du bien<select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
+            <label className="wizard-field full">{L.setup.refLabel}<input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="Loft Durand - Cuisine ..." /></label>
+            <label className="wizard-field full">{L.setup.street}<input value={form.street} onChange={(event) => setField("street", event.target.value)} /></label>
+            <label className="wizard-field">{L.setup.postalCode}<input value={form.postalCode} onChange={(event) => setField("postalCode", event.target.value)} /></label>
+            <label className="wizard-field">{L.setup.city}<input value={form.city} onChange={(event) => setField("city", event.target.value)} /></label>
+            <label className="wizard-field">{L.setup.client}<input value={form.client} onChange={(event) => setField("client", event.target.value)} /></label>
+            <label className="wizard-field">{L.setup.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@exemple.com" /></label>
+            <label className="wizard-field full">{L.setup.propertyType}<select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
               <option>Maison</option>
               <option>Appartement</option>
               <option>Local</option>
               <option>Autre</option>
             </select></label>
           </div>
-          <button className="wizard-primary" onClick={next} disabled={!form.title.trim()}>Suivant <span>{">"}</span></button>
+          <button className="wizard-primary" onClick={next} disabled={!form.title.trim()}>{L.setup.nextBtn} <span>{">"}</span></button>
         </section>
       </div>
     </Shell>

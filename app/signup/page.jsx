@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 
 function EyeIcon({ open }) {
   return open ? (
@@ -29,11 +30,11 @@ function MailIcon() {
 }
 
 function SignupScreen() {
+  const { L } = useLocale();
   const params = useSearchParams();
   const typeParam = params.get("type");
   const [accountType, setAccountType] = useState(typeParam === "particulier" ? "particulier" : "entreprise");
 
-  // step: "email" | "details" | "confirm"
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -57,14 +58,15 @@ function SignupScreen() {
   }
 
   const strength = passwordStrength(password);
-  const strengthLabel = ["", "Très faible", "Faible", "Moyen", "Bon", "Excellent"][strength] || "";
+  const strengthLabels = L.auth.strength;
+  const strengthLabel = strengthLabels[strength] || "";
   const strengthColor = ["", "#e53e3e", "#dd6b20", "#d69e2e", "#38a169", "#2b6cb0"][strength] || "";
 
   async function handleEmailStep(event) {
     event.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError("Entrez une adresse email valide.");
+      setError(L.auth.errEmail);
       return;
     }
     setError("");
@@ -73,9 +75,9 @@ function SignupScreen() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!name.trim()) { setError("Entrez votre nom complet."); return; }
-    if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
-    if (password !== confirmPassword) { setError("Les mots de passe ne correspondent pas."); return; }
+    if (!name.trim()) { setError(L.auth.errName); return; }
+    if (password.length < 8) { setError(L.auth.errPasswordLen); return; }
+    if (password !== confirmPassword) { setError(L.auth.errPasswordMatch); return; }
     setLoading(true);
     setError("");
     try {
@@ -101,28 +103,23 @@ function SignupScreen() {
         <section className="auth-panel-v2">
           <div className="auth-confirm-card">
             <div className="auth-confirm-icon"><MailIcon /></div>
-            <h2>Vérifiez votre boîte mail</h2>
-            <p className="auth-confirm-sub">
-              Un email d&apos;activation a été envoyé à <strong>{email}</strong>.<br />
-              Cliquez sur le lien dans l&apos;email pour activer votre compte.
-            </p>
+            <h2>{L.auth.checkEmail}</h2>
+            <p className="auth-confirm-sub">{L.auth.confirmSub(email)}</p>
             {devUrl ? (
               <div style={{ background: "#eef6ff", border: "1px solid #b3d4ff", borderRadius: 10, padding: "14px 16px", margin: "12px 0" }}>
-                <p style={{ margin: "0 0 10px", fontSize: "0.88rem", color: "#0a1538" }}>
-                  L&apos;e-mail n&apos;a pas pu être envoyé. Cliquez ici pour activer votre compte :
-                </p>
+                <p style={{ margin: "0 0 10px", fontSize: "0.88rem", color: "#0a1538" }}>{L.auth.emailNotSent}</p>
                 <a href={devUrl} className="auth-btn-primary" style={{ display: "block", textAlign: "center", textDecoration: "none" }}>
-                  Activer mon compte
+                  {L.auth.activateBtn}
                 </a>
               </div>
             ) : null}
             <p className="auth-confirm-hint">
-              Vous n&apos;avez pas reçu d&apos;email ?{" "}
+              {L.auth.noEmailReceived}{" "}
               <button type="button" className="auth-text-btn" onClick={() => setStep("email")}>
-                Recommencer
+                {L.auth.retry}
               </button>
             </p>
-            <Link className="auth-link" href="/login">Aller à la connexion</Link>
+            <Link className="auth-link" href="/login">{L.auth.goToLogin}</Link>
           </div>
         </section>
       </main>
@@ -135,89 +132,84 @@ function SignupScreen() {
       <section className="auth-panel-v2">
         <div className="auth-card">
 
-          {/* Account type toggle */}
           <div className="auth-type-toggle">
             <button
               type="button"
               className={accountType === "entreprise" ? "active" : ""}
               onClick={() => setAccountType("entreprise")}
             >
-              Entreprise
+              {L.auth.tabCompany}
             </button>
             <button
               type="button"
               className={accountType === "particulier" ? "active" : ""}
               onClick={() => setAccountType("particulier")}
             >
-              Particulier
+              {L.auth.tabPersonal}
             </button>
           </div>
 
-          <h2 className="auth-title">Créer un compte</h2>
+          <h2 className="auth-title">{L.auth.createAccount}</h2>
           <p className="auth-subtitle">
-            {step === "email"
-              ? "Entrez votre adresse email pour commencer."
-              : "Complétez vos informations pour finaliser l'inscription."}
+            {step === "email" ? L.auth.subtitleSignup1 : L.auth.subtitleSignup2}
           </p>
 
-          {/* Step 1: email */}
           {step === "email" && (
             <form className="auth-form-v2" onSubmit={handleEmailStep}>
               <div className="auth-field">
-                <label>Adresse email</label>
+                <label>{L.auth.email}</label>
                 <input
                   type="email"
                   className="auth-input-v2"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                  placeholder="vous@exemple.fr"
+                  placeholder={L.auth.emailPlaceholder}
                   autoFocus
                   autoComplete="email"
                 />
               </div>
               {error ? <p className="auth-error">{error}</p> : null}
-              <button type="submit" className="auth-btn-primary">Continuer</button>
+              <button type="submit" className="auth-btn-primary">{L.auth.continueBtn}</button>
               <p className="auth-alt-link">
-                Déjà un compte ?{" "}
-                <Link className="auth-link" href={`/login?type=${accountType}`}>Se connecter</Link>
+                {L.auth.alreadyAccount}{" "}
+                <Link className="auth-link" href={`/login?type=${accountType}`}>{L.auth.signIn}</Link>
               </p>
             </form>
           )}
 
-          {/* Step 2: name + password */}
           {step === "details" && (
             <form className="auth-form-v2" onSubmit={handleSubmit}>
               <div className="auth-email-badge">
                 <span>{email}</span>
                 <button type="button" className="auth-text-btn" onClick={() => { setStep("email"); setError(""); }}>
-                  Modifier
+                  {L.auth.modify}
                 </button>
               </div>
 
               <div className="auth-field">
-                <label>Nom complet</label>
+                <label>{L.auth.fullName}</label>
                 <input
                   className="auth-input-v2"
                   value={name}
                   onChange={(e) => { setName(e.target.value); setError(""); }}
-                  placeholder="Prénom et nom"
+                  placeholder={L.auth.namePlaceholder}
                   autoFocus
                   autoComplete="name"
                 />
               </div>
 
               <div className="auth-field">
-                <label>Mot de passe</label>
+                <label>{L.auth.password}</label>
                 <div className="auth-input-wrap">
                   <input
                     className="auth-input-v2"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                    placeholder="8 caractères minimum"
+                    placeholder={L.auth.passwordMin}
                     autoComplete="new-password"
                   />
-                  <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label="Afficher/masquer">
+                  <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
                     <EyeIcon open={showPassword} />
                   </button>
                 </div>
@@ -234,28 +226,28 @@ function SignupScreen() {
               </div>
 
               <div className="auth-field">
-                <label>Confirmer le mot de passe</label>
+                <label>{L.auth.confirmPassword}</label>
                 <div className="auth-input-wrap">
                   <input
                     className="auth-input-v2"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
-                    placeholder="Répétez le mot de passe"
+                    placeholder={L.auth.repeatPassword}
                     autoComplete="new-password"
                   />
-                  <button type="button" className="auth-eye-btn" onClick={() => setShowConfirmPassword((v) => !v)} aria-label="Afficher/masquer">
+                  <button type="button" className="auth-eye-btn" onClick={() => setShowConfirmPassword((v) => !v)} aria-label={L.auth.showHide}>
                     <EyeIcon open={showConfirmPassword} />
                   </button>
                 </div>
                 {confirmPassword && password !== confirmPassword ? (
                   <p className="auth-field-hint" style={{ color: "#e53e3e", marginTop: 4, fontSize: "0.82rem" }}>
-                    Les mots de passe ne correspondent pas.
+                    {L.auth.passwordMismatch}
                   </p>
                 ) : null}
                 {confirmPassword && password === confirmPassword ? (
                   <p className="auth-field-hint" style={{ color: "#38a169", marginTop: 4, fontSize: "0.82rem" }}>
-                    Les mots de passe correspondent.
+                    {L.auth.passwordMatch}
                   </p>
                 ) : null}
               </div>
@@ -263,12 +255,12 @@ function SignupScreen() {
               {error ? <p className="auth-error">{error}</p> : null}
 
               <button type="submit" className="auth-btn-primary" disabled={loading}>
-                {loading ? "Création en cours..." : "Créer mon compte"}
+                {loading ? L.auth.creating : L.auth.createBtn}
               </button>
 
               <p className="auth-alt-link">
-                Déjà un compte ?{" "}
-                <Link className="auth-link" href={`/login?type=${accountType}`}>Se connecter</Link>
+                {L.auth.alreadyAccount}{" "}
+                <Link className="auth-link" href={`/login?type=${accountType}`}>{L.auth.signIn}</Link>
               </p>
             </form>
           )}

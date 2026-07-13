@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { LangSwitcher } from "../../../../components/LangSwitcher";
 import { euro, shortDate } from "../../../../lib/pricing";
+import { useLocale } from "../../../../lib/i18n";
 
 function getStoredUser() {
   if (typeof window === "undefined") return null;
-  try {
-    return JSON.parse(localStorage.getItem("koji-user") || "null");
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
 }
 
 export default function ClientQuotePage({ params }) {
+  const { L } = useLocale();
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,18 +32,19 @@ export default function ClientQuotePage({ params }) {
       <header className="client-topbar compact-topbar">
         <Link className="icon-button" href="/client"><span aria-hidden="true">&lt;</span></Link>
         <div>
-          <p className="eyebrow">Devis client</p>
-          <h1>{quote?.reference || "Devis"}</h1>
+          <p className="eyebrow">{L.clientSpace.clientQuote}</p>
+          <h1>{quote?.reference || L.nav.devis}</h1>
         </div>
+        <LangSwitcher />
       </header>
 
-      {loading ? <section className="client-card">Chargement...</section> : null}
-      {!loading && !quote ? <section className="client-card">Devis introuvable pour ce profil.</section> : null}
+      {loading ? <section className="client-card">{L.clientSpace.loading}</section> : null}
+      {!loading && !quote ? <section className="client-card">{L.clientSpace.quoteNotFound}</section> : null}
       {quote ? (
         <>
           <section className="client-card quote-summary-card">
             <div>
-              <p className="eyebrow">Chantier</p>
+              <p className="eyebrow">{L.nav.chantiers}</p>
               <h2>{quote.project?.name || quote.projectName || "Chantier"}</h2>
               <p>{quote.clientName || quote.project?.client || "Client"} · {shortDate(quote.createdAt)}</p>
             </div>
@@ -53,15 +53,15 @@ export default function ClientQuotePage({ params }) {
 
           <section className="client-card">
             <div className="client-section-title">
-              <h2>Travaux</h2>
-              <span>{items.length} ligne(s)</span>
+              <h2>{L.clientSpace.worksSection}</h2>
+              <span>{items.length}</span>
             </div>
             <div className="client-list">
               {items.map((item, index) => (
                 <article className="client-row" key={item.id || `${item.name}-${index}`}>
                   <div>
                     <strong>{item.name || item.title}</strong>
-                    <span>{item.room || item.category || "General"}</span>
+                    <span>{item.room || item.category || "—"}</span>
                   </div>
                   <span className="client-amount">{euro(item.total || item.totalHt || 0)}</span>
                 </article>
@@ -72,10 +72,10 @@ export default function ClientQuotePage({ params }) {
           <section className="client-card muted-card">
             <span className="client-mini-icon" aria-hidden="true">D</span>
             <div>
-              <h2>Signature</h2>
-              <p>Le lien de signature est rattache a ce devis et active le suivi chantier apres validation.</p>
+              <h2>{L.clientSpace.signatureSection}</h2>
+              <p>{L.clientSpace.signatureDesc}</p>
             </div>
-            {quote.signatureUrl ? <a className="primary-button" href={quote.signatureUrl}>Signer le devis</a> : null}
+            {quote.signatureUrl ? <a className="primary-button" href={quote.signatureUrl}>{L.clientSpace.signQuote}</a> : null}
           </section>
         </>
       ) : null}

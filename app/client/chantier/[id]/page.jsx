@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { useEffect, useRef, useState } from "react";
 import { euro, shortDate } from "../../../../lib/pricing";
+import { useLocale } from "../../../../lib/i18n";
 
 function getStoredUser() {
   if (typeof window === "undefined") return null;
@@ -27,27 +28,11 @@ function fileToDataUrl(file) {
   });
 }
 
-const TASK_STEPS = ["Début", "En cours", "Validé", "Terminé"];
-
 function getStep(task) {
   if (task.done) return 3;
   if (task.clientValidationStatus === "Valide" || task.status === "Valide par client") return 2;
   if (task.pendingValidation || task.startedAt || task.status === "En cours" || task.status === "Terminee (a valider)") return 1;
   return 0;
-}
-
-function StatusBar({ step }) {
-  return (
-    <div className="ct-status-bar">
-      {TASK_STEPS.map((label, i) => (
-        <div key={label} className={`ct-step${i <= step ? " active" : ""}${i === step ? " current" : ""}`}>
-          <div className="ct-step-dot" />
-          {i < TASK_STEPS.length - 1 && <div className="ct-step-line" />}
-          <span>{label}</span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 const URGENCE_TYPES = [
@@ -58,7 +43,21 @@ const URGENCE_TYPES = [
   { value: "autre", label: "⚠️ Autre problème urgent" },
 ];
 
-function TaskCard({ task, userId, projectId, quoteId, onValidate }) {
+function StatusBar({ step, taskSteps }) {
+  return (
+    <div className="ct-status-bar">
+      {taskSteps.map((label, i) => (
+        <div key={label} className={`ct-step${i <= step ? " active" : ""}${i === step ? " current" : ""}`}>
+          <div className="ct-step-dot" />
+          {i < taskSteps.length - 1 && <div className="ct-step-line" />}
+          <span>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TaskCard({ task, userId, projectId, quoteId, onValidate, taskSteps, L }) {
   const [open, setOpen] = useState(false);
   const [noteType, setNoteType] = useState("Note");
   const [noteTitle, setNoteTitle] = useState("");
@@ -151,99 +150,98 @@ function TaskCard({ task, userId, projectId, quoteId, onValidate }) {
           <span className="ct-task-room">{task.room || "Chantier"}</span>
           <strong>{task.label || task.name}</strong>
           {task.validatedAt || task.finishedAt ? (
-            <small>Réalisé le {fmt(task.validatedAt || task.finishedAt)}</small>
+            <small>{L.clientSpace.completedAt} {fmt(task.validatedAt || task.finishedAt)}</small>
           ) : task.startDate || task.dueDate ? (
-            <small>Prévu le {fmt(task.startDate || task.dueDate)}</small>
+            <small>{L.clientSpace.scheduledFor} {fmt(task.startDate || task.dueDate)}</small>
           ) : null}
         </div>
-        <span className={`ct-task-badge step-${step}`}>{TASK_STEPS[step]}</span>
+        <span className={`ct-task-badge step-${step}`}>{taskSteps[step]}</span>
         <svg className={`ct-chevron${open ? " open" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {open ? (
         <div className="ccd-task-body">
-          <StatusBar step={step} />
+          <StatusBar step={step} taskSteps={taskSteps} />
 
           <div className="ccd-task-details">
-            {task.assignedTo ? <div><small>Équipe</small><span>{task.assignedTo}</span></div> : null}
-            {task.startDate ? <div><small>Début</small><span>{fmtFull(task.startDate)}</span></div> : null}
-            {task.endDate ? <div><small>Fin prévue</small><span>{fmtFull(task.endDate)}</span></div> : null}
-            {task.finishedAt ? <div><small>Réalisé le</small><span>{fmtFull(task.finishedAt)}</span></div> : null}
-            {task.completedByName ? <div><small>Par</small><span>{task.completedByName}</span></div> : null}
+            {task.assignedTo ? <div><small>{L.clientSpace.team}</small><span>{task.assignedTo}</span></div> : null}
+            {task.startDate ? <div><small>{L.clientSpace.planned}</small><span>{fmtFull(task.startDate)}</span></div> : null}
+            {task.endDate ? <div><small>{L.clientSpace.scheduledFor}</small><span>{fmtFull(task.endDate)}</span></div> : null}
+            {task.finishedAt ? <div><small>{L.clientSpace.completedAt}</small><span>{fmtFull(task.finishedAt)}</span></div> : null}
+            {task.completedByName ? <div><small>{L.clientSpace.completedBy}</small><span>{task.completedByName}</span></div> : null}
           </div>
 
           {canValidate ? (
             <div className="ct-validate-block">
-              <p>L'équipe a terminé cet ouvrage — confirmez-vous que le travail est correct ?</p>
+              <p>{L.clientSpace.validateMsg}</p>
               <button type="button" className="primary-button" onClick={() => onValidate(task.id)}>
-                Valider l'ouvrage (procès-verbal)
+                {L.clientSpace.validateBtn}
               </button>
             </div>
           ) : null}
 
           {docs.length > 0 ? (
             <div className="ccd-thread">
-              <p className="ccd-docs-label">Conversation sur cet ouvrage</p>
+              <p className="ccd-docs-label">{L.clientSpace.conversationLabel}</p>
               {docs.map((doc) => (
                 <div key={doc.id} className={`ccd-thread-msg ${doc.source === "company" ? "from-company" : "from-client"}`}>
                   <div className="ccd-thread-msg-head">
                     <span className={`ct-task-badge ${doc.source === "company" ? "step-3" : "step-1"}`}>
-                      {doc.source === "company" ? "Entreprise" : doc.type}
+                      {doc.source === "company" ? L.clientSpace.companyLabel : doc.type}
                     </span>
-                    <strong>{doc.source === "company" ? (doc.senderName || "Entreprise") : (doc.clientName || "Vous")}</strong>
+                    <strong>{doc.source === "company" ? (doc.senderName || L.clientSpace.companyLabel) : (doc.clientName || L.clientSpace.youLabel)}</strong>
                     <small>{doc.createdAt ? new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" }).format(new Date(doc.createdAt)) : ""}</small>
                   </div>
                   {doc.notes ? <p>{doc.notes}</p> : null}
-                  {doc.url ? <a href={doc.url} download={doc.fileName || doc.title} target="_blank" rel="noreferrer">Télécharger le fichier</a> : null}
+                  {doc.url ? <a href={doc.url} download={doc.fileName || doc.title} target="_blank" rel="noreferrer">{L.clientSpace.downloadFile}</a> : null}
                 </div>
               ))}
             </div>
           ) : null}
 
           <form className="ccd-note-form" onSubmit={submitNote}>
-            <p className="ccd-docs-label">Ajouter une note / document / photo</p>
+            <p className="ccd-docs-label">{L.clientSpace.addNoteLabel}</p>
             <div className="ccd-note-row">
               <select value={noteType} onChange={(e) => setNoteType(e.target.value)}>
                 {["Note", "Photo", "Document", "Réclamation"].map((t) => <option key={t}>{t}</option>)}
               </select>
-              <input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Titre (ex: Problème carrelage...)" />
+              <input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder={L.clientSpace.titlePh} />
             </div>
-            <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Votre message..." rows={2} />
+            <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder={L.clientSpace.msgPlaceholder} rows={2} />
             <div className="ccd-note-actions">
               <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={onFileChange} />
               <button type="button" className="ghost-button" onClick={() => fileRef.current?.click()}>
-                {noteFile ? `📎 ${noteFile}` : "Joindre un fichier"}
+                {noteFile ? `📎 ${noteFile}` : L.clientSpace.attachFile}
               </button>
               <button type="submit" className="primary-button" disabled={saving || (!noteTitle.trim() && !noteText.trim() && !noteUrl)}>
-                {saving ? "Envoi..." : "Envoyer"}
+                {saving ? L.clientSpace.sending : L.common.send}
               </button>
             </div>
           </form>
 
-          {/* Signalement urgence par ouvrage */}
           <div className="ccd-urgence-block">
             {urgSent ? (
-              <div className="ccd-urgence-sent">✅ Alerte urgente envoyée à l'entreprise</div>
+              <div className="ccd-urgence-sent">{L.clientSpace.urgentSent}</div>
             ) : !showUrgence ? (
               <button type="button" className="ccd-urgence-trigger" onClick={() => setShowUrgence(true)}>
-                🚨 Signaler une urgence sur cet ouvrage
+                {L.clientSpace.urgentTaskTrigger}
               </button>
             ) : (
               <div className="ccd-urgence-form">
-                <p className="ccd-urgence-title">🚨 Signaler une urgence — <em>{task.label || task.name}</em></p>
+                <p className="ccd-urgence-title">{L.clientSpace.urgentTaskTitle} <em>{task.label || task.name}</em></p>
                 <select value={urgType} onChange={(e) => setUrgType(e.target.value)}>
                   {URGENCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
                 <textarea
                   value={urgMsg}
                   onChange={(e) => setUrgMsg(e.target.value)}
-                  placeholder="Décrivez précisément le problème (localisation, gravité…)"
+                  placeholder={L.clientSpace.msgPlaceholder}
                   rows={3}
                 />
                 <div className="ccd-urgence-actions">
-                  <button type="button" className="ghost-button" onClick={() => setShowUrgence(false)}>Annuler</button>
+                  <button type="button" className="ghost-button" onClick={() => setShowUrgence(false)}>{L.common.cancel}</button>
                   <button type="button" className="urgence-send-btn" onClick={submitUrgence} disabled={!urgMsg.trim() || urgSending}>
-                    {urgSending ? "Envoi..." : "Envoyer l'alerte"}
+                    {urgSending ? L.clientSpace.sending : L.clientSpace.sendAlert}
                   </button>
                 </div>
               </div>
@@ -256,6 +254,7 @@ function TaskCard({ task, userId, projectId, quoteId, onValidate }) {
 }
 
 export default function ClientChantierPage() {
+  const { L } = useLocale();
   const params = useParams();
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -268,6 +267,13 @@ export default function ClientChantierPage() {
   const [genUrgTasks, setGenUrgTasks] = useState([]);
   const [genUrgSending, setGenUrgSending] = useState(false);
   const [genUrgSent, setGenUrgSent] = useState(false);
+
+  const taskSteps = [
+    L.clientSpace.taskStepStart,
+    L.clientSpace.taskStepInProgress,
+    L.clientSpace.taskStepValidated,
+    L.clientSpace.taskStepDone,
+  ];
 
   useEffect(() => {
     const stored = getStoredUser();
@@ -343,12 +349,11 @@ export default function ClientChantierPage() {
       <ClientTopbar showBack backHref="/client" />
 
       {loading ? (
-        <div className="client-empty" style={{ marginTop: 32 }}>Chargement...</div>
+        <div className="client-empty" style={{ marginTop: 32 }}>{L.clientSpace.loading}</div>
       ) : !quote ? (
-        <div className="client-empty" style={{ marginTop: 32 }}>Chantier introuvable.</div>
+        <div className="client-empty" style={{ marginTop: 32 }}>{L.clientSpace.notFound}</div>
       ) : (
         <>
-          {/* Devis header */}
           <div className="ccd-header">
             <div className="ccd-header-top">
               <div>
@@ -356,52 +361,50 @@ export default function ClientChantierPage() {
                 <p className="ccd-client">{quote.client}</p>
               </div>
               {isSigned ? (
-                <a className="ghost-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">Télécharger le devis PDF</a>
+                <a className="ghost-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.clientSpace.downloadPdf}</a>
               ) : null}
             </div>
 
             <div className="ccd-meta">
-              <div><small>Montant TTC</small><strong>{euro(quote.totalTtc || 0)}</strong></div>
-              <div><small>Devis N°</small><strong>{quote.quoteNumber}</strong></div>
-              <div><small>Date de création</small><strong>{fmtFull(quote.quoteDate || quote.createdAt)}</strong></div>
-              {quote.sentAt ? <div><small>Date d'envoi</small><strong>{fmtFull(quote.sentAt)}</strong></div> : null}
-              {quote.signedAt ? <div><small>Date de signature</small><strong>{fmtFull(quote.signedAt)}</strong></div> : null}
-              {quote.signaturePlace ? <div><small>Lieu de signature</small><strong>{quote.signaturePlace}</strong></div> : null}
+              <div><small>{L.clientSpace.amountTtc}</small><strong>{euro(quote.totalTtc || 0)}</strong></div>
+              <div><small>{L.clientSpace.quoteNumber}</small><strong>{quote.quoteNumber}</strong></div>
+              <div><small>{L.clientSpace.createdAt}</small><strong>{fmtFull(quote.quoteDate || quote.createdAt)}</strong></div>
+              {quote.sentAt ? <div><small>{L.clientSpace.sentAt}</small><strong>{fmtFull(quote.sentAt)}</strong></div> : null}
+              {quote.signedAt ? <div><small>{L.clientSpace.signedAt}</small><strong>{fmtFull(quote.signedAt)}</strong></div> : null}
+              {quote.signaturePlace ? <div><small>{L.clientSpace.signedPlace}</small><strong>{quote.signaturePlace}</strong></div> : null}
             </div>
 
-            {/* Progress */}
             <div className="ccd-progress">
               <div className="ccd-progress-info">
-                <span>{done} / {tasks.length} ouvrage(s) terminé(s)</span>
+                <span>{done} / {tasks.length}</span>
                 <strong>{percent}%</strong>
               </div>
               <div className="ccd-progress-bar"><div style={{ width: `${percent}%` }} /></div>
             </div>
           </div>
 
-          {/* Urgence générale */}
           <div className="ccd-general-urgence">
             {genUrgSent ? (
-              <div className="ccd-urgence-sent">✅ Alerte urgente envoyée à votre entreprise</div>
+              <div className="ccd-urgence-sent">{L.clientSpace.urgentSentGen}</div>
             ) : !showGeneralUrgence ? (
               <button type="button" className="ccd-urgence-trigger full" onClick={() => setShowGeneralUrgence(true)}>
-                🚨 Signaler une urgence (dégât, fuite, problème grave...)
+                {L.clientSpace.urgentTrigger}
               </button>
             ) : (
               <div className="ccd-urgence-form open">
-                <p className="ccd-urgence-title">🚨 Signaler une situation urgente</p>
+                <p className="ccd-urgence-title">{L.clientSpace.urgentGenTitle}</p>
                 <select value={genUrgType} onChange={(e) => setGenUrgType(e.target.value)}>
                   {URGENCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
                 <textarea
                   value={genUrgMsg}
                   onChange={(e) => setGenUrgMsg(e.target.value)}
-                  placeholder="Décrivez précisément le problème urgent (localisation, gravité, danger immédiat…)"
+                  placeholder={L.clientSpace.msgPlaceholder}
                   rows={4}
                 />
                 {tasks.length > 0 ? (
                   <div className="ccd-urgence-tasks">
-                    <p className="ccd-urgence-tasks-label">Ouvrages concernés (optionnel) :</p>
+                    <p className="ccd-urgence-tasks-label">{L.clientSpace.urgentTasksLabel}</p>
                     {tasks.map((task) => (
                       <label key={task.id} className="ccd-urgence-task-check">
                         <input
@@ -416,33 +419,40 @@ export default function ClientChantierPage() {
                   </div>
                 ) : null}
                 <div className="ccd-urgence-actions">
-                  <button type="button" className="ghost-button" onClick={() => setShowGeneralUrgence(false)}>Annuler</button>
+                  <button type="button" className="ghost-button" onClick={() => setShowGeneralUrgence(false)}>{L.common.cancel}</button>
                   <button type="button" className="urgence-send-btn" onClick={submitGeneralUrgence} disabled={!genUrgMsg.trim() || genUrgSending}>
-                    {genUrgSending ? "Envoi..." : "Envoyer l'alerte urgente"}
+                    {genUrgSending ? L.clientSpace.sending : L.clientSpace.sendAlertUrgent}
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Ouvrages */}
           <section className="ccd-section">
-            <h2 className="ccd-section-title">Ouvrages du chantier</h2>
+            <h2 className="ccd-section-title">{L.clientSpace.worksTitle}</h2>
             {tasks.length === 0 ? (
-              <div className="client-empty">Aucun ouvrage planifié pour ce chantier.</div>
+              <div className="client-empty">{L.clientSpace.noWorks}</div>
             ) : tasks.map((task) => (
-              <TaskCard key={task.id} task={task} userId={user?.id} projectId={quote.projectId} quoteId={params.id} onValidate={handleValidate} />
+              <TaskCard
+                key={task.id}
+                task={task}
+                userId={user?.id}
+                projectId={quote.projectId}
+                quoteId={params.id}
+                onValidate={handleValidate}
+                taskSteps={taskSteps}
+                L={L}
+              />
             ))}
           </section>
 
-          {/* Discussions */}
           {messages.length > 0 ? (
             <section className="ccd-section">
-              <h2 className="ccd-section-title">Échanges avec votre entreprise</h2>
+              <h2 className="ccd-section-title">{L.clientSpace.messagesTitle}</h2>
               <div className="ccd-messages">
                 {messages.map((msg) => (
                   <div key={msg.id} className="ccd-message">
-                    <span className={`ct-task-badge step-1`}>{msg.channel === "email" ? "Email" : "SMS"}</span>
+                    <span className="ct-task-badge step-1">{msg.channel === "email" ? "Email" : "SMS"}</span>
                     <div>
                       <small>{new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(msg.createdAt))}</small>
                       <p>{msg.subject || msg.text}</p>

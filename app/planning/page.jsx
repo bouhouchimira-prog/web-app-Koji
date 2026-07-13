@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
 
@@ -14,6 +15,7 @@ const initialTask = {
 };
 
 export default function PlanningPage() {
+  const { L } = useLocale();
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: workers } = useApi("/api/workers", "workers");
@@ -93,10 +95,10 @@ export default function PlanningPage() {
       <Shell>
         <section className="mobile-tool success-view">
           <div className="big-check"><span>OK</span></div>
-          <h1>Affectation Confirmee!</h1>
-          <p>Les artisans ont ete notifies dans le suivi du chantier.</p>
-          <button type="button" className="mobile-primary" onClick={() => setSuccess(false)}>Voir le planning</button>
-          <button type="button" className="text-action" onClick={() => window.location.href = "/"}>Retour a l'accueil</button>
+          <h1>{L.planning.confirmAssign}</h1>
+          <p>{L.common.success}</p>
+          <button type="button" className="mobile-primary" onClick={() => setSuccess(false)}>{L.planning.title}</button>
+          <button type="button" className="text-action" onClick={() => window.location.href = "/"}>{L.common.back}</button>
         </section>
       </Shell>
     );
@@ -108,19 +110,18 @@ export default function PlanningPage() {
         <section className="mobile-tool">
           <header className="tool-topline compact">
             <button type="button" className="plain-back" onClick={() => setAssignTask(null)}>{"<"}</button>
-            <h1>Selectionner des participants</h1>
-            <button type="button" className="round-pill" onClick={validateAssignment} disabled={selectedWorkers.length === 0}>Valider</button>
+            <h1>{L.planning.assign}</h1>
+            <button type="button" className="round-pill" onClick={validateAssignment} disabled={selectedWorkers.length === 0}>{L.common.confirm}</button>
           </header>
           <div className="search-pill">
-            <input value={workerSearch} onChange={(event) => setWorkerSearch(event.target.value)} placeholder="Rechercher un participant..." />
+            <input value={workerSearch} onChange={(event) => setWorkerSearch(event.target.value)} placeholder={L.planning.search} />
           </div>
           <div className="segmented large">
-            <button type="button" className={participantType === "Ouvrier" ? "active" : ""} onClick={() => setParticipantType("Ouvrier")}>Ouvriers</button>
-            <button type="button" className={participantType === "Sous-traitant" ? "active" : ""} onClick={() => setParticipantType("Sous-traitant")}>Sous-traitants</button>
+            <button type="button" className={participantType === "Ouvrier" ? "active" : ""} onClick={() => setParticipantType("Ouvrier")}>{L.planning.worker}</button>
+            <button type="button" className={participantType === "Sous-traitant" ? "active" : ""} onClick={() => setParticipantType("Sous-traitant")}>{L.planning.subcontractor}</button>
           </div>
-          <h2 className="tool-subtitle">Favoris</h2>
           <div className="people-list">
-            {visibleWorkers.length === 0 ? <div className="tool-empty">Aucun participant disponible.</div> : null}
+            {visibleWorkers.length === 0 ? <div className="tool-empty">{L.planning.noWorkers}</div> : null}
             {visibleWorkers.map((worker) => (
               <button type="button" className="person-row as-button" key={worker.id} onClick={() => toggleWorker(worker.id)}>
                 <div className="avatar">
@@ -135,7 +136,7 @@ export default function PlanningPage() {
               </button>
             ))}
           </div>
-          <button type="button" className="mobile-primary sticky-bottom" onClick={() => window.location.href = "/equipe"}>Ajouter</button>
+          <button type="button" className="mobile-primary sticky-bottom" onClick={() => window.location.href = "/equipe"}>{L.common.add}</button>
         </section>
       </Shell>
     );
@@ -146,46 +147,45 @@ export default function PlanningPage() {
       <section className="mobile-tool">
         <header className="tool-topline">
           <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>Planifier une tâche</h1>
+          <h1>{L.planning.title}</h1>
           <span />
         </header>
 
         <label className="mobile-input full">
-          <span>Chantier</span>
+          <span>{L.planning.project}</span>
           <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-            <option value="">Choisir un chantier</option>
+            <option value="">{L.planning.allProjects}</option>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
           </select>
         </label>
 
-        <h2 className="tool-subtitle">Tâches du chantier</h2>
-        <p className="tool-muted">Touchez une tâche pour assigner un ouvrier et des dates.</p>
+        <h2 className="tool-subtitle">{L.planning.title}</h2>
 
         <div className="task-list">
-          {projectTasks.length === 0 ? <div className="tool-empty">Aucune tache pour ce chantier.</div> : null}
+          {projectTasks.length === 0 ? <div className="tool-empty">{L.planning.noTasks}</div> : null}
           {projectTasks.map((task) => (
             <article className="task-card" key={task.id}>
               <i />
               <div>
                 <small>{fixText(task.room || "Chantier")}</small>
                 <strong>{fixText(task.label)}</strong>
-                <span>{task.assignedTo && task.assignedTo !== "Equipe" ? fixText(task.assignedTo) : "Non assignée"}</span>
+                <span>{task.assignedTo && task.assignedTo !== "Equipe" ? fixText(task.assignedTo) : L.planning.noWorkers}</span>
               </div>
-              <button type="button" onClick={() => openAssign(task)}>Affecter</button>
+              <button type="button" onClick={() => openAssign(task)}>{L.planning.assign}</button>
             </article>
           ))}
         </div>
 
         {newTaskOpen ? (
           <form className="inline-panel" onSubmit={createTask}>
-            <label>Nom de la tache<input value={taskForm.label} onChange={(event) => setTaskField("label", event.target.value)} required /></label>
-            <label>Piece<input value={taskForm.room} onChange={(event) => setTaskField("room", event.target.value)} /></label>
-            <label>Date<input type="date" value={taskForm.dueDate} onChange={(event) => setTaskField("dueDate", event.target.value)} /></label>
-            <button className="mobile-primary compact">Enregistrer la tache</button>
+            <label>{L.planning.taskLabel}<input value={taskForm.label} onChange={(event) => setTaskField("label", event.target.value)} required /></label>
+            <label>{L.planning.room}<input value={taskForm.room} onChange={(event) => setTaskField("room", event.target.value)} /></label>
+            <label>{L.planning.dueDate}<input type="date" value={taskForm.dueDate} onChange={(event) => setTaskField("dueDate", event.target.value)} /></label>
+            <button className="mobile-primary compact">{L.planning.createTask}</button>
           </form>
         ) : null}
 
-        <button type="button" className="floating-action-button" onClick={() => setNewTaskOpen((open) => !open)}>+ Nouvelle tache</button>
+        <button type="button" className="floating-action-button" onClick={() => setNewTaskOpen((open) => !open)}>+ {L.planning.newTask}</button>
       </section>
     </Shell>
   );

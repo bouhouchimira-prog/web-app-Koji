@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../components/ClientTopbar";
+import { useLocale } from "../../../lib/i18n";
 
 function getStoredUser() {
   if (typeof window === "undefined") return null;
@@ -28,6 +29,7 @@ const TYPE_META = {
 };
 
 export default function ClientNotificationsPage() {
+  const { L } = useLocale();
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -92,17 +94,17 @@ export default function ClientNotificationsPage() {
       <ClientTopbar showBack backHref="/client" />
 
       <div className="cn-header">
-        <h1 className="cn-title">Notifications</h1>
+        <h1 className="cn-title">{L.clientSpace.clientNotifTitle}</h1>
         {unread > 0 ? (
           <button type="button" className="ghost-button" onClick={markAllRead}>
-            Tout marquer comme lu
+            {L.clientSpace.markAllRead}
           </button>
         ) : null}
       </div>
 
-      {loading ? <div className="client-empty">Chargement...</div> : null}
+      {loading ? <div className="client-empty">{L.clientSpace.loading}</div> : null}
       {!loading && visible.length === 0 ? (
-        <div className="client-empty">Aucune notification pour le moment.</div>
+        <div className="client-empty">{L.clientSpace.noNotifs}</div>
       ) : null}
 
       <div className="cn-list">
@@ -130,7 +132,7 @@ export default function ClientNotificationsPage() {
               <button
                 type="button"
                 className="cn-delete-btn"
-                aria-label="Supprimer"
+                aria-label={L.common.delete}
                 onClick={(e) => { e.stopPropagation(); deleteNotif(notif.id); }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /></svg>

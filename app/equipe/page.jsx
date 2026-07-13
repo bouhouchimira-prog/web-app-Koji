@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 
 const professions = ["Peintre", "Carreleur", "Electricien", "Plombier", "Menuisier", "Tout corps d'etat"];
@@ -18,15 +19,24 @@ const initialWorker = {
   hourlyRate: "",
   notes: "",
   availability: "Disponible",
-  favorite: true
+  favorite: true,
+  isCompany: false,
+  companyRegNumber: "",
+  links: []
 };
 
 export default function TeamPage() {
+  const { L } = useLocale();
   const { data: workers, setData: setWorkers } = useApi("/api/workers", "workers");
+  const { data: projects } = useApi("/api/projects", "projects");
+  const { data: quotes } = useApi("/api/quotes", "quotes");
   const [activeTab, setActiveTab] = useState("Ouvrier");
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(initialWorker);
+  const [editingId, setEditingId] = useState(null);
+  const [linkDraftType, setLinkDraftType] = useState("");
+  const [linkDraftValue, setLinkDraftValue] = useState("");
   const [message, setMessage] = useState("");
   const photoInputRef = useRef(null);
 
@@ -40,8 +50,65 @@ export default function TeamPage() {
     });
   }, [activeTab, search, workers]);
 
+  const ouvrageOptions = useMemo(() => (quotes || []).flatMap((quote) =>
+    (quote.items || []).map((item) => ({
+      value: `${quote.id}::${item.id}`,
+      label: `${quote.quoteNumber ? `${quote.quoteNumber} - ` : ""}${item.label || "Ouvrage"}`
+    }))
+  ), [quotes]);
+
+  const subworkOptions = useMemo(() => (quotes || []).flatMap((quote) =>
+    (quote.items || []).flatMap((item) => (item.subItems || []).map((subItem) => ({
+      value: `${quote.id}::${item.id}::${subItem.id}`,
+      label: `${quote.quoteNumber ? `${quote.quoteNumber} - ` : ""}${item.label || "Ouvrage"} > ${subItem.label || "Sous-ouvrage"}`
+    })))
+  ), [quotes]);
+
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function resolveLink(type, value) {
+    if (!type || !value) return null;
+    if (type === "chantier") {
+      const project = (projects || []).find((item) => item.id === value);
+      return { type, projectId: value, label: project?.title || project?.reference || "Chantier" };
+    }
+    if (type === "devis") {
+      const quote = (quotes || []).find((item) => item.id === value);
+      return { type, quoteId: value, label: quote ? `${quote.quoteNumber || "Devis"}${quote.client ? ` - ${quote.client}` : ""}` : "Devis" };
+    }
+    if (type === "ouvrage") {
+      const [quoteId, itemId] = value.split("::");
+      const option = ouvrageOptions.find((entry) => entry.value === value);
+      return { type, quoteId, itemId, label: option?.label || "Ouvrage" };
+    }
+    if (type === "sous-ouvrage") {
+      const [quoteId, itemId, subItemId] = value.split("::");
+      const option = subworkOptions.find((entry) => entry.value === value);
+      return { type, quoteId, itemId, subItemId, label: option?.label || "Sous-ouvrage" };
+    }
+    return null;
+  }
+
+  function linkKey(link) {
+    return `${link.type}:${link.projectId || ""}:${link.quoteId || ""}:${link.itemId || ""}:${link.subItemId || ""}`;
+  }
+
+  function addLinkDraft() {
+    const resolved = resolveLink(linkDraftType, linkDraftValue);
+    if (!resolved) return;
+    setForm((current) => {
+      const links = current.links || [];
+      if (links.some((link) => linkKey(link) === linkKey(resolved))) return current;
+      return { ...current, links: [...links, resolved] };
+    });
+    setLinkDraftType("");
+    setLinkDraftValue("");
+  }
+
+  function removeLink(index) {
+    setForm((current) => ({ ...current, links: current.links.filter((_, i) => i !== index) }));
   }
 
   function onPhotoChange(event) {
@@ -52,18 +119,77 @@ export default function TeamPage() {
     reader.readAsDataURL(file);
   }
 
-  async function createWorker(event) {
+  function closeForm() {
+    setFormOpen(false);
+    setEditingId(null);
+    setLinkDraftType("");
+    setLinkDraftValue("");
+  }
+
+  function openCreate() {
+    setForm({ ...initialWorker, type: activeTab });
+    setEditingId(null);
+    setLinkDraftType("");
+    setLinkDraftValue("");
+    setFormOpen(true);
+  }
+
+  function openEdit(worker) {
+    const links = Array.isArray(worker.links) && worker.links.length
+      ? worker.links
+      : (worker.linkType ? [{
+          type: worker.linkType,
+          projectId: worker.linkProjectId || "",
+          quoteId: worker.linkQuoteId || "",
+          itemId: worker.linkItemId || "",
+          subItemId: worker.linkSubItemId || "",
+          label: worker.linkLabel || ""
+        }] : []);
+
+    setForm({
+      ...initialWorker,
+      ...worker,
+      profession: worker.profession || worker.role || initialWorker.profession,
+      availability: worker.availability || worker.status || initialWorker.availability,
+      hourlyRate: worker.hourlyRate || "",
+      isCompany: Boolean(worker.isCompany),
+      companyRegNumber: worker.companyRegNumber || "",
+      links
+    });
+    setEditingId(worker.id);
+    setLinkDraftType("");
+    setLinkDraftValue("");
+    setFormOpen(true);
+  }
+
+  async function submitWorker(event) {
     event.preventDefault();
-    const { worker } = await apiSend("/api/workers", {
-      ...form,
+    const isSub = activeTab === "Sous-traitant";
+    const {
+      id: _id, userId: _userId, loginId: _loginId, identifier: _identifier, portalRole: _portalRole,
+      createdAt: _createdAt, updatedAt: _updatedAt, passwordSetupRequired: _passwordSetupRequired,
+      credentialsIssuedAt: _credentialsIssuedAt, ...formFields
+    } = form;
+    const payload = {
+      ...formFields,
       type: activeTab,
       role: form.profession,
-      status: form.availability
-    });
-    setWorkers([worker, ...workers]);
-    setForm({ ...initialWorker, type: activeTab });
-    setFormOpen(false);
-    setMessage(`${activeTab} ajoute: ${worker.name}`);
+      status: form.availability,
+      isCompany: isSub ? Boolean(form.isCompany) : false,
+      companyRegNumber: isSub && form.isCompany ? form.companyRegNumber : "",
+      links: isSub ? (form.links || []) : []
+    };
+
+    if (editingId) {
+      const { worker } = await apiSend("/api/workers", { id: editingId, ...payload }, "PATCH");
+      setWorkers(workers.map((item) => (item.id === worker.id ? worker : item)));
+      setMessage(`${activeTab} mis a jour: ${worker.name}`);
+    } else {
+      const { worker } = await apiSend("/api/workers", payload);
+      setWorkers([worker, ...workers]);
+      setMessage(`${activeTab} ajoute: ${worker.name}`);
+    }
+    closeForm();
   }
 
   async function updateWorker(worker, patch) {
@@ -81,12 +207,12 @@ export default function TeamPage() {
       <Shell>
         <section className="mobile-tool tool-form-view">
           <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={() => setFormOpen(false)}>{"<"}</button>
-            <h1>Nouveau {activeTab}</h1>
+            <button type="button" className="plain-back" onClick={closeForm}>{"<"}</button>
+            <h1>{editingId ? L.equipe.editWorker : (activeTab === "Ouvrier" ? L.equipe.addWorker : L.equipe.addSub)}</h1>
             <span />
           </header>
 
-          <form className="mobile-form" onSubmit={createWorker}>
+          <form className="mobile-form" onSubmit={submitWorker}>
             <div className="worker-photo-box">
               <div className="worker-photo-frame">
                 {form.photoDataUrl ? <img src={form.photoDataUrl} alt="Photo" /> : null}
@@ -96,44 +222,106 @@ export default function TeamPage() {
               <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
             </div>
             <label className="mobile-input full">
-              <span>Nom et prenom</span>
-              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder="Rajouter votre texte..." required />
+              <span>{L.equipe.name}</span>
+              <input value={form.name} onChange={(event) => setField("name", event.target.value)} required />
             </label>
             <label className="mobile-input full">
-              <span>Numero de telephone</span>
+              <span>{L.equipe.phone}</span>
               <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
             </label>
             <label className="mobile-input full">
-              <span>Email</span>
-              <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} placeholder="exemple@email.com" />
+              <span>{L.equipe.email}</span>
+              <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
             </label>
             <label className="mobile-input full">
-              <span>Adresse postale</span>
-              <input value={form.address} onChange={(event) => setField("address", event.target.value)} placeholder="Adresse du participant" />
+              <span>{L.equipe.address}</span>
+              <input value={form.address} onChange={(event) => setField("address", event.target.value)} />
             </label>
             <label className="mobile-input full">
-              <span>Profession</span>
+              <span>{L.equipe.profession}</span>
               <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
                 {professions.map((profession) => <option key={profession}>{profession}</option>)}
               </select>
             </label>
             <label className="mobile-input full">
-              <span>Disponibilite</span>
+              <span>{L.equipe.availability}</span>
               <select value={form.availability} onChange={(event) => setField("availability", event.target.value)}>
-                <option>Disponible</option>
-                <option>Occupe</option>
-                <option>Absent</option>
+                <option value="Disponible">{L.equipe.available}</option>
+                <option value="Occupe">{L.equipe.unavailable}</option>
+                <option value="Absent">{L.equipe.onLeave}</option>
               </select>
             </label>
             <label className="mobile-input full">
-              <span>Taux horaire / journalier</span>
+              <span>{L.equipe.hourlyRate}</span>
               <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
             </label>
             <label className="mobile-input full">
-              <span>Notes</span>
-              <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Competences, contrat, remarques..." />
+              <span>{L.equipe.notes}</span>
+              <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
             </label>
-            <button className="mobile-primary">Enregistrer le profil</button>
+
+            {activeTab === "Sous-traitant" ? (
+              <>
+                <label className="mobile-checkbox full">
+                  <input type="checkbox" checked={Boolean(form.isCompany)} onChange={(event) => setField("isCompany", event.target.checked)} />
+                  <span>{L.equipe.isCompany}</span>
+                </label>
+                {form.isCompany ? (
+                  <label className="mobile-input full">
+                    <span>{L.equipe.companyRegNumber}</span>
+                    <input value={form.companyRegNumber} onChange={(event) => setField("companyRegNumber", event.target.value)} placeholder="123 456 789 00012" />
+                  </label>
+                ) : null}
+                <label className="mobile-input full">
+                  <span>{L.equipe.linkedTo}</span>
+                  <select value={linkDraftType} onChange={(event) => { setLinkDraftType(event.target.value); setLinkDraftValue(""); }}>
+                    <option value="">{L.equipe.linkedToNone}</option>
+                    <option value="chantier">{L.equipe.linkedToChantier}</option>
+                    <option value="devis">{L.equipe.linkedToDevis}</option>
+                    <option value="ouvrage">{L.equipe.linkedToOuvrage}</option>
+                    <option value="sous-ouvrage">{L.equipe.linkedToSubwork}</option>
+                  </select>
+                </label>
+                {linkDraftType ? (
+                  <label className="mobile-input full">
+                    <span>{L.equipe.linkedToItem}</span>
+                    <div className="url-fetch-row">
+                      <select value={linkDraftValue} onChange={(event) => setLinkDraftValue(event.target.value)}>
+                        <option value="">{L.equipe.linkedToItemPh}</option>
+                        {linkDraftType === "chantier" ? (projects || []).map((project) => (
+                          <option key={project.id} value={project.id}>{project.title || project.reference || "Chantier"}</option>
+                        )) : null}
+                        {linkDraftType === "devis" ? (quotes || []).map((quote) => (
+                          <option key={quote.id} value={quote.id}>{quote.quoteNumber ? `${quote.quoteNumber} - ${quote.client || ""}` : (quote.client || "Devis")}</option>
+                        )) : null}
+                        {linkDraftType === "ouvrage" ? ouvrageOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        )) : null}
+                        {linkDraftType === "sous-ouvrage" ? subworkOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        )) : null}
+                      </select>
+                      <button type="button" className="mini-button" onClick={addLinkDraft} disabled={!linkDraftValue}>{L.common.add}</button>
+                    </div>
+                  </label>
+                ) : null}
+                {(form.links || []).length ? (
+                  <div className="mobile-input full">
+                    <span>{L.equipe.linkedItemsList}</span>
+                    <div className="link-chip-list">
+                      {form.links.map((link, index) => (
+                        <span className="link-chip" key={linkKey(link) + index}>
+                          {link.label}
+                          <button type="button" onClick={() => removeLink(index)} aria-label={L.common.remove}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+
+            <button className="mobile-primary">{L.equipe.save}</button>
           </form>
         </section>
       </Shell>
@@ -145,26 +333,32 @@ export default function TeamPage() {
       <section className="mobile-tool">
         <header className="tool-topline">
           <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>Equipe</h1>
-          <button type="button" className="round-dark" onClick={() => setFormOpen(true)}>+</button>
+          <h1>{L.equipe.title}</h1>
+          <span />
         </header>
 
         <div className="search-pill">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un participant..." />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
         </div>
 
-        <div className="segmented large">
-          <button type="button" className={activeTab === "Ouvrier" ? "active" : ""} onClick={() => setActiveTab("Ouvrier")}>Ouvriers</button>
-          <button type="button" className={activeTab === "Sous-traitant" ? "active" : ""} onClick={() => setActiveTab("Sous-traitant")}>Sous-traitants</button>
+        <div className="segmented large segmented-beige">
+          <button type="button" className={activeTab === "Ouvrier" ? "active" : ""} onClick={() => setActiveTab("Ouvrier")}>{L.equipe.workers}</button>
+          <button type="button" className={activeTab === "Sous-traitant" ? "active" : ""} onClick={() => setActiveTab("Sous-traitant")}>{L.equipe.subcontractors}</button>
         </div>
 
         {message ? <p className="tool-message">{message}</p> : null}
-        <h2 className="tool-subtitle">Favoris</h2>
 
         <div className="people-list">
-          {filteredWorkers.length === 0 ? <div className="tool-empty">Aucun participant pour le moment.</div> : null}
+          {filteredWorkers.length === 0 ? <div className="tool-empty">{activeTab === "Ouvrier" ? L.equipe.noWorkers : L.equipe.noSubs}</div> : null}
           {filteredWorkers.map((worker) => (
-            <article className="person-row" key={worker.id}>
+            <article
+              className="person-row clickable"
+              key={worker.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => openEdit(worker)}
+              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openEdit(worker); } }}
+            >
               <div className="avatar">
                 {worker.photoDataUrl ? (
                   <img src={worker.photoDataUrl} alt={worker.name} />
@@ -174,17 +368,20 @@ export default function TeamPage() {
                 <i className={worker.availability === "Disponible" ? "online" : ""} />
               </div>
               <div>
-                <strong>{worker.name}</strong>
+                <strong>{worker.name}{worker.isCompany ? ` (${worker.companyRegNumber || L.equipe.isCompany})` : ""}</strong>
                 <small>{worker.profession || worker.role} - {worker.availability || "Disponible"}{worker.hourlyRate ? ` - ${worker.hourlyRate} EUR/h` : ""}</small>
                 {worker.phone || worker.email ? <small>{[worker.phone, worker.email].filter(Boolean).join(" - ")}</small> : null}
+                {(worker.links || []).length ? (
+                  <small>{L.equipe.linkedTo}: {worker.links.map((link) => link.label).filter(Boolean).join(", ")}</small>
+                ) : (worker.linkLabel ? <small>{L.equipe.linkedTo}: {worker.linkLabel}</small> : null)}
               </div>
-              <button type="button" className={worker.favorite ? "select-dot selected" : "select-dot"} onClick={() => updateWorker(worker, { favorite: !worker.favorite })} aria-label="Favori" />
-              <button type="button" className="mini-danger" onClick={() => deleteWorker(worker)}>Supprimer</button>
+              <button type="button" className={worker.favorite ? "select-dot selected" : "select-dot"} onClick={(event) => { event.stopPropagation(); updateWorker(worker, { favorite: !worker.favorite }); }} aria-label="Favori" />
+              <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteWorker(worker); }}>{L.equipe.delete}</button>
             </article>
           ))}
         </div>
 
-        <button type="button" className="mobile-primary sticky-bottom" onClick={() => setFormOpen(true)}>Ajouter</button>
+        <button type="button" className="mobile-primary sticky-bottom" onClick={openCreate}>{L.equipe.addPersonnel}</button>
       </section>
     </Shell>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import catalog from "../../data/catalog-ouvrages.json";
 
@@ -50,6 +51,7 @@ function nextSubCode(parentCode, siblings) {
 }
 
 export default function OuvragesLibraryPage() {
+  const { L } = useLocale();
   const { data: ouvrages, setData: setOuvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("Toutes");
@@ -60,13 +62,13 @@ export default function OuvragesLibraryPage() {
   const [message, setMessage] = useState("");
 
   const families = useMemo(() => {
-    return ["Toutes", ...Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort()];
+    return [L.fournitures.all, ...Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort()];
   }, [ouvrages]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return ouvrages.filter((item) => {
-      if (family !== "Toutes" && item.family !== family) return false;
+      if (family !== L.fournitures.all && item.family !== family) return false;
       if (!normalized) return true;
       return [item.code, item.label, item.family, item.category, item.description]
         .join(" ")
@@ -133,7 +135,7 @@ export default function OuvragesLibraryPage() {
     const siblings = parent ? ouvrages.filter((item) => item.parentCode === parent.code) : [];
     setForm({
       ...emptyForm,
-      family: parent?.family || (family !== "Toutes" ? family : "Carrelage"),
+      family: parent?.family || (family !== L.fournitures.all ? family : "Carrelage"),
       category: parent?.category || "General",
       unit: parent?.unit || "m²",
       parentCode: parent?.code || "",
@@ -170,21 +172,21 @@ export default function OuvragesLibraryPage() {
     setOuvrages(nextOuvrages);
     setFormMode("list");
     setForm(emptyForm);
-    setMessage(formMode === "edit" ? "Ouvrage enregistre." : "Ouvrage cree.");
+    setMessage(formMode === "edit" ? L.bibliotheque.savedMsg : L.bibliotheque.createdMsg);
   }
 
   async function deleteOuvrage(item) {
     setOpenMenuId("");
-    if (!window.confirm(`Supprimer ${item.code} ?`)) return;
+    if (!window.confirm(L.bibliotheque.confirmDelete(item.code))) return;
     const response = await fetch(`/api/ouvrages?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
     const payload = await response.json();
     if (!response.ok) {
-      setMessage(payload.error || "Suppression impossible.");
+      setMessage(payload.error || L.bibliotheque.deleteError);
       return;
     }
     setOuvrages(payload.ouvrages);
     setSelectedIds((current) => current.filter((id) => id !== item.id));
-    setMessage("Ouvrage supprime.");
+    setMessage(L.bibliotheque.deletedMsg);
   }
 
   function addSelectionToQuote() {
@@ -216,17 +218,17 @@ export default function OuvragesLibraryPage() {
           </div>
           <h3>{item.label}</h3>
           <p className="library-stats">
-            <span>Temps: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
-            <span>Taux: <strong>{formatMoney(item.hourlyRate || 0)}</strong></span>
-            <span>MO/u: <strong>{formatMoney(moCost(item))}</strong></span>
+            <span>{L.bibliotheque.normTime}: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
+            <span>{L.bibliotheque.hourlyRate}: <strong>{formatMoney(item.hourlyRate || 0)}</strong></span>
+            <span>{L.bibliotheque.moCost}: <strong>{formatMoney(moCost(item))}</strong></span>
           </p>
           {item.description ? <p className="library-description">{item.description}</p> : null}
         </div>
         <button type="button" className="library-menu-button" onClick={() => setOpenMenuId(openMenuId === item.id ? "" : item.id)}>...</button>
         {openMenuId === item.id ? (
           <div className="library-menu">
-            <button type="button" onClick={() => startEdit(item)}>Modifier</button>
-            <button type="button" className="danger" onClick={() => deleteOuvrage(item)}>Supprimer</button>
+            <button type="button" onClick={() => startEdit(item)}>{L.common.edit}</button>
+            <button type="button" className="danger" onClick={() => deleteOuvrage(item)}>{L.common.delete}</button>
           </div>
         ) : null}
       </article>
@@ -234,8 +236,8 @@ export default function OuvragesLibraryPage() {
   }
 
   if (formMode !== "list") {
-    const title = formMode === "edit" ? "Modifier ouvrage" : formMode === "sub" ? "Nouveau sous-ouvrage" : "Nouvel ouvrage";
-    const buttonLabel = formMode === "edit" ? "Enregistrer" : formMode === "sub" ? "Creer le sous-ouvrage" : "Creer l'ouvrage";
+    const title = formMode === "edit" ? L.bibliotheque.editItem : formMode === "sub" ? L.bibliotheque.newSubItem : L.bibliotheque.newItem;
+    const buttonLabel = formMode === "edit" ? L.common.save : formMode === "sub" ? L.bibliotheque.createSubItem : L.bibliotheque.createItem;
     const cost = moCost(form);
 
     return (
@@ -248,21 +250,21 @@ export default function OuvragesLibraryPage() {
           </header>
 
           <form className="ouvrage-form" onSubmit={saveOuvrage}>
-            <label className="library-field full">Code<input value={form.code} onChange={(event) => setField("code", event.target.value)} placeholder="Ex: CAR-01" required /></label>
-            <label className="library-field full">Designation<textarea value={form.label} onChange={(event) => setField("label", event.target.value)} placeholder="Pose carrelage sol <= 60x60 cm" required /></label>
-            <label className="library-field">Famille<select value={form.family} onChange={(event) => setField("family", event.target.value)}>
-              {families.filter((item) => item !== "Toutes").map((item) => <option key={item}>{item}</option>)}
+            <label className="library-field full">{L.bibliotheque.code}<input value={form.code} onChange={(event) => setField("code", event.target.value)} placeholder="Ex: CAR-01" required /></label>
+            <label className="library-field full">{L.bibliotheque.designation}<textarea value={form.label} onChange={(event) => setField("label", event.target.value)} placeholder={L.bibliotheque.designation} required /></label>
+            <label className="library-field">{L.bibliotheque.family}<select value={form.family} onChange={(event) => setField("family", event.target.value)}>
+              {families.filter((item) => item !== L.fournitures.all).map((item) => <option key={item}>{item}</option>)}
             </select></label>
-            <label className="library-field">Unite<select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
+            <label className="library-field">{L.bibliotheque.unit}<select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
               {units.map((item) => <option key={item}>{item}</option>)}
             </select></label>
-            <label className="library-field">Temps (h/u)<input type="number" step="0.001" value={form.normativeTime} onChange={(event) => setField("normativeTime", event.target.value)} placeholder="1.20" /></label>
-            <label className="library-field">Taux horaire (EUR)<input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} /></label>
-            <div className="mo-box">Cout MO/u : <strong>{formatMoney(cost)}</strong></div>
-            <label className="library-field">Coefficient<input type="number" step="0.05" value={form.coefficient} onChange={(event) => setField("coefficient", event.target.value)} /></label>
-            <label className="library-field">Reduction (%)<input type="number" step="1" value={form.discount} onChange={(event) => setField("discount", event.target.value)} /></label>
-            <label className="library-field full">Commentaire<textarea value={form.description} onChange={(event) => setField("description", event.target.value)} placeholder="Colle + joints inclus" /></label>
-            {form.parentCode ? <p className="library-note">Sous-ouvrage de {form.parentCode}</p> : null}
+            <label className="library-field">{L.bibliotheque.time}<input type="number" step="0.001" value={form.normativeTime} onChange={(event) => setField("normativeTime", event.target.value)} placeholder="1.20" /></label>
+            <label className="library-field">{L.bibliotheque.hourlyRateEur}<input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} /></label>
+            <div className="mo-box">{L.bibliotheque.moCostPerUnit} : <strong>{formatMoney(cost)}</strong></div>
+            <label className="library-field">{L.bibliotheque.coefficient}<input type="number" step="0.05" value={form.coefficient} onChange={(event) => setField("coefficient", event.target.value)} /></label>
+            <label className="library-field">{L.bibliotheque.reduction}<input type="number" step="1" value={form.discount} onChange={(event) => setField("discount", event.target.value)} /></label>
+            <label className="library-field full">{L.bibliotheque.comment}<textarea value={form.description} onChange={(event) => setField("description", event.target.value)} placeholder={L.bibliotheque.comment} /></label>
+            {form.parentCode ? <p className="library-note">{L.bibliotheque.subOf} {form.parentCode}</p> : null}
             <button className="library-submit">{buttonLabel}</button>
           </form>
         </main>
@@ -275,7 +277,7 @@ export default function OuvragesLibraryPage() {
       <main className="library-page">
         <header className="library-top">
           <button type="button" onClick={goBack} aria-label="Retour">{"<"}</button>
-          <h1>Choisir un ouvrage</h1>
+          <h1>{L.bibliotheque.chooseItem}</h1>
           <button type="button" className="library-add" onClick={() => startCreate()} aria-label="Nouvel ouvrage">+</button>
         </header>
 
@@ -283,7 +285,7 @@ export default function OuvragesLibraryPage() {
           className="library-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Rechercher par code, designation ou famille"
+          placeholder={L.bibliotheque.search}
         />
 
         <div className="library-chips">
@@ -297,7 +299,7 @@ export default function OuvragesLibraryPage() {
         {message ? <p className="library-message">{message}</p> : null}
 
         {Object.keys(grouped).length === 0 ? (
-          <section className="library-empty">Aucun ouvrage trouve.</section>
+          <section className="library-empty">{L.bibliotheque.noFound}</section>
         ) : (
           Object.entries(grouped).map(([title, items]) => (
             <section className="library-group" key={title}>
@@ -308,7 +310,7 @@ export default function OuvragesLibraryPage() {
                     {(childrenByParent[item.code] || []).map((child) => renderOuvrageCard(child, { child: true }))}
                     {item.type === "POSTE" ? (
                       <button type="button" className="sub-ouvrage-button" onClick={() => startCreate(item)}>
-                        + Ajouter un sous-ouvrage
+                        {L.bibliotheque.addSubItem}
                       </button>
                     ) : null}
                   </div>
@@ -319,9 +321,9 @@ export default function OuvragesLibraryPage() {
 
         {selectedItems.length > 0 ? (
           <div className="library-selection-bar">
-            <span>{selectedItems.length} ouvrage{selectedItems.length > 1 ? "s" : ""} selectionne{selectedItems.length > 1 ? "s" : ""}</span>
+            <span>{L.bibliotheque.selected(selectedItems.length)}</span>
             <button type="button" onClick={addSelectionToQuote}>
-              Ajouter {selectedItems.length > 1 ? "les ouvrages" : "l'ouvrage"}
+              {L.bibliotheque.addToQuote(selectedItems.length)}
             </button>
           </div>
         ) : null}

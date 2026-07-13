@@ -4,26 +4,28 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 
 const professions = ["Électricien", "Plombier", "Carreleur", "Menuisier", "Peintre", "Tout corps d'état"];
 
+function readUserId() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("koji-user");
+    if (!raw) return null;
+    return JSON.parse(raw).id || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function ProfessionSelectionPage() {
+  const { L } = useLocale();
   const router = useRouter();
   const [selected, setSelected] = useState(["Peintre"]);
 
   function toggle(value) {
     setSelected((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
-  }
-
-  function readUserId() {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.localStorage.getItem("koji-user");
-      if (!raw) return null;
-      return JSON.parse(raw).id || null;
-    } catch {
-      return null;
-    }
   }
 
   async function submit() {
@@ -36,9 +38,9 @@ export default function ProfessionSelectionPage() {
     <Shell>
       <header className="page-header">
         <div>
-          <p className="eyebrow">PROFIL MÉTIER</p>
-          <h1>Vos professions</h1>
-          <p className="muted">Ce choix permet d’adapter les ouvrages proposés dans le devis.</p>
+          <p className="eyebrow">{L.setup.professionEyebrow}</p>
+          <h1>{L.setup.professionTitle}</h1>
+          <p className="muted">{L.setup.professionDesc}</p>
         </div>
       </header>
       <section className="grid cols-3">
@@ -48,7 +50,7 @@ export default function ProfessionSelectionPage() {
           </button>
         ))}
       </section>
-      <button className="button blue" disabled={!selected.length} onClick={submit} style={{ marginTop: 22 }}>Enregistrer le profil</button>
+      <button className="button blue" disabled={!selected.length} onClick={submit} style={{ marginTop: 22 }}>{L.setup.saveProfile}</button>
     </Shell>
   );
 }

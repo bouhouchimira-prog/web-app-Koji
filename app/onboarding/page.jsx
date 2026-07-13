@@ -4,27 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { PhoneFrame } from "../../components/PhoneFrame";
-
-const pages = [
-  {
-    title: "Pilotez vos chantiers simplement",
-    description: "Du premier rendez-vous client jusqu'a la fin des travaux",
-    image: "/images/onboarding_1.png"
-  },
-  {
-    title: "Suivez le chantier au quotidien",
-    description: "Photos, notes et avancement centralises au meme endroit",
-    image: "/images/onboarding_2.png"
-  },
-  {
-    title: "Des devis clairs, des clients satisfaits",
-    description: "Vos informations terrain deviennent des devis professionnels",
-    image: "/images/onboarding_3.png"
-  }
-];
+import { useLocale } from "../../lib/i18n";
 
 export default function OnboardingPage() {
+  const { L } = useLocale();
   const [index, setIndex] = useState(0);
+
+  const pages = [
+    { title: L.onboarding.slide1title, description: L.onboarding.slide1desc, image: "/images/onboarding_1.png" },
+    { title: L.onboarding.slide2title, description: L.onboarding.slide2desc, image: "/images/onboarding_2.png" },
+    { title: L.onboarding.slide3title, description: L.onboarding.slide3desc, image: "/images/onboarding_3.png" },
+  ];
+
   const page = pages[index];
   const last = index === pages.length - 1;
 
@@ -33,7 +24,7 @@ export default function OnboardingPage() {
       <section className="screen welcome-screen">
         <div style={{ textAlign: "right" }}>
           <Link href="/welcome" className="muted" style={{ fontWeight: 400 }}>
-            Passer
+            {L.onboarding.skip}
           </Link>
         </div>
         <div style={{ display: "grid", placeItems: "center", minHeight: 330 }}>
@@ -51,11 +42,11 @@ export default function OnboardingPage() {
         <div className="bottom-action">
           {last ? (
             <Link href="/welcome" className="full-button" style={{ display: "grid", placeItems: "center" }}>
-              Commencer
+              {L.onboarding.start}
             </Link>
           ) : (
             <button className="full-button" onClick={() => setIndex(index + 1)}>
-              Suivant
+              {L.onboarding.next}
             </button>
           )}
         </div>

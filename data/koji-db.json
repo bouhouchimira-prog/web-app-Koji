@@ -49,7 +49,7 @@
       "professions": [
         "Tout corps d'etat"
       ],
-      "lastLoginAt": "2026-07-02T21:02:46.454Z",
+      "lastLoginAt": "2026-07-06T15:18:16.656Z",
       "updatedAt": "2026-06-18T12:44:50.605Z",
       "trialQuoteId": "q-1781737003640"
     },
@@ -13597,14 +13597,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "task-1782476041274-4cxfyr7l",
@@ -13624,14 +13626,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "task-1782476041274-fjtf0twm",
@@ -13651,14 +13655,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "task-1782476041274-ksin4j2l",
@@ -13678,14 +13684,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "task-1782476041274-drtfbbgg",
@@ -13705,14 +13713,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "task-1782476041274-18dmg9pn",
@@ -13732,14 +13742,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "task-1782476041274-qbq8bkih",
@@ -13759,14 +13771,16 @@
       "startDate": "",
       "endDate": "",
       "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "assignedTo": "Testing, Testing Edited",
+      "workerIds": [
+        "w-1783871772006"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-06-26T12:14:01.267Z"
+      "updatedAt": "2026-07-12T16:21:13.874Z"
     },
     {
       "id": "t-1780740024595",
@@ -13868,7 +13882,10 @@
         "w-1780359950025"
       ],
       "done": false,
-      "createdAt": "2026-06-02T00:55:03.287Z"
+      "createdAt": "2026-06-02T00:55:03.287Z",
+      "workerIds": [],
+      "participantType": "Ouvriers",
+      "updatedAt": "2026-07-12T16:21:03.619Z"
     },
     {
       "id": "t-1780359950551-0",
@@ -13978,6 +13995,57 @@
   ],
   "workers": [
     {
+      "id": "w-1783871772006",
+      "userId": "u-1780183669286",
+      "loginId": "OUV-H6XDR2",
+      "identifier": "OUV-H6XDR2",
+      "portalRole": "worker",
+      "type": "Sous-traitant",
+      "firstName": "",
+      "lastName": "",
+      "name": "Testing",
+      "role": "Peintre",
+      "profession": "Peintre",
+      "email": "",
+      "phone": "",
+      "address": "",
+      "socialSecurityNumber": "",
+      "idCardUrl": "",
+      "hourlyRate": 0,
+      "hireDate": "",
+      "notes": "",
+      "availability": "Disponible",
+      "status": "Disponible",
+      "favorite": true,
+      "imageUrl": "",
+      "photoDataUrl": "",
+      "hours": 0,
+      "isCompany": false,
+      "companyRegNumber": "",
+      "linkType": "chantier",
+      "linkProjectId": "p-1781786578317",
+      "linkQuoteId": "",
+      "linkItemId": "",
+      "linkSubItemId": "",
+      "linkLabel": "Bilal AGHANIM",
+      "passwordHash": "7fcbd26ada00b6306138a4cae41f8ace4ad01f986fbb519d12e28c5f4a6a613e",
+      "passwordSalt": "b7e9f0d2d86d60b80b4949dbc9d7a9c6",
+      "passwordSetupRequired": true,
+      "credentialsIssuedAt": "2026-07-12T15:56:12.006Z",
+      "createdAt": "2026-07-12T15:56:12.006Z",
+      "updatedAt": "2026-07-12T16:21:13.874Z",
+      "links": [
+        {
+          "type": "chantier",
+          "projectId": "p-1781786578317",
+          "quoteId": "",
+          "itemId": "",
+          "subItemId": "",
+          "label": "Bilal AGHANIM"
+        }
+      ]
+    },
+    {
       "id": "w-1780421738436",
       "userId": "u-1780183669286",
       "type": "Sous-traitant",
@@ -13995,7 +14063,10 @@
       "photoDataUrl": "",
       "hours": 0,
       "createdAt": "2026-06-02T17:35:38.436Z",
-      "updatedAt": "2026-06-02T17:35:54.512Z"
+      "updatedAt": "2026-07-12T15:54:49.616Z",
+      "loginId": "OUV-CKY79Y",
+      "identifier": "OUV-CKY79Y",
+      "portalRole": "worker"
     }
   ],
   "mailOutbox": [
@@ -14158,6 +14229,108 @@
     }
   ],
   "history": [
+    {
+      "id": "h-1783950719256-adce8f",
+      "userId": "",
+      "type": "calendar.updated",
+      "label": "Evenement mis a jour: Rendez-vous chantier",
+      "entityId": "cal-1781706895427",
+      "entityType": "calendarEvent",
+      "meta": {},
+      "createdAt": "2026-07-13T13:51:59.256Z"
+    },
+    {
+      "id": "h-1783950699004-756d94",
+      "userId": "",
+      "type": "calendar.updated",
+      "label": "Evenement mis a jour: Rendez-vous chantier",
+      "entityId": "cal-1781706895427",
+      "entityType": "calendarEvent",
+      "meta": {},
+      "createdAt": "2026-07-13T13:51:39.004Z"
+    },
+    {
+      "id": "h-1783873273874-dadcd8",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Testing",
+      "entityId": "w-1783871772006",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-12T16:21:13.874Z"
+    },
+    {
+      "id": "h-1783873263619-be1ffd",
+      "userId": "",
+      "type": "task.updated",
+      "label": "Tache mise a jour: Pose test",
+      "entityId": "t-1780361703287-0",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-12T16:21:03.619Z"
+    },
+    {
+      "id": "h-1783873227941-15abc2",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Testing",
+      "entityId": "w-1783871772006",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-12T16:20:27.942Z"
+    },
+    {
+      "id": "h-1783872594568-cee9cc",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Testing",
+      "entityId": "w-1783871772006",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-12T16:09:54.568Z"
+    },
+    {
+      "id": "h-1783872581963-51ac9a",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Testing Edited",
+      "entityId": "w-1783871772006",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-12T16:09:41.963Z"
+    },
+    {
+      "id": "h-1783871772008-877a7c",
+      "userId": "u-1780183669286",
+      "type": "worker.created",
+      "label": "Ouvrier ajoute: Testing",
+      "entityId": "w-1783871772006",
+      "entityType": "worker",
+      "meta": {
+        "loginId": "OUV-H6XDR2"
+      },
+      "createdAt": "2026-07-12T15:56:12.008Z"
+    },
+    {
+      "id": "h-1783871689616-b27ccb",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Ahmed  Ahmed",
+      "entityId": "w-1780421738436",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-12T15:54:49.616Z"
+    },
+    {
+      "id": "h-1783871680826-75c213",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Ahmed  Ahmed",
+      "entityId": "w-1780421738436",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-12T15:54:40.826Z"
+    },
     {
       "id": "h-1783090497545-a8c626",
       "userId": "u-1780183669286",
@@ -17110,8 +17283,8 @@
       "projectTitle": "test",
       "quoteId": "",
       "address": "",
-      "startAt": "2026-06-17T09:00:00",
-      "endAt": "2026-06-17T09:00:00",
+      "startAt": "2026-06-17T09:00:00.000Z",
+      "endAt": "2026-06-17T09:00:00.000Z",
       "allDay": false,
       "status": "Planifie",
       "progress": 0,
@@ -17119,7 +17292,7 @@
       "workerIds": [],
       "tasks": [],
       "createdAt": "2026-06-17T14:34:55.427Z",
-      "updatedAt": "2026-06-17T14:34:55.427Z"
+      "updatedAt": "2026-07-13T13:51:59.256Z"
     },
     {
       "id": "cal-1781706893965",
@@ -18860,6 +19033,18 @@
   ],
   "notifications": [
     {
+      "id": "wn-1783873227941-d384d38828b34",
+      "userId": "u-1780183669286",
+      "workerId": "w-1783871772006",
+      "projectId": "",
+      "taskId": "",
+      "type": "worker.assignment",
+      "title": "Nouvelle affectation",
+      "message": "Vous avez ete affecte aux taches suivantes :\nKOJI-2026-027 - Verification Codex (1 rue test, Paris) : Pose test",
+      "read": true,
+      "createdAt": "2026-07-12T16:20:27.941Z"
+    },
+    {
       "id": "notif-reply-1783033174859",
       "userId": "client-1782476041276-6l0xfw6p",
       "accountType": "particulier",
@@ -18977,5 +19162,6 @@
   "categories": [],
   "marketplaceInterests": [],
   "quoteSeqCounter": 1103,
-  "urgentAlerts": []
+  "urgentAlerts": [],
+  "clients": []
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
+import { useLocale } from "../../lib/i18n";
 
 function CheckIcon() {
   return (
@@ -32,6 +33,7 @@ function SpinnerIcon() {
 }
 
 function ActivateInner() {
+  const { L } = useLocale();
   const params = useSearchParams();
   const token = params.get("token");
   const [status, setStatus] = useState("loading");
@@ -77,30 +79,30 @@ function ActivateInner() {
               color: "#0a1538",
               margin: 0
             }}>
-              {status === "loading" && "Activation en cours…"}
-              {status === "ok" && "Compte activé !"}
-              {status === "error" && "Activation échouée"}
+              {status === "loading" && L.auth.activating}
+              {status === "ok" && L.auth.accountActivated}
+              {status === "error" && L.auth.activationFailed}
             </h2>
 
             <p className="auth-confirm-sub">
-              {status === "loading" && "Veuillez patienter quelques instants."}
+              {status === "loading" && L.auth.pleaseWait}
               {status === "ok" && message}
               {status === "error" && message}
             </p>
 
             {status === "ok" && (
               <Link href="/login?type=entreprise" className="auth-btn-primary" style={{ textDecoration: "none", display: "inline-block" }}>
-                Se connecter
+                {L.auth.loginBtn}
               </Link>
             )}
 
             {status === "error" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
                 <Link href="/signup" className="auth-btn-primary" style={{ textDecoration: "none", display: "block", textAlign: "center" }}>
-                  Créer un nouveau compte
+                  {L.auth.createNewAccount}
                 </Link>
                 <Link href="/login" style={{ textAlign: "center", fontSize: "0.85rem", color: "#64748b", textDecoration: "none" }}>
-                  Retour à la connexion
+                  {L.auth.backToLogin}
                 </Link>
               </div>
             )}

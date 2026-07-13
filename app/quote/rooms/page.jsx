@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../../../components/Shell";
 import { getDraft, rooms, saveDraft } from "../../../lib/quote-state";
+import { useLocale } from "../../../lib/i18n";
 
 export default function QuoteRoomsPage() {
+  const { L } = useLocale();
   const router = useRouter();
   const [selected, setSelected] = useState(() => getDraft().rooms || []);
   const [custom, setCustom] = useState("");
@@ -30,17 +32,17 @@ export default function QuoteRoomsPage() {
     <Shell>
       <header className="page-header">
         <div>
-          <p className="eyebrow">ASSISTANT DEVIS</p>
-          <h1>Choisir les pièces</h1>
-          <p className="muted">Sélectionnez les zones du chantier. Elles seront reprises dans le devis.</p>
+          <p className="eyebrow">{L.setup.roomsEyebrow}</p>
+          <h1>{L.setup.roomsTitle}</h1>
+          <p className="muted">{L.setup.roomsDesc}</p>
         </div>
       </header>
 
       <section className="panel">
         <div className="form-grid">
-          <label className="field full">Ajouter une pièce personnalisée<input value={custom} onChange={(event) => setCustom(event.target.value)} placeholder="Buanderie, garage..." /></label>
+          <label className="field full">{L.setup.addCustomRoom}<input value={custom} onChange={(event) => setCustom(event.target.value)} placeholder={L.setup.customRoomPh} /></label>
         </div>
-        <button className="button secondary" style={{ marginTop: 12 }} onClick={addCustom}>Ajouter la pièce</button>
+        <button className="button secondary" style={{ marginTop: 12 }} onClick={addCustom}>{L.setup.addRoomBtn}</button>
       </section>
 
       <section className="grid cols-3" style={{ marginTop: 22 }}>
@@ -51,7 +53,7 @@ export default function QuoteRoomsPage() {
         ))}
       </section>
 
-      <button className="button blue" style={{ marginTop: 22 }} disabled={!selected.length} onClick={next}>Continuer vers le devis</button>
+      <button className="button blue" style={{ marginTop: 22 }} disabled={!selected.length} onClick={next}>{L.setup.continueDevis}</button>
     </Shell>
   );
 }

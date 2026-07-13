@@ -3,17 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
+import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
 
 const invoiceTypes = ["Acompte initial", "Facture intermédiaire", "Facture finale"];
-const modes = [
-  { id: "fixed", label: "Montant fixe" },
-  { id: "percent", label: "Pourcentage" },
-  { id: "deposit", label: "Acompte" },
-  { id: "remaining", label: "Solde restant" }
-];
 
 function signedQuote(quote) {
   return quote.status === "Signe" || quote.signatureStatus === "Signe";
@@ -41,6 +36,13 @@ function billingSummary(quote, invoices) {
 }
 
 export default function FacturationPage() {
+  const { L } = useLocale();
+  const modes = [
+    { id: "fixed", label: L.facturation.modeFixed },
+    { id: "percent", label: L.facturation.modePercent },
+    { id: "deposit", label: L.facturation.modeDeposit },
+    { id: "remaining", label: L.facturation.modeRemaining },
+  ];
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
   const { data: invoices, setData: setInvoices } = useApi("/api/invoices", "invoices");
@@ -106,7 +108,7 @@ export default function FacturationPage() {
       notes: form.notes
     });
     setInvoices([invoice, ...invoices]);
-    setMessage(`Facture ${invoice.invoiceNumber} créée.`);
+    setMessage(`${L.facturation.title} ${invoice.invoiceNumber}`);
     setForm((current) => ({ ...current, type: "Facture intermédiaire", amountMode: "remaining", fixedAmount: "", notes: "" }));
   }
 
@@ -114,11 +116,11 @@ export default function FacturationPage() {
     const { invoice } = await apiSend("/api/invoices", { id, action }, "PATCH");
     if (action === "delete") {
       setInvoices(invoices.filter((item) => item.id !== id));
-      setMessage("Facture supprimée.");
+      setMessage(L.common.delete);
       return;
     }
     setInvoices(invoices.map((item) => (item.id === id ? invoice : item)));
-    setMessage(action === "issue" ? "Facture émise." : action === "pay" ? "Facture marquée payée." : "Facture annulée.");
+    setMessage(action === "issue" ? L.facturation.issue : action === "pay" ? L.facturation.markPaid : L.common.cancel);
   }
 
   return (
@@ -126,18 +128,18 @@ export default function FacturationPage() {
       <div className="mobile-tool invoice-tool">
         <div className="tool-topline">
           <button className="plain-back" type="button" onClick={() => history.back()}>{"<"}</button>
-          <h1>Facturation</h1>
+          <h1>{L.facturation.title}</h1>
           <span />
         </div>
 
         <section className="invoice-section">
           <div className="invoice-section-head">
-            <h2>Devis signés</h2>
-            <span>{eligibleQuotes.length} chantier{eligibleQuotes.length > 1 ? "s" : ""}</span>
+            <h2>{L.facturation.signedQuotes}</h2>
+            <span>{eligibleQuotes.length}</span>
           </div>
 
           {eligibleQuotes.length === 0 ? (
-            <div className="tool-empty">Aucun devis signé à facturer pour le moment.</div>
+            <div className="tool-empty">{L.facturation.noQuotes}</div>
           ) : (
             <div className="invoice-source-list">
               {eligibleQuotes.map(({ quote, project }) => {
@@ -174,28 +176,28 @@ export default function FacturationPage() {
                 <span>{fixText(selected.project.client)}</span>
               </div>
               <div className="invoice-summary-grid">
-                <div><span>Devis signé</span><strong>{euro(summary.total)}</strong></div>
-                <div><span>Déjà facturé</span><strong>{euro(summary.already)}</strong></div>
-                <div><span>Reste à facturer</span><strong>{euro(summary.remaining)}</strong></div>
-                <div><span>État</span><strong>{summary.state}</strong></div>
+                <div><span>{L.facturation.total}</span><strong>{euro(summary.total)}</strong></div>
+                <div><span>{L.facturation.billed}</span><strong>{euro(summary.already)}</strong></div>
+                <div><span>{L.facturation.remaining}</span><strong>{euro(summary.remaining)}</strong></div>
+                <div><span>{L.facturation.status}</span><strong>{summary.state}</strong></div>
               </div>
             </section>
 
             <form className="invoice-section invoice-form" onSubmit={createInvoice}>
               <div className="invoice-section-head">
-                <h2>Nouvelle facture</h2>
+                <h2>{L.facturation.newInvoice}</h2>
                 <span>{euro(safePreview)}</span>
               </div>
 
               <div className="invoice-form-grid">
                 <label>
-                  Type
+                  {L.facturation.type}
                   <select value={form.type} onChange={(event) => setField("type", event.target.value)}>
                     {invoiceTypes.map((type) => <option key={type}>{type}</option>)}
                   </select>
                 </label>
                 <label>
-                  Échéance
+                  {L.facturation.echeance}
                   <input type="date" value={form.dueDate} onChange={(event) => setField("dueDate", event.target.value)} />
                 </label>
               </div>
@@ -216,40 +218,40 @@ export default function FacturationPage() {
               <div className="invoice-form-grid">
                 {form.amountMode === "fixed" ? (
                   <label>
-                    Montant TTC
+                    {L.facturation.montantTtc}
                     <input type="number" min="0" step="0.01" value={form.fixedAmount} onChange={(event) => setField("fixedAmount", event.target.value)} placeholder="Ex: 1200" />
                   </label>
                 ) : null}
                 {form.amountMode === "percent" ? (
                   <label>
-                    Pourcentage du devis
+                    {L.facturation.percentDevis}
                     <input type="number" min="0" max="100" step="1" value={form.percent} onChange={(event) => setField("percent", event.target.value)} />
                   </label>
                 ) : null}
                 {form.amountMode === "deposit" ? (
                   <label>
-                    Acompte
+                    {L.facturation.deposit}
                     <input type="number" min="0" max="100" step="1" value={form.depositPercent} onChange={(event) => setField("depositPercent", event.target.value)} />
                   </label>
                 ) : null}
                 <label className="full">
-                  Note
+                  {L.facturation.note}
                   <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Ex: acompte commande fournitures" />
                 </label>
               </div>
 
-              {overLimit ? <p className="invoice-warning">Ce montant dépasse le solde restant à facturer.</p> : null}
+              {overLimit ? <p className="invoice-warning">{L.facturation.overLimit}</p> : null}
               {message ? <p className="tool-message">{message}</p> : null}
-              <button className="mobile-primary compact" disabled={!canCreate}>Créer la facture</button>
+              <button className="mobile-primary compact" disabled={!canCreate}>{L.facturation.generateInvoice}</button>
             </form>
 
             <section className="invoice-section">
               <div className="invoice-section-head">
-                <h2>Factures du chantier</h2>
+                <h2>{L.facturation.siteInvoices}</h2>
                 <span>{selectedInvoices.length}</span>
               </div>
               {selectedInvoices.length === 0 ? (
-                <div className="tool-empty">Aucune facture créée pour ce chantier.</div>
+                <div className="tool-empty">{L.facturation.noInvoices}</div>
               ) : (
                 <div className="invoice-list">
                   {selectedInvoices.map((invoice) => (
@@ -261,9 +263,9 @@ export default function FacturationPage() {
                       <span className={`invoice-badge ${invoice.status.toLowerCase()}`}>{invoice.status}</span>
                       <b>{euro(invoice.amountTtc)}</b>
                       <div className="invoice-actions">
-                        {invoice.status === "Brouillon" ? <button type="button" onClick={() => updateInvoice(invoice.id, "issue")}>Emettre</button> : null}
-                        {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" onClick={() => updateInvoice(invoice.id, "pay")}>Payée</button> : null}
-                        {invoice.status !== "Annulee" ? <button type="button" onClick={() => updateInvoice(invoice.id, "cancel")}>Annuler</button> : null}
+                        {invoice.status === "Brouillon" ? <button type="button" onClick={() => updateInvoice(invoice.id, "issue")}>{L.facturation.issue}</button> : null}
+                        {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" onClick={() => updateInvoice(invoice.id, "pay")}>{L.facturation.markPaid}</button> : null}
+                        {invoice.status !== "Annulee" ? <button type="button" onClick={() => updateInvoice(invoice.id, "cancel")}>{L.common.cancel}</button> : null}
                       </div>
                     </article>
                   ))}
