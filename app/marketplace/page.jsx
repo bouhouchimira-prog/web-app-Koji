@@ -16,7 +16,7 @@ export default function MarketplacePage() {
       </header>
 
       <section className="marketplace-soon-card">
-        <AuthBrandPanel />
+        <AuthBrandPanel showStoreBadges={false} />
         <p className="marketplace-soon-text">{L.marketplace.comingSoon}</p>
       </section>
     </Shell>

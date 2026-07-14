@@ -16,7 +16,7 @@ function AppleIcon() {
   );
 }
 
-export function AuthBrandPanel() {
+export function AuthBrandPanel({ showStoreBadges = true } = {}) {
   return (
     <section className="auth-brand auth-brand-animated">
       <div className="brand-hero" aria-label="Koji">
@@ -35,25 +35,27 @@ export function AuthBrandPanel() {
           ))}
         </div>
       </div>
-      <div className="brand-store-block">
-        <p className="brand-store-label">{"Bient\u00F4t disponible sur"}</p>
-        <div className="brand-store-badges">
-          <div className="brand-store-badge">
-            <GooglePlayIcon />
-            <span>
-              <small>Disponible sur</small>
-              Google Play
-            </span>
-          </div>
-          <div className="brand-store-badge">
-            <AppleIcon />
-            <span>
-              <small>{"T\u00E9l\u00E9charger sur"}</small>
-              App Store
-            </span>
+      {showStoreBadges ? (
+        <div className="brand-store-block">
+          <p className="brand-store-label">{"Bient\u00F4t disponible sur"}</p>
+          <div className="brand-store-badges">
+            <div className="brand-store-badge">
+              <GooglePlayIcon />
+              <span>
+                <small>Disponible sur</small>
+                Google Play
+              </span>
+            </div>
+            <div className="brand-store-badge">
+              <AppleIcon />
+              <span>
+                <small>{"T\u00E9l\u00E9charger sur"}</small>
+                App Store
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

@@ -516,7 +516,7 @@ export default function SuppliesPage() {
     <Shell>
       <section className="mobile-tool">
         <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => fromDevis ? window.location.assign("/devis") : (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
+          <button type="button" className="plain-back" onClick={() => fromDevis ? window.location.assign("/devis?new=1") : (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
           <h1>{L.fournitures.title}</h1>
           <span />
         </header>
@@ -524,7 +524,7 @@ export default function SuppliesPage() {
         {fromDevis ? (
           <div className="fournitures-select-banner">
             <span>{L.fournitures.selectForDevis}</span>
-            <button type="button" className="mini-button" onClick={() => window.location.assign("/devis")}>{L.fournitures.backNoSelect}</button>
+            <button type="button" className="mini-button" onClick={() => window.location.assign("/devis?new=1")}>{L.fournitures.backNoSelect}</button>
           </div>
         ) : null}
 

@@ -14230,6 +14230,36 @@
   ],
   "history": [
     {
+      "id": "h-1784058503281-16a7d7",
+      "userId": "u-1780183669286",
+      "type": "project.deleted",
+      "label": "Chantier supprime: TEST-VERIF-CHANTIER-MODIFIE",
+      "entityId": "p-1784058465783",
+      "entityType": "project",
+      "meta": {},
+      "createdAt": "2026-07-14T19:48:23.281Z"
+    },
+    {
+      "id": "h-1784058485900-840b74",
+      "userId": "u-1780183669286",
+      "type": "project.updated",
+      "label": "Chantier mis a jour: TEST-VERIF-CHANTIER-MODIFIE",
+      "entityId": "p-1784058465783",
+      "entityType": "project",
+      "meta": {},
+      "createdAt": "2026-07-14T19:48:05.900Z"
+    },
+    {
+      "id": "h-1784058465786-67563a",
+      "userId": "u-1780183669286",
+      "type": "project.created",
+      "label": "Chantier cree: TEST-VERIF-CHANTIER",
+      "entityId": "p-1784058465783",
+      "entityType": "project",
+      "meta": {},
+      "createdAt": "2026-07-14T19:47:45.786Z"
+    },
+    {
       "id": "h-1783950719256-adce8f",
       "userId": "",
       "type": "calendar.updated",
