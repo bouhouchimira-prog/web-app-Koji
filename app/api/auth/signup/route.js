@@ -1,9 +1,9 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { publicUser, readDb, writeDb } from "../../../../lib/db";
-import { activationExpires, isAdminEmail, makeActivationToken, nowIso } from "../../../../lib/auth";
-import { queueActivationEmail } from "../../../../lib/mailer";
-import { hashPassword } from "../../../../lib/worker-auth";
+import { getSupabase } from "../../../../lib/supabase";
 
+// Creates the account in Supabase Auth — shared with the koji-main Flutter app
+// and koji-admin. The handle_new_user DB trigger creates the `users` profile
+// row from the is_pro metadata, exactly like a signup from the mobile app.
 export async function POST(request) {
   const body = await request.json();
   const email = String(body.email || "").trim().toLowerCase();
@@ -14,46 +14,39 @@ export async function POST(request) {
   if (!email || !password) return badRequest("Email et mot de passe obligatoires");
   if (password.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caractères");
 
-  const db = await readDb();
-  const existing = db.users.find((candidate) => candidate.email.toLowerCase() === email);
-  if (existing) return badRequest("Un compte existe déjà avec cet e-mail", 409);
-
-  const activationToken = makeActivationToken();
-  const activationUrl = `${new URL(request.url).origin}/activate?token=${activationToken}`;
-  const { passwordHash, passwordSalt } = hashPassword(password);
-
-  const user = {
-    id: `u-${Date.now()}`,
+  const supabase = getSupabase();
+  const { data, error } = await supabase.auth.signUp({
     email,
-    passwordHash,
-    passwordSalt,
-    name,
-    accountType,
-    isActive: false,
-    activationToken,
-    activationExpiresAt: activationExpires(24),
-    createdAt: nowIso(),
-    lastLoginAt: nowIso(),
-    businessInfoComplete: false,
-    profileComplete: false,
-    isAdmin: isAdminEmail(email),
-    plan: "trial",
-    trialStartedAt: nowIso(),
-    business: {},
-    personal: {},
-    professions: []
-  };
+    password,
+    options: {
+      data: { is_pro: accountType !== "particulier", name },
+      emailRedirectTo: `${new URL(request.url).origin}/login?type=${accountType}`
+    }
+  });
 
-  db.users.push(user);
-  await writeDb(db);
-  const queued = await queueActivationEmail({ email, name, activationUrl, accountType });
-  const emailSent = queued.sent || false;
-  return ok({
-    activationRequired: true,
-    emailSent,
-    message: emailSent
-      ? "Compte créé. Vérifiez votre boîte mail pour activer votre compte."
-      : "Compte créé. Utilisez le lien ci-dessous pour activer votre compte.",
-    directActivationUrl: emailSent ? undefined : activationUrl
-  }, 201);
+  if (error) {
+    const message = String(error.message || "");
+    if (/already registered/i.test(message)) {
+      return badRequest("Un compte existe déjà avec cet e-mail", 409);
+    }
+    return badRequest(message || "Création du compte impossible");
+  }
+
+  // Supabase returns an obfuscated existing user (no identities) when the
+  // email is already registered and confirmations are enabled.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return badRequest("Un compte existe déjà avec cet e-mail", 409);
+  }
+
+  const activationRequired = !data.session;
+  return ok(
+    {
+      activationRequired,
+      emailSent: activationRequired,
+      message: activationRequired
+        ? "Compte créé. Vérifiez votre boîte mail pour activer votre compte."
+        : "Compte créé. Vous pouvez vous connecter."
+    },
+    201
+  );
 }

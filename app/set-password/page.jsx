@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
@@ -20,17 +20,27 @@ function SetPasswordScreen() {
   const [info, setInfo] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Supabase recovery links carry the session in the URL hash
+  // (#access_token=...&type=recovery) instead of a ?token= query param.
+  const [accessToken, setAccessToken] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.location.hash) return;
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const supabaseToken = hashParams.get("access_token");
+    if (supabaseToken) setAccessToken(supabaseToken);
+  }, []);
 
   const valid = password.length >= 6 && confirmPassword.length >= 6 && password === confirmPassword;
 
   async function submit(event) {
     event.preventDefault();
-    if (!token || !valid) return;
+    if ((!token && !accessToken) || !valid) return;
     setLoading(true);
     setError("");
     setInfo("");
     try {
-      const data = await apiSend("/api/auth/set-password", { token, mode, password });
+      const data = await apiSend("/api/auth/set-password", { token, mode, password, accessToken });
       if (data?.user) {
         window.localStorage.setItem("koji-user", JSON.stringify(data.user));
       }

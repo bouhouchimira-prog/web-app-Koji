@@ -1,280 +1,184 @@
-import { ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
-import { fixObjectText, fixText } from "../../../lib/text";
+import { badRequest, ok } from "../../../lib/http";
+import { getAuth } from "../../../lib/server-auth";
+import { fixText } from "../../../lib/text";
+
+// Projects live in the shared `chantiers` (+ `chantier_budgets`) tables used
+// by the koji-main Flutter app, so both apps see the same chantiers.
+// Mapping: title ↔ reference, address ↔ street, budgetItems ↔ chantier_budgets
+// (labor = main_oeuvre, supplies = fourniture).
+
+const CHANTIER_SELECT = "*, chantier_budgets(*)";
 
 function toAmount(value) {
   const amount = Number(value || 0);
   return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
 }
 
-function defaultBudgetItems(budgetHt = 0) {
-  const global = toAmount(budgetHt);
-  return [
-    { id: "labor", label: "Main d'oeuvre", estimated: global, real: 0 },
-    { id: "supplies", label: "Fournitures", estimated: 0, real: 0 },
-    { id: "global", label: "Budget global", estimated: global, real: 0 }
-  ];
-}
-
-function normalizeBudgetItems(items, budgetHt = 0) {
-  const source = Array.isArray(items) && items.length > 0 ? items : defaultBudgetItems(budgetHt);
-  return source.map((item, index) => ({
-    id: item.id || `budget-${index}`,
-    label: fixText(item.label || "Budget"),
-    estimated: toAmount(item.estimated),
-    real: toAmount(item.real),
-    updatedAt: item.updatedAt || ""
-  }));
-}
-
-function isArchiveStatus(status = "") {
-  const value = String(status).toLowerCase();
-  return value.includes("archive") || value.includes("termine");
-}
-
-function expensesForProject(db, projectId, userId) {
-  const documents = scopedItems(db.projectDocuments, userId)
-    .filter((document) => document.projectId === projectId && Number(document.amount || 0) > 0)
-    .map((document) => ({
-      id: document.id,
-      label: document.title,
-      category: document.category || document.type || "Documents",
-      amount: toAmount(document.amount),
-      source: "document"
-    }));
-
-  const explicitExpenses = scopedItems(db.expenses, userId)
-    .filter((expense) => expense.projectId === projectId)
-    .map((expense) => ({
-      id: expense.id,
-      label: expense.label || expense.title || "Depense",
-      category: expense.category || "Autres frais",
-      amount: toAmount(expense.amount),
-      source: "expense"
-    }));
-
-  return [...documents, ...explicitExpenses];
-}
-
-function summarizeExpenses(expenses) {
-  const byCategory = {};
-  expenses.forEach((expense) => {
-    const key = expense.category || "Autres frais";
-    byCategory[key] = toAmount((byCategory[key] || 0) + Number(expense.amount || 0));
-  });
+function budgetFromItems(items = []) {
+  const find = (id) => (Array.isArray(items) ? items.find((item) => item.id === id) : null) || {};
+  const labor = find("labor");
+  const supplies = find("supplies");
+  const global = find("global");
   return {
-    total: toAmount(expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0)),
-    byCategory
+    main_oeuvre_estimated: toAmount(labor.estimated ?? global.estimated ?? 0),
+    main_oeuvre_real: toAmount(labor.real ?? 0),
+    fourniture_estimated: toAmount(supplies.estimated ?? 0),
+    fourniture_real: toAmount(supplies.real ?? 0)
   };
 }
 
-function buildProjectArchive(db, project, userId) {
-  const projectQuotes = scopedItems(db.quotes, userId).filter((quote) => quote.projectId === project.id || quote.project === project.title);
-  const projectInvoices = scopedItems(db.invoices, userId).filter((invoice) => invoice.projectId === project.id);
-  const projectTasks = scopedItems(db.tasks, userId).filter((task) => task.projectId === project.id || task.project === project.title);
-  const projectEvents = scopedItems(db.calendarEvents, userId).filter((event) => event.projectId === project.id || event.projectTitle === project.title);
-  const projectDocuments = scopedItems(db.projectDocuments, userId).filter((document) => document.projectId === project.id);
-  const projectHistory = scopedItems(db.history, userId).filter((entry) => {
-    return entry.entityId === project.id
-      || entry.meta?.projectId === project.id
-      || projectTasks.some((task) => task.id === entry.entityId)
-      || projectEvents.some((event) => event.id === entry.entityId)
-      || projectQuotes.some((quote) => quote.id === entry.entityId)
-      || projectInvoices.some((invoice) => invoice.id === entry.entityId)
-      || projectDocuments.some((document) => document.id === entry.entityId);
-  });
-  const expenses = expensesForProject(db, project.id, userId);
-  const expenseSummary = summarizeExpenses(expenses);
-  const projectQuoteIds = new Set(projectQuotes.map((quote) => quote.id));
-  const messages = [
-    ...(db.mailOutbox || []).filter((mail) => mail.projectId === project.id || projectQuoteIds.has(mail.quoteId)).map((mail) => ({ ...mail, channel: "email" })),
-    ...(db.smsOutbox || []).filter((sms) => sms.projectId === project.id || projectQuoteIds.has(sms.quoteId)).map((sms) => ({ ...sms, channel: "sms" }))
-  ].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-  const signedQuote = projectQuotes.find((quote) => quote.status === "Signe" || quote.signatureStatus === "Signe") || projectQuotes[0];
-  const signedQuoteTotal = toAmount(signedQuote?.totalTtc || signedQuote?.totalHt || project.budgetHt || 0);
-  const billedTotal = toAmount(projectInvoices.filter((invoice) => invoice.status !== "Annulee").reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0));
-  const paidTotal = toAmount(projectInvoices.filter((invoice) => invoice.status === "Payee").reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0));
-  const remainingToPay = toAmount(Math.max(0, billedTotal - paidTotal));
-  const gain = toAmount(signedQuoteTotal - expenseSummary.total);
-  const now = new Date().toISOString();
-
+function mapChantier(row) {
+  const budget = Array.isArray(row.chantier_budgets) ? row.chantier_budgets[0] : row.chantier_budgets;
+  const laborEstimated = toAmount(budget?.main_oeuvre_estimated);
+  const laborReal = toAmount(budget?.main_oeuvre_real);
+  const suppliesEstimated = toAmount(budget?.fourniture_estimated);
+  const suppliesReal = toAmount(budget?.fourniture_real);
+  const createdAt = row.created_at || new Date().toISOString();
+  const address = [row.street, row.postal_code, row.city].filter(Boolean).join(", ");
+  const title = row.reference || "Chantier";
   return {
-    id: project.archiveId || `arch-${project.id}`,
-    userId: project.userId || userId,
-    projectId: project.id,
-    projectTitle: project.title,
-    client: project.client,
-    status: project.status,
-    archivedAt: project.archivedAt || now,
-    createdAt: project.createdAt || now,
-    summary: {
-      signedQuoteTotal,
-      expensesTotal: expenseSummary.total,
-      expensesByCategory: expenseSummary.byCategory,
-      billedTotal,
-      paidTotal,
-      remainingToPay,
-      gain
-    },
-    tasks: projectTasks,
-    appointments: projectEvents,
-    quotes: projectQuotes,
-    invoices: projectInvoices,
-    documents: projectDocuments,
-    expenses,
-    messages,
-    notes: project.notes || "",
-    history: projectHistory,
-    updatedAt: now
+    id: row.id,
+    userId: row.user_id,
+    reference: row.reference || `KOJI-${String(row.id).slice(0, 8).toUpperCase()}`,
+    title,
+    client: row.client_email ? row.client_email.split("@")[0] : "Client",
+    clientEmail: row.client_email || "",
+    address,
+    propertyType: row.property_type || "",
+    status: row.status || "En attente",
+    progress: 0,
+    budgetHt: toAmount(laborEstimated + suppliesEstimated),
+    budgetItems: [
+      { id: "labor", label: "Main d'oeuvre", estimated: laborEstimated, real: laborReal },
+      { id: "supplies", label: "Fournitures", estimated: suppliesEstimated, real: suppliesReal },
+      { id: "global", label: "Budget global", estimated: toAmount(laborEstimated + suppliesEstimated), real: toAmount(laborReal + suppliesReal) }
+    ],
+    notes: "",
+    source: "",
+    dueDate: "",
+    startDate: "",
+    endDate: "",
+    createdAt,
+    createdDate: String(createdAt).slice(0, 10),
+    createdTime: String(createdAt).slice(11, 16)
   };
-}
-
-function upsertArchive(db, archive) {
-  const index = db.projectArchives.findIndex((item) => item.id === archive.id || item.projectId === archive.projectId);
-  if (index === -1) db.projectArchives.unshift(archive);
-  else db.projectArchives[index] = archive;
-}
-
-function createBudgetAlerts(db, project, userId) {
-  (project.budgetItems || []).forEach((item) => {
-    if (Number(item.real || 0) <= Number(item.estimated || 0)) return;
-    db.notifications.unshift({
-      id: `notif-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      userId: project.userId || userId,
-      type: "budget.alert",
-      title: "Depassement de budget",
-      message: `${project.title}: ${item.label} depasse le budget prevu.`,
-      projectId: project.id,
-      createdAt: new Date().toISOString(),
-      read: false
-    });
-  });
 }
 
 export async function GET(request) {
-  const db = await readDb();
-  const userId = getUserScope(request, db);
-  return ok({ projects: scopedItems(db.projects, userId).map((project) => ({
-    ...fixObjectText(project),
-    budgetItems: normalizeBudgetItems(project.budgetItems, project.budgetHt)
-  })) });
+  const auth = getAuth(request);
+  if (!auth) return ok({ projects: [] });
+
+  const { data, error } = await auth.supabase
+    .from("chantiers")
+    .select(CHANTIER_SELECT)
+    .order("created_at", { ascending: false });
+  if (error) return badRequest(`Lecture des chantiers impossible: ${error.message}`, 500);
+  return ok({ projects: (data || []).map(mapChantier) });
 }
 
 export async function POST(request) {
   const body = await request.json();
-  const db = await readDb();
-  const userId = body.userId || "";
-  const now = new Date().toISOString();
-  const project = {
-    id: `p-${Date.now()}`,
-    userId,
-    reference: `KOJI-2026-${String(db.projects.length + 22).padStart(3, "0")}`,
-    title: fixText(body.title || "Nouveau chantier"),
-    client: fixText(body.client || "Client"),
-    clientEmail: body.clientEmail || "",
-    address: fixText(body.address || ""),
-    status: fixText(body.status || "Devis a preparer"),
-    progress: 0,
-    budgetHt: toAmount(body.budgetHt),
-    budgetItems: normalizeBudgetItems(body.budgetItems, body.budgetHt),
-    notes: fixText(body.notes || ""),
-    source: fixText(body.source || ""),
-    dueDate: body.dueDate || now.slice(0, 10),
-    startDate: body.startDate || "",
-    endDate: body.endDate || "",
-    createdAt: now,
-    createdDate: now.slice(0, 10),
-    createdTime: now.slice(11, 16)
-  };
-  db.projects.unshift(project);
-  addHistory(db, {
-    userId,
-    type: "project.created",
-    label: `Chantier cree: ${project.title}`,
-    entityId: project.id,
-    entityType: "project"
-  });
-  await writeDb(db);
-  return ok({ project }, 201);
+  const auth = getAuth(request, body);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+
+  const { data: chantier, error } = await auth.supabase
+    .from("chantiers")
+    .insert({
+      user_id: auth.userId,
+      reference: fixText(body.title || "Nouveau chantier"),
+      street: fixText(body.address || ""),
+      client_email: body.clientEmail || "",
+      status: fixText(body.status || "En attente")
+    })
+    .select(CHANTIER_SELECT)
+    .single();
+  if (error) return badRequest(`Création du chantier impossible: ${error.message}`, 500);
+
+  const budget = budgetFromItems(body.budgetItems);
+  if (!budget.main_oeuvre_estimated && body.budgetHt) budget.main_oeuvre_estimated = toAmount(body.budgetHt);
+  const { data: budgetRow } = await auth.supabase
+    .from("chantier_budgets")
+    .insert({ chantier_id: chantier.id, ...budget })
+    .select()
+    .single();
+
+  return ok({ project: mapChantier({ ...chantier, chantier_budgets: budgetRow ? [budgetRow] : [] }) }, 201);
 }
 
 export async function PATCH(request) {
   const body = await request.json();
-  const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
-  const index = findScopedIndex(db.projects, body.id, userId);
-  if (index === -1) return ok({ error: "Chantier introuvable." }, 404);
+  const auth = getAuth(request, body);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  if (!body.id) return badRequest("Identifiant du chantier manquant.");
 
-  const project = db.projects[index];
-  const now = new Date().toISOString();
   const action = body.action || "update";
 
-  if (action === "archive") {
-    project.status = "Archive";
-    project.archivedAt = now;
-  } else if (action === "finish") {
-    project.status = "Termine";
-    project.finishedAt = now;
-  } else if (action === "restore") {
-    project.status = fixText(body.status || "A planifier");
-    project.archivedAt = "";
-    project.restoredAt = now;
-  } else if (action === "delete") {
-    db.projects.splice(index, 1);
-    addHistory(db, {
-      userId: project.userId || userId,
-      type: "project.deleted",
-      label: `Chantier supprime: ${project.title}`,
-      entityId: project.id,
-      entityType: "project"
-    });
-    await writeDb(db);
-    return ok({ project: { ...project, deleted: true } });
+  if (action === "delete") {
+    const { data, error } = await auth.supabase
+      .from("chantiers")
+      .delete()
+      .eq("id", body.id)
+      .select()
+      .maybeSingle();
+    if (error) return badRequest(`Suppression impossible: ${error.message}`, 500);
+    if (!data) return ok({ error: "Chantier introuvable." }, 404);
+    return ok({ project: { ...mapChantier(data), deleted: true } });
+  }
+
+  const updates = {};
+  if (action === "archive") updates.status = "Archive";
+  else if (action === "finish") updates.status = "Termine";
+  else if (action === "restore") updates.status = fixText(body.status || "A planifier");
+  else {
+    if (Object.prototype.hasOwnProperty.call(body, "title")) updates.reference = fixText(body.title);
+    if (Object.prototype.hasOwnProperty.call(body, "address")) updates.street = fixText(body.address);
+    if (Object.prototype.hasOwnProperty.call(body, "clientEmail")) updates.client_email = body.clientEmail || "";
+    if (Object.prototype.hasOwnProperty.call(body, "status")) updates.status = fixText(body.status);
+  }
+
+  let chantier;
+  if (Object.keys(updates).length > 0) {
+    const { data, error } = await auth.supabase
+      .from("chantiers")
+      .update(updates)
+      .eq("id", body.id)
+      .select(CHANTIER_SELECT)
+      .maybeSingle();
+    if (error) return badRequest(`Mise à jour impossible: ${error.message}`, 500);
+    if (!data) return ok({ error: "Chantier introuvable." }, 404);
+    chantier = data;
   } else {
-    const allowed = [
-      "title",
-      "client",
-      "clientEmail",
-      "address",
-      "status",
-      "progress",
-      "budgetHt",
-      "budgetItems",
-      "dueDate",
-      "quoteId",
-      "startDate",
-      "endDate",
-      "notes"
-    ];
-    for (const key of allowed) {
-      if (Object.prototype.hasOwnProperty.call(body, key)) {
-        if (key === "progress" || key === "budgetHt") project[key] = toAmount(body[key]);
-        else if (key === "budgetItems") project[key] = normalizeBudgetItems(body[key], project.budgetHt);
-        else project[key] = fixObjectText(body[key]);
-      }
+    const { data, error } = await auth.supabase
+      .from("chantiers")
+      .select(CHANTIER_SELECT)
+      .eq("id", body.id)
+      .maybeSingle();
+    if (error) return badRequest(`Lecture impossible: ${error.message}`, 500);
+    if (!data) return ok({ error: "Chantier introuvable." }, 404);
+    chantier = data;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "budgetItems") || Object.prototype.hasOwnProperty.call(body, "budgetHt")) {
+    const budget = budgetFromItems(body.budgetItems);
+    if (!budget.main_oeuvre_estimated && body.budgetHt) budget.main_oeuvre_estimated = toAmount(body.budgetHt);
+    const existing = Array.isArray(chantier.chantier_budgets) ? chantier.chantier_budgets[0] : null;
+    if (existing) {
+      const { data: updated } = await auth.supabase
+        .from("chantier_budgets")
+        .update(budget)
+        .eq("id", existing.id)
+        .select()
+        .single();
+      chantier.chantier_budgets = [updated || { ...existing, ...budget }];
+    } else {
+      const { data: inserted } = await auth.supabase
+        .from("chantier_budgets")
+        .insert({ chantier_id: chantier.id, ...budget })
+        .select()
+        .single();
+      chantier.chantier_budgets = inserted ? [inserted] : [];
     }
   }
 
-  if (!Array.isArray(project.budgetItems)) project.budgetItems = normalizeBudgetItems(project.budgetItems, project.budgetHt);
-  if (body.budgetItems) createBudgetAlerts(db, project, userId);
-  project.updatedAt = now;
-
-  if (isArchiveStatus(project.status)) {
-    project.archivedAt = project.archivedAt || now;
-    const archive = buildProjectArchive(db, project, project.userId || userId);
-    project.archiveId = archive.id;
-    project.archiveSummary = archive.summary;
-    upsertArchive(db, archive);
-  }
-
-  db.projects[index] = project;
-  addHistory(db, {
-    userId: project.userId || userId,
-    type: action === "archive" ? "project.archived" : action === "restore" ? "project.restored" : action === "finish" ? "project.finished" : "project.updated",
-    label: action === "archive" ? `Chantier archive: ${project.title}` : action === "restore" ? `Chantier restaure: ${project.title}` : action === "finish" ? `Chantier termine: ${project.title}` : `Chantier mis a jour: ${project.title}`,
-    entityId: project.id,
-    entityType: "project"
-  });
-  await writeDb(db);
-  return ok({ project: { ...project, budgetItems: normalizeBudgetItems(project.budgetItems, project.budgetHt) } });
+  return ok({ project: mapChantier(chantier) });
 }
