@@ -1,84 +1,84 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { addHistory, publicUser, readDb, writeDb } from "../../../../lib/db";
+import { getAuth } from "../../../../lib/server-auth";
+import { buildWebUser, splitBusinessInfo } from "../../../../lib/user-profile";
 
-function findUser(db, userId) {
-  if (userId) {
-    const exact = db.users.find((candidate) => candidate.id === userId);
-    if (exact) return exact;
-  }
-  return db.users[0];
-}
+// Profile lives in the Supabase `users` table (same row the mobile app reads).
+// See lib/user-profile.js for how web-only fields are stored in business_info.
 
-function createLocalUser(seed = {}) {
-  const now = Date.now();
-  return {
-    id: seed.userId || `u-${now}`,
-    email: seed.email || `local-${now}@koji.local`,
-    password: seed.password || "",
-    name: seed.name || "Utilisateur Koji",
-    accountType: seed.accountType || "entreprise",
-    isActive: true,
-    businessInfoComplete: false,
-    profileComplete: false,
-    business: {},
-    personal: {},
-    professions: []
-  };
+async function fetchProfile(auth) {
+  const { data, error } = await auth.supabase
+    .from("users")
+    .select("*")
+    .eq("id", auth.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data || null;
 }
 
 export async function GET(request) {
-  const db = await readDb();
-  const userId = new URL(request.url).searchParams.get("userId");
-  const user = findUser(db, userId);
-  if (!user) return ok({ user: null });
-  return ok({ user: publicUser(user) });
+  const auth = getAuth(request);
+  if (!auth) return ok({ user: null });
+  try {
+    const profile = await fetchProfile(auth);
+    return ok({ user: buildWebUser({ id: auth.userId, email: profile?.email || "", profile }) });
+  } catch (error) {
+    return badRequest(`Lecture du profil impossible: ${error.message}`, 500);
+  }
 }
 
 export async function PATCH(request) {
   const body = await request.json();
-  const db = await readDb();
-  let user = findUser(db, body.userId);
-  if (!user) {
-    user = createLocalUser({
-      userId: body.userId,
-      name: body.name,
-      email: body.email,
-      accountType: body.accountType
-    });
-    db.users.push(user);
+  const auth = getAuth(request, body);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+
+  let profile;
+  try {
+    profile = await fetchProfile(auth);
+  } catch (error) {
+    return badRequest(`Lecture du profil impossible: ${error.message}`, 500);
   }
+
+  const { business, extras } = splitBusinessInfo(profile?.business_info);
+  const updates = {};
 
   if (body.business) {
-    user.business = { ...user.business, ...body.business };
-    user.businessInfoComplete = true;
+    Object.assign(business, body.business);
+    updates.is_business_info_complete = true;
   }
   if (body.personal) {
-    user.personal = { ...user.personal, ...body.personal };
-    const fullName = [user.personal.firstName, user.personal.lastName].filter(Boolean).join(" ").trim();
-    if (fullName) user.name = fullName;
-    user.personalInfoComplete = Boolean(user.personal.firstName || user.personal.lastName || user.personal.phone || user.personal.address);
+    extras._personal = { ...(extras._personal || {}), ...body.personal };
+    const fullName = [extras._personal.firstName, extras._personal.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (fullName) extras._name = fullName;
   }
   if (body.professions) {
-    user.professions = body.professions;
-    user.profileComplete = body.professions.length > 0;
+    extras._professions = body.professions;
+    updates.profession = body.professions[0] || null;
+    updates.is_profile_complete = body.professions.length > 0;
   }
   if (body.accountType) {
-    user.accountType = body.accountType;
+    extras._accountType = body.accountType;
+    updates.is_pro = body.accountType !== "particulier";
   }
-  user.updatedAt = new Date().toISOString();
+  if (body.name) extras._name = body.name;
+  if (body.logoUrl) updates.logo_url = body.logoUrl;
 
-  addHistory(db, {
-    userId: user.id,
-    type: "profile.updated",
-    label: "Profil enregistre",
-    entityId: user.id,
-    entityType: "user",
-    meta: {
-      businessInfoComplete: user.businessInfoComplete,
-      profileComplete: user.profileComplete
-    }
-  });
+  updates.business_info = { ...business, ...extras };
+  updates.updated_at = new Date().toISOString();
 
-  await writeDb(db);
-  return ok({ user: publicUser(user) });
+  const row = {
+    id: auth.userId,
+    email: profile?.email || body.email || "",
+    ...updates
+  };
+  const { data, error } = await auth.supabase
+    .from("users")
+    .upsert(row)
+    .select()
+    .single();
+  if (error) return badRequest(`Enregistrement du profil impossible: ${error.message}`, 500);
+
+  return ok({ user: buildWebUser({ id: auth.userId, email: data.email, profile: data }) });
 }

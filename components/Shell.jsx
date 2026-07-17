@@ -190,8 +190,18 @@ export function Shell({ children }) {
     if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem("koji-user");
-      if (!raw) return;
+      if (!raw) {
+        router.replace("/login?type=entreprise");
+        return;
+      }
       const parsed = JSON.parse(raw);
+      // Sessions without a Supabase access token predate the Supabase accounts
+      // (or were tampered with) — treat them as logged out.
+      if (!parsed?.accessToken) {
+        window.localStorage.removeItem("koji-user");
+        router.replace("/login?type=entreprise");
+        return;
+      }
       if (parsed?.accountType === "particulier") setProfileType("particulier");
       else setProfileType("entreprise");
       if (parsed?.isAdmin) setIsAdmin(true);
@@ -201,7 +211,8 @@ export function Shell({ children }) {
         router.replace("/abonnement");
       }
     } catch {
-      setProfileType("entreprise");
+      window.localStorage.removeItem("koji-user");
+      router.replace("/login?type=entreprise");
     }
   }, [pathname]);
 
