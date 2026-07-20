@@ -8,6 +8,14 @@ import { useApi } from "../../lib/use-api";
 
 const professions = ["Peintre", "Carreleur", "Electricien", "Plombier", "Menuisier", "Tout corps d'etat"];
 
+function CardChevron({ collapsed }) {
+  return (
+    <svg className="card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 const initialWorker = {
   type: "Ouvrier",
   name: "",
@@ -38,6 +46,9 @@ export default function TeamPage() {
   const [linkDraftType, setLinkDraftType] = useState("");
   const [linkDraftValue, setLinkDraftValue] = useState("");
   const [message, setMessage] = useState("");
+  const [revealedPassword, setRevealedPassword] = useState("");
+  const [infoOpen, setInfoOpen] = useState(true);
+  const [accessOpen, setAccessOpen] = useState(false);
   const photoInputRef = useRef(null);
 
   const filteredWorkers = useMemo(() => {
@@ -124,6 +135,8 @@ export default function TeamPage() {
     setEditingId(null);
     setLinkDraftType("");
     setLinkDraftValue("");
+    setRevealedPassword("");
+    setAccessOpen(false);
   }
 
   function openCreate() {
@@ -131,10 +144,13 @@ export default function TeamPage() {
     setEditingId(null);
     setLinkDraftType("");
     setLinkDraftValue("");
+    setRevealedPassword("");
+    setInfoOpen(true);
+    setAccessOpen(false);
     setFormOpen(true);
   }
 
-  function openEdit(worker) {
+  function openEdit(worker, { revealPassword } = {}) {
     const links = Array.isArray(worker.links) && worker.links.length
       ? worker.links
       : (worker.linkType ? [{
@@ -154,11 +170,15 @@ export default function TeamPage() {
       hourlyRate: worker.hourlyRate || "",
       isCompany: Boolean(worker.isCompany),
       companyRegNumber: worker.companyRegNumber || "",
+      active: worker.active !== false,
       links
     });
     setEditingId(worker.id);
     setLinkDraftType("");
     setLinkDraftValue("");
+    if (!revealPassword) setRevealedPassword("");
+    setInfoOpen(!revealPassword);
+    setAccessOpen(Boolean(revealPassword));
     setFormOpen(true);
   }
 
@@ -184,12 +204,30 @@ export default function TeamPage() {
       const { worker } = await apiSend("/api/workers", { id: editingId, ...payload }, "PATCH");
       setWorkers(workers.map((item) => (item.id === worker.id ? worker : item)));
       setMessage(`${activeTab} mis a jour: ${worker.name}`);
+      closeForm();
     } else {
-      const { worker } = await apiSend("/api/workers", payload);
+      const { worker, credentials } = await apiSend("/api/workers", payload);
       setWorkers([worker, ...workers]);
       setMessage(`${activeTab} ajoute: ${worker.name}`);
+      if (credentials) setRevealedPassword(credentials.temporaryPassword);
+      openEdit(worker, { revealPassword: Boolean(credentials) });
     }
-    closeForm();
+  }
+
+  async function regenerateCredentials() {
+    if (!editingId) return;
+    const { worker: updated, credentials } = await apiSend("/api/workers", { id: editingId, action: "resetCredentials" }, "PATCH");
+    setWorkers(workers.map((item) => (item.id === updated.id ? updated : item)));
+    if (credentials) setRevealedPassword(credentials.temporaryPassword);
+    setForm((current) => ({ ...current, loginId: updated.loginId }));
+    setAccessOpen(true);
+  }
+
+  async function setWorkerActive(active) {
+    if (!editingId) return;
+    const { worker: updated } = await apiSend("/api/workers", { id: editingId, active }, "PATCH");
+    setWorkers(workers.map((item) => (item.id === updated.id ? updated : item)));
+    setForm((current) => ({ ...current, active: updated.active !== false }));
   }
 
   async function updateWorker(worker, patch) {
@@ -213,112 +251,160 @@ export default function TeamPage() {
           </header>
 
           <form className="mobile-form" onSubmit={submitWorker}>
-            <div className="worker-photo-box">
-              <div className="worker-photo-frame">
-                {form.photoDataUrl ? <img src={form.photoDataUrl} alt="Photo" /> : null}
-                <button type="button" className="worker-photo-upload" onClick={() => photoInputRef.current?.click()} aria-label="Ajouter une photo">+</button>
-              </div>
-              <small>Photo</small>
-              <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
-            </div>
-            <label className="mobile-input full">
-              <span>{L.equipe.name}</span>
-              <input value={form.name} onChange={(event) => setField("name", event.target.value)} required />
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.phone}</span>
-              <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.email}</span>
-              <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.address}</span>
-              <input value={form.address} onChange={(event) => setField("address", event.target.value)} />
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.profession}</span>
-              <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
-                {professions.map((profession) => <option key={profession}>{profession}</option>)}
-              </select>
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.availability}</span>
-              <select value={form.availability} onChange={(event) => setField("availability", event.target.value)}>
-                <option value="Disponible">{L.equipe.available}</option>
-                <option value="Occupe">{L.equipe.unavailable}</option>
-                <option value="Absent">{L.equipe.onLeave}</option>
-              </select>
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.hourlyRate}</span>
-              <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
-            </label>
-            <label className="mobile-input full">
-              <span>{L.equipe.notes}</span>
-              <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
-            </label>
+            <section className="follow-section">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => setInfoOpen((current) => !current)}>
+                <h2>{L.equipe.informationsCard}</h2>
+                <CardChevron collapsed={!infoOpen} />
+              </button>
+              {infoOpen ? (
+                <div className="mobile-form">
+                  <div className="worker-photo-box">
+                    <div className="worker-photo-frame">
+                      {form.photoDataUrl ? <img src={form.photoDataUrl} alt="Photo" /> : null}
+                      <button type="button" className="worker-photo-upload" onClick={() => photoInputRef.current?.click()} aria-label="Ajouter une photo">+</button>
+                    </div>
+                    <small>Photo</small>
+                    <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
+                  </div>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.name}</span>
+                    <input value={form.name} onChange={(event) => setField("name", event.target.value)} required />
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.phone}</span>
+                    <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.email}</span>
+                    <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.address}</span>
+                    <input value={form.address} onChange={(event) => setField("address", event.target.value)} />
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.profession}</span>
+                    <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
+                      {professions.map((profession) => <option key={profession}>{profession}</option>)}
+                    </select>
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.availability}</span>
+                    <select value={form.availability} onChange={(event) => setField("availability", event.target.value)}>
+                      <option value="Disponible">{L.equipe.available}</option>
+                      <option value="Occupe">{L.equipe.unavailable}</option>
+                      <option value="Absent">{L.equipe.onLeave}</option>
+                    </select>
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.hourlyRate}</span>
+                    <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.notes}</span>
+                    <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
+                  </label>
 
-            {activeTab === "Sous-traitant" ? (
-              <>
-                <label className="mobile-checkbox full">
-                  <input type="checkbox" checked={Boolean(form.isCompany)} onChange={(event) => setField("isCompany", event.target.checked)} />
-                  <span>{L.equipe.isCompany}</span>
-                </label>
-                {form.isCompany ? (
-                  <label className="mobile-input full">
-                    <span>{L.equipe.companyRegNumber}</span>
-                    <input value={form.companyRegNumber} onChange={(event) => setField("companyRegNumber", event.target.value)} placeholder="123 456 789 00012" />
-                  </label>
-                ) : null}
-                <label className="mobile-input full">
-                  <span>{L.equipe.linkedTo}</span>
-                  <select value={linkDraftType} onChange={(event) => { setLinkDraftType(event.target.value); setLinkDraftValue(""); }}>
-                    <option value="">{L.equipe.linkedToNone}</option>
-                    <option value="chantier">{L.equipe.linkedToChantier}</option>
-                    <option value="devis">{L.equipe.linkedToDevis}</option>
-                    <option value="ouvrage">{L.equipe.linkedToOuvrage}</option>
-                    <option value="sous-ouvrage">{L.equipe.linkedToSubwork}</option>
-                  </select>
-                </label>
-                {linkDraftType ? (
-                  <label className="mobile-input full">
-                    <span>{L.equipe.linkedToItem}</span>
-                    <div className="url-fetch-row">
-                      <select value={linkDraftValue} onChange={(event) => setLinkDraftValue(event.target.value)}>
-                        <option value="">{L.equipe.linkedToItemPh}</option>
-                        {linkDraftType === "chantier" ? (projects || []).map((project) => (
-                          <option key={project.id} value={project.id}>{project.title || project.reference || "Chantier"}</option>
-                        )) : null}
-                        {linkDraftType === "devis" ? (quotes || []).map((quote) => (
-                          <option key={quote.id} value={quote.id}>{quote.quoteNumber ? `${quote.quoteNumber} - ${quote.client || ""}` : (quote.client || "Devis")}</option>
-                        )) : null}
-                        {linkDraftType === "ouvrage" ? ouvrageOptions.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        )) : null}
-                        {linkDraftType === "sous-ouvrage" ? subworkOptions.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        )) : null}
-                      </select>
-                      <button type="button" className="mini-button" onClick={addLinkDraft} disabled={!linkDraftValue}>{L.common.add}</button>
-                    </div>
-                  </label>
-                ) : null}
-                {(form.links || []).length ? (
-                  <div className="mobile-input full">
-                    <span>{L.equipe.linkedItemsList}</span>
-                    <div className="link-chip-list">
-                      {form.links.map((link, index) => (
-                        <span className="link-chip" key={linkKey(link) + index}>
-                          {link.label}
-                          <button type="button" onClick={() => removeLink(index)} aria-label={L.common.remove}>×</button>
-                        </span>
-                      ))}
-                    </div>
+                  {activeTab === "Sous-traitant" ? (
+                    <>
+                      <label className="mobile-checkbox full">
+                        <input type="checkbox" checked={Boolean(form.isCompany)} onChange={(event) => setField("isCompany", event.target.checked)} />
+                        <span>{L.equipe.isCompany}</span>
+                      </label>
+                      {form.isCompany ? (
+                        <label className="mobile-input full">
+                          <span>{L.equipe.companyRegNumber}</span>
+                          <input value={form.companyRegNumber} onChange={(event) => setField("companyRegNumber", event.target.value)} placeholder="123 456 789 00012" />
+                        </label>
+                      ) : null}
+                      <label className="mobile-input full">
+                        <span>{L.equipe.linkedTo}</span>
+                        <select value={linkDraftType} onChange={(event) => { setLinkDraftType(event.target.value); setLinkDraftValue(""); }}>
+                          <option value="">{L.equipe.linkedToNone}</option>
+                          <option value="chantier">{L.equipe.linkedToChantier}</option>
+                          <option value="devis">{L.equipe.linkedToDevis}</option>
+                          <option value="ouvrage">{L.equipe.linkedToOuvrage}</option>
+                          <option value="sous-ouvrage">{L.equipe.linkedToSubwork}</option>
+                        </select>
+                      </label>
+                      {linkDraftType ? (
+                        <label className="mobile-input full">
+                          <span>{L.equipe.linkedToItem}</span>
+                          <div className="url-fetch-row">
+                            <select value={linkDraftValue} onChange={(event) => setLinkDraftValue(event.target.value)}>
+                              <option value="">{L.equipe.linkedToItemPh}</option>
+                              {linkDraftType === "chantier" ? (projects || []).map((project) => (
+                                <option key={project.id} value={project.id}>{project.title || project.reference || "Chantier"}</option>
+                              )) : null}
+                              {linkDraftType === "devis" ? (quotes || []).map((quote) => (
+                                <option key={quote.id} value={quote.id}>{quote.quoteNumber ? `${quote.quoteNumber} - ${quote.client || ""}` : (quote.client || "Devis")}</option>
+                              )) : null}
+                              {linkDraftType === "ouvrage" ? ouvrageOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              )) : null}
+                              {linkDraftType === "sous-ouvrage" ? subworkOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              )) : null}
+                            </select>
+                            <button type="button" className="mini-button" onClick={addLinkDraft} disabled={!linkDraftValue}>{L.common.add}</button>
+                          </div>
+                        </label>
+                      ) : null}
+                      {(form.links || []).length ? (
+                        <div className="mobile-input full">
+                          <span>{L.equipe.linkedItemsList}</span>
+                          <div className="link-chip-list">
+                            {form.links.map((link, index) => (
+                              <span className="link-chip" key={linkKey(link) + index}>
+                                {link.label}
+                                <button type="button" onClick={() => removeLink(index)} aria-label={L.common.remove}>×</button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            {editingId ? (
+              <section className="follow-section">
+                <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => setAccessOpen((current) => !current)}>
+                  <h2>{L.equipe.accessCard}</h2>
+                  <CardChevron collapsed={!accessOpen} />
+                </button>
+                {accessOpen ? (
+                  <div className="mobile-form">
+                    <label className="mobile-input full">
+                      <span>{L.equipe.loginId}</span>
+                      <input value={form.loginId || ""} readOnly onFocus={(event) => event.target.select()} />
+                    </label>
+                    {revealedPassword ? (
+                      <label className="mobile-input full">
+                        <span>{L.equipe.loginPassword}</span>
+                        <input value={revealedPassword} readOnly onFocus={(event) => event.target.select()} />
+                      </label>
+                    ) : (
+                      <p className="tool-muted">{L.equipe.accessPasswordHidden}</p>
+                    )}
+                    <label className="mobile-input full">
+                      <span>{L.equipe.credentialsLoginUrl}</span>
+                      <input value={typeof window !== "undefined" ? `${window.location.origin}/login?type=ouvrier` : "/login?type=ouvrier"} readOnly onFocus={(event) => event.target.select()} />
+                    </label>
+                    <button type="button" className="mini-button" onClick={regenerateCredentials}>{L.equipe.regenerateCredentials}</button>
+
+                    <label className="mobile-input full">
+                      <span>{L.equipe.accessStatus}</span>
+                      <div className="segmented large">
+                        <button type="button" className={form.active !== false ? "active" : ""} onClick={() => setWorkerActive(true)}>{L.equipe.accessActive}</button>
+                        <button type="button" className={form.active === false ? "active" : ""} onClick={() => setWorkerActive(false)}>{L.equipe.accessInactive}</button>
+                      </div>
+                    </label>
                   </div>
                 ) : null}
-              </>
+              </section>
             ) : null}
 
             <button className="mobile-primary">{L.equipe.save}</button>

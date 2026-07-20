@@ -1092,6 +1092,18 @@
   padding: 12px;
 }
 
+.follow-line.clickable {
+  cursor: pointer;
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+
+.follow-line.clickable:hover,
+.follow-line.clickable:focus-visible {
+  box-shadow: 0 14px 34px rgba(1, 14, 42, .10);
+  transform: translateY(-1px);
+  outline: none;
+}
+
 .follow-line-main {
   min-width: 0;
 }
@@ -1102,31 +1114,6 @@
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
-}
-
-.follow-line-collapsible {
-  display: block;
-  padding: 0;
-  overflow: hidden;
-}
-
-.follow-line-head {
-  width: 100%;
-  min-height: 86px;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-}
-
-.follow-line-head .select-dot {
-  cursor: pointer;
 }
 
 .follow-line-pending {
@@ -1144,12 +1131,6 @@
 
 .follow-line-pending-detail {
   color: #854d0e !important;
-}
-
-.follow-line-body {
-  padding: 0 12px 14px 54px;
-  display: grid;
-  gap: 4px;
 }
 
 .follow-line-actions {
@@ -8527,6 +8508,201 @@ body :where(
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.follow-company-note {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.follow-note-composer {
+  background: white;
+  border: 1.5px solid #c7d8f8;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.follow-note-composer textarea {
+  resize: vertical;
+  min-height: 52px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.follow-note-audience {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.follow-note-audience button {
+  border: 1.5px solid var(--line);
+  background: white;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.follow-note-audience button.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: white;
+}
+
+.follow-note-workers {
+  display: grid;
+  gap: 6px;
+}
+
+.follow-note-worker-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.follow-note-worker-chips button {
+  border: 1.5px solid var(--line);
+  background: white;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.follow-note-worker-chips button.active {
+  background: #e8dcc8;
+  border-color: #e8dcc8;
+  color: var(--navy);
+}
+
+/* ── Ouvrage fiche ────────────────────────────────────────────────────── */
+
+.ouvrage-fiche-body {
+  display: grid;
+  gap: 18px;
+}
+
+.ouvrage-info-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 12px 30px rgba(0, 11, 40, 0.04);
+}
+
+.ouvrage-info-card > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ouvrage-info-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ouvrage-info-card strong {
+  color: var(--navy);
+  font-size: 14px;
+  text-align: right;
+}
+
+.ouvrage-status-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 10px 12px;
+  box-shadow: 0 12px 30px rgba(0, 11, 40, 0.04);
+}
+
+.ouvrage-status-step {
+  border: 0;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  cursor: pointer;
+  position: relative;
+}
+
+.ouvrage-status-step i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e7ef;
+  border: 2px solid #e2e7ef;
+  display: block;
+}
+
+.ouvrage-status-step::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: #e2e7ef;
+  z-index: 0;
+}
+
+.ouvrage-status-step:first-child::before {
+  display: none;
+}
+
+.ouvrage-status-step span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ouvrage-status-step.done i {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.ouvrage-status-step.done::before {
+  background: var(--navy);
+}
+
+.ouvrage-status-step.current span {
+  color: var(--navy);
+}
+
+.ouvrage-status-step.current i {
+  background: #e8dcc8;
+  border-color: var(--navy);
+}
+
+.ouvrage-plan-btn {
+  width: 100%;
 }
 
 /* Client-side thread view */

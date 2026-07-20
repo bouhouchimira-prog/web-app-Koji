@@ -22,6 +22,10 @@ export async function POST(request) {
     return ok({ error: "Identifiant ou mot de passe incorrect." }, 401);
   }
 
+  if (worker.active === false) {
+    return ok({ error: "Acces desactive. Contactez votre entreprise." }, 403);
+  }
+
   worker.lastLoginAt = new Date().toISOString();
   await writeDb(db);
 

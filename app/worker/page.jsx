@@ -109,7 +109,13 @@ export default function WorkerPage() {
       const parsed = JSON.parse(saved);
       if (parsed?.id) {
         setWorker(parsed);
-        loadPortal(parsed).finally(() => setLoading(false));
+        loadPortal(parsed)
+          .catch((exception) => {
+            window.localStorage.removeItem(SESSION_KEY);
+            setWorker(null);
+            setError(exception.message);
+          })
+          .finally(() => setLoading(false));
         return;
       }
     } catch {

@@ -8,7 +8,7 @@ import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
 
-function TaskMessageThread({ task, projectDocuments }) {
+function TaskMessageThread({ task, projectDocuments, workers }) {
   const { L } = useLocale();
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState("");
@@ -18,12 +18,47 @@ function TaskMessageThread({ task, projectDocuments }) {
   const [localDocs, setLocalDocs] = useState(null);
   const fileRef = useRef(null);
 
+  const [noteText, setNoteText] = useState("");
+  const [noteAudience, setNoteAudience] = useState("both");
+  const [noteWorkerIds, setNoteWorkerIds] = useState(() => task.workerIds || []);
+  const [sendingNote, setSendingNote] = useState(false);
+
+  const assignedWorkers = (workers || []).filter((worker) => (task.workerIds || []).includes(worker.id));
+
+  function toggleNoteWorker(workerId) {
+    setNoteWorkerIds((current) => current.includes(workerId)
+      ? current.filter((id) => id !== workerId)
+      : [...current, workerId]);
+  }
+
   const allDocs = localDocs || projectDocuments.filter(
     (d) => ["client", "company"].includes(d.source) && d.taskId === task.id
   );
 
   const clientNotes = allDocs.filter((d) => d.source === "client");
-  if (clientNotes.length === 0) return null;
+  const companyNotes = allDocs.filter((d) => d.source === "company" && !d.replyToId);
+
+  function readCurrentUserId() {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem("koji-user") : null;
+    return raw ? (JSON.parse(raw).id || "") : "";
+  }
+
+  async function sendNote() {
+    if (!noteText.trim()) return;
+    setSendingNote(true);
+    try {
+      const r = await fetch("/api/task-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: readCurrentUserId(), taskId: task.id, message: noteText, audience: noteAudience, workerIds: noteWorkerIds })
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setLocalDocs([data.document, ...allDocs]);
+        setNoteText("");
+      }
+    } finally { setSendingNote(false); }
+  }
 
   async function onFileChange(event) {
     const file = event.target.files?.[0];
@@ -36,14 +71,12 @@ function TaskMessageThread({ task, projectDocuments }) {
   async function sendReply(noteId) {
     if (!replyText.trim() && !replyUrl) return;
     setSending(true);
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem("koji-user") : null;
-    const currentUserId = raw ? (JSON.parse(raw).id || "") : "";
     try {
       const r = await fetch("/api/task-replies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: currentUserId,
+          userId: readCurrentUserId(),
           taskId: task.id,
           replyToId: noteId,
           message: replyText,
@@ -121,6 +154,58 @@ function TaskMessageThread({ task, projectDocuments }) {
           </div>
         );
       })}
+
+      {companyNotes.map((note) => (
+        <div className="follow-company-note" key={note.id}>
+          <div className="follow-client-note-head">
+            <span className="archive-document-type reply-badge">{L.chantiers.noteSentTo(note.audience)}</span>
+            <strong>{note.senderName || "Entreprise"}</strong>
+            <small>{note.createdAt ? shortDate(note.createdAt) : ""}</small>
+          </div>
+          {note.notes ? <p>{note.notes}</p> : null}
+        </div>
+      ))}
+
+      <div className="follow-note-composer">
+        <span className="follow-client-notes-label">{L.chantiers.noteComposer}</span>
+        <textarea
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
+          placeholder={L.chantiers.notePlaceholder}
+          rows={2}
+        />
+        <div className="follow-note-audience">
+          <button type="button" className={noteAudience === "client" ? "active" : ""} onClick={() => setNoteAudience("client")}>{L.chantiers.audienceClient}</button>
+          <button type="button" className={noteAudience === "workers" ? "active" : ""} onClick={() => setNoteAudience("workers")}>{L.chantiers.audienceWorkers}</button>
+          <button type="button" className={noteAudience === "both" ? "active" : ""} onClick={() => setNoteAudience("both")}>{L.chantiers.audienceBoth}</button>
+        </div>
+        {(noteAudience === "workers" || noteAudience === "both") ? (
+          <div className="follow-note-workers">
+            <span className="follow-client-notes-label">{L.chantiers.noteWorkersLabel}</span>
+            {assignedWorkers.length === 0 ? <p className="tool-muted">{L.chantiers.noteNoWorkers}</p> : null}
+            <div className="follow-note-worker-chips">
+              {assignedWorkers.map((worker) => (
+                <button
+                  type="button"
+                  key={worker.id}
+                  className={noteWorkerIds.includes(worker.id) ? "active" : ""}
+                  onClick={() => toggleNoteWorker(worker.id)}
+                >
+                  {worker.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="mobile-primary"
+          disabled={sendingNote || !noteText.trim()}
+          onClick={sendNote}
+        >
+          {sendingNote ? L.chantiers.sending : L.chantiers.sendNote}
+        </button>
+      </div>
     </div>
   );
 }
@@ -159,6 +244,10 @@ const emptyPlan = {
   startDate: "",
   endDate: "",
   workerIds: [],
+  rdvType: "",
+  rdvReason: "",
+  rdvDate: "",
+  rdvTime: "",
   supplyId: "",
   supplyQuantity: "",
   supplyNote: ""
@@ -206,9 +295,8 @@ export default function ProjectsTrackingPage() {
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [budgetDraft, setBudgetDraft] = useState(null);
   const [message, setMessage] = useState("");
-  const [marketplaceDesc, setMarketplaceDesc] = useState("");
-  const [collapsedCards, setCollapsedCards] = useState(() => new Set());
-  const [expandedLineKey, setExpandedLineKey] = useState(null);
+  const [collapsedCards, setCollapsedCards] = useState(() => new Set(["agenda", "budget", "rdv", "documents", "archive"]));
+  const [openLineKey, setOpenLineKey] = useState(null);
   const [clientPortalAccess, setClientPortalAccess] = useState(null);
 
   function toggleCard(key) {
@@ -231,6 +319,11 @@ export default function ProjectsTrackingPage() {
     apiGet(`/api/client-portal-info?projectId=${encodeURIComponent(selectedProjectId)}`)
       .then((data) => setClientPortalAccess(data.access || null))
       .catch(() => setClientPortalAccess(null));
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    setCollapsedCards(new Set(["agenda", "budget", "rdv", "documents", "archive"]));
   }, [selectedProjectId]);
 
   const activeProjects = useMemo(() => {
@@ -334,6 +427,8 @@ export default function ProjectsTrackingPage() {
     return [...quoteLines, ...extraTasks];
   }, [projectTasks, selectedProject, selectedQuote]);
 
+  const openLine = trackingLines.find((line) => line.key === openLineKey) || null;
+
   const supplyNeeds = useMemo(() => {
     return projectTasks.flatMap((task) => (task.supplyNeeds || []).map((need) => ({ ...need, taskLabel: task.label })));
   }, [projectTasks]);
@@ -349,6 +444,10 @@ export default function ProjectsTrackingPage() {
       startDate: line.task?.startDate || "",
       endDate: line.task?.endDate || line.task?.dueDate || "",
       workerIds: line.task?.workerIds || [],
+      rdvType: "",
+      rdvReason: "",
+      rdvDate: "",
+      rdvTime: "",
       supplyId: need.supplyId || "",
       supplyQuantity: need.quantity || "",
       supplyNote: need.note || ""
@@ -418,16 +517,36 @@ export default function ProjectsTrackingPage() {
       status: "Planifiee"
     };
 
+    let savedTask;
     if (trackingTarget.task) {
       const { task } = await apiSend("/api/tasks", { id: trackingTarget.task.id, ...payload }, "PATCH");
+      savedTask = task;
       const nextTasks = tasks.map((item) => item.id === task.id ? task : item);
       setTasks(nextTasks);
       await refreshProjectProgress(nextTasks);
     } else {
       const { task } = await apiSend("/api/tasks", payload);
+      savedTask = task;
       const nextTasks = [task, ...tasks];
       setTasks(nextTasks);
       await refreshProjectProgress(nextTasks);
+    }
+
+    if (planForm.rdvType && planForm.rdvDate) {
+      const startAt = `${planForm.rdvDate}T${planForm.rdvTime || "09:00"}:00`;
+      const rdvTitle = planForm.rdvType === "devis" ? L.chantiers.rdvReasonQuote : (planForm.rdvReason || L.chantiers.rdvReasonOther);
+      const { calendarEvent } = await apiSend("/api/calendar-events", {
+        title: `${rdvTitle} - ${savedTask.label}`,
+        eventType: planForm.rdvType === "devis" ? "Devis" : "Chantier",
+        projectId: selectedProject.id,
+        projectTitle: selectedProject.title,
+        clientName: selectedProject.client || "",
+        address: selectedProject.address || "",
+        startAt,
+        endAt: startAt,
+        status: "Planifie"
+      });
+      setCalendarEvents([calendarEvent, ...calendarEvents]);
     }
 
     setTrackingTarget(null);
@@ -448,6 +567,28 @@ export default function ProjectsTrackingPage() {
     setTasks(nextTasks);
     await refreshProjectProgress(nextTasks);
     setMessage(`Ouvrage "${updatedTask.label}" valide.`);
+  }
+
+  function ouvrageStatusKey(task) {
+    if (!task) return "debut";
+    if (task.done) return "valide";
+    if (task.pendingValidation) return "termine";
+    if (String(task.status || "").toLowerCase().includes("cours")) return "encours";
+    return "debut";
+  }
+
+  async function setOuvrageStatus(task, key) {
+    if (!task) return;
+    if (key === "valide") return validateTask(task);
+    const patch = key === "encours"
+      ? { status: "En cours", done: false, pendingValidation: false }
+      : key === "termine"
+        ? { status: "Terminee (a valider)", done: false, pendingValidation: true }
+        : { status: "À faire", done: false, pendingValidation: false };
+    const { task: updatedTask } = await apiSend("/api/tasks", { id: task.id, ...patch }, "PATCH");
+    const nextTasks = tasks.map((item) => item.id === updatedTask.id ? updatedTask : item);
+    setTasks(nextTasks);
+    await refreshProjectProgress(nextTasks);
   }
 
   function setBudgetValue(rowId, field, value) {
@@ -554,13 +695,134 @@ export default function ProjectsTrackingPage() {
     setMessage(action === "finish" ? "Chantier termine et archive creee." : "Chantier archive avec son historique.");
   }
 
-  async function publishMarketplace(action) {
-    if (!selectedProject) return;
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem("koji-user") : null;
-    const userId = raw ? (JSON.parse(raw).id || "") : "";
-    const { project } = await apiSend("/api/marketplace", { action, projectId: selectedProject.id, userId, description: marketplaceDesc });
-    setProjects(projects.map((item) => item.id === project.id ? project : item));
-    setMessage(action === "publish" ? "Chantier publié sur la marketplace." : "Chantier retiré de la marketplace.");
+  const planningModal = trackingTarget ? (
+    <div className="modal-overlay open">
+      <div className="tracking-modal">
+        <div className="follow-section-head">
+          <h2>{L.chantiers.planModal}</h2>
+          <button type="button" className="mini-danger" onClick={() => setTrackingTarget(null)}>{L.chantiers.close}</button>
+        </div>
+        <h3>{L.chantiers.team}</h3>
+        <div className="worker-chip-grid">
+          {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
+          {workers.map((worker) => (
+            <button type="button" className={planForm.workerIds.includes(worker.id) ? "active" : ""} key={worker.id} onClick={() => toggleWorker(worker.id)}>
+              <span>{worker.name}</span>
+              <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
+            </button>
+          ))}
+        </div>
+        <div className="mobile-form-grid">
+          <label>{L.chantiers.startDate}<input type="date" value={planForm.startDate} onChange={(event) => setPlanForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
+          <label>{L.chantiers.endDate}<input type="date" value={planForm.endDate} onChange={(event) => setPlanForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
+        </div>
+        <h3>{L.chantiers.rdvOptional}</h3>
+        <div className="mobile-form-grid">
+          <label>{L.chantiers.rdvType}<select value={planForm.rdvType} onChange={(event) => setPlanForm((current) => ({ ...current, rdvType: event.target.value }))}>
+            <option value="">{L.chantiers.noRdv}</option>
+            <option value="devis">{L.chantiers.rdvReasonQuote}</option>
+            <option value="autres">{L.chantiers.rdvReasonOther}</option>
+          </select></label>
+          {planForm.rdvType === "autres" ? (
+            <label>{L.chantiers.rdvReasonOther}<input value={planForm.rdvReason} onChange={(event) => setPlanForm((current) => ({ ...current, rdvReason: event.target.value }))} placeholder={L.chantiers.rdvReasonPlaceholder} /></label>
+          ) : null}
+          {planForm.rdvType ? (
+            <label className="full">{L.chantiers.rdvWhen}
+              <div className="url-fetch-row">
+                <input type="date" value={planForm.rdvDate} onChange={(event) => setPlanForm((current) => ({ ...current, rdvDate: event.target.value }))} />
+                <input type="time" value={planForm.rdvTime} onChange={(event) => setPlanForm((current) => ({ ...current, rdvTime: event.target.value }))} />
+              </div>
+            </label>
+          ) : null}
+        </div>
+        <h3>{L.chantiers.missingSupply}</h3>
+        <div className="mobile-form-grid">
+          <label>{L.chantiers.supply}<select value={planForm.supplyId} onChange={(event) => setPlanForm((current) => ({ ...current, supplyId: event.target.value }))}>
+            <option value="">{L.chantiers.noShortage}</option>
+            {supplies.map((supply) => <option value={supply.id} key={supply.id}>{supply.name}</option>)}
+          </select></label>
+          <label>{L.chantiers.quantity}<input value={planForm.supplyQuantity} onChange={(event) => setPlanForm((current) => ({ ...current, supplyQuantity: event.target.value }))} placeholder="Ex: 2" /></label>
+          <label className="full">{L.chantiers.note}<input value={planForm.supplyNote} onChange={(event) => setPlanForm((current) => ({ ...current, supplyNote: event.target.value }))} placeholder="Ex: a commander" /></label>
+        </div>
+        <button type="button" className="mobile-primary" onClick={savePlanning}>{L.chantiers.savePlanning}</button>
+      </div>
+    </div>
+  ) : null;
+
+  if (selectedProject && openLine) {
+    const item = openLine.quoteLine || openLine.task || {};
+    const task = openLine.task;
+    const statusKey = ouvrageStatusKey(task);
+    const statusSteps = [
+      { key: "debut", label: L.chantiers.statusStart },
+      { key: "encours", label: L.chantiers.statusInProgress },
+      { key: "termine", label: L.chantiers.statusFinished },
+      { key: "valide", label: L.chantiers.statusValidated }
+    ];
+    const statusIndex = statusSteps.findIndex((step) => step.key === statusKey);
+
+    return (
+      <Shell>
+        <section className="mobile-tool tool-form-view ouvrage-fiche">
+          <header className="tool-topline compact">
+            <button type="button" className="plain-back" onClick={() => setOpenLineKey(null)}>{"<"}</button>
+            <div className="follow-title">
+              <h1>{item.label || task?.label}</h1>
+              <p>{item.room || task?.room || "Chantier"}</p>
+            </div>
+            <span />
+          </header>
+
+          <div className="ouvrage-fiche-body">
+            <div className="ouvrage-info-card">
+              <div>
+                <span>{item.code || task?.code || "Ouvrage"}</span>
+                <strong>{item.quantity || task?.quantity || 1} {item.unit || task?.unit || ""}</strong>
+              </div>
+              <div>
+                <span>{L.chantiers.team}</span>
+                <strong>{task?.assignedTo || L.chantiers.notAssigned}</strong>
+              </div>
+              <div>
+                <span>{L.chantiers.startDate} → {L.chantiers.endDate}</span>
+                <strong>{formatDate(task?.startDate)} → {formatDate(task?.endDate || task?.dueDate)}</strong>
+              </div>
+            </div>
+
+            {task ? (
+              <div className="ouvrage-status-stepper">
+                {statusSteps.map((step, index) => (
+                  <button
+                    type="button"
+                    key={step.key}
+                    className={`ouvrage-status-step${index <= statusIndex ? " done" : ""}${step.key === statusKey ? " current" : ""}`}
+                    onClick={() => setOuvrageStatus(task, step.key)}
+                  >
+                    <i />
+                    <span>{step.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="tool-muted">{L.chantiers.notPlannedYet}</p>
+            )}
+
+            {task?.pendingValidation && task.completedByName ? (
+              <small className="follow-line-pending-detail">
+                Termine par {task.completedByName} ({task.completedByType?.toLowerCase()}) le {formatDate(task.finishedAt)}
+              </small>
+            ) : null}
+
+            <button type="button" className="button blue ouvrage-plan-btn" onClick={() => openPlanner(openLine)}>
+              {L.chantiers.plan}
+            </button>
+
+            {task ? <TaskMessageThread task={task} projectDocuments={projectDocuments} workers={workers} /> : null}
+          </div>
+        </section>
+        {planningModal}
+      </Shell>
+    );
   }
 
   if (selectedProject) {
@@ -741,66 +1003,6 @@ export default function ProjectsTrackingPage() {
               ) : null}
             </article>
 
-            <article className="project-overview-card project-archive-card">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("archive")}>
-                <h2>{L.chantiers.archive}</h2>
-                <span>{selectedProject.archiveId || linkedArchive ? L.chantiers.archiveCreated : L.chantiers.archivePending}</span>
-                <CardChevron collapsed={collapsedCards.has("archive")} />
-              </button>
-              {!collapsedCards.has("archive") ? (
-                <>
-                  <p>{L.chantiers.archiveDesc}</p>
-                  <div className="archive-action-row">
-                    {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
-                      <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>{L.chantiers.archiveProject}</button>
-                    ) : (
-                      <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>{L.chantiers.markFinished}</button>
-                    )}
-                  </div>
-                  {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
-                    <div className="archive-summary-grid">
-                      {Object.entries(selectedProject.archiveSummary || linkedArchive.summary).filter(([, value]) => typeof value === "number").map(([key, value]) => (
-                        <span key={key}><small>{key}</small><strong>{typeof value === "number" ? euro(value) : String(value)}</strong></span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {linkedHistory.length > 0 ? (
-                    <details className="project-history-details">
-                      <summary>{L.chantiers.projectHistory}</summary>
-                      {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
-                    </details>
-                  ) : null}
-                </>
-              ) : null}
-            </article>
-
-            <article className="project-overview-card">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("marketplace")}>
-                <h2>{L.chantiers.marketplace}</h2>
-                <span>{selectedProject.marketplace?.published ? L.chantiers.published : L.chantiers.unpublished}</span>
-                <CardChevron collapsed={collapsedCards.has("marketplace")} />
-              </button>
-              {!collapsedCards.has("marketplace") ? (
-                selectedProject.marketplace?.published ? (
-                  <>
-                    <p className="marketplace-own-status">{L.chantiers.marketplacePublic}</p>
-                    <button type="button" className="mini-outline" onClick={() => publishMarketplace("unpublish")}>{L.chantiers.unpublishBtn}</button>
-                  </>
-                ) : (
-                  <>
-                    <p>{L.chantiers.marketplaceDesc}</p>
-                    <textarea
-                      className="project-mini-textarea"
-                      placeholder={L.chantiers.marketplacePlaceholder}
-                      value={marketplaceDesc}
-                      onChange={(e) => setMarketplaceDesc(e.target.value)}
-                      rows={3}
-                    />
-                    <button type="button" className="button blue" style={{ marginTop: 8 }} onClick={() => publishMarketplace("publish")}>{L.chantiers.publishBtn}</button>
-                  </>
-                )
-              ) : null}
-            </article>
           </section>
 
           <section className="follow-section">
@@ -836,48 +1038,27 @@ export default function ProjectsTrackingPage() {
                 {trackingLines.map((line) => {
                   const item = line.quoteLine || line.task || {};
                   const task = line.task;
-                  const expanded = expandedLineKey === line.key;
                   return (
-                    <article className={`follow-line follow-line-collapsible${expanded ? " open" : ""}`} key={line.key}>
-                      <button
-                        type="button"
-                        className="follow-line-head"
-                        onClick={() => setExpandedLineKey(expanded ? null : line.key)}
-                      >
-                        <span className={`select-dot ${task?.done ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); if (task) toggleDone(task); else openPlanner(line); }} />
-                        <div className="follow-line-main">
-                          <span>{item.room || task?.room || "Chantier"}</span>
-                          <strong>{item.label || task?.label}</strong>
-                          {task?.pendingValidation ? <em className="follow-line-pending">À valider</em> : null}
-                        </div>
-                        <CardChevron collapsed={!expanded} />
+                    <article
+                      className="follow-line clickable"
+                      key={line.key}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setOpenLineKey(line.key)}
+                      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenLineKey(line.key); } }}
+                    >
+                      <span className={`select-dot ${task?.done ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); if (task) toggleDone(task); else openPlanner(line); }} />
+                      <div className="follow-line-main">
+                        <span>{item.room || task?.room || "Chantier"}</span>
+                        <strong>{item.label || task?.label}</strong>
+                        {task ? (
+                          <small>Equipe: {task.assignedTo || "Non assignee"} - {formatDate(task.startDate)} vers {formatDate(task.endDate || task.dueDate)}</small>
+                        ) : null}
+                        {task?.pendingValidation ? <em className="follow-line-pending">À valider</em> : null}
+                      </div>
+                      <button type="button" className="mini-outline" onClick={(event) => { event.stopPropagation(); openPlanner(line); }}>
+                        {L.chantiers.plan}
                       </button>
-                      {expanded ? (
-                        <div className="follow-line-body">
-                          <small>
-                            {item.code || task?.code || "Ouvrage"} - {item.quantity || task?.quantity || 1} {item.unit || task?.unit || ""}
-                          </small>
-                          <small>
-                            Equipe: {task?.assignedTo || "Non assignee"} - {formatDate(task?.startDate)} vers {formatDate(task?.endDate || task?.dueDate)}
-                          </small>
-                          {task?.pendingValidation ? (
-                            <small className="follow-line-pending-detail">
-                              Termine par {task.completedByName} ({task.completedByType?.toLowerCase()}) le {formatDate(task.finishedAt)}
-                            </small>
-                          ) : null}
-                          {task ? <TaskMessageThread task={task} projectDocuments={projectDocuments} projects={projects} /> : null}
-                          <div className="follow-line-actions">
-                            <button type="button" className="mini-outline" onClick={() => openPlanner(line)}>
-                              {task ? L.chantiers.modify : L.chantiers.plan}
-                            </button>
-                            {task?.pendingValidation ? (
-                              <button type="button" className="mobile-primary" onClick={() => validateTask(task)}>{L.chantiers.validate}</button>
-                            ) : task ? (
-                              <button type="button" className="mini-outline" onClick={() => toggleDone(task)}>{task.done ? L.chantiers.markNotDone : L.chantiers.markDone}</button>
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : null}
                     </article>
                   );
                 })}
@@ -905,40 +1086,40 @@ export default function ProjectsTrackingPage() {
             )}
           </section>
 
-          {trackingTarget ? (
-            <div className="modal-overlay open">
-              <div className="tracking-modal">
-                <div className="follow-section-head">
-                  <h2>{L.chantiers.planModal}</h2>
-                  <button type="button" className="mini-danger" onClick={() => setTrackingTarget(null)}>{L.chantiers.close}</button>
+          <section className="follow-section project-archive-card">
+            <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("archive")}>
+              <h2>{L.chantiers.archive}</h2>
+              <span>{selectedProject.archiveId || linkedArchive ? L.chantiers.archiveCreated : L.chantiers.archivePending}</span>
+              <CardChevron collapsed={collapsedCards.has("archive")} />
+            </button>
+            {!collapsedCards.has("archive") ? (
+              <>
+                <p>{L.chantiers.archiveDesc}</p>
+                <div className="archive-action-row">
+                  {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
+                    <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>{L.chantiers.archiveProject}</button>
+                  ) : (
+                    <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>{L.chantiers.markFinished}</button>
+                  )}
                 </div>
-                <div className="mobile-form-grid">
-                  <label>{L.chantiers.startDate}<input type="date" value={planForm.startDate} onChange={(event) => setPlanForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
-                  <label>{L.chantiers.endDate}<input type="date" value={planForm.endDate} onChange={(event) => setPlanForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
-                </div>
-                <h3>{L.chantiers.team}</h3>
-                <div className="worker-chip-grid">
-                  {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
-                  {workers.map((worker) => (
-                    <button type="button" className={planForm.workerIds.includes(worker.id) ? "active" : ""} key={worker.id} onClick={() => toggleWorker(worker.id)}>
-                      <span>{worker.name}</span>
-                      <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
-                    </button>
-                  ))}
-                </div>
-                <h3>{L.chantiers.missingSupply}</h3>
-                <div className="mobile-form-grid">
-                  <label>{L.chantiers.supply}<select value={planForm.supplyId} onChange={(event) => setPlanForm((current) => ({ ...current, supplyId: event.target.value }))}>
-                    <option value="">{L.chantiers.noShortage}</option>
-                    {supplies.map((supply) => <option value={supply.id} key={supply.id}>{supply.name}</option>)}
-                  </select></label>
-                  <label>{L.chantiers.quantity}<input value={planForm.supplyQuantity} onChange={(event) => setPlanForm((current) => ({ ...current, supplyQuantity: event.target.value }))} placeholder="Ex: 2" /></label>
-                  <label className="full">{L.chantiers.note}<input value={planForm.supplyNote} onChange={(event) => setPlanForm((current) => ({ ...current, supplyNote: event.target.value }))} placeholder="Ex: a commander" /></label>
-                </div>
-                <button type="button" className="mobile-primary" onClick={savePlanning}>{L.chantiers.savePlanning}</button>
-              </div>
-            </div>
-          ) : null}
+                {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
+                  <div className="archive-summary-grid">
+                    {Object.entries(selectedProject.archiveSummary || linkedArchive.summary).filter(([, value]) => typeof value === "number").map(([key, value]) => (
+                      <span key={key}><small>{key}</small><strong>{typeof value === "number" ? euro(value) : String(value)}</strong></span>
+                    ))}
+                  </div>
+                ) : null}
+                {linkedHistory.length > 0 ? (
+                  <details className="project-history-details">
+                    <summary>{L.chantiers.projectHistory}</summary>
+                    {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
+                  </details>
+                ) : null}
+              </>
+            ) : null}
+          </section>
+
+          {planningModal}
         </div>
       </Shell>
     );
