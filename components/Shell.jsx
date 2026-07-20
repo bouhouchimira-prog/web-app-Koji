@@ -246,20 +246,13 @@ export function Shell({ children }) {
             </button>
             {langOpen && (
               <ul className="topbar-lang-dropdown" role="listbox">
-                {[
-                  { code: "fr", flag: "🇫🇷" },
-                  { code: "en", flag: "🇬🇧" },
-                  { code: "ar", flag: "🇸🇦" },
-                  { code: "de", flag: "🇩🇪" },
-                  { code: "it", flag: "🇮🇹" },
-                ].map(({ code, flag }) => (
+                {["fr", "en", "ar", "de", "it"].map((code) => (
                   <li key={code} role="option" aria-selected={lang === code}>
                     <button
                       type="button"
                       className={lang === code ? "active" : ""}
                       onClick={() => { setLang(code); setLangOpen(false); }}
                     >
-                      <span>{flag}</span>
                       <span>{code.toUpperCase()}</span>
                     </button>
                   </li>

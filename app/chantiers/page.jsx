@@ -1003,6 +1003,17 @@ export default function ProjectsTrackingPage() {
               ) : null}
             </article>
 
+            <article className="project-overview-card">
+              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("marketplace")}>
+                <h2>{L.chantiers.marketplace}</h2>
+                <span>{L.chantiers.unpublished}</span>
+                <CardChevron collapsed={collapsedCards.has("marketplace")} />
+              </button>
+              {!collapsedCards.has("marketplace") ? (
+                <p className="marketplace-soon-text">{L.marketplace.comingSoon}</p>
+              ) : null}
+            </article>
+
           </section>
 
           <section className="follow-section">

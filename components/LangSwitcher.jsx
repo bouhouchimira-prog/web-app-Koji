@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale } from "../lib/i18n";
 
 const LANGS = [
-  { code: "fr", flag: "🇫🇷" },
-  { code: "en", flag: "🇬🇧" },
-  { code: "ar", flag: "🇸🇦" },
-  { code: "de", flag: "🇩🇪" },
-  { code: "it", flag: "🇮🇹" },
+  { code: "fr" },
+  { code: "en" },
+  { code: "ar" },
+  { code: "de" },
+  { code: "it" },
 ];
 
 const LABELS = { fr: "FR", en: "EN", ar: "AR", de: "DE", it: "IT" };
@@ -40,14 +40,13 @@ export function LangSwitcher() {
       </button>
       {open && (
         <ul className="topbar-lang-dropdown" role="listbox">
-          {LANGS.map(({ code, flag }) => (
+          {LANGS.map(({ code }) => (
             <li key={code} role="option" aria-selected={lang === code}>
               <button
                 type="button"
                 className={lang === code ? "active" : ""}
                 onClick={() => { setLang(code); setOpen(false); }}
               >
-                <span>{flag}</span>
                 <span>{LABELS[code]}</span>
               </button>
             </li>
