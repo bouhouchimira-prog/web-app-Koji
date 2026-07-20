@@ -1,22 +1,135 @@
-import { ok, paywallRequired } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserScope, makeToken, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { badRequest, ok } from "../../../lib/http";
+import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
-import { checkQuoteCreationLimit, checkTrialEditLimit, checkTrialSendLimit } from "../../../lib/plan";
+import { getAuth } from "../../../lib/server-auth";
 
-function normalizeQuote(quote) {
+// Quotes live in the shared `quotes` table used by the koji-main Flutter app
+// (same table it reads via QuoteRepository), so both apps see the same devis.
+// `rooms`/`items` stay a JSON blob on the row (like koji-web always stored
+// them) instead of being split into the app's `quote_rooms`/`quote_tasks`
+// tables, to avoid rewriting DevisEditor.jsx's data shape. Fields the mobile
+// schema has no column for live in `web_extras` JSONB; fields the mobile app
+// already reads (client, dates, company) are mirrored into `metadata` JSONB
+// so a web-created devis also renders correctly on mobile.
+
+const QUOTE_HISTORY_LABEL = {
+  ready: (q) => `Devis prêt à envoyer : ${q.quoteNumber}`,
+  send: (q) => `Lien de signature cree: ${q.quoteNumber}`,
+  archive: (q) => `Devis archive: ${q.quoteNumber}`,
+  cancel: (q) => `Devis annule: ${q.quoteNumber}`,
+  restore: (q) => `Devis restaure: ${q.quoteNumber}`
+};
+
+function mapQuote(row) {
+  const metadata = row.metadata || {};
+  const extras = row.web_extras || {};
+  const client = metadata.client || {};
   return {
-    ...fixObjectText(quote),
-    totalHt: Number(quote.totalHt || 0),
-    totalTtc: Number(quote.totalTtc || 0),
-    draftStep: Number(quote.draftStep || 0),
-    isCreationDraft: Boolean(quote.isCreationDraft)
+    id: row.id,
+    userId: row.user_id,
+    quoteNumber: row.reference || metadata.quoteNumber || "",
+    versionNumber: extras.versionNumber || "001",
+    client: client.name || "",
+    clientEmail: client.email || "",
+    clientPhone: client.phone || "",
+    project: extras.project || "",
+    projectId: row.chantier_id || "",
+    projectReference: extras.projectReference || "",
+    chantierAddress: metadata.siteAddress || "",
+    startDate: metadata.travauxStart || "",
+    expectedDuration: metadata.travauxDuration || "",
+    workDescription: extras.workDescription || "",
+    validityDays: Number(metadata.validity || 30),
+    company: metadata.company || {},
+    quoteDate: metadata.date || String(row.created_at || "").slice(0, 10),
+    status: row.status || "Brouillon",
+    signatureStatus: extras.signatureStatus || "Non envoye",
+    rooms: Array.isArray(row.rooms) ? row.rooms : [],
+    items: Array.isArray(row.items) ? row.items : [],
+    draftStep: Number(extras.draftStep || 0),
+    draftData: extras.draftData || null,
+    isCreationDraft: Boolean(extras.isCreationDraft),
+    totalHt: Number(row.total_ht || 0),
+    totalTtc: Number(row.total_ttc || 0),
+    createdAt: extras.createdAt || String(row.created_at || "").slice(0, 10),
+    createdAtIso: row.created_at || "",
+    updatedAt: row.updated_at || "",
+    signatureToken: extras.signatureToken || "",
+    signatureProvider: extras.signatureProvider || "",
+    sentAt: extras.sentAt || "",
+    readyAt: extras.readyAt || "",
+    archivedAt: extras.archivedAt || "",
+    cancelledAt: extras.cancelledAt || "",
+    restoredAt: extras.restoredAt || "",
+    clientPortalUserId: extras.clientPortalUserId || "",
+    clientPortalAccess: extras.clientPortalAccess || null,
+    signatureUrl: extras.signatureUrl || "",
+    localSignatureUrl: extras.localSignatureUrl || "",
+    signatureClientAccess: extras.signatureClientAccess || null,
+    signatureAccessIdentifier: extras.signatureAccessIdentifier || "",
+    signatureAccessPassword: extras.signatureAccessPassword || "",
+    signatureAccessCreatedAt: extras.signatureAccessCreatedAt || ""
+  };
+}
+
+function quoteToRow(quote, userId) {
+  const totalHt = Number(quote.totalHt || 0);
+  const totalTtc = Number(quote.totalTtc || 0);
+  const vatRate = totalHt > 0 ? Math.round(((totalTtc - totalHt) / totalHt) * 100) : 20;
+  return {
+    user_id: userId,
+    chantier_id: quote.projectId || null,
+    status: quote.status || "Brouillon",
+    reference: quote.quoteNumber,
+    total_ht: totalHt,
+    total_ttc: totalTtc,
+    tva_rate: vatRate,
+    rooms: quote.rooms || [],
+    items: quote.items || [],
+    metadata: {
+      quoteNumber: quote.quoteNumber,
+      date: quote.quoteDate,
+      validity: quote.validityDays,
+      siteAddress: quote.chantierAddress,
+      travauxStart: quote.startDate,
+      travauxDuration: quote.expectedDuration,
+      company: quote.company || {},
+      client: { name: quote.client, email: quote.clientEmail, phone: quote.clientPhone }
+    },
+    web_extras: {
+      versionNumber: quote.versionNumber,
+      project: quote.project,
+      projectReference: quote.projectReference,
+      workDescription: quote.workDescription,
+      signatureStatus: quote.signatureStatus,
+      draftStep: quote.draftStep,
+      draftData: quote.draftData,
+      isCreationDraft: quote.isCreationDraft,
+      createdAt: quote.createdAt,
+      createdAtIso: quote.createdAtIso,
+      signatureToken: quote.signatureToken || "",
+      signatureProvider: quote.signatureProvider || "",
+      sentAt: quote.sentAt || "",
+      readyAt: quote.readyAt || "",
+      archivedAt: quote.archivedAt || "",
+      cancelledAt: quote.cancelledAt || "",
+      restoredAt: quote.restoredAt || "",
+      clientPortalUserId: quote.clientPortalUserId || "",
+      clientPortalAccess: quote.clientPortalAccess || null,
+      signatureUrl: quote.signatureUrl || "",
+      localSignatureUrl: quote.localSignatureUrl || "",
+      signatureClientAccess: quote.signatureClientAccess || null,
+      signatureAccessIdentifier: quote.signatureAccessIdentifier || "",
+      signatureAccessPassword: quote.signatureAccessPassword || "",
+      signatureAccessCreatedAt: quote.signatureAccessCreatedAt || ""
+    },
+    updated_at: new Date().toISOString()
   };
 }
 
 function buildSignatureLinks(request, quote, identifier = "") {
   const origin = new URL(request.url).origin;
-  // Default to self-hosted signature login (no external app required)
   const signatureBase = process.env.PUBLIC_SIGNATURE_BASE_URL || origin;
   const signaturePath = process.env.PUBLIC_SIGNATURE_LOGIN_PATH || "/signature/login";
   const cleanSignatureBase = String(signatureBase).replace(/\/$/, "");
@@ -25,10 +138,7 @@ function buildSignatureLinks(request, quote, identifier = "") {
   const signatureUrl = new URL(`${cleanSignatureBase}${cleanSignaturePath}`);
   signatureUrl.searchParams.set("signatureToken", quote.signatureToken);
   if (identifier) signatureUrl.searchParams.set("identifier", identifier);
-  return {
-    signatureUrl: signatureUrl.toString(),
-    localSignatureUrl
-  };
+  return { signatureUrl: signatureUrl.toString(), localSignatureUrl };
 }
 
 function normalizeEmail(value = "") {
@@ -165,17 +275,6 @@ function syncDraftNotification(db, quote, userId = "") {
   else db.notifications[existingIndex] = notification;
 }
 
-
-function computeNextQuoteSeq(db) {
-  const maxFromQuotes = db.quotes.reduce((max, q) => {
-    const match = (q.quoteNumber || "").match(/_(\d+)$/);
-    return match ? Math.max(max, parseInt(match[1], 10)) : max;
-  }, 1048);
-  const current = Math.max(db.quoteSeqCounter || 0, maxFromQuotes);
-  db.quoteSeqCounter = current + 1;
-  return db.quoteSeqCounter;
-}
-
 // Backfills the client portal password/identifier on quotes that were sent before these
 // fields were stored on clientPortalAccess, so existing chantiers don't need a resend.
 function withClientPortalAccess(quote, db) {
@@ -195,34 +294,56 @@ function withClientPortalAccess(quote, db) {
   };
 }
 
+async function nextQuoteNumberFor(auth, existingReference = "") {
+  const year = new Date().getFullYear();
+  const prefix = `${year}_`;
+  const { data } = await auth.supabase
+    .from("quotes")
+    .select("reference")
+    .eq("user_id", auth.userId)
+    .like("reference", `${prefix}%`);
+  let maxSeq = 1048;
+  for (const row of data || []) {
+    const match = (row.reference || "").match(new RegExp(`^${year}_(\\d+)$`));
+    if (match) maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
+  }
+  const existingMatch = existingReference.match(new RegExp(`^${year}_(\\d+)$`));
+  if (existingMatch) maxSeq = Math.max(maxSeq, parseInt(existingMatch[1], 10) - 1);
+  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+}
+
 export async function GET(request) {
+  const auth = getAuth(request);
+  const year = new Date().getFullYear();
+  if (!auth) return ok({ quotes: [], nextQuoteNumber: `${year}_1049` });
+
+  const { data, error } = await auth.supabase
+    .from("quotes")
+    .select("*")
+    .eq("user_id", auth.userId)
+    .order("created_at", { ascending: false });
+  if (error) return badRequest(`Lecture des devis impossible: ${error.message}`, 500);
+
   const db = await readDb();
-  const userId = getUserScope(request, db);
-  const maxFromQuotes = db.quotes.reduce((max, q) => {
-    const match = (q.quoteNumber || "").match(/_(\d+)$/);
-    return match ? Math.max(max, parseInt(match[1], 10)) : max;
-  }, 1048);
-  const nextSeq = Math.max(db.quoteSeqCounter || 0, maxFromQuotes) + 1;
-  const nextQuoteNumber = `${new Date().getFullYear()}_${String(nextSeq).padStart(4, "0")}`;
-  const quotes = scopedItems(db.quotes, userId).map((quote) => normalizeQuote(withClientPortalAccess(quote, db)));
+  const quotes = (data || []).map((row) => withClientPortalAccess(mapQuote(row), db));
+  const nextQuoteNumber = await nextQuoteNumberFor(auth);
+
   return ok({ quotes, nextQuoteNumber });
 }
 
 export async function POST(request) {
   const body = await request.json();
-  const db = await readDb();
-  const userId = body.userId || "";
-  const user = db.users.find((item) => item.id === userId);
-  const creationGate = checkQuoteCreationLimit(db, user);
-  if (!creationGate.allowed) return paywallRequired(creationGate.reason);
+  const auth = getAuth(request, body);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+
   const now = new Date().toISOString();
   const quoteDate = body.quoteDate || body.createdAt || now.slice(0, 10);
-  const quoteYear = new Date().getFullYear();
-  const quoteSeq = computeNextQuoteSeq(db);
-  const quoteBase = {
-    id: `q-${Date.now()}`,
-    userId,
-    quoteNumber: `${quoteYear}_${String(quoteSeq).padStart(4, "0")}`,
+  const quoteNumber = await nextQuoteNumberFor(auth);
+
+  const draft = {
+    id: "",
+    userId: auth.userId,
+    quoteNumber,
     versionNumber: body.versionNumber || "001",
     client: fixText(body.client || "Client"),
     clientEmail: body.clientEmail || "",
@@ -250,18 +371,22 @@ export async function POST(request) {
     createdAtIso: now,
     updatedAt: now
   };
-  const quote = applyQuoteTotals(quoteBase);
-  db.quotes.unshift(quote);
-  syncDraftNotification(db, quote, userId);
-  const projectIndex = quote.projectId ? db.projects.findIndex((project) => project.id === quote.projectId) : -1;
-  if (projectIndex !== -1) {
-    db.projects[projectIndex].quoteId = quote.id;
-    db.projects[projectIndex].budgetHt = quote.totalHt;
-    db.projects[projectIndex].status = "Devis genere";
-    db.projects[projectIndex].updatedAt = now;
+  const computed = applyQuoteTotals(draft);
+  const row = quoteToRow(computed, auth.userId);
+
+  const { data: inserted, error } = await auth.supabase.from("quotes").insert(row).select().single();
+  if (error) return badRequest(`Création du devis impossible: ${error.message}`, 500);
+
+  const quote = mapQuote(inserted);
+
+  if (quote.projectId) {
+    await auth.supabase.from("chantiers").update({ status: "Devis genere" }).eq("id", quote.projectId);
   }
+
+  const db = await readDb();
+  syncDraftNotification(db, quote, auth.userId);
   addHistory(db, {
-    userId,
+    userId: auth.userId,
     type: "quote.created",
     label: `Devis enregistre: ${quote.quoteNumber}`,
     entityId: quote.id,
@@ -269,135 +394,81 @@ export async function POST(request) {
     meta: { totalTtc: quote.totalTtc }
   });
   await writeDb(db);
-  return ok({ quote: normalizeQuote(quote) }, 201);
+
+  return ok({ quote }, 201);
 }
 
 export async function PATCH(request) {
   const body = await request.json();
-  const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
-  const index = findScopedIndex(db.quotes, body.id, userId);
+  const auth = getAuth(request, body);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  if (!body.id) return badRequest("Identifiant du devis manquant.");
 
-  if (index === -1) {
-    return ok({ error: "Devis introuvable." }, 404);
-  }
+  const { data: existingRow, error: fetchError } = await auth.supabase
+    .from("quotes")
+    .select("*")
+    .eq("id", body.id)
+    .eq("user_id", auth.userId)
+    .maybeSingle();
+  if (fetchError) return badRequest(`Lecture du devis impossible: ${fetchError.message}`, 500);
+  if (!existingRow) return ok({ error: "Devis introuvable." }, 404);
 
   const now = new Date().toISOString();
-  const quote = db.quotes[index];
+  const quote = mapQuote(existingRow);
   const action = body.action || "update";
-  const user = db.users.find((item) => item.id === (body.userId || ""));
-
-  if (action === "update" && body.manualSave) {
-    const editGate = checkTrialEditLimit(user, quote.id);
-    if (!editGate.allowed) return paywallRequired(editGate.reason);
-    if (user) {
-      if (editGate.claim) user.trialQuoteId = quote.id;
-      user.trialSaveCount = editGate.nextCount;
-    }
-  }
-
-  if (action === "send") {
-    const sendGate = checkTrialSendLimit(user, quote);
-    if (!sendGate.allowed) return paywallRequired(sendGate.reason);
-    if (user && !user.trialQuoteId) user.trialQuoteId = quote.id;
-  }
 
   if (action === "ready") {
     quote.status = "Pret a envoyer";
     quote.readyAt = now;
-    addHistory(db, {
-      userId: quote.userId || userId,
-      type: "quote.ready",
-      label: `Devis prêt à envoyer : ${quote.quoteNumber}`,
-      entityId: quote.id,
-      entityType: "quote"
-    });
   }
 
+  let signatureAccess = null;
+  const sideDb = await readDb();
+
   if (action === "send") {
-    if (!quote.signatureToken) {
-      quote.signatureToken = makeToken("sig");
-    }
-    // A new version is only minted when re-sending a quote that was already delivered before.
+    if (!quote.signatureToken) quote.signatureToken = makeToken("sig");
     if (quote.sentAt) {
       const currentVer = parseInt(quote.versionNumber || "001", 10);
       quote.versionNumber = String(currentVer + 1).padStart(3, "0");
     }
-    const signatureAccess = buildSignatureAccess(db, quote, body, request, now);
+    signatureAccess = buildSignatureAccess(sideDb, quote, body, request, now);
     quote.signatureProvider = "koji-signature";
     quote.status = "Envoye";
     quote.signatureStatus = "En attente";
     quote.sentAt = now;
-    const projectIndex = quote.projectId ? db.projects.findIndex((project) => project.id === quote.projectId) : -1;
-    if (projectIndex !== -1) {
-      db.projects[projectIndex].status = "En attente signature";
-      db.projects[projectIndex].quoteId = quote.id;
-      db.projects[projectIndex].updatedAt = now;
+    if (quote.projectId) {
+      await auth.supabase.from("chantiers").update({ status: "En attente signature" }).eq("id", quote.projectId);
     }
-    addHistory(db, {
-      userId: quote.userId || userId,
-      type: "quote.sent",
-      label: `Lien de signature cree: ${quote.quoteNumber}`,
-      entityId: quote.id,
-      entityType: "quote",
-      meta: {
-        signatureUrl: quote.signatureUrl,
-        localSignatureUrl: quote.localSignatureUrl,
-        identifier: signatureAccess.identifier,
-        sentByEmail: Boolean(signatureAccess.email),
-        sentBySms: Boolean(normalizePhone(signatureAccess.phone))
-      }
-    });
   }
 
   if (action === "archive") {
     quote.status = "Archive";
     quote.archivedAt = now;
-    addHistory(db, {
-      userId: quote.userId || userId,
-      type: "quote.archived",
-      label: `Devis archive: ${quote.quoteNumber}`,
-      entityId: quote.id,
-      entityType: "quote"
-    });
   }
 
   if (action === "cancel") {
     quote.status = "Annule";
     quote.cancelledAt = now;
-    addHistory(db, {
-      userId: quote.userId || userId,
-      type: "quote.cancelled",
-      label: `Devis annule: ${quote.quoteNumber}`,
-      entityId: quote.id,
-      entityType: "quote"
-    });
   }
 
   if (action === "restore") {
     quote.status = body.status || (quote.signatureStatus === "Signe" ? "Signe" : "Brouillon");
     quote.archivedAt = "";
     quote.restoredAt = now;
-    addHistory(db, {
-      userId: quote.userId || userId,
-      type: "quote.restored",
-      label: `Devis restaure: ${quote.quoteNumber}`,
-      entityId: quote.id,
-      entityType: "quote"
-    });
   }
 
   if (action === "delete") {
-    removeDraftNotification(db, quote.id, quote.userId || userId);
-    db.quotes.splice(index, 1);
-    addHistory(db, {
-      userId: quote.userId || userId,
+    const { error: delError } = await auth.supabase.from("quotes").delete().eq("id", body.id);
+    if (delError) return badRequest(`Suppression impossible: ${delError.message}`, 500);
+    removeDraftNotification(sideDb, quote.id, auth.userId);
+    addHistory(sideDb, {
+      userId: auth.userId,
       type: "quote.deleted",
       label: `Devis supprime: ${quote.quoteNumber}`,
       entityId: quote.id,
       entityType: "quote"
     });
-    await writeDb(db);
+    await writeDb(sideDb);
     return ok({ quote: { ...quote, deleted: true } });
   }
 
@@ -411,15 +482,37 @@ export async function PATCH(request) {
         else quote[key] = fixObjectText(body[key]);
       }
     }
-    // Drafting/preview/autosave never bumps the version number. A new version only
-    // exists once the quote is (re-)sent to the client - see the "send" action below.
   }
 
-  syncDraftNotification(db, quote, quote.userId || userId);
-  const recalculatedQuote = applyQuoteTotals(quote);
-  recalculatedQuote.updatedAt = now;
-  db.quotes[index] = recalculatedQuote;
-  await writeDb(db);
-  return ok({ quote: normalizeQuote(recalculatedQuote) });
-}
+  syncDraftNotification(sideDb, quote, auth.userId);
+  if (QUOTE_HISTORY_LABEL[action]) {
+    addHistory(sideDb, {
+      userId: auth.userId,
+      type: `quote.${action}`,
+      label: QUOTE_HISTORY_LABEL[action](quote),
+      entityId: quote.id,
+      entityType: "quote",
+      meta: action === "send" ? {
+        signatureUrl: quote.signatureUrl,
+        localSignatureUrl: quote.localSignatureUrl,
+        identifier: signatureAccess?.identifier,
+        sentByEmail: Boolean(signatureAccess?.email),
+        sentBySms: Boolean(normalizePhone(signatureAccess?.phone || ""))
+      } : undefined
+    });
+  }
+  await writeDb(sideDb);
 
+  const recalculated = applyQuoteTotals(quote);
+  recalculated.updatedAt = now;
+  const row = quoteToRow(recalculated, auth.userId);
+  const { data: updatedRow, error: updateError } = await auth.supabase
+    .from("quotes")
+    .update(row)
+    .eq("id", body.id)
+    .select()
+    .single();
+  if (updateError) return badRequest(`Mise à jour du devis impossible: ${updateError.message}`, 500);
+
+  return ok({ quote: mapQuote(updatedRow) });
+}
