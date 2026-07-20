@@ -170,6 +170,7 @@ export async function POST(request) {
     isCompany: Boolean(body.isCompany),
     companyRegNumber: fixText(body.companyRegNumber || ""),
     links: sanitizeLinks(body.links),
+    active: true,
     passwordHash: passwordData.passwordHash,
     passwordSalt: passwordData.passwordSalt,
     passwordSetupRequired: true,
@@ -260,12 +261,13 @@ export async function PATCH(request) {
     "hours",
     "isCompany",
     "companyRegNumber",
-    "links"
+    "links",
+    "active"
   ];
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       if (key === "hours" || key === "hourlyRate") worker[key] = Number(body[key] || 0);
-      else if (key === "favorite" || key === "isCompany") worker[key] = Boolean(body[key]);
+      else if (key === "favorite" || key === "isCompany" || key === "active") worker[key] = Boolean(body[key]);
       else if (key === "links") worker.links = sanitizeLinks(body.links);
       else worker[key] = fixText(body[key]);
     }

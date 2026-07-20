@@ -135,10 +135,10 @@ export async function PATCH(request) {
     task.notifiedAt = new Date().toISOString();
     notifyAssignedWorkers(db, task, workers.filter((worker) => !previousWorkerIds.has(worker.id)));
   } else {
-    const allowed = ["label", "project", "projectId", "room", "dueDate", "startDate", "endDate", "startTime", "endTime", "location", "durationHours", "estimatedHours", "assignedTo", "workerIds", "participantType", "status", "done", "quoteId", "quoteItemId", "code", "unit", "quantity", "supplyNeeds", "subWorks"];
+    const allowed = ["label", "project", "projectId", "room", "dueDate", "startDate", "endDate", "startTime", "endTime", "location", "durationHours", "estimatedHours", "assignedTo", "workerIds", "participantType", "status", "done", "pendingValidation", "quoteId", "quoteItemId", "code", "unit", "quantity", "supplyNeeds", "subWorks"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
-        task[key] = key === "durationHours" || key === "estimatedHours" || key === "quantity" ? Number(body[key] || 0) : fixObjectText(body[key]);
+        task[key] = key === "durationHours" || key === "estimatedHours" || key === "quantity" ? Number(body[key] || 0) : key === "done" || key === "pendingValidation" ? Boolean(body[key]) : fixObjectText(body[key]);
       }
     }
   }

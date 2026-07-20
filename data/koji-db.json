@@ -268,7 +268,7 @@
       "address": "",
       "type": "Maison",
       "status": "En cours",
-      "progress": 10,
+      "progress": 0,
       "quoteId": "q-1781737003640",
       "signedQuoteId": "q-1781737003640",
       "budgetHt": 400,
@@ -376,7 +376,30 @@
       "endDate": "",
       "acceptedAt": "2026-07-02T18:24:12.524Z",
       "createdAt": "2026-07-02T18:24:12.524Z",
-      "updatedAt": "2026-07-02T18:24:12.524Z"
+      "updatedAt": "2026-07-17T11:46:56.616Z",
+      "budgetItems": [
+        {
+          "id": "labor",
+          "label": "Main d'oeuvre",
+          "estimated": 400,
+          "real": 0,
+          "updatedAt": ""
+        },
+        {
+          "id": "supplies",
+          "label": "Fournitures",
+          "estimated": 0,
+          "real": 0,
+          "updatedAt": ""
+        },
+        {
+          "id": "global",
+          "label": "Budget global",
+          "estimated": 400,
+          "real": 0,
+          "updatedAt": ""
+        }
+      ]
     },
     {
       "id": "project-1782478898812-mt08zhtg",
@@ -913,7 +936,13 @@
           "totalTtc": 240
         }
       ],
-      "acceptedAt": "2026-06-26T12:14:01.267Z"
+      "acceptedAt": "2026-06-26T12:14:01.267Z",
+      "marketplace": {
+        "published": true,
+        "publishedAt": "2026-07-15T13:15:48.325Z",
+        "description": "",
+        "views": 0
+      }
     },
     {
       "id": "p-1780361702744",
@@ -924,12 +953,12 @@
       "clientEmail": "client@test.local",
       "address": "1 rue test, Paris",
       "status": "A planifier",
-      "progress": 10,
+      "progress": 100,
       "budgetHt": 100,
       "dueDate": "2026-06-02",
       "createdAt": "2026-06-02T00:55:02.744Z",
       "quoteId": "q-1780361702859",
-      "updatedAt": "2026-07-02T22:59:02.287Z",
+      "updatedAt": "2026-07-17T11:19:27.316Z",
       "acceptedAt": "2026-06-02T00:55:03.287Z",
       "invoicedTtc": 36,
       "remainingToInvoiceTtc": 84,
@@ -968,7 +997,9 @@
         "remainingToPay": 0,
         "gain": 120
       },
-      "restoredAt": "2026-07-02T22:59:02.287Z"
+      "restoredAt": "2026-07-02T22:59:02.287Z",
+      "startDate": "",
+      "endDate": "2026-06-03"
     },
     {
       "id": "p-1780359950150",
@@ -13368,7 +13399,7 @@
       "userId": "u-1780183669286",
       "projectId": "project-1783016652529-w0uz8e24",
       "quoteId": "q-1781737003640",
-      "quoteItemId": "custom-1781736641797",
+      "quoteItemId": "Lot1-PERSO",
       "parentQuoteItemId": "",
       "code": "PERSO",
       "unit": "u",
@@ -13380,15 +13411,17 @@
       "dueDate": "",
       "startDate": "",
       "endDate": "",
-      "durationHours": 0,
-      "assignedTo": "",
-      "workerIds": [],
-      "participantType": "Ouvriers",
+      "durationHours": 1,
+      "assignedTo": "Ahmed  Ahmed",
+      "workerIds": [
+        "w-1780421738436"
+      ],
+      "participantType": "Sous-traitants",
       "supplyNeeds": [],
-      "status": "À faire",
+      "status": "Planifiee",
       "done": false,
       "createdAt": "2026-07-02T18:24:12.524Z",
-      "updatedAt": "2026-07-02T18:24:12.524Z"
+      "updatedAt": "2026-07-17T11:46:56.536Z"
     },
     {
       "id": "task-1782478898814-6idiyth1",
@@ -13606,7 +13639,10 @@
       "status": "À faire",
       "done": false,
       "createdAt": "2026-06-26T12:14:01.267Z",
-      "updatedAt": "2026-07-12T16:21:13.874Z"
+      "updatedAt": "2026-07-17T11:03:27.788Z",
+      "pendingValidation": false,
+      "validatedAt": "2026-07-17T10:59:55.864Z",
+      "validatedBy": "patron"
     },
     {
       "id": "task-1782476041274-4cxfyr7l",
@@ -13881,11 +13917,15 @@
       "sharedWith": [
         "w-1780359950025"
       ],
-      "done": false,
+      "done": true,
       "createdAt": "2026-06-02T00:55:03.287Z",
       "workerIds": [],
       "participantType": "Ouvriers",
-      "updatedAt": "2026-07-12T16:21:03.619Z"
+      "updatedAt": "2026-07-17T11:19:27.242Z",
+      "status": "Terminee",
+      "pendingValidation": false,
+      "validatedAt": "2026-07-17T11:19:27.242Z",
+      "validatedBy": "patron"
     },
     {
       "id": "t-1780359950551-0",
@@ -14016,7 +14056,7 @@
       "notes": "",
       "availability": "Disponible",
       "status": "Disponible",
-      "favorite": true,
+      "favorite": false,
       "imageUrl": "",
       "photoDataUrl": "",
       "hours": 0,
@@ -14033,7 +14073,7 @@
       "passwordSetupRequired": true,
       "credentialsIssuedAt": "2026-07-12T15:56:12.006Z",
       "createdAt": "2026-07-12T15:56:12.006Z",
-      "updatedAt": "2026-07-12T16:21:13.874Z",
+      "updatedAt": "2026-07-17T10:20:30.347Z",
       "links": [
         {
           "type": "chantier",
@@ -14229,6 +14269,257 @@
     }
   ],
   "history": [
+    {
+      "id": "h-1784310860668-d00251",
+      "userId": "u-1780183669286",
+      "type": "worker.deleted",
+      "label": "Ouvrier supprime: Test Actif Inactif",
+      "entityId": "w-1784310719416",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-17T17:54:20.668Z"
+    },
+    {
+      "id": "h-1784310850406-be0538",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Test Actif Inactif",
+      "entityId": "w-1784310719416",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-17T17:54:10.406Z"
+    },
+    {
+      "id": "h-1784310741567-2558d5",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Test Actif Inactif",
+      "entityId": "w-1784310719416",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-17T17:52:21.567Z"
+    },
+    {
+      "id": "h-1784310719418-58ad76",
+      "userId": "u-1780183669286",
+      "type": "worker.created",
+      "label": "Ouvrier ajoute: Test Actif Inactif",
+      "entityId": "w-1784310719416",
+      "entityType": "worker",
+      "meta": {
+        "loginId": "OUV-6P9MUV"
+      },
+      "createdAt": "2026-07-17T17:51:59.418Z"
+    },
+    {
+      "id": "h-1784310043461-e99fd6",
+      "userId": "u-1780183669286",
+      "type": "worker.deleted",
+      "label": "Ouvrier supprime: Test Credentials Verif",
+      "entityId": "w-1784310010829",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-17T17:40:43.461Z"
+    },
+    {
+      "id": "h-1784310032960-92ccc5",
+      "userId": "u-1780183669286",
+      "type": "worker.credentials_reset",
+      "label": "Identifiants ouvrier regeneres: Test Credentials Verif",
+      "entityId": "w-1784310010829",
+      "entityType": "worker",
+      "meta": {
+        "loginId": "OUV-XHFM37"
+      },
+      "createdAt": "2026-07-17T17:40:32.960Z"
+    },
+    {
+      "id": "h-1784310010830-546a6e",
+      "userId": "u-1780183669286",
+      "type": "worker.created",
+      "label": "Ouvrier ajoute: Test Credentials Verif",
+      "entityId": "w-1784310010829",
+      "entityType": "worker",
+      "meta": {
+        "loginId": "OUV-XHFM37"
+      },
+      "createdAt": "2026-07-17T17:40:10.830Z"
+    },
+    {
+      "id": "h-1784295544589-de1648",
+      "userId": "u-1780183669286",
+      "type": "project.document.deleted",
+      "label": "Document supprime: Verification finale du fix notifications",
+      "entityId": "note-1784295498039",
+      "entityType": "projectDocument",
+      "meta": {},
+      "createdAt": "2026-07-17T13:39:04.589Z"
+    },
+    {
+      "id": "h-1784295498040-7caec3",
+      "userId": "u-1780183669286",
+      "type": "task.company_note",
+      "label": "Note entreprise sur \"Renovation cuisine\" (workers)",
+      "entityId": "note-1784295498039",
+      "entityType": "task-note",
+      "meta": {
+        "taskId": "task-1782476041275-hyynan14",
+        "projectId": "p-1781786578317",
+        "audience": "workers",
+        "message": "Verification finale du fix notifications"
+      },
+      "createdAt": "2026-07-17T13:38:18.040Z"
+    },
+    {
+      "id": "h-1784288856525-9bed94",
+      "userId": "u-1780183669286",
+      "type": "task.company_note",
+      "label": "Note entreprise sur \"Test\" (both)",
+      "entityId": "note-1784288856524",
+      "entityType": "task-note",
+      "meta": {
+        "taskId": "task-1783016652530-cr1as7m1",
+        "projectId": "project-1783016652529-w0uz8e24",
+        "audience": "both",
+        "message": "Bonjour "
+      },
+      "createdAt": "2026-07-17T11:47:36.525Z"
+    },
+    {
+      "id": "h-1784288816616-12bbec",
+      "userId": "u-1780183669286",
+      "type": "project.updated",
+      "label": "Chantier mis a jour: X",
+      "entityId": "project-1783016652529-w0uz8e24",
+      "entityType": "project",
+      "meta": {},
+      "createdAt": "2026-07-17T11:46:56.616Z"
+    },
+    {
+      "id": "h-1784288816536-4c4216",
+      "userId": "u-1780183669286",
+      "type": "task.updated",
+      "label": "Tache mise a jour: Test",
+      "entityId": "task-1783016652530-cr1as7m1",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-17T11:46:56.536Z"
+    },
+    {
+      "id": "h-1784288558612-5f8ef4",
+      "userId": "u-1780183669286",
+      "type": "calendar.deleted",
+      "label": "Evenement supprime: Creation d un devis - Exercie",
+      "entityId": "cal-1784288550368",
+      "entityType": "calendarEvent",
+      "meta": {},
+      "createdAt": "2026-07-17T11:42:38.612Z"
+    },
+    {
+      "id": "h-1784288550368-006559",
+      "userId": "u-1780183669286",
+      "type": "calendar.created",
+      "label": "Evenement ajoute: Creation d un devis - Exercie",
+      "entityId": "cal-1784288550368",
+      "entityType": "calendarEvent",
+      "meta": {},
+      "createdAt": "2026-07-17T11:42:30.368Z"
+    },
+    {
+      "id": "h-1784287167316-681667",
+      "userId": "",
+      "type": "project.updated",
+      "label": "Chantier mis a jour: Verification Codex",
+      "entityId": "p-1780361702744",
+      "entityType": "project",
+      "meta": {},
+      "createdAt": "2026-07-17T11:19:27.316Z"
+    },
+    {
+      "id": "h-1784287167243-b69269",
+      "userId": "",
+      "type": "task.done",
+      "label": "Tache terminee: Pose test",
+      "entityId": "t-1780361703287-0",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-17T11:19:27.243Z"
+    },
+    {
+      "id": "h-1784286250348-fb676c",
+      "userId": "u-1780183669286",
+      "type": "project.document.deleted",
+      "label": "Document supprime: Test note verification - both audiences",
+      "entityId": "note-1784286006648",
+      "entityType": "projectDocument",
+      "meta": {},
+      "createdAt": "2026-07-17T11:04:10.348Z"
+    },
+    {
+      "id": "h-1784286207789-ba16b6",
+      "userId": "u-1780183669286",
+      "type": "task.updated",
+      "label": "Tache mise a jour: Renovation cuisine",
+      "entityId": "task-1782476041275-hyynan14",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-17T11:03:27.789Z"
+    },
+    {
+      "id": "h-1784286182613-eb293f",
+      "userId": "u-1780183669286",
+      "type": "task.updated",
+      "label": "Tache mise a jour: Renovation cuisine",
+      "entityId": "task-1782476041275-hyynan14",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-17T11:03:02.613Z"
+    },
+    {
+      "id": "h-1784286006648-d773c7",
+      "userId": "u-1780183669286",
+      "type": "task.company_note",
+      "label": "Note entreprise sur \"Renovation cuisine\" (both)",
+      "entityId": "note-1784286006648",
+      "entityType": "task-note",
+      "meta": {
+        "taskId": "task-1782476041275-hyynan14",
+        "projectId": "p-1781786578317",
+        "audience": "both",
+        "message": "Test note verification - both audiences"
+      },
+      "createdAt": "2026-07-17T11:00:06.648Z"
+    },
+    {
+      "id": "h-1784285995864-04d831",
+      "userId": "u-1780183669286",
+      "type": "task.done",
+      "label": "Tache terminee: Renovation cuisine",
+      "entityId": "task-1782476041275-hyynan14",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-17T10:59:55.864Z"
+    },
+    {
+      "id": "h-1784285980180-9deeb8",
+      "userId": "u-1780183669286",
+      "type": "task.updated",
+      "label": "Tache mise a jour: Renovation cuisine",
+      "entityId": "task-1782476041275-hyynan14",
+      "entityType": "task",
+      "meta": {},
+      "createdAt": "2026-07-17T10:59:40.181Z"
+    },
+    {
+      "id": "h-1784283630348-65fdcc",
+      "userId": "u-1780183669286",
+      "type": "worker.updated",
+      "label": "Ouvrier mis a jour: Testing",
+      "entityId": "w-1783871772006",
+      "entityType": "worker",
+      "meta": {},
+      "createdAt": "2026-07-17T10:20:30.348Z"
+    },
     {
       "id": "h-1784058503281-16a7d7",
       "userId": "u-1780183669286",
@@ -17349,6 +17640,20 @@
   ],
   "projectDocuments": [
     {
+      "id": "note-1784288856524",
+      "userId": "u-1780183669286",
+      "senderName": "BOUHOUCHI",
+      "projectId": "project-1783016652529-w0uz8e24",
+      "taskId": "task-1783016652530-cr1as7m1",
+      "taskLabel": "Test",
+      "type": "Note",
+      "title": "Bonjour ",
+      "notes": "Bonjour ",
+      "audience": "both",
+      "source": "company",
+      "createdAt": "2026-07-17T11:47:36.523Z"
+    },
+    {
       "id": "reply-1783033174859",
       "userId": "",
       "senderName": "BOUHOUCHI",
@@ -19062,6 +19367,21 @@
     }
   ],
   "notifications": [
+    {
+      "id": "notif-note-1784286006648",
+      "userId": "client-1782476041276-6l0xfw6p",
+      "accountType": "particulier",
+      "type": "company.note",
+      "title": "Nouvelle note de l'entreprise",
+      "message": "Note sur \"Renovation cuisine\" : Test note verification - both audiences",
+      "taskId": "task-1782476041275-hyynan14",
+      "taskLabel": "Renovation cuisine",
+      "projectId": "p-1781786578317",
+      "quoteId": "q-1781785734849",
+      "read": true,
+      "createdAt": "2026-07-17T11:00:06.647Z",
+      "updatedAt": "2026-07-17T11:19:06.620Z"
+    },
     {
       "id": "wn-1783873227941-d384d38828b34",
       "userId": "u-1780183669286",

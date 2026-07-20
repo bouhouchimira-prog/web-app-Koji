@@ -31,7 +31,7 @@ function SetPasswordScreen() {
     if (supabaseToken) setAccessToken(supabaseToken);
   }, []);
 
-  const valid = password.length >= 6 && confirmPassword.length >= 6 && password === confirmPassword;
+  const valid = password.length >= 8 && confirmPassword.length >= 8 && password === confirmPassword;
 
   async function submit(event) {
     event.preventDefault();
@@ -66,6 +66,7 @@ function SetPasswordScreen() {
             placeholder={L.auth.newPassword}
             type={showPassword ? "text" : "password"}
           />
+          <small className="muted">{L.auth.passwordMinHint}</small>
           <input
             className="auth-input"
             value={confirmPassword}

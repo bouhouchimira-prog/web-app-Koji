@@ -710,7 +710,7 @@ export default function HomePage() {
             <div className="home-list">
               {activeProjects.slice(0, 5).map((project) => (
                 <article className="home-list-item home-quote-item" key={project.id}>
-                  <Link href="/chantiers" className="home-list-link home-quote-link">
+                  <Link href={`/chantiers?project=${project.id}`} className="home-list-link home-quote-link">
                     <div className="home-list-icon home-icon-project">
                       <IconProject />
                     </div>

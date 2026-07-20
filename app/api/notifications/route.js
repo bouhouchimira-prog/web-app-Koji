@@ -10,10 +10,26 @@ function normalizeNotification(notification) {
   };
 }
 
+// A company/entreprise account must only see notifications addressed to itself.
+// Worker- and client-audience notifications share the company's userId for
+// multi-tenant scoping, so without this filter they'd leak into the owner's
+// own notification center even though they were sent BY that owner, not TO them.
+function isCompanyAccount(db, requesterId) {
+  const user = db.users.find((u) => u.id === requesterId);
+  return !user || user.accountType !== "particulier";
+}
+
+function forRequester(items, db, requesterId) {
+  if (!isCompanyAccount(db, requesterId)) return items;
+  return items.filter((n) => n.audience !== "worker" && n.accountType !== "particulier");
+}
+
 export async function GET(request) {
   const db = await readDb();
   const userId = getUserScope(request, db);
-  return ok({ notifications: scopedItems(db.notifications, userId).map(normalizeNotification) });
+  const requesterId = new URL(request.url).searchParams.get("userId") || "";
+  const items = forRequester(scopedItems(db.notifications, userId), db, requesterId);
+  return ok({ notifications: items.map(normalizeNotification) });
 }
 
 export async function PATCH(request) {
@@ -23,7 +39,7 @@ export async function PATCH(request) {
   const now = new Date().toISOString();
 
   if (body.action === "read-all") {
-    const items = scopedItems(db.notifications, userId);
+    const items = forRequester(scopedItems(db.notifications, userId), db, body.userId || "");
     items.forEach((n) => { n.read = true; n.updatedAt = now; });
     await writeDb(db);
     return ok({ updated: true });

@@ -17,5 +17,6 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const worker = findWorker(db, searchParams);
   if (!worker) return ok({ error: "Ouvrier introuvable." }, 404);
+  if (worker.active === false) return ok({ error: "Acces desactive. Contactez votre entreprise." }, 403);
   return ok(buildWorkerPortal(db, worker));
 }
