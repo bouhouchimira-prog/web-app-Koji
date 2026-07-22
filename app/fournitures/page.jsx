@@ -440,6 +440,7 @@ export default function SuppliesPage() {
             <label className="mobile-input full">
               <span>{L.fournitures.description}</span>
               <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder={L.fournitures.name} required={!viaUrl} />
+              <small className="muted">{L.fournitures.descriptionHint}</small>
             </label>
 
             <div className="mobile-form-grid">
