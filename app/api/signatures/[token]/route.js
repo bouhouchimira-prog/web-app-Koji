@@ -1,12 +1,23 @@
 import { ok, badRequest } from "../../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../../lib/db";
 import { fixObjectText, fixText } from "../../../../lib/text";
-import { ensureProjectForSignedQuote } from "../../../../lib/quote-projects";
+import { generateTasksForSignedQuote } from "../../../../lib/quote-projects";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
+import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 
+// The signing client has no Kôji session (they're not one of the company's
+// Supabase-authenticated users), so this can't use a per-user token — it
+// looks up the quote across all users via the service_role key, same as the
+// client-portal routes.
 async function findQuoteByToken(token) {
-  const db = await readDb();
-  const index = db.quotes.findIndex((quote) => quote.signatureToken === token);
-  return { db, index, quote: index === -1 ? null : db.quotes[index] };
+  const supabase = getSupabaseAdmin();
+  const { data: row, error } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("web_extras->>signatureToken", token)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return row ? mapQuote(row) : null;
 }
 
 function normalizeEmail(value = "") {
@@ -153,7 +164,7 @@ function ensureClientPortalAccess(db, quote, body, request, now) {
 
 export async function GET(_request, context) {
   const { token } = await context.params;
-  const { quote } = await findQuoteByToken(token);
+  const quote = await findQuoteByToken(token);
   if (!quote) return badRequest("Lien de signature invalide.", 404);
 
   return ok({
@@ -184,7 +195,7 @@ export async function GET(_request, context) {
 export async function POST(request, context) {
   const { token } = await context.params;
   const body = await request.json();
-  const { db, index, quote } = await findQuoteByToken(token);
+  const quote = await findQuoteByToken(token);
   if (!quote) return badRequest("Lien de signature invalide.", 404);
   if (quote.signatureStatus === "Signe") return ok({ quote: fixObjectText(quote), clientAccess: quote.clientPortalAccess || null });
   if (!body.consent) return badRequest("La validation client est obligatoire.");
@@ -204,9 +215,12 @@ export async function POST(request, context) {
     updatedAt: now
   };
 
-  db.quotes[index] = updated;
-  ensureProjectForSignedQuote(db, updated, now);
-  db.quotes[index] = updated;
+  const supabase = getSupabaseAdmin();
+  const db = await readDb();
+  generateTasksForSignedQuote(db, updated, now);
+  if (updated.projectId) {
+    await supabase.from("chantiers").update({ status: "Signe" }).eq("id", updated.projectId);
+  }
 
   db.notifications.unshift({
     id: `notif-quote-signed-${updated.id}-${Date.now()}`,
@@ -240,7 +254,6 @@ export async function POST(request, context) {
     updated.clientPortalLoginUrl = clientAccess.loginUrl;
     updated.clientPortalAccessSentAt = now;
     updated.clientPortalAccess = clientAccess;
-    db.quotes[index] = updated;
 
     db.notifications.unshift({
       id: `notif-client-access-${updated.id}-${Date.now()}`,
@@ -275,6 +288,11 @@ export async function POST(request, context) {
   }
 
   await writeDb(db);
-  return ok({ quote: fixObjectText(updated), clientAccess });
+
+  const row = quoteToRow(updated, updated.userId);
+  const { data: updatedRow, error } = await supabase.from("quotes").update(row).eq("id", updated.id).select().single();
+  if (error) return badRequest(`Enregistrement de la signature impossible: ${error.message}`, 500);
+
+  return ok({ quote: fixObjectText(mapQuote(updatedRow)), clientAccess });
 }
 
