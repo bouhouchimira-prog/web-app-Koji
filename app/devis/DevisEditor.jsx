@@ -291,10 +291,20 @@ export default function DevisEditor() {
     error: ""
   });
 
+  // Guards the account's default business info (fetched below) from
+  // clobbering a quote's own saved company/IBAN snapshot when the two
+  // network calls resolve in the wrong order.
+  const quoteCompanyAppliedRef = useRef(false);
+
   useEffect(() => {
     apiGet("/api/auth/profile")
-      .then((payload) => setCompany(profileCompany(payload.user)))
-      .catch(() => setCompany(profileCompany(null)));
+      .then((payload) => {
+        if (quoteCompanyAppliedRef.current) return;
+        setCompany(profileCompany(payload.user));
+      })
+      .catch(() => {
+        if (!quoteCompanyAppliedRef.current) setCompany(profileCompany(null));
+      });
   }, []);
 
   useEffect(() => {
@@ -507,7 +517,10 @@ export default function DevisEditor() {
       workDescription: quote.workDescription || "",
       validityDays: quote.validityDays || 30
     }));
-    if (quote.company) setCompany((current) => ({ ...current, ...quote.company }));
+    if (quote.company) {
+      quoteCompanyAppliedRef.current = true;
+      setCompany((current) => ({ ...current, ...quote.company }));
+    }
     setGeneratedQuote(quote);
   }, [quotes, quotesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
