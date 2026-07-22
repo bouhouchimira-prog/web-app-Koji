@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend } from "../../lib/client-api";
+import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -41,6 +41,11 @@ function TaskMessageThread({ task, projectDocuments, workers }) {
   function readCurrentUserId() {
     const raw = typeof window !== "undefined" ? window.localStorage.getItem("koji-user") : null;
     return raw ? (JSON.parse(raw).id || "") : "";
+  }
+
+  function quoteDocumentUrl(quoteId) {
+    const token = readStoredUser()?.accessToken || "";
+    return `/api/quotes/${quoteId}/documents?type=quote&format=pdf&accessToken=${encodeURIComponent(token)}`;
   }
 
   async function sendNote() {
@@ -984,7 +989,7 @@ export default function ProjectsTrackingPage() {
               {!collapsedCards.has("documents") ? (
                 <>
                   <div className="project-mini-list">
-                    {selectedQuote ? <a href={`/api/quotes/${selectedQuote.id}/documents?type=quote&format=pdf`}>Devis {selectedQuote.quoteNumber}</a> : <p>Aucun devis genere.</p>}
+                    {selectedQuote ? <a href={quoteDocumentUrl(selectedQuote.id)}>Devis {selectedQuote.quoteNumber}</a> : <p>Aucun devis genere.</p>}
                     {linkedInvoices.map((invoice) => <span key={invoice.id}>{invoice.invoiceNumber} - {euro(invoice.amountTtc)}</span>)}
                     {linkedDocuments.map((document) => <span key={document.id}>{document.type}: {document.title}</span>)}
                   </div>
@@ -1024,7 +1029,7 @@ export default function ProjectsTrackingPage() {
 
             {selectedQuote ? (
               <div className="quote-tracking-summary">
-                <a className="quote-tracking-pdf" href={`/api/quotes/${selectedQuote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">
+                <a className="quote-tracking-pdf" href={quoteDocumentUrl(selectedQuote.id)} target="_blank" rel="noreferrer">
                   Devis {selectedQuote.quoteNumber} - PDF
                 </a>
                 <div className="quote-tracking-dates">

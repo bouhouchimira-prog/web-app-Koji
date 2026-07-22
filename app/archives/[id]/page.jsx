@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../../../components/Shell";
-import { apiSend } from "../../../lib/client-api";
+import { apiSend, readStoredUser } from "../../../lib/client-api";
 import { euro, shortDate } from "../../../lib/pricing";
 import { useApi } from "../../../lib/use-api";
 import { useLocale } from "../../../lib/i18n";
@@ -151,7 +151,7 @@ export default function ArchiveDetailPage() {
                 (archive.quotes).map((q) => (
                   <p key={q.id}>
                     {q.quoteNumber} - {euro(q.totalTtc)} - {q.signatureStatus === "Signe" ? L.archives.validatedByClient : (q.status || "Brouillon")}
-                    {" "}<a href={`/api/quotes/${q.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a>
+                    {" "}<a href={`/api/quotes/${q.id}/documents?type=quote&format=pdf&accessToken=${encodeURIComponent(readStoredUser()?.accessToken || "")}`} target="_blank" rel="noreferrer">{L.common.download}</a>
                   </p>
                 ))
               )}
