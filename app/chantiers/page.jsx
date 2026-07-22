@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
@@ -278,6 +279,7 @@ function dateTimeFromEvent(event) {
 }
 
 export default function ProjectsTrackingPage() {
+  const router = useRouter();
   const { L } = useLocale();
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
@@ -292,6 +294,11 @@ export default function ProjectsTrackingPage() {
   const { data: expenses, setData: setExpenses } = useApi("/api/expenses", "expenses");
 
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [startChoiceMade, setStartChoiceMade] = useState(false);
+
+  useEffect(() => {
+    setStartChoiceMade(false);
+  }, [selectedProjectId]);
   const [trackingTarget, setTrackingTarget] = useState(null);
   const [planForm, setPlanForm] = useState(emptyPlan);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
@@ -445,6 +452,7 @@ export default function ProjectsTrackingPage() {
   const doneCount = projectTasks.filter((task) => task.done).length;
   const progress = projectTasks.length === 0 ? Number(selectedProject?.progress || 0) : Math.round((doneCount / projectTasks.length) * 100);
   const projectReady = selectedProject ? isReadyForTracking(selectedProject) : false;
+  const quoteSigned = selectedQuote ? (selectedQuote.status === "Signe" || selectedQuote.signatureStatus === "Signe") : false;
 
   function openPlanner(line) {
     const need = line.task?.supplyNeeds?.[0] || {};
@@ -830,6 +838,32 @@ export default function ProjectsTrackingPage() {
           </div>
         </section>
         {planningModal}
+      </Shell>
+    );
+  }
+
+  if (selectedProject && selectedQuote && !quoteSigned && !startChoiceMade) {
+    return (
+      <Shell>
+        <div className="mobile-tool chantier-follow">
+          <header className="tool-topline compact">
+            <button type="button" className="plain-back" onClick={() => setSelectedProjectId("")}>{"<"}</button>
+            <div className="follow-title">
+              <h1>{selectedProject.title}</h1>
+              <p>{selectedProject.client || L.chantiers.contact} - {selectedProject.status}</p>
+            </div>
+            <span />
+          </header>
+          <div className="start-choice-card">
+            <p>{L.chantiers.startChoiceIntro}</p>
+            <button type="button" className="button blue" onClick={() => router.push(`/devis?id=${selectedQuote.id}`)}>
+              {L.chantiers.startChoiceEditQuote}
+            </button>
+            <button type="button" className="button" onClick={() => setStartChoiceMade(true)}>
+              {L.chantiers.startChoiceBeginSite}
+            </button>
+          </div>
+        </div>
       </Shell>
     );
   }
