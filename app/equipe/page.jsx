@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
@@ -50,6 +50,20 @@ export default function TeamPage() {
   const [infoOpen, setInfoOpen] = useState(true);
   const [accessOpen, setAccessOpen] = useState(false);
   const photoInputRef = useRef(null);
+  const [returnTo, setReturnTo] = useState(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem("koji-team-return");
+      if (raw) setReturnTo(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  function goBackToChantier() {
+    if (!returnTo) return;
+    window.sessionStorage.removeItem("koji-team-return");
+    window.location.assign(`/chantiers?project=${returnTo.projectId}&reopenLine=${encodeURIComponent(returnTo.lineKey)}`);
+  }
 
   const filteredWorkers = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -250,6 +264,12 @@ export default function TeamPage() {
             <span />
           </header>
 
+          {returnTo ? (
+            <button type="button" className="return-to-site-banner" onClick={goBackToChantier}>
+              {L.equipe.returnToSite}
+            </button>
+          ) : null}
+
           <form className="mobile-form" onSubmit={submitWorker}>
             <section className="follow-section">
               <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => setInfoOpen((current) => !current)}>
@@ -422,6 +442,12 @@ export default function TeamPage() {
           <h1>{L.equipe.title}</h1>
           <span />
         </header>
+
+        {returnTo ? (
+          <button type="button" className="return-to-site-banner" onClick={goBackToChantier}>
+            {L.equipe.returnToSite}
+          </button>
+        ) : null}
 
         <div className="search-pill">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
