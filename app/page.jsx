@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
-import { apiSend } from "../lib/client-api";
+import { apiSend, readStoredUser } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
@@ -493,6 +493,13 @@ export default function HomePage() {
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState(null);
   const [confirmDeleteProject, setConfirmDeleteProject] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [greetingName, setGreetingName] = useState("");
+
+  useEffect(() => {
+    const user = readStoredUser();
+    if (!user) return;
+    setGreetingName(user.name || (user.email ? user.email.split("@")[0] : ""));
+  }, []);
 
   const activeProjects = projects.filter((p) => p.status !== "Archive");
   const today = new Date().toISOString().slice(0, 10);
@@ -609,6 +616,8 @@ export default function HomePage() {
         />
       ) : null}
       <div className="home-feed">
+
+        {greetingName ? <h1 className="home-greeting">Bonjour {greetingName}</h1> : null}
 
         {/* Alertes urgentes */}
         {urgentAlerts.length > 0 ? (
