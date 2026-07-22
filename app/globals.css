@@ -1987,9 +1987,10 @@ p {
   height: 76px;
   background: var(--navy);
   color: white;
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
+  position: relative;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 10px 16px;
 }
@@ -1998,6 +1999,10 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .topbar-logo img {
