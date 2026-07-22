@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { badRequest } from "../../../../../lib/http";
 import { readDb } from "../../../../../lib/db";
+import { getAuth } from "../../../../../lib/server-auth";
+import { mapQuote } from "../../../../../lib/quote-mapping";
 import {
   buildQuotePdf,
   buildQuoteWordHtml,
@@ -26,9 +28,21 @@ export async function GET(request, context) {
   const type = url.searchParams.get("type") || "quote";
   const format = url.searchParams.get("format") || "pdf";
   const inline = Boolean(url.searchParams.get("preview"));
+
+  const auth = getAuth(request);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+
+  const { data: row, error } = await auth.supabase
+    .from("quotes")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", auth.userId)
+    .maybeSingle();
+  if (error) return badRequest(`Lecture du devis impossible: ${error.message}`, 500);
+  if (!row) return badRequest("Devis introuvable.", 404);
+  const quote = fixObjectText(mapQuote(row));
+
   const db = await readDb();
-  const quote = fixObjectText(db.quotes.find((item) => item.id === id));
-  if (!quote) return badRequest("Devis introuvable.", 404);
 
   // Trial gate: only the first (or claimed) quote can be generated as PDF.
   const quoteOwner = quote.userId ? db.users.find((u) => u.id === quote.userId) : null;
@@ -40,7 +54,26 @@ export async function GET(request, context) {
       headers: { "Content-Type": "text/html; charset=utf-8" }
     });
   }
-  const project = fixObjectText(db.projects.find((item) => item.id === quote.projectId) || {});
+  let project = {};
+  if (quote.projectId) {
+    const { data: chantierRow } = await auth.supabase
+      .from("chantiers")
+      .select("*")
+      .eq("id", quote.projectId)
+      .maybeSingle();
+    if (chantierRow) {
+      project = {
+        title: chantierRow.reference || "Chantier",
+        reference: chantierRow.reference || "",
+        client: chantierRow.client_email ? chantierRow.client_email.split("@")[0] : "",
+        clientAddress: "",
+        address: [chantierRow.street, chantierRow.postal_code, chantierRow.city].filter(Boolean).join(", "),
+        city: chantierRow.city || "",
+        description: ""
+      };
+    }
+  }
+  project = fixObjectText(project);
   const filename = quoteDocumentFilename(quote, type, format);
 
   if (type === "supplies" && format === "word") {

@@ -3,6 +3,7 @@ import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
+import { mapQuote, quoteToRow } from "../../../lib/quote-mapping";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -20,113 +21,6 @@ const QUOTE_HISTORY_LABEL = {
   cancel: (q) => `Devis annule: ${q.quoteNumber}`,
   restore: (q) => `Devis restaure: ${q.quoteNumber}`
 };
-
-function mapQuote(row) {
-  const metadata = row.metadata || {};
-  const extras = row.web_extras || {};
-  const client = metadata.client || {};
-  return {
-    id: row.id,
-    userId: row.user_id,
-    quoteNumber: row.reference || metadata.quoteNumber || "",
-    versionNumber: extras.versionNumber || "001",
-    client: client.name || "",
-    clientEmail: client.email || "",
-    clientPhone: client.phone || "",
-    project: extras.project || "",
-    projectId: row.chantier_id || "",
-    projectReference: extras.projectReference || "",
-    chantierAddress: metadata.siteAddress || "",
-    startDate: metadata.travauxStart || "",
-    expectedDuration: metadata.travauxDuration || "",
-    workDescription: extras.workDescription || "",
-    validityDays: Number(metadata.validity || 30),
-    company: metadata.company || {},
-    quoteDate: metadata.date || String(row.created_at || "").slice(0, 10),
-    status: row.status || "Brouillon",
-    signatureStatus: extras.signatureStatus || "Non envoye",
-    rooms: Array.isArray(row.rooms) ? row.rooms : [],
-    items: Array.isArray(row.items) ? row.items : [],
-    draftStep: Number(extras.draftStep || 0),
-    draftData: extras.draftData || null,
-    isCreationDraft: Boolean(extras.isCreationDraft),
-    totalHt: Number(row.total_ht || 0),
-    totalTtc: Number(row.total_ttc || 0),
-    createdAt: extras.createdAt || String(row.created_at || "").slice(0, 10),
-    createdAtIso: row.created_at || "",
-    updatedAt: row.updated_at || "",
-    signatureToken: extras.signatureToken || "",
-    signatureProvider: extras.signatureProvider || "",
-    sentAt: extras.sentAt || "",
-    readyAt: extras.readyAt || "",
-    archivedAt: extras.archivedAt || "",
-    cancelledAt: extras.cancelledAt || "",
-    restoredAt: extras.restoredAt || "",
-    clientPortalUserId: extras.clientPortalUserId || "",
-    clientPortalAccess: extras.clientPortalAccess || null,
-    signatureUrl: extras.signatureUrl || "",
-    localSignatureUrl: extras.localSignatureUrl || "",
-    signatureClientAccess: extras.signatureClientAccess || null,
-    signatureAccessIdentifier: extras.signatureAccessIdentifier || "",
-    signatureAccessPassword: extras.signatureAccessPassword || "",
-    signatureAccessCreatedAt: extras.signatureAccessCreatedAt || ""
-  };
-}
-
-function quoteToRow(quote, userId) {
-  const totalHt = Number(quote.totalHt || 0);
-  const totalTtc = Number(quote.totalTtc || 0);
-  const vatRate = totalHt > 0 ? Math.round(((totalTtc - totalHt) / totalHt) * 100) : 20;
-  return {
-    user_id: userId,
-    chantier_id: quote.projectId || null,
-    status: quote.status || "Brouillon",
-    reference: quote.quoteNumber,
-    total_ht: totalHt,
-    total_ttc: totalTtc,
-    tva_rate: vatRate,
-    rooms: quote.rooms || [],
-    items: quote.items || [],
-    metadata: {
-      quoteNumber: quote.quoteNumber,
-      date: quote.quoteDate,
-      validity: quote.validityDays,
-      siteAddress: quote.chantierAddress,
-      travauxStart: quote.startDate,
-      travauxDuration: quote.expectedDuration,
-      company: quote.company || {},
-      client: { name: quote.client, email: quote.clientEmail, phone: quote.clientPhone }
-    },
-    web_extras: {
-      versionNumber: quote.versionNumber,
-      project: quote.project,
-      projectReference: quote.projectReference,
-      workDescription: quote.workDescription,
-      signatureStatus: quote.signatureStatus,
-      draftStep: quote.draftStep,
-      draftData: quote.draftData,
-      isCreationDraft: quote.isCreationDraft,
-      createdAt: quote.createdAt,
-      createdAtIso: quote.createdAtIso,
-      signatureToken: quote.signatureToken || "",
-      signatureProvider: quote.signatureProvider || "",
-      sentAt: quote.sentAt || "",
-      readyAt: quote.readyAt || "",
-      archivedAt: quote.archivedAt || "",
-      cancelledAt: quote.cancelledAt || "",
-      restoredAt: quote.restoredAt || "",
-      clientPortalUserId: quote.clientPortalUserId || "",
-      clientPortalAccess: quote.clientPortalAccess || null,
-      signatureUrl: quote.signatureUrl || "",
-      localSignatureUrl: quote.localSignatureUrl || "",
-      signatureClientAccess: quote.signatureClientAccess || null,
-      signatureAccessIdentifier: quote.signatureAccessIdentifier || "",
-      signatureAccessPassword: quote.signatureAccessPassword || "",
-      signatureAccessCreatedAt: quote.signatureAccessCreatedAt || ""
-    },
-    updated_at: new Date().toISOString()
-  };
-}
 
 function buildSignatureLinks(request, quote, identifier = "") {
   const origin = new URL(request.url).origin;

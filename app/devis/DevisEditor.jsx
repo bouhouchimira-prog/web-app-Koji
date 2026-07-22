@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend } from "../../lib/client-api";
+import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
 import { calculateTaskPrice } from "../../lib/pricing";
@@ -1352,7 +1352,8 @@ export default function DevisEditor() {
   async function handleDownload(type, format) {
     try {
       const quote = await persistQuote();
-      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=${format}`, "_blank");
+      const token = readStoredUser()?.accessToken || "";
+      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=${format}&accessToken=${encodeURIComponent(token)}`, "_blank");
     } catch (error) {
       notifyError(error, "Impossible de générer le document.");
     }
@@ -1362,7 +1363,8 @@ export default function DevisEditor() {
     if (!requireLines()) return;
     try {
       const quote = await persistQuote();
-      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=pdf&preview=1`, "_blank");
+      const token = readStoredUser()?.accessToken || "";
+      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=pdf&preview=1&accessToken=${encodeURIComponent(token)}`, "_blank");
       notify("Aperçu ouvert dans un nouvel onglet.", "success");
     } catch (error) {
       notifyError(error, "Impossible de générer l'aperçu.");

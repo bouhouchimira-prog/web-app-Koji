@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiSend, readStoredUser } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -188,7 +188,7 @@ export default function ArchivesPage() {
                 <strong>{quote.quoteNumber}</strong>
                 <small>{quote.client} - {euro(quote.totalTtc)}</small>
               </div>
-              <a className="mini-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a>
+              <a className="mini-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf&accessToken=${encodeURIComponent(readStoredUser()?.accessToken || "")}`} target="_blank" rel="noreferrer">{L.common.download}</a>
               <button type="button" onClick={() => restoreQuote(quote)}>{L.archives.restore}</button>
               <button type="button" className="danger" onClick={() => deleteQuote(quote)}>{L.archives.delete}</button>
             </article>
