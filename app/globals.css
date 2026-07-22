@@ -2368,8 +2368,9 @@ p {
 .home-greeting {
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--navy, #000b28);
+  color: var(--blue, #1d74ff);
   margin: 0;
+  text-align: center;
 }
 
 /* Bouton principal créer chantier */
