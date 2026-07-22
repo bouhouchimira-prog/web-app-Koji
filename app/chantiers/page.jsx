@@ -331,15 +331,19 @@ export default function ProjectsTrackingPage() {
     setCollapsedCards(new Set(["agenda", "budget", "rdv", "documents", "archive"]));
   }, [selectedProjectId]);
 
+  // All non-archived chantiers, regardless of quote/signature status — used to
+  // resolve which chantier is open, so a chantier can be viewed/edited before
+  // its devis is signed (not just for the signed-only tracking list below).
+  const nonArchivedProjects = useMemo(() => projects.filter((project) => !isArchived(project)), [projects]);
+  // Signed-only subset, for the "Suivi des chantiers" tracking list/count.
   const activeProjects = useMemo(() => {
-    return projects.filter((project) => {
-      if (isArchived(project)) return false;
+    return nonArchivedProjects.filter((project) => {
       const linkedQuote = quotes.find((q) => q.projectId === project.id);
       if (!linkedQuote) return false;
       return linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe";
     });
-  }, [projects, quotes]);
-  const selectedProject = activeProjects.find((project) => project.id === selectedProjectId) || null;
+  }, [nonArchivedProjects, quotes]);
+  const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
   const selectedQuote = useMemo(() => {
     if (!selectedProject) return null;
     return quotes.find((quote) => quote.projectId === selectedProject.id)
