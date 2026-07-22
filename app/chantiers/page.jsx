@@ -43,11 +43,6 @@ function TaskMessageThread({ task, projectDocuments, workers }) {
     return raw ? (JSON.parse(raw).id || "") : "";
   }
 
-  function quoteDocumentUrl(quoteId) {
-    const token = readStoredUser()?.accessToken || "";
-    return `/api/quotes/${quoteId}/documents?type=quote&format=pdf&accessToken=${encodeURIComponent(token)}`;
-  }
-
   async function sendNote() {
     if (!noteText.trim()) return;
     setSendingNote(true);
@@ -225,6 +220,11 @@ function CardChevron({ collapsed }) {
 
 function quoteItemId(item, index) {
   return `${item.roomId || item.room || "chantier"}-${item.taskId || item.code || index}`;
+}
+
+function quoteDocumentUrl(quoteId) {
+  const token = readStoredUser()?.accessToken || "";
+  return `/api/quotes/${quoteId}/documents?type=quote&format=pdf&accessToken=${encodeURIComponent(token)}`;
 }
 
 function isArchived(project) {
