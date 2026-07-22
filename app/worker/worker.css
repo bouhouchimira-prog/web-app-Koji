@@ -1,6 +1,7 @@
 ﻿.worker-page,
 .worker-login-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--cream, #f5f3ef);
   color: var(--navy, #000b28);
 }
@@ -15,6 +16,7 @@
   align-content: center;
   gap: 22px;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: clamp(32px, 6vw, 72px);
   background: var(--navy, #000b28);
   color: #fff;
@@ -181,6 +183,7 @@
 .worker-loader {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   place-items: center;
   color: #687589;
 }

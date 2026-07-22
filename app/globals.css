@@ -1979,6 +1979,7 @@ p {
 
 .web-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--cream);
 }
 
@@ -2070,6 +2071,7 @@ p {
   left: 0;
   width: min(86vw, 320px);
   height: 100vh;
+  height: 100dvh;
   background: white;
   z-index: 20;
   transform: translateX(-102%);
@@ -3000,6 +3002,7 @@ p {
 /* ── New auth v2 design ── */
 .auth-screen-v2 {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: stretch;
@@ -3367,6 +3370,7 @@ p {
 /* ── Legacy auth (kept for other pages) ── */
 .auth-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   width: min(100%, 1200px);
   margin: 0 auto;
   display: grid;
@@ -5414,6 +5418,7 @@ p {
 
 .signature-public {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--cream);
   padding: 28px 18px;
 }
@@ -8076,6 +8081,7 @@ body :where(
 
 .client-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f7f5f1;
   color: var(--navy);
   padding: 18px clamp(18px, 4vw, 54px) 54px;
@@ -9462,6 +9468,7 @@ body :where(
 }
 .client-space {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f4f1ec;
   color: #000b2e;
   padding: 28px clamp(18px, 4vw, 64px) 64px;
