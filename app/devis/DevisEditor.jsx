@@ -704,6 +704,18 @@ export default function DevisEditor() {
     clearLineOverride("room", label);
   }
 
+  function moveRoom(room, direction) {
+    setRooms((current) => {
+      const base = current.length ? current : roomGroups.filter((item) => item !== "Services");
+      const list = base.includes(room) ? [...base] : [...base, room];
+      const index = list.indexOf(room);
+      const swapIndex = direction === "up" ? index - 1 : index + 1;
+      if (swapIndex < 0 || swapIndex >= list.length) return current;
+      [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+      return list;
+    });
+  }
+
   function scrollToRoom(room) {
     if (typeof window === "undefined") return;
     setOpenRooms((current) => new Set(current).add(room));
@@ -1931,8 +1943,10 @@ export default function DevisEditor() {
               </div>
               {roomGroups.filter((room) => room !== "Services").length ? (
                 <div className="lot-chip-list">
-                  {roomGroups.filter((room) => room !== "Services").map((room) => (
+                  {roomGroups.filter((room) => room !== "Services").map((room, index, list) => (
                     <span className="lot-chip lot-chip-clickable" key={room}>
+                      <button type="button" className="lot-chip-move" title={L.devis.moveUp} aria-label={L.devis.moveUp} onClick={(e) => { e.stopPropagation(); moveRoom(room, "up"); }} disabled={index === 0}>▲</button>
+                      <button type="button" className="lot-chip-move" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={(e) => { e.stopPropagation(); moveRoom(room, "down"); }} disabled={index === list.length - 1}>▼</button>
                       <button type="button" className="lot-chip-label" onClick={() => scrollToRoom(room)}>{room}</button>
                       <button type="button" className="lot-chip-remove" onClick={(e) => { e.stopPropagation(); removeRoom(room); }} aria-label={`Retirer ${room}`}>x</button>
                     </span>
@@ -2007,13 +2021,17 @@ export default function DevisEditor() {
           ) : null}
         </section>
 
-        {roomGroups.filter((room) => room !== "Services").map((room) => {
+        {roomGroups.filter((room) => room !== "Services").map((room, roomIndex, roomList) => {
           const roomLines = linesByRoom[room] || [];
           const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
           const isRoomOpen = openRooms.has(room);
           return (
             <section className={`quote-final-card quote-room-card${isRoomOpen ? "" : " collapsed"}`} id={`lot-section-${encodeURIComponent(room)}`} key={room}>
               <div className="quote-section-title quote-room-title-row">
+                <div className="quote-line-move-group">
+                  <button type="button" className="quote-line-move-btn" title={L.devis.moveUp} aria-label={L.devis.moveUp} onClick={() => moveRoom(room, "up")} disabled={roomIndex === 0}>▲</button>
+                  <button type="button" className="quote-line-move-btn" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={() => moveRoom(room, "down")} disabled={roomIndex === roomList.length - 1}>▼</button>
+                </div>
                 <div style={{ flex: 1 }}>
                   <span>LOT</span>
                   <input
