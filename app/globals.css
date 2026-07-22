@@ -2365,6 +2365,13 @@ p {
   gap: 20px;
 }
 
+.home-greeting {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--navy, #000b28);
+  margin: 0;
+}
+
 /* Bouton principal créer chantier */
 .home-primary-action {
   min-height: 52px;
