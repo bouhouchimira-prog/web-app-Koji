@@ -6306,6 +6306,34 @@ body :where(
   border-left: 3px solid #4a7fd4;
 }
 
+.quote-line-move-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.quote-line-move-btn {
+  width: 22px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d8e4f4;
+  border-radius: 4px;
+  background: #fff;
+  color: #4a7fd4;
+  font-size: 0.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.quote-line-move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .quote-line-label-input-header {
   flex: 1;
   border-bottom: none !important;
