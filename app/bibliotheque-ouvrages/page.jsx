@@ -252,9 +252,17 @@ export default function OuvragesLibraryPage() {
           <form className="ouvrage-form" onSubmit={saveOuvrage}>
             <label className="library-field full">{L.bibliotheque.code}<input value={form.code} onChange={(event) => setField("code", event.target.value)} placeholder="Ex: CAR-01" required /></label>
             <label className="library-field full">{L.bibliotheque.designation}<textarea value={form.label} onChange={(event) => setField("label", event.target.value)} placeholder={L.bibliotheque.designation} required /></label>
-            <label className="library-field">{L.bibliotheque.family}<select value={form.family} onChange={(event) => setField("family", event.target.value)}>
-              {families.filter((item) => item !== L.fournitures.all).map((item) => <option key={item}>{item}</option>)}
-            </select></label>
+            <label className="library-field">{L.bibliotheque.family}
+              <input
+                list="family-options"
+                value={form.family}
+                onChange={(event) => setField("family", event.target.value)}
+                placeholder={L.bibliotheque.familyPlaceholder}
+              />
+              <datalist id="family-options">
+                {families.filter((item) => item !== L.fournitures.all).map((item) => <option key={item} value={item} />)}
+              </datalist>
+            </label>
             <label className="library-field">{L.bibliotheque.unit}<select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
               {units.map((item) => <option key={item}>{item}</option>)}
             </select></label>
