@@ -8,6 +8,7 @@ import { useApi } from "../lib/use-api";
 
 function getNavItems(L) {
   return [
+    { href: "/",                      label: L.nav.home,        icon: "home"     },
     { href: "/archives",              label: L.nav.archives,    icon: "archive"  },
     { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book"     },
     { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar" },
@@ -41,6 +42,13 @@ function Icon({ name, className = "" }) {
       return (
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
           <path {...base} d="M3 6h18M3 12h13M3 18h10" />
+        </svg>
+      );
+    case "home":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path {...base} d="M3 11l9-8 9 8" />
+          <path {...base} d="M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10" />
         </svg>
       );
     case "bell":
@@ -286,9 +294,11 @@ export function Shell({ children }) {
 
         <nav className="drawer-nav" aria-label="nav">
           {navItems.map((item) => {
-            const active = item.href === "/calendrier"
-              ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
-              : pathname.startsWith(item.href);
+            const active = item.href === "/"
+              ? pathname === "/"
+              : item.href === "/calendrier"
+                ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
+                : pathname.startsWith(item.href);
             return (
               <Link href={item.href} className={active ? "active" : ""} key={item.href}>
                 <span><Icon name={item.icon} className="svg-icon" /></span>
