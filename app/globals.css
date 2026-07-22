@@ -4213,6 +4213,27 @@ p {
   flex: 0 0 auto;
 }
 
+.lot-chip-move {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--gold);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 0.6rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lot-chip-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .lot-chip-remove {
   width: 26px;
   height: 26px;
