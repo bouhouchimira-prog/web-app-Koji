@@ -1,23 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { getChantierDraft } from "../../lib/chantier-draft";
 import DevisEditor from "./DevisEditor";
 import DevisHistory from "./DevisHistory";
 
+function DevisRouter() {
+  const params = useSearchParams();
+  const needsEditor = useMemo(
+    () => Boolean(params.get("id") || params.get("selection") || params.get("new") || getChantierDraft()),
+    [params]
+  );
+
+  return needsEditor ? <DevisEditor /> : <DevisHistory />;
+}
+
 export default function DevisPage() {
-  const [mode, setMode] = useState("list");
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const needsEditor = Boolean(
-      params.get("id") ||
-      params.get("selection") ||
-      params.get("new") ||
-      getChantierDraft()
-    );
-    setMode(needsEditor ? "editor" : "list");
-  }, []);
-
-  return mode === "editor" ? <DevisEditor /> : <DevisHistory />;
+  return (
+    <Suspense fallback={null}>
+      <DevisRouter />
+    </Suspense>
+  );
 }
