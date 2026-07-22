@@ -383,6 +383,10 @@ export default function DevisEditor() {
       });
     }
 
+    if (targetRoom) {
+      setOpenRooms((current) => new Set(current).add(targetRoom));
+    }
+
     if (fromSelection) {
       try {
         const stored = JSON.parse(window.localStorage.getItem("koji-devis-ouvrages") || "[]");
@@ -406,7 +410,9 @@ export default function DevisEditor() {
         const stored = JSON.parse(window.localStorage.getItem("koji-devis-fourniture") || "null");
         window.localStorage.removeItem("koji-devis-fourniture");
         if (stored?.supply) {
-          addFournitureLine(stored.supply, stored.quantity || 1, stored.room || targetRoom || "Services");
+          const supplyRoom = stored.room || targetRoom || "Services";
+          addFournitureLine(stored.supply, stored.quantity || 1, supplyRoom);
+          setOpenRooms((current) => new Set(current).add(supplyRoom));
         }
       } catch {
         window.localStorage.removeItem("koji-devis-fourniture");
@@ -475,9 +481,10 @@ export default function DevisEditor() {
       materialCategories: Array.from(new Set((item.materialLines || []).map((material) => material.category).filter(Boolean)))
     }));
     const nextLineSettings = {};
-    items.forEach((item) => {
+    items.forEach((item, index) => {
       nextLineSettings[item.id] = {
         room: item.room || "Services",
+        sortOrder: item.sortOrder ?? index,
         quantity: item.quantity ?? 0,
         normativeTime: item.normativeTime,
         billingMode: item.billingMode || "time",
@@ -551,8 +558,9 @@ export default function DevisEditor() {
   const previewVersionNumber = generatedQuote?.versionNumber || "001";
 
   const quoteLines = useMemo(() => {
-    return selectedSources.map((source) => {
+    return selectedSources.map((source, index) => {
       const settings = lineSettings[source.id] || {};
+      const sortOrder = settings.sortOrder ?? index;
       const task = sourceToTask(source, settings);
       const lineHourlyRate = settings.hourlyRate != null
         ? Number(settings.hourlyRate)
@@ -569,6 +577,7 @@ export default function DevisEditor() {
         code: task.code,
         label: task.label,
         room: settings.room || "Services",
+        sortOrder,
         unit: task.unit,
         quantity: Number(settings.quantity ?? 0),
         normativeTime: task.normativeTime,
@@ -626,8 +635,27 @@ export default function DevisEditor() {
       const room = line.room || "Services";
       (map[room] || (map[room] = [])).push(line);
     });
+    Object.keys(map).forEach((room) => {
+      map[room].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    });
     return map;
   }, [roomGroups, quoteLines]);
+
+  function moveLine(lineId, direction) {
+    const line = quoteLines.find((item) => item.id === lineId);
+    if (!line) return;
+    const roomLines = linesByRoom[line.room || "Services"] || [];
+    const index = roomLines.findIndex((item) => item.id === lineId);
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (index === -1 || swapIndex < 0 || swapIndex >= roomLines.length) return;
+    const neighbor = roomLines[swapIndex];
+    setGeneratedQuote(null);
+    setLineSettings((current) => ({
+      ...current,
+      [line.id]: { ...(current[line.id] || {}), sortOrder: neighbor.sortOrder ?? swapIndex },
+      [neighbor.id]: { ...(current[neighbor.id] || {}), sortOrder: line.sortOrder ?? index }
+    }));
+  }
 
   const summaryTotals = useMemo(() => {
     const baseHt = totals.ht;
@@ -1481,9 +1509,15 @@ export default function DevisEditor() {
     const settings = lineSettings[line.id] || {};
     const subItems = Array.isArray(line.subItems) ? line.subItems : [];
     const hasSubItems = subItems.length > 0;
+    const roomLines = linesByRoom[line.room || "Services"] || [];
+    const lineIndex = roomLines.findIndex((item) => item.id === line.id);
     return (
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
+          <div className="quote-line-move-group">
+            <button type="button" className="quote-line-move-btn" title={L.devis.moveUp} aria-label={L.devis.moveUp} onClick={() => moveLine(line.id, "up")} disabled={lineIndex <= 0}>▲</button>
+            <button type="button" className="quote-line-move-btn" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={() => moveLine(line.id, "down")} disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1}>▼</button>
+          </div>
           <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
         </header>
         {!hasSubItems ? (
