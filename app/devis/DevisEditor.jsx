@@ -1360,6 +1360,7 @@ export default function DevisEditor() {
     try {
       const quote = await persistQuote();
       notify(`Devis ${quote.quoteNumber} confirmé et enregistré. Les documents sont prêts.`, "success");
+      window.location.assign("/");
     } catch (error) {
       notifyError(error, "Impossible de confirmer le devis.");
     }
