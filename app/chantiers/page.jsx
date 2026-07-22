@@ -443,6 +443,19 @@ export default function ProjectsTrackingPage() {
     return [...quoteLines, ...extraTasks];
   }, [projectTasks, selectedProject, selectedQuote]);
 
+  // Reopens the "Planifier l'ouvrage" modal on the exact same line after a
+  // round trip to Équipe (see goToTeamAndReturn / koji-team-return).
+  const reopenLineHandledRef = useRef(false);
+  useEffect(() => {
+    if (reopenLineHandledRef.current || typeof window === "undefined") return;
+    const lineKey = new URLSearchParams(window.location.search).get("reopenLine");
+    if (!lineKey || !trackingLines.length) return;
+    const line = trackingLines.find((item) => item.key === lineKey);
+    if (!line) return;
+    reopenLineHandledRef.current = true;
+    openPlanner(line);
+  }, [trackingLines]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const openLine = trackingLines.find((line) => line.key === openLineKey) || null;
 
   const supplyNeeds = useMemo(() => {
@@ -470,6 +483,15 @@ export default function ProjectsTrackingPage() {
       supplyNote: need.note || ""
     });
     setMessage("");
+  }
+
+  function goToTeamAndReturn() {
+    if (!trackingTarget || !selectedProjectId) return;
+    window.sessionStorage.setItem("koji-team-return", JSON.stringify({
+      projectId: selectedProjectId,
+      lineKey: trackingTarget.key
+    }));
+    router.push("/equipe");
   }
 
   function toggleWorker(workerId) {
@@ -719,7 +741,10 @@ export default function ProjectsTrackingPage() {
           <h2>{L.chantiers.planModal}</h2>
           <button type="button" className="mini-danger" onClick={() => setTrackingTarget(null)}>{L.chantiers.close}</button>
         </div>
-        <h3>{L.chantiers.team}</h3>
+        <div className="follow-section-head">
+          <h3>{L.chantiers.team}</h3>
+          <button type="button" className="mini-outline" onClick={goToTeamAndReturn}>{L.chantiers.goToTeam}</button>
+        </div>
         <div className="worker-chip-grid">
           {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
           {workers.map((worker) => (
