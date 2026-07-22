@@ -310,6 +310,23 @@
   font-weight: 700;
 }
 
+.start-choice-card {
+  background: var(--surface, #fff);
+  border-radius: 16px;
+  padding: 28px 24px;
+  display: grid;
+  gap: 14px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  margin-top: 12px;
+}
+
+.start-choice-card p {
+  color: var(--navy, #000b28);
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
 /* ── Toast signature ────────────────────────────────────────────────────────── */
 .sig-toast {
   position: fixed;
