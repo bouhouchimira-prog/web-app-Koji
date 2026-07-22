@@ -376,6 +376,12 @@ export async function PATCH(request) {
         else quote[key] = fixObjectText(body[key]);
       }
     }
+    // A manual save (Générer/Aperçu/Enregistrer/Envoyer, as opposed to the
+    // silent autosave) on an already-created devis counts as a new revision.
+    if (body.manualSave) {
+      const currentVer = parseInt(quote.versionNumber || "001", 10);
+      quote.versionNumber = String(currentVer + 1).padStart(3, "0");
+    }
   }
 
   syncDraftNotification(sideDb, quote, auth.userId);
