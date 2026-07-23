@@ -350,6 +350,13 @@ export default function ProjectsTrackingPage() {
       return linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe";
     });
   }, [nonArchivedProjects, quotes]);
+  // Most recently touched not-yet-sent devis: lets the user resume a
+  // chantier/devis they started and left mid-way (app closed, interrupted...).
+  const draftQuote = useMemo(() => {
+    return quotes
+      .filter((quote) => quote.status === "Brouillon")
+      .sort((a, b) => String(b.updatedAt || b.createdAtIso || "").localeCompare(String(a.updatedAt || a.createdAtIso || "")))[0] || null;
+  }, [quotes]);
   const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
   const selectedQuote = useMemo(() => {
     if (!selectedProject) return null;
@@ -1206,6 +1213,16 @@ export default function ProjectsTrackingPage() {
           <span className="new-chantier-icon">+</span>
           {L.chantiers.newProject}
         </Link>
+
+        {draftQuote ? (
+          <Link href={`/devis?id=${draftQuote.id}`} className="resume-draft-card">
+            <div>
+              <strong>{L.chantiers.finishSite}</strong>
+              <small>{draftQuote.client || draftQuote.project || draftQuote.quoteNumber}</small>
+            </div>
+            <span>→</span>
+          </Link>
+        ) : null}
 
         <section className="follow-section">
           <div className="follow-section-head">
