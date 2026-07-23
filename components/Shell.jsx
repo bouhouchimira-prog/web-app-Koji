@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
 
@@ -164,11 +165,14 @@ export function Shell({ children }) {
   const { lang, setLang, L } = useLocale();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const langRef = useRef(null);
+  const notifRef = useRef(null);
 
   useEffect(() => {
     function handleClick(e) {
       if (langRef.current && !langRef.current.contains(e.target)) setLangOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -176,8 +180,22 @@ export function Shell({ children }) {
   const [profileType, setProfileType] = useState("entreprise");
   const [isAdmin, setIsAdmin] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
-  const { data: notifications } = useApi("/api/notifications", "notifications");
+  const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
+  const recentNotifications = useMemo(() => {
+    return [...notifications]
+      .filter((n) => !n.archived)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, 5);
+  }, [notifications]);
+
+  async function markNotifRead(notif) {
+    if (notif.read) return;
+    try {
+      const { notification: updated } = await apiSend("/api/notifications", { id: notif.id, action: "read" }, "PATCH");
+      setNotifications((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+    } catch { /* ignore */ }
+  }
   const navItems = getNavItems(L);
 
   useEffect(() => {
@@ -268,10 +286,44 @@ export function Shell({ children }) {
               </ul>
             )}
           </div>
-          <Link href="/notifications" className="icon-round notif-bell-link" aria-label={L.shell.notifications}>
-            <Icon name="bell" className="svg-icon" />
-            {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
-          </Link>
+          <div className="topbar-notif" ref={notifRef}>
+            <button
+              type="button"
+              className="icon-round notif-bell-link"
+              aria-label={L.shell.notifications}
+              aria-haspopup="true"
+              aria-expanded={notifOpen}
+              onClick={() => setNotifOpen((open) => !open)}
+            >
+              <Icon name="bell" className="svg-icon" />
+              {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+            </button>
+            {notifOpen ? (
+              <div className="notif-dropdown">
+                <div className="notif-dropdown-head">{L.shell.notifications}</div>
+                {recentNotifications.length === 0 ? (
+                  <p className="notif-dropdown-empty">{L.notifications.noResults}</p>
+                ) : (
+                  <ul className="notif-dropdown-list">
+                    {recentNotifications.map((notif) => (
+                      <li key={notif.id} className={notif.read ? "" : "unread"}>
+                        <Link
+                          href={notif.actionUrl || "/notifications"}
+                          onClick={() => { markNotifRead(notif); setNotifOpen(false); }}
+                        >
+                          <strong>{notif.title}</strong>
+                          <span>{notif.message}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link href="/notifications" className="notif-dropdown-footer" onClick={() => setNotifOpen(false)}>
+                  {L.shell.seeAllNotifications}
+                </Link>
+              </div>
+            ) : null}
+          </div>
           <Link href="/parametres" className="icon-round" aria-label={L.nav.settings}><Icon name="user" className="svg-icon" /></Link>
         </div>
       </header>
