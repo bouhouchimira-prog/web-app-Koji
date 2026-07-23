@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import catalog from "../../data/catalog-ouvrages.json";
@@ -34,8 +34,9 @@ function formatMoney(value) {
   }).format(Number(value || 0));
 }
 
-function moCost(item) {
-  const base = Number(item.normativeTime || 0) * Number(item.hourlyRate || 0);
+function moCost(item, fallbackRate = 0) {
+  const rate = Number(item.hourlyRate || 0) || fallbackRate;
+  const base = Number(item.normativeTime || 0) * rate;
   const coefficient = Number(item.coefficient || 1);
   const discount = 1 - Number(item.discount || 0) / 100;
   return Math.max(0, base * coefficient * discount);
@@ -60,6 +61,18 @@ export default function OuvragesLibraryPage() {
   const [formMode, setFormMode] = useState("list");
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
+  const [companyHourlyRate, setCompanyHourlyRate] = useState(0);
+
+  useEffect(() => {
+    apiGet("/api/auth/profile")
+      .then((payload) => {
+        const business = payload?.user?.business || {};
+        const daily = Number(business.dailyRate || 0);
+        const hpd = Number(business.hoursPerDay || 7);
+        setCompanyHourlyRate(daily > 0 ? Math.round((daily / hpd) * 100) / 100 : 0);
+      })
+      .catch(() => {});
+  }, []);
 
   const families = useMemo(() => {
     return [L.fournitures.all, ...Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort()];
@@ -135,6 +148,7 @@ export default function OuvragesLibraryPage() {
     const siblings = parent ? ouvrages.filter((item) => item.parentCode === parent.code) : [];
     setForm({
       ...emptyForm,
+      hourlyRate: companyHourlyRate,
       family: parent?.family || (family !== L.fournitures.all ? family : "Carrelage"),
       category: parent?.category || "General",
       unit: parent?.unit || "m²",
@@ -150,6 +164,7 @@ export default function OuvragesLibraryPage() {
     setForm({
       ...emptyForm,
       ...item,
+      hourlyRate: item.hourlyRate || companyHourlyRate,
       parentCode: item.parentCode || "",
       normativeTime: item.normativeTime ?? ""
     });
@@ -219,8 +234,8 @@ export default function OuvragesLibraryPage() {
           <h3>{item.label}</h3>
           <p className="library-stats">
             <span>{L.bibliotheque.normTime}: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
-            <span>{L.bibliotheque.hourlyRate}: <strong>{formatMoney(item.hourlyRate || 0)}</strong></span>
-            <span>{L.bibliotheque.moCost}: <strong>{formatMoney(moCost(item))}</strong></span>
+            <span>{L.bibliotheque.hourlyRate}: <strong>{formatMoney(item.hourlyRate || companyHourlyRate)}</strong></span>
+            <span>{L.bibliotheque.moCost}: <strong>{formatMoney(moCost(item, companyHourlyRate))}</strong></span>
           </p>
           {item.description ? <p className="library-description">{item.description}</p> : null}
         </div>
@@ -238,7 +253,7 @@ export default function OuvragesLibraryPage() {
   if (formMode !== "list") {
     const title = formMode === "edit" ? L.bibliotheque.editItem : formMode === "sub" ? L.bibliotheque.newSubItem : L.bibliotheque.newItem;
     const buttonLabel = formMode === "edit" ? L.common.save : formMode === "sub" ? L.bibliotheque.createSubItem : L.bibliotheque.createItem;
-    const cost = moCost(form);
+    const cost = moCost(form, companyHourlyRate);
 
     return (
       <Shell>
