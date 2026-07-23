@@ -4,6 +4,7 @@ import { fixObjectText, fixText } from "../../../../lib/text";
 import { generateTasksForSignedQuote } from "../../../../lib/quote-projects";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
+import { sendClientAccessEmail } from "../../../../lib/mailer";
 
 // The signing client has no Kôji session (they're not one of the company's
 // Supabase-authenticated users), so this can't use a per-user token — it
@@ -84,7 +85,7 @@ function queueClientAccessMessages(db, { user, password, quote, loginUrl, portal
   }
 }
 
-function ensureClientPortalAccess(db, quote, body, request, now) {
+async function ensureClientPortalAccess(db, quote, body, request, now) {
   const signedEmail = normalizeEmail(body.signerEmail || quote.signerEmail || quote.clientEmail);
   const signedPhone = fixText(body.signerPhone || quote.clientPhone || "");
   const signedPhoneDigits = normalizePhone(signedPhone);
@@ -147,6 +148,15 @@ function ensureClientPortalAccess(db, quote, body, request, now) {
   const portalUrl = `${origin}/client`;
   const deliveryTarget = { email: signedEmail, phone: signedPhoneDigits ? signedPhone : "" };
   queueClientAccessMessages(db, { user, password, quote, loginUrl, portalUrl, deliveryTarget, now });
+  if (signedEmail) {
+    await sendClientAccessEmail({
+      email: signedEmail,
+      identifier: user.portalIdentifier,
+      password,
+      loginUrl,
+      quoteNumber: quote.quoteNumber
+    });
+  }
 
   return {
     userId: user.id,
@@ -246,7 +256,7 @@ export async function POST(request, context) {
     meta: { signerName: updated.signerName, signerEmail: updated.signerEmail }
   });
 
-  const clientAccess = ensureClientPortalAccess(db, updated, body, request, now);
+  const clientAccess = await ensureClientPortalAccess(db, updated, body, request, now);
   if (clientAccess) {
     updated.clientPortalUserId = clientAccess.userId;
     updated.clientPortalEmail = clientAccess.email;
