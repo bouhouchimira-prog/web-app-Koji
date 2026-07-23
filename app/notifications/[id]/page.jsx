@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Shell } from "../../../components/Shell";
 import { apiSend } from "../../../lib/client-api";
 import { useApi } from "../../../lib/use-api";
 import { useLocale } from "../../../lib/i18n";
+
+const META_ICONS = {
+  portalIdentifier: "🆔",
+  password: "🔑",
+  email: "✉️",
+  phone: "📱",
+  loginUrl: "🔗",
+  quoteNumber: "📄"
+};
 
 function formatFullDate(value) {
   if (!value) return "-";
@@ -52,6 +61,40 @@ export default function NotificationDetailPage() {
   const { data: notifications, setData: setNotifications, loading } = useApi("/api/notifications", "notifications");
   const notif = notifications.find((item) => item.id === params.id);
   const meta = TYPE_META[notif?.type] || { label: notif?.type || "Info", bg: "#f1f5f9", color: "#475569", icon: "🔔" };
+  const [resendState, setResendState] = useState("");
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [copiedKey, setCopiedKey] = useState("");
+
+  async function resendByEmail() {
+    setResendState("sending");
+    try {
+      await apiSend("/api/notifications", { id: notif.id, action: "resend-email" }, "PATCH");
+      setResendState("sent");
+    } catch (error) {
+      setResendState(error.message || "error");
+    }
+  }
+
+  function resendByWhatsapp() {
+    const meta = notif.meta || {};
+    const phone = (meta.phone || phoneDraft || "").replace(/\D/g, "");
+    if (!phone) return;
+    const text = [
+      `Bonjour, votre espace Kôji Particulier est prêt.`,
+      meta.quoteNumber ? `Devis : ${meta.quoteNumber}` : "",
+      meta.portalIdentifier ? `Identifiant : ${meta.portalIdentifier}` : "",
+      meta.password ? `Mot de passe : ${meta.password}` : "",
+      meta.loginUrl ? `Connexion : ${meta.loginUrl}` : ""
+    ].filter(Boolean).join("\n");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+  }
+
+  function copyValue(key, value) {
+    navigator.clipboard?.writeText(String(value)).then(() => {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(""), 1500);
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     if (notif && !notif.read) {
@@ -123,14 +166,54 @@ export default function NotificationDetailPage() {
         <p className="notif-detail-message">{notif.message}</p>
 
         {metaEntries.length > 0 ? (
-          <dl className="notif-detail-meta">
-            {metaEntries.map(([key, value]) => (
-              <div key={key}>
-                <dt>{META_LABELS[key] || key}</dt>
-                <dd>{key === "loginUrl" ? <a href={value} target="_blank" rel="noreferrer">{value}</a> : String(value)}</dd>
-              </div>
-            ))}
-          </dl>
+          <table className="notif-detail-table">
+            <tbody>
+              {metaEntries.map(([key, value]) => (
+                <tr key={key}>
+                  <td className="notif-detail-table-label">
+                    <span className="notif-detail-table-icon">{META_ICONS[key] || "•"}</span>
+                    {META_LABELS[key] || key}
+                  </td>
+                  <td className="notif-detail-table-value">
+                    {key === "loginUrl" ? (
+                      <a href={value} target="_blank" rel="noreferrer">{value}</a>
+                    ) : (
+                      <span>{String(value)}</span>
+                    )}
+                    {key === "portalIdentifier" || key === "password" || key === "loginUrl" ? (
+                      <button type="button" className="notif-detail-copy" onClick={() => copyValue(key, value)}>
+                        {copiedKey === key ? "✓" : "Copier"}
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+
+        {notif.meta?.portalIdentifier && notif.meta?.password ? (
+          <div className="notif-resend-card">
+            <strong>{L.notifications.resendTitle}</strong>
+            <div className="notif-resend-row">
+              <button type="button" className="mini-button" onClick={resendByEmail} disabled={!notif.meta.email || resendState === "sending"}>
+                ✉️ {L.notifications.resendEmail}
+              </button>
+              {!notif.meta.phone ? (
+                <input
+                  className="notif-resend-phone"
+                  value={phoneDraft}
+                  onChange={(event) => setPhoneDraft(event.target.value)}
+                  placeholder={L.notifications.phonePlaceholder}
+                />
+              ) : null}
+              <button type="button" className="mini-button" onClick={resendByWhatsapp} disabled={!notif.meta.phone && !phoneDraft.trim()}>
+                💬 {L.notifications.resendWhatsapp}
+              </button>
+            </div>
+            {resendState === "sent" ? <p className="notif-resend-status success">{L.notifications.resendSuccess}</p> : null}
+            {resendState && resendState !== "sending" && resendState !== "sent" ? <p className="notif-resend-status error">{resendState}</p> : null}
+          </div>
         ) : null}
 
         {notif.actionUrl ? (

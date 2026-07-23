@@ -9972,31 +9972,80 @@ body :where(
   font-size: 14px;
   line-height: 1.5;
 }
-.notif-detail-meta {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 14px;
-  background: #f8f9fb;
+.notif-detail-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #ede8e0;
   border-radius: 12px;
+  overflow: hidden;
 }
-.notif-detail-meta div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+.notif-detail-table tr:nth-child(even) { background: #f8f9fb; }
+.notif-detail-table tr:nth-child(odd) { background: #fff; }
+.notif-detail-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f0eb;
+  vertical-align: middle;
 }
-.notif-detail-meta dt {
+.notif-detail-table tr:last-child td { border-bottom: none; }
+.notif-detail-table-label {
   color: #94a3b8;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 700;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.notif-detail-meta dd {
-  margin: 0;
+.notif-detail-table-icon { font-size: 14px; }
+.notif-detail-table-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-weight: 700;
   color: #000b28;
   word-break: break-all;
 }
+.notif-detail-copy {
+  flex-shrink: 0;
+  border: 1px solid var(--line, #e2e7ee);
+  background: #fff;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--blue, #1d74ff);
+  cursor: pointer;
+}
+.notif-resend-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: #f8f9fb;
+  border-radius: 12px;
+}
+.notif-resend-card strong {
+  color: #000b28;
+  font-size: 14px;
+}
+.notif-resend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.notif-resend-phone {
+  flex: 1;
+  min-width: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #e2e7ee);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.notif-resend-status { margin: 0; font-size: 13px; font-weight: 600; }
+.notif-resend-status.success { color: var(--green, #17ad5b); }
+.notif-resend-status.error { color: var(--red, #ef3f4a); }
 .notif-detail-action {
   width: fit-content;
 }

@@ -1,6 +1,7 @@
-import { ok } from "../../../lib/http";
+import { ok, badRequest } from "../../../lib/http";
 import { findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText } from "../../../lib/text";
+import { sendClientAccessEmail } from "../../../lib/mailer";
 
 function normalizeNotification(notification) {
   return {
@@ -49,6 +50,21 @@ export async function PATCH(request) {
   if (index === -1) return ok({ error: "Notification introuvable." }, 404);
 
   const notification = db.notifications[index];
+
+  if (body.action === "resend-email") {
+    const meta = notification.meta || {};
+    const email = body.email || meta.email;
+    if (!email) return badRequest("Aucune adresse email disponible pour ce destinataire.");
+    const sent = await sendClientAccessEmail({
+      email,
+      identifier: meta.portalIdentifier,
+      password: meta.password,
+      loginUrl: meta.loginUrl,
+      quoteNumber: meta.quoteNumber
+    });
+    if (!sent) return badRequest("Envoi impossible — configuration email (SMTP) manquante ou invalide.", 502);
+    return ok({ sent: true });
+  }
 
   if (body.action === "read")    { notification.read = true;  notification.updatedAt = now; }
   if (body.action === "unread")  { notification.read = false; notification.updatedAt = now; }
