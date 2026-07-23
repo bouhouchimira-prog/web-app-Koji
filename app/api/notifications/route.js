@@ -55,14 +55,14 @@ export async function PATCH(request) {
     const meta = notification.meta || {};
     const email = body.email || meta.email;
     if (!email) return badRequest("Aucune adresse email disponible pour ce destinataire.");
-    const sent = await sendClientAccessEmail({
+    const { ok: sent, error: mailError } = await sendClientAccessEmail({
       email,
       identifier: meta.portalIdentifier,
       password: meta.password,
       loginUrl: meta.loginUrl,
       quoteNumber: meta.quoteNumber
     });
-    if (!sent) return badRequest("Envoi impossible — configuration email (SMTP) manquante ou invalide.", 502);
+    if (!sent) return badRequest(`Envoi impossible: ${mailError || "erreur inconnue"}`, 502);
     return ok({ sent: true });
   }
 
