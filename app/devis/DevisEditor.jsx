@@ -91,7 +91,7 @@ function profileCompany(user) {
   const hpd = Number(business.hoursPerDay || 7);
   return {
     name: business.raisonSociale || user?.name || "Kôji",
-    address: [business.addressLine1, business.addressLine2].filter(Boolean).join(" "),
+    address: [business.addressLine1, business.addressLine2, [business.postalCode, business.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
     email: business.emailPro || user?.email || "",
     phone: business.phone || "",
     siret: business.siret || "",
