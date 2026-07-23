@@ -214,8 +214,7 @@ export default function ParametresPage() {
             <Field label={L.parametres.siren} iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
             <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
             <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
-            <Field label={L.parametres.addressLine1} iconName="pin" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder={L.parametres.addressLine1} />
-            <Field label={L.parametres.addressLine2} iconName="pin" value={business.addressLine2} onChange={(event) => setField("addressLine2", event.target.value)} placeholder={L.parametres.addressLine2} />
+            <Field label={L.parametres.address} iconName="pin" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder={L.parametres.address} />
             <Field label={L.parametres.postalCode} iconName="pin" value={business.postalCode} onChange={(event) => setField("postalCode", event.target.value)} placeholder="75010" />
             <Field label={L.parametres.city} iconName="pin" value={business.city} onChange={(event) => setField("city", event.target.value)} placeholder="Paris" />
             <Field label={L.parametres.tva} iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
