@@ -9955,6 +9955,15 @@ body :where(
   display: grid;
   gap: 14px;
   max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.compact-page-header {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 .notif-detail-top {
   display: flex;
