@@ -340,7 +340,7 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
               />
               {type === "tache" ? (
                 <div className="qa-chips">
-                  {QA_SHORTCUTS.map((s) => (
+                  {qa.shortcuts.map((s) => (
                     <button key={s} type="button" className="qa-chip" onClick={() => setLabel(s)}>{s}</button>
                   ))}
                 </div>
