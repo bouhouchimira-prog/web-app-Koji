@@ -1,6 +1,22 @@
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
+import { getSupabaseAdmin } from "../../../lib/supabase";
+import { mapQuote } from "../../../lib/quote-mapping";
+
+// Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
+// shared with the mobile app), so this fetches the two via the service_role
+// key just to validate/read them, same shape as the old local-JSON lookup.
+function mapChantierLite(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    title: row.reference || "Chantier",
+    client: row.client_email ? row.client_email.split("@")[0] : "Client",
+    clientEmail: row.client_email || "",
+    budgetHt: 0
+  };
+}
 
 const ACTIVE_INVOICE_STATUSES = new Set(["Brouillon", "Emise", "Payee"]);
 
@@ -59,14 +75,6 @@ function amountFromMode(body, summary) {
   return Number(body.fixedAmount || body.amountTtc || 0);
 }
 
-function updateProjectBilling(project, summary, now) {
-  if (!project) return;
-  project.invoicedTtc = summary.alreadyInvoiced;
-  project.remainingToInvoiceTtc = summary.remaining;
-  project.billingStatus = summary.status;
-  project.updatedAt = now;
-}
-
 export async function GET(request) {
   const db = await readDb();
   const userId = getUserScope(request, db);
@@ -78,10 +86,11 @@ export async function POST(request) {
   const db = await readDb();
   const userId = resolveUserId(body.userId || "", db);
   const now = new Date().toISOString();
-  const quoteIndex = findScopedIndex(db.quotes, body.quoteId, userId);
-  const projectIndex = findScopedIndex(db.projects, body.projectId, userId);
-  const quote = quoteIndex === -1 ? null : db.quotes[quoteIndex];
-  const project = projectIndex === -1 ? null : db.projects[projectIndex];
+  const supabase = getSupabaseAdmin();
+  const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", body.quoteId).maybeSingle();
+  const { data: projectRow } = await supabase.from("chantiers").select("*").eq("id", body.projectId).maybeSingle();
+  const quote = quoteRow ? mapQuote(quoteRow) : null;
+  const project = projectRow ? mapChantierLite(projectRow) : null;
 
   if (!quote) return badRequest("Devis signe introuvable.", 404);
   if (!project) return badRequest("Chantier introuvable.", 404);
@@ -124,7 +133,6 @@ export async function POST(request) {
 
   db.invoices.unshift(invoice);
   const after = buildBillingSummary(db, quote, project, userId);
-  updateProjectBilling(project, after, now);
 
   addHistory(db, {
     userId: invoice.userId,
@@ -170,10 +178,12 @@ export async function PATCH(request) {
   invoice.updatedAt = now;
   if (action !== "delete") db.invoices[index] = invoice;
 
-  const quote = db.quotes.find((item) => item.id === invoice.quoteId);
-  const project = db.projects.find((item) => item.id === invoice.projectId);
+  const supabase = getSupabaseAdmin();
+  const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", invoice.quoteId).maybeSingle();
+  const { data: projectRow } = await supabase.from("chantiers").select("*").eq("id", invoice.projectId).maybeSingle();
+  const quote = quoteRow ? mapQuote(quoteRow) : null;
+  const project = projectRow ? mapChantierLite(projectRow) : null;
   const summary = buildBillingSummary(db, quote, project, userId);
-  updateProjectBilling(project, summary, now);
 
   addHistory(db, {
     userId: invoice.userId || userId,
