@@ -1,6 +1,8 @@
 import { ok } from "../../../lib/http";
-import { getUserScope, readDb, scopedItems } from "../../../lib/db";
+import { getUserScope, readDb } from "../../../lib/db";
 import { fixText } from "../../../lib/text";
+import { getSupabaseAdmin } from "../../../lib/supabase";
+import { mapQuote } from "../../../lib/quote-mapping";
 
 export async function GET(request) {
   const db = await readDb();
@@ -10,13 +12,13 @@ export async function GET(request) {
 
   if (!projectId) return ok({ access: null });
 
-  const quotes = scopedItems(db.quotes, userId).filter(
-    (quote) => quote.projectId === projectId || quote.status === "Signe" || quote.signatureStatus === "Signe"
-  );
+  const supabase = getSupabaseAdmin();
+  const { data: quoteRows } = await supabase.from("quotes").select("*").eq("chantier_id", projectId);
+  const quotes = (quoteRows || [])
+    .map((row) => mapQuote(row))
+    .filter((quote) => !userId || quote.userId === userId);
 
   for (const quote of quotes) {
-    if (quote.projectId !== projectId) continue;
-
     const portalId = quote.clientPortalAccess?.portalIdentifier ||
       (quote.clientPortalUserId ? db.users.find((u) => u.id === quote.clientPortalUserId)?.portalIdentifier : null);
     const password = quote.clientPortalAccess?.password ||

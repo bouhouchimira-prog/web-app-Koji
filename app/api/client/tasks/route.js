@@ -1,6 +1,8 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../../lib/db";
 import { fixObjectText } from "../../../../lib/text";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
+import { mapQuote } from "../../../../lib/quote-mapping";
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -36,11 +38,19 @@ export async function PATCH(request) {
   const task = (db.tasks || []).find((item) => item.id === taskId);
   if (!task) return badRequest("Tache introuvable.", 404);
 
-  const projectsById = new Map((db.projects || []).map((p) => [p.id, p]));
-  const linkedQuote = (db.quotes || []).find(
-    (q) => (q.id === task.quoteId || q.projectId === task.projectId) &&
-      quoteBelongsToClient(q, projectsById.get(q.projectId), user, email)
-  );
+  const supabase = getSupabaseAdmin();
+  const { data: quoteRows } = await supabase
+    .from("quotes")
+    .select("*")
+    .or(`id.eq.${task.quoteId || "00000000-0000-0000-0000-000000000000"},chantier_id.eq.${task.projectId || "00000000-0000-0000-0000-000000000000"}`);
+  let chantier = null;
+  if (task.projectId) {
+    const { data: chantierRow } = await supabase.from("chantiers").select("*").eq("id", task.projectId).maybeSingle();
+    if (chantierRow) chantier = { clientEmail: chantierRow.client_email || "", clientPhone: "" };
+  }
+  const linkedQuote = (quoteRows || [])
+    .map((row) => mapQuote(row))
+    .find((q) => quoteBelongsToClient(q, chantier, user, email));
   if (!linkedQuote) return badRequest("Acces interdit a cette tache.", 403);
 
   if (action === "client-validate") {
