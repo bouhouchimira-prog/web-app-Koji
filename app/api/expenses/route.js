@@ -20,10 +20,12 @@ export async function GET(request) {
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   const quoteId = url.searchParams.get("quoteId") || "";
+  const taskId = url.searchParams.get("taskId") || "";
 
   let expenses = scopedItems(db.expenses, userId);
   if (projectId) expenses = expenses.filter((expense) => expense.projectId === projectId);
   if (quoteId) expenses = expenses.filter((expense) => expense.quoteId === quoteId);
+  if (taskId) expenses = expenses.filter((expense) => expense.taskId === taskId);
 
   return ok({ expenses: expenses.map(normalizeExpense) });
 }
@@ -44,6 +46,7 @@ export async function POST(request) {
     userId,
     projectId: body.projectId || "",
     quoteId: body.quoteId || project?.quoteId || "",
+    taskId: body.taskId || "",
     label: fixText(body.label || body.title || "Depense chantier"),
     category: fixText(body.category || "Autres frais"),
     amount,
@@ -93,7 +96,7 @@ export async function PATCH(request) {
     return ok({ expense: { ...normalizeExpense(expense), deleted: true } });
   }
 
-  for (const key of ["label", "title", "category", "amount", "source", "location", "notes"]) {
+  for (const key of ["label", "title", "category", "amount", "source", "location", "notes", "taskId"]) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
       if (key === "amount") expense[key] = toAmount(body[key]);
       else if (key === "title") expense.label = fixText(body[key]);

@@ -8843,6 +8843,73 @@ body :where(
   width: 100%;
 }
 
+.ouvrage-action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.ouvrage-action-row .ouvrage-plan-btn {
+  flex: 1;
+}
+
+.ouvrage-quickadd-btn {
+  flex: 1;
+  background: #f8f5f2;
+  border: 1px solid var(--line);
+  color: var(--navy);
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+.ouvrage-finance-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 12px 30px rgba(0, 11, 40, 0.04);
+}
+
+.ouvrage-finance-card > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ouvrage-finance-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ouvrage-finance-card strong {
+  color: var(--navy);
+  font-size: 14px;
+  text-align: right;
+}
+
+.ouvrage-finance-card strong.positive {
+  color: #16a34a;
+}
+
+.ouvrage-finance-card strong.negative {
+  color: #dc2626;
+}
+
+.chantier-finance-auto {
+  margin-bottom: 12px;
+}
+
+.ouvrage-expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Client-side thread view */
 .ccd-thread {
   background: white;
