@@ -170,6 +170,7 @@ function TaskMessageThread({ task, projectDocuments, workers }) {
       <div className="follow-note-composer">
         <span className="follow-client-notes-label">{L.chantiers.noteComposer}</span>
         <textarea
+          id="ouvrage-note-composer"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           placeholder={L.chantiers.notePlaceholder}
@@ -295,10 +296,6 @@ export default function ProjectsTrackingPage() {
 
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [startChoiceMade, setStartChoiceMade] = useState(false);
-
-  useEffect(() => {
-    setStartChoiceMade(false);
-  }, [selectedProjectId]);
   const [trackingTarget, setTrackingTarget] = useState(null);
   const [planForm, setPlanForm] = useState(emptyPlan);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
@@ -310,6 +307,10 @@ export default function ProjectsTrackingPage() {
   const [collapsedCards, setCollapsedCards] = useState(() => new Set(["agenda", "budget", "rdv", "documents", "archive"]));
   const [openLineKey, setOpenLineKey] = useState(null);
   const [clientPortalAccess, setClientPortalAccess] = useState(null);
+  const [ouvrageExpenseForm, setOuvrageExpenseForm] = useState(emptyExpenseForm);
+  const [ouvrageAddOpen, setOuvrageAddOpen] = useState(false);
+  const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
+  const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
 
   function toggleCard(key) {
     setCollapsedCards((current) => {
@@ -320,11 +321,41 @@ export default function ProjectsTrackingPage() {
     });
   }
 
+  // Restores exactly where the user was (chantier / ouvrage / past the "start
+  // choice" screen) after a page refresh, since that state only ever lived in
+  // memory before. Runs once on mount; the sync effect below keeps the URL
+  // up to date afterwards so a refresh always has something to restore from.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const projectId = new URLSearchParams(window.location.search).get("project");
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get("project");
+    const lineKey = params.get("line");
     if (projectId) setSelectedProjectId(projectId);
+    if (lineKey) setOpenLineKey(lineKey);
+    if (params.get("started") === "1") setStartChoiceMade(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (selectedProjectId) params.set("project", selectedProjectId);
+    if (openLineKey) params.set("line", openLineKey);
+    if (startChoiceMade) params.set("started", "1");
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `/chantiers?${query}` : "/chantiers");
+  }, [selectedProjectId, openLineKey, startChoiceMade]);
+
+  function selectProject(projectId) {
+    setStartChoiceMade(false);
+    setOpenLineKey(null);
+    setSelectedProjectId(projectId);
+  }
+
+  function backToList() {
+    setSelectedProjectId("");
+    setOpenLineKey(null);
+    setStartChoiceMade(false);
+  }
 
   useEffect(() => {
     if (!selectedProjectId) { setClientPortalAccess(null); return; }
@@ -409,6 +440,15 @@ export default function ProjectsTrackingPage() {
     return expenses.filter((expense) => expense.projectId === selectedProject.id);
   }, [expenses, selectedProject]);
 
+  const chantierSpentAuto = useMemo(
+    () => linkedExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
+    [linkedExpenses]
+  );
+  const chantierMarginAuto = useMemo(() => {
+    const total = Number(selectedQuote?.totalHt || selectedQuote?.totalTtc || selectedProject?.budgetHt || 0);
+    return total - chantierSpentAuto;
+  }, [selectedQuote, selectedProject, chantierSpentAuto]);
+
   const linkedHistory = useMemo(() => {
     if (!selectedProject) return [];
     return history.filter((item) => item.meta?.projectId === selectedProject.id || item.entityId === selectedProject.id).slice(0, 8);
@@ -464,6 +504,38 @@ export default function ProjectsTrackingPage() {
   }, [trackingLines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openLine = trackingLines.find((line) => line.key === openLineKey) || null;
+
+  // Notes, status and expenses all key off a real task record. Rather than
+  // gating those features behind clicking "Planifier" first, silently create
+  // a bare task the moment the ouvrage fiche is opened, so they're usable
+  // right away — "Planifier" still works the same, it just updates it.
+  const ensuringTaskRef = useRef(new Set());
+  useEffect(() => {
+    if (!openLine || openLine.task || !selectedProject) return;
+    if (ensuringTaskRef.current.has(openLine.key)) return;
+    ensuringTaskRef.current.add(openLine.key);
+    const quoteLine = openLine.quoteLine || {};
+    apiSend("/api/tasks", {
+      label: quoteLine.label || "Ouvrage",
+      project: selectedProject.title,
+      projectId: selectedProject.id,
+      quoteId: selectedQuote?.id || "",
+      quoteItemId: openLine.key,
+      code: quoteLine.code || "",
+      room: quoteLine.room || "Chantier",
+      unit: quoteLine.unit || "",
+      quantity: Number(quoteLine.quantity || 0),
+      durationHours: Number(quoteLine.correctedTimeHours || quoteLine.normativeTime || 1),
+      workerIds: [],
+      assignedTo: "",
+      participantType: "Ouvriers",
+      status: "À faire"
+    }).then(({ task }) => {
+      setTasks((current) => [task, ...current]);
+    }).catch(() => {
+      ensuringTaskRef.current.delete(openLine.key);
+    });
+  }, [openLine, selectedProject, selectedQuote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const supplyNeeds = useMemo(() => {
     return projectTasks.flatMap((task) => (task.supplyNeeds || []).map((need) => ({ ...need, taskLabel: task.label })));
@@ -734,6 +806,64 @@ export default function ProjectsTrackingPage() {
     setMessage("Depense reelle ajoutee au chantier.");
   }
 
+  function openQuickAdd() {
+    setQuickAddWorkerIds(openLine?.task?.workerIds || []);
+    setOuvrageAddTab("team");
+    setOuvrageAddOpen(true);
+  }
+
+  function toggleQuickAddWorker(workerId) {
+    setQuickAddWorkerIds((current) => current.includes(workerId)
+      ? current.filter((id) => id !== workerId)
+      : [...current, workerId]);
+  }
+
+  async function saveQuickAddTeam() {
+    const task = openLine?.task;
+    if (!task) return;
+    const selectedWorkers = workers.filter((worker) => quickAddWorkerIds.includes(worker.id));
+    const { task: updatedTask } = await apiSend("/api/tasks", {
+      id: task.id,
+      workerIds: quickAddWorkerIds,
+      assignedTo: selectedWorkers.map((worker) => worker.name).join(", ") || "Equipe",
+      participantType: selectedWorkers.some((worker) => worker.type === "Sous-traitant") ? "Sous-traitants" : "Ouvriers"
+    }, "PATCH");
+    setTasks((current) => current.map((item) => item.id === updatedTask.id ? updatedTask : item));
+    setMessage("Equipe mise a jour sur l'ouvrage.");
+    setOuvrageAddOpen(false);
+  }
+
+  async function addOuvrageExpense(event) {
+    event.preventDefault();
+    const task = openLine?.task;
+    if (!selectedProject || !task || !ouvrageExpenseForm.label.trim() || Number(ouvrageExpenseForm.amount || 0) <= 0) return;
+    const { expense } = await apiSend("/api/expenses", {
+      projectId: selectedProject.id,
+      quoteId: selectedQuote?.id || "",
+      taskId: task.id,
+      label: ouvrageExpenseForm.label,
+      category: ouvrageExpenseForm.category,
+      amount: ouvrageExpenseForm.amount,
+      location: ouvrageExpenseForm.location,
+      notes: ouvrageExpenseForm.notes
+    });
+    setExpenses([expense, ...expenses]);
+    setOuvrageExpenseForm(emptyExpenseForm);
+    setMessage("Depense ajoutee a l'ouvrage.");
+    setOuvrageAddOpen(false);
+  }
+
+  function goToNoteComposer() {
+    setOuvrageAddOpen(false);
+    requestAnimationFrame(() => {
+      const el = document.getElementById("ouvrage-note-composer");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+    });
+  }
+
   async function closeProject(action) {
     if (!selectedProject) return;
     const { project } = await apiSend("/api/projects", { id: selectedProject.id, action }, "PATCH");
@@ -809,6 +939,10 @@ export default function ProjectsTrackingPage() {
       { key: "valide", label: L.chantiers.statusValidated }
     ];
     const statusIndex = statusSteps.findIndex((step) => step.key === statusKey);
+    const ouvragePriceHt = Number(item.totalHt || item.totalTtc || 0);
+    const taskExpenses = task ? expenses.filter((expense) => expense.taskId === task.id) : [];
+    const ouvrageSpentTotal = taskExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    const ouvrageProfit = ouvragePriceHt - ouvrageSpentTotal;
 
     return (
       <Shell>
@@ -836,6 +970,12 @@ export default function ProjectsTrackingPage() {
                 <span>{L.chantiers.startDate} → {L.chantiers.endDate}</span>
                 <strong>{formatDate(task?.startDate)} → {formatDate(task?.endDate || task?.dueDate)}</strong>
               </div>
+              {ouvragePriceHt > 0 ? (
+                <div>
+                  <span>{L.chantiers.validatedPrice}</span>
+                  <strong>{euro(ouvragePriceHt)}</strong>
+                </div>
+              ) : null}
             </div>
 
             {task ? (
@@ -862,14 +1002,136 @@ export default function ProjectsTrackingPage() {
               </small>
             ) : null}
 
-            <button type="button" className="button blue ouvrage-plan-btn" onClick={() => openPlanner(openLine)}>
-              {L.chantiers.plan}
-            </button>
+            <div className="ouvrage-action-row">
+              <button type="button" className="button blue ouvrage-plan-btn" onClick={() => openPlanner(openLine)}>
+                {L.chantiers.plan}
+              </button>
+              {task ? (
+                <button type="button" className="button ouvrage-quickadd-btn" onClick={openQuickAdd}>
+                  {L.chantiers.quickAddBtn}
+                </button>
+              ) : null}
+            </div>
+
+            {task && ouvragePriceHt > 0 ? (
+              <div className="ouvrage-finance-card">
+                <div>
+                  <span>{L.chantiers.validatedPrice}</span>
+                  <strong>{euro(ouvragePriceHt)}</strong>
+                </div>
+                <div>
+                  <span>{L.chantiers.ouvrageSpent}</span>
+                  <strong>{euro(ouvrageSpentTotal)}</strong>
+                </div>
+                <div>
+                  <span>{L.chantiers.ouvrageEarned}</span>
+                  <strong className={ouvrageProfit >= 0 ? "positive" : "negative"}>{euro(ouvrageProfit)}</strong>
+                </div>
+              </div>
+            ) : null}
+
+            {task && taskExpenses.length > 0 ? (
+              <div className="project-mini-list ouvrage-expense-list">
+                <span className="follow-client-notes-label">{L.chantiers.ouvrageExpenses}</span>
+                {taskExpenses.map((expense) => (
+                  <span key={expense.id}>{expense.category}: {expense.label} - {euro(expense.amount)}</span>
+                ))}
+              </div>
+            ) : null}
 
             {task ? <TaskMessageThread task={task} projectDocuments={projectDocuments} workers={workers} /> : null}
           </div>
         </section>
         {planningModal}
+
+        {ouvrageAddOpen ? (
+          <div className="qa-overlay" onClick={() => setOuvrageAddOpen(false)}>
+            <div className="qa-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="qa-header">
+                <strong>{L.chantiers.quickAddTitle}</strong>
+                <button type="button" className="qa-close" onClick={() => setOuvrageAddOpen(false)} aria-label={L.common.close}>✕</button>
+              </div>
+              <div className="qa-tabs">
+                <button type="button" className={`qa-tab${ouvrageAddTab === "team" ? " active" : ""}`} onClick={() => setOuvrageAddTab("team")}>
+                  <span>👷</span><span>{L.chantiers.quickAddTeam}</span>
+                </button>
+                <button type="button" className={`qa-tab${ouvrageAddTab === "expense" ? " active" : ""}`} onClick={() => setOuvrageAddTab("expense")}>
+                  <span>💶</span><span>{L.chantiers.quickAddExpense}</span>
+                </button>
+                <button type="button" className={`qa-tab${ouvrageAddTab === "note" ? " active" : ""}`} onClick={() => setOuvrageAddTab("note")}>
+                  <span>💬</span><span>{L.chantiers.quickAddNote}</span>
+                </button>
+              </div>
+
+              {ouvrageAddTab === "team" ? (
+                <div className="qa-form">
+                  <p className="tool-muted">{L.chantiers.quickAddTeamHint}</p>
+                  <div className="worker-chip-grid">
+                    {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
+                    {workers.map((worker) => (
+                      <button
+                        type="button"
+                        key={worker.id}
+                        className={quickAddWorkerIds.includes(worker.id) ? "active" : ""}
+                        onClick={() => toggleQuickAddWorker(worker.id)}
+                      >
+                        <span>{worker.name}</span>
+                        <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="qa-actions">
+                    <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
+                    <button type="button" className="qa-submit" onClick={saveQuickAddTeam}>{L.chantiers.quickAddSaveTeam}</button>
+                  </div>
+                </div>
+              ) : null}
+
+              {ouvrageAddTab === "expense" ? (
+                <form className="qa-form" onSubmit={addOuvrageExpense}>
+                  <div className="qa-field">
+                    <label className="qa-label">{L.chantiers.realExpense}</label>
+                    <input className="qa-input" value={ouvrageExpenseForm.label} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.realExpense} />
+                  </div>
+                  <div className="qa-row">
+                    <div className="qa-field">
+                      <label className="qa-label">{L.chantiers.amount}</label>
+                      <input className="qa-input" type="number" step="0.01" min="0.01" value={ouvrageExpenseForm.amount} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" />
+                    </div>
+                    <div className="qa-field">
+                      <label className="qa-label">{L.chantiers.category}</label>
+                      <select className="qa-input" value={ouvrageExpenseForm.category} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, category: event.target.value }))}>
+                        {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="qa-field">
+                    <label className="qa-label">{L.chantiers.location}</label>
+                    <input className="qa-input" value={ouvrageExpenseForm.location} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
+                  </div>
+                  <div className="qa-field">
+                    <label className="qa-label">{L.facturation.note}</label>
+                    <textarea className="qa-input qa-textarea" rows={2} value={ouvrageExpenseForm.notes} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, notes: event.target.value }))} />
+                  </div>
+                  <div className="qa-actions">
+                    <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
+                    <button type="submit" className="qa-submit">{L.chantiers.addExpense}</button>
+                  </div>
+                </form>
+              ) : null}
+
+              {ouvrageAddTab === "note" ? (
+                <div className="qa-form">
+                  <p className="tool-muted">{L.chantiers.quickAddNoteHint}</p>
+                  <div className="qa-actions">
+                    <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
+                    <button type="button" className="qa-submit" onClick={goToNoteComposer}>{L.chantiers.quickAddGoToNote}</button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </Shell>
     );
   }
@@ -879,7 +1141,7 @@ export default function ProjectsTrackingPage() {
       <Shell>
         <div className="mobile-tool chantier-follow">
           <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={() => setSelectedProjectId("")}>{"<"}</button>
+            <button type="button" className="plain-back" onClick={backToList}>{"<"}</button>
             <div className="follow-title">
               <h1>{selectedProject.title}</h1>
               <p>{selectedProject.client || L.chantiers.contact} - {selectedProject.status}</p>
@@ -925,7 +1187,7 @@ export default function ProjectsTrackingPage() {
             </div>
           ) : null}
           <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={() => setSelectedProjectId("")}>{"<"}</button>
+            <button type="button" className="plain-back" onClick={backToList}>{"<"}</button>
             <div className="follow-title">
               <h1>{selectedProject.title}</h1>
               <p>{selectedProject.client || L.chantiers.contact} - {selectedProject.status}</p>
@@ -990,6 +1252,16 @@ export default function ProjectsTrackingPage() {
               </button>
               {!collapsedCards.has("budget") ? (
                 <>
+                  <div className="ouvrage-finance-card chantier-finance-auto">
+                    <div>
+                      <span>{L.chantiers.autoSpentChantier}</span>
+                      <strong>{euro(chantierSpentAuto)}</strong>
+                    </div>
+                    <div>
+                      <span>{L.chantiers.autoMarginChantier}</span>
+                      <strong className={chantierMarginAuto >= 0 ? "positive" : "negative"}>{euro(chantierMarginAuto)}</strong>
+                    </div>
+                  </div>
                   <div className="budget-follow-list">
                     {budgetRows.map((row) => {
                       const overBudget = Number(row.real || 0) > Number(row.estimated || 0);
@@ -1236,7 +1508,7 @@ export default function ProjectsTrackingPage() {
               {activeProjects.map((project) => {
                 const quote = quotes.find((item) => item.projectId === project.id);
                 return (
-                  <button type="button" className="project-track-row" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
+                  <button type="button" className="project-track-row" key={project.id} onClick={() => selectProject(project.id)}>
                     <span className="home-list-icon">X</span>
                     <div>
                       <strong>{project.title}</strong>
