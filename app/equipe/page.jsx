@@ -2,11 +2,41 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiSend, readStoredUser } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
+import { euro, shortDate } from "../../lib/pricing";
 
 const professions = ["Peintre", "Carreleur", "Electricien", "Plombier", "Menuisier", "Tout corps d'etat"];
+
+const ATTENDANCE_TYPES = ["heures", "jour", "forfait", "ouvrage", "passage", "deplacement"];
+const ATTENDANCE_TYPE_ICONS = { heures: "⏱️", jour: "📅", forfait: "💰", ouvrage: "🛠️", passage: "🚪", deplacement: "🚗" };
+
+// Client-safe duplicate of lib/worker-portal.js's isoWeekInfo (that module
+// pulls in node:fs/node:path via lib/db.js, so it can't be imported here).
+function isoWeekInfo(dateStr) {
+  const date = new Date(`${String(dateStr).slice(0, 10)}T00:00:00`);
+  const dayIndex = (date.getDay() + 6) % 7;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() - dayIndex);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const thursday = new Date(monday);
+  thursday.setDate(monday.getDate() + 3);
+  const isoYear = thursday.getFullYear();
+  const firstThursday = new Date(isoYear, 0, 1);
+  while (firstThursday.getDay() !== 4) firstThursday.setDate(firstThursday.getDate() + 1);
+  const week = 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * 86400000));
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { key: `${isoYear}-W${String(week).padStart(2, "0")}`, start: iso(monday), end: iso(sunday) };
+}
+
+function minutesLabel(minutes) {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
+}
 
 function CardChevron({ collapsed }) {
   return (
@@ -25,6 +55,7 @@ const initialWorker = {
   address: "",
   photoDataUrl: "",
   hourlyRate: "",
+  weeklyContractHours: 35,
   notes: "",
   availability: "Disponible",
   favorite: true,
@@ -38,6 +69,7 @@ export default function TeamPage() {
   const { data: workers, setData: setWorkers } = useApi("/api/workers", "workers");
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
+  const { data: attendanceEntries, setData: setAttendanceEntries } = useApi("/api/attendance", "entries");
   const [activeTab, setActiveTab] = useState("Ouvrier");
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -51,6 +83,88 @@ export default function TeamPage() {
   const [accessOpen, setAccessOpen] = useState(false);
   const photoInputRef = useRef(null);
   const [returnTo, setReturnTo] = useState(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [planningOpen, setPlanningOpen] = useState(false);
+  const [planningWorkerId, setPlanningWorkerId] = useState("");
+  const [planningWeekDate, setPlanningWeekDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [attForm, setAttForm] = useState(() => ({
+    type: "heures",
+    date: new Date().toISOString().slice(0, 10),
+    startTime: "",
+    endTime: "",
+    amount: "",
+    label: "",
+    ouvrageValue: "",
+    note: ""
+  }));
+  const [pdfMonth, setPdfMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+  const planningWorker = workers.find((worker) => worker.id === planningWorkerId) || null;
+  const weekInfo = useMemo(() => isoWeekInfo(planningWeekDate), [planningWeekDate]);
+  const weekEntriesForWorker = useMemo(() => {
+    if (!planningWorkerId) return [];
+    return attendanceEntries
+      .filter((entry) => entry.workerId === planningWorkerId && isoWeekInfo(entry.date).key === weekInfo.key)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [attendanceEntries, planningWorkerId, weekInfo]);
+  const weekWorkedMinutes = weekEntriesForWorker.reduce((sum, entry) => sum + Number(entry.durationMinutes || 0), 0);
+  const weekContractMinutes = Math.round(Number(planningWorker?.weeklyContractHours || 35) * 60);
+  const weekDiff = weekWorkedMinutes - weekContractMinutes;
+  const weekAmountTotal = weekEntriesForWorker.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+
+  function workerWeekBadge(worker) {
+    const currentWeek = isoWeekInfo(new Date().toISOString().slice(0, 10));
+    const entries = attendanceEntries.filter((entry) => entry.workerId === worker.id && isoWeekInfo(entry.date).key === currentWeek.key);
+    const worked = entries.reduce((sum, entry) => sum + Number(entry.durationMinutes || 0), 0);
+    const contract = Math.round(Number(worker.weeklyContractHours || 35) * 60);
+    return { worked, contract, diff: worked - contract };
+  }
+
+  function openPlanning() {
+    setPlanningWorkerId("");
+    setPlanningWeekDate(new Date().toISOString().slice(0, 10));
+    setPlanningOpen(true);
+  }
+
+  function shiftWeek(days) {
+    const next = new Date(`${planningWeekDate}T00:00:00`);
+    next.setDate(next.getDate() + days);
+    setPlanningWeekDate(next.toISOString().slice(0, 10));
+  }
+
+  async function addAttendanceEntry(event) {
+    event.preventDefault();
+    if (!planningWorkerId || !attForm.date) return;
+    const payload = { workerId: planningWorkerId, type: attForm.type, date: attForm.date, note: attForm.note };
+    if (attForm.type === "heures") {
+      if (!attForm.startTime || !attForm.endTime) return;
+      payload.startTime = attForm.startTime;
+      payload.endTime = attForm.endTime;
+    } else {
+      if (Number(attForm.amount || 0) <= 0) return;
+      payload.amount = attForm.amount;
+      if (attForm.type === "ouvrage") {
+        const option = ouvrageOptions.find((item) => item.value === attForm.ouvrageValue);
+        payload.label = option?.label || attForm.label;
+      } else {
+        payload.label = attForm.label;
+      }
+    }
+    const { entry } = await apiSend("/api/attendance", payload);
+    setAttendanceEntries([entry, ...attendanceEntries]);
+    setAttForm((current) => ({ ...current, startTime: "", endTime: "", amount: "", label: "", ouvrageValue: "", note: "" }));
+  }
+
+  async function deleteAttendanceEntry(entry) {
+    await apiSend("/api/attendance", { id: entry.id, action: "delete" }, "PATCH");
+    setAttendanceEntries(attendanceEntries.filter((item) => item.id !== entry.id));
+  }
+
+  function downloadWorkerHoursPdf() {
+    if (!planningWorkerId) return;
+    const userId = readStoredUser()?.id || "";
+    window.open(`/api/attendance/pdf?workerId=${encodeURIComponent(planningWorkerId)}&month=${encodeURIComponent(pdfMonth)}&userId=${encodeURIComponent(userId)}`, "_blank");
+  }
 
   useEffect(() => {
     try {
@@ -153,8 +267,10 @@ export default function TeamPage() {
     setAccessOpen(false);
   }
 
-  function openCreate() {
-    setForm({ ...initialWorker, type: activeTab });
+  function openCreate(type) {
+    const resolvedType = type || activeTab;
+    setForm({ ...initialWorker, type: resolvedType });
+    setActiveTab(resolvedType);
     setEditingId(null);
     setLinkDraftType("");
     setLinkDraftValue("");
@@ -254,6 +370,152 @@ export default function TeamPage() {
     if (deleted?.deleted) setWorkers(workers.filter((item) => item.id !== worker.id));
   }
 
+  if (planningOpen) {
+    return (
+      <Shell>
+        <section className="mobile-tool">
+          <header className="tool-topline compact">
+            <button type="button" className="plain-back" onClick={() => (planningWorker ? setPlanningWorkerId("") : setPlanningOpen(false))}>{"<"}</button>
+            <div className="follow-title">
+              <h1>{planningWorker ? planningWorker.name : L.equipe.planningTitle}</h1>
+              <p>{planningWorker ? (planningWorker.profession || planningWorker.role) : L.equipe.planningIntro}</p>
+            </div>
+            <span />
+          </header>
+
+          {!planningWorker ? (
+            <>
+              <div className="search-pill">
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
+              </div>
+              <div className="people-list">
+                {workers
+                  .filter((worker) => !search.trim() || (worker.name || "").toLowerCase().includes(search.trim().toLowerCase()))
+                  .map((worker) => {
+                    const badge = workerWeekBadge(worker);
+                    const status = Math.abs(badge.diff) < 15 ? "ok" : badge.diff > 0 ? "over" : "under";
+                    return (
+                      <article
+                        className="person-row clickable"
+                        key={worker.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setPlanningWorkerId(worker.id)}
+                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setPlanningWorkerId(worker.id); } }}
+                      >
+                        <div className="avatar">
+                          {worker.photoDataUrl ? <img src={worker.photoDataUrl} alt={worker.name} /> : (worker.name || "AB").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <strong>{worker.name}</strong>
+                          <small>{worker.profession || worker.role}</small>
+                        </div>
+                        <span className={`planning-week-badge planning-badge-${status}`}>
+                          {minutesLabel(badge.worked)} / {minutesLabel(badge.contract)}
+                        </span>
+                      </article>
+                    );
+                  })}
+                {!workers.length ? <div className="tool-empty">{L.equipe.noWorkers}</div> : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="planning-week-nav">
+                <button type="button" className="mini-outline" onClick={() => shiftWeek(-7)}>‹</button>
+                <strong>{L.equipe.weekOf(shortDate(weekInfo.start), shortDate(weekInfo.end))}</strong>
+                <button type="button" className="mini-outline" onClick={() => shiftWeek(7)}>›</button>
+              </div>
+
+              <div className="ouvrage-finance-card">
+                <div><span>{L.equipe.workedLabel}</span><strong>{minutesLabel(weekWorkedMinutes)}</strong></div>
+                <div><span>{L.equipe.contractLabel}</span><strong>{minutesLabel(weekContractMinutes)}</strong></div>
+                <div>
+                  <span>{L.equipe.diffLabel}</span>
+                  <strong className={Math.abs(weekDiff) < 15 ? "" : weekDiff > 0 ? "positive" : "negative"}>
+                    {weekDiff > 0 ? "+" : weekDiff < 0 ? "-" : ""}{minutesLabel(Math.abs(weekDiff))}
+                  </strong>
+                </div>
+                <div><span>{L.equipe.amountTotalLabel}</span><strong>{euro(weekAmountTotal)}</strong></div>
+              </div>
+
+              {weekEntriesForWorker.length ? (
+                <div className="planning-entry-list">
+                  {weekEntriesForWorker.map((entry) => {
+                    const entryType = entry.type || "heures";
+                    return (
+                      <div className="planning-entry-row" key={entry.id}>
+                        <span className="planning-entry-source" title={entry.source === "worker" ? L.equipe.sourceWorker : L.equipe.sourceCompany}>
+                          {entry.source === "worker" ? "👤" : "🏢"}
+                        </span>
+                        <span className="planning-entry-type" title={L.equipe.attendanceTypes[entryType]}>{ATTENDANCE_TYPE_ICONS[entryType]}</span>
+                        <strong>{shortDate(entry.date)}</strong>
+                        {entryType === "heures" ? (
+                          <>
+                            <span>{entry.startTime} → {entry.endTime || "…"}</span>
+                            <small>{minutesLabel(entry.durationMinutes)}</small>
+                          </>
+                        ) : (
+                          <>
+                            <span>{entry.label || L.equipe.attendanceTypes[entryType]}</span>
+                            <small>{euro(entry.amount)}</small>
+                          </>
+                        )}
+                        <button type="button" className="mini-danger" onClick={() => deleteAttendanceEntry(entry)}>{L.common.remove}</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="tool-muted">{L.equipe.noAttendanceWeek}</p>}
+
+              <div className="planning-type-chips">
+                {ATTENDANCE_TYPES.map((type) => (
+                  <button
+                    type="button"
+                    key={type}
+                    className={`planning-type-chip${attForm.type === type ? " active" : ""}`}
+                    onClick={() => setAttForm((current) => ({ ...current, type }))}
+                  >
+                    <span>{ATTENDANCE_TYPE_ICONS[type]}</span>
+                    <span>{L.equipe.attendanceTypes[type]}</span>
+                  </button>
+                ))}
+              </div>
+
+              <form className="project-mini-form" onSubmit={addAttendanceEntry}>
+                <input type="date" value={attForm.date} onChange={(event) => setAttForm((current) => ({ ...current, date: event.target.value }))} />
+                {attForm.type === "heures" ? (
+                  <>
+                    <input type="time" value={attForm.startTime} onChange={(event) => setAttForm((current) => ({ ...current, startTime: event.target.value }))} />
+                    <input type="time" value={attForm.endTime} onChange={(event) => setAttForm((current) => ({ ...current, endTime: event.target.value }))} />
+                  </>
+                ) : (
+                  <input type="number" step="0.01" min="0.01" value={attForm.amount} onChange={(event) => setAttForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.equipe.amountPlaceholder} />
+                )}
+                {attForm.type === "ouvrage" ? (
+                  <select value={attForm.ouvrageValue} onChange={(event) => setAttForm((current) => ({ ...current, ouvrageValue: event.target.value }))}>
+                    <option value="">{L.equipe.linkedToItemPh}</option>
+                    {ouvrageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                ) : null}
+                {attForm.type !== "heures" && attForm.type !== "ouvrage" ? (
+                  <input value={attForm.label} onChange={(event) => setAttForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.equipe.labelPlaceholder} />
+                ) : null}
+                <input value={attForm.note} onChange={(event) => setAttForm((current) => ({ ...current, note: event.target.value }))} placeholder={L.facturation.note} />
+                <button type="submit">{L.equipe.addAttendance}</button>
+              </form>
+
+              <div className="planning-pdf-row">
+                <input type="month" value={pdfMonth} onChange={(event) => setPdfMonth(event.target.value)} />
+                <button type="button" className="mini-outline" onClick={downloadWorkerHoursPdf}>{L.equipe.downloadPdf}</button>
+              </div>
+            </>
+          )}
+        </section>
+      </Shell>
+    );
+  }
+
   if (formOpen) {
     return (
       <Shell>
@@ -319,6 +581,10 @@ export default function TeamPage() {
                   <label className="mobile-input full">
                     <span>{L.equipe.hourlyRate}</span>
                     <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
+                  </label>
+                  <label className="mobile-input full">
+                    <span>{L.equipe.weeklyContractHours}</span>
+                    <input type="number" step="0.5" min="0" value={form.weeklyContractHours} onChange={(event) => setField("weeklyContractHours", event.target.value)} placeholder="35" />
                   </label>
                   <label className="mobile-input full">
                     <span>{L.equipe.notes}</span>
@@ -493,7 +759,35 @@ export default function TeamPage() {
           ))}
         </div>
 
-        <button type="button" className="mobile-primary sticky-bottom" onClick={openCreate}>{L.equipe.addPersonnel}</button>
+        <button type="button" className="team-fab" onClick={() => setQuickAddOpen(true)} aria-label={L.equipe.addPersonnel}>
+          <span>+</span>
+        </button>
+
+        {quickAddOpen ? (
+          <div className="team-quickadd-overlay" onClick={() => setQuickAddOpen(false)}>
+            <div className="team-quickadd-card" onClick={(event) => event.stopPropagation()}>
+              <div className="team-quickadd-head">
+                <h2>{L.equipe.quickAddTitle}</h2>
+                <button type="button" className="qa-close" onClick={() => setQuickAddOpen(false)} aria-label={L.common.close}>✕</button>
+              </div>
+              <button type="button" className="team-quickadd-tile tile-worker" onClick={() => { setQuickAddOpen(false); openCreate("Ouvrier"); }}>
+                <span className="team-tile-icon">👷</span>
+                <span className="team-tile-text"><strong>{L.equipe.addWorker}</strong><small>{L.equipe.quickAddWorkerHint}</small></span>
+                <span className="team-tile-arrow">→</span>
+              </button>
+              <button type="button" className="team-quickadd-tile tile-sub" onClick={() => { setQuickAddOpen(false); openCreate("Sous-traitant"); }}>
+                <span className="team-tile-icon">🧰</span>
+                <span className="team-tile-text"><strong>{L.equipe.addSub}</strong><small>{L.equipe.quickAddSubHint}</small></span>
+                <span className="team-tile-arrow">→</span>
+              </button>
+              <button type="button" className="team-quickadd-tile tile-planning" onClick={() => { setQuickAddOpen(false); openPlanning(); }}>
+                <span className="team-tile-icon">📊</span>
+                <span className="team-tile-text"><strong>{L.equipe.planningTitle}</strong><small>{L.equipe.quickAddPlanningHint}</small></span>
+                <span className="team-tile-arrow">→</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
     </Shell>
   );

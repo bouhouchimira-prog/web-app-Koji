@@ -283,6 +283,44 @@
   gap: 16px;
 }
 
+.worker-clock-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+}
+
+.worker-clockout-btn {
+  background: #dc2626 !important;
+}
+
+.worker-attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.worker-attendance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+}
+
+.worker-attendance-row small {
+  color: #687589;
+  font-weight: 700;
+}
+
 .worker-project-card {
   display: grid;
   gap: 10px;
