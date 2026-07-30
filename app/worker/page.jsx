@@ -277,6 +277,7 @@ export default function WorkerPage() {
         </div>
         <nav className="worker-nav" aria-label="Navigation worker">
           <button className={view === "home" ? "active" : ""} onClick={() => { setView("home"); setSelectedProjectId(""); }}>{L.worker.home}</button>
+          <button className={view === "attendance" ? "active" : ""} onClick={() => { setView("attendance"); setSelectedProjectId(""); }}>{L.worker.attendanceTitle}</button>
           <button className={view === "archives" ? "active" : ""} onClick={() => { setView("archives"); setSelectedProjectId(""); }}>{L.worker.archives}</button>
           <button className={view === "notifications" ? "active" : ""} onClick={() => { setView("notifications"); setSelectedProjectId(""); }}>
             {L.worker.notifications} {portal?.unreadCount ? <b>{portal.unreadCount}</b> : null}
@@ -290,6 +291,7 @@ export default function WorkerPage() {
 
       {selectedProject ? renderProjectDetail(selectedProject) : null}
       {!selectedProject && view === "home" ? renderHome() : null}
+      {!selectedProject && view === "attendance" ? renderAttendance() : null}
       {!selectedProject && view === "archives" ? renderArchives() : null}
       {!selectedProject && view === "notifications" ? renderNotifications() : null}
     </main>
@@ -458,6 +460,45 @@ export default function WorkerPage() {
           )}
         </div>
       </article>
+    );
+  }
+
+  function renderAttendance() {
+    const today = portal?.attendanceToday;
+    const week = portal?.attendanceWeek;
+    const isClockedIn = Boolean(today && !today.endTime);
+    return (
+      <div className="worker-stack">
+        <section className="worker-section worker-attendance-card">
+          <div className="worker-section-head"><h2>{L.worker.attendanceTitle}</h2></div>
+          <div className="worker-clock-status">
+            <strong>{isClockedIn ? L.worker.clockedInSince(today.startTime) : L.worker.notClockedIn}</strong>
+            <button
+              className={`worker-primary ${isClockedIn ? "worker-clockout-btn" : ""}`}
+              disabled={busy}
+              onClick={() => runAction({ action: isClockedIn ? "clockOut" : "clockIn" })}
+            >
+              {isClockedIn ? L.worker.clockOut : L.worker.clockIn}
+            </button>
+          </div>
+        </section>
+        <section className="worker-section">
+          <div className="worker-section-head">
+            <h2>{L.worker.thisWeek}</h2>
+            <span>{week ? `${week.workedLabel} / ${week.contractLabel}` : "-"}</span>
+          </div>
+          <div className="worker-attendance-list">
+            {(week?.entries || []).map((entry) => (
+              <div className="worker-attendance-row" key={entry.id}>
+                <strong>{formatDate(entry.date)}</strong>
+                <span>{entry.startTime} → {entry.endTime || "…"}</span>
+                <small>{minutesLabel(entry.durationMinutes)}</small>
+              </div>
+            ))}
+            {!week?.entries?.length ? <div className="worker-empty">{L.worker.noAttendance}</div> : null}
+          </div>
+        </section>
+      </div>
     );
   }
 

@@ -1,7 +1,7 @@
 ﻿import { ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, readDb, writeDb } from "../../../lib/db";
 import { publicWorker } from "../../../lib/worker-auth";
-import { addCompanyNotification, addWorkerNotification, applyTaskTimeAction, buildWorkerPortal, taskBelongsToWorker } from "../../../lib/worker-portal";
+import { addCompanyNotification, addWorkerNotification, applyTaskTimeAction, applyWorkerClockAction, buildWorkerPortal, taskBelongsToWorker } from "../../../lib/worker-portal";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 function findWorker(db, body) {
@@ -34,6 +34,12 @@ export async function POST(request) {
     if (!task || !taskBelongsToWorker(task, worker)) return ok({ error: "Tache introuvable pour cet ouvrier." }, 404);
     applyTaskTimeAction(db, { task, worker: publicWorker(worker), action });
     if (index !== -1) db.tasks[index] = task;
+    await writeDb(db);
+    return ok(buildWorkerPortal(db, worker));
+  }
+
+  if (action === "clockIn" || action === "clockOut") {
+    applyWorkerClockAction(db, { worker, action });
     await writeDb(db);
     return ok(buildWorkerPortal(db, worker));
   }

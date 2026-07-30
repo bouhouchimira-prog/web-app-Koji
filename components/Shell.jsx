@@ -24,6 +24,32 @@ function getNavItems(L) {
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
+const NOTIF_TYPE_ICONS = {
+  "quote.draft": "✏️",
+  "quote.signed": "✅",
+  "quote.updated": "📄",
+  "client.access.sent": "👤",
+  "budget.alert": "⚠️",
+  "marketplace.interest": "🌟",
+  "company.worker_claim": "🔧",
+  "task.completed": "🛠️",
+  "client.note": "💬",
+  "worker.time_overrun": "⏱️",
+  "company.time_overrun": "⏱️",
+  "urgent.alert": "🚨"
+};
+
+function formatRelativeTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60) return "À l'instant";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} h`;
+  if (diff < 172800) return "Hier";
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" }).format(date);
+}
+
 function getTrialInfo(user) {
   if (!user) return { daysLeft: 0, expired: true, subscribed: false };
   if (user.isAdmin || user.plan === "active" || user.plan === "subscribed" || !user.trialStartedAt) {
@@ -308,11 +334,18 @@ export function Shell({ children }) {
                     {recentNotifications.map((notif) => (
                       <li key={notif.id} className={notif.read ? "" : "unread"}>
                         <Link
-                          href={notif.actionUrl || "/notifications"}
+                          href={`/notifications/${notif.id}`}
                           onClick={() => { markNotifRead(notif); setNotifOpen(false); }}
                         >
-                          <strong>{notif.title}</strong>
-                          <span>{notif.message}</span>
+                          <span className="notif-dropdown-icon" aria-hidden="true">{NOTIF_TYPE_ICONS[notif.type] || "🔔"}</span>
+                          <span className="notif-dropdown-body">
+                            <span className="notif-dropdown-row-top">
+                              <strong>{notif.title}</strong>
+                              <time>{formatRelativeTime(notif.createdAt)}</time>
+                            </span>
+                            <span className="notif-dropdown-message">{notif.message}</span>
+                          </span>
+                          {!notif.read ? <span className="notif-dropdown-dot" aria-hidden="true" /> : null}
                         </Link>
                       </li>
                     ))}

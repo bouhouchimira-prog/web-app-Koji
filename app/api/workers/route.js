@@ -159,6 +159,8 @@ export async function POST(request) {
     socialSecurityNumber: body.socialSecurityNumber || "",
     idCardUrl: body.idCardUrl || "",
     hourlyRate: Number(body.hourlyRate || 0),
+    weeklyContractHours: Number(body.weeklyContractHours || 35),
+    attendanceNotifiedWeeks: [],
     hireDate: body.hireDate || "",
     notes: fixText(body.notes || ""),
     availability: fixText(body.availability || "Disponible"),
@@ -251,6 +253,7 @@ export async function PATCH(request) {
     "socialSecurityNumber",
     "idCardUrl",
     "hourlyRate",
+    "weeklyContractHours",
     "hireDate",
     "notes",
     "availability",
@@ -266,7 +269,7 @@ export async function PATCH(request) {
   ];
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
-      if (key === "hours" || key === "hourlyRate") worker[key] = Number(body[key] || 0);
+      if (key === "hours" || key === "hourlyRate" || key === "weeklyContractHours") worker[key] = Number(body[key] || 0);
       else if (key === "favorite" || key === "isCompany" || key === "active") worker[key] = Boolean(body[key]);
       else if (key === "links") worker.links = sanitizeLinks(body.links);
       else worker[key] = fixText(body[key]);
