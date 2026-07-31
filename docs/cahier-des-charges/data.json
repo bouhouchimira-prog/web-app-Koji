@@ -1,0 +1,261 @@
+{
+  "meta": {
+    "title": "Cahier des charges",
+    "subtitle": "Application Web Kôji — Gestion d'entreprise du bâtiment",
+    "preparedBy": "BOUHOUCHI Amira",
+    "developedBy": "BOUHOUCHI Amira",
+    "dateLabel": "2026"
+  },
+  "intro": "Kôji Web est une application de gestion destinée aux entreprises du bâtiment (plomberie, électricité, climatisation, tous corps d'état) : elle couvre l'ensemble du cycle d'activité, de la création d'un devis jusqu'à la facturation, en passant par le suivi de chantier, la gestion de l'équipe et le pointage des heures. Trois profils l'utilisent : l'entreprise (gérant/administratif), le client particulier (portail de suivi) et l'ouvrier/sous-traitant (portail terrain). Ce document décrit, module par module, chaque fonctionnalité de l'application, ce qu'elle permet de faire et comment elle a été réalisée techniquement.",
+  "objectifs": [
+    "Remplacer les devis papier/Excel par un outil de chiffrage structuré (lots, ouvrages, fournitures, main d'œuvre)",
+    "Faire signer les devis électroniquement et transformer automatiquement un devis signé en chantier suivi",
+    "Suivre l'avancement de chaque chantier, ouvrage par ouvrage, avec l'équipe assignée",
+    "Gérer l'équipe (ouvriers et sous-traitants), leurs heures travaillées et leur paie",
+    "Facturer les chantiers et les interventions, et générer les documents PDF correspondants",
+    "Donner au client particulier un accès de suivi (avancement, notifications, échanges) et à l'ouvrier un portail terrain (tâches du jour, pointage, remontées de problèmes)"
+  ],
+  "sections": [
+    {
+      "title": "Architecture technique & outils",
+      "intro": "Vue d'ensemble des langages, frameworks et services utilisés pour construire et faire fonctionner Kôji Web.",
+      "features": [
+        { "name": "Frontend", "description": "Interface construite avec React (Next.js, App Router), en JavaScript. Chaque page est un composant client (\"use client\") qui appelle les API internes de l'application.", "technical": "Next.js (App Router), React, CSS pur (fichier global app/globals.css, sans framework CSS tiers), système de traduction interne (5 langues)." },
+        { "name": "Backend", "description": "La logique serveur (création/consultation/modification des données) est exposée sous forme d'API internes à l'application, une route par fonctionnalité (devis, chantiers, équipe, factures, interventions, notifications...).", "technical": "Next.js API Routes (Node.js), organisées sous app/api/*, chacune avec ses méthodes GET/POST/PATCH." },
+        { "name": "Base de données", "description": "Les données sont réparties entre une base partagée avec l'application mobile (devis, chantiers, comptes) et un espace de stockage propre à la version web (équipe, tâches, notifications, dépenses, interventions...).", "technical": "Supabase (PostgreSQL managé) pour les tables partagées avec l'app mobile Flutter (quotes, chantiers, comptes) ; un espace de données JSON (table koji_web_state) pour le reste, avec repli automatique sur un fichier local en développement." },
+        { "name": "Authentification", "description": "Connexion sécurisée par mot de passe pour l'entreprise et le client particulier, avec renouvellement automatique de la session ; système d'identifiants séparé pour les ouvriers.", "technical": "Supabase Auth (email/mot de passe, jetons d'accès/rafraîchissement) pour entreprise et particulier ; identifiant + mot de passe propre à l'application pour les ouvriers (haché, sans dépendre de Supabase)." },
+        { "name": "Génération de documents (PDF)", "description": "Tous les documents (devis, factures, relevés d'heures, rapports d'intervention) sont produits en PDF téléchargeable, avec l'en-tête et le logo de l'entreprise.", "technical": "Générateur de PDF entièrement fait maison en JavaScript (aucune librairie externe) : construction bas niveau du fichier PDF (police, mise en page, images encodées en base64, pagination automatique)." },
+        { "name": "Emails et SMS", "description": "Envoi d'emails (accès client, identifiants, relances) directement depuis l'application.", "technical": "Serveur SMTP (Gmail) via la librairie nodemailer ; file d'attente locale pour les messages non envoyés (secours)." },
+        { "name": "Multilingue", "description": "L'application est disponible en 5 langues, sélectionnables à tout moment depuis le menu du haut.", "technical": "Système de traduction interne (lib/i18n.js) : chaque texte de l'interface existe en français, anglais, arabe (avec sens de lecture droite-à-gauche), allemand et italien." },
+        { "name": "Hébergement & déploiement", "description": "L'application est déployée en ligne et mise à jour automatiquement à chaque envoi de code.", "technical": "Hébergement Vercel, déploiement automatique (CI/CD) déclenché par chaque envoi (push) sur la branche principale du dépôt GitHub." }
+      ]
+    },
+    {
+      "title": "Authentification et gestion des comptes",
+      "intro": "Ensemble des écrans permettant de créer un compte, s'y connecter, le récupérer en cas d'oubli, et gérer l'abonnement à l'application.",
+      "features": [
+        { "name": "Connexion (Login)", "description": "Un écran unique avec 3 onglets : Entreprise, Particulier, Ouvrier. La connexion Entreprise/Particulier se fait en 2 étapes (email puis mot de passe) avec une liste de comptes déjà utilisés sur l'appareil pour se reconnecter rapidement.", "technical": "Page /login ; connexion Entreprise/Particulier via Supabase Auth (API /api/auth/login, /api/auth/client-portal-login) ; connexion Ouvrier via un identifiant propre (API /api/worker-auth)." },
+        { "name": "Inscription (Signup)", "description": "Formulaire en 2 étapes (email, puis nom/mot de passe avec indicateur de robustesse), avec choix Entreprise/Particulier, puis écran \"vérifiez votre email\".", "technical": "Page /signup, API /api/auth/signup ; création du compte dans Supabase Auth + envoi d'un email d'activation." },
+        { "name": "Activation du compte", "description": "Lien reçu par email qui active le compte à partir d'un jeton unique, avec états de chargement/succès/erreur.", "technical": "Page /activate, API /api/auth/activate (vérifie et consomme le jeton d'activation)." },
+        { "name": "Mot de passe oublié", "description": "Formulaire d'envoi d'un lien de réinitialisation par email, séparé Entreprise/Particulier.", "technical": "Page /forgot-password, API /api/auth/forgot-password (génère un lien de récupération Supabase)." },
+        { "name": "Réinitialisation du mot de passe", "description": "Écran de saisie d'un nouveau mot de passe, utilisé aussi bien pour l'activation initiale que pour une réinitialisation.", "technical": "Page /set-password, API /api/auth/set-password ; lit le jeton dans l'URL (lien classique ou lien de récupération Supabase)." },
+        { "name": "Session persistante et reconnexion automatique", "description": "Une fois connecté, l'utilisateur reste connecté ; si sa session expire (environ 1h), elle est renouvelée automatiquement en arrière-plan sans le déconnecter, y compris si l'erreur d'expiration est renvoyée sous une forme inhabituelle.", "technical": "lib/client-api.js : jeton stocké dans le navigateur (localStorage), en-tête d'autorisation ajouté à chaque appel, détection d'expiration puis appel à /api/auth/refresh et nouvelle tentative automatique." },
+        { "name": "Protection des pages", "description": "Toute page de l'application (hors connexion/inscription) vérifie qu'un utilisateur est bien connecté et le renvoie vers la page de connexion sinon.", "technical": "Vérification côté navigateur dans components/Shell.jsx (composant présent sur toutes les pages protégées), et vérification côté serveur sur chaque API sensible." },
+        { "name": "Déconnexion", "description": "Bouton \"Déconnexion\" présent dans le menu latéral (tiroir de navigation), accessible depuis n'importe quelle page.", "technical": "Fonction logout() dans components/Shell.jsx : suppression de la session locale puis retour à l'écran de connexion." },
+        { "name": "Abonnement / période d'essai", "description": "Période d'essai de 14 jours ; à l'expiration, l'entreprise est redirigée vers une page présentant 3 formules (Kôji GO / Premium / Business).", "technical": "Page /abonnement ; calcul de la date de fin d'essai dans components/Shell.jsx ; la mise en paiement réelle n'est pas encore branchée (à connecter à un prestataire de paiement)." }
+      ]
+    },
+    {
+      "title": "Accueil (tableau de bord)",
+      "intro": "Page d'atterrissage après connexion : vue d'ensemble de l'activité du jour et accès rapide aux principales actions.",
+      "features": [
+        { "name": "Message de bienvenue personnalisé", "description": "Affiche \"Bonjour [Prénom]\" en haut de page, basé sur le nom du compte connecté.", "technical": "Lecture du profil utilisateur stocké localement à la connexion." },
+        { "name": "\"À faire maintenant\"", "description": "Liste des tâches et rendez-vous du jour (et à venir), avec possibilité de les marquer comme terminés directement depuis l'accueil.", "technical": "Fusion des rendez-vous (API /api/calendar-events) et des tâches (API /api/tasks) filtrés par date, triés chronologiquement." },
+        { "name": "Ajout rapide", "description": "Bouton \"+Ajouter\" ouvrant une fenêtre à 5 choix : Tâche, RDV, Dépense, Note, Intervention. Les 4 premiers se créent directement dans la fenêtre ; \"Intervention\" ouvre le formulaire dédié en plein écran.", "technical": "Composant QuickAddModal dans app/page.jsx ; création via /api/tasks, /api/calendar-events, /api/expenses ; redirection vers /interventions?new=1 pour le type Intervention." },
+        { "name": "Chantiers (aperçu)", "description": "Les chantiers actifs les plus récents, avec leur statut, et un lien vers la liste complète.", "technical": "API /api/projects, filtrage sur le statut non archivé." },
+        { "name": "Devis en cours (aperçu)", "description": "Les devis non encore signés (brouillon, prêt à envoyer, envoyé), avec montant et statut.", "technical": "API /api/quotes, filtrage sur le statut." },
+        { "name": "Interventions (aperçu)", "description": "Les derniers rapports d'intervention, avec leur statut (À faire / En cours / Terminée), et actions rapides archiver/supprimer directement depuis l'accueil.", "technical": "API /api/interventions ; statut calculé automatiquement à partir de la date d'intervention." },
+        { "name": "Chiffre d'affaires", "description": "Montant signé, montant facturé et montant restant à facturer, calculés automatiquement.", "technical": "Calcul à partir des devis signés (/api/quotes) et des factures émises (/api/invoices)." },
+        { "name": "Alertes urgentes", "description": "Remontée des signalements urgents envoyés par les ouvriers ou les clients (fuite, incendie, dégât...), directement visibles sur l'accueil.", "technical": "API /api/urgent-alerts." }
+      ]
+    },
+    {
+      "title": "Bibliothèque d'ouvrages",
+      "intro": "Catalogue des ouvrages (prestations types) que l'entreprise propose, utilisé pour construire les devis rapidement plutôt que de tout ressaisir à chaque fois.",
+      "features": [
+        { "name": "Catalogue d'ouvrages", "description": "Liste des ouvrages disponibles (peinture, carrelage, plomberie...), avec leur famille, temps normatif, unité, et coût de main d'œuvre calculé.", "technical": "Page /bibliotheque-ouvrages ; catalogue initial fourni par data/catalog-ouvrages.json, complété par les ouvrages créés par l'entreprise (API /api/ouvrages)." },
+        { "name": "Création / édition d'un ouvrage", "description": "Formulaire de création avec famille (au choix libre ou dans la liste existante), temps normatif, unité, taux horaire.", "technical": "Le taux horaire du profil entreprise est utilisé par défaut si aucun n'est saisi pour l'ouvrage." },
+        { "name": "Suppression et corbeille", "description": "Un ouvrage supprimé est conservé (non définitivement effacé) pour pouvoir être restauré.", "technical": "Table deletedOuvrages distincte, gardant une trace des ouvrages supprimés." },
+        { "name": "Import de fournitures", "description": "Import de fournitures depuis un fichier ou une URL de fiche produit fournisseur.", "technical": "API /api/supplies/import." }
+      ]
+    },
+    {
+      "title": "Devis",
+      "intro": "Cœur de l'application : composer un devis détaillé (lots, ouvrages, fournitures), l'envoyer au client, le faire signer, puis le transformer automatiquement en chantier suivi.",
+      "features": [
+        { "name": "Historique des devis", "description": "Liste de tous les devis, avec statut (Brouillon, Prêt à envoyer, Envoyé, Signé), montant et client ; le menu \"Devis\" ramène toujours ici plutôt que vers un nouveau devis vierge.", "technical": "Composant DevisHistory.jsx, API /api/quotes." },
+        { "name": "Éditeur de devis", "description": "Construction du devis par pièces/lots, chaque lot contenant des ouvrages (issus de la bibliothèque ou saisis à la main), et chaque ouvrage pouvant avoir des sous-ouvrages.", "technical": "Composant DevisEditor.jsx (plus de 2500 lignes) — le module le plus important de l'application." },
+        { "name": "Réorganisation des lots et ouvrages", "description": "Flèches pour monter/descendre un ouvrage dans un lot, ou un lot entier dans le devis." },
+        { "name": "Ouvrage au forfait", "description": "Un ouvrage peut être chiffré au forfait (montant fixe) plutôt qu'au temps normatif × taux horaire." },
+        { "name": "Fournitures liées à un ouvrage", "description": "Ajout de fournitures à un ouvrage, avec auto-remplissage depuis la bibliothèque de fournitures et calcul du coût matière." },
+        { "name": "Majorations, réductions et TVA", "description": "Application de majorations/minorations (avec motif) au niveau du devis ou d'un ouvrage, et choix du taux de TVA appliqué." },
+        { "name": "Numérotation et versions", "description": "Chaque devis a un numéro et un numéro de version, incrémenté automatiquement à chaque enregistrement manuel d'un devis déjà créé." },
+        { "name": "Génération PDF / aperçu", "description": "Génération du devis final en PDF, avec mentions légales du chantier et détail des désignations, téléchargeable ou prévisualisable." },
+        { "name": "Envoi au client", "description": "Le devis peut être envoyé par email au client, avec génération d'un lien de signature." },
+        { "name": "Transformation en chantier", "description": "Une fois signé par le client, le devis devient automatiquement un chantier suivi dans le module Chantiers, sans ressaisie." },
+        { "name": "Brouillon et reprise", "description": "Un devis non terminé reste en brouillon et peut être repris plus tard depuis l'accueil (\"Finir votre chantier\") ou l'historique." }
+      ]
+    },
+    {
+      "title": "Signature électronique",
+      "intro": "Permet à l'entreprise de disposer de sa propre signature réutilisable, et au client de signer un devis à distance, sans papier.",
+      "features": [
+        { "name": "\"Ma Signature\"", "description": "Page permettant à l'entreprise d'enregistrer sa signature : soit dessinée à la souris/au doigt, soit importée depuis une image.", "technical": "Page /signature ; dessin sur &lt;canvas&gt; exporté en image, ou import de fichier ; sauvegarde via API /api/signature-settings." },
+        { "name": "Lien de signature client", "description": "Depuis \"Ma Signature\", génération et copie du lien de signature à envoyer au client pour un devis donné." },
+        { "name": "Page de signature (client)", "description": "Page publique (sans compte requis) affichant le détail du devis et un formulaire de signature (nom, email, téléphone, lieu, message, case de consentement).", "technical": "Page publique /signature/[jeton] ; API /api/signatures/[jeton] ; accès via une clé technique dédiée (le client n'a pas de session Kôji)." },
+        { "name": "Connexion par identifiant à la signature", "description": "Alternative pour un client déjà connu : connexion par identifiant + mot de passe pour retrouver directement le devis à signer.", "technical": "Page /signature/login, API /api/auth/signature-login." },
+        { "name": "Accès automatique au portail client", "description": "Une fois le devis signé, un identifiant et un mot de passe pour le portail client particulier sont générés et envoyés automatiquement par email." }
+      ]
+    },
+    {
+      "title": "Chantiers",
+      "intro": "Suivi des chantiers en cours : chaque devis signé devient un chantier ; ce module permet de suivre l'avancement ouvrage par ouvrage, l'équipe, les dépenses et le budget.",
+      "features": [
+        { "name": "Liste des chantiers", "description": "Vue d'ensemble de tous les chantiers, avec statut et accès rapide à chacun.", "technical": "Page /chantiers, API /api/projects (table Supabase chantiers)." },
+        { "name": "Écran de choix avant signature", "description": "Pour un chantier dont le devis n'est pas encore signé, un écran propose \"Modifier le devis\" ou \"Commencer le chantier\", au lieu d'aller directement au suivi." },
+        { "name": "Fiche chantier", "description": "Détail d'un chantier : liste des ouvrages du devis, équipe assignée, rendez-vous, budget, documents et messages, avec navigation restaurée automatiquement après un rafraîchissement de page." },
+        { "name": "Fiche ouvrage", "description": "Détail d'un ouvrage du chantier : statut (à faire / en cours / terminé / validé), équipe assignée, dates, et prix validé par le client." },
+        { "name": "Finances de l'ouvrage", "description": "Calcul automatique, pour chaque ouvrage, du prix validé, des dépenses associées (fournitures, factures, salaires) et de la marge (ce qui a été gagné)." },
+        { "name": "Ajout rapide sur un ouvrage", "description": "Bouton permettant d'ajouter directement, depuis la fiche ouvrage, un ouvrier/sous-traitant, une dépense, ou une note pour le client/les ouvriers." },
+        { "name": "Planification d'un ouvrage", "description": "Assignation de l'équipe à un ouvrage, dates de début/fin, et éventuel rendez-vous lié." },
+        { "name": "Budget du chantier", "description": "Suivi budgétaire estimé/réel par poste (main d'œuvre, fournitures, budget global), avec calcul automatique des dépenses totales et de la marge du chantier à partir de toutes les dépenses enregistrées." },
+        { "name": "Documents et messages du chantier", "description": "Documents liés au chantier (photos, factures, notes) et fil de messages avec le client (notes envoyées, réponses du client, pièces jointes)." },
+        { "name": "Archivage", "description": "Un chantier terminé peut être archivé, avec conservation de son historique." }
+      ]
+    },
+    {
+      "title": "Équipe (Ouvriers & Sous-traitants)",
+      "intro": "Gestion du personnel de l'entreprise, de ses accès au portail ouvrier, et suivi de ses heures travaillées pour la paie.",
+      "features": [
+        { "name": "Fiches Ouvrier / Sous-traitant", "description": "Création et édition d'une fiche personnel : coordonnées, métier, disponibilité, taux horaire, photo ; pour un sous-traitant, informations d'entreprise (SIRET) et liaison à un ou plusieurs chantiers/devis/ouvrages.", "technical": "Page /equipe, API /api/workers." },
+        { "name": "Carte d'ajout", "description": "Bouton flottant \"+\" ouvrant une carte avec 3 choix : Ouvrier, Sous-traitant, ou Planning." },
+        { "name": "Accès au portail ouvrier", "description": "Génération d'un identifiant et d'un mot de passe provisoire pour que l'ouvrier accède à son propre portail, avec possibilité de régénérer les identifiants et d'activer/désactiver l'accès." },
+        { "name": "Planning / pointage des heures", "description": "Suivi hebdomadaire des heures par ouvrier, avec 6 types de saisie possibles : heures de travail, jour de travail, forfait, ouvrage, passage, déplacement, chacun avec une date et un montant.", "technical": "API /api/attendance ; le montant des heures de travail est calculé automatiquement à partir du taux horaire de l'ouvrier." },
+        { "name": "Heures contractuelles et alertes", "description": "Chaque ouvrier a un nombre d'heures contractuelles par semaine (35h par défaut) ; une alerte est envoyée automatiquement à l'entreprise si les heures réellement travaillées sur une semaine terminée sont trop hautes ou trop basses par rapport au contrat." },
+        { "name": "Export PDF du relevé d'heures", "description": "Génération d'un PDF mensuel par ouvrier détaillant chaque journée/type de pointage, les totaux hebdomadaires, et le total du mois en heures et en montant, pour la comptabilité et la paie." },
+        { "name": "Calendrier de l'équipe", "description": "Cartes et tâches cliquables avec édition d'un événement directement depuis sa fiche." }
+      ]
+    },
+    {
+      "title": "Calendrier & Planning",
+      "intro": "Vision temporelle de l'activité : rendez-vous d'un côté, assignation des ouvriers aux ouvrages de l'autre.",
+      "features": [
+        { "name": "Calendrier", "description": "Vue calendrier des rendez-vous (client, chantier, urgence, maintenance) et des tâches planifiées.", "technical": "Page /calendrier, API /api/calendar-events." },
+        { "name": "Planning (assignation)", "description": "Sélection d'un chantier, liste de ses tâches, et assignation des ouvriers/sous-traitants à chaque tâche.", "technical": "Page /planning, API /api/tasks (action assign)." },
+        { "name": "Création rapide de tâche", "description": "Ajout d'une nouvelle tâche directement depuis le planning (libellé, pièce, date d'échéance)." }
+      ]
+    },
+    {
+      "title": "Fournitures",
+      "intro": "Catalogue des matériaux et produits utilisés dans les devis et achetés auprès des fournisseurs.",
+      "features": [
+        { "name": "Gestion des fournitures", "description": "Création, édition, catégorisation des fournitures (matériaux), avec prix d'achat/de vente.", "technical": "Page /fournitures, API /api/supplies, /api/categories." },
+        { "name": "Gestion des fournisseurs", "description": "Répertoire des fournisseurs associés aux fournitures.", "technical": "API /api/suppliers." },
+        { "name": "Import depuis une URL", "description": "Ajout rapide d'une fourniture en collant le lien d'une fiche produit fournisseur." },
+        { "name": "Indication d'affichage", "description": "Un indice précise, sous la description, que celle-ci sera visible sur le devis et la facture envoyés au client." }
+      ]
+    },
+    {
+      "title": "Facturation",
+      "intro": "Émission des factures à partir des devis signés (ou des interventions), avec suivi du montant restant à facturer.",
+      "features": [
+        { "name": "Création de facture", "description": "Facture générée à partir d'un devis signé, avec choix du mode de montant : fixe, pourcentage, acompte, ou solde restant.", "technical": "Page /facturation, API /api/invoices." },
+        { "name": "Facturation directe d'une intervention", "description": "Une facture peut aussi être créée directement depuis un rapport d'intervention (sans devis signé derrière), avec un montant saisi manuellement." },
+        { "name": "Suivi du solde", "description": "Calcul automatique du montant déjà facturé, du montant restant, et du statut (à facturer / partielle / soldée)." },
+        { "name": "Statuts de facture", "description": "Brouillon, Émise, Payée, Annulée, avec actions dédiées pour faire évoluer chaque facture." },
+        { "name": "Export PDF", "description": "Chaque facture (issue d'un devis ou d'une intervention) peut être téléchargée en PDF avec les informations de l'entreprise, du client et du montant." }
+      ]
+    },
+    {
+      "title": "Interventions",
+      "intro": "Module dédié aux rapports d'intervention type SAV/maintenance (constat, analyse, préconisations), indépendant d'un devis, avec son propre suivi et sa propre facturation.",
+      "features": [
+        { "name": "Création d'un rapport", "description": "Formulaire avec en-tête d'entreprise modifiable (logo, nom, adresse, email, téléphone, SIRET), client, site, date, équipement, constat, analyse, préconisations, signature.", "technical": "Page /interventions, API /api/interventions." },
+        { "name": "Aperçu avant génération", "description": "Aperçu fidèle au document final avant de créer définitivement le rapport, avec retour possible pour modifier." },
+        { "name": "Numéro automatique", "description": "Chaque rapport reçoit un numéro unique généré automatiquement (ex. INT-2026-0003), affiché en en-tête avec la date de création." },
+        { "name": "Signature réutilisable", "description": "La signature déjà enregistrée dans \"Ma Signature\" peut être importée en un clic sur le rapport, affichée en bas à droite comme une vraie signature." },
+        { "name": "Statut de suivi automatique", "description": "Le statut évolue automatiquement selon la date : \"À faire\" tant que la date n'est pas arrivée, \"En cours\" le jour J, jusqu'à être marquée \"Terminée\" manuellement." },
+        { "name": "Devenir du rapport", "description": "Une intervention peut être liée à un chantier existant, gardée en attente pour un futur devis, archivée, ou directement transformée en facture." },
+        { "name": "Passage dans \"À faire maintenant\"", "description": "Une intervention du jour peut être déplacée en un clic vers la liste \"À faire maintenant\" de l'accueil." },
+        { "name": "Export PDF", "description": "Génération du rapport en PDF, avec mise en page reprenant celle d'un rapport d'intervention professionnel classique." },
+        { "name": "Section dédiée sur l'accueil", "description": "Liste des interventions visible directement sur l'accueil, sous \"Devis en cours\"." }
+      ]
+    },
+    {
+      "title": "Notifications",
+      "intro": "Centre de notifications informant l'entreprise des événements importants (devis signé, ouvrage terminé, message client, dépassement d'heures...).",
+      "features": [
+        { "name": "Centre de notifications", "description": "Liste complète des notifications avec recherche et filtres, chacune associée à un type (devis signé, accès client envoyé, alerte urgente, dépassement d'heures...).", "technical": "Page /notifications, API /api/notifications." },
+        { "name": "Menu déroulant rapide", "description": "La cloche dans le menu du haut ouvre les 5 dernières notifications sans quitter la page en cours." },
+        { "name": "Fiche détail", "description": "Détail d'une notification, avec les informations associées (ex. identifiants client) et boutons pour les copier ou les renvoyer par email/WhatsApp." },
+        { "name": "Renvoi des identifiants client", "description": "Depuis la notification d'envoi d'accès client, possibilité de renvoyer l'identifiant et le mot de passe par email ou WhatsApp." }
+      ]
+    },
+    {
+      "title": "Archives",
+      "intro": "Conservation des chantiers et devis terminés ou archivés, consultables sans encombrer les listes actives.",
+      "features": [
+        { "name": "Chantiers et devis archivés", "description": "Deux onglets listant respectivement les chantiers et les devis archivés.", "technical": "Page /archives, API /api/project-archives." },
+        { "name": "Ajout manuel", "description": "Possibilité d'ajouter manuellement un chantier archivé qui n'a pas de devis derrière lui." },
+        { "name": "Fiche détail d'archive", "description": "Détail d'un chantier archivé avec ses documents (photos, factures, reçus, notes) et son historique de messages." }
+      ]
+    },
+    {
+      "title": "Espace Client Particulier",
+      "intro": "Portail dédié au client final : suivi de son chantier, échange avec l'entreprise, et signalement en cas de problème.",
+      "features": [
+        { "name": "Tableau de bord client", "description": "Statistiques (devis reçus/signés, travaux réalisés) et liste des chantiers du client, chacun avec un anneau de progression.", "technical": "Page /client, connexion via /login (onglet Particulier)." },
+        { "name": "Profil client", "description": "Modification des informations personnelles (nom, téléphone, adresse).", "technical": "Page /client/profil, API /api/client/profile." },
+        { "name": "Notifications client", "description": "Fil de notifications filtré sur les événements qui concernent le client (réponse de l'entreprise, démarrage/validation d'un ouvrage)." },
+        { "name": "Suivi de chantier", "description": "Détail du chantier avec, pour chaque ouvrage, une barre d'étapes (démarré / en cours / validé / terminé) et un bouton pour valider un ouvrage terminé.", "technical": "Page /client/chantier/[id]." },
+        { "name": "Notes et documents", "description": "Le client peut laisser une note ou un document (photo) sur un ouvrage, et voir les réponses de l'entreprise." },
+        { "name": "Alerte urgente", "description": "Signalement d'un problème urgent (dégât, fuite, incendie...) directement depuis un ouvrage ou pour le chantier en général." },
+        { "name": "Consultation du devis signé", "description": "Détail du devis signé, avec téléchargement du PDF.", "technical": "Page /client/devis/[id]." }
+      ]
+    },
+    {
+      "title": "Espace Ouvrier",
+      "intro": "Portail terrain destiné aux ouvriers et sous-traitants : leurs chantiers, leurs tâches du jour, leur pointage, et un moyen de signaler un problème.",
+      "features": [
+        { "name": "Connexion et accueil", "description": "Connexion par identifiant + mot de passe fourni par l'entreprise ; accueil listant les chantiers actifs et les tâches du jour.", "technical": "Page /worker, session séparée (koji-worker-session), API /api/worker-auth, /api/worker-portal." },
+        { "name": "Suivi d'un ouvrage", "description": "Boutons Démarrer / Pause / Reprendre / Terminer sur chaque tâche, avec calcul automatique du temps consommé et alerte en cas de dépassement du temps prévu.", "technical": "API /api/worker-actions." },
+        { "name": "Pointage de la journée", "description": "Un onglet dédié permet de pointer le début et la fin de sa journée en un clic, avec récapitulatif de la semaine en cours." },
+        { "name": "Documents et photos", "description": "Ajout de photos ou documents sur une tâche, visibles ensuite par l'entreprise." },
+        { "name": "Réclamations et retards", "description": "Signalement d'un problème de chantier (manque de matériel, problème technique/sécurité) ou d'un retard, envoyé directement à l'entreprise." },
+        { "name": "Alerte urgente", "description": "Signalement d'un incident grave (urgence, dégât, fuite, incendie) avec notification immédiate à l'entreprise." },
+        { "name": "Archives et notifications", "description": "Historique des chantiers terminés et centre de notifications propre à l'ouvrier." }
+      ]
+    },
+    {
+      "title": "Paramètres",
+      "intro": "Configuration du profil de l'entreprise, utilisé comme référence par défaut sur tous les documents générés (devis, factures, interventions).",
+      "features": [
+        { "name": "Profil entreprise", "description": "Raison sociale, forme juridique, SIRET/SIREN, TVA, adresse, email professionnel, téléphone, logo.", "technical": "Page /parametres, API /api/auth/profile." },
+        { "name": "Tarification", "description": "Taux journalier et heures par jour, utilisés pour calculer automatiquement le taux horaire par défaut appliqué dans la bibliothèque d'ouvrages." },
+        { "name": "Coordonnées bancaires", "description": "IBAN, BIC, titulaire du compte, affichés sur les factures." },
+        { "name": "Métiers de l'entreprise", "description": "Sélection multiple des corps de métier exercés." },
+        { "name": "Accès à \"Ma Signature\"", "description": "Bouton renvoyant vers la page de gestion de la signature de l'entreprise." }
+      ]
+    },
+    {
+      "title": "Abonnement",
+      "intro": "Présentation des formules d'abonnement à l'application, affichée automatiquement à la fin de la période d'essai.",
+      "features": [
+        { "name": "Formules", "description": "Trois formules (Kôji GO, Premium, Business) présentées avec leur liste de fonctionnalités.", "technical": "Page /abonnement." },
+        { "name": "Redirection automatique", "description": "À l'expiration des 14 jours d'essai gratuit, l'entreprise est automatiquement redirigée vers cette page tant qu'elle n'a pas souscrit." }
+      ]
+    },
+    {
+      "title": "Marketplace",
+      "intro": "Emplacement réservé pour une future fonctionnalité de mise en relation.",
+      "features": [
+        { "name": "Statut actuel", "description": "Page \"bientôt disponible\" — accessible depuis le menu, sans fonctionnalité active pour le moment." }
+      ]
+    },
+    {
+      "title": "Sécurité, données et multilinguisme",
+      "intro": "Éléments transverses garantissant la cohérence, la sécurité et l'accessibilité de l'application à travers tous les modules.",
+      "features": [
+        { "name": "Cloisonnement des données", "description": "Chaque entreprise ne voit que ses propres devis, chantiers, équipe et documents." },
+        { "name": "Partage avec l'application mobile", "description": "Les devis, chantiers et comptes sont stockés dans une base commune avec l'application mobile Kôji, pour que les deux applications restent synchronisées." },
+        { "name": "Mots de passe", "description": "Mots de passe des ouvriers hachés (jamais stockés en clair) ; mots de passe entreprise/particulier gérés par Supabase Auth." },
+        { "name": "Multilingue", "description": "5 langues disponibles (français, anglais, arabe, allemand, italien), avec adaptation du sens de lecture pour l'arabe." },
+        { "name": "Historique des actions", "description": "Chaque action importante (création, modification, suppression) est journalisée pour garder une trace de l'activité." }
+      ]
+    }
+  ],
+  "closing": {
+    "title": "Fin du cahier des charges",
+    "text": "Ce document liste l'ensemble des fonctionnalités de l'application Kôji Web telles que développées à ce jour. Il est mis à jour à chaque évolution notable de l'application."
+  }
+}
