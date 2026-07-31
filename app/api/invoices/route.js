@@ -86,6 +86,64 @@ export async function POST(request) {
   const db = await readDb();
   const userId = resolveUserId(body.userId || "", db);
   const now = new Date().toISOString();
+
+  // Invoices can also be created directly from an intervention report (no
+  // signed devis involved) — that's a simpler, self-contained path that
+  // never touches the Supabase quotes/chantiers lookup below.
+  if (body.interventionId) {
+    const interventionIndex = findScopedIndex(db.interventions, body.interventionId, userId);
+    if (interventionIndex === -1) return badRequest("Intervention introuvable.", 404);
+    const intervention = db.interventions[interventionIndex];
+
+    const amountTtc = toAmount(body.amountTtc);
+    if (amountTtc <= 0) return badRequest("Le montant de la facture doit être supérieur à zéro.", 400);
+
+    const invoice = {
+      id: `fac-${Date.now()}`,
+      userId: intervention.userId || userId,
+      invoiceNumber: `FAC-${new Date().getFullYear()}-${String(db.invoices.length + 1).padStart(4, "0")}`,
+      projectId: intervention.projectId || "",
+      quoteId: "",
+      quoteNumber: "",
+      interventionId: intervention.id,
+      projectTitle: fixText(intervention.site || "Intervention"),
+      client: fixText(intervention.client || "Client"),
+      clientEmail: "",
+      type: fixText(body.type || "Facture d'intervention"),
+      amountMode: "fixed",
+      percent: 0,
+      amountTtc,
+      totalQuoteTtc: amountTtc,
+      alreadyInvoicedBefore: 0,
+      remainingAfter: 0,
+      status: body.status || "Brouillon",
+      dueDate: body.dueDate || now.slice(0, 10),
+      issuedAt: "",
+      paidAt: "",
+      notes: fixText(body.notes || ""),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    db.invoices.unshift(invoice);
+    intervention.status = "facturee";
+    intervention.invoiceId = invoice.id;
+    intervention.updatedAt = now;
+    db.interventions[interventionIndex] = intervention;
+
+    addHistory(db, {
+      userId: invoice.userId,
+      type: "invoice.created",
+      label: `Facture d'intervention creee: ${invoice.invoiceNumber}`,
+      entityId: invoice.id,
+      entityType: "invoice",
+      meta: { interventionId: intervention.id, amountTtc }
+    });
+
+    await writeDb(db);
+    return ok({ invoice: normalizeInvoice(invoice) }, 201);
+  }
+
   const supabase = getSupabaseAdmin();
   const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", body.quoteId).maybeSingle();
   const { data: projectRow } = await supabase.from("chantiers").select("*").eq("id", body.projectId).maybeSingle();
