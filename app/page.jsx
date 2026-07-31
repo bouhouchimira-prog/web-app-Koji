@@ -12,8 +12,8 @@ import { useApi } from "../lib/use-api";
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 const URGENT_ICONS  = { degat: "🧱", fuite: "💧", urgence: "⚡", incendie: "🔥", autre: "⚠️" };
 
-const QA_TYPE_KEYS  = ["tache", "rdv", "depense", "note"];
-const QA_TYPE_EMOJIS = { tache: "✅", rdv: "📅", depense: "💰", note: "📝" };
+const QA_TYPE_KEYS  = ["tache", "rdv", "depense", "note", "intervention"];
+const QA_TYPE_EMOJIS = { tache: "✅", rdv: "📅", depense: "💰", note: "📝", intervention: "🔧" };
 
 function timeAgo(value) {
   if (!value) return "";
@@ -44,6 +44,14 @@ function IconQuote() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" />
+    </svg>
+  );
+}
+
+function IconIntervention() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </svg>
   );
 }
@@ -197,7 +205,7 @@ function AgendaCard({ item, onMarkDone }) {
   );
 }
 
-function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
+function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded, onOpenIntervention }) {
   const { L } = useLocale();
   const todayStr = new Date().toISOString().slice(0, 10);
   const [type, setType]         = useState("tache");
@@ -224,6 +232,7 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
   }
 
   function switchType(t) {
+    if (t === "intervention") { onOpenIntervention?.(); return; }
     setType(t);
     resetForm();
   }
@@ -285,7 +294,7 @@ function QuickAddModal({ projects, onClose, onTaskAdded, onEventAdded }) {
   const qaTypes = QA_TYPE_KEYS.map((k) => ({
     key: k,
     emoji: QA_TYPE_EMOJIS[k],
-    label: { tache: qa.typeTask, rdv: qa.typeRdv, depense: qa.typeExpense, note: qa.typeNote }[k],
+    label: { tache: qa.typeTask, rdv: qa.typeRdv, depense: qa.typeExpense, note: qa.typeNote, intervention: qa.typeIntervention }[k],
   }));
 
   return (
@@ -486,12 +495,14 @@ export default function HomePage() {
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
+  const { data: interventions, setData: setInterventions } = useApi("/api/interventions", "interventions");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
   const { data: calendarEvents, setData: setCalendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: urgentAlerts, setData: setUrgentAlerts } = useApi("/api/urgent-alerts", "alerts");
 
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState(null);
   const [confirmDeleteProject, setConfirmDeleteProject] = useState(null);
+  const [confirmDeleteIntervention, setConfirmDeleteIntervention] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [greetingName, setGreetingName] = useState("");
 
@@ -502,7 +513,20 @@ export default function HomePage() {
   }, []);
 
   const activeProjects = projects.filter((p) => p.status !== "Archive");
+  const activeInterventions = interventions.filter((i) => i.status !== "archivee");
   const today = new Date().toISOString().slice(0, 10);
+
+  function interventionWorkStatus(item) {
+    if (item.completedAt) return "terminee";
+    return item.date && item.date <= today ? "en_cours" : "a_faire";
+  }
+
+  function interventionStatus(item) {
+    if (item.status === "facturee") return { label: L.interventions.statusLabels.facturee, className: "status-green" };
+    const work = interventionWorkStatus(item);
+    const className = work === "terminee" ? "status-green" : work === "en_cours" ? "status-blue" : "status-neutral";
+    return { label: L.interventions.workStatusLabels[work], className };
+  }
 
   const agendaItems = useMemo(() => {
     const rdvItems = calendarEvents
@@ -598,6 +622,21 @@ export default function HomePage() {
     setConfirmDeleteProject(null);
   }
 
+  async function archiveIntervention(interventionId) {
+    try {
+      const { intervention } = await apiSend("/api/interventions", { id: interventionId, status: "archivee" }, "PATCH");
+      setInterventions((prev) => prev.map((item) => item.id === intervention.id ? intervention : item));
+    } catch { /**/ }
+  }
+
+  async function deleteIntervention(interventionId) {
+    try {
+      await apiSend("/api/interventions", { id: interventionId, action: "delete" }, "PATCH");
+      setInterventions((prev) => prev.filter((item) => item.id !== interventionId));
+    } catch { /**/ }
+    setConfirmDeleteIntervention(null);
+  }
+
   async function resolveAlert(alertId) {
     try {
       await apiSend("/api/urgent-alerts", { id: alertId, action: "resolve" }, "PATCH");
@@ -613,6 +652,7 @@ export default function HomePage() {
           onClose={() => setShowQuickAdd(false)}
           onTaskAdded={(task) => setTasks((prev) => [task, ...prev])}
           onEventAdded={(event) => setCalendarEvents((prev) => [event, ...prev])}
+          onOpenIntervention={() => { setShowQuickAdd(false); router.push("/interventions?new=1"); }}
         />
       ) : null}
       <div className="home-feed">
@@ -804,6 +844,58 @@ export default function HomePage() {
               {quotesInProgress.length > 5 ? (
                 <Link href="/devis" className="home-more-link">
                   {L.home.seeMore(quotesInProgress.length - 5)} <ChevronRight />
+                </Link>
+              ) : null}
+            </div>
+          )}
+        </Section>
+
+        {/* Interventions */}
+        <Section title={L.interventions.title} href="/interventions" count={activeInterventions.length || null}>
+          {activeInterventions.length === 0 ? (
+            <div className="home-empty">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
+              <strong>{L.interventions.empty}</strong>
+            </div>
+          ) : (
+            <div className="home-list">
+              {activeInterventions.slice(0, 5).map((item) => {
+                const status = interventionStatus(item);
+                return (
+                  <article className="home-list-item home-quote-item" key={item.id}>
+                    <Link href={`/interventions?open=${item.id}`} className="home-list-link home-quote-link">
+                      <div className="home-list-icon home-icon-intervention">
+                        <IconIntervention />
+                      </div>
+                      <div className="home-list-main">
+                        <strong>{item.client}</strong>
+                        <small>{[item.site, shortDate(item.date)].filter(Boolean).join(" · ")}</small>
+                      </div>
+                      <span className={`intervention-status-badge ${status.className}`}>{status.label}</span>
+                    </Link>
+                    <div className="home-task-actions">
+                      {confirmDeleteIntervention === item.id ? (
+                        <span className="home-task-confirm">
+                          <button className="home-task-btn home-task-btn-danger" onClick={() => deleteIntervention(item.id)}>{L.common.delete}</button>
+                          <button className="home-task-btn" onClick={() => setConfirmDeleteIntervention(null)}>{L.common.no}</button>
+                        </span>
+                      ) : (
+                        <>
+                          <button className="home-task-btn" title={L.common.archive} onClick={() => archiveIntervention(item.id)}>
+                            <IconArchive />
+                          </button>
+                          <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteIntervention(item.id)}>
+                            <IconTrash />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+              {activeInterventions.length > 5 ? (
+                <Link href="/interventions" className="home-more-link">
+                  {L.home.seeMore(activeInterventions.length - 5)} <ChevronRight />
                 </Link>
               ) : null}
             </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiSend, readStoredUser } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
@@ -110,6 +110,11 @@ export default function FacturationPage() {
     setInvoices([invoice, ...invoices]);
     setMessage(`${L.facturation.title} ${invoice.invoiceNumber}`);
     setForm((current) => ({ ...current, type: "Facture intermédiaire", amountMode: "remaining", fixedAmount: "", notes: "" }));
+  }
+
+  function downloadInvoicePdf(invoice) {
+    const userId = readStoredUser()?.id || "";
+    window.open(`/api/invoices/pdf?id=${encodeURIComponent(invoice.id)}&userId=${encodeURIComponent(userId)}`, "_blank");
   }
 
   async function updateInvoice(id, action) {
@@ -263,6 +268,7 @@ export default function FacturationPage() {
                       <span className={`invoice-badge ${invoice.status.toLowerCase()}`}>{invoice.status}</span>
                       <b>{euro(invoice.amountTtc)}</b>
                       <div className="invoice-actions">
+                        <button type="button" onClick={() => downloadInvoicePdf(invoice)}>{L.facturation.downloadPdf}</button>
                         {invoice.status === "Brouillon" ? <button type="button" onClick={() => updateInvoice(invoice.id, "issue")}>{L.facturation.issue}</button> : null}
                         {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" onClick={() => updateInvoice(invoice.id, "pay")}>{L.facturation.markPaid}</button> : null}
                         {invoice.status !== "Annulee" ? <button type="button" onClick={() => updateInvoice(invoice.id, "cancel")}>{L.common.cancel}</button> : null}
