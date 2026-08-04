@@ -110,6 +110,7 @@ function sourceToTask(source, settings = {}) {
     id: source.id,
     code: source.code,
     label: settings.label || source.label,
+    description: settings.description ?? source.description ?? "",
     unit: settings.unit ?? source.unit ?? "u",
     normativeTime: round2(settings.normativeTime ?? source.normativeTime ?? 0),
     isFixedTime: source.unit === "u",
@@ -212,7 +213,6 @@ export default function DevisEditor() {
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: ouvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
-  const { data: clients, setData: setClients } = useApi("/api/clients", "clients");
 
   const postes = useMemo(() => ouvrages.filter((item) => item.type === "POSTE" || item.type === "SOUS-POSTE"), [ouvrages]);
   const [company, setCompany] = useState(profileCompany(null));
@@ -247,6 +247,7 @@ export default function DevisEditor() {
   });
   const [form, setForm] = useState({
     client: "",
+    clientReference: "",
     clientEmail: "",
     clientPhone: "",
     projectId: "",
@@ -263,7 +264,6 @@ export default function DevisEditor() {
   const [roomNotes, setRoomNotes] = useState([]);
   const [customRoom, setCustomRoom] = useState("");
   const [isNewChantier, setIsNewChantier] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState("");
   const [identityOpen, setIdentityOpen] = useState(false);
   const [roomsOpen, setRoomsOpen] = useState(true);
   const [customSources, setCustomSources] = useState([]);
@@ -513,6 +513,7 @@ export default function DevisEditor() {
     setForm((current) => ({
       ...current,
       client: quote.client || "",
+      clientReference: quote.clientReference || "",
       clientEmail: quote.clientEmail || "",
       clientPhone: quote.clientPhone || "",
       projectId: quote.projectId || "",
@@ -576,6 +577,7 @@ export default function DevisEditor() {
         id: task.id,
         code: task.code,
         label: task.label,
+        description: task.description,
         room: settings.room || "Services",
         sortOrder,
         unit: task.unit,
@@ -847,28 +849,6 @@ export default function DevisEditor() {
       clientPhone: project?.clientPhone || current.clientPhone,
       chantierAddress: project?.address || project?.fullAddress || current.chantierAddress
     }));
-    if (project) syncClientRefFromProject(project.client, project.clientEmail);
-  }
-
-  function selectClientRef(value) {
-    setSelectedClientId(value);
-    if (!value || value === "nouveau") return;
-    const client = clients.find((c) => c.id === value);
-    if (!client) return;
-    setForm((current) => ({
-      ...current,
-      client: client.name || current.client,
-      clientEmail: client.email || current.clientEmail,
-      clientPhone: client.phone || current.clientPhone,
-    }));
-  }
-
-  function syncClientRefFromProject(projectClient, projectEmail) {
-    if (!projectClient) return;
-    const match = clients.find(
-      (c) => c.name === projectClient || c.email === projectEmail
-    );
-    setSelectedClientId(match ? match.id : "");
   }
 
   function updateLine(id, field, value) {
@@ -1207,16 +1187,6 @@ export default function DevisEditor() {
   async function saveClientInfo() {
     setSavingClient(true);
     try {
-      // Sauvegarder comme nouvelle référence client si applicable
-      if (selectedClientId === "nouveau" && form.client.trim()) {
-        const { client: saved } = await apiSend("/api/clients", {
-          name: form.client.trim(),
-          email: form.clientEmail.trim(),
-          phone: form.clientPhone.trim(),
-        }, "POST");
-        setClients((prev) => [saved, ...prev]);
-        setSelectedClientId(saved.id);
-      }
       await persistQuote();
       notify("Informations client et chantier enregistrées.", "success");
     } catch (error) {
@@ -1256,6 +1226,7 @@ export default function DevisEditor() {
 
     const payload = {
       client: form.client || selectedProject?.client || "Client",
+      clientReference: form.clientReference,
       clientEmail: form.clientEmail,
       clientPhone: form.clientPhone,
       project: form.project || selectedProject?.title || "Chantier",
@@ -1439,7 +1410,7 @@ export default function DevisEditor() {
     setQuoteVatRate(20);
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
-    setForm({ client: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
+    setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
     setIsNewChantier(false);
     setSelectedClientId("");
     if (typeof window !== "undefined") {
@@ -1534,6 +1505,15 @@ export default function DevisEditor() {
           </div>
           <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
         </header>
+        <label className="quote-line-description">
+          <span>{L.devis.descriptionLabel}</span>
+          <textarea
+            rows={2}
+            value={settings.description ?? line.description ?? ""}
+            onChange={(event) => updateLine(line.id, "description", event.target.value)}
+            placeholder={L.devis.descriptionPlaceholder}
+          />
+        </label>
         {!hasSubItems ? (
           <>
             <div className="quote-mode-row">
@@ -1812,50 +1792,18 @@ export default function DevisEditor() {
             <article className="quote-identity-card">
               <div>
                 <span>{L.devis.clientSite}</span>
-                <div className="quote-client-grid">
-
-                  {/* Référence client */}
-                  <label className="wide client-ref-label">
-                    {L.devis.clientRef}
-                    <div className="client-ref-row">
-                      <select
-                        className="client-ref-select"
-                        value={selectedClientId}
-                        onChange={(e) => selectClientRef(e.target.value)}
-                      >
-                        <option value="">{L.devis.chooseRef}</option>
-                        {clients.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}{c.email ? ` · ${c.email}` : ""}{c.phone ? ` · ${c.phone}` : ""}
-                          </option>
-                        ))}
-                        <option value="nouveau">{L.devis.newRef}</option>
-                      </select>
-                      {selectedClientId && selectedClientId !== "nouveau" ? (
-                        <button
-                          type="button"
-                          className="client-ref-clear"
-                          title="Désélectionner"
-                          onClick={() => setSelectedClientId("")}
-                        >
-                          ✕
-                        </button>
-                      ) : null}
-                    </div>
-                    {selectedClientId === "nouveau" ? (
-                      <p className="client-ref-hint">
-                        {L.devis.newRefHint}
-                      </p>
-                    ) : selectedClientId ? (
-                      <p className="client-ref-hint client-ref-hint--linked">
-                        {L.devis.linkedRef}
-                      </p>
-                    ) : null}
-                  </label>
-
+                <div className="quote-client-grid quote-client-grid-pair">
+                  <label>{L.devis.clientRef}<input value={form.clientReference} onChange={(event) => setField("clientReference", event.target.value)} placeholder={L.devis.clientRef} /></label>
                   <label>{L.devis.client}<input value={form.client} onChange={(event) => setField("client", event.target.value)} placeholder={L.devis.client} /></label>
-                  <label>{L.devis.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
+                </div>
+                <div className="quote-client-grid quote-client-grid-pair">
                   <label>{L.devis.clientPhone}<input value={form.clientPhone} onChange={(event) => setField("clientPhone", event.target.value)} placeholder="06 12 34 56 78" /></label>
+                  <label>{L.devis.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
+                </div>
+                <div className="quote-client-grid">
+                  <label className="wide">{L.devis.clientAddress}<input value={form.chantierAddress} onChange={(event) => setField("chantierAddress", event.target.value)} placeholder={L.devis.clientAddress} /></label>
+                </div>
+                <div className="quote-client-grid">
                   <label>{L.devis.project}<select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
                     if (event.target.value === "nouveau") {
                       setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "" }));
@@ -1872,7 +1820,6 @@ export default function DevisEditor() {
                   {isNewChantier && !form.projectId ? (
                     <label>{L.devis.siteName}<input value={form.project} onChange={(event) => setField("project", event.target.value)} placeholder={L.devis.siteName} autoFocus /></label>
                   ) : null}
-                  <label className="wide">{L.devis.clientAddress}<input value={form.chantierAddress} onChange={(event) => setField("chantierAddress", event.target.value)} placeholder={L.devis.clientAddress} /></label>
                   <label>{L.devis.creationDate}<input type="date" value={form.quoteDate} onChange={(event) => setField("quoteDate", event.target.value)} /></label>
                   <label>{L.devis.startDate}<input type="date" value={form.startDate} onChange={(event) => setField("startDate", event.target.value)} /></label>
                   <label>{L.devis.expectedDur}<input value={form.expectedDuration} onChange={(event) => setField("expectedDuration", event.target.value)} placeholder="Ex: 10 jours" /></label>
