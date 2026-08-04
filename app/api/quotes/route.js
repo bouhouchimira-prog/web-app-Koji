@@ -240,6 +240,7 @@ export async function POST(request) {
     quoteNumber,
     versionNumber: body.versionNumber || "001",
     client: fixText(body.client || "Client"),
+    clientReference: fixText(body.clientReference || ""),
     clientEmail: body.clientEmail || "",
     clientPhone: fixText(body.clientPhone || ""),
     project: fixText(body.project || "Chantier"),
@@ -367,7 +368,7 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "chantierAddress", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft"];
+    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "chantierAddress", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);

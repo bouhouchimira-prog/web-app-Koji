@@ -6049,7 +6049,8 @@ body :where(
   margin-top: 10px;
 }
 
-.quote-company-grid {
+.quote-company-grid,
+.quote-client-grid-pair {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -6440,6 +6441,31 @@ body :where(
 .quote-sub-item-header .quote-line-label-input-header {
   text-align: left;
   padding: 8px 4px !important;
+}
+
+.quote-line-description {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 14px 12px;
+}
+
+.quote-line-description span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.quote-line-description textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  color: var(--navy);
 }
 
 .quote-sub-item-header b {
@@ -11857,64 +11883,6 @@ body :where(
   color: #166534;
 }
 
-/* ── Référence client (devis form) ─────────────────────────────────── */
-.client-ref-label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.client-ref-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.client-ref-select {
-  flex: 1;
-  min-width: 0;
-  background: #fff;
-  border: 1.5px solid #d4c9bc;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 0.88rem;
-  color: #2d2420;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
-  transition: border-color .14s;
-}
-.client-ref-select:focus { border-color: #1d74ff; }
-
-.client-ref-clear {
-  background: #f1ede8;
-  border: none;
-  border-radius: 6px;
-  width: 30px;
-  height: 30px;
-  font-size: 0.8rem;
-  color: #9b8b7b;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background .12s;
-}
-.client-ref-clear:hover { background: #e2d9ce; color: #4a3f35; }
-
-.client-ref-hint {
-  margin: 0;
-  font-size: 0.76rem;
-  color: #9b8b7b;
-  font-style: italic;
-}
-.client-ref-hint--linked {
-  color: #16a34a;
-  font-style: normal;
-  font-weight: 600;
-}
-
 /* ── Language picker (topbar) ──────────────────────────────────────── */
 .topbar-lang {
   position: relative;
@@ -12118,7 +12086,6 @@ body :where(
 [dir="rtl"] .notif-row { flex-direction: row-reverse; }
 [dir="rtl"] .home-list-item { flex-direction: row-reverse; }
 [dir="rtl"] .home-task-actions { flex-direction: row-reverse; }
-[dir="rtl"] .client-ref-row { flex-direction: row-reverse; }
 
 /* ── Équipe: creative "add to team" floating card ────────────────────── */
 

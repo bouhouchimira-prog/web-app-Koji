@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
     "@supabase/supabase-js": "^2.93.2",
     "@vercel/postgres": "^0.10.0",
     "next": "latest",
