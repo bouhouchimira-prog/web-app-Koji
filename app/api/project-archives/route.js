@@ -8,7 +8,7 @@ function normalizeArchive(archive) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   let archives = scopedItems(db.projectArchives, userId);

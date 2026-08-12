@@ -77,14 +77,14 @@ function amountFromMode(body, summary) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   return ok({ invoices: scopedItems(db.invoices, userId).map(normalizeInvoice) });
 }
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveUserId(request, body, db);
   const now = new Date().toISOString();
 
   // Invoices can also be created directly from an intervention report (no
@@ -208,7 +208,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveUserId(request, body, db);
   const index = findScopedIndex(db.invoices, body.id, userId);
   if (index === -1) return badRequest("Facture introuvable.", 404);
 

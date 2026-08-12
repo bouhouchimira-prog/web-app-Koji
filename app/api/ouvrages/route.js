@@ -1,6 +1,7 @@
 import catalog from "../../../data/catalog-ouvrages.json";
 import { ok, badRequest } from "../../../lib/http";
-import { addHistory, findScopedIndex, readDb, writeDb } from "../../../lib/db";
+import { ADMIN_SCOPE, addHistory, findScopedIndex, readDb, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixText } from "../../../lib/text";
 
 function normalizeOuvrage(item) {
@@ -45,7 +46,7 @@ export async function POST(request) {
   if (!body.code || !body.label) return badRequest("Code et designation obligatoires.");
 
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const now = new Date().toISOString();
   const ouvrage = normalizeOuvrage({
     id: `ouv-${Date.now()}`,
@@ -86,9 +87,9 @@ export async function PATCH(request) {
   if (!body.id) return badRequest("Ouvrage introuvable.");
 
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const now = new Date().toISOString();
-  const index = findScopedIndex(db.ouvrages, body.id, ""); // shared library — anyone can edit
+  const index = findScopedIndex(db.ouvrages, body.id, ADMIN_SCOPE); // shared library — anyone can edit
   const source = index === -1 ? catalog.find((item) => item.id === body.id) : db.ouvrages[index];
   if (!source) return badRequest("Ouvrage introuvable.", 404);
 
@@ -120,11 +121,11 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
-  const userId = searchParams.get("userId") || "";
   if (!id) return badRequest("Ouvrage introuvable.");
 
   const db = await readDb();
-  const index = findScopedIndex(db.ouvrages, id, ""); // shared library — anyone can delete
+  const userId = await getVerifiedUserId(request);
+  const index = findScopedIndex(db.ouvrages, id, ADMIN_SCOPE); // shared library — anyone can delete
   const existing = index === -1 ? catalog.find((item) => item.id === id) : db.ouvrages[index];
   if (!existing) return badRequest("Ouvrage introuvable.", 404);
 

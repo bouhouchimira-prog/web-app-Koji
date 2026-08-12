@@ -3,6 +3,7 @@ import { readDb } from "../../../../lib/db";
 import { fixObjectText, fixText } from "../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote } from "../../../../lib/quote-mapping";
+import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 
 // The client (particulier) portal has no Supabase session of its own — quotes
 // belong to the company's Supabase user_id, so RLS would hide them from a
@@ -51,15 +52,19 @@ function mapChantierLite(row) {
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const emailParam = normalizeEmail(url.searchParams.get("email"));
-  const userId = url.searchParams.get("userId") || "";
   const id = url.searchParams.get("id") || "";
 
-  const db = await readDb();
-  const user = db.users.find((entry) => entry.id === userId) || db.users.find((entry) => normalizeEmail(entry.email) === emailParam);
-  const email = normalizeEmail(emailParam || user?.email);
+  // This used to accept a plain ?email= with no proof of identity — anyone who
+  // knew (or guessed) a client's email could read their quotes, including the
+  // signature portal password embedded in them. Now it requires the signed
+  // token issued at client-portal-login instead.
+  const userId = getVerifiedPortalUserId(request);
+  if (!userId) return ok({ quotes: [] });
 
-  if (!email && !user?.id) return ok({ quotes: [] });
+  const db = await readDb();
+  const user = db.users.find((entry) => entry.id === userId);
+  if (!user) return ok({ quotes: [] });
+  const email = normalizeEmail(user.email);
 
   const supabase = getSupabaseAdmin();
   const { data: quoteRows, error } = await supabase.from("quotes").select("*");

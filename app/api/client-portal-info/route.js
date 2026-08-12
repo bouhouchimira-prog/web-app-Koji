@@ -1,22 +1,22 @@
 import { ok } from "../../../lib/http";
-import { getUserScope, readDb } from "../../../lib/db";
+import { ADMIN_SCOPE, getUserScope, readDb } from "../../../lib/db";
 import { fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
 
-  if (!projectId) return ok({ access: null });
+  if (!projectId || !userId) return ok({ access: null });
 
   const supabase = getSupabaseAdmin();
   const { data: quoteRows } = await supabase.from("quotes").select("*").eq("chantier_id", projectId);
   const quotes = (quoteRows || [])
     .map((row) => mapQuote(row))
-    .filter((quote) => !userId || quote.userId === userId);
+    .filter((quote) => userId === ADMIN_SCOPE || quote.userId === userId);
 
   for (const quote of quotes) {
     const portalId = quote.clientPortalAccess?.portalIdentifier ||
@@ -38,7 +38,8 @@ export async function GET(request) {
   }
 
   const notification = (db.notifications || []).find(
-    (n) => n.projectId === projectId && n.type === "client.access.sent" && n.meta?.portalIdentifier
+    (n) => n.projectId === projectId && n.type === "client.access.sent" && n.meta?.portalIdentifier &&
+      (userId === ADMIN_SCOPE || n.userId === userId)
   );
   if (notification?.meta?.portalIdentifier) {
     return ok({

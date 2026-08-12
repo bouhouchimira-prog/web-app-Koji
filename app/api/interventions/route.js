@@ -1,5 +1,6 @@
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 function normalizeIntervention(item) {
@@ -8,7 +9,7 @@ function normalizeIntervention(item) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   const items = scopedItems(db.interventions, userId)
     .slice()
     .sort((a, b) => String(b.date || b.createdAt || "").localeCompare(String(a.date || a.createdAt || "")));
@@ -18,7 +19,7 @@ export async function GET(request) {
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const now = new Date().toISOString();
 
   if (!String(body.client || "").trim()) return badRequest("Client obligatoire.", 400);
@@ -71,7 +72,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveUserId(request, body, db);
   const index = findScopedIndex(db.interventions, body.id, userId);
   if (index === -1) return badRequest("Intervention introuvable.", 404);
 

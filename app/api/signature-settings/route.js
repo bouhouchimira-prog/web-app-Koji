@@ -1,16 +1,17 @@
 import { ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   return ok({ signatureSettings: scopedItems(db.signatureSettings, userId) });
 }
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const existingIndex = db.signatureSettings.findIndex((item) => item.userId === userId);
   const now = new Date().toISOString();
   const setting = {
@@ -39,7 +40,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveUserId(request, body, db);
   const index = findScopedIndex(db.signatureSettings, body.id, userId);
   if (index === -1) return ok({ error: "Signature introuvable." }, 404);
 

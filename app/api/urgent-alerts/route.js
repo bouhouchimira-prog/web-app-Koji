@@ -1,19 +1,16 @@
 import { ok, badRequest } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 const VALID_TYPES = ["degat", "fuite", "urgence", "incendie", "autre"];
 const TYPE_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 
-// Use the raw userId from the URL — NOT getUserScope, which strips admin IDs to "".
-// Alerts are always scoped by the company user's real ID.
-function getRawUserId(request) {
-  return new URL(request.url).searchParams.get("userId") || "";
-}
-
 export async function GET(request) {
   const db = await readDb();
-  const userId = getRawUserId(request);
+  // The company's real, verified id — deliberately NOT getUserScope/resolveUserId
+  // (which strip admin ids to ""): alerts are always scoped by a real company id.
+  const userId = await getVerifiedUserId(request);
   if (!userId) return ok({ alerts: [] });
   const alerts = (db.urgentAlerts || [])
     .filter((a) => a.userId === userId && a.status !== "resolved")
@@ -135,7 +132,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = String(body.userId || "");
+  const userId = await getVerifiedUserId(request, body);
   const now = new Date().toISOString();
 
   if (!userId || !Array.isArray(db.urgentAlerts)) return ok({ error: "Alerte introuvable." }, 404);

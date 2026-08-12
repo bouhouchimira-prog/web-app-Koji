@@ -1,5 +1,6 @@
 import { ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 function normalizeDocument(document) {
@@ -11,7 +12,7 @@ function normalizeDocument(document) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   const quoteId = url.searchParams.get("quoteId") || "";
@@ -26,7 +27,7 @@ export async function GET(request) {
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const now = new Date().toISOString();
   const project = body.projectId ? db.projects.find((item) => item.id === body.projectId) : null;
 
@@ -67,7 +68,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveUserId(request, body, db);
   const index = findScopedIndex(db.projectDocuments, body.id, userId);
   if (index === -1) return ok({ error: "Document introuvable." }, 404);
 
