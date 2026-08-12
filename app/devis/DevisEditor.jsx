@@ -295,6 +295,7 @@ export default function DevisEditor() {
   // clobbering a quote's own saved company/IBAN snapshot when the two
   // network calls resolve in the wrong order.
   const quoteCompanyAppliedRef = useRef(false);
+  const persistQuoteInFlightRef = useRef(null);
 
   useEffect(() => {
     apiGet("/api/auth/profile")
@@ -1202,7 +1203,20 @@ export default function DevisEditor() {
     return false;
   }
 
-  async function persistQuote(manual = true) {
+  // Guards against a double-click (or an autosave racing a manual save)
+  // firing two concurrent POSTs before the first one returns an id — that
+  // created two separate quote rows for the same devis instead of one
+  // create + one update. Concurrent callers now await the same in-flight save.
+  function persistQuote(manual = true) {
+    if (persistQuoteInFlightRef.current) return persistQuoteInFlightRef.current;
+    const promise = persistQuoteImpl(manual).finally(() => {
+      persistQuoteInFlightRef.current = null;
+    });
+    persistQuoteInFlightRef.current = promise;
+    return promise;
+  }
+
+  async function persistQuoteImpl(manual = true) {
     let projectId = selectedProject?.id || form.projectId || "";
     let projectReference = selectedProject?.reference || "";
     let nextProjects = projects;
