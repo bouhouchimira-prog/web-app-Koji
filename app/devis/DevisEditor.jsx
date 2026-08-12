@@ -1362,6 +1362,18 @@ export default function DevisEditor() {
     }
   }
 
+  async function handleTransformToInvoice() {
+    try {
+      const quote = await persistQuote();
+      await apiSend("/api/invoices", { transformQuote: true, quoteId: quote.id });
+      const token = readStoredUser()?.accessToken || "";
+      window.open(`/api/quotes/${quote.id}/documents?type=facture&format=pdf&accessToken=${encodeURIComponent(token)}`, "_blank");
+      notify("Facture générée : retrouvez-la dans Factures.", "success");
+    } catch (error) {
+      notifyError(error, "Impossible de transformer ce devis en facture.");
+    }
+  }
+
   async function handlePreview(type = "quote") {
     if (!requireLines()) return;
     try {
@@ -2287,6 +2299,7 @@ export default function DevisEditor() {
           <button type="button" className="button danger" onClick={handleCancel}>{L.common.cancel}</button>
           <button type="button" className="button secondary" onClick={handleConfirm}>{L.devis.confirm}</button>
           <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
+          <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
         </div>
 
         {generatedQuote ? (

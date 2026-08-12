@@ -59,14 +59,15 @@ export default function FacturationPage() {
   });
 
   const eligibleQuotes = useMemo(() => {
+    const transformedQuoteIds = new Set(invoices.filter((invoice) => invoice.sourceType === "quote-transform").map((invoice) => invoice.quoteId));
     return quotes
-      .filter(signedQuote)
+      .filter((quote) => signedQuote(quote) || transformedQuoteIds.has(quote.id))
       .map((quote) => ({
         quote,
         project: projects.find((project) => project.id === quote.projectId)
       }))
       .filter(({ project }) => project && project.status !== "Archive");
-  }, [projects, quotes]);
+  }, [projects, quotes, invoices]);
 
   useEffect(() => {
     if (selectedQuoteId || eligibleQuotes.length === 0) return;
@@ -113,6 +114,11 @@ export default function FacturationPage() {
   }
 
   function downloadInvoicePdf(invoice) {
+    if (invoice.sourceType === "quote-transform" && invoice.quoteId) {
+      const token = readStoredUser()?.accessToken || "";
+      window.open(`/api/quotes/${invoice.quoteId}/documents?type=facture&format=pdf&accessToken=${encodeURIComponent(token)}`, "_blank");
+      return;
+    }
     const userId = readStoredUser()?.id || "";
     window.open(`/api/invoices/pdf?id=${encodeURIComponent(invoice.id)}&userId=${encodeURIComponent(userId)}`, "_blank");
   }

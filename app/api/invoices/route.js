@@ -144,6 +144,67 @@ export async function POST(request) {
     return ok({ invoice: normalizeInvoice(invoice) }, 201);
   }
 
+  // "Transformer ce devis en facture" (DevisEditor): a direct 1-to-1 copy —
+  // same total, same number as the quote, no draft/signed requirement, no
+  // percent/deposit math. Re-transforming the same quote updates its existing
+  // invoice instead of creating a duplicate each time the button is clicked.
+  if (body.transformQuote && body.quoteId) {
+    const supabase = getSupabaseAdmin();
+    const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", body.quoteId).maybeSingle();
+    if (!quoteRow) return badRequest("Devis introuvable.", 404);
+    const quote = mapQuote(quoteRow);
+    let project = null;
+    if (quote.projectId) {
+      const { data: projectRow } = await supabase.from("chantiers").select("*").eq("id", quote.projectId).maybeSingle();
+      if (projectRow) project = mapChantierLite(projectRow);
+    }
+    const amountTtc = toAmount(quote.totalTtc || quote.totalHt || 0);
+
+    const existingIndex = db.invoices.findIndex((inv) => inv.quoteId === quote.id && inv.sourceType === "quote-transform");
+    const previous = existingIndex === -1 ? null : db.invoices[existingIndex];
+    const invoice = {
+      id: previous?.id || `fac-${Date.now()}`,
+      userId: quote.userId || userId,
+      invoiceNumber: quote.quoteNumber,
+      projectId: quote.projectId || "",
+      quoteId: quote.id,
+      quoteNumber: quote.quoteNumber,
+      projectTitle: fixText(project?.title || quote.project || "Chantier"),
+      client: fixText(project?.client || quote.client || "Client"),
+      clientEmail: project?.clientEmail || quote.clientEmail || "",
+      type: "Facture (devis transforme)",
+      amountMode: "fixed",
+      percent: 0,
+      amountTtc,
+      totalQuoteTtc: amountTtc,
+      alreadyInvoicedBefore: 0,
+      remainingAfter: 0,
+      status: previous?.status || "Brouillon",
+      dueDate: previous?.dueDate || now.slice(0, 10),
+      issuedAt: previous?.issuedAt || "",
+      paidAt: previous?.paidAt || "",
+      notes: previous?.notes || "",
+      sourceType: "quote-transform",
+      createdAt: previous?.createdAt || now,
+      updatedAt: now
+    };
+
+    if (existingIndex === -1) db.invoices.unshift(invoice);
+    else db.invoices[existingIndex] = invoice;
+
+    addHistory(db, {
+      userId: invoice.userId,
+      type: "invoice.created",
+      label: `Devis transforme en facture: ${invoice.invoiceNumber}`,
+      entityId: invoice.id,
+      entityType: "invoice",
+      meta: { quoteId: quote.id, amountTtc }
+    });
+
+    await writeDb(db);
+    return ok({ invoice: normalizeInvoice(invoice) }, 201);
+  }
+
   const supabase = getSupabaseAdmin();
   const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", body.quoteId).maybeSingle();
   const { data: projectRow } = await supabase.from("chantiers").select("*").eq("id", body.projectId).maybeSingle();
