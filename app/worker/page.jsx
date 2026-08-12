@@ -136,7 +136,9 @@ export default function WorkerPage() {
   async function loadPortal(nextWorker = worker) {
     if (!nextWorker?.id) return;
     setError("");
-    const data = await fetchJson(`/api/worker-portal?workerId=${encodeURIComponent(nextWorker.id)}`);
+    const data = await fetchJson("/api/worker-portal", {
+      headers: { Authorization: `Bearer ${nextWorker.workerToken || ""}` },
+    });
     setPortal(data);
   }
 
@@ -168,8 +170,8 @@ export default function WorkerPage() {
     try {
       const data = await fetchJson("/api/worker-actions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, workerId: worker.id }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${worker.workerToken || ""}` },
+        body: JSON.stringify(payload),
       });
       setPortal(data);
     } catch (exception) {
