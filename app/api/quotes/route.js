@@ -323,6 +323,14 @@ export async function PATCH(request) {
   let signatureAccess = null;
   const sideDb = await readDb();
 
+  if (action === "send" && quote.signatureStatus === "Signe" && !body.confirmReopenSigned) {
+    // Used to silently reset an already-signed quote back to "En attente" and
+    // regenerate its signature access, discarding the signer's name/date/etc.
+    // without ever checking whether it was signed. A caller that genuinely
+    // needs to reopen a signed quote must now pass confirmReopenSigned: true.
+    return badRequest("Ce devis est déjà signé. Renvoyer l'invitation effacerait la signature existante.", 409);
+  }
+
   if (action === "send") {
     if (!quote.signatureToken) quote.signatureToken = makeToken("sig");
     if (quote.sentAt) {

@@ -39,7 +39,7 @@ export default function ArchiveDetailPage() {
   const { data: projects, loading: projectsLoading } = useApi("/api/projects", "projects");
   const { data: projectArchives } = useApi("/api/project-archives", "projectArchives");
   const { data: projectDocuments, setData: setProjectDocuments } = useApi("/api/project-documents", "projectDocuments");
-  const { data: projectMessages } = useApi("/api/project-messages", "messages");
+  const { data: projectMessages } = useApi(`/api/project-messages?projectId=${params.id}`, "messages");
   const [docForm, setDocForm] = useState(emptyDocForm);
 
   const project = projects.find((item) => item.id === params.id);

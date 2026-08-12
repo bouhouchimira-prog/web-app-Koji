@@ -1,6 +1,7 @@
 ﻿import { ok } from "../../../lib/http";
 import { readDb, writeDb } from "../../../lib/db";
 import { publicWorker, verifyWorkerPassword } from "../../../lib/worker-auth";
+import { issueWorkerToken } from "../../../lib/worker-session";
 
 function findWorker(db, identifier) {
   const value = String(identifier || "").trim().toLowerCase();
@@ -29,5 +30,5 @@ export async function POST(request) {
   worker.lastLoginAt = new Date().toISOString();
   await writeDb(db);
 
-  return ok({ worker: publicWorker(worker) });
+  return ok({ worker: { ...publicWorker(worker), workerToken: issueWorkerToken(worker.id) } });
 }

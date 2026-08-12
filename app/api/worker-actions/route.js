@@ -3,16 +3,7 @@ import { addHistory, findScopedIndex, readDb, writeDb } from "../../../lib/db";
 import { publicWorker } from "../../../lib/worker-auth";
 import { addCompanyNotification, addWorkerNotification, applyTaskTimeAction, applyWorkerClockAction, buildWorkerPortal, taskBelongsToWorker } from "../../../lib/worker-portal";
 import { fixObjectText, fixText } from "../../../lib/text";
-
-function findWorker(db, body) {
-  const workerId = body.workerId || "";
-  const loginId = String(body.loginId || body.identifier || "").toLowerCase();
-  return (db.workers || []).find((worker) => {
-    if (workerId && worker.id === workerId) return true;
-    if (loginId && String(worker.loginId || worker.identifier || worker.email || "").toLowerCase() === loginId) return true;
-    return false;
-  }) || null;
-}
+import { getVerifiedWorkerId } from "../../../lib/worker-session";
 
 function findWorkerTask(db, body, worker) {
   const task = (db.tasks || []).find((item) => item.id === body.taskId);
@@ -22,8 +13,15 @@ function findWorkerTask(db, body, worker) {
 
 export async function POST(request) {
   const body = await request.json();
+
+  // Used to trust body.workerId/loginId with no proof of identity — anyone
+  // could act (clock in/out, add photos, file claims) as any worker just by
+  // naming their id. Now requires the signed token issued at worker-auth login.
+  const workerId = getVerifiedWorkerId(request, body);
+  if (!workerId) return ok({ error: "Session expiree, merci de vous reconnecter." }, 401);
+
   const db = await readDb();
-  const worker = findWorker(db, body);
+  const worker = (db.workers || []).find((entry) => entry.id === workerId);
   if (!worker) return ok({ error: "Ouvrier introuvable." }, 404);
 
   const action = body.action || "";

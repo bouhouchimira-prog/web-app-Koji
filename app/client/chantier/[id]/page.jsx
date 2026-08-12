@@ -286,7 +286,9 @@ export default function ClientChantierPage() {
         const q = data.quote || null;
         setQuote(q);
         if (q?.projectId) {
-          fetch(`/api/project-messages?projectId=${q.projectId}`)
+          fetch(`/api/project-messages?projectId=${q.projectId}`, {
+            headers: { Authorization: `Bearer ${stored.portalToken || ""}` },
+          })
             .then((r) => r.json())
             .then((d) => setMessages(d.messages || []))
             .catch(() => {});
