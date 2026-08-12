@@ -6427,6 +6427,18 @@ body :where(
   cursor: default;
 }
 
+.quote-line-open-button {
+  flex-shrink: 0;
+  min-height: 30px;
+  border: 1px solid #bad7ff;
+  border-radius: 10px;
+  background: #eef6ff;
+  color: var(--blue);
+  padding: 0 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
 .quote-line-label-input-header {
   flex: 1;
   border-bottom: none !important;

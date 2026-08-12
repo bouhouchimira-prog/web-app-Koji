@@ -231,6 +231,7 @@ export default function DevisEditor() {
   const [signatureDelivery, setSignatureDelivery] = useState(null);
   const [copyMessage, setCopyMessage] = useState("");
   const [selectedSupply, setSelectedSupply] = useState(null);
+  const [selectedOuvrageRef, setSelectedOuvrageRef] = useState(null);
   const [supplyComposer, setSupplyComposer] = useState({
     open: false,
     mode: "manual",
@@ -977,6 +978,11 @@ export default function DevisEditor() {
     });
   }
 
+  function openOuvrageReference(line) {
+    const source = ouvrages.find((item) => item.id === line.id);
+    if (source) setSelectedOuvrageRef(source);
+  }
+
   function openSupplyReference(lineId, materialIndex, material) {
     const supply = findSupplyForMaterial(supplies, material);
     if (supply) {
@@ -1510,6 +1516,7 @@ export default function DevisEditor() {
     const hasSubItems = subItems.length > 0;
     const roomLines = linesByRoom[line.room || "Services"] || [];
     const lineIndex = roomLines.findIndex((item) => item.id === line.id);
+    const linkedOuvrage = ouvrages.find((item) => item.id === line.id);
     return (
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
@@ -1518,6 +1525,9 @@ export default function DevisEditor() {
             <button type="button" className="quote-line-move-btn" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={() => moveLine(line.id, "down")} disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1}>▼</button>
           </div>
           <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
+          {linkedOuvrage ? (
+            <button type="button" className="quote-line-open-button" onClick={() => openOuvrageReference(line)}>{L.devis.openBtn}</button>
+          ) : null}
         </header>
         <label className="quote-line-description">
           <span>{L.devis.descriptionLabel}</span>
@@ -2395,6 +2405,27 @@ export default function DevisEditor() {
                 <button type="button" onClick={() => setSelectedSupply(null)}>{L.devis.closeBtn}</button>
                 <Link className="button secondary" href={`/fournitures?supply=${selectedSupply.id}`}>{L.devis.openInSupply}</Link>
                 <button type="button" className="button blue" onClick={() => { applySupplyToLine(selectedSupply.lineId, selectedSupply, selectedSupply.materialIndex); setSelectedSupply(null); }}>{L.devis.useBtn}</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {selectedOuvrageRef ? (
+          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSelectedOuvrageRef(null)}>
+            <div className="mini-modal supply-detail-modal" onClick={(event) => event.stopPropagation()}>
+              <h2>{selectedOuvrageRef.label}</h2>
+              <p>{L.devis.ouvrageLinked}</p>
+              <dl className="supply-detail-list">
+                <div><dt>{L.bibliotheque.code}</dt><dd>{selectedOuvrageRef.code || "-"}</dd></div>
+                <div><dt>{L.bibliotheque.family}</dt><dd>{selectedOuvrageRef.family || "-"}</dd></div>
+                <div><dt>{L.bibliotheque.unit}</dt><dd>{selectedOuvrageRef.unit || "-"}</dd></div>
+                <div><dt>{L.bibliotheque.normTime}</dt><dd>{Number(selectedOuvrageRef.normativeTime || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</dd></div>
+                <div><dt>{L.bibliotheque.hourlyRateEur}</dt><dd>{money(selectedOuvrageRef.hourlyRate || 0)}</dd></div>
+                {selectedOuvrageRef.description ? <div><dt>{L.bibliotheque.description}</dt><dd>{selectedOuvrageRef.description}</dd></div> : null}
+              </dl>
+              <div className="supply-modal-actions">
+                <button type="button" onClick={() => setSelectedOuvrageRef(null)}>{L.devis.closeBtn}</button>
+                <Link className="button secondary" href="/bibliotheque-ouvrages">{L.devis.openInLibrary}</Link>
               </div>
             </div>
           </div>
