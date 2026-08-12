@@ -131,8 +131,8 @@ function sourceToTask(source, settings = {}) {
   };
 }
 
-function recalculateLine(line, settings = {}) {
-  const lineVatRate = Number(pricingProfile.vatRate || 0.2);
+function recalculateLine(line, settings = {}, quoteVatRatePercent) {
+  const lineVatRate = quoteVatRatePercent != null ? Number(quoteVatRatePercent) / 100 : Number(pricingProfile.vatRate || 0.2);
   const editedMaterials = Array.isArray(settings.materialLines) ? settings.materialLines : null;
   const materialLines = (editedMaterials || line.materialLines || []).map((material) => {
     const unitsToBuy = Math.max(0, Number(material.unitsToBuy ?? material.quantityNeeded ?? 0));
@@ -188,9 +188,9 @@ function recalculateLine(line, settings = {}) {
   };
 }
 
-function computeSubItemLine(subItem, parentLine = {}) {
+function computeSubItemLine(subItem, parentLine = {}, quoteVatRatePercent) {
   const billingMode = subItem.billingMode || "fixed";
-  const vatRate = Number(pricingProfile.vatRate || 0.2);
+  const vatRate = quoteVatRatePercent != null ? Number(quoteVatRatePercent) / 100 : Number(pricingProfile.vatRate || 0.2);
   let totalHt = 0;
   if (billingMode === "fixed") {
     totalHt = round2(Number(subItem.fixedAmountInput || 0));
@@ -598,16 +598,16 @@ export default function DevisEditor() {
         adjustmentReason: task.adjustmentReason,
         fixedDuration: settings.fixedDuration != null ? Number(settings.fixedDuration) : null,
         fixedDurationUnit: settings.fixedDurationUnit || "h"
-      }, settings);
+      }, settings, quoteVatRate);
 
       const rawSubItems = Array.isArray(settings.subItems) ? settings.subItems : [];
       if (!rawSubItems.length) return line;
-      const subItems = rawSubItems.map((sub) => computeSubItemLine(sub, line));
+      const subItems = rawSubItems.map((sub) => computeSubItemLine(sub, line, quoteVatRate));
       const subTotalHt = round2(subItems.reduce((s, sub) => s + sub.totalHt, 0));
       const subTotalTtc = round2(subItems.reduce((s, sub) => s + sub.totalTtc, 0));
       return { ...line, totalHt: subTotalHt, totalTtc: subTotalTtc, vatAmount: round2(subTotalTtc - subTotalHt), subItems };
     });
-  }, [lineSettings, selectedSources, supplies, company]);
+  }, [lineSettings, selectedSources, supplies, company, quoteVatRate]);
 
   const totals = useMemo(() => {
     const hoursPerDay = Number(company.hoursPerDay || 7);
