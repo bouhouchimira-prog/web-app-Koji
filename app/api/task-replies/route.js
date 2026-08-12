@@ -1,11 +1,12 @@
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await getVerifiedUserId(request, body);
   const now = new Date().toISOString();
 
   const taskId = body.taskId || "";
@@ -15,13 +16,15 @@ export async function POST(request) {
   const fileUrl = body.fileUrl || "";
 
   if (!message && !fileUrl) return badRequest("Le message ne peut pas être vide.");
+  if (!userId) return badRequest("Session expiree. Reconnectez-vous.", 401);
 
   const task = (db.tasks || []).find((t) => t.id === taskId);
   if (!task) return badRequest("Tache introuvable.", 404);
+  if (task.userId && task.userId !== userId) return badRequest("Tache introuvable.", 404);
 
   if (!Array.isArray(db.projectDocuments)) db.projectDocuments = [];
 
-  const companyUser = db.users.find((u) => u.id === (body.userId || ""));
+  const companyUser = db.users.find((u) => u.id === userId);
   const senderName = fixText(companyUser?.business?.raisonSociale || companyUser?.name || "L'entreprise");
 
   const reply = {

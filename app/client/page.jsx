@@ -162,8 +162,7 @@ export default function ClientHomePage() {
     const stored = getStoredUser();
     setUser(stored);
     if (!stored?.email) { setLoading(false); return; }
-    const params = new URLSearchParams({ email: stored.email, userId: stored.id || "" });
-    fetch(`/api/client/quotes?${params.toString()}`)
+    fetch("/api/client/quotes", { headers: { Authorization: `Bearer ${stored.portalToken || ""}` } })
       .then((r) => r.json())
       .then((data) => setQuotes(data.quotes || []))
       .finally(() => setLoading(false));
@@ -178,8 +177,8 @@ export default function ClientHomePage() {
     if (!user?.id) return;
     const r = await fetch("/api/client/tasks", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, taskId, action: "client-validate" })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.portalToken || ""}` },
+      body: JSON.stringify({ taskId, action: "client-validate" })
     });
     if (!r.ok) return;
     const data = await r.json();

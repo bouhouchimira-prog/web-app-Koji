@@ -1,7 +1,18 @@
 import { ok, badRequest } from "../../../lib/http";
 import { findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixObjectText } from "../../../lib/text";
 import { sendClientAccessEmail } from "../../../lib/mailer";
+
+// Notifications are read by both company/pro accounts (Supabase session) and
+// particulier client-portal accounts (signed portal token, see
+// lib/portal-session.js) — try the company scope first, then fall back to a
+// verified portal identity so client accounts keep working.
+async function resolveRequesterId(request, body, db) {
+  const companyScope = body ? await resolveUserId(request, body, db) : await getUserScope(request, db);
+  if (companyScope) return companyScope;
+  return getVerifiedPortalUserId(request, body);
+}
 
 function normalizeNotification(notification) {
   return {
@@ -27,20 +38,19 @@ function forRequester(items, db, requesterId) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
-  const requesterId = new URL(request.url).searchParams.get("userId") || "";
-  const items = forRequester(scopedItems(db.notifications, userId), db, requesterId);
+  const userId = await resolveRequesterId(request, null, db);
+  const items = forRequester(scopedItems(db.notifications, userId), db, userId);
   return ok({ notifications: items.map(normalizeNotification) });
 }
 
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveRequesterId(request, body, db);
   const now = new Date().toISOString();
 
   if (body.action === "read-all") {
-    const items = forRequester(scopedItems(db.notifications, userId), db, body.userId || "");
+    const items = forRequester(scopedItems(db.notifications, userId), db, userId);
     items.forEach((n) => { n.read = true; n.updatedAt = now; });
     await writeDb(db);
     return ok({ updated: true });

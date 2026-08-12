@@ -18,8 +18,8 @@ export default function ClientQuotePage({ params }) {
 
   useEffect(() => {
     const user = getStoredUser();
-    const query = new URLSearchParams({ id: params.id, email: user?.email || "", userId: user?.id || "" });
-    fetch(`/api/client/quotes?${query.toString()}`)
+    const query = new URLSearchParams({ id: params.id });
+    fetch(`/api/client/quotes?${query.toString()}`, { headers: { Authorization: `Bearer ${user?.portalToken || ""}` } })
       .then((response) => response.json())
       .then((data) => setQuote(data.quote || null))
       .finally(() => setLoading(false));

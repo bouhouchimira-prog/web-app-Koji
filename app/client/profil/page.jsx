@@ -30,8 +30,7 @@ export default function ClientProfilePage() {
     setUser(stored);
     setPersonal(stored?.personal || {});
     if (stored?.email) {
-      const params = new URLSearchParams({ email: stored.email, userId: stored.id || "" });
-      fetch(`/api/client/quotes?${params.toString()}`)
+      fetch("/api/client/quotes", { headers: { Authorization: `Bearer ${stored.portalToken || ""}` } })
         .then((r) => r.json())
         .then((data) => { const firstQuote = data.quotes?.[0]; if (firstQuote?.company) setCompany(firstQuote.company); })
         .catch(() => {});
@@ -43,8 +42,8 @@ export default function ClientProfilePage() {
     if (!user?.email) return;
     const response = await fetch("/api/client/profile", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, email: user.email, personal }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.portalToken || ""}` },
+      body: JSON.stringify({ personal }),
     });
     const data = await response.json();
     if (data.user) {

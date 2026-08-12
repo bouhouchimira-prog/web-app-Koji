@@ -1,5 +1,6 @@
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { addWorkerNotification } from "../../../lib/worker-portal";
 import { fixObjectText, fixText } from "../../../lib/text";
 
@@ -9,15 +10,17 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const now = new Date().toISOString();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const taskId = body.taskId || "";
   const message = fixText(body.message || "");
   const audience = AUDIENCES.has(body.audience) ? body.audience : "both";
 
   if (!message.trim()) return badRequest("Le message ne peut pas etre vide.");
+  if (!userId) return badRequest("Session expiree. Reconnectez-vous.", 401);
 
   const task = (db.tasks || []).find((t) => t.id === taskId);
   if (!task) return badRequest("Tache introuvable.", 404);
+  if (task.userId && task.userId !== userId) return badRequest("Tache introuvable.", 404);
 
   if (!Array.isArray(db.projectDocuments)) db.projectDocuments = [];
 

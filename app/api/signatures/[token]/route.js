@@ -5,6 +5,7 @@ import { generateTasksForSignedQuote } from "../../../../lib/quote-projects";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 import { sendClientAccessEmail } from "../../../../lib/mailer";
+import { hashPassword } from "../../../../lib/password-hash";
 
 // The signing client has no Kôji session (they're not one of the company's
 // Supabase-authenticated users), so this can't use a per-user token — it
@@ -102,9 +103,12 @@ async function ensureClientPortalAccess(db, quote, body, request, now) {
     );
   });
 
-  const generatedPassword = makeTemporaryPassword();
+  // A fresh temporary password each time (rather than reusing/resending an old
+  // one) means the account never needs its plaintext password kept around —
+  // only the hash is stored (see lib/password-hash.js).
+  const password = makeTemporaryPassword();
+  const { salt: passwordSalt, hash: passwordHash } = hashPassword(password);
   const existing = userIndex === -1 ? null : db.users[userIndex];
-  const password = existing?.password || generatedPassword;
   const clientAccess = {
     ...(existing?.clientAccess || {}),
     quoteIds: uniqueList([...(existing?.clientAccess?.quoteIds || []), quote.id]),
@@ -118,7 +122,9 @@ async function ensureClientPortalAccess(db, quote, body, request, now) {
     ...(existing || {}),
     id: existing?.id || makeToken("client"),
     email: existing?.email || syntheticEmail,
-    password,
+    password: undefined,
+    passwordHash,
+    passwordSalt,
     portalIdentifier: existing?.portalIdentifier || makePortalIdentifier(),
     name: fixText(body.signerName || quote.signerName || quote.client || existing?.name || "Client Koji"),
     accountType: "particulier",

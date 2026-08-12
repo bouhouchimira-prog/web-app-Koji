@@ -5,7 +5,7 @@ import { buildInterventionPdf, interventionDocumentFilename } from "../../../../
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   const url = new URL(request.url);
   const id = url.searchParams.get("id") || "";
 

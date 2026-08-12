@@ -5,3 +5,8 @@ node_modules/
 *.log
 node_modules
 .git-backup*/
+
+# Local dev-only database dump — was versioned with real accounts and
+# plaintext passwords in it. Kept locally for dev fallback only (see
+# lib/db.js's storage tiers); never commit it again.
+data/koji-db.json

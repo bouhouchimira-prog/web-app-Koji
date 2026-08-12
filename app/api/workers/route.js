@@ -1,5 +1,6 @@
 ﻿import { ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixText } from "../../../lib/text";
 import { hashPassword, makeTemporaryPassword, makeWorkerLoginId, publicWorker } from "../../../lib/worker-auth";
 import { addWorkerNotification } from "../../../lib/worker-portal";
@@ -125,14 +126,14 @@ function queueCredentialsMessage(db, worker, temporaryPassword) {
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   return ok({ workers: scopedItems(db.workers, userId).map(publicWorker) });
 }
 
 export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = body.userId || "";
+  const userId = await getVerifiedUserId(request, body);
   const firstName = fixText(body.firstName || "");
   const lastName = fixText(body.lastName || "");
   const name = fixText(body.name || [firstName, lastName].filter(Boolean).join(" ") || "Nouvel ouvrier");
@@ -199,7 +200,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const body = await request.json();
   const db = await readDb();
-  const userId = resolveUserId(body.userId || "", db);
+  const userId = await resolveUserId(request, body, db);
   const index = findScopedIndex(db.workers, body.id, userId);
   if (index === -1) return ok({ error: "Ouvrier introuvable." }, 404);
 

@@ -39,7 +39,7 @@ export default function ClientNotificationsPage() {
     const stored = getStoredUser();
     setUser(stored);
     if (!stored?.id) { setLoading(false); return; }
-    fetch(`/api/notifications?userId=${encodeURIComponent(stored.id)}`)
+    fetch("/api/notifications", { headers: { Authorization: `Bearer ${stored.portalToken || ""}` } })
       .then((r) => r.json())
       .then((data) => setNotifications(data.notifications || []))
       .finally(() => setLoading(false));
@@ -49,8 +49,8 @@ export default function ClientNotificationsPage() {
     const user = getStoredUser();
     await fetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: notif.id, action: "read", userId: user?.id })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.portalToken || ""}` },
+      body: JSON.stringify({ id: notif.id, action: "read" })
     });
     setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, read: true } : n));
   }
@@ -59,8 +59,8 @@ export default function ClientNotificationsPage() {
     const user = getStoredUser();
     await fetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "read-all", userId: user?.id })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.portalToken || ""}` },
+      body: JSON.stringify({ action: "read-all" })
     });
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
@@ -69,8 +69,8 @@ export default function ClientNotificationsPage() {
     const user = getStoredUser();
     await fetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action: "delete", userId: user?.id })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.portalToken || ""}` },
+      body: JSON.stringify({ id, action: "delete" })
     });
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }

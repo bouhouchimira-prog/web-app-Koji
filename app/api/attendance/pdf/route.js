@@ -5,7 +5,7 @@ import { buildWorkerHoursPdf, workerHoursDocumentFilename } from "../../../../li
 
 export async function GET(request) {
   const db = await readDb();
-  const userId = getUserScope(request, db);
+  const userId = await getUserScope(request, db);
   const url = new URL(request.url);
   const workerId = url.searchParams.get("workerId") || "";
   const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);

@@ -29,7 +29,10 @@ export async function POST(request) {
   const action = body.action || "";
 
   if (["start", "pause", "resume", "finish"].includes(action)) {
-    const index = findScopedIndex(db.tasks || [], body.taskId, body.userId || worker.userId || "");
+    // worker.userId comes from the worker record itself (looked up server-side
+    // above), never from the request body — a client-supplied userId here would
+    // let anyone scope this lookup to any company just by naming its id.
+    const index = findScopedIndex(db.tasks || [], body.taskId, worker.userId || "");
     const task = index === -1 ? findWorkerTask(db, body, worker) : db.tasks[index];
     if (!task || !taskBelongsToWorker(task, worker)) return ok({ error: "Tache introuvable pour cet ouvrier." }, 404);
     applyTaskTimeAction(db, { task, worker: publicWorker(worker), action });
