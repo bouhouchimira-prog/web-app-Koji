@@ -62,11 +62,21 @@ export default function FacturationPage() {
     const transformedQuoteIds = new Set(invoices.filter((invoice) => invoice.sourceType === "quote-transform").map((invoice) => invoice.quoteId));
     return quotes
       .filter((quote) => signedQuote(quote) || transformedQuoteIds.has(quote.id))
-      .map((quote) => ({
-        quote,
-        project: projects.find((project) => project.id === quote.projectId)
-      }))
-      .filter(({ project }) => project && project.status !== "Archive");
+      .map((quote) => {
+        const linkedProject = projects.find((project) => project.id === quote.projectId);
+        // A quote transformed into an invoice may have no chantier linked at
+        // all — give it a stand-in "project" shape instead of dropping it,
+        // since the rest of this page (title/client/status) expects one.
+        const project = linkedProject || {
+          id: quote.projectId || `quote-${quote.id}`,
+          title: quote.project || quote.quoteNumber || "Devis",
+          client: quote.client || "",
+          clientEmail: quote.clientEmail || "",
+          status: "Actif"
+        };
+        return { quote, project };
+      })
+      .filter(({ project }) => project.status !== "Archive");
   }, [projects, quotes, invoices]);
 
   useEffect(() => {
