@@ -88,5 +88,5 @@ export async function GET(request, context) {
     return responseFor(buildQuoteWordHtml({ quote, project, db }), filename, "application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=utf-8", inline);
   }
 
-  return responseFor(buildQuotePdf({ quote, project, db }), filename, "application/pdf", inline);
+  return responseFor(buildQuotePdf({ quote, project, db, documentType: type === "facture" ? "facture" : "devis" }), filename, "application/pdf", inline);
 }
