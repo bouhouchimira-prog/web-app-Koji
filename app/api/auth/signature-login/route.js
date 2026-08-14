@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote } from "../../../../lib/quote-mapping";
+import { hashPassword, verifyHashedPassword } from "../../../../lib/password-hash";
 
 // Same as the other public signature routes: the client isn't a Kôji session,
 // so this looks the quote up across all users via the service_role key.
@@ -21,7 +22,27 @@ export async function POST(request) {
   if (!row) return badRequest("Identifiant ou mot de passe incorrect.", 401);
 
   const quote = mapQuote(row);
-  if (quote.signatureAccessPassword !== password) return badRequest("Identifiant ou mot de passe incorrect.", 401);
+  const hasHash = Boolean(quote.signatureAccessPasswordHash && quote.signatureAccessPasswordSalt);
+  const validHash = hasHash && verifyHashedPassword(password, quote.signatureAccessPasswordSalt, quote.signatureAccessPasswordHash);
+  // Legacy plaintext access (predating hashing): accept once, then migrate
+  // this quote's row to a hash and drop the plaintext field.
+  const validLegacyPlaintext = !hasHash && quote.signatureAccessPassword === password;
+  if (!validHash && !validLegacyPlaintext) return badRequest("Identifiant ou mot de passe incorrect.", 401);
+
+  if (validLegacyPlaintext) {
+    const { salt, hash } = hashPassword(password);
+    await supabase
+      .from("quotes")
+      .update({
+        web_extras: {
+          ...row.web_extras,
+          signatureAccessPassword: "",
+          signatureAccessPasswordHash: hash,
+          signatureAccessPasswordSalt: salt
+        }
+      })
+      .eq("id", row.id);
+  }
 
   const expiresAt = quote.signatureClientAccess?.expiresAt;
   if (expiresAt && new Date(expiresAt) < new Date()) {

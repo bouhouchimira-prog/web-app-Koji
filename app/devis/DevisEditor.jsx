@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
 import { calculateTaskPrice } from "../../lib/pricing";
@@ -1355,8 +1355,7 @@ export default function DevisEditor() {
   async function handleDownload(type, format) {
     try {
       const quote = await persistQuote();
-      const token = readStoredUser()?.accessToken || "";
-      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=${format}&accessToken=${encodeURIComponent(token)}`, "_blank");
+      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=${format}`, "_blank");
     } catch (error) {
       notifyError(error, "Impossible de générer le document.");
     }
@@ -1366,8 +1365,7 @@ export default function DevisEditor() {
     try {
       const quote = await persistQuote();
       await apiSend("/api/invoices", { transformQuote: true, quoteId: quote.id });
-      const token = readStoredUser()?.accessToken || "";
-      window.open(`/api/quotes/${quote.id}/documents?type=facture&format=pdf&accessToken=${encodeURIComponent(token)}`, "_blank");
+      window.open(`/api/quotes/${quote.id}/documents?type=facture&format=pdf`, "_blank");
       notify("Facture générée : retrouvez-la dans Factures.", "success");
     } catch (error) {
       notifyError(error, "Impossible de transformer ce devis en facture.");
@@ -1378,8 +1376,7 @@ export default function DevisEditor() {
     if (!requireLines()) return;
     try {
       const quote = await persistQuote();
-      const token = readStoredUser()?.accessToken || "";
-      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=pdf&preview=1&accessToken=${encodeURIComponent(token)}`, "_blank");
+      window.open(`/api/quotes/${quote.id}/documents?type=${type}&format=pdf&preview=1`, "_blank");
       notify("Aperçu ouvert dans un nouvel onglet.", "success");
     } catch (error) {
       notifyError(error, "Impossible de générer l'aperçu.");

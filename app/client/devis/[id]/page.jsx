@@ -17,9 +17,8 @@ export default function ClientQuotePage({ params }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = getStoredUser();
     const query = new URLSearchParams({ id: params.id });
-    fetch(`/api/client/quotes?${query.toString()}`, { headers: { Authorization: `Bearer ${user?.portalToken || ""}` } })
+    fetch(`/api/client/quotes?${query.toString()}`)
       .then((response) => response.json())
       .then((data) => setQuote(data.quote || null))
       .finally(() => setLoading(false));

@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../../lib/http";
 import { nowIso } from "../../../../lib/auth";
 import { getSupabase, getSupabaseForToken } from "../../../../lib/supabase";
 import { buildWebUser } from "../../../../lib/user-profile";
+import { setSessionCookie } from "../../../../lib/session-cookies";
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -52,14 +53,16 @@ export async function POST(request) {
       accountTypeFallback: accountType
     }),
     createdAt: authUser.created_at || nowIso(),
-    lastLoginAt: nowIso(),
-    // Consumed by lib/client-api.js to authenticate API calls under RLS.
-    accessToken: session.access_token,
-    refreshToken: session.refresh_token
+    lastLoginAt: nowIso()
+    // No accessToken/refreshToken here anymore — they go in HttpOnly cookies
+    // below instead of a JSON body a script on the page could read.
   };
   if (!user.name || user.name === "Utilisateur") {
     user.name = authUser.user_metadata?.name || user.name;
   }
 
-  return ok({ user, token: session.access_token });
+  const response = ok({ user });
+  setSessionCookie(response, "access", session.access_token);
+  setSessionCookie(response, "refresh", session.refresh_token);
+  return response;
 }

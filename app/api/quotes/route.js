@@ -4,6 +4,7 @@ import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
 import { mapQuote, quoteToRow } from "../../../lib/quote-mapping";
+import { hashPassword } from "../../../lib/password-hash";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -60,6 +61,10 @@ function buildSignatureAccess(db, quote, body, request, now) {
   const phoneDigits = normalizePhone(phone);
   const identifier = quote.signatureAccessIdentifier || makeSignatureIdentifier();
   const password = makeTemporaryPassword();
+  // Only the hash is persisted (see quote-mapping.js) — `password` stays a
+  // local variable, used below just for the one-time email/SMS text and the
+  // API response, never written to the database in the clear.
+  const { salt, hash } = hashPassword(password);
   const links = buildSignatureLinks(request, quote, identifier);
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   const access = {
@@ -67,7 +72,6 @@ function buildSignatureAccess(db, quote, body, request, now) {
     identifier,
     email,
     phone,
-    password,
     loginUrl: links.signatureUrl,
     localSignatureUrl: links.localSignatureUrl,
     expiresAt,
@@ -81,7 +85,9 @@ function buildSignatureAccess(db, quote, body, request, now) {
   quote.localSignatureUrl = links.localSignatureUrl;
   quote.signatureClientAccess = access;
   quote.signatureAccessIdentifier = identifier;
-  quote.signatureAccessPassword = password;
+  quote.signatureAccessPassword = "";
+  quote.signatureAccessPasswordHash = hash;
+  quote.signatureAccessPasswordSalt = salt;
   quote.signatureAccessCreatedAt = now;
 
   db.mailOutbox = db.mailOutbox || [];
@@ -122,7 +128,9 @@ function buildSignatureAccess(db, quote, body, request, now) {
     });
   }
 
-  return access;
+  // The caller needs the plaintext once, to show/copy right after sending —
+  // it's never attached to `access` itself, which is what gets persisted.
+  return { ...access, password };
 }
 
 function removeDraftNotification(db, quoteId, userId = "") {
@@ -426,5 +434,12 @@ export async function PATCH(request) {
     .single();
   if (updateError) return badRequest(`Mise à jour du devis impossible: ${updateError.message}`, 500);
 
-  return ok({ quote: mapQuote(updatedRow) });
+  const responseQuote = mapQuote(updatedRow);
+  // Surface the one-time plaintext password in this response only — it was
+  // never written to the row (see buildSignatureAccess), so mapQuote(updatedRow)
+  // alone wouldn't have it.
+  if (action === "send" && signatureAccess?.password) {
+    responseQuote.signatureClientAccess = { ...responseQuote.signatureClientAccess, password: signatureAccess.password };
+  }
+  return ok({ quote: responseQuote });
 }

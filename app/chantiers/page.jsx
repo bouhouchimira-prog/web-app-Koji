@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -225,8 +225,7 @@ function quoteItemId(item, index) {
 }
 
 function quoteDocumentUrl(quoteId) {
-  const token = readStoredUser()?.accessToken || "";
-  return `/api/quotes/${quoteId}/documents?type=quote&format=pdf&accessToken=${encodeURIComponent(token)}`;
+  return `/api/quotes/${quoteId}/documents?type=quote&format=pdf`;
 }
 
 function isArchived(project) {

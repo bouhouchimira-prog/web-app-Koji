@@ -1,6 +1,6 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
-import { getVerifiedPortalUserId, issuePortalToken } from "../../../../lib/portal-session";
+import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 
 export async function GET(request) {
   const db = await readDb();
@@ -27,5 +27,7 @@ export async function PATCH(request) {
   if (fullName) user.name = fullName;
 
   await writeDb(db);
-  return ok({ user: { ...publicUser(user), portalToken: issuePortalToken(user.id) } });
+  // No portalToken here — the session cookie set at login is still valid and
+  // is the only place the portal token lives now.
+  return ok({ user: publicUser(user) });
 }

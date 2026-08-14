@@ -125,8 +125,7 @@ export default function FacturationPage() {
 
   function downloadInvoicePdf(invoice) {
     if (invoice.sourceType === "quote-transform" && invoice.quoteId) {
-      const token = readStoredUser()?.accessToken || "";
-      window.open(`/api/quotes/${invoice.quoteId}/documents?type=facture&format=pdf&accessToken=${encodeURIComponent(token)}`, "_blank");
+      window.open(`/api/quotes/${invoice.quoteId}/documents?type=facture&format=pdf`, "_blank");
       return;
     }
     const userId = readStoredUser()?.id || "";

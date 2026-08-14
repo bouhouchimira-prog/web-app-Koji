@@ -136,9 +136,7 @@ export default function WorkerPage() {
   async function loadPortal(nextWorker = worker) {
     if (!nextWorker?.id) return;
     setError("");
-    const data = await fetchJson("/api/worker-portal", {
-      headers: { Authorization: `Bearer ${nextWorker.workerToken || ""}` },
-    });
+    const data = await fetchJson("/api/worker-portal");
     setPortal(data);
   }
 
@@ -170,7 +168,7 @@ export default function WorkerPage() {
     try {
       const data = await fetchJson("/api/worker-actions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${worker.workerToken || ""}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       setPortal(data);
@@ -220,6 +218,7 @@ export default function WorkerPage() {
 
   function logout() {
     window.localStorage.removeItem(SESSION_KEY);
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setWorker(null);
     setPortal(null);
     setSelectedProjectId("");
