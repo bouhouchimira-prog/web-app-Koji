@@ -57,7 +57,7 @@ function StatusBar({ step, taskSteps }) {
   );
 }
 
-function TaskCard({ task, userId, portalToken, projectId, quoteId, onValidate, taskSteps, L }) {
+function TaskCard({ task, userId, projectId, quoteId, onValidate, taskSteps, L }) {
   const [open, setOpen] = useState(false);
   const [noteType, setNoteType] = useState("Note");
   const [noteTitle, setNoteTitle] = useState("");
@@ -124,7 +124,7 @@ function TaskCard({ task, userId, portalToken, projectId, quoteId, onValidate, t
     try {
       const r = await fetch("/api/client/task-notes", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${portalToken || ""}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: task.id, projectId,
           type: noteType,
@@ -280,15 +280,13 @@ export default function ClientChantierPage() {
     setUser(stored);
     if (!stored?.email) { setLoading(false); return; }
     const p = new URLSearchParams({ id: params.id });
-    fetch(`/api/client/quotes?${p.toString()}`, { headers: { Authorization: `Bearer ${stored.portalToken || ""}` } })
+    fetch(`/api/client/quotes?${p.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         const q = data.quote || null;
         setQuote(q);
         if (q?.projectId) {
-          fetch(`/api/project-messages?projectId=${q.projectId}`, {
-            headers: { Authorization: `Bearer ${stored.portalToken || ""}` },
-          })
+          fetch(`/api/project-messages?projectId=${q.projectId}`)
             .then((r) => r.json())
             .then((d) => setMessages(d.messages || []))
             .catch(() => {});
@@ -333,7 +331,7 @@ export default function ClientChantierPage() {
     if (!user?.id) return;
     const r = await fetch("/api/client/tasks", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.portalToken || ""}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ taskId, action: "client-validate" })
     });
     if (!r.ok) return;
@@ -439,7 +437,6 @@ export default function ClientChantierPage() {
                 key={task.id}
                 task={task}
                 userId={user?.id}
-                portalToken={user?.portalToken}
                 projectId={quote.projectId}
                 quoteId={params.id}
                 onValidate={handleValidate}

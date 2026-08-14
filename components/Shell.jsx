@@ -247,9 +247,13 @@ export function Shell({ children }) {
         return;
       }
       const parsed = JSON.parse(raw);
-      // Sessions without a Supabase access token predate the Supabase accounts
-      // (or were tampered with) — treat them as logged out.
-      if (!parsed?.accessToken) {
+      // The session token itself lives in an HttpOnly cookie now (see
+      // lib/session-cookies.js), not in this localStorage entry — this is
+      // just cached profile data, so all we can check here is that it looks
+      // like a real profile. If the cookie is missing/expired, the first API
+      // call will 401 and lib/client-api.js's fetchWithAuthRetry sends the
+      // user back to /login.
+      if (!parsed?.id) {
         window.localStorage.removeItem("koji-user");
         router.replace("/login?type=entreprise");
         return;
@@ -271,6 +275,7 @@ export function Shell({ children }) {
   function logout() {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("koji-user");
+      fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     }
     router.push("/login?type=entreprise");
   }

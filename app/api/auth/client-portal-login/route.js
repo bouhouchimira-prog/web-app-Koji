@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../../lib/http";
 import { readDb, writeDb } from "../../../../lib/db";
 import { issuePortalToken } from "../../../../lib/portal-session";
 import { hashPassword, verifyHashedPassword } from "../../../../lib/password-hash";
+import { setSessionCookie } from "../../../../lib/session-cookies";
 
 export async function POST(request) {
   const body = await request.json();
@@ -36,15 +37,17 @@ export async function POST(request) {
     await writeDb(db);
   }
 
-  return ok({
+  const response = ok({
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
       accountType: user.accountType,
       portalIdentifier: user.portalIdentifier,
-      clientAccess: user.clientAccess || {},
-      portalToken: issuePortalToken(user.id)
+      clientAccess: user.clientAccess || {}
+      // No portalToken here anymore — it goes in an HttpOnly cookie below.
     }
   });
+  setSessionCookie(response, "portal", issuePortalToken(user.id));
+  return response;
 }

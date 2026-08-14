@@ -39,37 +39,34 @@ export default function ClientNotificationsPage() {
     const stored = getStoredUser();
     setUser(stored);
     if (!stored?.id) { setLoading(false); return; }
-    fetch("/api/notifications", { headers: { Authorization: `Bearer ${stored.portalToken || ""}` } })
+    fetch("/api/notifications")
       .then((r) => r.json())
       .then((data) => setNotifications(data.notifications || []))
       .finally(() => setLoading(false));
   }, []);
 
   async function markRead(notif) {
-    const user = getStoredUser();
     await fetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.portalToken || ""}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: notif.id, action: "read" })
     });
     setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, read: true } : n));
   }
 
   async function markAllRead() {
-    const user = getStoredUser();
     await fetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.portalToken || ""}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "read-all" })
     });
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
   async function deleteNotif(id) {
-    const user = getStoredUser();
     await fetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.portalToken || ""}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: "delete" })
     });
     setNotifications((prev) => prev.filter((n) => n.id !== id));

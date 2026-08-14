@@ -2,6 +2,7 @@
 import { readDb, writeDb } from "../../../lib/db";
 import { publicWorker, verifyWorkerPassword } from "../../../lib/worker-auth";
 import { issueWorkerToken } from "../../../lib/worker-session";
+import { setSessionCookie } from "../../../lib/session-cookies";
 
 function findWorker(db, identifier) {
   const value = String(identifier || "").trim().toLowerCase();
@@ -30,5 +31,8 @@ export async function POST(request) {
   worker.lastLoginAt = new Date().toISOString();
   await writeDb(db);
 
-  return ok({ worker: { ...publicWorker(worker), workerToken: issueWorkerToken(worker.id) } });
+  // No workerToken in the body anymore — it goes in an HttpOnly cookie below.
+  const response = ok({ worker: publicWorker(worker) });
+  setSessionCookie(response, "worker", issueWorkerToken(worker.id));
+  return response;
 }

@@ -30,7 +30,7 @@ export default function ClientProfilePage() {
     setUser(stored);
     setPersonal(stored?.personal || {});
     if (stored?.email) {
-      fetch("/api/client/quotes", { headers: { Authorization: `Bearer ${stored.portalToken || ""}` } })
+      fetch("/api/client/quotes")
         .then((r) => r.json())
         .then((data) => { const firstQuote = data.quotes?.[0]; if (firstQuote?.company) setCompany(firstQuote.company); })
         .catch(() => {});
@@ -42,7 +42,7 @@ export default function ClientProfilePage() {
     if (!user?.email) return;
     const response = await fetch("/api/client/profile", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.portalToken || ""}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ personal }),
     });
     const data = await response.json();
