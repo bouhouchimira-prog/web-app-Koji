@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend } from "../../lib/client-api";
+import { apiGet, apiSend, fetchWithAuthRetry } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 
 const professionsList = ["Electricien", "Plombier", "Carreleur", "Menuisier", "Peintre", "Tout corps d'etat"];
@@ -15,6 +15,8 @@ const initialBusiness = {
   siren: "",
   emailPro: "",
   phone: "",
+  website: "",
+  qrCodeDataUrl: "",
   addressLine1: "",
   addressLine2: "",
   postalCode: "",
@@ -87,12 +89,15 @@ function Field({ label, iconName, value, onChange, placeholder = "", type = "tex
 export default function ParametresPage() {
   const { L } = useLocale();
   const fileRef = useRef(null);
+  const qrFileRef = useRef(null);
   const [user, setUser] = useState(null);
   const [business, setBusiness] = useState(initialBusiness);
   const [professions, setProfessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardMessage, setCardMessage] = useState("");
 
   useEffect(() => {
     const localUser = readLocalUser();
@@ -131,12 +136,52 @@ export default function ParametresPage() {
     reader.readAsDataURL(file);
   }
 
+  function onQrCodeChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setField("qrCodeDataUrl", String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
   const hourlyCost = useMemo(() => {
     const rate = Number(business.dailyRate || 0);
     const hours = Number(business.hoursPerDay || 0);
     if (!hours) return 0;
     return rate / hours;
   }, [business.dailyRate, business.hoursPerDay]);
+
+  async function openBusinessCard(mode) {
+    setCardLoading(true);
+    setCardMessage("");
+    try {
+      const path = mode === "preview" ? "/api/business-card?preview=1" : "/api/business-card";
+      const response = await fetchWithAuthRetry(() => fetch(path, { cache: "no-store" }));
+      if (response.status === 402) {
+        setCardMessage(L.parametres.businessCardUpsell);
+        return;
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Erreur lors de la generation.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      if (mode === "preview") {
+        window.open(url, "_blank");
+      } else {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "Carte_visite.pdf";
+        link.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (error) {
+      setCardMessage(error.message || "Erreur lors de la generation.");
+    } finally {
+      setCardLoading(false);
+    }
+  }
 
   async function onSave(event) {
     event.preventDefault();
@@ -206,6 +251,22 @@ export default function ParametresPage() {
         </section>
 
         <section className="profile-block">
+          <h2>{L.parametres.businessCard}</h2>
+          <p className="muted">{L.parametres.businessCardSub}</p>
+          <div className="profile-card-actions">
+            <button type="button" className="button secondary profile-link-button" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("id")} /></svg>
+              {L.parametres.previewBusinessCard}
+            </button>
+            <button type="button" className="button secondary profile-link-button" onClick={() => openBusinessCard("download")} disabled={cardLoading}>
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("id")} /></svg>
+              {L.parametres.downloadBusinessCard}
+            </button>
+          </div>
+          {cardMessage ? <p className="profile-message">{cardMessage}</p> : null}
+        </section>
+
+        <section className="profile-block">
           <h2>{L.parametres.company}</h2>
           <div className="profile-grid">
             <Field label={L.parametres.raisonSociale} iconName="building" value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
@@ -214,6 +275,21 @@ export default function ParametresPage() {
             <Field label={L.parametres.siren} iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
             <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
             <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
+            <Field label={L.parametres.website} iconName="tag" value={business.website || ""} onChange={(event) => setField("website", event.target.value)} placeholder="www.entreprise.fr" />
+            <label className="profile-field wide">
+              <span>{L.parametres.qrCode}</span>
+              <div className="qr-upload-row">
+                {business.qrCodeDataUrl ? <img src={business.qrCodeDataUrl} alt="QR code" className="qr-upload-preview" /> : null}
+                <button type="button" className="button secondary" onClick={() => qrFileRef.current?.click()}>
+                  {business.qrCodeDataUrl ? L.parametres.changeQrCode : L.parametres.addQrCode}
+                </button>
+                {business.qrCodeDataUrl ? (
+                  <button type="button" className="button danger" onClick={() => setField("qrCodeDataUrl", "")}>{L.common.delete}</button>
+                ) : null}
+              </div>
+              <small className="muted">{L.parametres.qrCodeSub}</small>
+              <input ref={qrFileRef} type="file" accept="image/png,image/jpeg" onChange={onQrCodeChange} style={{ display: "none" }} />
+            </label>
             <Field label={L.parametres.address} iconName="pin" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder={L.parametres.address} />
             <Field label={L.parametres.postalCode} iconName="pin" value={business.postalCode} onChange={(event) => setField("postalCode", event.target.value)} placeholder="75010" />
             <Field label={L.parametres.city} iconName="pin" value={business.city} onChange={(event) => setField("city", event.target.value)} placeholder="Paris" />
