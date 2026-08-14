@@ -1,0 +1,9 @@
+{
+  "name": "koji-doc-gen-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "One-off Word document generator for docs/KOJI-points-a-valider-manager.docx",
+  "dependencies": {
+    "docx": "^9.7.1"
+  }
+}
