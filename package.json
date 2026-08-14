@@ -13,6 +13,7 @@
     "@vercel/postgres": "^0.10.0",
     "next": "latest",
     "nodemailer": "^9.0.0",
+    "qrcode": "^1.5.4",
     "react": "latest",
     "react-dom": "latest"
   },
