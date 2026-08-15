@@ -19,9 +19,9 @@ const STATUS_COLORS = {
   "Archive": { bg: "#f1f5f9", color: "#64748b" },
 };
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, manual }) {
   const style = STATUS_COLORS[status] || { bg: "#f1f5f9", color: "#64748b" };
-  return <span className="home-status-badge" style={{ background: style.bg, color: style.color }}>{status}</span>;
+  return <span className="home-status-badge" style={{ background: style.bg, color: style.color }}>{status}{manual ? " (manuel)" : ""}</span>;
 }
 
 function IconQuote() {
@@ -85,7 +85,7 @@ export default function DevisHistory() {
                   <small>{[quote.quoteNumber, quote.project].filter(Boolean).join(" · ")}</small>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <StatusBadge status={quote.status || "Brouillon"} />
+                  <StatusBadge status={quote.status || "Brouillon"} manual={quote.status === "Signe" && quote.signatureProvider === "manuel"} />
                   <div style={{ fontSize: "0.78rem", color: "#7e715f", fontWeight: 700, marginTop: 3 }}>{money(quote.totalTtc)}</div>
                 </div>
               </Link>

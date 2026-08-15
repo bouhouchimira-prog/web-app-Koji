@@ -5,6 +5,7 @@ import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
 import { mapQuote, quoteToRow } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
+import { generateTasksForSignedQuote } from "../../../lib/quote-projects";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -18,6 +19,7 @@ import { hashPassword } from "../../../lib/password-hash";
 const QUOTE_HISTORY_LABEL = {
   ready: (q) => `Devis prêt à envoyer : ${q.quoteNumber}`,
   send: (q) => `Lien de signature cree: ${q.quoteNumber}`,
+  "accept-manually": (q) => `Devis accepte manuellement: ${q.quoteNumber}`,
   archive: (q) => `Devis archive: ${q.quoteNumber}`,
   cancel: (q) => `Devis annule: ${q.quoteNumber}`,
   restore: (q) => `Devis restaure: ${q.quoteNumber}`
@@ -352,6 +354,18 @@ export async function PATCH(request) {
     quote.sentAt = now;
     if (quote.projectId) {
       await auth.supabase.from("chantiers").update({ status: "En attente signature" }).eq("id", quote.projectId);
+    }
+  }
+
+  if (action === "accept-manually" && quote.signatureStatus !== "Signe") {
+    quote.status = "Signe";
+    quote.signatureStatus = "Signe";
+    quote.signatureProvider = "manuel";
+    quote.signerName = fixText(body.signerName || quote.client || "Client");
+    quote.signedAt = now;
+    generateTasksForSignedQuote(sideDb, quote, now);
+    if (quote.projectId) {
+      await auth.supabase.from("chantiers").update({ status: "Signe" }).eq("id", quote.projectId);
     }
   }
 
