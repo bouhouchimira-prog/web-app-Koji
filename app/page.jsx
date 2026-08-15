@@ -716,7 +716,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        <Link className="home-primary-action" href="/chantier/new">
+        <Link className="home-primary-action" href="/devis?new=1">
           <span className="home-primary-plus">+</span>
           {activeProjects.length === 0 ? L.home.firstProject : L.home.newProject}
         </Link>
@@ -743,56 +743,6 @@ export default function HomePage() {
               {agendaItems.map((item) => (
                 <AgendaCard key={item.id} item={item} onMarkDone={markTaskDone} />
               ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Chantiers */}
-        <Section title={L.home.projects} href="/chantiers" count={activeProjects.length || null}>
-          {activeProjects.length === 0 ? (
-            <div className="home-empty">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
-              <strong>{L.home.noProjects}</strong>
-              <span>{L.home.noProjectsSub}</span>
-            </div>
-          ) : (
-            <div className="home-list">
-              {activeProjects.slice(0, 5).map((project) => (
-                <article className="home-list-item home-quote-item" key={project.id}>
-                  <Link href={`/chantiers?project=${project.id}`} className="home-list-link home-quote-link">
-                    <div className="home-list-icon home-icon-project">
-                      <IconProject />
-                    </div>
-                    <div className="home-list-main">
-                      <strong>{project.title}</strong>
-                      <small>{[project.client, project.startDate ? shortDate(project.startDate) : null].filter(Boolean).join(" · ")}</small>
-                    </div>
-                    <StatusBadge status={project.status} />
-                  </Link>
-                  <div className="home-task-actions">
-                    {confirmDeleteProject === project.id ? (
-                      <span className="home-task-confirm">
-                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteProject(project.id)}>{L.common.delete}</button>
-                        <button className="home-task-btn" onClick={() => setConfirmDeleteProject(null)}>{L.common.no}</button>
-                      </span>
-                    ) : (
-                      <>
-                        <button className="home-task-btn" title={L.common.archive} onClick={() => archiveProject(project.id)}>
-                          <IconArchive />
-                        </button>
-                        <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteProject(project.id)}>
-                          <IconTrash />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </article>
-              ))}
-              {activeProjects.length > 5 ? (
-                <Link href="/chantiers" className="home-more-link">
-                  {L.home.seeMore(activeProjects.length - 5)} <ChevronRight />
-                </Link>
-              ) : null}
             </div>
           )}
         </Section>
@@ -844,6 +794,56 @@ export default function HomePage() {
               {quotesInProgress.length > 5 ? (
                 <Link href="/devis" className="home-more-link">
                   {L.home.seeMore(quotesInProgress.length - 5)} <ChevronRight />
+                </Link>
+              ) : null}
+            </div>
+          )}
+        </Section>
+
+        {/* Chantiers */}
+        <Section title={L.home.projects} href="/chantiers" count={activeProjects.length || null}>
+          {activeProjects.length === 0 ? (
+            <div className="home-empty">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+              <strong>{L.home.noProjects}</strong>
+              <span>{L.home.noProjectsSub}</span>
+            </div>
+          ) : (
+            <div className="home-list">
+              {activeProjects.slice(0, 5).map((project) => (
+                <article className="home-list-item home-quote-item" key={project.id}>
+                  <Link href={`/chantiers?project=${project.id}`} className="home-list-link home-quote-link">
+                    <div className="home-list-icon home-icon-project">
+                      <IconProject />
+                    </div>
+                    <div className="home-list-main">
+                      <strong>{project.title}</strong>
+                      <small>{[project.client, project.startDate ? shortDate(project.startDate) : null].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <StatusBadge status={project.status} />
+                  </Link>
+                  <div className="home-task-actions">
+                    {confirmDeleteProject === project.id ? (
+                      <span className="home-task-confirm">
+                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteProject(project.id)}>{L.common.delete}</button>
+                        <button className="home-task-btn" onClick={() => setConfirmDeleteProject(null)}>{L.common.no}</button>
+                      </span>
+                    ) : (
+                      <>
+                        <button className="home-task-btn" title={L.common.archive} onClick={() => archiveProject(project.id)}>
+                          <IconArchive />
+                        </button>
+                        <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteProject(project.id)}>
+                          <IconTrash />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </article>
+              ))}
+              {activeProjects.length > 5 ? (
+                <Link href="/chantiers" className="home-more-link">
+                  {L.home.seeMore(activeProjects.length - 5)} <ChevronRight />
                 </Link>
               ) : null}
             </div>
