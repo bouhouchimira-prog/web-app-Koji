@@ -361,6 +361,8 @@ export async function PATCH(request) {
     quote.status = "Signe";
     quote.signatureStatus = "Signe";
     quote.signatureProvider = "manuel";
+    quote.acceptanceReason = body.acceptanceReason === "acompte" ? "acompte" : "verbal";
+    quote.acceptanceNote = fixText(body.acceptanceNote || "");
     quote.signerName = fixText(body.signerName || quote.client || "Client");
     quote.signedAt = now;
     generateTasksForSignedQuote(sideDb, quote, now);

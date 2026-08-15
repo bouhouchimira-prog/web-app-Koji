@@ -291,6 +291,7 @@ export default function DevisEditor() {
     fileName: "",
     error: ""
   });
+  const [acceptComposer, setAcceptComposer] = useState({ open: false, reason: "verbal", note: "" });
 
   // Guards the account's default business info (fetched below) from
   // clobbering a quote's own saved company/IBAN snapshot when the two
@@ -1372,21 +1373,31 @@ export default function DevisEditor() {
     }
   }
 
-  async function handleAcceptManually() {
+  function openAcceptComposer() {
     if (!requireLines()) return;
     if (generatedQuote?.signatureStatus === "Signe") {
       notify("Ce devis est déjà accepté.", "info");
       return;
     }
-    if (!window.confirm("Marquer ce devis comme accepté par le client, sans passer par Kôji Signature ?")) {
-      notify("Validation annulée.", "info");
-      return;
-    }
+    setAcceptComposer({ open: true, reason: "verbal", note: "" });
+  }
+
+  function closeAcceptComposer() {
+    setAcceptComposer((current) => ({ ...current, open: false }));
+  }
+
+  async function submitAcceptManually() {
     try {
       const quote = await persistQuote();
-      const { quote: accepted } = await apiSend("/api/quotes", { id: quote.id, action: "accept-manually" }, "PATCH");
+      const { quote: accepted } = await apiSend("/api/quotes", {
+        id: quote.id,
+        action: "accept-manually",
+        acceptanceReason: acceptComposer.reason,
+        acceptanceNote: acceptComposer.note
+      }, "PATCH");
       setGeneratedQuote(accepted);
       setQuotes((current) => current.map((item) => item.id === accepted.id ? accepted : item));
+      closeAcceptComposer();
       notify("Devis marqué comme accepté manuellement.", "success");
     } catch (error) {
       notifyError(error, "Impossible de marquer ce devis comme accepté.");
@@ -2323,7 +2334,7 @@ export default function DevisEditor() {
           <button type="button" className="button secondary" onClick={handleConfirm}>{L.devis.confirm}</button>
           <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
           {generatedQuote?.signatureStatus !== "Signe" ? (
-            <button type="button" className="button secondary" onClick={handleAcceptManually}>{L.devis.acceptManually}</button>
+            <button type="button" className="button secondary" onClick={openAcceptComposer}>{L.devis.acceptManually}</button>
           ) : null}
           <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
         </div>
@@ -2582,6 +2593,33 @@ export default function DevisEditor() {
               <div className="supply-modal-actions">
                 <button type="button" onClick={closeNoteComposer}>{L.common.cancel}</button>
                 <button type="button" className="button blue" onClick={submitNoteComposer}>{L.common.add}</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {acceptComposer.open ? (
+          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeAcceptComposer}>
+            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
+              <h2>{L.devis.acceptManuallyTitle}</h2>
+              <p className="tool-muted">{L.devis.acceptManuallySub}</p>
+              <div className="supply-composer-tabs">
+                <button type="button" className={acceptComposer.reason === "verbal" ? "active" : ""} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "verbal" }))}>{L.devis.acceptReasonVerbal}</button>
+                <button type="button" className={acceptComposer.reason === "acompte" ? "active" : ""} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "acompte" }))}>{L.devis.acceptReasonDeposit}</button>
+              </div>
+              <label className="supply-composer-field full">
+                <span>{L.devis.acceptNoteLabel}</span>
+                <textarea
+                  className="note-composer-textarea"
+                  value={acceptComposer.note}
+                  onChange={(event) => setAcceptComposer((current) => ({ ...current, note: event.target.value }))}
+                  placeholder={L.devis.acceptNotePlaceholder}
+                  rows={2}
+                />
+              </label>
+              <div className="supply-modal-actions">
+                <button type="button" onClick={closeAcceptComposer}>{L.common.cancel}</button>
+                <button type="button" className="button blue" onClick={submitAcceptManually}>{L.devis.acceptManually}</button>
               </div>
             </div>
           </div>
