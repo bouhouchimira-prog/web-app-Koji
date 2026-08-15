@@ -1372,6 +1372,27 @@ export default function DevisEditor() {
     }
   }
 
+  async function handleAcceptManually() {
+    if (!requireLines()) return;
+    if (generatedQuote?.signatureStatus === "Signe") {
+      notify("Ce devis est déjà accepté.", "info");
+      return;
+    }
+    if (!window.confirm("Marquer ce devis comme accepté par le client, sans passer par Kôji Signature ?")) {
+      notify("Validation annulée.", "info");
+      return;
+    }
+    try {
+      const quote = await persistQuote();
+      const { quote: accepted } = await apiSend("/api/quotes", { id: quote.id, action: "accept-manually" }, "PATCH");
+      setGeneratedQuote(accepted);
+      setQuotes((current) => current.map((item) => item.id === accepted.id ? accepted : item));
+      notify("Devis marqué comme accepté manuellement.", "success");
+    } catch (error) {
+      notifyError(error, "Impossible de marquer ce devis comme accepté.");
+    }
+  }
+
   async function handlePreview(type = "quote") {
     if (!requireLines()) return;
     try {
@@ -1850,6 +1871,11 @@ export default function DevisEditor() {
                     {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
                     <option value="nouveau">{L.devis.newSite}</option>
                   </select></label>
+                  {generatedQuote?.id && !form.projectId && !isNewChantier ? (
+                    <button type="button" className="button secondary quote-create-site-btn" onClick={() => setIsNewChantier(true)}>
+                      {L.devis.createSiteFromQuote}
+                    </button>
+                  ) : null}
                   {isNewChantier && !form.projectId ? (
                     <label>{L.devis.siteName}<input value={form.project} onChange={(event) => setField("project", event.target.value)} placeholder={L.devis.siteName} autoFocus /></label>
                   ) : null}
@@ -2296,6 +2322,9 @@ export default function DevisEditor() {
           <button type="button" className="button danger" onClick={handleCancel}>{L.common.cancel}</button>
           <button type="button" className="button secondary" onClick={handleConfirm}>{L.devis.confirm}</button>
           <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
+          {generatedQuote?.signatureStatus !== "Signe" ? (
+            <button type="button" className="button secondary" onClick={handleAcceptManually}>{L.devis.acceptManually}</button>
+          ) : null}
           <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
         </div>
 
