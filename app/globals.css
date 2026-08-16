@@ -801,6 +801,78 @@
   margin-bottom: 18px;
 }
 
+.contact-role-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 16px;
+  scrollbar-width: none;
+}
+
+.contact-role-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.contact-role-pills button {
+  flex-shrink: 0;
+  border: 1px solid #d8e0ea;
+  border-radius: 999px;
+  background: white;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #3e506e;
+  cursor: pointer;
+}
+
+.contact-role-pills button.active {
+  background: var(--blue-strong, #1d4ed8);
+  border-color: var(--blue-strong, #1d4ed8);
+  color: white;
+}
+
+.contact-role-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 6px;
+}
+
+.contact-history-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.contact-history-group small {
+  display: block;
+  font-weight: 700;
+  color: #7e715f;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.contact-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.contact-history-status {
+  font-size: 0.76rem;
+  color: #7e715f;
+}
+
 .search-pill input {
   width: 100%;
   min-height: 46px;
