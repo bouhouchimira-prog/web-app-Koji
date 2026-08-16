@@ -252,6 +252,7 @@ export default function DevisEditor() {
     clientReference: "",
     clientEmail: "",
     clientPhone: "",
+    contactId: "",
     projectId: "",
     project: "",
     propertyType: "Maison",
@@ -520,6 +521,7 @@ export default function DevisEditor() {
       clientReference: quote.clientReference || "",
       clientEmail: quote.clientEmail || "",
       clientPhone: quote.clientPhone || "",
+      contactId: quote.contactId || "",
       projectId: quote.projectId || "",
       project: quote.project || "",
       chantierAddress: quote.chantierAddress || "",
@@ -1247,6 +1249,7 @@ export default function DevisEditor() {
       clientReference: form.clientReference,
       clientEmail: form.clientEmail,
       clientPhone: form.clientPhone,
+      contactId: form.contactId || "",
       project: form.project || selectedProject?.title || "Chantier",
       projectId,
       projectReference,
@@ -1302,6 +1305,11 @@ export default function DevisEditor() {
         status: "Devis genere"
       }, "PATCH");
       nextProjects = nextProjects.map((item) => item.id === syncedProject.id ? syncedProject : item);
+      if (form.contactId) {
+        // The dedup check lives server-side (app/api/chantier-contacts POST),
+        // so this is safe to call on every save without creating duplicates.
+        apiSend("/api/chantier-contacts", { contactId: form.contactId, projectId, roleOnSite: "client" }).catch(() => {});
+      }
     }
     setProjects(nextProjects);
 
@@ -1468,7 +1476,7 @@ export default function DevisEditor() {
     setQuoteVatRate(20);
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
-    setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
+    setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", contactId: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
     setIsNewChantier(false);
     setSelectedClientId("");
     if (typeof window !== "undefined") {
