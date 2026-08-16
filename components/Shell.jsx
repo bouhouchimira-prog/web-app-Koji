@@ -14,6 +14,7 @@ function getNavItems(L) {
     { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book"     },
     { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar" },
     { href: "/chantiers",             label: L.nav.projects,    icon: "tools"    },
+    { href: "/contacts",              label: L.nav.contacts,    icon: "user"     },
     { href: "/devis",                 label: L.nav.quotes,      icon: "file"     },
     { href: "/equipe",                label: L.nav.team,        icon: "users"    },
     { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice"  },
