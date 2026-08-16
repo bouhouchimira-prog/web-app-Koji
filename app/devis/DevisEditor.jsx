@@ -1371,8 +1371,7 @@ export default function DevisEditor() {
     try {
       const quote = await persistQuote();
       await apiSend("/api/invoices", { transformQuote: true, quoteId: quote.id });
-      window.open(`/api/quotes/${quote.id}/documents?type=facture&format=pdf`, "_blank");
-      notify("Facture générée : retrouvez-la dans Factures.", "success");
+      router.push(`/facturation?quoteId=${quote.id}`);
     } catch (error) {
       notifyError(error, "Impossible de transformer ce devis en facture.");
     }

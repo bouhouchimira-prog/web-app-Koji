@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Shell } from "../../components/Shell";
 import { apiSend, readStoredUser } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
@@ -35,8 +36,10 @@ function billingSummary(quote, invoices) {
   };
 }
 
-export default function FacturationPage() {
+function FacturationContent() {
   const { L } = useLocale();
+  const searchParams = useSearchParams();
+  const quoteIdParam = searchParams.get("quoteId") || "";
   const modes = [
     { id: "fixed", label: L.facturation.modeFixed },
     { id: "percent", label: L.facturation.modePercent },
@@ -80,9 +83,13 @@ export default function FacturationPage() {
   }, [projects, quotes, invoices]);
 
   useEffect(() => {
+    if (quoteIdParam && eligibleQuotes.some(({ quote }) => quote.id === quoteIdParam)) {
+      setSelectedQuoteId(quoteIdParam);
+      return;
+    }
     if (selectedQuoteId || eligibleQuotes.length === 0) return;
     setSelectedQuoteId(eligibleQuotes[0].quote.id);
-  }, [eligibleQuotes, selectedQuoteId]);
+  }, [eligibleQuotes, selectedQuoteId, quoteIdParam]);
 
   const selected = eligibleQuotes.find(({ quote }) => quote.id === selectedQuoteId) || eligibleQuotes[0] || null;
   const selectedInvoices = invoices.filter((invoice) => invoice.quoteId === selected?.quote.id || invoice.projectId === selected?.project.id);
@@ -297,5 +304,13 @@ export default function FacturationPage() {
         ) : null}
       </div>
     </Shell>
+  );
+}
+
+export default function FacturationPage() {
+  return (
+    <Suspense fallback={null}>
+      <FacturationContent />
+    </Suspense>
   );
 }
