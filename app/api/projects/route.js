@@ -27,7 +27,7 @@ function budgetFromItems(items = []) {
   };
 }
 
-function mapChantier(row) {
+export function mapChantier(row) {
   const budget = Array.isArray(row.chantier_budgets) ? row.chantier_budgets[0] : row.chantier_budgets;
   const laborEstimated = toAmount(budget?.main_oeuvre_estimated);
   const laborReal = toAmount(budget?.main_oeuvre_real);

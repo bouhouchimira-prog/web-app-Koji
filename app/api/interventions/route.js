@@ -29,6 +29,7 @@ export async function POST(request) {
     userId,
     reference: `INT-${new Date().getFullYear()}-${String(db.interventions.length + 1).padStart(4, "0")}`,
     client: fixText(body.client || ""),
+    contactId: body.contactId || "",
     site: fixText(body.site || ""),
     date: body.date || now.slice(0, 10),
     entreprise: fixText(body.entreprise || ""),
@@ -91,7 +92,7 @@ export async function PATCH(request) {
   }
 
   for (const key of [
-    "client", "site", "date", "entreprise", "equipement", "constat", "analyse", "preconisations", "signature", "signatureImageDataUrl",
+    "client", "contactId", "site", "date", "entreprise", "equipement", "constat", "analyse", "preconisations", "signature", "signatureImageDataUrl",
     "companyName", "companyAddressLine1", "companyPostalCode", "companyCity", "companyEmail", "companyPhone", "companySiret", "companyLogoDataUrl",
     "projectId", "status", "invoiceId", "completedAt", "taskId"
   ]) {
