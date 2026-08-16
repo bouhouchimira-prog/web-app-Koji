@@ -8,6 +8,7 @@ import { apiGet, apiSend } from "../../lib/client-api";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
 import { calculateTaskPrice } from "../../lib/pricing";
+import { computeSurchargeBreakdown } from "../../lib/quote-calculations";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import catalog from "../../data/catalog-ouvrages.json";
@@ -271,7 +272,7 @@ export default function DevisEditor() {
   const [surcharges, setSurcharges] = useState([
     { id: "sc-coord", label: "Coordination de chantier", percent: 10, mode: "client" },
     { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "client" },
-    { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client" }
+    { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client", cumulative: true }
   ]);
   const [quoteVatRate, setQuoteVatRate] = useState(20);
   const [vatManual, setVatManual] = useState(false);
@@ -664,15 +665,11 @@ export default function DevisEditor() {
 
   const summaryTotals = useMemo(() => {
     const baseHt = totals.ht;
-    const surchargeLines = surcharges.map((s) => ({
-      ...s,
-      amount: round2(baseHt * (Number(s.percent) / 100))
-    }));
-    const surchargeTotal = surchargeLines.filter((s) => s.mode === "internal" || s.mode === "client").reduce((sum, s) => sum + s.amount, 0);
-    const totalHt = round2(baseHt + surchargeTotal);
+    const breakdown = computeSurchargeBreakdown(baseHt, surcharges);
+    const totalHt = breakdown.totalHt;
     const vatAmount = round2(totalHt * (Number(quoteVatRate) / 100));
     const totalTtc = round2(totalHt + vatAmount);
-    return { baseHt, surchargeLines, surchargeTotal, totalHt, vatAmount, totalTtc };
+    return { baseHt, surchargeLines: breakdown.lines, surchargeTotal: breakdown.total, totalHt, vatAmount, totalTtc };
   }, [totals.ht, surcharges, quoteVatRate]);
 
   const selectedProject = useMemo(() => {
@@ -1466,7 +1463,7 @@ export default function DevisEditor() {
     setSurcharges([
       { id: "sc-coord", label: "Coordination de chantier", percent: 10, mode: "excluded" },
       { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "excluded" },
-      { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "excluded" }
+      { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "excluded", cumulative: true }
     ]);
     setQuoteVatRate(20);
     setVatManual(false);
@@ -2196,6 +2193,14 @@ export default function DevisEditor() {
                       onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "client" : "internal")}
                     />
                     {L.devis.shown}
+                  </label>
+                  <label className="recap-check-label" title={L.devis.cumulativeBaseHint}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(s.cumulative)}
+                      onChange={(e) => updateSurcharge(s.id, "cumulative", e.target.checked)}
+                    />
+                    {L.devis.cumulativeBase}
                   </label>
                 </div>
                 <input
