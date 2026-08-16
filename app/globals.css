@@ -7167,6 +7167,17 @@ body :where(
   cursor: pointer;
 }
 
+.recap-surcharge-base select {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #3e506e;
+  border: 1px solid #d6dfec;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
 /* Titre conditionnement */
 .recap-title-hint {
   font-size: 0.72rem;
