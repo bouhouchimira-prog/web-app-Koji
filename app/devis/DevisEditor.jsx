@@ -272,7 +272,7 @@ export default function DevisEditor() {
   const [surcharges, setSurcharges] = useState([
     { id: "sc-coord", label: "Coordination de chantier", percent: 10, mode: "client" },
     { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "client" },
-    { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client", cumulative: true }
+    { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client", calculationBase: "chiffrage_cumule" }
   ]);
   const [quoteVatRate, setQuoteVatRate] = useState(20);
   const [vatManual, setVatManual] = useState(false);
@@ -1463,7 +1463,7 @@ export default function DevisEditor() {
     setSurcharges([
       { id: "sc-coord", label: "Coordination de chantier", percent: 10, mode: "excluded" },
       { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "excluded" },
-      { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "excluded", cumulative: true }
+      { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "excluded", calculationBase: "chiffrage_cumule" }
     ]);
     setQuoteVatRate(20);
     setVatManual(false);
@@ -2194,13 +2194,15 @@ export default function DevisEditor() {
                     />
                     {L.devis.shown}
                   </label>
-                  <label className="recap-check-label" title={L.devis.cumulativeBaseHint}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(s.cumulative)}
-                      onChange={(e) => updateSurcharge(s.id, "cumulative", e.target.checked)}
-                    />
-                    {L.devis.cumulativeBase}
+                  <label className="recap-check-label recap-surcharge-base" title={L.devis.calculationBaseHint}>
+                    {L.devis.calculationBase}
+                    <select
+                      value={s.calculationBase === "chiffrage_cumule" ? "chiffrage_cumule" : "total_lots"}
+                      onChange={(e) => updateSurcharge(s.id, "calculationBase", e.target.value)}
+                    >
+                      <option value="total_lots">{L.devis.calculationBaseLots}</option>
+                      <option value="chiffrage_cumule">{L.devis.calculationBaseCumulative}</option>
+                    </select>
                   </label>
                 </div>
                 <input
