@@ -46,7 +46,7 @@ function groupByTheme(entries) {
 }
 
 function addFooter(slide, pptx, pageLabel) {
-  slide.addText("Kôji Web — Récapitulatif technique", {
+  slide.addText("Koji Web — Récapitulatif technique", {
     x: 0.4, y: 7.12, w: 6, h: 0.3, fontSize: 9, color: COLORS.muted, fontFace: "Segoe UI"
   });
   if (pageLabel) {
@@ -61,8 +61,8 @@ function build() {
   const pptx = new PptxGenJS();
   pptx.defineLayout({ name: "KOJI_WIDE", width: 13.333, height: 7.5 });
   pptx.layout = "KOJI_WIDE";
-  pptx.author = data.meta.preparedBy || "Kôji Web";
-  pptx.title = data.meta.title || "Récapitulatif Kôji Web";
+  pptx.author = data.meta.preparedBy || "Koji Web";
+  pptx.title = data.meta.title || "Récapitulatif Koji Web";
 
   const byCategory = CATEGORY_ORDER.map((cat) => ({
     cat,
@@ -75,7 +75,7 @@ function build() {
     const slide = pptx.addSlide();
     slide.background = { color: COLORS.navy };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.18, h: 7.5, fill: { color: COLORS.gold } });
-    slide.addText("KÔJI", {
+    slide.addText("KOJI", {
       x: 0.7, y: 0.6, w: 4, h: 0.6, fontSize: 20, bold: true, color: COLORS.gold, fontFace: "Georgia", charSpacing: 4
     });
     slide.addText(data.meta.title, {

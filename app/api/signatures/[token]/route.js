@@ -7,7 +7,7 @@ import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 import { sendClientAccessEmail } from "../../../../lib/mailer";
 import { hashPassword } from "../../../../lib/password-hash";
 
-// The signing client has no Kôji session (they're not one of the company's
+// The signing client has no Koji session (they're not one of the company's
 // Supabase-authenticated users), so this can't use a per-user token — it
 // looks up the quote across all users via the service_role key, same as the
 // client-portal routes.

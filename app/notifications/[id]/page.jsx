@@ -80,7 +80,7 @@ export default function NotificationDetailPage() {
     const phone = (meta.phone || phoneDraft || "").replace(/\D/g, "");
     if (!phone) return;
     const text = [
-      `Bonjour, votre espace Kôji Particulier est prêt.`,
+      `Bonjour, votre espace Koji Particulier est prêt.`,
       meta.quoteNumber ? `Devis : ${meta.quoteNumber}` : "",
       meta.portalIdentifier ? `Identifiant : ${meta.portalIdentifier}` : "",
       meta.password ? `Mot de passe : ${meta.password}` : "",

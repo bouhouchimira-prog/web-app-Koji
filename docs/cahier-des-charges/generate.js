@@ -32,7 +32,7 @@ function chunk(list, size) {
 }
 
 function addFooter(slide, pageLabel) {
-  slide.addText("Kôji Web — Cahier des charges", {
+  slide.addText("Koji Web — Cahier des charges", {
     x: 0.4, y: 7.12, w: 6, h: 0.3, fontSize: 8.5, color: COLORS.muted, fontFace: "Segoe UI"
   });
   if (pageLabel) {
@@ -55,12 +55,12 @@ function build() {
     const slide = pptx.addSlide();
     slide.background = { color: COLORS.navy };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.18, h: 7.5, fill: { color: COLORS.gold } });
-    slide.addText("KÔJI", { x: 0.7, y: 0.6, w: 4, h: 0.6, fontSize: 20, bold: true, color: COLORS.gold, fontFace: "Georgia", charSpacing: 4 });
+    slide.addText("KOJI", { x: 0.7, y: 0.6, w: 4, h: 0.6, fontSize: 20, bold: true, color: COLORS.gold, fontFace: "Georgia", charSpacing: 4 });
     slide.addText(data.meta.title, { x: 0.7, y: 2.5, w: 11.5, h: 1.1, fontSize: 42, bold: true, color: "FFFFFF", fontFace: "Georgia" });
     slide.addText(data.meta.subtitle, { x: 0.7, y: 3.55, w: 11.5, h: 0.6, fontSize: 17, color: "C7C9E0", fontFace: "Segoe UI" });
     slide.addText(data.meta.dateLabel, { x: 0.7, y: 4.25, w: 6, h: 0.4, fontSize: 13, bold: true, color: COLORS.gold, fontFace: "Segoe UI" });
     slide.addText(`Cahier des charges préparé par : ${data.meta.preparedBy}`, { x: 0.7, y: 6.2, w: 8, h: 0.35, fontSize: 12, color: "C7C9E0", fontFace: "Segoe UI" });
-    slide.addText(`Application Kôji Web développée par : ${data.meta.developedBy}`, { x: 0.7, y: 6.6, w: 8, h: 0.35, fontSize: 12, color: "C7C9E0", fontFace: "Segoe UI" });
+    slide.addText(`Application Koji Web développée par : ${data.meta.developedBy}`, { x: 0.7, y: 6.6, w: 8, h: 0.35, fontSize: 12, color: "C7C9E0", fontFace: "Segoe UI" });
   }
 
   // ── Slide 2: Présentation / objectifs ────────────────────────────
@@ -151,7 +151,7 @@ function build() {
     slide.addText(data.closing.title, { x: 0.7, y: 2.5, w: 10, h: 0.9, fontSize: 34, bold: true, color: "FFFFFF", fontFace: "Georgia" });
     slide.addText(data.closing.text, { x: 0.7, y: 3.5, w: 10, h: 0.9, fontSize: 13, color: "C7C9E0", fontFace: "Segoe UI", lineSpacing: 18 });
     slide.addText(`Cahier des charges préparé par : ${data.meta.preparedBy}`, { x: 0.7, y: 5.3, w: 8, h: 0.35, fontSize: 12, bold: true, color: COLORS.gold, fontFace: "Segoe UI" });
-    slide.addText(`Application Kôji Web développée par : ${data.meta.developedBy}`, { x: 0.7, y: 5.68, w: 8, h: 0.35, fontSize: 12, bold: true, color: COLORS.gold, fontFace: "Segoe UI" });
+    slide.addText(`Application Koji Web développée par : ${data.meta.developedBy}`, { x: 0.7, y: 5.68, w: 8, h: 0.35, fontSize: 12, bold: true, color: COLORS.gold, fontFace: "Segoe UI" });
   }
 
   return pptx.writeFile({ fileName: OUT_PATH }).then(() => {

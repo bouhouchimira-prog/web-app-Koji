@@ -1,4 +1,4 @@
-const letters = ["K", "\u00D4", "J", "I"];
+const letters = ["K", "O", "J", "I"];
 
 function GooglePlayIcon() {
   return (

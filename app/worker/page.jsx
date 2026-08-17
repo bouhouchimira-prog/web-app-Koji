@@ -272,7 +272,7 @@ export default function WorkerPage() {
     <main className="worker-page">
       <header className="worker-topbar">
         <div>
-          <span className="worker-kicker">Kôji Worker</span>
+          <span className="worker-kicker">Koji Worker</span>
           <h1>{worker.name || worker.loginId}</h1>
           <p>{worker.profession || worker.role || "Ouvrier"} · {worker.loginId}</p>
         </div>
@@ -312,7 +312,7 @@ export default function WorkerPage() {
                 <span className="worker-status">{project.status || L.worker.inProgress}</span>
                 <h3>{project.name || "Chantier"}</h3>
                 <p>{project.address || "—"}</p>
-                <small>{project.companyName || project.clientName || "Kôji"}</small>
+                <small>{project.companyName || project.clientName || "Koji"}</small>
                 <div className="worker-date-grid">
                   <span>{L.worker.start2}<br /><strong>{formatDate(project.startDate || project.plannedStartDate, L.worker.toDefine)}</strong></span>
                   <span>{L.worker.endPlanned}<br /><strong>{formatDate(project.endDate || project.plannedEndDate, L.worker.toDefine)}</strong></span>
@@ -514,7 +514,7 @@ export default function WorkerPage() {
                 <span className="worker-status">{L.worker.finished}</span>
                 <h3>{project.name || "Chantier"}</h3>
                 <p>{project.address || "—"}</p>
-                <small>{project.companyName || "Kôji"}</small>
+                <small>{project.companyName || "Koji"}</small>
                 <div className="worker-date-grid">
                   <span>{L.worker.start2}<br /><strong>{formatDate(project.startDate, L.worker.toDefine)}</strong></span>
                   <span>{L.worker.end}<br /><strong>{formatDate(project.endDate || project.updatedAt, L.worker.toDefine)}</strong></span>

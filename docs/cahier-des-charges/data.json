@@ -1,12 +1,12 @@
 {
   "meta": {
     "title": "Cahier des charges",
-    "subtitle": "Application Web Kôji — Gestion d'entreprise du bâtiment",
+    "subtitle": "Application Web Koji — Gestion d'entreprise du bâtiment",
     "preparedBy": "BOUHOUCHI Amira",
     "developedBy": "BOUHOUCHI Amira",
     "dateLabel": "2026"
   },
-  "intro": "Kôji Web est une application de gestion destinée aux entreprises du bâtiment (plomberie, électricité, climatisation, tous corps d'état) : elle couvre l'ensemble du cycle d'activité, de la création d'un devis jusqu'à la facturation, en passant par le suivi de chantier, la gestion de l'équipe et le pointage des heures. Trois profils l'utilisent : l'entreprise (gérant/administratif), le client particulier (portail de suivi) et l'ouvrier/sous-traitant (portail terrain). Ce document décrit, module par module, chaque fonctionnalité de l'application, ce qu'elle permet de faire et comment elle a été réalisée techniquement.",
+  "intro": "Koji Web est une application de gestion destinée aux entreprises du bâtiment (plomberie, électricité, climatisation, tous corps d'état) : elle couvre l'ensemble du cycle d'activité, de la création d'un devis jusqu'à la facturation, en passant par le suivi de chantier, la gestion de l'équipe et le pointage des heures. Trois profils l'utilisent : l'entreprise (gérant/administratif), le client particulier (portail de suivi) et l'ouvrier/sous-traitant (portail terrain). Ce document décrit, module par module, chaque fonctionnalité de l'application, ce qu'elle permet de faire et comment elle a été réalisée techniquement.",
   "objectifs": [
     "Remplacer les devis papier/Excel par un outil de chiffrage structuré (lots, ouvrages, fournitures, main d'œuvre)",
     "Faire signer les devis électroniquement et transformer automatiquement un devis signé en chantier suivi",
@@ -18,7 +18,7 @@
   "sections": [
     {
       "title": "Architecture technique & outils",
-      "intro": "Vue d'ensemble des langages, frameworks et services utilisés pour construire et faire fonctionner Kôji Web.",
+      "intro": "Vue d'ensemble des langages, frameworks et services utilisés pour construire et faire fonctionner Koji Web.",
       "features": [
         { "name": "Frontend", "description": "Interface construite avec React (Next.js, App Router), en JavaScript. Chaque page est un composant client (\"use client\") qui appelle les API internes de l'application.", "technical": "Next.js (App Router), React, CSS pur (fichier global app/globals.css, sans framework CSS tiers), système de traduction interne (5 langues)." },
         { "name": "Backend", "description": "La logique serveur (création/consultation/modification des données) est exposée sous forme d'API internes à l'application, une route par fonctionnalité (devis, chantiers, équipe, factures, interventions, notifications...).", "technical": "Next.js API Routes (Node.js), organisées sous app/api/*, chacune avec ses méthodes GET/POST/PATCH." },
@@ -42,7 +42,7 @@
         { "name": "Session persistante et reconnexion automatique", "description": "Une fois connecté, l'utilisateur reste connecté ; si sa session expire (environ 1h), elle est renouvelée automatiquement en arrière-plan sans le déconnecter, y compris si l'erreur d'expiration est renvoyée sous une forme inhabituelle.", "technical": "lib/client-api.js : jeton stocké dans le navigateur (localStorage), en-tête d'autorisation ajouté à chaque appel, détection d'expiration puis appel à /api/auth/refresh et nouvelle tentative automatique." },
         { "name": "Protection des pages", "description": "Toute page de l'application (hors connexion/inscription) vérifie qu'un utilisateur est bien connecté et le renvoie vers la page de connexion sinon.", "technical": "Vérification côté navigateur dans components/Shell.jsx (composant présent sur toutes les pages protégées), et vérification côté serveur sur chaque API sensible." },
         { "name": "Déconnexion", "description": "Bouton \"Déconnexion\" présent dans le menu latéral (tiroir de navigation), accessible depuis n'importe quelle page.", "technical": "Fonction logout() dans components/Shell.jsx : suppression de la session locale puis retour à l'écran de connexion." },
-        { "name": "Abonnement / période d'essai", "description": "Période d'essai de 14 jours ; à l'expiration, l'entreprise est redirigée vers une page présentant 3 formules (Kôji GO / Premium / Business).", "technical": "Page /abonnement ; calcul de la date de fin d'essai dans components/Shell.jsx ; la mise en paiement réelle n'est pas encore branchée (à connecter à un prestataire de paiement)." }
+        { "name": "Abonnement / période d'essai", "description": "Période d'essai de 14 jours ; à l'expiration, l'entreprise est redirigée vers une page présentant 3 formules (Koji GO / Premium / Business).", "technical": "Page /abonnement ; calcul de la date de fin d'essai dans components/Shell.jsx ; la mise en paiement réelle n'est pas encore branchée (à connecter à un prestataire de paiement)." }
       ]
     },
     {
@@ -92,7 +92,7 @@
       "features": [
         { "name": "\"Ma Signature\"", "description": "Page permettant à l'entreprise d'enregistrer sa signature : soit dessinée à la souris/au doigt, soit importée depuis une image.", "technical": "Page /signature ; dessin sur &lt;canvas&gt; exporté en image, ou import de fichier ; sauvegarde via API /api/signature-settings." },
         { "name": "Lien de signature client", "description": "Depuis \"Ma Signature\", génération et copie du lien de signature à envoyer au client pour un devis donné." },
-        { "name": "Page de signature (client)", "description": "Page publique (sans compte requis) affichant le détail du devis et un formulaire de signature (nom, email, téléphone, lieu, message, case de consentement).", "technical": "Page publique /signature/[jeton] ; API /api/signatures/[jeton] ; accès via une clé technique dédiée (le client n'a pas de session Kôji)." },
+        { "name": "Page de signature (client)", "description": "Page publique (sans compte requis) affichant le détail du devis et un formulaire de signature (nom, email, téléphone, lieu, message, case de consentement).", "technical": "Page publique /signature/[jeton] ; API /api/signatures/[jeton] ; accès via une clé technique dédiée (le client n'a pas de session Koji)." },
         { "name": "Connexion par identifiant à la signature", "description": "Alternative pour un client déjà connu : connexion par identifiant + mot de passe pour retrouver directement le devis à signer.", "technical": "Page /signature/login, API /api/auth/signature-login." },
         { "name": "Accès automatique au portail client", "description": "Une fois le devis signé, un identifiant et un mot de passe pour le portail client particulier sont générés et envoyés automatiquement par email." }
       ]
@@ -231,7 +231,7 @@
       "title": "Abonnement",
       "intro": "Présentation des formules d'abonnement à l'application, affichée automatiquement à la fin de la période d'essai.",
       "features": [
-        { "name": "Formules", "description": "Trois formules (Kôji GO, Premium, Business) présentées avec leur liste de fonctionnalités.", "technical": "Page /abonnement." },
+        { "name": "Formules", "description": "Trois formules (Koji GO, Premium, Business) présentées avec leur liste de fonctionnalités.", "technical": "Page /abonnement." },
         { "name": "Redirection automatique", "description": "À l'expiration des 14 jours d'essai gratuit, l'entreprise est automatiquement redirigée vers cette page tant qu'elle n'a pas souscrit." }
       ]
     },
@@ -247,7 +247,7 @@
       "intro": "Éléments transverses garantissant la cohérence, la sécurité et l'accessibilité de l'application à travers tous les modules.",
       "features": [
         { "name": "Cloisonnement des données", "description": "Chaque entreprise ne voit que ses propres devis, chantiers, équipe et documents." },
-        { "name": "Partage avec l'application mobile", "description": "Les devis, chantiers et comptes sont stockés dans une base commune avec l'application mobile Kôji, pour que les deux applications restent synchronisées." },
+        { "name": "Partage avec l'application mobile", "description": "Les devis, chantiers et comptes sont stockés dans une base commune avec l'application mobile Koji, pour que les deux applications restent synchronisées." },
         { "name": "Mots de passe", "description": "Mots de passe des ouvriers hachés (jamais stockés en clair) ; mots de passe entreprise/particulier gérés par Supabase Auth." },
         { "name": "Multilingue", "description": "5 langues disponibles (français, anglais, arabe, allemand, italien), avec adaptation du sens de lecture pour l'arabe." },
         { "name": "Historique des actions", "description": "Chaque action importante (création, modification, suppression) est journalisée pour garder une trace de l'activité." }
@@ -256,6 +256,6 @@
   ],
   "closing": {
     "title": "Fin du cahier des charges",
-    "text": "Ce document liste l'ensemble des fonctionnalités de l'application Kôji Web telles que développées à ce jour. Il est mis à jour à chaque évolution notable de l'application."
+    "text": "Ce document liste l'ensemble des fonctionnalités de l'application Koji Web telles que développées à ce jour. Il est mis à jour à chaque évolution notable de l'application."
   }
 }
