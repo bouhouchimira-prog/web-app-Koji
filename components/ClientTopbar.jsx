@@ -40,7 +40,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
       )}
 
       <Link href="/client" className="client-koji-topbar-logo" aria-label="Accueil">
-        <img src="/koji-logo.svg" alt="Kôji" />
+        <img src="/koji-logo.svg" alt="Koji" />
       </Link>
 
       <div className="client-koji-topbar-right">

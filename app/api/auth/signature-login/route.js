@@ -6,7 +6,7 @@ import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt }
 
 const SCOPE = "signature-login";
 
-// Same as the other public signature routes: the client isn't a Kôji session,
+// Same as the other public signature routes: the client isn't a Koji session,
 // so this looks the quote up across all users via the service_role key.
 export async function POST(request) {
   const body = await request.json();

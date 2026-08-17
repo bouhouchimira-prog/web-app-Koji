@@ -54,7 +54,7 @@ function SignatureLoginScreen() {
         <div className="signature-brand">
           <img src="/koji-logo.svg" alt="Koji" style={{ width: 48, height: 48 }} />
           <div>
-            <strong>Kôji</strong>
+            <strong>Koji</strong>
             <span>{L.signaturePub.clientSig}</span>
           </div>
         </div>

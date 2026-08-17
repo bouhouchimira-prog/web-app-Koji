@@ -100,13 +100,13 @@ function notifyWorkerOfAssignment(db, worker, newTasks) {
 
 function queueCredentialsMessage(db, worker, temporaryPassword) {
   const loginId = worker.loginId || worker.identifier || "";
-  const message = `Bonjour ${worker.name}, votre acces Kôji Ouvrier est pret. Identifiant: ${loginId}. Mot de passe provisoire: ${temporaryPassword}`;
+  const message = `Bonjour ${worker.name}, votre acces Koji Ouvrier est pret. Identifiant: ${loginId}. Mot de passe provisoire: ${temporaryPassword}`;
   if (worker.email) {
     db.mailOutbox.unshift({
       id: `mail-worker-${Date.now()}`,
       userId: worker.userId || "",
       to: worker.email,
-      subject: "Vos acces Kôji Ouvrier",
+      subject: "Vos acces Koji Ouvrier",
       body: message,
       type: "worker.credentials",
       createdAt: new Date().toISOString(),

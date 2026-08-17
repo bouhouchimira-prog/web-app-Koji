@@ -91,7 +91,7 @@ function profileCompany(user) {
   const daily = Number(business.dailyRate || 0);
   const hpd = Number(business.hoursPerDay || 7);
   return {
-    name: business.raisonSociale || user?.name || "Kôji",
+    name: business.raisonSociale || user?.name || "Koji",
     address: [business.addressLine1, business.addressLine2, [business.postalCode, business.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
     email: business.emailPro || user?.email || "",
     phone: business.phone || "",
@@ -1352,9 +1352,9 @@ export default function DevisEditor() {
       // Always re-sync the message with the freshly generated access -
       // a stale message with the previous password would no longer work to log in.
       setClientMessage(signatureShareText(quote.signatureClientAccess));
-      notify("Le devis a été envoyé vers Kôji Signature. Les accès provisoires client sont prêts.", "success");
+      notify("Le devis a été envoyé vers Koji Signature. Les accès provisoires client sont prêts.", "success");
     } catch (error) {
-      notifyError(error, "Impossible d'envoyer le devis vers Kôji Signature.");
+      notifyError(error, "Impossible d'envoyer le devis vers Koji Signature.");
     }
   }
 
@@ -1446,7 +1446,7 @@ export default function DevisEditor() {
 
   async function handleSend() {
     if (!requireLines()) return;
-    if (!window.confirm("Envoyer ce devis au client ? Un lien Kôji Signature sera généré.")) {
+    if (!window.confirm("Envoyer ce devis au client ? Un lien Koji Signature sera généré.")) {
       notify("Envoi annulé.", "info");
       return;
     }
@@ -1507,11 +1507,11 @@ export default function DevisEditor() {
     const clientName = form.client || generatedQuote.client || "Client";
     return [
       `Bonjour ${clientName},`,
-      `Votre devis ${generatedQuote.quoteNumber} est prêt à consulter et signer sur Kôji Signature.`,
+      `Votre devis ${generatedQuote.quoteNumber} est prêt à consulter et signer sur Koji Signature.`,
       `Lien : ${access.loginUrl}`,
       `Identifiant provisoire : ${access.identifier}`,
       `Mot de passe provisoire : ${access.password}`,
-      "Après signature, vos accès Kôji Particulier seront préparés pour suivre l'avancement du chantier."
+      "Après signature, vos accès Koji Particulier seront préparés pour suivre l'avancement du chantier."
     ].join("\n");
   }
 
