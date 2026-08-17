@@ -197,12 +197,17 @@ function ParticulierLogin({ L }) {
     setLoading(true);
     setError("");
     try {
-      const data = await apiSend("/api/auth/client-portal-login", {
+      const data = await apiSend("/api/auth/particulier-login", {
         identifier: identifier.trim(),
         password: password.trim()
       });
-      window.localStorage.setItem("koji-user", JSON.stringify(data.user));
-      router.push("/client");
+      if (data.kind === "worker") {
+        window.localStorage.setItem(WORKER_SESSION_KEY, JSON.stringify(data.account));
+        router.push("/worker");
+      } else {
+        window.localStorage.setItem("koji-user", JSON.stringify(data.account));
+        router.push("/client");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -212,8 +217,8 @@ function ParticulierLogin({ L }) {
 
   return (
     <>
-      <h2 className="auth-title">{L.auth.loginClient}</h2>
-      <p className="auth-subtitle">{L.auth.subtitleClient}</p>
+      <h2 className="auth-title">{L.auth.loginParticulier}</h2>
+      <p className="auth-subtitle">{L.auth.subtitleParticulier}</p>
       <form className="auth-form-v2" onSubmit={handleSubmit}>
         <div className="auth-field">
           <label>{L.auth.identifier}</label>
@@ -222,7 +227,7 @@ function ParticulierLogin({ L }) {
             className="auth-input-v2"
             value={identifier}
             onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
-            placeholder="Koji-CH1234"
+            placeholder="Koji-CH1234 / OUV-XXXXXX"
             autoFocus
             autoComplete="username"
           />
@@ -252,86 +257,7 @@ function ParticulierLogin({ L }) {
           {loading ? L.auth.verifying : L.auth.accessBtn}
         </button>
         <p className="auth-alt-link" style={{ color: "#9aa5b4", fontSize: "0.82rem", textAlign: "center" }}>
-          {L.auth.clientHint}
-        </p>
-      </form>
-    </>
-  );
-}
-
-function OuvrierLogin({ L }) {
-  const router = useRouter();
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!identifier.trim() || !password.trim()) {
-      setError(L.auth.errIdentifier);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const data = await apiSend("/api/worker-auth", {
-        identifier: identifier.trim(),
-        password: password.trim()
-      });
-      window.localStorage.setItem(WORKER_SESSION_KEY, JSON.stringify(data.worker));
-      router.push("/worker");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <>
-      <h2 className="auth-title">{L.auth.loginWorker}</h2>
-      <p className="auth-subtitle">{L.auth.subtitleWorker}</p>
-      <form className="auth-form-v2" onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label>{L.auth.identifier}</label>
-          <input
-            type="text"
-            className="auth-input-v2"
-            value={identifier}
-            onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
-            placeholder="OUV-XXXXXX"
-            autoFocus
-            autoComplete="username"
-          />
-        </div>
-        <div className="auth-field">
-          <label>{L.auth.password}</label>
-          <div className="auth-input-wrap">
-            <input
-              className="auth-input-v2"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              placeholder="KJ-XXXX-XXXX"
-              autoComplete="current-password"
-            />
-            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
-              <EyeIcon open={showPassword} />
-            </button>
-          </div>
-        </div>
-        {error ? <p className="auth-error">{error}</p> : null}
-        <button
-          type="submit"
-          className="auth-btn-primary"
-          disabled={loading || !identifier.trim() || !password.trim()}
-        >
-          {loading ? L.auth.verifying : L.auth.accessBtn}
-        </button>
-        <p className="auth-alt-link" style={{ color: "#9aa5b4", fontSize: "0.82rem", textAlign: "center" }}>
-          {L.auth.workerHint}
+          {L.auth.particulierHint}
         </p>
       </form>
     </>
@@ -343,7 +269,7 @@ function LoginScreen() {
   const params = useSearchParams();
   const typeParam = params.get("type");
 
-  const initialType = typeParam === "ouvrier" ? "ouvrier" : typeParam === "particulier" ? "particulier" : "entreprise";
+  const initialType = (typeParam === "ouvrier" || typeParam === "particulier") ? "particulier" : "entreprise";
   const [accountType, setAccountType] = useState(initialType);
 
   return (
@@ -353,7 +279,7 @@ function LoginScreen() {
         <div className="auth-card">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          <div className="auth-type-toggle auth-type-toggle-3">
+          <div className="auth-type-toggle">
             <button
               type="button"
               className={accountType === "entreprise" ? "active" : ""}
@@ -366,20 +292,12 @@ function LoginScreen() {
               className={accountType === "particulier" ? "active" : ""}
               onClick={() => setAccountType("particulier")}
             >
-              {L.auth.tabClient}
-            </button>
-            <button
-              type="button"
-              className={accountType === "ouvrier" ? "active" : ""}
-              onClick={() => setAccountType("ouvrier")}
-            >
-              {L.auth.tabWorker}
+              {L.auth.tabParticulier}
             </button>
           </div>
 
           {accountType === "entreprise" && <EntrepriseLogin L={L} />}
           {accountType === "particulier" && <ParticulierLogin L={L} />}
-          {accountType === "ouvrier" && <OuvrierLogin L={L} />}
 
         </div>
       </section>
