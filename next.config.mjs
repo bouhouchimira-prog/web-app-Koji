@@ -10,9 +10,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // what's here still blocks loading any *external* script/resource/frame,
 // restricts network requests to this origin + Supabase, and forbids framing.
 const supabaseOrigin = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+// Turbopack's dev server (HMR, React error-overlay stack reconstruction) uses
+// eval() and breaks under this CSP without it. Production never needs or gets
+// 'unsafe-eval' — React itself never calls eval() outside development.
+const isDev = process.env.NODE_ENV !== "production";
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
