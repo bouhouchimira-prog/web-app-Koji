@@ -285,7 +285,6 @@ export default function WorkerPage() {
             {L.worker.notifications} {portal?.unreadCount ? <b>{portal.unreadCount}</b> : null}
           </button>
           <button className={view === "settings" ? "active" : ""} onClick={() => { setView("settings"); setSelectedProjectId(""); }}>{L.nav.settings}</button>
-          <LangSwitcher />
           <button onClick={logout}>{L.worker.logout}</button>
         </nav>
       </header>

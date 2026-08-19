@@ -189,16 +189,13 @@ function Icon({ name, className = "" }) {
 export function Shell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { lang, setLang, L } = useLocale();
+  const { L } = useLocale();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const langRef = useRef(null);
   const notifRef = useRef(null);
 
   useEffect(() => {
     function handleClick(e) {
-      if (langRef.current && !langRef.current.contains(e.target)) setLangOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
@@ -291,33 +288,6 @@ export function Shell({ children }) {
           <img src="/koji-logo.svg" alt="Koji" />
         </Link>
         <div className="topbar-right">
-          <div className="topbar-lang" ref={langRef}>
-            <button
-              type="button"
-              className="topbar-lang-btn"
-              onClick={() => setLangOpen((o) => !o)}
-              aria-haspopup="listbox"
-              aria-expanded={langOpen}
-            >
-              <span>{lang === "fr" ? "FR" : lang === "en" ? "EN" : lang === "ar" ? "AR" : lang === "de" ? "DE" : "IT"}</span>
-              <svg viewBox="0 0 10 6" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 3, opacity: 0.7 }}><path d="M1 1l4 4 4-4"/></svg>
-            </button>
-            {langOpen && (
-              <ul className="topbar-lang-dropdown" role="listbox">
-                {["fr", "en", "ar", "de", "it"].map((code) => (
-                  <li key={code} role="option" aria-selected={lang === code}>
-                    <button
-                      type="button"
-                      className={lang === code ? "active" : ""}
-                      onClick={() => { setLang(code); setLangOpen(false); }}
-                    >
-                      <span>{code.toUpperCase()}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
           <div className="topbar-notif" ref={notifRef}>
             <button
               type="button"
