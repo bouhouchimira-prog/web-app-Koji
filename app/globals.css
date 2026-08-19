@@ -8434,13 +8434,19 @@ body :where(
 /* ── Shared client topbar (matches enterprise Shell) ───────────── */
 .client-koji-topbar {
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   height: 64px;
   background: var(--navy);
   padding: 0 16px;
   margin: -28px calc(clamp(18px, 4vw, 64px) * -1) 20px;
   position: relative;
+}
+
+.client-koji-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .client-koji-topbar-logo {
