@@ -363,7 +363,7 @@ export function Shell({ children }) {
               </div>
             ) : null}
           </div>
-          <Link href="/parametres" className="icon-round" aria-label={L.nav.settings}><Icon name="user" className="svg-icon" /></Link>
+          <Link href="/profil" className="icon-round" aria-label={L.nav.profile}><Icon name="user" className="svg-icon" /></Link>
         </div>
       </header>
 
@@ -402,6 +402,7 @@ export function Shell({ children }) {
         <div className="drawer-divider" />
 
         <div className="drawer-footer">
+          <Link href="/profil"><Icon name="user" className="svg-icon" />{L.nav.profile}</Link>
           <Link href="/parametres"><Icon name="settings" className="svg-icon" />{L.nav.settings}</Link>
           <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />{L.nav.logout}</button>
         </div>
