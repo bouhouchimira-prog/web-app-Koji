@@ -708,6 +708,12 @@
       "theme": "Abonnement",
       "title": "Paiement Stripe branche pour les abonnements Koji GO / Premium / Business",
       "detail": "Les clients peuvent desormais reellement payer un abonnement : page /abonnement avec choix mensuel/annuel (2 mois offerts a l'annee) qui ouvre un paiement securise Stripe (page hebergee Stripe, aucune donnee de carte bancaire geree par Koji) ; une fois paye, la formule est suivie automatiquement (webhook Stripe) et les vraies limites s'appliquent (ex. 4 devis/mois pour Koji GO) ; depuis Parametres > Abonnement, un bouton 'Gerer mon abonnement' ouvre l'espace client Stripe (changer de carte, telecharger les factures, resilier). Les comptes crees avant ce changement gardent un acces illimite (marques 'grandfathered'), seuls les nouveaux comptes sont desormais reellement en periode d'essai limitee tant qu'ils n'ont pas souscrit. Necessite la creation d'un compte Stripe et quelques cles a renseigner (voir guide fourni) avant d'etre actif en production."
+    },
+    {
+      "category": "backend",
+      "theme": "Abonnement",
+      "title": "Passage a une formule unique Koji Pro + option Site web",
+      "detail": "Les 3 formules (GO/Premium/Business) sont remplacees par une formule unique 'Koji Pro' qui inclut tout : chantiers et devis illimites, suivi de chantiers, suivi des travaux et de l'equipe, pointage, calendrier, generation PDF/Word, signature electronique, facturation, espace client dedie, bibliotheque d'ouvrages, et carte de visite Koji offerte. Une option payante 'Site web Koji' (14,99 euros/mois, ou tarif annuel equivalent) peut etre ajoutee a la souscription ou plus tard depuis Parametres > Abonnement ; elle apparait comme une ligne separee sur la facture Stripe. La Marketplace est affichee comme 'Bientot disponible' (prix non defini, pas encore vendable). Tarif de lancement propose : 49,99 euros/mois (a ajuster librement avant la mise en route, un seul chiffre a changer dans le script de configuration)."
     }
   ]
 }

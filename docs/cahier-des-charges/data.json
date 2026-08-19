@@ -42,7 +42,7 @@
         { "name": "Session persistante et reconnexion automatique", "description": "Une fois connecté, l'utilisateur reste connecté ; si sa session expire (environ 1h), elle est renouvelée automatiquement en arrière-plan sans le déconnecter, y compris si l'erreur d'expiration est renvoyée sous une forme inhabituelle.", "technical": "lib/client-api.js : jeton stocké dans le navigateur (localStorage), en-tête d'autorisation ajouté à chaque appel, détection d'expiration puis appel à /api/auth/refresh et nouvelle tentative automatique." },
         { "name": "Protection des pages", "description": "Toute page de l'application (hors connexion/inscription) vérifie qu'un utilisateur est bien connecté et le renvoie vers la page de connexion sinon.", "technical": "Vérification côté navigateur dans components/Shell.jsx (composant présent sur toutes les pages protégées), et vérification côté serveur sur chaque API sensible." },
         { "name": "Déconnexion", "description": "Bouton \"Déconnexion\" présent dans le menu latéral (tiroir de navigation), accessible depuis n'importe quelle page.", "technical": "Fonction logout() dans components/Shell.jsx : suppression de la session locale puis retour à l'écran de connexion." },
-        { "name": "Abonnement / période d'essai", "description": "Période d'essai de 14 jours ; à l'expiration, l'entreprise est redirigée vers une page présentant 3 formules (Koji GO / Premium / Business).", "technical": "Page /abonnement ; calcul de la date de fin d'essai dans components/Shell.jsx ; la mise en paiement réelle n'est pas encore branchée (à connecter à un prestataire de paiement)." }
+        { "name": "Abonnement / période d'essai", "description": "Période d'essai limitée à 1 devis ; l'entreprise est ensuite invitée à souscrire à la formule unique Koji Pro (devis/chantiers illimités, suivi de chantiers et d'équipe, pointage, calendrier, facturation, signature électronique, carte de visite offerte...), avec une option payante additionnelle 'Site web Koji' et un accès Marketplace annoncé 'bientôt disponible'.", "technical": "Page /abonnement (choix mensuel/annuel + option Site web) ; paiement réel via Stripe Checkout (lib/stripe.js, /api/billing/checkout) ; formule et statut suivis via webhook Stripe (/api/webhooks/stripe) et stockés dans business_info ; gestion/résiliation via le Customer Portal Stripe (/api/billing/portal) ; les comptes créés avant ce système gardent un accès illimité ('grandfathered')." }
       ]
     },
     {
@@ -229,10 +229,13 @@
     },
     {
       "title": "Abonnement",
-      "intro": "Présentation des formules d'abonnement à l'application, affichée automatiquement à la fin de la période d'essai.",
+      "intro": "Formule unique Koji Pro avec paiement réel via Stripe, plus une option payante et une fonctionnalité annoncée à venir.",
       "features": [
-        { "name": "Formules", "description": "Trois formules (Koji GO, Premium, Business) présentées avec leur liste de fonctionnalités.", "technical": "Page /abonnement." },
-        { "name": "Redirection automatique", "description": "À l'expiration des 14 jours d'essai gratuit, l'entreprise est automatiquement redirigée vers cette page tant qu'elle n'a pas souscrit." }
+        { "name": "Koji Pro (formule unique)", "description": "Devis et chantiers illimités, suivi de chantiers en temps réel, suivi des travaux et de l'équipe, pointage des ouvriers, calendrier & planning, génération de devis PDF & Word, signature électronique, facturation (acomptes/intermédiaires/finales), espace client dédié, bibliothèque d'ouvrages & fournisseurs, carte de visite Koji offerte. Choix mensuel ou annuel (2 mois offerts à l'année).", "technical": "Page /abonnement ; paiement Stripe Checkout ; prix définis via scripts/stripe-setup.js." },
+        { "name": "Option Site web Koji", "description": "Option payante additionnelle (14,99€/mois, ou tarif annuel équivalent), activable à la souscription ou ajoutée/retirée ensuite depuis Paramètres > Abonnement.", "technical": "Ligne Stripe supplémentaire sur le même abonnement (facture détaillée) ; ajout/retrait via /api/billing/addon (Stripe Subscription Items API)." },
+        { "name": "Marketplace", "description": "Annoncée dans la liste des fonctionnalités comme 'Bientôt disponible' ; tarif non encore défini, non vendable pour l'instant.", "technical": "Affichage informatif uniquement sur /abonnement et /parametres/abonnement, sans prix Stripe associé." },
+        { "name": "Gestion de l'abonnement", "description": "Depuis Paramètres > Abonnement : formule et statut actuels, bouton 'Gérer mon abonnement' ouvrant l'espace Stripe (moyen de paiement, factures, résiliation).", "technical": "/api/billing/portal (Stripe Customer Portal)." },
+        { "name": "Comptes existants préservés", "description": "Les comptes créés avant la mise en place du paiement réel gardent un accès illimité ; seuls les nouveaux comptes sont réellement soumis à la période d'essai limitée tant qu'ils n'ont pas souscrit." }
       ]
     },
     {

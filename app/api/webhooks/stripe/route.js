@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripe, planFromPriceId } from "../../../../lib/stripe";
+import { getStripe, intervalFromProPriceId, isWebsitePriceId } from "../../../../lib/stripe";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 
 // Called by Stripe, never by the browser — no session cookie to check here.
@@ -37,9 +37,10 @@ export async function POST(request) {
           await updateUserBilling(session.metadata.kojiUserId, {
             _stripeCustomerId: session.customer,
             _stripeSubscriptionId: session.subscription,
-            _billingPlan: session.metadata.plan || null,
+            _billingPlan: "pro",
             _billingInterval: session.metadata.interval || null,
-            _billingStatus: "active"
+            _billingStatus: "active",
+            _addonWebsite: session.metadata.website === "1"
           });
         }
         break;
@@ -48,17 +49,19 @@ export async function POST(request) {
         const subscription = event.data.object;
         const userId = subscription.metadata?.kojiUserId;
         if (userId) {
-          const priceId = subscription.items?.data?.[0]?.price?.id || "";
-          const { plan, interval } = planFromPriceId(priceId);
-          // Only overwrite plan/interval when the price resolves to a known
-          // one — an unrecognized price (e.g. a price edited by hand in the
-          // Stripe dashboard) should never blank out the current plan.
+          const items = subscription.items?.data || [];
+          const proItem = items.find((item) => !isWebsitePriceId(item.price?.id));
+          const addonWebsite = items.some((item) => isWebsitePriceId(item.price?.id));
           const patch = {
             _stripeSubscriptionId: subscription.id,
-            _billingStatus: subscription.status
+            _billingStatus: subscription.status,
+            _addonWebsite: addonWebsite
           };
-          if (plan) patch._billingPlan = plan;
-          if (interval) patch._billingInterval = interval;
+          const interval = intervalFromProPriceId(proItem?.price?.id);
+          if (interval) {
+            patch._billingPlan = "pro";
+            patch._billingInterval = interval;
+          }
           await updateUserBilling(userId, patch);
         }
         break;
@@ -69,7 +72,8 @@ export async function POST(request) {
         if (userId) {
           await updateUserBilling(userId, {
             _billingPlan: null,
-            _billingStatus: "canceled"
+            _billingStatus: "canceled",
+            _addonWebsite: false
           });
         }
         break;
