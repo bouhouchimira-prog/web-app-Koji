@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LangSwitcher } from "./LangSwitcher";
+import { useLocale } from "../lib/i18n";
 
 function getStoredClientUser() {
   if (typeof window === "undefined") return null;
@@ -11,8 +12,26 @@ function getStoredClientUser() {
 }
 
 export function ClientTopbar({ backHref = "/client", showBack = false }) {
+  const { L } = useLocale();
   const router = useRouter();
   const [unread, setUnread] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [menuOpen]);
+
+  function logout() {
+    window.localStorage.removeItem("koji-user");
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    router.push("/login?type=particulier");
+  }
 
   useEffect(() => {
     const user = getStoredClientUser();
@@ -52,12 +71,28 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
           </svg>
           {unread > 0 ? <span className="notif-bell-badge">{unread > 9 ? "9+" : unread}</span> : null}
         </Link>
-        <Link href="/client/profil" className="client-koji-topbar-btn" aria-label="Profil">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 20a8 8 0 0116 0" />
-          </svg>
-        </Link>
+        <div className="client-koji-topbar-menu" ref={menuRef}>
+          <button
+            type="button"
+            className="client-koji-topbar-btn"
+            aria-label="Profil"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((current) => !current)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20a8 8 0 0116 0" />
+            </svg>
+          </button>
+          {menuOpen ? (
+            <div className="client-koji-dropdown">
+              <Link href="/client/devis" onClick={() => setMenuOpen(false)}>{L.nav.quotes}</Link>
+              <Link href="/client/chantiers" onClick={() => setMenuOpen(false)}>{L.nav.projects}</Link>
+              <Link href="/client/profil" onClick={() => setMenuOpen(false)}>{L.nav.settings}</Link>
+              <button type="button" onClick={logout}>{L.nav.logout}</button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </header>
   );

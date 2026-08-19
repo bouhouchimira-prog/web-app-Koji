@@ -92,18 +92,17 @@ export default function ClientProfilePage() {
         </div>
       </div>
 
-      <form className="client-card client-form" onSubmit={saveProfile}>
+      <form className="client-profile-form client-form" onSubmit={saveProfile}>
         <p className="ct-profil-section-label">{L.clientSpace.myInfo}</p>
-
-        <label>
-          {L.clientSpace.emailLabel}
-          <input value={user?.email || ""} disabled />
-        </label>
 
         <div className="client-form-grid">
           <label>
             {L.clientSpace.identifierLabel}
             <input value={user?.portalIdentifier || ""} disabled />
+          </label>
+          <label>
+            {L.clientSpace.emailLabel}
+            <input value={user?.email || ""} disabled />
           </label>
           {FIELD_DEFS.map(({ key, label }) => (
             <label key={key}>
