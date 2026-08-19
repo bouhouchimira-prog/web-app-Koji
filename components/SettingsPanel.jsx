@@ -147,7 +147,7 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
 
         <section className="profile-block">
           <h2>{L.settings.security}</h2>
-          <div className="profile-card-actions">
+          <div className="profile-card-actions profile-card-actions-column">
             <button type="button" className="button secondary profile-link-button" onClick={openReport}>{L.settings.reportProblem}</button>
             <Link href="/aide" className="button secondary profile-link-button">{L.settings.help}</Link>
             <Link href="/legal" className="button secondary profile-link-button">{L.settings.legal}</Link>
