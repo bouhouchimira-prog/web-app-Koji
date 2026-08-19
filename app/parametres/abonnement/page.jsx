@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Shell } from "../../../components/Shell";
 import { apiGet, apiSend } from "../../../lib/client-api";
 import { useLocale } from "../../../lib/i18n";
@@ -9,13 +10,39 @@ import { PLAN_LIMITS } from "../../../lib/plan";
 
 const emptyBusinessPayment = { iban: "", bic: "", bankHolder: "", paymentTerms: "" };
 
+const BILLING_STATUS_KEYS = {
+  active: "billingStatusActive",
+  trialing: "billingStatusActive",
+  past_due: "billingStatusPastDue",
+  unpaid: "billingStatusPastDue",
+  canceled: "billingStatusCanceled"
+};
+
 export default function ParametresAbonnementPage() {
+  return (
+    <Suspense fallback={null}>
+      <ParametresAbonnementContent />
+    </Suspense>
+  );
+}
+
+function ParametresAbonnementContent() {
   const { L } = useLocale();
+  const searchParams = useSearchParams();
   const [plan, setPlan] = useState("");
+  const [billingStatus, setBillingStatus] = useState("");
+  const [billingInterval, setBillingInterval] = useState("");
+  const [hasBillingAccount, setHasBillingAccount] = useState(false);
   const [businessPayment, setBusinessPayment] = useState(emptyBusinessPayment);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [billingMessage, setBillingMessage] = useState("");
+
+  useEffect(() => {
+    if (searchParams.get("checkout") === "success") setBillingMessage(L.settings.checkoutSuccess);
+  }, [searchParams, L]);
 
   useEffect(() => {
     apiGet("/api/auth/profile")
@@ -23,6 +50,9 @@ export default function ParametresAbonnementPage() {
         const user = payload.user;
         if (!user) return;
         setPlan(user.plan || "");
+        setBillingStatus(user.billingStatus || "");
+        setBillingInterval(user.billingInterval || "");
+        setHasBillingAccount(Boolean(user.hasBillingAccount));
         const business = user.business || {};
         setBusinessPayment({
           iban: business.iban || "",
@@ -34,6 +64,18 @@ export default function ParametresAbonnementPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    setBillingMessage("");
+    try {
+      const response = await apiSend("/api/billing/portal", {});
+      window.location.href = response.url;
+    } catch (error) {
+      setBillingMessage(error.message || L.settings.billingError);
+      setPortalLoading(false);
+    }
+  }
 
   function setField(field, value) {
     setBusinessPayment((current) => ({ ...current, [field]: value }));
@@ -125,7 +167,24 @@ export default function ParametresAbonnementPage() {
             <span>{L.settings.currentPlan}</span>
             <strong>{planLabel}</strong>
           </div>
-          <Link href="/abonnement" className="button secondary profile-link-button">{L.settings.changePlan}</Link>
+          {billingStatus ? (
+            <div className="settings-plan-row">
+              <span>{L.settings.billingInterval}</span>
+              <strong>
+                {L.settings[BILLING_STATUS_KEYS[billingStatus] || "billingStatusActive"]}
+                {billingInterval ? ` · ${billingInterval === "year" ? L.settings.billingYearly : L.settings.billingMonthly}` : ""}
+              </strong>
+            </div>
+          ) : null}
+          {billingMessage ? <p className="profile-message">{billingMessage}</p> : null}
+          <div className="profile-card-actions profile-card-actions-column">
+            {hasBillingAccount ? (
+              <button type="button" className="button secondary profile-link-button" onClick={openBillingPortal} disabled={portalLoading}>
+                {portalLoading ? L.common.loading : L.settings.manageBilling}
+              </button>
+            ) : null}
+            <Link href="/abonnement" className="button secondary profile-link-button">{L.settings.changePlan}</Link>
+          </div>
         </section>
       </div>
     </Shell>
