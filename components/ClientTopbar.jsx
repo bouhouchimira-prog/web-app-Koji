@@ -14,6 +14,13 @@ function getStoredClientUser() {
 function DrawerIcon({ name }) {
   const base = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
   switch (name) {
+    case "user":
+      return (
+        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle {...base} cx="12" cy="8" r="4" />
+          <path {...base} d="M4 20a8 8 0 0116 0" />
+        </svg>
+      );
     case "home":
       return (
         <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -160,7 +167,8 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
         <div className="drawer-divider" />
 
         <div className="drawer-footer">
-          <Link href="/client/profil"><DrawerIcon name="settings" />{L.nav.settings}</Link>
+          <Link href="/client/profil"><DrawerIcon name="user" />{L.nav.profile}</Link>
+          <Link href="/client/parametres"><DrawerIcon name="settings" />{L.nav.settings}</Link>
           <button type="button" onClick={logout}><DrawerIcon name="logout" />{L.nav.logout}</button>
         </div>
       </aside>
