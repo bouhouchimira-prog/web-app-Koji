@@ -7,131 +7,701 @@
     "preparedBy": "Équipe développement Koji Web"
   },
   "entries": [
-    { "category": "backend",  "theme": "Fondations",         "title": "Mise en place initiale de l'application",              "detail": "Structure Next.js App Router, authentification, base de données JSON locale et première version des modules Devis, Chantiers, Équipe, Planning." },
-    { "category": "database", "theme": "Fondations",         "title": "Connexion Vercel / configuration environnement",       "detail": "Correction de la configuration d'authentification et du SMTP sur l'environnement de production Vercel." },
-    { "category": "backend",  "theme": "Fondations",         "title": "Fiabilisation de l'envoi d'email (SMTP Gmail)",        "detail": "Import dynamique de nodemailer compatible Vercel (ES modules), configuration complète (TLS, authentification)." },
-    { "category": "frontend", "theme": "Devis",              "title": "Sous-ouvrages dans le devis",                          "detail": "Ajout des sous-ouvrages avec le même design que l'ouvrage parent, et un bouton d'ajout repensé (style pointillé)." },
-    { "category": "frontend", "theme": "Devis",              "title": "Refonte de l'ouvrage au forfait et des fournitures",   "detail": "Recalcul des montants, sous-totaux par pièce, auto-remplissage des fournitures associées." },
-    { "category": "frontend", "theme": "Devis",              "title": "Fiabilité du formulaire devis",                       "detail": "Le brouillon se vide au démarrage d'un nouveau chantier ; les valeurs saisies ne se réinitialisent plus involontairement." },
-    { "category": "frontend", "theme": "Devis",              "title": "Séparation Historique / Éditeur",                     "detail": "Le menu Devis ramène toujours vers l'historique des devis plutôt que vers la création directe d'un nouveau devis." },
-    { "category": "database", "theme": "Devis",              "title": "Migration des devis vers Supabase (table partagée)",  "detail": "Les devis créés sur le site web et sur l'application mobile (Firas) vivent désormais dans la même table Supabase 'quotes', avec un mapping bidirectionnel dédié (lib/quote-mapping.js)." },
-    { "category": "frontend", "theme": "Devis",              "title": "Réorganisation des lots et des ouvrages",             "detail": "Flèches pour monter/descendre un ouvrage dans un lot, et pour réordonner les lots eux-mêmes ; le lot reste ouvert après ajout d'une fourniture." },
-    { "category": "backend",  "theme": "Devis",              "title": "Génération PDF des devis réparée",                    "detail": "La génération/aperçu PDF lisait encore l'ancien fichier JSON local et ne trouvait plus les devis créés depuis la migration Supabase ; corrigée pour lire directement la table partagée." },
-    { "category": "backend",  "theme": "Devis",              "title": "Versioning et sauvegarde complète du devis",          "detail": "Le numéro de version s'incrémente à chaque enregistrement manuel ; les notes, majorations/minorations et le taux de TVA choisi, qui se perdaient silencieusement, sont désormais bien sauvegardés." },
-    { "category": "frontend", "theme": "Devis",              "title": "Bibliothèque d'ouvrages : famille libre",             "detail": "Le champ Famille permet de taper une nouvelle famille (ex. Métallurgie) en plus de choisir dans la liste existante." },
-    { "category": "backend",  "theme": "Devis",              "title": "Taux horaire par défaut sur la bibliothèque",         "detail": "Le taux horaire du profil entreprise sert désormais de valeur par défaut pour chaque ouvrage (liste, création, édition, calcul du coût main d'œuvre)." },
-
-    { "category": "database", "theme": "Chantiers",          "title": "Connexion Supabase : chantiers, planning, fournitures","detail": "Ces trois modules sont branchés sur la base partagée avec l'application mobile ; les comptes utilisateurs sont également partagés entre les deux plateformes." },
-    { "category": "backend",  "theme": "Chantiers",          "title": "Correction d'un bug bloquant majeur",                 "detail": "Un chantier ne pouvait être consulté que si son devis était déjà signé par le client, empêchant toute préparation en amont. Corrigé : la fiche chantier est désormais accessible dès sa création." },
-    { "category": "frontend", "theme": "Chantiers",          "title": "Écran de choix avant signature",                      "detail": "Avant signature du devis, l'entreprise choisit entre 'Modifier le devis' et 'Commencer le chantier' au lieu d'atterrir directement sur le suivi." },
-    { "category": "frontend", "theme": "Chantiers",          "title": "Retour automatique depuis Équipe",                    "detail": "Le bouton 'Ajouter dans Équipe' depuis la planification d'un ouvrage ramène exactement à la même fenêtre une fois le personnel ajouté." },
-    { "category": "frontend", "theme": "Chantiers",          "title": "Fiche ouvrage enrichie (prix, dépenses, marge)",      "detail": "Affichage du prix validé par le client, calcul automatique des dépenses et de la marge par ouvrage, bouton d'ajout rapide (équipe / dépense / note), et récapitulatif automatique des dépenses au niveau du chantier." },
-    { "category": "frontend", "theme": "Chantiers",          "title": "Persistance de la navigation",                       "detail": "Un rafraîchissement de page (F5) ne ramène plus à l'écran de départ : le chantier et l'ouvrage consultés restent affichés (état conservé dans l'URL)." },
-    { "category": "backend",  "theme": "Chantiers",          "title": "Dépenses liées à un ouvrage précis",                  "detail": "L'API des dépenses accepte désormais un identifiant de tâche (ouvrage) en plus du chantier, pour un suivi financier plus fin." },
-
-    { "category": "frontend", "theme": "Équipe",             "title": "Édition complète de l'équipe",                       "detail": "Gestion des entreprises/SIRET pour les sous-traitants, liens multiples vers chantiers/devis/ouvrages, avec notifications automatiques lors de l'affectation." },
-    { "category": "frontend", "theme": "Équipe",             "title": "Nouvelle carte d'ajout (design)",                     "detail": "Le bouton 'Ajouter des personnels' devient un bouton flottant qui ouvre une carte animée avec 3 choix : Ouvrier, Sous-traitant, Planning." },
-    { "category": "frontend", "theme": "Équipe",             "title": "Module Planning / pointage des heures (nouveau)",     "detail": "Nouvel espace complet : liste des ouvriers avec badge d'heures de la semaine (vert/orange/rouge), détail hebdomadaire par ouvrier, ajout manuel de pointages, navigation semaine par semaine." },
-    { "category": "backend",  "theme": "Équipe",             "title": "Six types de pointage",                              "detail": "Heures de travail, jour de travail, forfait, ouvrage, passage, déplacement — chacun avec date et montant ; le montant des heures est calculé automatiquement à partir du taux horaire de l'ouvrier." },
-    { "category": "database", "theme": "Équipe",             "title": "Nouvelle donnée : heures contractuelles par ouvrier", "detail": "Ajout d'un paramètre 'heures contractuelles / semaine' (35h par défaut) sur chaque fiche ouvrier, utilisé pour le calcul des écarts." },
-    { "category": "backend",  "theme": "Équipe",             "title": "Alertes automatiques de dépassement / manque d'heures","detail": "À la fin de chaque semaine, si le total travaillé diffère du contrat de plus de 15 minutes, une notification est envoyée automatiquement à l'entreprise (une seule fois par semaine et par ouvrier)." },
-    { "category": "backend",  "theme": "Équipe",             "title": "Export PDF du relevé d'heures",                      "detail": "Génération d'un PDF mensuel par ouvrier : détail par journée/type de pointage, totaux hebdomadaires, total du mois en heures et en montant — pensé pour la comptabilité et la gestion de la paie." },
-    { "category": "frontend", "theme": "Équipe",             "title": "Espace ouvrier : pointage de la journée",             "detail": "Nouvel onglet 'Pointage' dans le portail ouvrier : début/fin de journée en un clic, avec récapitulatif de la semaine en cours." },
-    { "category": "frontend", "theme": "Équipe",             "title": "Calendrier",                                         "detail": "Cartes et tâches cliquables, édition d'un événement directement depuis sa fiche." },
-
-    { "category": "frontend", "theme": "Notifications",      "title": "Menu déroulant sur la cloche",                       "detail": "Affiche les 5 dernières notifications sans quitter la page en cours, avec un lien vers la liste complète." },
-    { "category": "frontend", "theme": "Notifications",      "title": "Renvoi des identifiants client",                     "detail": "Boutons pour renvoyer l'accès client par email ou WhatsApp, tableau d'informations avec icônes et boutons 'Copier'." },
-    { "category": "backend",  "theme": "Notifications",      "title": "Envoi d'email réel à la signature du devis",         "detail": "Le premier envoi des identifiants client déclenche désormais un vrai email (SMTP), et plus seulement une file d'attente locale." },
-    { "category": "frontend", "theme": "Notifications",      "title": "Fiche détail centrée et redessinée",                 "detail": "La fiche de détail d'une notification est centrée sur la page, avec un tableau d'informations clarifié." },
-    { "category": "frontend", "theme": "Notifications",      "title": "Correction de la route d'ouverture",                 "detail": "Cliquer sur une notification depuis le menu déroulant ouvrait le devis lié au lieu de sa fiche de détail — corrigé, avec icône par type, heure relative et point 'non lu'." },
-
-    { "category": "backend",  "theme": "Signature & portails", "title": "Signature client branchée sur Supabase",           "detail": "Le client qui signe un devis n'a pas de session Koji : une clé technique dédiée (service_role) permet de retrouver et mettre à jour son devis directement dans la base partagée." },
-    { "category": "backend",  "theme": "Signature & portails", "title": "Audit complet du portail client",                  "detail": "Plusieurs routes (connexion client, devis/tâches/notes du portail, création de factures) lisaient encore l'ancien fichier JSON local et ne trouvaient plus aucune donnée récente depuis la migration Supabase des devis — toutes corrigées." },
-    { "category": "frontend", "theme": "Signature & portails", "title": "Espace client particulier",                        "detail": "Suivi de chantier, centre de notifications et réponses aux messages de l'entreprise, avec fil de discussion." },
-    { "category": "frontend", "theme": "Signature & portails", "title": "Espace ouvrier complet",                           "detail": "Accueil (chantiers actifs, tâches du jour), archives, notifications, réclamations, signalement de retard et alerte urgente avec choix du type d'incident." },
-    { "category": "backend",  "theme": "Signature & portails", "title": "Suivi du temps par ouvrage",                       "detail": "Boutons Démarrer / Pause / Reprendre / Terminer par tâche, avec calcul automatique du temps consommé et alerte en cas de dépassement du temps prévu." },
-
-    { "category": "frontend", "theme": "Accueil & stabilité", "title": "Refonte de la page d'accueil",                     "detail": "Message de bienvenue personnalisé ('Bonjour [Nom]'), ajout rapide (tâche/RDV/dépense/note), alertes urgentes, reprise d'un devis brouillon en un clic." },
-    { "category": "frontend", "theme": "Accueil & stabilité", "title": "Compatibilité Safari / iOS",                       "detail": "La barre d'adresse de Safari mobile masquait parfois le bas de l'écran (boutons inaccessibles) — corrigé sur l'ensemble de l'application." },
-    { "category": "frontend", "theme": "Accueil & stabilité", "title": "Cohérence visuelle",                               "detail": "Logo recentré sur toutes les pages, sélecteur de langue simplifié (5 langues, sans drapeaux), adresse d'entreprise simplifiée en une ligne." },
-    { "category": "backend",  "theme": "Accueil & stabilité", "title": "Reconnexion automatique de session",               "detail": "Une session expirée (~1h) provoquait des échecs silencieux à l'enregistrement (profil, IBAN, devis) sans reconnexion automatique ; la détection couvre désormais tous les cas d'expiration." },
-    { "category": "backend",  "theme": "Accueil & stabilité", "title": "Corrections de plantages ponctuels",               "detail": "Plusieurs erreurs bloquantes corrigées au fil des tests (références de code manquantes, composants mal placés)." },
-    { "category": "database", "theme": "Accueil & stabilité", "title": "Nettoyage du backend",                            "detail": "Audit complet des routes serveur : suppression du code mort (module Marketplace), vérification de la cohérence entre données locales et données Supabase sur l'ensemble de l'application." },
-
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Nouveau type \"Intervention\" dans l'ajout rapide", "detail": "Depuis la page d'accueil, un cinquième choix 'Intervention' ouvre un formulaire dédié en plein écran, en plus des types existants Tâche/RDV/Dépense/Note." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Formulaire de rapport d'intervention",              "detail": "En-tête avec le logo et les coordonnées de l'entreprise (repris automatiquement du profil), puis Client, Site, Date, Entreprise, Équipement, Constat, Analyse, Préconisations et Signature, sur le modèle d'un rapport d'intervention technique classique." },
-    { "category": "backend",  "theme": "Rapports d'intervention", "title": "Nouvelle entité 'interventions'",                   "detail": "API dédiée (creation, consultation, suppression) pour stocker les rapports d'intervention, avec historique des actions comme pour les autres modules." },
-    { "category": "backend",  "theme": "Rapports d'intervention", "title": "Génération PDF du rapport d'intervention",          "detail": "Chaque rapport peut être téléchargé en PDF avec le logo de l'entreprise en en-tête, dans une mise en page reprenant celle des rapports d'intervention papier existants." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Aperçu avant génération",                            "detail": "Avant de créer définitivement le rapport, un aperçu fidèle au document final (en-tête, sections, signature) permet de vérifier le contenu et de revenir le modifier." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Suivi et devenir de chaque intervention",            "detail": "Depuis la fiche d'une intervention : la lier à un chantier existant, la garder en attente pour un futur devis, l'archiver, ou créer directement une facture — avec un badge de statut visible dans la liste." },
-    { "category": "backend",  "theme": "Rapports d'intervention", "title": "Facturation directe d'une intervention",             "detail": "Une facture peut être créée directement à partir d'une intervention (sans passer par un devis signé), avec un montant saisi manuellement ; l'intervention passe alors automatiquement au statut 'Facturée'." },
-    { "category": "backend",  "theme": "Facturation",             "title": "Export PDF des factures",                            "detail": "Chaque facture (issue d'un devis signé ou d'une intervention) peut désormais être téléchargée en PDF avec les informations de l'entreprise, du client et du montant — bouton ajouté dans la page Facturation et dans la fiche d'une intervention." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "En-tête d'entreprise entièrement modifiable",         "detail": "Nom, adresse, code postal, ville, email, téléphone et SIRET sont pré-remplis depuis le profil mais modifiables pour chaque rapport ; le logo peut être celui du profil ou en importer un autre à la volée, sans toucher au profil principal." },
-    { "category": "backend",  "theme": "Rapports d'intervention", "title": "En-tête d'entreprise propre à chaque rapport",        "detail": "Chaque intervention conserve son propre instantané des informations d'entreprise (comme les devis), pour que le PDF reste fidèle même si le profil change ensuite." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Section Interventions sur l'accueil",                 "detail": "Nouvelle section sur la page d'accueil, sous 'Devis en cours', listant les interventions avec leur statut (À faire / En cours / Terminée), et les actions rapides archiver/supprimer." },
-    { "category": "backend",  "theme": "Rapports d'intervention", "title": "Statut de suivi automatique (À faire / En cours / Terminée)", "detail": "Le statut d'une intervention évolue automatiquement selon sa date (À faire tant que la date n'est pas arrivée, En cours le jour J), jusqu'à être marquée Terminée manuellement puis, si besoin, archivée." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Passage direct dans 'À faire maintenant'",            "detail": "Une intervention du jour peut être déplacée en un clic vers la liste 'À faire maintenant' de l'accueil, sans dupliquer la fiche si elle y est déjà." },
-    { "category": "backend",  "theme": "Rapports d'intervention", "title": "Numéro de rapport automatique",                       "detail": "Chaque rapport reçoit un numéro unique généré automatiquement (ex. INT-2026-0003), affiché en en-tête avec la date de création, sur le même principe que la numérotation des devis et factures." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Mise en page de l'en-tête revue",                     "detail": "'RAPPORT D'INTERVENTION', le numéro et la date de création sont désormais mis en avant en haut à droite, à côté des informations de l'entreprise, comme sur les devis et factures." },
-    { "category": "frontend", "theme": "Rapports d'intervention", "title": "Signature réutilisable depuis le profil",             "detail": "La signature déjà enregistrée dans 'Ma Signature' (dessinée ou importée) peut être ajoutée en un clic au rapport, affichée en bas à droite du document comme une vraie signature." },
-
-    { "category": "database", "theme": "Maintenance technique", "title": "Nettoyage approfondi du code",                        "detail": "Audit complet du projet (pages, routes, fonctions, dépendances) pour repérer tout ce qui n'était plus utilisé ; suppression de 6 pages orphelines (onboarding, welcome, compte, anciennes pages devis en 3 étapes), d'une route de connexion de démonstration, d'un dossier de composants dupliqué obsolète, de plusieurs fonctions inutilisées et d'une dépendance logicielle non utilisée — sans toucher aux fonctionnalités actives." },
-
-    { "category": "frontend", "theme": "Devis", "title": "Description de l'ouvrage (titre + sous-titre)",                       "detail": "Chaque ligne d'un devis (ouvrage ou fourniture) peut désormais recevoir une description libre, affichée sous forme de sous-titre grisé sous la désignation en gras dans le devis généré (PDF et Word) — le même principe que sur les devis modèles." },
-    { "category": "backend",  "theme": "Devis", "title": "Restauration de la description des ouvrages de bibliothèque",         "detail": "La description déjà saisie dans la Bibliothèque d'ouvrages est désormais reprise automatiquement quand l'ouvrage est ajouté à un devis, au lieu d'être perdue comme auparavant." },
-    { "category": "database", "theme": "Maintenance technique", "title": "Suppression de code mort dans la génération de devis", "detail": "Un ancien générateur de devis PDF, devenu inaccessible après une précédente refonte (code jamais exécuté), a été retiré du fichier technique de génération de documents." },
-
-    { "category": "frontend", "theme": "Devis", "title": "Réorganisation de la fiche Client et chantier",                       "detail": "Champs réorganisés pour plus de clarté : référence et client sur une même ligne, téléphone et email sur une même ligne, adresse sur sa propre ligne, puis le reste des informations (chantier, dates, durée, type de bien) en dessous." },
-    { "category": "backend",  "theme": "Devis", "title": "Référence client en texte libre",                                     "detail": "La 'Référence client' n'est plus une liste déroulante à choisir (qui pouvait donner l'impression que l'information saisie disparaissait) : c'est maintenant un champ texte simple qui garde exactement ce qui a été écrit." },
-
-    { "category": "backend",  "theme": "Devis", "title": "Correction du calcul du total d'un devis (majorations non comptées)", "detail": "Le montant Total HT / TVA / Total TTC enregistré pour chaque devis ne prenait pas en compte les majorations (coordination de chantier, provision aléas, assurance décennale), même si elles étaient listées sur le document. Corrigé à la source (calcul serveur) : le total inclut désormais bien les majorations, partout où il est utilisé (tableau de bord, facturation, signature client, archives)." },
-    { "category": "backend",  "theme": "Devis", "title": "Deuxième cause trouvée : le total serveur retombait à 0",             "detail": "Le calcul serveur recalculait chaque ligne à partir de zéro au lieu de faire confiance au montant déjà calculé correctement par l'éditeur, et se trompait sur deux points (un champ technique à 0 mal interprété comme 'prix fixe', une liste de fournitures non reconnue), ramenant le total à 0€ à chaque enregistrement. Corrigé : le serveur fait maintenant confiance au montant de chaque ligne tel qu'il apparaît dans l'éditeur." },
-    { "category": "backend",  "theme": "Devis", "title": "Taux de TVA de chaque ligne aligné sur le devis",                      "detail": "Chaque ligne de devis calculait sa propre TVA à 20% par défaut, sans tenir compte du taux choisi pour le devis (ex. 10%) — corrigé pour utiliser le taux réellement sélectionné." },
-    { "category": "frontend", "theme": "Devis", "title": "Double-clic sur Enregistrer : un seul devis créé au lieu de deux",     "detail": "Un double-clic (ou un enregistrement automatique déclenché en même temps qu'un enregistrement manuel) pouvait créer deux devis identiques pour le même chantier au lieu de mettre à jour le même. Corrigé : un enregistrement déjà en cours est désormais partagé au lieu d'en déclencher un second." },
-    { "category": "frontend", "theme": "Devis", "title": "Tableau du devis : colonne Total HT (au lieu de Total TTC)",          "detail": "La colonne de droite du tableau d'ouvrages, sur le PDF et le Word générés, affiche maintenant le Total HT de chaque ligne plutôt que le Total TTC, comme demandé pour la lecture par les clients/partenaires." },
-    { "category": "frontend", "theme": "Devis", "title": "Bouton Ouvrir sur chaque ouvrage lié à la bibliothèque",              "detail": "Comme pour les fournitures, chaque ouvrage d'un devis relié à la Bibliothèque d'ouvrages affiche désormais un bouton 'Ouvrir' qui montre sa fiche (code, famille, unité, temps normatif, taux horaire, description) et permet d'aller la modifier dans la Bibliothèque." },
-    { "category": "database", "theme": "Maintenance technique", "title": "Suppression de code mort dans l'export Word des devis", "detail": "Un second bloc de génération de document, devenu inaccessible après une précédente refonte (jamais exécuté), a été retiré du fichier technique de génération de documents." },
-    { "category": "frontend", "theme": "Devis", "title": "Cadres Date de début / Durée des travaux masqués si vides",           "detail": "Sur le PDF et le Word générés, les deux encadrés ne s'affichent plus quand ni la date de début ni la durée des travaux ne sont renseignées, au lieu d'apparaître vides." },
-    { "category": "frontend", "theme": "Devis", "title": "Bouton 'Transformer ce devis en facture'",                            "detail": "Génère le même PDF que le devis (mêmes lignes, mêmes montants), avec le même numéro, mais étiqueté 'Facture' au lieu de 'Devis' et sans le numéro de version. La facture obtenue est enregistrée et retrouvable dans l'outil Factures, téléchargeable en PDF à tout moment." },
-    { "category": "frontend", "theme": "Facturation", "title": "Outil 'Facturation' renommé en 'Factures'",                     "detail": "Renommé dans le menu et sur la page, dans les 5 langues de l'application." },
-
-    { "category": "backend",  "theme": "Sécurité", "title": "Audit de sécurité complet et correction des failles trouvées",     "detail": "Audit approfondi ayant confirmé 6 failles actives : fuite de données entre entreprises, base de données lisible sans connexion, portail client sans authentification, mots de passe en clair, base de données versionnée dans Git, absence de vérification centralisée. Corrigées le jour même (détail ci-dessous)." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Fuite de données entre entreprises corrigée",                     "detail": "Une trentaine de routes (clients, devis, factures, tâches, ouvriers...) faisaient confiance à un identifiant envoyé par le navigateur pour savoir quelles données afficher, sans vérifier qu'il correspondait à la session connectée : n'importe qui pouvait lire ou modifier les données d'une autre entreprise en changeant cet identifiant. Ces routes vérifient désormais la vraie session avant de répondre." },
-    { "category": "database", "theme": "Sécurité", "title": "Base de données partagée verrouillée",                            "detail": "La table contenant l'essentiel des données de l'application était lisible par n'importe qui sur internet avec la simple clé publique du site, sans connexion. L'application y accède désormais avec une clé privée réservée au serveur, ce qui permet de fermer complètement l'accès public sans rien casser." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Portail client équipé d'une vraie session",                       "detail": "L'espace client particulier n'avait aucune session vérifiable : ses informations (dont le mot de passe de signature) pouvaient être lues à partir du simple email d'un client, sans mot de passe. Un jeton de connexion signé a été ajouté, vérifié sur chaque page du portail client." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Mots de passe du portail client chiffrés",                        "detail": "Les mots de passe des comptes client particulier étaient stockés et comparés en texte lisible. Ils sont désormais chiffrés (hachage scrypt), avec migration automatique et transparente des comptes existants à la prochaine connexion." },
-    { "category": "database", "theme": "Sécurité", "title": "Fichier de base de données retiré du dépôt Git",                  "detail": "Un fichier contenant une copie complète de la base de données de développement, avec des mots de passe réels en clair, était suivi par Git depuis plusieurs mois. Retiré du suivi et exclu définitivement." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Portail ouvrier équipé d'une vraie session",                      "detail": "Comme pour le portail client, l'espace ouvrier n'avait aucune session vérifiable après la connexion : ses tâches, heures et taux horaire étaient accessibles à quiconque connaissait son identifiant. Un jeton de connexion signé a été ajouté." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Fuite de messages et mots de passe provisoires par email/SMS",     "detail": "Une route technique renvoyait tous les emails et SMS envoyés par l'application, tous chantiers et toutes entreprises confondus (dont des mots de passe provisoires en clair), dès qu'elle était appelée sans préciser de chantier. Corrigée : un chantier précis est désormais obligatoire, et seuls l'entreprise concernée ou son client peuvent consulter ses messages." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Import de fourniture par lien sécurisé",                          "detail": "L'outil qui récupère automatiquement les informations d'un produit à partir d'un lien pouvait être utilisé par n'importe qui, sans connexion, pour faire aller le serveur chercher n'importe quelle adresse — un risque d'abus classique. Restreint aux utilisateurs connectés et aux liens web valides uniquement." },
-    { "category": "backend",  "theme": "Devis", "title": "Protection contre l'effacement accidentel d'une signature",         "detail": "Renvoyer l'invitation à signer un devis déjà signé effaçait silencieusement la signature existante (nom, date) pour repartir de zéro. Une confirmation explicite est désormais nécessaire pour rouvrir un devis déjà signé." },
-    { "category": "database", "theme": "Sécurité", "title": "Verrouillage de la base partagée écrit dans le script d'installation", "detail": "La commande qui ferme complètement l'accès public à la table de données partagée a été ajoutée au script SQL du projet, prête à être exécutée dans le tableau de bord Supabase." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Les 3 sessions (entreprise, client, ouvrier) déplacées hors de portée du navigateur", "detail": "Les jetons de connexion vivaient dans le stockage local du navigateur, lisible par le moindre script exécuté sur la page (faille XSS, extension malveillante) — une seule faille de ce type ailleurs dans l'appli aurait suffi à voler une session active. Déplacés vers des cookies HttpOnly, invisibles et inaccessibles au code JavaScript de la page, pour les trois types de compte." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Mot de passe de connexion signature chiffré",                       "detail": "Le mot de passe provisoire envoyé au client pour signer son devis était comparé et stocké en texte lisible. Chiffré (hachage scrypt) comme le reste ; le mot de passe en clair n'est plus jamais écrit en base, seulement affiché une fois au moment de l'envoi." },
-    { "category": "frontend", "theme": "Devis", "title": "Pas de bloc signature sur une facture",                              "detail": "Le PDF généré via 'Transformer ce devis en facture' affichait encore le cadre 'Bon pour accord / Date et signature du client', qui n'a pas lieu d'être sur une facture. Retiré uniquement pour ce cas ; le devis original le garde." },
-    { "category": "frontend", "theme": "Profil", "title": "Carte de visite professionnelle (en test interne)",                  "detail": "Carte au format réel (85 x 55 mm, prêt à imprimer, recto-verso). Recto sur fond blanc : logo de l'entreprise, raison sociale, spécialité, adresse, téléphone (+33) et email, QR code vers le site web de l'entreprise en bas à droite. Verso sur fond bleu Koji : vrai logo Koji (reproduit vectoriellement), QR codes vers le site Koji et vers les stores (App Store / Google Play, à activer dès que les liens réels seront fournis). Bouton Aperçu avant téléchargement. Réservée aux comptes administrateurs pour le moment (jusqu'à nouvel ordre)." },
-    { "category": "frontend", "theme": "Profil", "title": "QR code personnalisé pour la carte de visite",                       "detail": "Sous le champ 'Site web' de la fiche entreprise, possibilité d'importer son propre QR code (image), qui remplace alors celui généré automatiquement depuis le site web sur la carte de visite — utile pour pointer vers autre chose (page d'avis, WhatsApp...)." },
-    { "category": "frontend", "theme": "Profil", "title": "Verso de la carte : mention App Store / Play Store",                  "detail": "Ajout de la mention 'Disponible sur App Store et Play Store' avec un symbole pour chaque store." },
-    { "category": "backend",  "theme": "Profil", "title": "Vraie icône téléphone sur la carte de visite",                        "detail": "Les deux premières tentatives (traits abstraits) ne ressemblaient pas à un téléphone. Le moteur de génération PDF du projet a été étendu pour dessiner de vraies icônes vectorielles (courbes et arcs SVG, pas seulement des rectangles et traits droits) — utilisé pour reproduire l'icône téléphone standard, et réutilisable pour toute icône future de ce type." },
-    { "category": "frontend", "theme": "Profil", "title": "Verso de la carte aligné sur le style de la page de connexion",       "detail": "Les badges 'Google Play' / 'App Store' du verso reprennent maintenant les mêmes icônes et le même style encadré que sur la page de connexion (composant AuthBrandPanel), avec le texte 'Disponible sur' au lieu de 'Bientôt disponible sur'." },
-    { "category": "backend",  "theme": "Devis", "title": "Acceptation manuelle d'un devis, sans passer par la signature électronique", "detail": "Nouvelle action pour marquer un devis comme accepté par le client (statut 'Signé') directement depuis l'éditeur, sans passer par Koji Signature. Une fenêtre demande le motif — acceptation verbale ou acompte versé — avec une précision libre optionnelle (montant, date...). Le devis devient alors immédiatement éligible à la facturation et débloque l'accès normal au chantier lié, exactement comme une signature électronique. Un repère (verbal / acompte) distingue ce cas d'une vraie signature dans la liste des devis." },
-    { "category": "frontend", "theme": "Devis", "title": "Création d'un chantier depuis un devis existant rendue plus visible",      "detail": "Un bouton explicite 'Créer un chantier pour ce devis' apparaît désormais quand un devis déjà enregistré n'a pas de chantier lié — possible à tout moment, même si le client n'a pas encore validé le devis." },
-    { "category": "frontend", "theme": "Accueil & stabilité", "title": "Le devis devient le point d'entrée de l'accueil",           "detail": "Le gros bouton d'action de la page d'accueil ('+') pointe maintenant vers la création d'un devis au lieu d'un chantier, et l'ordre des sections a été inversé : Devis en cours avant Chantiers, Interventions en dernier." },
-    { "category": "backend",  "theme": "Devis", "title": "Base de calcul correcte pour les majorations (coordination, aléas, assurance)", "detail": "La coordination de chantier et la provision pour aléas se calculaient déjà, comme il se doit, uniquement sur le total des lots. L'assurance décennale utilisait à tort la même base, alors qu'elle doit porter sur le chiffrage total de l'affaire HT (lots + coordination + provision aléas + toute ligne précédente). Chaque ligne de majoration a maintenant un menu 'Base' — 'Total des lots' ou 'Chiffrage cumulé' — pour choisir explicitement sa base de calcul, réglé sur cumulé par défaut pour l'assurance décennale ; utile si d'autres lignes cumulatives sont ajoutées plus tard. Corrigé dans le calcul du devis, le PDF et l'export Word, qui utilisaient chacun leur propre logique." },
-    { "category": "backend",  "theme": "Contacts", "title": "Fondations du module Contacts (base de données)",                       "detail": "Nouvelle entité Contact centrale (particulier ou société, plusieurs rôles cumulables : client, prospect, équipe, sous-traitant, architecte, fournisseur, société donneuse d'ordre, autre), avec une table de liaison pour les intervenants par chantier (rôle propre à chaque chantier, indépendant du rôle général de la fiche). Devis, factures et rapports d'intervention peuvent désormais pointer vers une fiche contact, sans qu'aucune migration de base de données ne soit nécessaire. Les coordonnées déjà copiées sur un devis/facture envoyé restent inchangées même si la fiche contact est modifiée ensuite. Etape technique invisible pour l'instant : l'interface (page Contacts, sélection dans les formulaires) arrive dans la foulée." },
-    { "category": "frontend", "theme": "Contacts", "title": "Nouvelle page Contacts (liste, fiche, historique)",                     "detail": "Nouvel onglet 'Contacts' dans le menu. Recherche par nom/société/téléphone/email/adresse, filtres par rôle (Tous/Clients/Prospects/Équipe/Sous-traitants/Architectes/Fournisseurs). Chaque fiche affiche l'historique complet et cliquable des devis, chantiers, factures et rapports d'intervention liés, avec statut et montant. Avertissement non bloquant si un contact similaire (même email/téléphone/SIRET) existe déjà à la création. Un contact avec des documents liés ne peut pas être supprimé, seulement archivé — il disparaît des listes mais son historique reste intact et consultable." },
-    { "category": "frontend", "theme": "Facturation", "title": "Retour vers Factures apres transformation d'un devis",              "detail": "Le bouton 'Transformer ce devis en facture' ouvrait directement le PDF dans un nouvel onglet. Il renvoie maintenant vers la page Factures, avec la facture nouvellement créée déjà sélectionnée, pour la télécharger ou l'envoyer depuis cette page plutôt que depuis un PDF isolé." },
-    { "category": "frontend", "theme": "Facturation", "title": "'Devis signés' devient 'Mes factures'",                             "detail": "Renommage du titre de section et du message d'état vide sur la page Factures pour parler de factures plutôt que de devis." },
-    { "category": "backend",  "theme": "Maintenance technique", "title": "Correction d'une erreur console en développement",         "detail": "Le serveur de développement (Turbopack) affichait une erreur liée a la politique de sécurité du contenu (CSP) durcie lors de l'audit sécurité — celle-ci bloquait une fonctionnalité de débogage propre au mode développement. Corrigé sans rien changer à la sécurité de la version en production." },
-    { "category": "backend",  "theme": "Sécurité", "title": "Fusion des connexions Client et Ouvrier en un seul onglet 'Particulier'", "detail": "La page de connexion avait 3 onglets (Entreprise / Client / Ouvrier). Client et Ouvrier sont désormais réunis dans un seul onglet 'Particulier' : la personne saisit son identifiant une seule fois, et l'application détecte automatiquement s'il s'agit d'un compte client ou d'un compte ouvrier pour l'envoyer vers le bon espace. Les deux vérifications de mot de passe (avec leur limitation anti-force-brute respective) restent distinctes en coulisses, seul le point d'entrée est unifié." },
-    { "category": "frontend", "theme": "Profil", "title": "Renommage de la marque 'Kôji' en 'Koji'",                                   "detail": "Retrait de l'accent circonflexe sur le O partout où la marque apparaît : logo, PDF (devis, facture, carte de visite), emails, notifications, interface et documents internes." },
-    { "category": "frontend", "theme": "Signature & portails", "title": "Identifiant et mot de passe dans le profil client",           "detail": "La page de profil du portail client affiche désormais l'identifiant de connexion (lecture seule) à côté des autres informations, et un champ 'Nouveau mot de passe' (masqué par défaut, avec un œil pour l'afficher/le masquer) permettant au client de changer lui-même son mot de passe — laissé vide, il reste inchangé." },
-    { "category": "frontend", "theme": "Profil", "title": "Email de connexion affiché à côté de l'email professionnel",               "detail": "Dans les coordonnées de l'entreprise, l'email de connexion au compte (lecture seule) apparaît désormais juste avant l'email professionnel, avec une explication : utile quand l'entreprise ne s'est pas inscrite au départ avec son email professionnel et veut que ce soit ce dernier qui figure sur les devis/factures/carte de visite." },
-    { "category": "frontend", "theme": "Signature & portails", "title": "Menu de navigation et pages dédiées dans l'espace client",       "detail": "Une icône menu (hamburger) en haut à gauche de l'espace client ouvre désormais le même menu tiroir (glissant depuis la gauche) que côté entreprise, avec Accueil / Devis / Chantiers, puis Paramètres / Déconnexion en pied de tiroir — exactement la même disposition que le menu entreprise. L'icône profil en haut à droite mène directement à la page de profil, comme côté entreprise. Nouvelle page 'Devis' listant uniquement les devis signés, chacun téléchargeable en PDF directement (nouvelle route API dédiée au portail client, avec la même vérification de propriété que le reste de l'espace). Nouvelle page 'Chantiers' listant uniquement les chantiers réellement en cours (devis signés), là où la page d'accueil affichait par erreur tous les devis du client, y compris les brouillons, comme s'il s'agissait de chantiers. Page de profil réorganisée : les informations (identifiant, email, coordonnées) sont maintenant groupées proprement dans une seule carte, au lieu d'un agencement cassé avec un grand espace vide." },
-    { "category": "frontend", "theme": "Profil", "title": "Bloc Paramètres commun aux 3 profils (abonnement, langue, mode sombre, sécurité)", "detail": "Nouveau bloc identique ajouté au profil entreprise, au profil client et au profil ouvrier (nouvel onglet 'Paramètres' ajouté à l'espace ouvrier, qui n'avait pas de profil du tout) : accès rapide à l'abonnement, sélecteur de langue, bascule clair/sombre, et une section Sécurité avec 'Signaler un problème technique' (formulaire envoyé et conservé côté serveur), 'Aide' (nouvelle page FAQ/contact) et 'Mentions légales & politiques' (nouvelle page, contenu explicitement marqué comme brouillon à faire valider). Mode sombre : bascule fonctionnelle et mémorisée, assombrit le fond général de l'application et les nouveaux éléments (bloc Paramètres, pages Aide/Mentions légales) ; les autres cartes existantes de l'application restent en clair pour l'instant — les assombrir une par une sans casser la lisibilité du texte est un chantier plus large, distinct de cette livraison." },
-    { "category": "frontend", "theme": "Profil", "title": "Nouveau bloc Paramètres avec le même style de carte que le reste de la page entreprise", "detail": "Côté profil entreprise, Abonnement / Langue / Apparence / Sécurité reprennent maintenant exactement le même style de carte (titre, description, bouton) que les sections déjà existantes (Signatures, Carte de visite, Tarification, Métiers...), au lieu d'une présentation différente — toute la page se lit comme une seule liste cohérente." },
-    { "category": "frontend", "theme": "Profil", "title": "Séparation des pages Profil et Paramètres", "detail": "'Profil' (raison sociale, coordonnées, signatures, carte de visite, tarification, métiers, banque, conditions de paiement pour l'entreprise ; identifiant, coordonnées et mot de passe pour le client) et 'Paramètres' (abonnement, langue, apparence, sécurité) sont désormais deux pages distinctes plutôt qu'une seule page mélangeant les deux, avec chacune sa propre entrée dans le menu (nouvelle entrée 'Profil' ajoutée au tiroir de navigation entreprise et client). Coté ouvrier, non concerné pour l'instant : il n'existe pas encore de page Profil éditable, seulement l'onglet Paramètres." },
-    { "category": "frontend", "theme": "Profil", "title": "Nouvelle page Abonnement dédiée (coordonnées bancaires puis formule)", "detail": "Côté entreprise, 'Gérer' sur la carte Abonnement des Paramètres mène désormais vers une page dédiée /parametres/abonnement, plutôt que d'afficher le contenu sur la même page : coordonnées bancaires (IBAN/BIC/titulaire) et modalités de paiement en haut — les mêmes champs que le Profil, modifiables ici et enregistrés au même endroit, sans duplication — puis la formule Koji actuelle en bas, avec un lien 'Changer de formule' qui mène à son tour vers /abonnement pour comparer les 3 formules, sur une page séparée elle aussi." },
-    { "category": "frontend", "theme": "Profil", "title": "Sélecteur de langue déplacé des menus vers Paramètres uniquement", "detail": "Le sélecteur de langue (FR/EN/AR/DE/IT) affiché en haut de chaque page (entreprise, client, ouvrier) est retiré : la langue se change désormais uniquement depuis la carte 'Langue' des Paramètres, qui affiche clairement la langue actuellement sélectionnée et permet de choisir parmi les langues disponibles en un clic (pastilles, plus de menu déroulant caché). Le sélecteur reste présent uniquement sur les écrans de connexion, avant que Paramètres ne soit accessible." }
+    {
+      "category": "backend",
+      "theme": "Fondations",
+      "title": "Mise en place initiale de l'application",
+      "detail": "Structure Next.js App Router, authentification, base de données JSON locale et première version des modules Devis, Chantiers, Équipe, Planning."
+    },
+    {
+      "category": "database",
+      "theme": "Fondations",
+      "title": "Connexion Vercel / configuration environnement",
+      "detail": "Correction de la configuration d'authentification et du SMTP sur l'environnement de production Vercel."
+    },
+    {
+      "category": "backend",
+      "theme": "Fondations",
+      "title": "Fiabilisation de l'envoi d'email (SMTP Gmail)",
+      "detail": "Import dynamique de nodemailer compatible Vercel (ES modules), configuration complète (TLS, authentification)."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Sous-ouvrages dans le devis",
+      "detail": "Ajout des sous-ouvrages avec le même design que l'ouvrage parent, et un bouton d'ajout repensé (style pointillé)."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Refonte de l'ouvrage au forfait et des fournitures",
+      "detail": "Recalcul des montants, sous-totaux par pièce, auto-remplissage des fournitures associées."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Fiabilité du formulaire devis",
+      "detail": "Le brouillon se vide au démarrage d'un nouveau chantier ; les valeurs saisies ne se réinitialisent plus involontairement."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Séparation Historique / Éditeur",
+      "detail": "Le menu Devis ramène toujours vers l'historique des devis plutôt que vers la création directe d'un nouveau devis."
+    },
+    {
+      "category": "database",
+      "theme": "Devis",
+      "title": "Migration des devis vers Supabase (table partagée)",
+      "detail": "Les devis créés sur le site web et sur l'application mobile (Firas) vivent désormais dans la même table Supabase 'quotes', avec un mapping bidirectionnel dédié (lib/quote-mapping.js)."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Réorganisation des lots et des ouvrages",
+      "detail": "Flèches pour monter/descendre un ouvrage dans un lot, et pour réordonner les lots eux-mêmes ; le lot reste ouvert après ajout d'une fourniture."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Génération PDF des devis réparée",
+      "detail": "La génération/aperçu PDF lisait encore l'ancien fichier JSON local et ne trouvait plus les devis créés depuis la migration Supabase ; corrigée pour lire directement la table partagée."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Versioning et sauvegarde complète du devis",
+      "detail": "Le numéro de version s'incrémente à chaque enregistrement manuel ; les notes, majorations/minorations et le taux de TVA choisi, qui se perdaient silencieusement, sont désormais bien sauvegardés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Bibliothèque d'ouvrages : famille libre",
+      "detail": "Le champ Famille permet de taper une nouvelle famille (ex. Métallurgie) en plus de choisir dans la liste existante."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Taux horaire par défaut sur la bibliothèque",
+      "detail": "Le taux horaire du profil entreprise sert désormais de valeur par défaut pour chaque ouvrage (liste, création, édition, calcul du coût main d'œuvre)."
+    },
+    {
+      "category": "database",
+      "theme": "Chantiers",
+      "title": "Connexion Supabase : chantiers, planning, fournitures",
+      "detail": "Ces trois modules sont branchés sur la base partagée avec l'application mobile ; les comptes utilisateurs sont également partagés entre les deux plateformes."
+    },
+    {
+      "category": "backend",
+      "theme": "Chantiers",
+      "title": "Correction d'un bug bloquant majeur",
+      "detail": "Un chantier ne pouvait être consulté que si son devis était déjà signé par le client, empêchant toute préparation en amont. Corrigé : la fiche chantier est désormais accessible dès sa création."
+    },
+    {
+      "category": "frontend",
+      "theme": "Chantiers",
+      "title": "Écran de choix avant signature",
+      "detail": "Avant signature du devis, l'entreprise choisit entre 'Modifier le devis' et 'Commencer le chantier' au lieu d'atterrir directement sur le suivi."
+    },
+    {
+      "category": "frontend",
+      "theme": "Chantiers",
+      "title": "Retour automatique depuis Équipe",
+      "detail": "Le bouton 'Ajouter dans Équipe' depuis la planification d'un ouvrage ramène exactement à la même fenêtre une fois le personnel ajouté."
+    },
+    {
+      "category": "frontend",
+      "theme": "Chantiers",
+      "title": "Fiche ouvrage enrichie (prix, dépenses, marge)",
+      "detail": "Affichage du prix validé par le client, calcul automatique des dépenses et de la marge par ouvrage, bouton d'ajout rapide (équipe / dépense / note), et récapitulatif automatique des dépenses au niveau du chantier."
+    },
+    {
+      "category": "frontend",
+      "theme": "Chantiers",
+      "title": "Persistance de la navigation",
+      "detail": "Un rafraîchissement de page (F5) ne ramène plus à l'écran de départ : le chantier et l'ouvrage consultés restent affichés (état conservé dans l'URL)."
+    },
+    {
+      "category": "backend",
+      "theme": "Chantiers",
+      "title": "Dépenses liées à un ouvrage précis",
+      "detail": "L'API des dépenses accepte désormais un identifiant de tâche (ouvrage) en plus du chantier, pour un suivi financier plus fin."
+    },
+    {
+      "category": "frontend",
+      "theme": "Équipe",
+      "title": "Édition complète de l'équipe",
+      "detail": "Gestion des entreprises/SIRET pour les sous-traitants, liens multiples vers chantiers/devis/ouvrages, avec notifications automatiques lors de l'affectation."
+    },
+    {
+      "category": "frontend",
+      "theme": "Équipe",
+      "title": "Nouvelle carte d'ajout (design)",
+      "detail": "Le bouton 'Ajouter des personnels' devient un bouton flottant qui ouvre une carte animée avec 3 choix : Ouvrier, Sous-traitant, Planning."
+    },
+    {
+      "category": "frontend",
+      "theme": "Équipe",
+      "title": "Module Planning / pointage des heures (nouveau)",
+      "detail": "Nouvel espace complet : liste des ouvriers avec badge d'heures de la semaine (vert/orange/rouge), détail hebdomadaire par ouvrier, ajout manuel de pointages, navigation semaine par semaine."
+    },
+    {
+      "category": "backend",
+      "theme": "Équipe",
+      "title": "Six types de pointage",
+      "detail": "Heures de travail, jour de travail, forfait, ouvrage, passage, déplacement — chacun avec date et montant ; le montant des heures est calculé automatiquement à partir du taux horaire de l'ouvrier."
+    },
+    {
+      "category": "database",
+      "theme": "Équipe",
+      "title": "Nouvelle donnée : heures contractuelles par ouvrier",
+      "detail": "Ajout d'un paramètre 'heures contractuelles / semaine' (35h par défaut) sur chaque fiche ouvrier, utilisé pour le calcul des écarts."
+    },
+    {
+      "category": "backend",
+      "theme": "Équipe",
+      "title": "Alertes automatiques de dépassement / manque d'heures",
+      "detail": "À la fin de chaque semaine, si le total travaillé diffère du contrat de plus de 15 minutes, une notification est envoyée automatiquement à l'entreprise (une seule fois par semaine et par ouvrier)."
+    },
+    {
+      "category": "backend",
+      "theme": "Équipe",
+      "title": "Export PDF du relevé d'heures",
+      "detail": "Génération d'un PDF mensuel par ouvrier : détail par journée/type de pointage, totaux hebdomadaires, total du mois en heures et en montant — pensé pour la comptabilité et la gestion de la paie."
+    },
+    {
+      "category": "frontend",
+      "theme": "Équipe",
+      "title": "Espace ouvrier : pointage de la journée",
+      "detail": "Nouvel onglet 'Pointage' dans le portail ouvrier : début/fin de journée en un clic, avec récapitulatif de la semaine en cours."
+    },
+    {
+      "category": "frontend",
+      "theme": "Équipe",
+      "title": "Calendrier",
+      "detail": "Cartes et tâches cliquables, édition d'un événement directement depuis sa fiche."
+    },
+    {
+      "category": "frontend",
+      "theme": "Notifications",
+      "title": "Menu déroulant sur la cloche",
+      "detail": "Affiche les 5 dernières notifications sans quitter la page en cours, avec un lien vers la liste complète."
+    },
+    {
+      "category": "frontend",
+      "theme": "Notifications",
+      "title": "Renvoi des identifiants client",
+      "detail": "Boutons pour renvoyer l'accès client par email ou WhatsApp, tableau d'informations avec icônes et boutons 'Copier'."
+    },
+    {
+      "category": "backend",
+      "theme": "Notifications",
+      "title": "Envoi d'email réel à la signature du devis",
+      "detail": "Le premier envoi des identifiants client déclenche désormais un vrai email (SMTP), et plus seulement une file d'attente locale."
+    },
+    {
+      "category": "frontend",
+      "theme": "Notifications",
+      "title": "Fiche détail centrée et redessinée",
+      "detail": "La fiche de détail d'une notification est centrée sur la page, avec un tableau d'informations clarifié."
+    },
+    {
+      "category": "frontend",
+      "theme": "Notifications",
+      "title": "Correction de la route d'ouverture",
+      "detail": "Cliquer sur une notification depuis le menu déroulant ouvrait le devis lié au lieu de sa fiche de détail — corrigé, avec icône par type, heure relative et point 'non lu'."
+    },
+    {
+      "category": "backend",
+      "theme": "Signature & portails",
+      "title": "Signature client branchée sur Supabase",
+      "detail": "Le client qui signe un devis n'a pas de session Koji : une clé technique dédiée (service_role) permet de retrouver et mettre à jour son devis directement dans la base partagée."
+    },
+    {
+      "category": "backend",
+      "theme": "Signature & portails",
+      "title": "Audit complet du portail client",
+      "detail": "Plusieurs routes (connexion client, devis/tâches/notes du portail, création de factures) lisaient encore l'ancien fichier JSON local et ne trouvaient plus aucune donnée récente depuis la migration Supabase des devis — toutes corrigées."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Espace client particulier",
+      "detail": "Suivi de chantier, centre de notifications et réponses aux messages de l'entreprise, avec fil de discussion."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Espace ouvrier complet",
+      "detail": "Accueil (chantiers actifs, tâches du jour), archives, notifications, réclamations, signalement de retard et alerte urgente avec choix du type d'incident."
+    },
+    {
+      "category": "backend",
+      "theme": "Signature & portails",
+      "title": "Suivi du temps par ouvrage",
+      "detail": "Boutons Démarrer / Pause / Reprendre / Terminer par tâche, avec calcul automatique du temps consommé et alerte en cas de dépassement du temps prévu."
+    },
+    {
+      "category": "frontend",
+      "theme": "Accueil & stabilité",
+      "title": "Refonte de la page d'accueil",
+      "detail": "Message de bienvenue personnalisé ('Bonjour [Nom]'), ajout rapide (tâche/RDV/dépense/note), alertes urgentes, reprise d'un devis brouillon en un clic."
+    },
+    {
+      "category": "frontend",
+      "theme": "Accueil & stabilité",
+      "title": "Compatibilité Safari / iOS",
+      "detail": "La barre d'adresse de Safari mobile masquait parfois le bas de l'écran (boutons inaccessibles) — corrigé sur l'ensemble de l'application."
+    },
+    {
+      "category": "frontend",
+      "theme": "Accueil & stabilité",
+      "title": "Cohérence visuelle",
+      "detail": "Logo recentré sur toutes les pages, sélecteur de langue simplifié (5 langues, sans drapeaux), adresse d'entreprise simplifiée en une ligne."
+    },
+    {
+      "category": "backend",
+      "theme": "Accueil & stabilité",
+      "title": "Reconnexion automatique de session",
+      "detail": "Une session expirée (~1h) provoquait des échecs silencieux à l'enregistrement (profil, IBAN, devis) sans reconnexion automatique ; la détection couvre désormais tous les cas d'expiration."
+    },
+    {
+      "category": "backend",
+      "theme": "Accueil & stabilité",
+      "title": "Corrections de plantages ponctuels",
+      "detail": "Plusieurs erreurs bloquantes corrigées au fil des tests (références de code manquantes, composants mal placés)."
+    },
+    {
+      "category": "database",
+      "theme": "Accueil & stabilité",
+      "title": "Nettoyage du backend",
+      "detail": "Audit complet des routes serveur : suppression du code mort (module Marketplace), vérification de la cohérence entre données locales et données Supabase sur l'ensemble de l'application."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Nouveau type \"Intervention\" dans l'ajout rapide",
+      "detail": "Depuis la page d'accueil, un cinquième choix 'Intervention' ouvre un formulaire dédié en plein écran, en plus des types existants Tâche/RDV/Dépense/Note."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Formulaire de rapport d'intervention",
+      "detail": "En-tête avec le logo et les coordonnées de l'entreprise (repris automatiquement du profil), puis Client, Site, Date, Entreprise, Équipement, Constat, Analyse, Préconisations et Signature, sur le modèle d'un rapport d'intervention technique classique."
+    },
+    {
+      "category": "backend",
+      "theme": "Rapports d'intervention",
+      "title": "Nouvelle entité 'interventions'",
+      "detail": "API dédiée (creation, consultation, suppression) pour stocker les rapports d'intervention, avec historique des actions comme pour les autres modules."
+    },
+    {
+      "category": "backend",
+      "theme": "Rapports d'intervention",
+      "title": "Génération PDF du rapport d'intervention",
+      "detail": "Chaque rapport peut être téléchargé en PDF avec le logo de l'entreprise en en-tête, dans une mise en page reprenant celle des rapports d'intervention papier existants."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Aperçu avant génération",
+      "detail": "Avant de créer définitivement le rapport, un aperçu fidèle au document final (en-tête, sections, signature) permet de vérifier le contenu et de revenir le modifier."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Suivi et devenir de chaque intervention",
+      "detail": "Depuis la fiche d'une intervention : la lier à un chantier existant, la garder en attente pour un futur devis, l'archiver, ou créer directement une facture — avec un badge de statut visible dans la liste."
+    },
+    {
+      "category": "backend",
+      "theme": "Rapports d'intervention",
+      "title": "Facturation directe d'une intervention",
+      "detail": "Une facture peut être créée directement à partir d'une intervention (sans passer par un devis signé), avec un montant saisi manuellement ; l'intervention passe alors automatiquement au statut 'Facturée'."
+    },
+    {
+      "category": "backend",
+      "theme": "Facturation",
+      "title": "Export PDF des factures",
+      "detail": "Chaque facture (issue d'un devis signé ou d'une intervention) peut désormais être téléchargée en PDF avec les informations de l'entreprise, du client et du montant — bouton ajouté dans la page Facturation et dans la fiche d'une intervention."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "En-tête d'entreprise entièrement modifiable",
+      "detail": "Nom, adresse, code postal, ville, email, téléphone et SIRET sont pré-remplis depuis le profil mais modifiables pour chaque rapport ; le logo peut être celui du profil ou en importer un autre à la volée, sans toucher au profil principal."
+    },
+    {
+      "category": "backend",
+      "theme": "Rapports d'intervention",
+      "title": "En-tête d'entreprise propre à chaque rapport",
+      "detail": "Chaque intervention conserve son propre instantané des informations d'entreprise (comme les devis), pour que le PDF reste fidèle même si le profil change ensuite."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Section Interventions sur l'accueil",
+      "detail": "Nouvelle section sur la page d'accueil, sous 'Devis en cours', listant les interventions avec leur statut (À faire / En cours / Terminée), et les actions rapides archiver/supprimer."
+    },
+    {
+      "category": "backend",
+      "theme": "Rapports d'intervention",
+      "title": "Statut de suivi automatique (À faire / En cours / Terminée)",
+      "detail": "Le statut d'une intervention évolue automatiquement selon sa date (À faire tant que la date n'est pas arrivée, En cours le jour J), jusqu'à être marquée Terminée manuellement puis, si besoin, archivée."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Passage direct dans 'À faire maintenant'",
+      "detail": "Une intervention du jour peut être déplacée en un clic vers la liste 'À faire maintenant' de l'accueil, sans dupliquer la fiche si elle y est déjà."
+    },
+    {
+      "category": "backend",
+      "theme": "Rapports d'intervention",
+      "title": "Numéro de rapport automatique",
+      "detail": "Chaque rapport reçoit un numéro unique généré automatiquement (ex. INT-2026-0003), affiché en en-tête avec la date de création, sur le même principe que la numérotation des devis et factures."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Mise en page de l'en-tête revue",
+      "detail": "'RAPPORT D'INTERVENTION', le numéro et la date de création sont désormais mis en avant en haut à droite, à côté des informations de l'entreprise, comme sur les devis et factures."
+    },
+    {
+      "category": "frontend",
+      "theme": "Rapports d'intervention",
+      "title": "Signature réutilisable depuis le profil",
+      "detail": "La signature déjà enregistrée dans 'Ma Signature' (dessinée ou importée) peut être ajoutée en un clic au rapport, affichée en bas à droite du document comme une vraie signature."
+    },
+    {
+      "category": "database",
+      "theme": "Maintenance technique",
+      "title": "Nettoyage approfondi du code",
+      "detail": "Audit complet du projet (pages, routes, fonctions, dépendances) pour repérer tout ce qui n'était plus utilisé ; suppression de 6 pages orphelines (onboarding, welcome, compte, anciennes pages devis en 3 étapes), d'une route de connexion de démonstration, d'un dossier de composants dupliqué obsolète, de plusieurs fonctions inutilisées et d'une dépendance logicielle non utilisée — sans toucher aux fonctionnalités actives."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Description de l'ouvrage (titre + sous-titre)",
+      "detail": "Chaque ligne d'un devis (ouvrage ou fourniture) peut désormais recevoir une description libre, affichée sous forme de sous-titre grisé sous la désignation en gras dans le devis généré (PDF et Word) — le même principe que sur les devis modèles."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Restauration de la description des ouvrages de bibliothèque",
+      "detail": "La description déjà saisie dans la Bibliothèque d'ouvrages est désormais reprise automatiquement quand l'ouvrage est ajouté à un devis, au lieu d'être perdue comme auparavant."
+    },
+    {
+      "category": "database",
+      "theme": "Maintenance technique",
+      "title": "Suppression de code mort dans la génération de devis",
+      "detail": "Un ancien générateur de devis PDF, devenu inaccessible après une précédente refonte (code jamais exécuté), a été retiré du fichier technique de génération de documents."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Réorganisation de la fiche Client et chantier",
+      "detail": "Champs réorganisés pour plus de clarté : référence et client sur une même ligne, téléphone et email sur une même ligne, adresse sur sa propre ligne, puis le reste des informations (chantier, dates, durée, type de bien) en dessous."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Référence client en texte libre",
+      "detail": "La 'Référence client' n'est plus une liste déroulante à choisir (qui pouvait donner l'impression que l'information saisie disparaissait) : c'est maintenant un champ texte simple qui garde exactement ce qui a été écrit."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Correction du calcul du total d'un devis (majorations non comptées)",
+      "detail": "Le montant Total HT / TVA / Total TTC enregistré pour chaque devis ne prenait pas en compte les majorations (coordination de chantier, provision aléas, assurance décennale), même si elles étaient listées sur le document. Corrigé à la source (calcul serveur) : le total inclut désormais bien les majorations, partout où il est utilisé (tableau de bord, facturation, signature client, archives)."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Deuxième cause trouvée : le total serveur retombait à 0",
+      "detail": "Le calcul serveur recalculait chaque ligne à partir de zéro au lieu de faire confiance au montant déjà calculé correctement par l'éditeur, et se trompait sur deux points (un champ technique à 0 mal interprété comme 'prix fixe', une liste de fournitures non reconnue), ramenant le total à 0€ à chaque enregistrement. Corrigé : le serveur fait maintenant confiance au montant de chaque ligne tel qu'il apparaît dans l'éditeur."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Taux de TVA de chaque ligne aligné sur le devis",
+      "detail": "Chaque ligne de devis calculait sa propre TVA à 20% par défaut, sans tenir compte du taux choisi pour le devis (ex. 10%) — corrigé pour utiliser le taux réellement sélectionné."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Double-clic sur Enregistrer : un seul devis créé au lieu de deux",
+      "detail": "Un double-clic (ou un enregistrement automatique déclenché en même temps qu'un enregistrement manuel) pouvait créer deux devis identiques pour le même chantier au lieu de mettre à jour le même. Corrigé : un enregistrement déjà en cours est désormais partagé au lieu d'en déclencher un second."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Tableau du devis : colonne Total HT (au lieu de Total TTC)",
+      "detail": "La colonne de droite du tableau d'ouvrages, sur le PDF et le Word générés, affiche maintenant le Total HT de chaque ligne plutôt que le Total TTC, comme demandé pour la lecture par les clients/partenaires."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Bouton Ouvrir sur chaque ouvrage lié à la bibliothèque",
+      "detail": "Comme pour les fournitures, chaque ouvrage d'un devis relié à la Bibliothèque d'ouvrages affiche désormais un bouton 'Ouvrir' qui montre sa fiche (code, famille, unité, temps normatif, taux horaire, description) et permet d'aller la modifier dans la Bibliothèque."
+    },
+    {
+      "category": "database",
+      "theme": "Maintenance technique",
+      "title": "Suppression de code mort dans l'export Word des devis",
+      "detail": "Un second bloc de génération de document, devenu inaccessible après une précédente refonte (jamais exécuté), a été retiré du fichier technique de génération de documents."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Cadres Date de début / Durée des travaux masqués si vides",
+      "detail": "Sur le PDF et le Word générés, les deux encadrés ne s'affichent plus quand ni la date de début ni la durée des travaux ne sont renseignées, au lieu d'apparaître vides."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Bouton 'Transformer ce devis en facture'",
+      "detail": "Génère le même PDF que le devis (mêmes lignes, mêmes montants), avec le même numéro, mais étiqueté 'Facture' au lieu de 'Devis' et sans le numéro de version. La facture obtenue est enregistrée et retrouvable dans l'outil Factures, téléchargeable en PDF à tout moment."
+    },
+    {
+      "category": "frontend",
+      "theme": "Facturation",
+      "title": "Outil 'Facturation' renommé en 'Factures'",
+      "detail": "Renommé dans le menu et sur la page, dans les 5 langues de l'application."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Audit de sécurité complet et correction des failles trouvées",
+      "detail": "Audit approfondi ayant confirmé 6 failles actives : fuite de données entre entreprises, base de données lisible sans connexion, portail client sans authentification, mots de passe en clair, base de données versionnée dans Git, absence de vérification centralisée. Corrigées le jour même (détail ci-dessous)."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Fuite de données entre entreprises corrigée",
+      "detail": "Une trentaine de routes (clients, devis, factures, tâches, ouvriers...) faisaient confiance à un identifiant envoyé par le navigateur pour savoir quelles données afficher, sans vérifier qu'il correspondait à la session connectée : n'importe qui pouvait lire ou modifier les données d'une autre entreprise en changeant cet identifiant. Ces routes vérifient désormais la vraie session avant de répondre."
+    },
+    {
+      "category": "database",
+      "theme": "Sécurité",
+      "title": "Base de données partagée verrouillée",
+      "detail": "La table contenant l'essentiel des données de l'application était lisible par n'importe qui sur internet avec la simple clé publique du site, sans connexion. L'application y accède désormais avec une clé privée réservée au serveur, ce qui permet de fermer complètement l'accès public sans rien casser."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Portail client équipé d'une vraie session",
+      "detail": "L'espace client particulier n'avait aucune session vérifiable : ses informations (dont le mot de passe de signature) pouvaient être lues à partir du simple email d'un client, sans mot de passe. Un jeton de connexion signé a été ajouté, vérifié sur chaque page du portail client."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Mots de passe du portail client chiffrés",
+      "detail": "Les mots de passe des comptes client particulier étaient stockés et comparés en texte lisible. Ils sont désormais chiffrés (hachage scrypt), avec migration automatique et transparente des comptes existants à la prochaine connexion."
+    },
+    {
+      "category": "database",
+      "theme": "Sécurité",
+      "title": "Fichier de base de données retiré du dépôt Git",
+      "detail": "Un fichier contenant une copie complète de la base de données de développement, avec des mots de passe réels en clair, était suivi par Git depuis plusieurs mois. Retiré du suivi et exclu définitivement."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Portail ouvrier équipé d'une vraie session",
+      "detail": "Comme pour le portail client, l'espace ouvrier n'avait aucune session vérifiable après la connexion : ses tâches, heures et taux horaire étaient accessibles à quiconque connaissait son identifiant. Un jeton de connexion signé a été ajouté."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Fuite de messages et mots de passe provisoires par email/SMS",
+      "detail": "Une route technique renvoyait tous les emails et SMS envoyés par l'application, tous chantiers et toutes entreprises confondus (dont des mots de passe provisoires en clair), dès qu'elle était appelée sans préciser de chantier. Corrigée : un chantier précis est désormais obligatoire, et seuls l'entreprise concernée ou son client peuvent consulter ses messages."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Import de fourniture par lien sécurisé",
+      "detail": "L'outil qui récupère automatiquement les informations d'un produit à partir d'un lien pouvait être utilisé par n'importe qui, sans connexion, pour faire aller le serveur chercher n'importe quelle adresse — un risque d'abus classique. Restreint aux utilisateurs connectés et aux liens web valides uniquement."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Protection contre l'effacement accidentel d'une signature",
+      "detail": "Renvoyer l'invitation à signer un devis déjà signé effaçait silencieusement la signature existante (nom, date) pour repartir de zéro. Une confirmation explicite est désormais nécessaire pour rouvrir un devis déjà signé."
+    },
+    {
+      "category": "database",
+      "theme": "Sécurité",
+      "title": "Verrouillage de la base partagée écrit dans le script d'installation",
+      "detail": "La commande qui ferme complètement l'accès public à la table de données partagée a été ajoutée au script SQL du projet, prête à être exécutée dans le tableau de bord Supabase."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Les 3 sessions (entreprise, client, ouvrier) déplacées hors de portée du navigateur",
+      "detail": "Les jetons de connexion vivaient dans le stockage local du navigateur, lisible par le moindre script exécuté sur la page (faille XSS, extension malveillante) — une seule faille de ce type ailleurs dans l'appli aurait suffi à voler une session active. Déplacés vers des cookies HttpOnly, invisibles et inaccessibles au code JavaScript de la page, pour les trois types de compte."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Mot de passe de connexion signature chiffré",
+      "detail": "Le mot de passe provisoire envoyé au client pour signer son devis était comparé et stocké en texte lisible. Chiffré (hachage scrypt) comme le reste ; le mot de passe en clair n'est plus jamais écrit en base, seulement affiché une fois au moment de l'envoi."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Pas de bloc signature sur une facture",
+      "detail": "Le PDF généré via 'Transformer ce devis en facture' affichait encore le cadre 'Bon pour accord / Date et signature du client', qui n'a pas lieu d'être sur une facture. Retiré uniquement pour ce cas ; le devis original le garde."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Carte de visite professionnelle (en test interne)",
+      "detail": "Carte au format réel (85 x 55 mm, prêt à imprimer, recto-verso). Recto sur fond blanc : logo de l'entreprise, raison sociale, spécialité, adresse, téléphone (+33) et email, QR code vers le site web de l'entreprise en bas à droite. Verso sur fond bleu Koji : vrai logo Koji (reproduit vectoriellement), QR codes vers le site Koji et vers les stores (App Store / Google Play, à activer dès que les liens réels seront fournis). Bouton Aperçu avant téléchargement. Réservée aux comptes administrateurs pour le moment (jusqu'à nouvel ordre)."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "QR code personnalisé pour la carte de visite",
+      "detail": "Sous le champ 'Site web' de la fiche entreprise, possibilité d'importer son propre QR code (image), qui remplace alors celui généré automatiquement depuis le site web sur la carte de visite — utile pour pointer vers autre chose (page d'avis, WhatsApp...)."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Verso de la carte : mention App Store / Play Store",
+      "detail": "Ajout de la mention 'Disponible sur App Store et Play Store' avec un symbole pour chaque store."
+    },
+    {
+      "category": "backend",
+      "theme": "Profil",
+      "title": "Vraie icône téléphone sur la carte de visite",
+      "detail": "Les deux premières tentatives (traits abstraits) ne ressemblaient pas à un téléphone. Le moteur de génération PDF du projet a été étendu pour dessiner de vraies icônes vectorielles (courbes et arcs SVG, pas seulement des rectangles et traits droits) — utilisé pour reproduire l'icône téléphone standard, et réutilisable pour toute icône future de ce type."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Verso de la carte aligné sur le style de la page de connexion",
+      "detail": "Les badges 'Google Play' / 'App Store' du verso reprennent maintenant les mêmes icônes et le même style encadré que sur la page de connexion (composant AuthBrandPanel), avec le texte 'Disponible sur' au lieu de 'Bientôt disponible sur'."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Acceptation manuelle d'un devis, sans passer par la signature électronique",
+      "detail": "Nouvelle action pour marquer un devis comme accepté par le client (statut 'Signé') directement depuis l'éditeur, sans passer par Koji Signature. Une fenêtre demande le motif — acceptation verbale ou acompte versé — avec une précision libre optionnelle (montant, date...). Le devis devient alors immédiatement éligible à la facturation et débloque l'accès normal au chantier lié, exactement comme une signature électronique. Un repère (verbal / acompte) distingue ce cas d'une vraie signature dans la liste des devis."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Création d'un chantier depuis un devis existant rendue plus visible",
+      "detail": "Un bouton explicite 'Créer un chantier pour ce devis' apparaît désormais quand un devis déjà enregistré n'a pas de chantier lié — possible à tout moment, même si le client n'a pas encore validé le devis."
+    },
+    {
+      "category": "frontend",
+      "theme": "Accueil & stabilité",
+      "title": "Le devis devient le point d'entrée de l'accueil",
+      "detail": "Le gros bouton d'action de la page d'accueil ('+') pointe maintenant vers la création d'un devis au lieu d'un chantier, et l'ordre des sections a été inversé : Devis en cours avant Chantiers, Interventions en dernier."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Base de calcul correcte pour les majorations (coordination, aléas, assurance)",
+      "detail": "La coordination de chantier et la provision pour aléas se calculaient déjà, comme il se doit, uniquement sur le total des lots. L'assurance décennale utilisait à tort la même base, alors qu'elle doit porter sur le chiffrage total de l'affaire HT (lots + coordination + provision aléas + toute ligne précédente). Chaque ligne de majoration a maintenant un menu 'Base' — 'Total des lots' ou 'Chiffrage cumulé' — pour choisir explicitement sa base de calcul, réglé sur cumulé par défaut pour l'assurance décennale ; utile si d'autres lignes cumulatives sont ajoutées plus tard. Corrigé dans le calcul du devis, le PDF et l'export Word, qui utilisaient chacun leur propre logique."
+    },
+    {
+      "category": "backend",
+      "theme": "Contacts",
+      "title": "Fondations du module Contacts (base de données)",
+      "detail": "Nouvelle entité Contact centrale (particulier ou société, plusieurs rôles cumulables : client, prospect, équipe, sous-traitant, architecte, fournisseur, société donneuse d'ordre, autre), avec une table de liaison pour les intervenants par chantier (rôle propre à chaque chantier, indépendant du rôle général de la fiche). Devis, factures et rapports d'intervention peuvent désormais pointer vers une fiche contact, sans qu'aucune migration de base de données ne soit nécessaire. Les coordonnées déjà copiées sur un devis/facture envoyé restent inchangées même si la fiche contact est modifiée ensuite. Etape technique invisible pour l'instant : l'interface (page Contacts, sélection dans les formulaires) arrive dans la foulée."
+    },
+    {
+      "category": "frontend",
+      "theme": "Contacts",
+      "title": "Nouvelle page Contacts (liste, fiche, historique)",
+      "detail": "Nouvel onglet 'Contacts' dans le menu. Recherche par nom/société/téléphone/email/adresse, filtres par rôle (Tous/Clients/Prospects/Équipe/Sous-traitants/Architectes/Fournisseurs). Chaque fiche affiche l'historique complet et cliquable des devis, chantiers, factures et rapports d'intervention liés, avec statut et montant. Avertissement non bloquant si un contact similaire (même email/téléphone/SIRET) existe déjà à la création. Un contact avec des documents liés ne peut pas être supprimé, seulement archivé — il disparaît des listes mais son historique reste intact et consultable."
+    },
+    {
+      "category": "frontend",
+      "theme": "Facturation",
+      "title": "Retour vers Factures apres transformation d'un devis",
+      "detail": "Le bouton 'Transformer ce devis en facture' ouvrait directement le PDF dans un nouvel onglet. Il renvoie maintenant vers la page Factures, avec la facture nouvellement créée déjà sélectionnée, pour la télécharger ou l'envoyer depuis cette page plutôt que depuis un PDF isolé."
+    },
+    {
+      "category": "frontend",
+      "theme": "Facturation",
+      "title": "'Devis signés' devient 'Mes factures'",
+      "detail": "Renommage du titre de section et du message d'état vide sur la page Factures pour parler de factures plutôt que de devis."
+    },
+    {
+      "category": "backend",
+      "theme": "Maintenance technique",
+      "title": "Correction d'une erreur console en développement",
+      "detail": "Le serveur de développement (Turbopack) affichait une erreur liée a la politique de sécurité du contenu (CSP) durcie lors de l'audit sécurité — celle-ci bloquait une fonctionnalité de débogage propre au mode développement. Corrigé sans rien changer à la sécurité de la version en production."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Fusion des connexions Client et Ouvrier en un seul onglet 'Particulier'",
+      "detail": "La page de connexion avait 3 onglets (Entreprise / Client / Ouvrier). Client et Ouvrier sont désormais réunis dans un seul onglet 'Particulier' : la personne saisit son identifiant une seule fois, et l'application détecte automatiquement s'il s'agit d'un compte client ou d'un compte ouvrier pour l'envoyer vers le bon espace. Les deux vérifications de mot de passe (avec leur limitation anti-force-brute respective) restent distinctes en coulisses, seul le point d'entrée est unifié."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Renommage de la marque 'Kôji' en 'Koji'",
+      "detail": "Retrait de l'accent circonflexe sur le O partout où la marque apparaît : logo, PDF (devis, facture, carte de visite), emails, notifications, interface et documents internes."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Identifiant et mot de passe dans le profil client",
+      "detail": "La page de profil du portail client affiche désormais l'identifiant de connexion (lecture seule) à côté des autres informations, et un champ 'Nouveau mot de passe' (masqué par défaut, avec un œil pour l'afficher/le masquer) permettant au client de changer lui-même son mot de passe — laissé vide, il reste inchangé."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Email de connexion affiché à côté de l'email professionnel",
+      "detail": "Dans les coordonnées de l'entreprise, l'email de connexion au compte (lecture seule) apparaît désormais juste avant l'email professionnel, avec une explication : utile quand l'entreprise ne s'est pas inscrite au départ avec son email professionnel et veut que ce soit ce dernier qui figure sur les devis/factures/carte de visite."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Menu de navigation et pages dédiées dans l'espace client",
+      "detail": "Une icône menu (hamburger) en haut à gauche de l'espace client ouvre désormais le même menu tiroir (glissant depuis la gauche) que côté entreprise, avec Accueil / Devis / Chantiers, puis Paramètres / Déconnexion en pied de tiroir — exactement la même disposition que le menu entreprise. L'icône profil en haut à droite mène directement à la page de profil, comme côté entreprise. Nouvelle page 'Devis' listant uniquement les devis signés, chacun téléchargeable en PDF directement (nouvelle route API dédiée au portail client, avec la même vérification de propriété que le reste de l'espace). Nouvelle page 'Chantiers' listant uniquement les chantiers réellement en cours (devis signés), là où la page d'accueil affichait par erreur tous les devis du client, y compris les brouillons, comme s'il s'agissait de chantiers. Page de profil réorganisée : les informations (identifiant, email, coordonnées) sont maintenant groupées proprement dans une seule carte, au lieu d'un agencement cassé avec un grand espace vide."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Bloc Paramètres commun aux 3 profils (abonnement, langue, mode sombre, sécurité)",
+      "detail": "Nouveau bloc identique ajouté au profil entreprise, au profil client et au profil ouvrier (nouvel onglet 'Paramètres' ajouté à l'espace ouvrier, qui n'avait pas de profil du tout) : accès rapide à l'abonnement, sélecteur de langue, bascule clair/sombre, et une section Sécurité avec 'Signaler un problème technique' (formulaire envoyé et conservé côté serveur), 'Aide' (nouvelle page FAQ/contact) et 'Mentions légales & politiques' (nouvelle page, contenu explicitement marqué comme brouillon à faire valider). Mode sombre : bascule fonctionnelle et mémorisée, assombrit le fond général de l'application et les nouveaux éléments (bloc Paramètres, pages Aide/Mentions légales) ; les autres cartes existantes de l'application restent en clair pour l'instant — les assombrir une par une sans casser la lisibilité du texte est un chantier plus large, distinct de cette livraison."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Nouveau bloc Paramètres avec le même style de carte que le reste de la page entreprise",
+      "detail": "Côté profil entreprise, Abonnement / Langue / Apparence / Sécurité reprennent maintenant exactement le même style de carte (titre, description, bouton) que les sections déjà existantes (Signatures, Carte de visite, Tarification, Métiers...), au lieu d'une présentation différente — toute la page se lit comme une seule liste cohérente."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Séparation des pages Profil et Paramètres",
+      "detail": "'Profil' (raison sociale, coordonnées, signatures, carte de visite, tarification, métiers, banque, conditions de paiement pour l'entreprise ; identifiant, coordonnées et mot de passe pour le client) et 'Paramètres' (abonnement, langue, apparence, sécurité) sont désormais deux pages distinctes plutôt qu'une seule page mélangeant les deux, avec chacune sa propre entrée dans le menu (nouvelle entrée 'Profil' ajoutée au tiroir de navigation entreprise et client). Coté ouvrier, non concerné pour l'instant : il n'existe pas encore de page Profil éditable, seulement l'onglet Paramètres."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Nouvelle page Abonnement dédiée (coordonnées bancaires puis formule)",
+      "detail": "Côté entreprise, 'Gérer' sur la carte Abonnement des Paramètres mène désormais vers une page dédiée /parametres/abonnement, plutôt que d'afficher le contenu sur la même page : coordonnées bancaires (IBAN/BIC/titulaire) et modalités de paiement en haut — les mêmes champs que le Profil, modifiables ici et enregistrés au même endroit, sans duplication — puis la formule Koji actuelle en bas, avec un lien 'Changer de formule' qui mène à son tour vers /abonnement pour comparer les 3 formules, sur une page séparée elle aussi."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Sélecteur de langue déplacé des menus vers Paramètres uniquement",
+      "detail": "Le sélecteur de langue (FR/EN/AR/DE/IT) affiché en haut de chaque page (entreprise, client, ouvrier) est retiré : la langue se change désormais uniquement depuis la carte 'Langue' des Paramètres, qui affiche clairement la langue actuellement sélectionnée et permet de choisir parmi les langues disponibles en un clic (pastilles, plus de menu déroulant caché). Le sélecteur reste présent uniquement sur les écrans de connexion, avant que Paramètres ne soit accessible."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Boutons Securite des Parametres empiles verticalement",
+      "detail": "Dans la carte 'Securite' des Parametres (profil entreprise), les trois boutons 'Signaler un probleme technique', 'Aide' et 'Mentions legales & politiques' etaient cote a cote sur une meme ligne : ils sont desormais empiles verticalement, chacun sur sa propre ligne, pour rester lisibles quel que soit la largeur d'ecran."
+    }
   ]
 }

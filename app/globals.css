@@ -2666,6 +2666,15 @@ p {
   gap: 10px;
 }
 
+.profile-card-actions-column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.profile-card-actions-column .profile-link-button {
+  width: 100%;
+}
+
 .qr-upload-row {
   display: flex;
   align-items: center;
