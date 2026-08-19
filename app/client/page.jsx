@@ -90,7 +90,7 @@ function TaskRow({ task, onValidate, taskSteps }) {
   );
 }
 
-function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel }) {
+export function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel }) {
   const router = useRouter();
   const tasks = quote.tasks || [];
   const done = tasks.filter((t) => t.done).length;
@@ -231,8 +231,8 @@ export default function ClientHomePage() {
       <section className="ct-section">
         <h2 className="ct-section-title">{L.clientSpace.myProjects}</h2>
         {loading ? <div className="client-empty">{L.clientSpace.loading}</div> : null}
-        {!loading && quotes.length === 0 ? <div className="client-empty">{L.clientSpace.noQuotes}</div> : null}
-        {quotes.map((quote) => (
+        {!loading && signedQuotes.length === 0 ? <div className="client-empty">{L.clientSpace.noQuotes}</div> : null}
+        {signedQuotes.map((quote) => (
           <ChantierCard
             key={quote.id}
             quote={quote}
