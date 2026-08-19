@@ -2673,6 +2673,7 @@ p {
 
 .profile-card-actions-column .profile-link-button {
   width: 100%;
+  justify-content: flex-start;
 }
 
 .qr-upload-row {
