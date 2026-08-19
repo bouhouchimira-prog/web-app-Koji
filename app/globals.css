@@ -18,6 +18,196 @@
   --shadow: 0 18px 40px rgba(0, 11, 40, 0.08);
 }
 
+/* Dark mode: most of the app's ~185 content cards hardcode a white
+   background (not var(--surface)) and their headings often hardcode a
+   dark navy text color, so flipping --text/--surface/--navy globally
+   would leave a lot of illegible dark-on-dark text across the existing
+   UI with no way for me to verify it visually. Scoped down to what's
+   provably safe: the page canvas only (--cream, sitting behind the
+   still-light cards). New surfaces built with dark mode in mind from
+   the start (SettingsPanel, /aide, /legal) get their own explicit
+   [data-theme="dark"] rules alongside their own CSS instead.
+   --canvas-surface/--canvas-text/--canvas-muted/--canvas-line are new,
+   used only by those dark-aware surfaces. */
+:root[data-theme="dark"] {
+  --cream: #12151c;
+  --canvas-surface: #1b1f29;
+  --canvas-surface-2: #232836;
+  --canvas-text: #f1f3f7;
+  --canvas-muted: #9aa2b1;
+  --canvas-line: #333a4a;
+}
+
+:root:not([data-theme="dark"]) {
+  --canvas-surface: #ffffff;
+  --canvas-surface-2: #f8fafc;
+  --canvas-text: var(--text);
+  --canvas-muted: var(--muted);
+  --canvas-line: var(--line);
+}
+
+.settings-panel {
+  background: var(--canvas-surface);
+  border: 1px solid var(--canvas-line);
+  border-radius: 18px;
+  padding: 18px;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-panel-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--canvas-muted);
+  margin: 10px 0 2px;
+}
+
+.settings-panel-title:first-child {
+  margin-top: 0;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--canvas-line);
+  color: var(--canvas-text);
+}
+
+.settings-row:last-of-type {
+  border-bottom: none;
+}
+
+.settings-row-text {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-row-text span {
+  color: var(--canvas-muted);
+  font-size: 12.5px;
+}
+
+.settings-row-link {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--canvas-line);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: none;
+}
+
+.settings-row-chevron {
+  color: var(--canvas-muted);
+  font-size: 18px;
+}
+
+.settings-theme-toggle {
+  display: flex;
+  background: var(--canvas-surface-2);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.settings-theme-toggle button {
+  border: none;
+  background: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--canvas-muted);
+  cursor: pointer;
+}
+
+.settings-theme-toggle button.active {
+  background: var(--blue-strong);
+  color: white;
+}
+
+.settings-report-form {
+  display: grid;
+  gap: 10px;
+}
+
+/* Standalone content pages (Aide, Legal) reachable from any of the 3
+   profiles — no Shell/ClientTopbar, so no assumption about session type. */
+.static-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 18px 40px;
+  color: var(--canvas-text);
+}
+
+.static-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.static-page-header h1 {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.static-page-card {
+  background: var(--canvas-surface);
+  border: 1px solid var(--canvas-line);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.static-page-card h2 {
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+
+.static-page-card p {
+  color: var(--canvas-muted);
+  line-height: 1.55;
+  margin: 0 0 10px;
+}
+
+.static-faq-item {
+  border-top: 1px solid var(--canvas-line);
+  padding: 12px 0;
+}
+
+.static-faq-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.static-faq-item summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.static-faq-item p {
+  margin-top: 8px;
+}
+
+.static-draft-banner {
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
 .calendar-tool {
   display: grid;
   gap: 16px;
