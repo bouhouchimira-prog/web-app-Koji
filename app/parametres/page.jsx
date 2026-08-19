@@ -74,14 +74,15 @@ function icon(name) {
   }
 }
 
-function Field({ label, iconName, value, onChange, placeholder = "", type = "text" }) {
+function Field({ label, iconName, value, onChange, placeholder = "", type = "text", disabled = false, hint = "" }) {
   return (
     <label className="profile-field">
       <span>{label}</span>
       <div className="profile-input">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon(iconName)} /></svg>
-        <input type={type} value={value} onChange={onChange} placeholder={placeholder} />
+        <input type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled} />
       </div>
+      {hint ? <small className="muted">{hint}</small> : null}
     </label>
   );
 }
@@ -273,7 +274,8 @@ export default function ParametresPage() {
             <Field label={L.parametres.formeJuridique} iconName="gavel" value={business.formeJuridique} onChange={(event) => setField("formeJuridique", event.target.value)} placeholder="SARL, SAS..." />
             <Field label={L.parametres.siret} iconName="id" value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
             <Field label={L.parametres.siren} iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
-            <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
+            <Field label={L.parametres.accountEmail} iconName="mail" type="email" value={user?.email || ""} disabled hint={L.parametres.accountEmailSub} />
+            <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" hint={L.parametres.emailProSub} />
             <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
             <Field label={L.parametres.website} iconName="tag" value={business.website || ""} onChange={(event) => setField("website", event.target.value)} placeholder="www.entreprise.fr" />
             <label className="profile-field wide">
