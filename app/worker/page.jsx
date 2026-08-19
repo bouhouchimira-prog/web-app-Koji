@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./worker.css";
 import { useLocale } from "../../lib/i18n";
 import { LangSwitcher } from "../../components/LangSwitcher";
+import { SettingsPanel } from "../../components/SettingsPanel";
 
 const SESSION_KEY = "koji-worker-session";
 
@@ -283,6 +284,7 @@ export default function WorkerPage() {
           <button className={view === "notifications" ? "active" : ""} onClick={() => { setView("notifications"); setSelectedProjectId(""); }}>
             {L.worker.notifications} {portal?.unreadCount ? <b>{portal.unreadCount}</b> : null}
           </button>
+          <button className={view === "settings" ? "active" : ""} onClick={() => { setView("settings"); setSelectedProjectId(""); }}>{L.nav.settings}</button>
           <LangSwitcher />
           <button onClick={logout}>{L.worker.logout}</button>
         </nav>
@@ -295,6 +297,7 @@ export default function WorkerPage() {
       {!selectedProject && view === "attendance" ? renderAttendance() : null}
       {!selectedProject && view === "archives" ? renderArchives() : null}
       {!selectedProject && view === "notifications" ? renderNotifications() : null}
+      {!selectedProject && view === "settings" ? renderSettings() : null}
     </main>
   );
 
@@ -553,6 +556,14 @@ export default function WorkerPage() {
           ))}
           {!portal?.notifications?.length ? <div className="worker-empty">{L.worker.noNotifications}</div> : null}
         </div>
+      </section>
+    );
+  }
+
+  function renderSettings() {
+    return (
+      <section className="worker-section">
+        <SettingsPanel accountType="ouvrier" />
       </section>
     );
   }

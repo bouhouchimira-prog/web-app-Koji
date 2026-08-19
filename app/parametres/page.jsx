@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Shell } from "../../components/Shell";
+import { SettingsPanel } from "../../components/SettingsPanel";
 import { apiGet, apiSend, fetchWithAuthRetry } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 
@@ -359,6 +360,10 @@ export default function ParametresPage() {
           <button className="button blue" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button>
         </footer>
       </form>
+
+      <div className="profile-layout">
+        <SettingsPanel accountType="entreprise" />
+      </div>
     </Shell>
   );
 }

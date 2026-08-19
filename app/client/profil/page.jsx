@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientTopbar } from "../../../components/ClientTopbar";
+import { SettingsPanel } from "../../../components/SettingsPanel";
 import { useEffect, useState } from "react";
 import { useLocale } from "../../../lib/i18n";
 
@@ -136,6 +137,8 @@ export default function ClientProfilePage() {
         <button className="primary-button" type="submit">{L.clientSpace.saveProfile}</button>
         {saved && <p className="save-feedback">{L.clientSpace.profileSaved}</p>}
       </form>
+
+      <SettingsPanel accountType="particulier" />
     </main>
   );
 }
