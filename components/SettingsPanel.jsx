@@ -12,10 +12,13 @@ function getStoredTheme() {
 }
 
 // Shared across the entreprise (/parametres), particulier (/client/profil)
-// and ouvrier (app/worker/page.jsx) profiles — self-contained styling
-// (.settings-*) so it doesn't depend on whichever card/layout system the
-// parent page uses.
-export function SettingsPanel({ accountType }) {
+// and ouvrier (app/worker/page.jsx) profiles. Two variants:
+// - "cards": one .profile-block section per item, matching the entreprise
+//   page's existing Signatures/Carte de visite/Tarification cards exactly,
+//   so the new items don't introduce a second visual language on that page.
+// - "compact" (default): the .settings-row list style, used where there's
+//   no .profile-block precedent to match (client/worker profiles).
+export function SettingsPanel({ accountType, variant = "compact" }) {
   const { L } = useLocale();
   const [theme, setTheme] = useState("light");
   const [reportOpen, setReportOpen] = useState(false);
@@ -62,6 +65,71 @@ export function SettingsPanel({ accountType }) {
     }
   }
 
+  const themeToggle = (
+    <div className="settings-theme-toggle">
+      <button type="button" className={theme === "light" ? "active" : ""} onClick={() => applyTheme("light")}>{L.settings.light}</button>
+      <button type="button" className={theme === "dark" ? "active" : ""} onClick={() => applyTheme("dark")}>{L.settings.dark}</button>
+    </div>
+  );
+
+  const reportModal = reportOpen ? (
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setReportOpen(false)}>
+      <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
+        <h2>{L.settings.reportProblem}</h2>
+        <form onSubmit={submitReport} className="settings-report-form">
+          <textarea
+            rows={4}
+            className="profile-textarea"
+            value={reportMessage}
+            onChange={(event) => setReportMessage(event.target.value)}
+            placeholder={L.settings.reportPlaceholder}
+            autoFocus
+          />
+          {reportError ? <p className="profile-message error">{reportError}</p> : null}
+          {reportSent ? <p className="profile-message">{L.settings.reportSent}</p> : null}
+          <div>
+            <button type="button" onClick={() => setReportOpen(false)}>{L.common.cancel}</button>
+            <button type="submit" disabled={reportSending || !reportMessage.trim()}>{L.common.send}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  ) : null;
+
+  if (variant === "cards") {
+    return (
+      <>
+        <section className="profile-block">
+          <h2>{L.settings.subscription}</h2>
+          <p className="muted">{L.settings.subscriptionSub}</p>
+          <Link href="/abonnement" className="button secondary profile-link-button">{L.settings.manage}</Link>
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.settings.language}</h2>
+          <LangSwitcher />
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.settings.appearance}</h2>
+          <p className="muted">{L.settings.appearanceSub}</p>
+          {themeToggle}
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.settings.security}</h2>
+          <div className="profile-card-actions">
+            <button type="button" className="button secondary profile-link-button" onClick={openReport}>{L.settings.reportProblem}</button>
+            <Link href="/aide" className="button secondary profile-link-button">{L.settings.help}</Link>
+            <Link href="/legal" className="button secondary profile-link-button">{L.settings.legal}</Link>
+          </div>
+        </section>
+
+        {reportModal}
+      </>
+    );
+  }
+
   return (
     <section className="settings-panel">
       <p className="settings-panel-title">{L.settings.title}</p>
@@ -86,10 +154,7 @@ export function SettingsPanel({ accountType }) {
           <strong>{L.settings.appearance}</strong>
           <span>{L.settings.appearanceSub}</span>
         </div>
-        <div className="settings-theme-toggle">
-          <button type="button" className={theme === "light" ? "active" : ""} onClick={() => applyTheme("light")}>{L.settings.light}</button>
-          <button type="button" className={theme === "dark" ? "active" : ""} onClick={() => applyTheme("dark")}>{L.settings.dark}</button>
-        </div>
+        {themeToggle}
       </div>
 
       <p className="settings-panel-title">{L.settings.security}</p>
@@ -107,29 +172,7 @@ export function SettingsPanel({ accountType }) {
         <span className="settings-row-chevron">›</span>
       </Link>
 
-      {reportOpen ? (
-        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setReportOpen(false)}>
-          <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
-            <h2>{L.settings.reportProblem}</h2>
-            <form onSubmit={submitReport} className="settings-report-form">
-              <textarea
-                rows={4}
-                className="profile-textarea"
-                value={reportMessage}
-                onChange={(event) => setReportMessage(event.target.value)}
-                placeholder={L.settings.reportPlaceholder}
-                autoFocus
-              />
-              {reportError ? <p className="profile-message error">{reportError}</p> : null}
-              {reportSent ? <p className="profile-message">{L.settings.reportSent}</p> : null}
-              <div>
-                <button type="button" onClick={() => setReportOpen(false)}>{L.common.cancel}</button>
-                <button type="submit" disabled={reportSending || !reportMessage.trim()}>{L.common.send}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {reportModal}
     </section>
   );
 }

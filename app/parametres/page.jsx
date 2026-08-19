@@ -362,7 +362,7 @@ export default function ParametresPage() {
       </form>
 
       <div className="profile-layout">
-        <SettingsPanel accountType="entreprise" />
+        <SettingsPanel accountType="entreprise" variant="cards" />
       </div>
     </Shell>
   );
