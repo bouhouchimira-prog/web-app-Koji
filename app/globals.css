@@ -10006,6 +10006,17 @@ body :where(
   background: #f8fafc;
 }
 
+.client-form .auth-input-wrap input {
+  padding-right: 46px;
+  width: 100%;
+}
+
+.ct-profil-field-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .save-feedback {
   color: #14804a !important;
 }
