@@ -33,6 +33,8 @@ function ParametresAbonnementContent() {
   const [billingStatus, setBillingStatus] = useState("");
   const [billingInterval, setBillingInterval] = useState("");
   const [hasBillingAccount, setHasBillingAccount] = useState(false);
+  const [addonWebsite, setAddonWebsite] = useState(false);
+  const [addonLoading, setAddonLoading] = useState(false);
   const [businessPayment, setBusinessPayment] = useState(emptyBusinessPayment);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,6 +55,7 @@ function ParametresAbonnementContent() {
         setBillingStatus(user.billingStatus || "");
         setBillingInterval(user.billingInterval || "");
         setHasBillingAccount(Boolean(user.hasBillingAccount));
+        setAddonWebsite(Boolean(user.addonWebsite));
         const business = user.business || {};
         setBusinessPayment({
           iban: business.iban || "",
@@ -74,6 +77,20 @@ function ParametresAbonnementContent() {
     } catch (error) {
       setBillingMessage(error.message || L.settings.billingError);
       setPortalLoading(false);
+    }
+  }
+
+  async function toggleAddonWebsite() {
+    const next = !addonWebsite;
+    setAddonLoading(true);
+    setBillingMessage("");
+    try {
+      await apiSend("/api/billing/addon", { enable: next });
+      setAddonWebsite(next);
+    } catch (error) {
+      setBillingMessage(error.message || L.settings.addonError);
+    } finally {
+      setAddonLoading(false);
     }
   }
 
@@ -177,6 +194,22 @@ function ParametresAbonnementContent() {
             </div>
           ) : null}
           {billingMessage ? <p className="profile-message">{billingMessage}</p> : null}
+
+          {plan === "pro" && billingStatus === "active" ? (
+            <label className="plan-addon-row">
+              <input type="checkbox" checked={addonWebsite} onChange={toggleAddonWebsite} disabled={addonLoading} />
+              <span className="plan-addon-text">
+                <strong>{L.abonnement.addonWebsite}</strong>
+                <span>{L.abonnement.addonWebsiteDesc}</span>
+              </span>
+            </label>
+          ) : null}
+
+          <div className="plan-soon-row">
+            <span>{L.abonnement.marketplaceTitle}</span>
+            <span className="plan-soon-badge">{L.abonnement.marketplaceComingSoon}</span>
+          </div>
+
           <div className="profile-card-actions profile-card-actions-column">
             {hasBillingAccount ? (
               <button type="button" className="button secondary profile-link-button" onClick={openBillingPortal} disabled={portalLoading}>

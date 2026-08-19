@@ -1,13 +1,12 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { getAuth } from "../../../../lib/server-auth";
-import { getStripe, priceIdFor } from "../../../../lib/stripe";
+import { getStripe, priceIdFor, addonPriceIdFor } from "../../../../lib/stripe";
 
 // Uses getAuth (Supabase Auth session cookie) on purpose: only entreprise
 // accounts authenticate that way, so particulier/ouvrier sessions (which use
 // separate cookies, see lib/portal-session.js / lib/worker-session.js) get a
 // clean 401 here instead of being able to trigger a real charge for a plan
 // that has no meaning on their account.
-const VALID_PLANS = new Set(["go", "premium", "business"]);
 const VALID_INTERVALS = new Set(["month", "year"]);
 
 export async function POST(request) {
@@ -15,13 +14,16 @@ export async function POST(request) {
   const auth = getAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
-  const plan = String(body.plan || "");
   const interval = VALID_INTERVALS.has(body.interval) ? body.interval : "month";
-  if (!VALID_PLANS.has(plan)) return badRequest("Formule inconnue.");
+  const wantsWebsite = Boolean(body.addons?.website);
 
-  const priceId = priceIdFor(plan, interval);
-  if (!priceId) {
-    return badRequest("Cette formule n'est pas encore configurée côté paiement. Réessayez plus tard.", 500);
+  const proPriceId = priceIdFor(interval);
+  if (!proPriceId) {
+    return badRequest("L'abonnement n'est pas encore configuré côté paiement. Réessayez plus tard.", 500);
+  }
+  const websitePriceId = wantsWebsite ? addonPriceIdFor(interval) : "";
+  if (wantsWebsite && !websitePriceId) {
+    return badRequest("L'option Site web n'est pas encore configurée côté paiement. Réessayez plus tard.", 500);
   }
 
   let stripe;
@@ -55,17 +57,19 @@ export async function POST(request) {
       if (saveError) return badRequest(`Enregistrement du client de paiement impossible: ${saveError.message}`, 500);
     }
 
+    const lineItems = [{ price: proPriceId, quantity: 1 }];
+    if (websitePriceId) lineItems.push({ price: websitePriceId, quantity: 1 });
+
+    const metadata = { kojiUserId: auth.userId, interval, website: wantsWebsite ? "1" : "0" };
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: lineItems,
       success_url: `${appUrl}/parametres/abonnement?checkout=success`,
       cancel_url: `${appUrl}/abonnement?checkout=cancel`,
-      subscription_data: {
-        metadata: { kojiUserId: auth.userId, plan, interval }
-      },
-      metadata: { kojiUserId: auth.userId, plan, interval }
+      subscription_data: { metadata },
+      metadata
     });
 
     return ok({ url: session.url });
