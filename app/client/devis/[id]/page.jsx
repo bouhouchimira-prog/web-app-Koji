@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { LangSwitcher } from "../../../../components/LangSwitcher";
 import { euro, shortDate } from "../../../../lib/pricing";
 import { useLocale } from "../../../../lib/i18n";
 
@@ -34,7 +33,6 @@ export default function ClientQuotePage({ params }) {
           <p className="eyebrow">{L.clientSpace.clientQuote}</p>
           <h1>{quote?.reference || L.nav.devis}</h1>
         </div>
-        <LangSwitcher />
       </header>
 
       {loading ? <section className="client-card">{L.clientSpace.loading}</section> : null}

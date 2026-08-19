@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LangSwitcher } from "./LangSwitcher";
 import { useLocale } from "../lib/i18n";
 import { apiSend } from "../lib/client-api";
 
@@ -10,6 +9,14 @@ function getStoredTheme() {
   if (typeof window === "undefined") return "light";
   return localStorage.getItem("koji-theme") === "dark" ? "dark" : "light";
 }
+
+const LANGUAGES = [
+  { code: "fr", label: "Français" },
+  { code: "en", label: "English" },
+  { code: "ar", label: "العربية" },
+  { code: "de", label: "Deutsch" },
+  { code: "it", label: "Italiano" },
+];
 
 // Shared across the entreprise (/parametres), particulier (/client/profil)
 // and ouvrier (app/worker/page.jsx) profiles. Two variants:
@@ -19,7 +26,7 @@ function getStoredTheme() {
 // - "compact" (default): the .settings-row list style, used where there's
 //   no .profile-block precedent to match (client/worker profiles).
 export function SettingsPanel({ accountType, variant = "compact" }) {
-  const { L } = useLocale();
+  const { L, lang, setLang } = useLocale();
   const [theme, setTheme] = useState("light");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportMessage, setReportMessage] = useState("");
@@ -78,6 +85,21 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
     </div>
   );
 
+  const languagePicker = (
+    <div className="settings-lang-grid">
+      {LANGUAGES.map((item) => (
+        <button
+          type="button"
+          key={item.code}
+          className={`settings-lang-pill ${lang === item.code ? "active" : ""}`}
+          onClick={() => setLang(item.code)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+
   const reportModal = reportOpen ? (
     <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setReportOpen(false)}>
       <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
@@ -113,7 +135,8 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
 
         <section className="profile-block">
           <h2>{L.settings.language}</h2>
-          <LangSwitcher />
+          <p className="muted">{L.settings.languageSub}</p>
+          {languagePicker}
         </section>
 
         <section className="profile-block">
@@ -148,11 +171,12 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
         <Link className="button secondary" href={subscriptionHref}>{L.settings.manage}</Link>
       </div>
 
-      <div className="settings-row">
+      <div className="settings-row settings-row-column">
         <div className="settings-row-text">
           <strong>{L.settings.language}</strong>
+          <span>{L.settings.languageSub}</span>
         </div>
-        <LangSwitcher />
+        {languagePicker}
       </div>
 
       <div className="settings-row">

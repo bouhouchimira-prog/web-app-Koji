@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LangSwitcher } from "./LangSwitcher";
 import { useLocale } from "../lib/i18n";
 
 function getStoredClientUser() {
@@ -125,7 +124,6 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
         </Link>
 
         <div className="client-koji-topbar-right">
-          <LangSwitcher />
           <Link href="/client/notifications" className="client-koji-topbar-btn notif-bell-link" aria-label="Notifications">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 17H5l2-2v-4a5 5 0 1110 0v4l2 2h-4" />
