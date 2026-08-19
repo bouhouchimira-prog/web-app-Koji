@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
+import { hashPassword } from "../../../../lib/password-hash";
 
 export async function GET(request) {
   const db = await readDb();
@@ -25,6 +26,15 @@ export async function PATCH(request) {
   user.personal = { ...user.personal, ...personal };
   const fullName = [user.personal.firstName, user.personal.lastName].filter(Boolean).join(" ").trim();
   if (fullName) user.name = fullName;
+
+  const newPassword = String(body.password || "").trim();
+  if (newPassword) {
+    if (newPassword.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caracteres.", 400);
+    const { salt, hash } = hashPassword(newPassword);
+    user.passwordHash = hash;
+    user.passwordSalt = salt;
+    delete user.password;
+  }
 
   await writeDb(db);
   // No portalToken here — the session cookie set at login is still valid and

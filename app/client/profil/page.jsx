@@ -18,12 +18,28 @@ function getStoredUser() {
   try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
 }
 
+function EyeIcon({ open }) {
+  return open ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 export default function ClientProfilePage() {
   const { L } = useLocale();
   const [user, setUser] = useState(null);
   const [personal, setPersonal] = useState({});
   const [saved, setSaved] = useState(false);
   const [company, setCompany] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const stored = getStoredUser();
@@ -40,15 +56,22 @@ export default function ClientProfilePage() {
   async function saveProfile(event) {
     event.preventDefault();
     if (!user?.email) return;
+    setError("");
     const response = await fetch("/api/client/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personal }),
+      body: JSON.stringify({ personal, password: newPassword.trim() || undefined }),
     });
     const data = await response.json();
+    if (!response.ok) {
+      setError(data.error || "Impossible d'enregistrer.");
+      return;
+    }
     if (data.user) {
       localStorage.setItem("koji-user", JSON.stringify(data.user));
       setUser(data.user);
+      setNewPassword("");
+      setShowPassword(false);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
     }
@@ -78,6 +101,10 @@ export default function ClientProfilePage() {
         </label>
 
         <div className="client-form-grid">
+          <label>
+            {L.clientSpace.identifierLabel}
+            <input value={user?.portalIdentifier || ""} disabled />
+          </label>
           {FIELD_DEFS.map(({ key, label }) => (
             <label key={key}>
               {label}
@@ -89,6 +116,24 @@ export default function ClientProfilePage() {
           ))}
         </div>
 
+        <label>
+          {L.clientSpace.newPasswordLabel}
+          <div className="auth-input-wrap">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setError(""); }}
+              autoComplete="new-password"
+              placeholder="••••••••"
+            />
+            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
+              <EyeIcon open={showPassword} />
+            </button>
+          </div>
+          <small className="ct-profil-field-hint">{L.clientSpace.newPasswordHint}</small>
+        </label>
+
+        {error ? <p className="auth-error">{error}</p> : null}
         <button className="primary-button" type="submit">{L.clientSpace.saveProfile}</button>
         {saved && <p className="save-feedback">{L.clientSpace.profileSaved}</p>}
       </form>
