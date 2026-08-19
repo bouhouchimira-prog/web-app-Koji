@@ -100,15 +100,18 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
   return (
     <>
       <header className="client-koji-topbar">
-        {showBack ? (
-          <button type="button" className="client-koji-topbar-btn" onClick={() => router.push(backHref)} aria-label="Retour">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+        <div className="client-koji-topbar-left">
+          <button type="button" className="client-koji-topbar-btn" aria-label={L.shell.openMenu} onClick={() => setDrawerOpen(true)}>
+            <DrawerIcon name="menu" />
           </button>
-        ) : (
-          <span />
-        )}
+          {showBack ? (
+            <button type="button" className="client-koji-topbar-btn" onClick={() => router.push(backHref)} aria-label="Retour">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
 
         <Link href="/client" className="client-koji-topbar-logo" aria-label="Accueil">
           <img src="/koji-logo.svg" alt="Koji" />
@@ -123,12 +126,12 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
             </svg>
             {unread > 0 ? <span className="notif-bell-badge">{unread > 9 ? "9+" : unread}</span> : null}
           </Link>
-          <button type="button" className="client-koji-topbar-btn" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
+          <Link href="/client/profil" className="client-koji-topbar-btn" aria-label="Profil">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="8" r="4" />
               <path d="M4 20a8 8 0 0116 0" />
             </svg>
-          </button>
+          </Link>
         </div>
       </header>
 
