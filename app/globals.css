@@ -4016,6 +4016,11 @@ p {
   flex: 0 0 auto;
 }
 
+.profile-input input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .profile-input input {
   width: 100%;
   border: 0;
