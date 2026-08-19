@@ -139,14 +139,6 @@
   gap: 10px;
 }
 
-.settings-subscription-body {
-  display: grid;
-  gap: 14px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-
 .settings-plan-row {
   display: flex;
   align-items: center;
@@ -154,19 +146,12 @@
   background: var(--soft);
   border-radius: 12px;
   padding: 10px 14px;
+  margin-bottom: 12px;
 }
 
 .settings-plan-row span {
   color: var(--muted);
   font-size: 0.82rem;
-}
-
-.settings-change-plan {
-  margin-left: auto;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--blue-strong);
-  text-decoration: underline;
 }
 
 /* Standalone content pages (Aide, Legal) reachable from any of the 3
