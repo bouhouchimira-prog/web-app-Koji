@@ -12,17 +12,17 @@ const WEBSITE_MONTHLY = 14.99;
 const WEBSITE_YEARLY = 149.9;
 
 const FEATURES = [
-  "Création de chantiers et devis illimités",
-  "Suivi de chantiers en temps réel",
-  "Suivi des travaux et de l'équipe",
-  "Pointage des ouvriers",
-  "Calendrier & planning",
-  "Génération de devis en PDF & Word",
-  "Signature électronique des devis",
-  "Facturation (acomptes, factures intermédiaires et finales)",
-  "Espace client dédié pour vos clients",
-  "Bibliothèque d'ouvrages & fournisseurs",
-  "Carte de visite Koji offerte",
+  { text: "Création de chantiers et devis illimités", highlight: true },
+  { text: "Suivi de chantiers en temps réel" },
+  { text: "Suivi des travaux et de l'équipe" },
+  { text: "Pointage des ouvriers" },
+  { text: "Calendrier & planning" },
+  { text: "Génération de devis en PDF & Word" },
+  { text: "Signature électronique des devis" },
+  { text: "Facturation (acomptes, factures intermédiaires et finales)", highlight: true },
+  { text: "Espace client dédié pour vos clients" },
+  { text: "Bibliothèque d'ouvrages & fournisseurs" },
+  { text: "Carte de visite Koji offerte", highlight: true },
 ];
 
 function formatPrice(value) {
@@ -122,9 +122,9 @@ function AbonnementContent() {
           </div>
           <ul className="plan-features">
             {FEATURES.map((f) => (
-              <li key={f}>
+              <li key={f.text} className={f.highlight ? "plan-feature-highlight" : ""}>
                 <span className="plan-check" style={{ color: "#2563eb" }}>✓</span>
-                {f}
+                {f.text}
               </li>
             ))}
           </ul>
@@ -132,7 +132,7 @@ function AbonnementContent() {
           <label className="plan-addon-row">
             <input type="checkbox" checked={website} onChange={(event) => setWebsite(event.target.checked)} />
             <span className="plan-addon-text">
-              <strong>{L.abonnement.addonWebsite}</strong>
+              <strong className="plan-addon-title">{L.abonnement.addonWebsite}</strong>
               <span>{L.abonnement.addonWebsiteDesc}</span>
               <span className="plan-addon-price">+ {formatPrice(websitePrice)} € {period}</span>
             </span>
