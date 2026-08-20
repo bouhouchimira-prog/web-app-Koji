@@ -714,6 +714,12 @@
       "theme": "Abonnement",
       "title": "Passage a une formule unique Koji Pro + option Site web",
       "detail": "Les 3 formules (GO/Premium/Business) sont remplacees par une formule unique 'Koji Pro' qui inclut tout : chantiers et devis illimites, suivi de chantiers, suivi des travaux et de l'equipe, pointage, calendrier, generation PDF/Word, signature electronique, facturation, espace client dedie, bibliotheque d'ouvrages, et carte de visite Koji offerte. Une option payante 'Site web Koji' (14,99 euros/mois, ou tarif annuel equivalent) peut etre ajoutee a la souscription ou plus tard depuis Parametres > Abonnement ; elle apparait comme une ligne separee sur la facture Stripe. La Marketplace est affichee comme 'Bientot disponible' (prix non defini, pas encore vendable). Tarif de lancement propose : 49,99 euros/mois (a ajuster librement avant la mise en route, un seul chiffre a changer dans le script de configuration)."
+    },
+    {
+      "category": "frontend",
+      "theme": "Abonnement",
+      "title": "Parametres > Abonnement : coordonnees bancaires retirees de la page",
+      "detail": "La page Parametres > Abonnement affichait aussi un formulaire IBAN/BIC/Titulaire/Conditions de paiement, en double avec celui deja present dans Profil. Retire pour ne garder que l'abonnement (formule actuelle, option Site web, Marketplace, gestion de l'abonnement) ; les coordonnees bancaires restent modifiables depuis Profil, ou elles servent (affichees sur les devis/factures)."
     }
   ]
 }

@@ -8,8 +8,6 @@ import { apiGet, apiSend } from "../../../lib/client-api";
 import { useLocale } from "../../../lib/i18n";
 import { PLAN_LIMITS } from "../../../lib/plan";
 
-const emptyBusinessPayment = { iban: "", bic: "", bankHolder: "", paymentTerms: "" };
-
 const BILLING_STATUS_KEYS = {
   active: "billingStatusActive",
   trialing: "billingStatusActive",
@@ -35,11 +33,8 @@ function ParametresAbonnementContent() {
   const [hasBillingAccount, setHasBillingAccount] = useState(false);
   const [addonWebsite, setAddonWebsite] = useState(false);
   const [addonLoading, setAddonLoading] = useState(false);
-  const [businessPayment, setBusinessPayment] = useState(emptyBusinessPayment);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [billingMessage, setBillingMessage] = useState("");
 
   useEffect(() => {
@@ -56,13 +51,6 @@ function ParametresAbonnementContent() {
         setBillingInterval(user.billingInterval || "");
         setHasBillingAccount(Boolean(user.hasBillingAccount));
         setAddonWebsite(Boolean(user.addonWebsite));
-        const business = user.business || {};
-        setBusinessPayment({
-          iban: business.iban || "",
-          bic: business.bic || "",
-          bankHolder: business.bankHolder || "",
-          paymentTerms: business.paymentTerms || ""
-        });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -94,25 +82,6 @@ function ParametresAbonnementContent() {
     }
   }
 
-  function setField(field, value) {
-    setBusinessPayment((current) => ({ ...current, [field]: value }));
-  }
-
-  async function save(event) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-    try {
-      const response = await apiSend("/api/auth/profile", { business: businessPayment }, "PATCH");
-      window.localStorage.setItem("koji-user", JSON.stringify(response.user));
-      setMessage(L.parametres.saved);
-    } catch (error) {
-      setMessage(error.message || L.settings.reportError);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const planLabel = PLAN_LIMITS[plan]?.label || L.settings.trialPlan;
 
   if (loading) {
@@ -125,59 +94,11 @@ function ParametresAbonnementContent() {
 
   return (
     <Shell>
-      <form className="profile-layout" onSubmit={save}>
+      <div className="profile-layout">
         <header className="profile-header">
           <h1>{L.settings.subscription}</h1>
         </header>
 
-        <section className="profile-block">
-          <h2>{L.parametres.bank}</h2>
-          <p className="muted">{L.parametres.bankSub}</p>
-          <div className="profile-grid">
-            <label className="profile-field">
-              <span>{L.parametres.iban}</span>
-              <div className="profile-input">
-                <input value={businessPayment.iban} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
-              </div>
-            </label>
-            <label className="profile-field">
-              <span>{L.parametres.bic}</span>
-              <div className="profile-input">
-                <input value={businessPayment.bic} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
-              </div>
-            </label>
-            <label className="profile-field">
-              <span>{L.parametres.bankHolder}</span>
-              <div className="profile-input">
-                <input value={businessPayment.bankHolder} onChange={(event) => setField("bankHolder", event.target.value)} placeholder={L.parametres.bankHolder} />
-              </div>
-            </label>
-          </div>
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.paymentTerms}</h2>
-          <p className="muted">{L.parametres.paymentTermsSub}</p>
-          <label className="profile-field wide">
-            <span>{L.parametres.paymentTermsLabel}</span>
-            <textarea
-              className="profile-textarea"
-              rows={4}
-              value={businessPayment.paymentTerms}
-              onChange={(event) => setField("paymentTerms", event.target.value)}
-              placeholder={L.parametres.paymentTermsLabel}
-            />
-          </label>
-        </section>
-
-        {message ? <p className="profile-message">{message}</p> : null}
-
-        <footer className="profile-actions">
-          <button className="button blue" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button>
-        </footer>
-      </form>
-
-      <div className="profile-layout">
         <section className="profile-block">
           <h2>{L.settings.subscription}</h2>
           <div className="settings-plan-row">
