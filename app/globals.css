@@ -11336,6 +11336,12 @@ body :where(
   color: var(--text);
 }
 
+.plan-feature-highlight {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--navy);
+}
+
 .plan-check {
   font-weight: 900;
   flex-shrink: 0;
@@ -11379,6 +11385,11 @@ body :where(
 .plan-addon-price {
   font-weight: 800;
   color: var(--navy);
+}
+
+.plan-addon-title {
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .plan-soon-row {
