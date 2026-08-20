@@ -11339,7 +11339,7 @@ body :where(
 .plan-features li.plan-feature-highlight {
   font-size: 1.02rem;
   font-weight: 800;
-  color: var(--navy);
+  color: #2563eb;
 }
 
 .plan-check {
@@ -11390,6 +11390,7 @@ body :where(
 .plan-addon-title {
   font-size: 1.05rem;
   font-weight: 800;
+  color: #2563eb;
 }
 
 .plan-soon-row {
