@@ -11336,7 +11336,7 @@ body :where(
   color: var(--text);
 }
 
-.plan-feature-highlight {
+.plan-features li.plan-feature-highlight {
   font-size: 1.02rem;
   font-weight: 800;
   color: var(--navy);
