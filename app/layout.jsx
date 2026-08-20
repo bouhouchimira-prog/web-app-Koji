@@ -18,7 +18,7 @@ const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("koji-them
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
