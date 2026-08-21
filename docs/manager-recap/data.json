@@ -720,6 +720,12 @@
       "theme": "Abonnement",
       "title": "Parametres > Abonnement : coordonnees bancaires retirees de la page",
       "detail": "La page Parametres > Abonnement affichait aussi un formulaire IBAN/BIC/Titulaire/Conditions de paiement, en double avec celui deja present dans Profil. Retire pour ne garder que l'abonnement (formule actuelle, option Site web, Marketplace, gestion de l'abonnement) ; les coordonnees bancaires restent modifiables depuis Profil, ou elles servent (affichees sur les devis/factures)."
+    },
+    {
+      "category": "backend",
+      "theme": "Support",
+      "title": "Adresse contact@kojibuild.com branchee sur Aide et les signalements techniques",
+      "detail": "L'adresse contact@kojibuild.com (destinee a recevoir les reclamations et demandes d'aide) remplace le placeholder contact@koji.app sur la page Aide et sur le bouton 'Contactez-nous' de l'abonnement (comptes particulier/ouvrier). Nouveaute : quand un utilisateur (entreprise, client ou ouvrier) utilise 'Signaler un probleme technique' dans Parametres, un email est desormais envoye automatiquement a contact@kojibuild.com avec le message, la page d'origine et le type de compte, en plus de l'enregistrement existant ; auparavant le signalement restait invisible tant que personne n'allait le consulter manuellement dans les donnees de l'application."
     }
   ]
 }
