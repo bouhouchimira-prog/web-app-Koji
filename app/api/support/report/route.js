@@ -4,6 +4,7 @@ import { getVerifiedUserId } from "../../../../lib/server-auth";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { getVerifiedWorkerId } from "../../../../lib/worker-session";
 import { fixText } from "../../../../lib/text";
+import { sendTechnicalReportEmail } from "../../../../lib/mailer";
 
 // The report button is available from all 3 profiles (entreprise/particulier/
 // ouvrier), each with its own session type — try each verifier in turn rather
@@ -48,6 +49,16 @@ export async function POST(request) {
     entityType: "technicalReport"
   });
   await writeDb(db);
+
+  // Best-effort: the report is already saved above regardless of whether
+  // the notification email succeeds (SMTP may be unconfigured locally).
+  sendTechnicalReportEmail({
+    message: report.message,
+    accountType: report.accountType,
+    sessionKind: report.sessionKind,
+    page: report.page,
+    userId: report.userId
+  }).catch(() => {});
 
   return ok({ report }, 201);
 }
