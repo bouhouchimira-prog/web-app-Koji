@@ -26,7 +26,7 @@ export default function AidePage() {
       <section className="static-page-card">
         <h2>{L.aide.contactTitle}</h2>
         <p>{L.aide.contactBody}</p>
-        <a className="button secondary" href="mailto:contact@koji.app">contact@koji.app</a>
+        <a className="button secondary" href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
       </section>
     </main>
   );

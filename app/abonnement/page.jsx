@@ -78,7 +78,9 @@ function AbonnementContent() {
           </div>
         </header>
         <section className="panel">
-          <div className="empty-state">{L.abonnement.contact}</div>
+          <div className="empty-state">
+            <a className="button secondary" href="mailto:contact@kojibuild.com">{L.abonnement.contact}</a>
+          </div>
         </section>
       </Shell>
     );
