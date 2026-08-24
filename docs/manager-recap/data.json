@@ -726,6 +726,12 @@
       "theme": "Support",
       "title": "Adresse contact@kojibuild.com branchee sur Aide et les signalements techniques",
       "detail": "L'adresse contact@kojibuild.com (destinee a recevoir les reclamations et demandes d'aide) remplace le placeholder contact@koji.app sur la page Aide et sur le bouton 'Contactez-nous' de l'abonnement (comptes particulier/ouvrier). Nouveaute : quand un utilisateur (entreprise, client ou ouvrier) utilise 'Signaler un probleme technique' dans Parametres, un email est desormais envoye automatiquement a contact@kojibuild.com avec le message, la page d'origine et le type de compte, en plus de l'enregistrement existant ; auparavant le signalement restait invisible tant que personne n'allait le consulter manuellement dans les donnees de l'application."
+    },
+    {
+      "category": "backend",
+      "theme": "Support",
+      "title": "Email de signalement technique enrichi (qui, quelle entreprise, reponse directe)",
+      "detail": "L'email envoye a contact@kojibuild.com quand quelqu'un utilise 'Signaler un probleme technique' contient desormais le nom et l'email de la personne, le nom de l'entreprise (y compris pour un ouvrier, celle qui l'emploie), la page d'origine et le type de compte, en plus du message. Repondre directement a cet email (fonction 'Repondre' de la messagerie) contacte la personne, sans avoir a chercher son adresse ailleurs."
     }
   ]
 }
