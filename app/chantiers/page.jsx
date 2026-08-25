@@ -912,6 +912,7 @@ export default function ProjectsTrackingPage() {
             <button type="button" className={planForm.workerIds.includes(worker.id) ? "active" : ""} key={worker.id} onClick={() => toggleWorker(worker.id)}>
               <span>{worker.name}</span>
               <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
+              {worker.loginId ? <small className="worker-chip-login">ID: {worker.loginId}</small> : null}
             </button>
           ))}
         </div>
@@ -982,23 +983,33 @@ export default function ProjectsTrackingPage() {
 
           <div className="ouvrage-fiche-body">
             <div className="ouvrage-info-card">
-              <div>
+              <button
+                type="button"
+                className="ouvrage-info-row"
+                onClick={() => selectedQuote?.id && router.push(`/devis?id=${selectedQuote.id}`)}
+                disabled={!selectedQuote?.id}
+              >
                 <span>{item.code || task?.code || "Ouvrage"}</span>
                 <strong>{item.quantity || task?.quantity || 1} {item.unit || task?.unit || ""}</strong>
-              </div>
-              <div>
+              </button>
+              <button type="button" className="ouvrage-info-row" onClick={() => openPlanner(openLine)}>
                 <span>{L.chantiers.team}</span>
                 <strong>{task?.assignedTo || L.chantiers.notAssigned}</strong>
-              </div>
-              <div>
+              </button>
+              <button type="button" className="ouvrage-info-row" onClick={() => openPlanner(openLine)}>
                 <span>{L.chantiers.startDate} → {L.chantiers.endDate}</span>
                 <strong>{formatDate(task?.startDate)} → {formatDate(task?.endDate || task?.dueDate)}</strong>
-              </div>
+              </button>
               {ouvragePriceHt > 0 ? (
-                <div>
+                <button
+                  type="button"
+                  className="ouvrage-info-row"
+                  onClick={() => selectedQuote?.id && router.push(`/devis?id=${selectedQuote.id}`)}
+                  disabled={!selectedQuote?.id}
+                >
                   <span>{L.chantiers.validatedPrice}</span>
                   <strong>{euro(ouvragePriceHt)}</strong>
-                </div>
+                </button>
               ) : null}
             </div>
 

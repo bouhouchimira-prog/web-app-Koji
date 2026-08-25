@@ -738,6 +738,18 @@
       "theme": "Chantiers",
       "title": "Acces client (identifiant + mot de passe) fiabilise a la signature",
       "detail": "Avant, l'identifiant et le mot de passe donnes au client pour suivre son chantier n'etaient crees que si le client remplissait lui-meme son email/telephone sur le formulaire de signature Koji Signature (facultatif) -- et jamais du tout quand le devis etait marque 'accepte manuellement' (signature en personne/verbale). Desormais : accepter un devis manuellement cree aussi cet acces (a partir de l'email/telephone deja renseigne sur le devis), et pour un chantier deja signe qui n'en a toujours pas, une nouvelle carte sur la fiche chantier permet de saisir l'email ou le telephone du client et de creer l'acces a la demande."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Bouton Commencer le chantier depuis l'editeur de devis",
+      "detail": "Une fois un devis signe, un bouton 'Commencer le chantier' apparait a cote de 'Envoyer'/'Transformer en facture' et renvoie directement vers le suivi du chantier correspondant, sans avoir a le chercher separement dans Chantiers."
+    },
+    {
+      "category": "frontend",
+      "theme": "Chantiers",
+      "title": "Fiche ouvrage entierement cliquable",
+      "detail": "Dans la fiche d'un ouvrage (equipe assignee, dates de debut/fin, prix valide), chaque ligne est desormais cliquable : equipe et dates ouvrent directement le formulaire de planification, prix et reference renvoient vers le devis pour le modifier. Le mot de passe de chaque ouvrier selectionnable dans la planification s'affiche aussi directement (il etait deja cree automatiquement a l'ajout de l'ouvrier dans Equipe, et son espace ouvrier ne montre deja que ses propres taches, sur tous ses chantiers)."
     }
   ]
 }

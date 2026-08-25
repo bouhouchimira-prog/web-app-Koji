@@ -1694,6 +1694,12 @@
   color: var(--muted);
 }
 
+.worker-chip-login {
+  font-size: 11px;
+  font-family: monospace;
+  letter-spacing: 0.02em;
+}
+
 .worker-photo-box {
   justify-self: center;
   display: grid;
@@ -9184,11 +9190,30 @@ body :where(
   box-shadow: 0 12px 30px rgba(0, 11, 40, 0.04);
 }
 
-.ouvrage-info-card > div {
+.ouvrage-info-card > div,
+.ouvrage-info-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+}
+
+.ouvrage-info-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ouvrage-info-row:hover:not(:disabled) {
+  background: var(--cream);
+}
+
+.ouvrage-info-row:disabled {
+  cursor: default;
 }
 
 .ouvrage-info-card span {
