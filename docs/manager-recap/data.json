@@ -750,6 +750,12 @@
       "theme": "Chantiers",
       "title": "Fiche ouvrage entierement cliquable",
       "detail": "Dans la fiche d'un ouvrage (equipe assignee, dates de debut/fin, prix valide), chaque ligne est desormais cliquable : equipe et dates ouvrent directement le formulaire de planification, prix et reference renvoient vers le devis pour le modifier. Le mot de passe de chaque ouvrier selectionnable dans la planification s'affiche aussi directement (il etait deja cree automatiquement a l'ajout de l'ouvrier dans Equipe, et son espace ouvrier ne montre deja que ses propres taches, sur tous ses chantiers)."
+    },
+    {
+      "category": "backend",
+      "theme": "Chantiers",
+      "title": "Un devis signe sans chantier lie ne disparaissait plus dans le vide",
+      "detail": "Bug trouve : un devis cree hors du parcours 'nouveau chantier' (par exemple depuis la liste generale des devis) n'etait rattache a aucun chantier ; le signer (signature client ou acceptation manuelle) ne creait alors rien et le devis restait introuvable dans Chantiers, sans aucune erreur. Corrige : signer un devis sans chantier lie en cree desormais un automatiquement. Deux devis deja signes dans ce cas (comptes existants) ont ete corriges directement en base."
     }
   ]
 }

@@ -5,7 +5,7 @@ import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
 import { mapQuote, quoteToRow } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
-import { generateTasksForSignedQuote } from "../../../lib/quote-projects";
+import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
@@ -367,6 +367,7 @@ export async function PATCH(request) {
     quote.acceptanceNote = fixText(body.acceptanceNote || "");
     quote.signerName = fixText(body.signerName || quote.client || "Client");
     quote.signedAt = now;
+    quote.projectId = await ensureChantierForQuote(auth.supabase, quote, now);
     generateTasksForSignedQuote(sideDb, quote, now);
     if (quote.projectId) {
       await auth.supabase.from("chantiers").update({ status: "Signe" }).eq("id", quote.projectId);
