@@ -6,6 +6,7 @@ import { getAuth } from "../../../lib/server-auth";
 import { mapQuote, quoteToRow } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
 import { generateTasksForSignedQuote } from "../../../lib/quote-projects";
+import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -369,6 +370,51 @@ export async function PATCH(request) {
     generateTasksForSignedQuote(sideDb, quote, now);
     if (quote.projectId) {
       await auth.supabase.from("chantiers").update({ status: "Signe" }).eq("id", quote.projectId);
+    }
+
+    // A devis accepted manually (in person, verbally) never goes through the
+    // client-facing signature form, so it needs its own client-portal-access
+    // creation — otherwise, unlike a Koji-Signature devis, it would never get
+    // one at all. Uses whatever email/phone is already on the devis.
+    const manualAccess = await ensureClientPortalAccess(sideDb, quote, body, request, now);
+    if (manualAccess) {
+      quote.clientPortalUserId = manualAccess.userId;
+      quote.clientPortalEmail = manualAccess.email;
+      quote.clientPortalPhone = manualAccess.phone;
+      quote.clientPortalLoginUrl = manualAccess.loginUrl;
+      quote.clientPortalAccessSentAt = now;
+      quote.clientPortalAccess = manualAccess;
+
+      sideDb.notifications.unshift({
+        id: `notif-client-access-${quote.id}-${Date.now()}`,
+        userId: auth.userId,
+        type: "client.access.sent",
+        title: "Accès espace particulier envoyé",
+        message: `L'identifiant ${manualAccess.portalIdentifier || ""} a été envoyé au client pour suivre le chantier.`,
+        quoteId: quote.id,
+        projectId: quote.projectId || "",
+        actionUrl: quote.projectId ? `/chantiers?project=${quote.projectId}` : "",
+        actionLabel: "Voir le chantier",
+        meta: {
+          portalIdentifier: manualAccess.portalIdentifier || "",
+          password: manualAccess.password || "",
+          email: manualAccess.email || "",
+          phone: manualAccess.phone || "",
+          loginUrl: manualAccess.loginUrl || "",
+          quoteNumber: quote.quoteNumber || ""
+        },
+        read: false,
+        createdAt: now
+      });
+
+      addHistory(sideDb, {
+        userId: auth.userId,
+        type: "client.access.sent",
+        label: `Acces client envoye: ${quote.quoteNumber}`,
+        entityId: quote.id,
+        entityType: "quote",
+        meta: { clientUserId: manualAccess.userId, email: manualAccess.email, phone: manualAccess.phone }
+      });
     }
   }
 
