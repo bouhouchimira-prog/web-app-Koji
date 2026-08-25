@@ -732,6 +732,12 @@
       "theme": "Support",
       "title": "Email de signalement technique enrichi (qui, quelle entreprise, reponse directe)",
       "detail": "L'email envoye a contact@kojibuild.com quand quelqu'un utilise 'Signaler un probleme technique' contient desormais le nom et l'email de la personne, le nom de l'entreprise (y compris pour un ouvrier, celle qui l'emploie), la page d'origine et le type de compte, en plus du message. Repondre directement a cet email (fonction 'Repondre' de la messagerie) contacte la personne, sans avoir a chercher son adresse ailleurs."
+    },
+    {
+      "category": "backend",
+      "theme": "Chantiers",
+      "title": "Acces client (identifiant + mot de passe) fiabilise a la signature",
+      "detail": "Avant, l'identifiant et le mot de passe donnes au client pour suivre son chantier n'etaient crees que si le client remplissait lui-meme son email/telephone sur le formulaire de signature Koji Signature (facultatif) -- et jamais du tout quand le devis etait marque 'accepte manuellement' (signature en personne/verbale). Desormais : accepter un devis manuellement cree aussi cet acces (a partir de l'email/telephone deja renseigne sur le devis), et pour un chantier deja signe qui n'en a toujours pas, une nouvelle carte sur la fiche chantier permet de saisir l'email ou le telephone du client et de creer l'acces a la demande."
     }
   ]
 }

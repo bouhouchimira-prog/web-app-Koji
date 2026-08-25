@@ -306,6 +306,9 @@ export default function ProjectsTrackingPage() {
   const [collapsedCards, setCollapsedCards] = useState(() => new Set(["agenda", "budget", "rdv", "documents", "archive"]));
   const [openLineKey, setOpenLineKey] = useState(null);
   const [clientPortalAccess, setClientPortalAccess] = useState(null);
+  const [clientAccessForm, setClientAccessForm] = useState({ email: "", phone: "" });
+  const [clientAccessCreating, setClientAccessCreating] = useState(false);
+  const [clientAccessError, setClientAccessError] = useState("");
   const [ouvrageExpenseForm, setOuvrageExpenseForm] = useState(emptyExpenseForm);
   const [ouvrageAddOpen, setOuvrageAddOpen] = useState(false);
   const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
@@ -358,10 +361,32 @@ export default function ProjectsTrackingPage() {
 
   useEffect(() => {
     if (!selectedProjectId) { setClientPortalAccess(null); return; }
+    setClientAccessForm({ email: "", phone: "" });
+    setClientAccessError("");
     apiGet(`/api/client-portal-info?projectId=${encodeURIComponent(selectedProjectId)}`)
       .then((data) => setClientPortalAccess(data.access || null))
       .catch(() => setClientPortalAccess(null));
   }, [selectedProjectId]);
+
+  async function createClientAccessManually() {
+    if (!selectedProjectId) return;
+    const email = clientAccessForm.email.trim();
+    const phone = clientAccessForm.phone.trim();
+    if (!email && !phone) {
+      setClientAccessError("Renseignez un email ou un téléphone.");
+      return;
+    }
+    setClientAccessCreating(true);
+    setClientAccessError("");
+    try {
+      const data = await apiSend("/api/client-portal-info", { projectId: selectedProjectId, email, phone });
+      setClientPortalAccess(data.access || null);
+    } catch (error) {
+      setClientAccessError(error.message || "Impossible de créer l'accès client.");
+    } finally {
+      setClientAccessCreating(false);
+    }
+  }
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -1183,6 +1208,29 @@ export default function ProjectsTrackingPage() {
                   <strong>{clientPortalAccess.email}</strong>
                 </div>
               ) : null}
+            </div>
+          ) : null}
+          {!(clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier) && quoteSigned ? (
+            <div className="client-portal-id-banner client-portal-id-banner-empty">
+              <p>Ce client n'a pas d'accès (devis signé sans email ni téléphone). Ajoutez-en un pour créer son identifiant.</p>
+              <div className="client-access-form-row">
+                <input
+                  type="email"
+                  placeholder="Email du client"
+                  value={clientAccessForm.email}
+                  onChange={(event) => setClientAccessForm((current) => ({ ...current, email: event.target.value }))}
+                />
+                <input
+                  type="tel"
+                  placeholder="Téléphone du client"
+                  value={clientAccessForm.phone}
+                  onChange={(event) => setClientAccessForm((current) => ({ ...current, phone: event.target.value }))}
+                />
+                <button type="button" className="button" onClick={createClientAccessManually} disabled={clientAccessCreating}>
+                  {clientAccessCreating ? "Création…" : "Créer l'accès client"}
+                </button>
+              </div>
+              {clientAccessError ? <p className="client-access-error">{clientAccessError}</p> : null}
             </div>
           ) : null}
           <header className="tool-topline compact">
