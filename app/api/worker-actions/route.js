@@ -99,6 +99,8 @@ export async function POST(request) {
       type: "company.worker_claim",
       title: "Reclamation ouvrier",
       message: `${worker.name}: ${claim.category}${claim.message ? ` - ${claim.message}` : ""}`,
+      actionUrl: claim.projectId ? `/chantiers?project=${claim.projectId}&line=${task.quoteItemId || task.id}` : "",
+      actionLabel: "Voir l'ouvrage",
     });
     addHistory(db, {
       userId: claim.userId,
@@ -137,6 +139,8 @@ export async function POST(request) {
       type: "company.worker_delay",
       title: "Retard signale",
       message: `${worker.name}: ${delay.reason}${delay.estimatedDelay ? ` (${delay.estimatedDelay})` : ""}`,
+      actionUrl: delay.projectId ? `/chantiers?project=${delay.projectId}&line=${task.quoteItemId || task.id}` : "",
+      actionLabel: "Voir l'ouvrage",
     });
     addHistory(db, {
       userId: delay.userId,
