@@ -2350,6 +2350,11 @@ export default function DevisEditor() {
           {generatedQuote?.signatureStatus !== "Signe" ? (
             <button type="button" className="button secondary" onClick={openAcceptComposer}>{L.devis.acceptManually}</button>
           ) : null}
+          {generatedQuote?.signatureStatus === "Signe" && generatedQuote?.projectId ? (
+            <button type="button" className="button blue" onClick={() => router.push(`/chantiers?project=${generatedQuote.projectId}`)}>
+              {L.devis.startSite}
+            </button>
+          ) : null}
           <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
         </div>
 
