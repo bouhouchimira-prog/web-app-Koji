@@ -62,6 +62,12 @@ function DrawerIcon({ name }) {
           <path {...base} d="M3 6h18M3 12h13M3 18h10" />
         </svg>
       );
+    case "chat":
+      return (
+        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path {...base} d="M4 4h16v12H8l-4 4V4z" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -82,6 +88,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
     { href: "/client", label: L.clientSpace.home, icon: "home" },
     { href: "/client/devis", label: L.nav.quotes, icon: "file" },
     { href: "/client/chantiers", label: L.nav.projects, icon: "tools" },
+    { href: "/client/notifications", label: L.clientSpace.clientNotifTitle, icon: "chat" },
   ];
 
   function logout() {

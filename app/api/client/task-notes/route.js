@@ -81,6 +81,7 @@ export async function POST(request) {
   // Notify the company (entreprise)
   const projectId = task.projectId || "";
   const notifMessage = `${clientName} — ${doc.type} sur "${task.label}": ${doc.notes || doc.title}`;
+  const lineKey = task.quoteItemId || task.id;
   addCompanyNotification(db, {
     userId: task.userId || "",
     projectId,
@@ -88,8 +89,8 @@ export async function POST(request) {
     type: "client.note",
     title: `Message client : ${doc.type}`,
     message: notifMessage,
-    actionUrl: projectId ? `/chantiers?project=${projectId}` : "",
-    actionLabel: "Voir le chantier",
+    actionUrl: projectId ? `/chantiers?project=${projectId}&line=${lineKey}` : "",
+    actionLabel: "Voir l'ouvrage",
     meta: {
       clientName,
       taskLabel: task.label || "",

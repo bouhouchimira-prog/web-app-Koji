@@ -756,6 +756,18 @@
       "theme": "Chantiers",
       "title": "Un devis signe sans chantier lie ne disparaissait plus dans le vide",
       "detail": "Bug trouve : un devis cree hors du parcours 'nouveau chantier' (par exemple depuis la liste generale des devis) n'etait rattache a aucun chantier ; le signer (signature client ou acceptation manuelle) ne creait alors rien et le devis restait introuvable dans Chantiers, sans aucune erreur. Corrige : signer un devis sans chantier lie en cree desormais un automatiquement. Deux devis deja signes dans ce cas (comptes existants) ont ete corriges directement en base."
+    },
+    {
+      "category": "frontend",
+      "theme": "Echanges",
+      "title": "Onglet Echange ajoute pour le client et l'ouvrier",
+      "detail": "Un nouvel onglet 'Echange' apparait dans le menu du client (a cote d'Accueil/Devis/Chantiers) et dans la barre de l'ouvrier (a la place de 'Notifications') : il regroupe l'historique de leurs alertes (reponses de l'entreprise, demarrage de chantier, validations...)."
+    },
+    {
+      "category": "backend",
+      "theme": "Echanges",
+      "title": "Les alertes client/ouvrier ramenent desormais a l'ouvrage precis",
+      "detail": "Quand un client ou un ouvrier envoie un message, une reclamation ou signale un retard sur un ouvrage, l'entreprise recevait deja une alerte (deja en place), mais elle renvoyait seulement vers le chantier en general. Elle pointe maintenant directement vers l'ouvrage concerne, deja ouvert."
     }
   ]
 }
