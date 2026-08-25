@@ -361,7 +361,7 @@ export default function ClientChantierPage() {
                 <p className="ccd-client">{quote.client}</p>
               </div>
               {isSigned ? (
-                <a className="ghost-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.clientSpace.downloadPdf}</a>
+                <a className="ghost-button" href={`/api/client/quotes/${quote.id}/pdf`} target="_blank" rel="noreferrer">{L.clientSpace.downloadPdf}</a>
               ) : null}
             </div>
 
