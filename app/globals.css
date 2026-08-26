@@ -2929,6 +2929,101 @@ p {
   padding: 14px;
 }
 
+.home-revenue-toggle {
+  width: 100%;
+  justify-content: space-between;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.home-revenue-chevron {
+  display: inline-flex;
+  color: #7e715f;
+  transition: transform 0.15s ease;
+}
+
+.home-revenue-chevron.open {
+  transform: rotate(90deg);
+}
+
+.home-revenue-detail {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-revenue-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 2px;
+  border-bottom: 1px solid #f1ede6;
+  font-size: 14px;
+}
+
+.home-revenue-line span {
+  color: #7e715f;
+}
+
+.home-revenue-line strong {
+  color: #000b28;
+}
+
+.home-revenue-top strong {
+  font-size: 20px;
+}
+
+.home-revenue-subhead {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #7e715f;
+}
+
+.home-revenue-empty {
+  font-size: 13px;
+  color: #a39a8c;
+  padding: 4px 2px;
+}
+
+.home-revenue-total-expenses strong {
+  color: #b03a2e;
+}
+
+.home-revenue-net {
+  border-bottom: 0;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 2px solid #ede8e0;
+}
+
+.home-revenue-net strong {
+  font-size: 18px;
+}
+
+.home-revenue-net strong.positive {
+  color: #1f8a4c;
+}
+
+.home-revenue-net strong.negative {
+  color: #b03a2e;
+}
+
+.home-revenue-more-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d74ff;
+  text-decoration: none;
+}
+
 /* État vide */
 .home-empty {
   min-height: 90px;
