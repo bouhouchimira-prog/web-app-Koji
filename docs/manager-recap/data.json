@@ -768,6 +768,12 @@
       "theme": "Echanges",
       "title": "Les alertes client/ouvrier ramenent desormais a l'ouvrage precis",
       "detail": "Quand un client ou un ouvrier envoie un message, une reclamation ou signale un retard sur un ouvrage, l'entreprise recevait deja une alerte (deja en place), mais elle renvoyait seulement vers le chantier en general. Elle pointe maintenant directement vers l'ouvrage concerne, deja ouvert."
+    },
+    {
+      "category": "frontend",
+      "theme": "Accueil",
+      "title": "Carte Chiffre d'affaires transformee en detail depliable",
+      "detail": "Sur la page d'accueil, la carte 'Chiffre d'affaires' n'affiche plus rien par defaut : il faut l'ouvrir (clic) pour voir le detail complet -- montant facture en haut, depenses detaillees par categorie (fournitures, main d'oeuvre, sous-traitance, tickets, autres frais) avec un total, le net gagne (facture moins depenses), les devis en attente de signature, et les devis refuses. Au passage, 'en attente de signature' representait auparavant un calcul different (facture restant a emettre) qui ne correspondait pas a son propre intitule -- corrige pour vraiment compter les devis envoyes au client et pas encore signes. A noter : aucun mecanisme ne permet encore a un client de refuser explicitement un devis (le lien de signature ne propose que signer) -- le chiffre 'refuses' reprend pour l'instant les devis annules manuellement, en attendant une vraie fonctionnalite de refus cote client si souhaitee."
     }
   ]
 }

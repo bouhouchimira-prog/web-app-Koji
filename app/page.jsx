@@ -495,6 +495,7 @@ export default function HomePage() {
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
+  const { data: expenses } = useApi("/api/expenses", "expenses");
   const { data: interventions, setData: setInterventions } = useApi("/api/interventions", "interventions");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
   const { data: calendarEvents, setData: setCalendarEvents } = useApi("/api/calendar-events", "calendarEvents");
@@ -505,6 +506,7 @@ export default function HomePage() {
   const [confirmDeleteIntervention, setConfirmDeleteIntervention] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [greetingName, setGreetingName] = useState("");
+  const [revenueOpen, setRevenueOpen] = useState(false);
 
   useEffect(() => {
     const user = readStoredUser();
@@ -581,9 +583,21 @@ export default function HomePage() {
   }, [calendarEvents, tasks, today]);
 
   const quotesInProgress = quotes.filter((q) => ["Brouillon", "Pret a envoyer", "Envoye"].includes(q.status));
-  const signedRevenue = quotes.filter((q) => q.status === "Signe" || q.signatureStatus === "Signe").reduce((s, q) => s + Number(q.totalTtc || 0), 0);
   const billedRevenue = invoices.filter((i) => i.status !== "Annulee").reduce((s, i) => s + Number(i.amountTtc || 0), 0);
-  const waitingRevenue = Math.max(0, signedRevenue - billedRevenue);
+  // Devis envoyes au client, pas encore signes — l'intitule "en attente de
+  // signature" doit vraiment representer ca, pas un reliquat facturation.
+  const waitingRevenue = quotes.filter((q) => q.signatureStatus === "En attente").reduce((s, q) => s + Number(q.totalTtc || 0), 0);
+  // Aucun mecanisme de refus cote client n'existe encore (le lien de
+  // signature ne propose que "signer") — Annule est la seule approximation
+  // disponible aujourd'hui (devis annules par l'entreprise elle-meme).
+  const refusedRevenue = quotes.filter((q) => q.status === "Annule").reduce((s, q) => s + Number(q.totalTtc || 0), 0);
+  const expensesByCategory = expenses.reduce((acc, expense) => {
+    const category = expense.category || "Autres frais";
+    acc[category] = (acc[category] || 0) + Number(expense.amount || 0);
+    return acc;
+  }, {});
+  const totalExpenses = Object.values(expensesByCategory).reduce((s, v) => s + v, 0);
+  const netEarned = billedRevenue - totalExpenses;
 
   async function markTaskDone(task) {
     try {
@@ -722,18 +736,53 @@ export default function HomePage() {
         </Link>
 
         {/* Chiffre d'affaires */}
-        <Section title={L.home.revenue} href="/facturation">
-          <div className="home-revenue-grid">
-            <div className="home-revenue-card home-revenue-billed">
-              <span>{L.home.billed}</span>
-              <strong>{euro(billedRevenue)}</strong>
+        <section className="home-section">
+          <button type="button" className="home-section-head home-revenue-toggle" onClick={() => setRevenueOpen((v) => !v)}>
+            <div className="home-section-title-link">
+              <h2>{L.home.revenue}</h2>
             </div>
-            <div className="home-revenue-card home-revenue-waiting">
-              <span>{L.home.waitingSig}</span>
-              <strong>{euro(waitingRevenue)}</strong>
+            <span className={`home-revenue-chevron${revenueOpen ? " open" : ""}`}><ChevronRight /></span>
+          </button>
+          {revenueOpen ? (
+            <div className="home-section-card home-revenue-detail">
+              <div className="home-revenue-line home-revenue-top">
+                <span>{L.home.billed}</span>
+                <strong>{euro(billedRevenue)}</strong>
+              </div>
+
+              <p className="home-revenue-subhead">{L.home.revenueExpenses}</p>
+              {Object.keys(expensesByCategory).length === 0 ? (
+                <p className="home-revenue-empty">{L.common.noData}</p>
+              ) : (
+                Object.entries(expensesByCategory).map(([category, amount]) => (
+                  <div className="home-revenue-line" key={category}>
+                    <span>{category}</span>
+                    <strong>{euro(amount)}</strong>
+                  </div>
+                ))
+              )}
+              <div className="home-revenue-line home-revenue-total-expenses">
+                <span>{L.home.revenueTotalExpenses}</span>
+                <strong>{euro(totalExpenses)}</strong>
+              </div>
+
+              <div className="home-revenue-line home-revenue-net">
+                <span>{L.home.revenueNet}</span>
+                <strong className={netEarned >= 0 ? "positive" : "negative"}>{euro(netEarned)}</strong>
+              </div>
+              <div className="home-revenue-line">
+                <span>{L.home.waitingSig}</span>
+                <strong>{euro(waitingRevenue)}</strong>
+              </div>
+              <div className="home-revenue-line">
+                <span>{L.home.revenueRefused}</span>
+                <strong>{euro(refusedRevenue)}</strong>
+              </div>
+
+              <Link href="/facturation" className="home-revenue-more-link">{L.home.viewBilling} →</Link>
             </div>
-          </div>
-        </Section>
+          ) : null}
+        </section>
 
         {/* À faire maintenant */}
         <Section
