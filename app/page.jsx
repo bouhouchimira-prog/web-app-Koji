@@ -673,6 +673,55 @@ export default function HomePage() {
 
         {greetingName ? <h1 className="home-greeting">Bonjour {greetingName}</h1> : null}
 
+        {/* Chiffre d'affaires */}
+        <div className="home-revenue-chip-row">
+          <button type="button" className="home-revenue-chip" onClick={() => setRevenueOpen((v) => !v)}>
+            <span className="home-revenue-chip-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>
+            </span>
+            <span className="home-revenue-chip-text">
+              <span className="home-revenue-chip-label">{L.home.revenue}</span>
+              <strong className="home-revenue-chip-amount">{euro(billedRevenue)}</strong>
+            </span>
+            <span className={`home-revenue-chevron${revenueOpen ? " open" : ""}`}><ChevronRight /></span>
+          </button>
+        </div>
+
+        {revenueOpen ? (
+          <div className="home-section-card home-revenue-detail">
+            <p className="home-revenue-subhead">{L.home.revenueExpenses}</p>
+            {Object.keys(expensesByCategory).length === 0 ? (
+              <p className="home-revenue-empty">{L.common.noData}</p>
+            ) : (
+              Object.entries(expensesByCategory).map(([category, amount]) => (
+                <div className="home-revenue-line" key={category}>
+                  <span>{category}</span>
+                  <strong>{euro(amount)}</strong>
+                </div>
+              ))
+            )}
+            <div className="home-revenue-line home-revenue-total-expenses">
+              <span>{L.home.revenueTotalExpenses}</span>
+              <strong>{euro(totalExpenses)}</strong>
+            </div>
+
+            <div className="home-revenue-line home-revenue-net">
+              <span>{L.home.revenueNet}</span>
+              <strong className={netEarned >= 0 ? "positive" : "negative"}>{euro(netEarned)}</strong>
+            </div>
+            <div className="home-revenue-line">
+              <span>{L.home.waitingSig}</span>
+              <strong>{euro(waitingRevenue)}</strong>
+            </div>
+            <div className="home-revenue-line">
+              <span>{L.home.revenueRefused}</span>
+              <strong>{euro(refusedRevenue)}</strong>
+            </div>
+
+            <Link href="/facturation" className="home-revenue-more-link">{L.home.viewBilling} →</Link>
+          </div>
+        ) : null}
+
         {/* Alertes urgentes */}
         {urgentAlerts.length > 0 ? (
           <div className="home-urgent-section">
@@ -734,55 +783,6 @@ export default function HomePage() {
           <span className="home-primary-plus">+</span>
           {activeProjects.length === 0 ? L.home.firstProject : L.home.newProject}
         </Link>
-
-        {/* Chiffre d'affaires */}
-        <section className="home-section">
-          <button type="button" className="home-section-head home-revenue-toggle" onClick={() => setRevenueOpen((v) => !v)}>
-            <div className="home-section-title-link">
-              <h2>{L.home.revenue}</h2>
-            </div>
-            <span className={`home-revenue-chevron${revenueOpen ? " open" : ""}`}><ChevronRight /></span>
-          </button>
-          {revenueOpen ? (
-            <div className="home-section-card home-revenue-detail">
-              <div className="home-revenue-line home-revenue-top">
-                <span>{L.home.billed}</span>
-                <strong>{euro(billedRevenue)}</strong>
-              </div>
-
-              <p className="home-revenue-subhead">{L.home.revenueExpenses}</p>
-              {Object.keys(expensesByCategory).length === 0 ? (
-                <p className="home-revenue-empty">{L.common.noData}</p>
-              ) : (
-                Object.entries(expensesByCategory).map(([category, amount]) => (
-                  <div className="home-revenue-line" key={category}>
-                    <span>{category}</span>
-                    <strong>{euro(amount)}</strong>
-                  </div>
-                ))
-              )}
-              <div className="home-revenue-line home-revenue-total-expenses">
-                <span>{L.home.revenueTotalExpenses}</span>
-                <strong>{euro(totalExpenses)}</strong>
-              </div>
-
-              <div className="home-revenue-line home-revenue-net">
-                <span>{L.home.revenueNet}</span>
-                <strong className={netEarned >= 0 ? "positive" : "negative"}>{euro(netEarned)}</strong>
-              </div>
-              <div className="home-revenue-line">
-                <span>{L.home.waitingSig}</span>
-                <strong>{euro(waitingRevenue)}</strong>
-              </div>
-              <div className="home-revenue-line">
-                <span>{L.home.revenueRefused}</span>
-                <strong>{euro(refusedRevenue)}</strong>
-              </div>
-
-              <Link href="/facturation" className="home-revenue-more-link">{L.home.viewBilling} →</Link>
-            </div>
-          ) : null}
-        </section>
 
         {/* À faire maintenant */}
         <Section

@@ -2929,14 +2929,58 @@ p {
   padding: 14px;
 }
 
-.home-revenue-toggle {
-  width: 100%;
-  justify-content: space-between;
-  background: none;
+.home-revenue-chip-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.home-revenue-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #000b28 0%, #1d3a6e 100%);
+  color: white;
   border: 0;
-  padding: 0;
+  border-radius: 16px;
+  padding: 10px 14px;
   cursor: pointer;
-  text-align: left;
+  box-shadow: 0 6px 18px rgba(0, 11, 40, 0.18);
+}
+
+.home-revenue-chip-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+}
+
+.home-revenue-chip-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.home-revenue-chip-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.home-revenue-chip-amount {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.home-revenue-chip .home-revenue-chevron {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .home-revenue-chevron {
