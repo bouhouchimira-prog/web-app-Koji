@@ -659,20 +659,6 @@ export default function HomePage() {
 
         {greetingName ? <h1 className="home-greeting">Bonjour {greetingName}</h1> : null}
 
-        {/* Chiffre d'affaires */}
-        <Section title={L.home.revenue} href="/facturation">
-          <div className="home-revenue-grid">
-            <div className="home-revenue-card home-revenue-billed">
-              <span>{L.home.billed}</span>
-              <strong>{euro(billedRevenue)}</strong>
-            </div>
-            <div className="home-revenue-card home-revenue-waiting">
-              <span>{L.home.waitingSig}</span>
-              <strong>{euro(waitingRevenue)}</strong>
-            </div>
-          </div>
-        </Section>
-
         {/* Alertes urgentes */}
         {urgentAlerts.length > 0 ? (
           <div className="home-urgent-section">
@@ -734,6 +720,20 @@ export default function HomePage() {
           <span className="home-primary-plus">+</span>
           {activeProjects.length === 0 ? L.home.firstProject : L.home.newProject}
         </Link>
+
+        {/* Chiffre d'affaires */}
+        <Section title={L.home.revenue} href="/facturation">
+          <div className="home-revenue-grid">
+            <div className="home-revenue-card home-revenue-billed">
+              <span>{L.home.billed}</span>
+              <strong>{euro(billedRevenue)}</strong>
+            </div>
+            <div className="home-revenue-card home-revenue-waiting">
+              <span>{L.home.waitingSig}</span>
+              <strong>{euro(waitingRevenue)}</strong>
+            </div>
+          </div>
+        </Section>
 
         {/* À faire maintenant */}
         <Section
