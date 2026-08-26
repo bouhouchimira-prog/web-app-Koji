@@ -2938,13 +2938,20 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(135deg, #000b28 0%, #1d3a6e 100%);
+  background: linear-gradient(135deg, #1d74ff 0%, #6a2fd0 100%);
   color: white;
   border: 0;
   border-radius: 16px;
   padding: 10px 14px;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 11, 40, 0.18);
+  text-decoration: none;
+  box-shadow: 0 8px 22px rgba(106, 47, 208, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-revenue-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(106, 47, 208, 0.45);
 }
 
 .home-revenue-chip-icon {
@@ -2953,8 +2960,11 @@ p {
   height: 30px;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: #f5c842;
+  color: #000b28;
+  font-weight: 900;
+  font-size: 15px;
   flex-shrink: 0;
 }
 
@@ -2986,11 +2996,32 @@ p {
 .home-revenue-chevron {
   display: inline-flex;
   color: #7e715f;
-  transition: transform 0.15s ease;
 }
 
-.home-revenue-chevron.open {
-  transform: rotate(90deg);
+.home-revenue-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #1d74ff 0%, #6a2fd0 100%);
+  color: white;
+  border-radius: 20px;
+  padding: 28px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 28px rgba(106, 47, 208, 0.3);
+}
+
+.home-revenue-hero span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.home-revenue-hero strong {
+  font-size: 34px;
+  font-weight: 900;
 }
 
 .home-revenue-detail {

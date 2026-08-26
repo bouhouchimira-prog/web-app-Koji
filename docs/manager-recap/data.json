@@ -774,6 +774,12 @@
       "theme": "Accueil",
       "title": "Carte Chiffre d'affaires transformee en detail depliable",
       "detail": "Sur la page d'accueil, la carte 'Chiffre d'affaires' n'affiche plus rien par defaut : il faut l'ouvrir (clic) pour voir le detail complet -- montant facture en haut, depenses detaillees par categorie (fournitures, main d'oeuvre, sous-traitance, tickets, autres frais) avec un total, le net gagne (facture moins depenses), les devis en attente de signature, et les devis refuses. Au passage, 'en attente de signature' representait auparavant un calcul different (facture restant a emettre) qui ne correspondait pas a son propre intitule -- corrige pour vraiment compter les devis envoyes au client et pas encore signes. A noter : aucun mecanisme ne permet encore a un client de refuser explicitement un devis (le lien de signature ne propose que signer) -- le chiffre 'refuses' reprend pour l'instant les devis annules manuellement, en attendant une vraie fonctionnalite de refus cote client si souhaitee."
+    },
+    {
+      "category": "frontend",
+      "theme": "Accueil",
+      "title": "Chiffre d'affaires: page dediee au lieu d'un depliant sur place",
+      "detail": "Cliquer sur la pastille 'Chiffre d'affaires' de l'accueil ouvre desormais une page separee (/chiffre-affaires) avec le detail complet, plutot que de deplier le contenu sur la meme page. Icone changee pour un symbole euro (au lieu d'un symbole dollar par erreur), et couleurs de la pastille rendues plus vives (degrade bleu-violet avec accent dore) suite a son retour sur le design precedent."
     }
   ]
 }
