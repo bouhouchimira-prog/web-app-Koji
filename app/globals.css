@@ -3691,6 +3691,41 @@ p {
   padding: 7px 6px;
 }
 
+.auth-radar-teaser {
+  margin-top: 22px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1d74ff 0%, #6a2fd0 100%);
+  color: white;
+  text-align: center;
+  box-shadow: 0 8px 22px rgba(106, 47, 208, 0.25);
+}
+
+.auth-radar-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f5c842;
+  color: #000b28;
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 8px;
+}
+
+.auth-radar-title {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.auth-radar-slogan {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .auth-title {
   font-size: 1.5rem;
   font-weight: 800;

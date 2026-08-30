@@ -780,6 +780,12 @@
       "theme": "Accueil",
       "title": "Chiffre d'affaires: page dediee au lieu d'un depliant sur place",
       "detail": "Cliquer sur la pastille 'Chiffre d'affaires' de l'accueil ouvre desormais une page separee (/chiffre-affaires) avec le detail complet, plutot que de deplier le contenu sur la meme page. Icone changee pour un symbole euro (au lieu d'un symbole dollar par erreur), et couleurs de la pastille rendues plus vives (degrade bleu-violet avec accent dore) suite a son retour sur le design precedent."
+    },
+    {
+      "category": "frontend",
+      "theme": "Connexion",
+      "title": "Onglet Particulier retire de la page de connexion, teaser Radar des Chantiers a la place",
+      "detail": "L'onglet 'Particulier' (acces client + ouvrier) n'est plus affiche en avant-plan sur la page de connexion, en preparation du repositionnement de ce profil autour du futur module grand public 'Koji'. Le code et le fonctionnement restent intacts : un lien direct (?type=particulier ou ?type=ouvrier, celui deja envoye avec les identifiants) continue de fonctionner normalement pour les clients et ouvriers existants. A sa place, une carte degradee bleu-violet annonce 'Radar des Chantiers' avec un slogan et un badge 'Bientot disponible'."
     }
   ]
 }
