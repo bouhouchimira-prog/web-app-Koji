@@ -264,13 +264,26 @@ function ParticulierLogin({ L }) {
   );
 }
 
+// Le formulaire Particulier (client + ouvrier) reste pleinement fonctionnel
+// pour quiconque y accède par un lien direct (?type=particulier / ?type=ouvrier,
+// partagé avec les identifiants) — seul l'onglet qui le rendait visible en
+// avant-plan sur cette page a été retiré, le temps de repositionner ce profil
+// autour du futur "Koji" grand public (Radar des Chantiers).
+function RadarTeaser({ L }) {
+  return (
+    <div className="auth-radar-teaser">
+      <span className="auth-radar-badge">{L.auth.radarSoon}</span>
+      <h2 className="auth-radar-title">{L.auth.radarTitle}</h2>
+      <p className="auth-radar-slogan">{L.auth.radarSlogan}</p>
+    </div>
+  );
+}
+
 function LoginScreen() {
   const { L } = useLocale();
   const params = useSearchParams();
   const typeParam = params.get("type");
-
-  const initialType = (typeParam === "ouvrier" || typeParam === "particulier") ? "particulier" : "entreprise";
-  const [accountType, setAccountType] = useState(initialType);
+  const accountType = (typeParam === "ouvrier" || typeParam === "particulier") ? "particulier" : "entreprise";
 
   return (
     <main className="auth-screen-v2">
@@ -279,25 +292,8 @@ function LoginScreen() {
         <div className="auth-card">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          <div className="auth-type-toggle">
-            <button
-              type="button"
-              className={accountType === "entreprise" ? "active" : ""}
-              onClick={() => setAccountType("entreprise")}
-            >
-              {L.auth.tabCompany}
-            </button>
-            <button
-              type="button"
-              className={accountType === "particulier" ? "active" : ""}
-              onClick={() => setAccountType("particulier")}
-            >
-              {L.auth.tabParticulier}
-            </button>
-          </div>
-
-          {accountType === "entreprise" && <EntrepriseLogin L={L} />}
-          {accountType === "particulier" && <ParticulierLogin L={L} />}
+          {accountType === "entreprise" ? <EntrepriseLogin L={L} /> : <ParticulierLogin L={L} />}
+          {accountType === "entreprise" ? <RadarTeaser L={L} /> : null}
 
         </div>
       </section>
