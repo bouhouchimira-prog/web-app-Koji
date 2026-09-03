@@ -38,6 +38,7 @@ function ActivateInner() {
   const token = params.get("token");
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
+  const [accountType, setAccountType] = useState(params.get("type") === "particulier" ? "particulier" : "entreprise");
 
   useEffect(() => {
     if (!token) {
@@ -51,6 +52,7 @@ function ActivateInner() {
         if (!response.ok) throw new Error(payload.error || "Activation impossible.");
         setStatus("ok");
         setMessage(payload.message || "Votre compte est maintenant actif.");
+        if (payload.accountType) setAccountType(payload.accountType);
       })
       .catch((error) => {
         setStatus("error");
@@ -91,7 +93,7 @@ function ActivateInner() {
             </p>
 
             {status === "ok" && (
-              <Link href="/login?type=entreprise" className="auth-btn-primary" style={{ textDecoration: "none", display: "inline-block" }}>
+              <Link href={`/login?type=${accountType}`} className="auth-btn-primary" style={{ textDecoration: "none", display: "inline-block" }}>
                 {L.auth.loginBtn}
               </Link>
             )}

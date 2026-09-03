@@ -180,7 +180,7 @@ function EntrepriseLogin({ L }) {
   );
 }
 
-function ParticulierLogin({ L }) {
+function ParticulierLogin({ L, onSignup }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -221,13 +221,13 @@ function ParticulierLogin({ L }) {
       <p className="auth-subtitle">{L.auth.subtitleParticulier}</p>
       <form className="auth-form-v2" onSubmit={handleSubmit}>
         <div className="auth-field">
-          <label>{L.auth.identifier}</label>
+          <label>{L.auth.email}</label>
           <input
             type="text"
             className="auth-input-v2"
             value={identifier}
             onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
-            placeholder="Koji-CH1234 / OUV-XXXXXX"
+            placeholder={L.auth.emailPlaceholder}
             autoFocus
             autoComplete="username"
           />
@@ -256,25 +256,166 @@ function ParticulierLogin({ L }) {
         >
           {loading ? L.auth.verifying : L.auth.accessBtn}
         </button>
-        <p className="auth-alt-link" style={{ color: "#9aa5b4", fontSize: "0.82rem", textAlign: "center" }}>
-          {L.auth.particulierHint}
+        <p className="auth-alt-link">
+          {L.auth.noAccount}{" "}
+          {onSignup ? (
+            <button type="button" className="auth-link auth-link-btn" onClick={onSignup}>{L.auth.register}</button>
+          ) : (
+            <Link className="auth-link" href="/signup?type=particulier">{L.auth.register}</Link>
+          )}
         </p>
       </form>
     </>
   );
 }
 
-// Le formulaire Particulier (client + ouvrier) reste pleinement fonctionnel
-// pour quiconque y accède par un lien direct (?type=particulier / ?type=ouvrier,
-// partagé avec les identifiants) — seul l'onglet qui le rendait visible en
-// avant-plan sur cette page a été retiré, le temps de repositionner ce profil
-// autour du futur "Koji" grand public (Radar des Chantiers).
-function RadarTeaser({ L }) {
+// Inscription "Koji" (particulier), directement sur place dans le panneau —
+// plus de page /signup separee pour ce profil (reservee a Koji Pro
+// desormais). Meme validation par e-mail que /api/auth/particulier-signup
+// prevoit deja (compte inactif jusqu'au clic sur le lien recu).
+function ParticulierSignup({ L, onBack }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [devUrl, setDevUrl] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!name.trim()) { setError(L.auth.errName); return; }
+    if (password.length < 8) { setError(L.auth.errPasswordLen); return; }
+    if (password !== confirmPassword) { setError(L.auth.errPasswordMatch); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiSend("/api/auth/particulier-signup", {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password
+      });
+      if (data.directActivationUrl) setDevUrl(data.directActivationUrl);
+      setDone(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="auth-inline-confirm">
+        <p className="auth-subtitle">{L.auth.confirmSub(email)}</p>
+        {devUrl ? (
+          <a href={devUrl} className="auth-btn-primary" style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 10 }}>
+            {L.auth.activateBtn}
+          </a>
+        ) : null}
+        <button type="button" className="auth-link auth-link-btn" onClick={onBack}>{L.auth.backToLogin}</button>
+      </div>
+    );
+  }
+
   return (
-    <div className="auth-radar-teaser">
-      <span className="auth-radar-badge">{L.auth.radarSoon}</span>
-      <h2 className="auth-radar-title">{L.auth.radarTitle}</h2>
-      <p className="auth-radar-slogan">{L.auth.radarSlogan}</p>
+    <>
+      <h2 className="auth-title">{L.auth.createAccount}</h2>
+      <p className="auth-subtitle">{L.auth.subtitleSignup2}</p>
+      <form className="auth-form-v2" onSubmit={handleSubmit}>
+        <div className="auth-field">
+          <label>{L.auth.fullName}</label>
+          <input
+            className="auth-input-v2"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setError(""); }}
+            placeholder={L.auth.namePlaceholder}
+            autoFocus
+            autoComplete="name"
+          />
+        </div>
+        <div className="auth-field">
+          <label>{L.auth.email}</label>
+          <input
+            type="email"
+            className="auth-input-v2"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setError(""); }}
+            placeholder={L.auth.emailPlaceholder}
+            autoComplete="email"
+          />
+        </div>
+        <div className="auth-field">
+          <label>{L.auth.password}</label>
+          <div className="auth-input-wrap">
+            <input
+              className="auth-input-v2"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(""); }}
+              placeholder={L.auth.passwordMin}
+              autoComplete="new-password"
+            />
+            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
+              <EyeIcon open={showPassword} />
+            </button>
+          </div>
+        </div>
+        <div className="auth-field">
+          <label>{L.auth.confirmPassword}</label>
+          <input
+            className="auth-input-v2"
+            type={showPassword ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
+            placeholder={L.auth.repeatPassword}
+            autoComplete="new-password"
+          />
+        </div>
+        {error ? <p className="auth-error">{error}</p> : null}
+        <button type="submit" className="auth-btn-primary" disabled={loading}>
+          {loading ? L.auth.creating : L.auth.createBtn}
+        </button>
+        <p className="auth-alt-link">
+          {L.auth.alreadyAccount}{" "}
+          <button type="button" className="auth-link auth-link-btn" onClick={onBack}>{L.auth.signIn}</button>
+        </p>
+      </form>
+    </>
+  );
+}
+
+// Panneau "Koji" (particulier) complet : bascule entre connexion et
+// inscription sur place, sans jamais quitter /login.
+function KojiPanel({ L }) {
+  const [mode, setMode] = useState("login");
+  return mode === "login"
+    ? <ParticulierLogin L={L} onSignup={() => setMode("signup")} />
+    : <ParticulierSignup L={L} onBack={() => setMode("login")} />;
+}
+
+// Carte compacte "Koji Pro" (entreprise), repliee en 2 boutons par defaut —
+// le formulaire (email, mot de passe...) ne s'affiche qu'apres avoir appuye
+// sur "Se connecter". "S'inscrire" renvoie vers la page d'inscription
+// existante (assistant complet, pas reproduit ici). Auto-depliee si on
+// arrive avec ?type=entreprise (ex: session entreprise expiree ailleurs
+// dans l'app, qui redirige vers ce lien precis) pour ne pas ajouter un clic
+// superflu a un utilisateur entreprise qui doit deja se reconnecter.
+function KojiProCard({ L, startOpen }) {
+  const [open, setOpen] = useState(startOpen);
+  return (
+    <div className="auth-pro-card">
+      <p className="auth-pro-card-title">{L.auth.tabCompany}</p>
+      {open ? (
+        <EntrepriseLogin L={L} />
+      ) : (
+        <div className="auth-pro-card-actions">
+          <button type="button" className="auth-pro-btn" onClick={() => setOpen(true)}>{L.auth.loginBtn}</button>
+          <Link href="/signup?type=entreprise" className="auth-pro-btn secondary">{L.auth.register}</Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -283,7 +424,7 @@ function LoginScreen() {
   const { L } = useLocale();
   const params = useSearchParams();
   const typeParam = params.get("type");
-  const accountType = (typeParam === "ouvrier" || typeParam === "particulier") ? "particulier" : "entreprise";
+  const proStartsOpen = typeParam === "entreprise";
 
   return (
     <main className="auth-screen-v2">
@@ -292,8 +433,9 @@ function LoginScreen() {
         <div className="auth-card">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          {accountType === "entreprise" ? <EntrepriseLogin L={L} /> : <ParticulierLogin L={L} />}
-          {accountType === "entreprise" ? <RadarTeaser L={L} /> : null}
+          <KojiPanel L={L} />
+
+          <KojiProCard L={L} startOpen={proStartsOpen} />
 
         </div>
       </section>

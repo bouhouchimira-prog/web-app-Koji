@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
@@ -29,11 +28,12 @@ function MailIcon() {
   );
 }
 
+// Inscription "Koji" (particulier) reservee au panneau Koji de /login
+// (inscription inline sur place) — cette page ne gere plus que l'entreprise
+// ("Koji Pro"), donc plus besoin de selecteur de type ici.
 function SignupScreen() {
   const { L } = useLocale();
-  const params = useSearchParams();
-  const typeParam = params.get("type");
-  const [accountType, setAccountType] = useState(typeParam === "particulier" ? "particulier" : "entreprise");
+  const accountType = "entreprise";
 
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
@@ -132,22 +132,7 @@ function SignupScreen() {
       <section className="auth-panel-v2">
         <div className="auth-card">
 
-          <div className="auth-type-toggle">
-            <button
-              type="button"
-              className={accountType === "entreprise" ? "active" : ""}
-              onClick={() => setAccountType("entreprise")}
-            >
-              {L.auth.tabCompany}
-            </button>
-            <button
-              type="button"
-              className={accountType === "particulier" ? "active" : ""}
-              onClick={() => setAccountType("particulier")}
-            >
-              {L.auth.tabPersonal}
-            </button>
-          </div>
+          <p className="auth-pro-card-title" style={{ marginBottom: 12 }}>{L.auth.tabCompany}</p>
 
           <h2 className="auth-title">{L.auth.createAccount}</h2>
           <p className="auth-subtitle">

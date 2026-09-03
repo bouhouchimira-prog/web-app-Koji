@@ -10,7 +10,7 @@ export async function GET(request) {
   if (!user) return badRequest("Lien d'activation invalide", 404);
 
   if (user.isActive) {
-    return ok({ activated: true, alreadyActive: true, message: "Compte deja active." });
+    return ok({ activated: true, alreadyActive: true, message: "Compte deja active.", accountType: user.accountType || "entreprise" });
   }
 
   if (user.activationExpiresAt && new Date(user.activationExpiresAt).getTime() < Date.now()) {
@@ -21,6 +21,6 @@ export async function GET(request) {
   user.activationToken = null;
   user.activationExpiresAt = null;
   try { await writeDb(db); } catch { /* non-fatal on read-only filesystems */ }
-  return ok({ activated: true, alreadyActive: false, message: "Compte active avec succes." });
+  return ok({ activated: true, alreadyActive: false, message: "Compte active avec succes.", accountType: user.accountType || "entreprise" });
 }
 
