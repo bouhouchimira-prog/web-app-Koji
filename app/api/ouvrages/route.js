@@ -2,39 +2,7 @@ import catalog from "../../../data/catalog-ouvrages.json";
 import { ok, badRequest } from "../../../lib/http";
 import { ADMIN_SCOPE, addHistory, findScopedIndex, readDb, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
-import { fixText } from "../../../lib/text";
-
-function normalizeOuvrage(item) {
-  return {
-    ...item,
-    code: fixText(item.code || ""),
-    label: fixText(item.label || ""),
-    description: fixText(item.description || ""),
-    profession: fixText(item.profession || item.family || ""),
-    family: fixText(item.family || "Autre"),
-    category: fixText(item.category || item.family || "General"),
-    type: item.type || (item.parentCode ? "SOUS-POSTE" : "POSTE"),
-    unit: fixText(item.unit || "u"),
-    normativeTime: Number(item.normativeTime || 0),
-    hourlyRate: Number(item.hourlyRate || 0),
-    coefficient: Number(item.coefficient || 1),
-    discount: Number(item.discount || 0),
-    parentCode: item.parentCode || null,
-    materialCategories: Array.isArray(item.materialCategories) ? item.materialCategories : []
-  };
-}
-
-// Ouvrages library is shared across all users — no userId scoping on reads.
-function mergedOuvrages(db) {
-  const deleted = new Set(db.deletedOuvrages || []);
-  const custom = (db.ouvrages || []).map(normalizeOuvrage);
-  const customById = new Map(custom.map((item) => [item.id, item]));
-  const base = catalog
-    .filter((item) => !deleted.has(item.id))
-    .map((item) => customById.get(item.id) || normalizeOuvrage(item));
-  const customOnly = custom.filter((item) => !catalog.some((baseItem) => baseItem.id === item.id));
-  return [...base, ...customOnly];
-}
+import { normalizeOuvrage, mergedOuvrages } from "../../../lib/ouvrages";
 
 export async function GET(request) {
   const db = await readDb();

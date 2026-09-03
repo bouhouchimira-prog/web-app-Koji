@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "@supabase/supabase-js": "^2.93.2",
     "@vercel/postgres": "^0.10.0",
     "next": "latest",

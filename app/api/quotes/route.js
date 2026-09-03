@@ -3,7 +3,7 @@ import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
-import { mapQuote, quoteToRow } from "../../../lib/quote-mapping";
+import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
@@ -197,24 +197,6 @@ function withClientPortalAccess(quote, db) {
       password: quote.clientPortalAccess?.password || clientUser.password || ""
     }
   };
-}
-
-async function nextQuoteNumberFor(auth, existingReference = "") {
-  const year = new Date().getFullYear();
-  const prefix = `${year}_`;
-  const { data } = await auth.supabase
-    .from("quotes")
-    .select("reference")
-    .eq("user_id", auth.userId)
-    .like("reference", `${prefix}%`);
-  let maxSeq = 1048;
-  for (const row of data || []) {
-    const match = (row.reference || "").match(new RegExp(`^${year}_(\\d+)$`));
-    if (match) maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
-  }
-  const existingMatch = existingReference.match(new RegExp(`^${year}_(\\d+)$`));
-  if (existingMatch) maxSeq = Math.max(maxSeq, parseInt(existingMatch[1], 10) - 1);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
 }
 
 export async function GET(request) {
