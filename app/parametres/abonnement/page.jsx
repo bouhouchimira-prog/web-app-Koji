@@ -126,9 +126,9 @@ function ParametresAbonnementContent() {
             </label>
           ) : null}
 
-          <div className="plan-soon-row">
+          <div className="plan-soon-row plan-included-row">
             <span>{L.abonnement.marketplaceTitle}</span>
-            <span className="plan-soon-badge">{L.abonnement.marketplaceComingSoon}</span>
+            <span className="plan-soon-badge plan-included-badge">{L.abonnement.marketplaceComingSoon}</span>
           </div>
 
           <div className="profile-card-actions profile-card-actions-column">

@@ -36,9 +36,12 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
 
   // Entreprise gets its own dedicated page (bank details + plan) since a
   // real payment method requires more than an inline expandable card;
-  // particulier/ouvrier have no bank/payment info at all, so "Gérer" just
-  // goes straight to the plan picker.
+  // ouvrier has no bank/payment info at all, so "Gérer" just goes straight to
+  // the plan picker. Koji (particulier) has no subscription at all — Radar
+  // des Chantiers is entirely free, no plan to manage — so that row is
+  // hidden rather than pointed at the (irrelevant) entreprise plan picker.
   const subscriptionHref = accountType === "entreprise" ? "/parametres/abonnement" : "/abonnement";
+  const showSubscription = accountType !== "particulier";
 
   useEffect(() => {
     setTheme(getStoredTheme());
@@ -127,11 +130,13 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
   if (variant === "cards") {
     return (
       <>
-        <section className="profile-block">
-          <h2>{L.settings.subscription}</h2>
-          <p className="muted">{L.settings.subscriptionSub}</p>
-          <Link href={subscriptionHref} className="button secondary profile-link-button">{L.settings.manage}</Link>
-        </section>
+        {showSubscription ? (
+          <section className="profile-block">
+            <h2>{L.settings.subscription}</h2>
+            <p className="muted">{L.settings.subscriptionSub}</p>
+            <Link href={subscriptionHref} className="button secondary profile-link-button">{L.settings.manage}</Link>
+          </section>
+        ) : null}
 
         <section className="profile-block">
           <h2>{L.settings.language}</h2>
@@ -163,13 +168,15 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
     <section className="settings-panel">
       <p className="settings-panel-title">{L.settings.title}</p>
 
-      <div className="settings-row">
-        <div className="settings-row-text">
-          <strong>{L.settings.subscription}</strong>
-          <span>{L.settings.subscriptionSub}</span>
+      {showSubscription ? (
+        <div className="settings-row">
+          <div className="settings-row-text">
+            <strong>{L.settings.subscription}</strong>
+            <span>{L.settings.subscriptionSub}</span>
+          </div>
+          <Link className="button secondary" href={subscriptionHref}>{L.settings.manage}</Link>
         </div>
-        <Link className="button secondary" href={subscriptionHref}>{L.settings.manage}</Link>
-      </div>
+      ) : null}
 
       <div className="settings-row settings-row-column">
         <div className="settings-row-text">

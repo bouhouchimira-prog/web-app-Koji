@@ -27,7 +27,8 @@ export default function BusinessInfoPage() {
     emailPro: "",
     phone: "",
     address: "",
-    tva: ""
+    tva: "",
+    website: ""
   });
 
   function setField(field, value) {
@@ -49,6 +50,7 @@ export default function BusinessInfoPage() {
     ["phone", L.setup.phone],
     ["address", L.setup.address],
     ["tva", L.setup.tva],
+    ["website", L.setup.website],
   ];
 
   return (
