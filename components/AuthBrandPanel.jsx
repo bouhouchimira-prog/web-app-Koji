@@ -16,7 +16,7 @@ function AppleIcon() {
   );
 }
 
-export function AuthBrandPanel({ showStoreBadges = true } = {}) {
+export function AuthBrandPanel({ showStoreBadges = true, tagline } = {}) {
   return (
     <section className="auth-brand auth-brand-animated">
       <div className="brand-hero" aria-label="Koji">
@@ -35,6 +35,7 @@ export function AuthBrandPanel({ showStoreBadges = true } = {}) {
           ))}
         </div>
       </div>
+      {tagline ? <p className="brand-tagline">{tagline}</p> : null}
       {showStoreBadges ? (
         <div className="brand-store-block">
           <p className="brand-store-label">{"Bient\u00F4t disponible sur"}</p>

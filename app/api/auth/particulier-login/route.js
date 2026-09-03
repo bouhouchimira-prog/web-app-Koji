@@ -57,6 +57,10 @@ export async function POST(request) {
     }
     await clearRateLimit(SCOPE, identifier);
 
+    if (clientUser.isActive === false) {
+      return badRequest("Confirmez votre e-mail avant de vous connecter (lien envoyé à l'inscription).", 403);
+    }
+
     if (validLegacyPlaintext) {
       const { salt, hash } = hashClientPassword(password);
       clientUser.passwordHash = hash;
