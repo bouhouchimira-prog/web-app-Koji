@@ -20,12 +20,13 @@ function formatTime(value) {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(value));
 }
 
-const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation"]);
+const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message"]);
 
 const TYPE_META = {
   "company.reply":          { label: "Réponse de l'entreprise", bg: "#f0fdf4", color: "#166534", icon: "💬" },
   "task.started":           { label: "Chantier démarré",        bg: "#dbeafe", color: "#1d4ed8", icon: "🚀" },
   "task.pending_validation":{ label: "Validation requise",      bg: "#fef9c3", color: "#854d0e", icon: "✅" },
+  "radar.message":          { label: "Radar des Chantiers",     bg: "#eaf2ff", color: "#1d4ed8", icon: "📡" },
 };
 
 export default function ClientNotificationsPage() {
@@ -74,7 +75,9 @@ export default function ClientNotificationsPage() {
 
   function handleClick(notif) {
     if (!notif.read) markRead(notif);
-    if (notif.quoteId) {
+    if (notif.offerId) {
+      router.push(`/client/radar/${notif.offerId}`);
+    } else if (notif.quoteId) {
       router.push(`/client/chantier/${notif.quoteId}`);
     } else {
       router.push("/client");

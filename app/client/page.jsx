@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClientTopbar } from "../../components/ClientTopbar";
 import { euro, shortDate } from "../../lib/pricing";
 import { useLocale } from "../../lib/i18n";
@@ -119,79 +119,28 @@ export function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel
   );
 }
 
-function DevisTrialModal({ onClose, alreadyUsed, L }) {
-  return (
-    <div className="ct-modal-overlay" onClick={onClose}>
-      <div className="ct-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="ct-modal-logo"><img src="/koji-logo.svg" alt="Koji" /></div>
-        <h2>{L.clientSpace.trialTitle}</h2>
-        {alreadyUsed ? (
-          <>
-            <p>{L.clientSpace.trialUsedMsg}</p>
-            <Link className="primary-button" href="/abonnement">{L.clientSpace.trialDiscoverBtn}</Link>
-          </>
-        ) : (
-          <>
-            <p>{L.clientSpace.trialFirstMsg}</p>
-            <Link className="primary-button" href="/signup?type=entreprise&ref=client-trial">{L.clientSpace.trialCreateBtn}</Link>
-            <p className="ct-modal-note">{L.clientSpace.trialNote}</p>
-          </>
-        )}
-        <button type="button" className="ghost-button" style={{ marginTop: 8 }} onClick={onClose}>{L.clientSpace.close}</button>
-      </div>
-    </div>
-  );
-}
+const RADAR_STATUS_LABEL = {
+  Publiee: "Publiée",
+  "En attente": "En attente",
+  Terminee: "Terminée",
+  SansSuite: "Sans suite"
+};
 
 export default function ClientHomePage() {
   const { L } = useLocale();
   const [user, setUser] = useState(null);
-  const [quotes, setQuotes] = useState([]);
+  const [offres, setOffres] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showTrial, setShowTrial] = useState(false);
-  const [trialUsed, setTrialUsed] = useState(false);
-
-  const taskSteps = [
-    L.clientSpace.taskStepStart,
-    L.clientSpace.taskStepInProgress,
-    L.clientSpace.taskStepValidated,
-    L.clientSpace.taskStepDone,
-  ];
 
   useEffect(() => {
     const stored = getStoredUser();
     setUser(stored);
     if (!stored?.email) { setLoading(false); return; }
-    fetch("/api/client/quotes")
+    fetch("/api/chantier-offres")
       .then((r) => r.json())
-      .then((data) => setQuotes(data.quotes || []))
+      .then((data) => setOffres(data.offres || []))
       .finally(() => setLoading(false));
-    setTrialUsed(localStorage.getItem("koji-client-devis-trial") === "1");
   }, []);
-
-  const signedQuotes = useMemo(() => quotes.filter((q) => q.status === "Signe" || q.signatureStatus === "Signe"), [quotes]);
-  const allTasks = useMemo(() => quotes.flatMap((q) => q.tasks || []), [quotes]);
-  const companyInfo = useMemo(() => quotes[0]?.company || null, [quotes]);
-
-  async function handleValidateTask(taskId) {
-    if (!user?.id) return;
-    const r = await fetch("/api/client/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskId, action: "client-validate" })
-    });
-    if (!r.ok) return;
-    const data = await r.json();
-    setQuotes((prev) => prev.map((q) => ({
-      ...q,
-      tasks: (q.tasks || []).map((t) => t.id === taskId ? data.task : t)
-    })));
-  }
-
-  function handleDevisTrial() {
-    if (!trialUsed) localStorage.setItem("koji-client-devis-trial", "1");
-    setShowTrial(true);
-  }
 
   if (!user?.email) {
     return (
@@ -210,37 +159,39 @@ export default function ClientHomePage() {
     <main className="client-space">
       <ClientTopbar />
 
-      {showTrial ? <DevisTrialModal onClose={() => setShowTrial(false)} alreadyUsed={trialUsed} L={L} /> : null}
-
-      <button type="button" className="new-chantier-bar" onClick={handleDevisTrial}>
+      <Link href="/client/radar/new" className="new-chantier-bar">
         <span className="new-chantier-icon">+</span>
-        {L.clientSpace.createQuote}
-      </button>
+        Publier une offre
+      </Link>
 
-      <div className="ct-welcome">
+      <div className="ct-welcome ct-welcome-center ct-welcome-spaced">
         <strong>{L.clientSpace.hello} {user.name || user.email.split("@")[0]}</strong>
-        <small>{L.clientSpace.clientSpaceName}</small>
-      </div>
-
-      <div className="ct-stats">
-        <div className="ct-stat"><span>{quotes.length}</span><small>{L.clientSpace.quotesReceived}</small></div>
-        <div className="ct-stat"><span>{signedQuotes.length}</span><small>{L.clientSpace.signedQuotes}</small></div>
-        <div className="ct-stat"><span>{allTasks.filter((t) => t.done).length}/{allTasks.length}</span><small>{L.clientSpace.worksLabel}</small></div>
+        <small>Publiez vos chantiers et trouvez le bon artisan pour une meilleure qualité des travaux.</small>
       </div>
 
       <section className="ct-section">
-        <h2 className="ct-section-title">{L.clientSpace.myProjects}</h2>
+        <div className="ct-section-title-row">
+          <h2 className="ct-section-title">Mes offres</h2>
+          <Link href="/client/radar" className="ct-section-link">Voir tout →</Link>
+        </div>
         {loading ? <div className="client-empty">{L.clientSpace.loading}</div> : null}
-        {!loading && signedQuotes.length === 0 ? <div className="client-empty">{L.clientSpace.noQuotes}</div> : null}
-        {signedQuotes.map((quote) => (
-          <ChantierCard
-            key={quote.id}
-            quote={quote}
-            signedLabel={L.clientSpace.signedLabel}
-            inProgressLabel={L.clientSpace.taskStepInProgress}
-            waitingLabel={L.clientSpace.waiting}
-          />
-        ))}
+        {!loading && offres.length === 0 ? (
+          <Link href="/client/radar" className="client-empty client-empty-link">Aucune offre publiée pour l'instant.</Link>
+        ) : null}
+        <div className="client-list">
+          {offres.map((offre) => (
+            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="client-row client-row-link">
+              <div>
+                <strong>{offre.description.slice(0, 60)}{offre.description.length > 60 ? "…" : ""}</strong>
+                <span>{offre.address} · {shortDate(offre.createdAt)}</span>
+              </div>
+              <div className="ct-devis-row-right">
+                <span className="radar-status-badge">{RADAR_STATUS_LABEL[offre.status] || offre.status}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+              </div>
+            </Link>
+          ))}
+        </div>
       </section>
     </main>
   );

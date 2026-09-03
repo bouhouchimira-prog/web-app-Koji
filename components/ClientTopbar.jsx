@@ -68,6 +68,14 @@ function DrawerIcon({ name }) {
           <path {...base} d="M4 4h16v12H8l-4 4V4z" />
         </svg>
       );
+    case "radar":
+      return (
+        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle {...base} cx="12" cy="12" r="9" />
+          <circle {...base} cx="12" cy="12" r="4.5" />
+          <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -86,9 +94,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
 
   const navItems = [
     { href: "/client", label: L.clientSpace.home, icon: "home" },
-    { href: "/client/devis", label: L.nav.quotes, icon: "file" },
-    { href: "/client/chantiers", label: L.nav.projects, icon: "tools" },
-    { href: "/client/notifications", label: L.clientSpace.clientNotifTitle, icon: "chat" },
+    { href: "/client/radar", label: "Mes offres", icon: "radar" },
   ];
 
   function logout() {
@@ -103,7 +109,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
     fetch(`/api/notifications?userId=${encodeURIComponent(user.id)}`)
       .then((r) => r.json())
       .then((data) => {
-        const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation"]);
+        const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message"]);
       const count = (data.notifications || []).filter((n) => !n.read && !n.archived && CLIENT_TYPES.has(n.type)).length;
         setUnread(count);
       })
