@@ -43,7 +43,9 @@ export default function MarketplacePage() {
                 <small>{[offre.metier, offre.address].filter(Boolean).join(" · ")}</small>
               </div>
               <div style={{ textAlign: "right" }}>
-                {offre.budget ? <div style={{ fontSize: "0.78rem", color: "#7e715f", fontWeight: 700 }}>{euro(offre.budget)}</div> : null}
+                {offre.priceRangeMin ? (
+                  <div style={{ fontSize: "0.78rem", color: "#7e715f", fontWeight: 700 }}>{euro(offre.priceRangeMin)}–{euro(offre.priceRangeMax)}</div>
+                ) : null}
                 <small style={{ color: "#94a3b8", fontSize: "11.5px" }}>{shortDate(offre.createdAt)}</small>
               </div>
             </Link>
