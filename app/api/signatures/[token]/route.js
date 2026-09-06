@@ -2,6 +2,8 @@ import { ok, badRequest } from "../../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../../lib/db";
 import { fixObjectText, fixText } from "../../../../lib/text";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../../lib/quote-projects";
+import { createPaiementEcheancesForQuote } from "../../../../lib/chantier-paiements";
+import { recordEstimationAccuracy } from "../../../../lib/estimation-accuracy";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 import { ensureClientPortalAccess, normalizeEmail } from "../../../../lib/client-portal-access";
@@ -78,6 +80,8 @@ export async function POST(request, context) {
   const db = await readDb();
   updated.projectId = await ensureChantierForQuote(supabase, updated, now);
   generateTasksForSignedQuote(db, updated, now);
+  createPaiementEcheancesForQuote(db, updated, now);
+  recordEstimationAccuracy(db, updated, now);
   if (updated.projectId) {
     await supabase.from("chantiers").update({ status: "Signe" }).eq("id", updated.projectId);
   }

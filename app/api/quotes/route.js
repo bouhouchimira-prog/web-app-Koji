@@ -7,6 +7,8 @@ import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-map
 import { hashPassword } from "../../../lib/password-hash";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
+import { createPaiementEcheancesForQuote } from "../../../lib/chantier-paiements";
+import { recordEstimationAccuracy } from "../../../lib/estimation-accuracy";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -351,6 +353,8 @@ export async function PATCH(request) {
     quote.signedAt = now;
     quote.projectId = await ensureChantierForQuote(auth.supabase, quote, now);
     generateTasksForSignedQuote(sideDb, quote, now);
+    createPaiementEcheancesForQuote(sideDb, quote, now);
+    recordEstimationAccuracy(sideDb, quote, now);
     if (quote.projectId) {
       await auth.supabase.from("chantiers").update({ status: "Signe" }).eq("id", quote.projectId);
     }
@@ -433,12 +437,17 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "contactId", "chantierAddress", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft"];
+    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "contactId", "chantierAddress", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);
         else if (key === "validityDays") quote[key] = Number(body[key] || 30);
         else if (key === "isCreationDraft") quote[key] = Boolean(body[key]);
+        // paymentMilestones ne passe pas par fixObjectText (les libelles
+        // libres de l'entreprise n'ont pas besoin de la correction
+        // orthographique appliquee aux textes deja rediges) — juste une
+        // whitelist de forme, meme principe que quote-mapping.js.
+        else if (key === "paymentMilestones") quote[key] = Array.isArray(body[key]) ? body[key] : null;
         else quote[key] = fixObjectText(body[key]);
       }
     }

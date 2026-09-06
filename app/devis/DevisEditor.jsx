@@ -275,6 +275,11 @@ export default function DevisEditor() {
     { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "client" },
     { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client", calculationBase: "chiffrage_cumule" }
   ]);
+  // Etapes de paiement definies par l'entreprise (decisions du 4 septembre,
+  // module paiement Radar des Chantiers) — visible uniquement quand ce devis
+  // est lie a une offre Radar (generatedQuote.chantierOffreId), jamais sur un
+  // devis classique. [{ id, label, percent }], somme des percent = 100.
+  const [paymentMilestones, setPaymentMilestones] = useState([]);
   const [quoteVatRate, setQuoteVatRate] = useState(20);
   const [vatManual, setVatManual] = useState(false);
   const [draftQuoteNumber, setDraftQuoteNumber] = useState(null);
@@ -512,6 +517,7 @@ export default function DevisEditor() {
     setRooms(Array.isArray(quote.rooms) ? quote.rooms : []);
     setRoomNotes(Array.isArray(quote.notes) ? quote.notes : []);
     if (Array.isArray(quote.surcharges)) setSurcharges(quote.surcharges);
+    setPaymentMilestones(Array.isArray(quote.paymentMilestones) ? quote.paymentMilestones : []);
     if (quote.vatRate != null) setQuoteVatRate(Number(quote.vatRate));
     setVatManual(true);
     setDraftQuoteNumber(quote.quoteNumber || null);
@@ -554,7 +560,7 @@ export default function DevisEditor() {
       persistQuote(false).catch(() => {});
     }, 1200);
     return () => clearTimeout(autosaveTimerRef.current);
-  }, [form, rooms, roomNotes, surcharges, quoteVatRate, customSources, lineSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [form, rooms, roomNotes, surcharges, paymentMilestones, quoteVatRate, customSources, lineSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSources = useMemo(() => {
     const fromCatalog = selectedIds.map((id) => postes.find((item) => item.id === id)).filter(Boolean);
@@ -1142,6 +1148,18 @@ export default function DevisEditor() {
     setSurcharges((current) => current.filter((s) => s.id !== id));
   }
 
+  function addMilestone() {
+    setPaymentMilestones((current) => [...current, { id: `pm-${Date.now()}`, label: "", percent: 0 }]);
+  }
+
+  function updateMilestone(id, field, value) {
+    setPaymentMilestones((current) => current.map((m) => m.id === id ? { ...m, [field]: value } : m));
+  }
+
+  function removeMilestone(id) {
+    setPaymentMilestones((current) => current.filter((m) => m.id !== id));
+  }
+
   function cycleSurchargeMode(id, current) {
     const order = ["excluded", "internal", "client"];
     const next = order[(order.indexOf(current) + 1) % order.length];
@@ -1206,6 +1224,19 @@ export default function DevisEditor() {
   function requireLines() {
     if (quoteLines.length) return true;
     notify("Ajoutez au moins un ouvrage ou une fourniture avant de continuer.", "error");
+    return false;
+  }
+
+  // Un devis Radar des Chantiers dont l'entreprise a commence a definir ses
+  // etapes de paiement doit les boucler a 100 % avant envoi/acceptation —
+  // sinon lib/chantier-paiements.js n'a aucun echeancier coherent a creer.
+  // Sans etape definie, le fallback (une seule echeance a 100 %) s'applique
+  // silencieusement, donc aucun blocage dans ce cas.
+  function requireValidMilestones() {
+    if (!generatedQuote?.chantierOffreId || paymentMilestones.length === 0) return true;
+    const sum = paymentMilestones.reduce((s, m) => s + Number(m.percent || 0), 0);
+    if (sum === 100) return true;
+    notify("Les étapes de paiement doivent totaliser 100 % avant d'envoyer ou d'accepter ce devis.", "error");
     return false;
   }
 
@@ -1284,7 +1315,8 @@ export default function DevisEditor() {
       surcharges,
       vatRate: quoteVatRate,
       totalHt: summaryTotals.totalHt,
-      totalTtc: summaryTotals.totalTtc
+      totalTtc: summaryTotals.totalTtc,
+      ...(generatedQuote?.chantierOffreId ? { paymentMilestones } : {})
     };
 
     const isUpdate = Boolean(generatedQuote?.id);
@@ -1391,6 +1423,7 @@ export default function DevisEditor() {
   }
 
   async function submitAcceptManually() {
+    if (!requireValidMilestones()) return;
     try {
       const quote = await persistQuote();
       const { quote: accepted } = await apiSend("/api/quotes", {
@@ -1446,6 +1479,7 @@ export default function DevisEditor() {
 
   async function handleSend() {
     if (!requireLines()) return;
+    if (!requireValidMilestones()) return;
     if (!window.confirm("Envoyer ce devis au client ? Un lien Koji Signature sera généré.")) {
       notify("Envoi annulé.", "info");
       return;
@@ -2338,6 +2372,55 @@ export default function DevisEditor() {
             />
           </label>
         </section>
+
+        {generatedQuote?.chantierOffreId ? (
+          <section className="quote-final-card quote-payment-card">
+            <div className="quote-section-title">
+              <div>
+                <span>Radar des Chantiers</span>
+                <h2>Étapes de paiement</h2>
+              </div>
+            </div>
+            <p className="recap-title-hint">
+              Définissez vos propres étapes (ex : 30/30/30/10, 50/50…) — elles remplacent la répartition fixe et deviennent l'échéancier de paiement à l'acceptation du devis. La somme doit faire 100 %.
+            </p>
+
+            {paymentMilestones.map((m) => (
+              <div className="recap-row" key={m.id}>
+                <input
+                  className="recap-surcharge-label"
+                  value={m.label}
+                  onChange={(e) => updateMilestone(m.id, "label", e.target.value)}
+                  placeholder="Libellé (ex : Acompte)"
+                />
+                <input
+                  type="number"
+                  className="recap-surcharge-pct"
+                  value={m.percent}
+                  min="0"
+                  max="100"
+                  step="1"
+                  onChange={(e) => updateMilestone(m.id, "percent", Math.max(0, Number(e.target.value) || 0))}
+                />
+                <span className="recap-pct-sym">%</span>
+                <button type="button" className="recap-remove-btn" onClick={() => removeMilestone(m.id)} aria-label="Supprimer">×</button>
+              </div>
+            ))}
+
+            <button type="button" className="recap-add-surcharge" onClick={addMilestone}>{L.devis.addLine}</button>
+
+            {paymentMilestones.length > 0 ? (() => {
+              const sum = paymentMilestones.reduce((s, m) => s + Number(m.percent || 0), 0);
+              return (
+                <p className={`payment-milestone-sum ${sum === 100 ? "ok" : "warn"}`}>
+                  Total : {sum} % {sum === 100 ? "✓" : "— doit faire 100 % avant envoi"}
+                </p>
+              );
+            })() : (
+              <p className="recap-title-hint" style={{ margin: "4px 0 0" }}>Sans étape définie, le client paiera en une seule fois à la fin du chantier.</p>
+            )}
+          </section>
+        ) : null}
 
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 
