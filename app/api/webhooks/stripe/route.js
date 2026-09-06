@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStripe, intervalFromProPriceId, isWebsitePriceId } from "../../../../lib/stripe";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
+import { readDb, writeDb } from "../../../../lib/db";
 
 // Called by Stripe, never by the browser — no session cookie to check here.
 // Authenticity comes entirely from the signature verified below, so this
@@ -42,6 +43,15 @@ export async function POST(request) {
             _billingStatus: "active",
             _addonWebsite: session.metadata.website === "1"
           });
+        }
+        if (session.mode === "payment" && session.metadata?.chantierPaiementId) {
+          const db = await readDb();
+          const paiement = (db.chantierPaiements || []).find((p) => p.id === session.metadata.chantierPaiementId);
+          if (paiement && paiement.status === "pending") {
+            paiement.status = "paid_platform";
+            paiement.stripePaymentIntentId = session.payment_intent || "";
+            await writeDb(db);
+          }
         }
         break;
       }
