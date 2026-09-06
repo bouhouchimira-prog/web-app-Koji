@@ -4,8 +4,14 @@ const fs = require("fs");
 const path = require("path");
 const {
   Document, Packer, Paragraph, TextRun, AlignmentType,
-  ExternalHyperlink, BorderStyle, ShadingType
+  ExternalHyperlink, BorderStyle, ShadingType, ImageRun
 } = require("docx");
+
+const MAX_IMAGE_WIDTH = 560;
+
+function pngDimensions(buffer) {
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+}
 
 const NAVY = "06132D";
 const BLUE = "1D74FF";
@@ -70,6 +76,31 @@ function main() {
 
     const line = rawLine.trim();
     if (!line) continue;
+
+    const imageMatch = /^!\[(.*?)\]\((.+?)\)$/.exec(line);
+    if (imageMatch) {
+      const [, alt, relPath] = imageMatch;
+      const imagePath = path.join(__dirname, "..", relPath);
+      const buffer = fs.readFileSync(imagePath);
+      const { width, height } = pngDimensions(buffer);
+      const scale = Math.min(1, MAX_IMAGE_WIDTH / width);
+      children.push(new Paragraph({
+        children: [new ImageRun({
+          data: buffer,
+          type: "png",
+          transformation: { width: Math.round(width * scale), height: Math.round(height * scale) }
+        })],
+        spacing: { before: 80, after: 60 }
+      }));
+      if (alt) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: alt, italics: true, color: MUTED, size: 18 })],
+          spacing: { after: 200 }
+        }));
+      }
+      continue;
+    }
+
     if (line === "---") {
       children.push(new Paragraph({
         border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "DFE6F0" } },
