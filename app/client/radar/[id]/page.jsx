@@ -5,6 +5,9 @@ import { useParams } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { euro, shortDate } from "../../../../lib/pricing";
 
+const STEP_LABEL = { acompte: "Acompte", avancement: "Avancement", solde: "Solde" };
+const PAIEMENT_STATUS_LABEL = { pending: "À payer", paid_platform: "Payé — en attente des photos de l'entreprise", released: "Débloqué" };
+
 const STATUS_LABEL = {
   Publiee: "Publiée",
   "En attente": "En attente",
@@ -43,6 +46,14 @@ function GlobeIcon() {
     </svg>
   );
 }
+function CalendarIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3 10h18" />
+    </svg>
+  );
+}
 
 export default function RadarOffreDetailPage() {
   const params = useParams();
@@ -54,6 +65,12 @@ export default function RadarOffreDetailPage() {
   const [activeEntrepriseId, setActiveEntrepriseId] = useState(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [positioned, setPositioned] = useState([]);
+  const [showRdvForm, setShowRdvForm] = useState(false);
+  const [rdvDate, setRdvDate] = useState("");
+  const [paiements, setPaiements] = useState([]);
+  const [paying, setPaying] = useState("");
+  const [validating, setValidating] = useState("");
 
   useEffect(() => {
     fetch(`/api/chantier-offres/${params.id}`)
@@ -70,6 +87,16 @@ export default function RadarOffreDetailPage() {
       .then((data) => setMessages(data.messages || []))
       .catch(() => {})
       .finally(() => setMessagesLoading(false));
+
+    fetch(`/api/marketplace/offres/${params.id}/positionner`)
+      .then((r) => r.json())
+      .then((data) => setPositioned((data.positionnements || []).map((p) => p.entrepriseUserId)))
+      .catch(() => {});
+
+    fetch(`/api/marketplace/offres/${params.id}/paiement`)
+      .then((r) => r.json())
+      .then((data) => setPaiements(data.paiements || []))
+      .catch(() => {});
   }, [params.id]);
 
   const conversations = useMemo(() => {
@@ -112,6 +139,97 @@ export default function RadarOffreDetailPage() {
     }
   }
 
+  async function proposeRdv(event) {
+    event.preventDefault();
+    if (!rdvDate || !activeEntrepriseId) return;
+    setSending(true);
+    try {
+      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "rdv_proposal", rdvDate: new Date(rdvDate).toISOString(), entrepriseUserId: activeEntrepriseId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
+      setMessages((prev) => [...prev, data.message]);
+      setShowRdvForm(false);
+      setRdvDate("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function respondRdv(proposalId, rdvStatus) {
+    if (!activeEntrepriseId) return;
+    setSending(true);
+    try {
+      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "rdv_response", respondsToId: proposalId, rdvStatus, entrepriseUserId: activeEntrepriseId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
+      setMessages((prev) => [...prev, data.message]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const hasResponse = (proposalId) => messages.some((m) => m.respondsToId === proposalId);
+
+  async function grantPhotos() {
+    if (!activeEntrepriseId) return;
+    setSending(true);
+    try {
+      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "photo_grant", entrepriseUserId: activeEntrepriseId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
+      setMessages((prev) => [...prev, data.message]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function payStep(paiementId) {
+    setPaying(paiementId);
+    setError("");
+    try {
+      const response = await fetch(`/api/marketplace/offres/${params.id}/paiement/${paiementId}/checkout`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erreur lors du paiement.");
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err.message);
+      setPaying("");
+    }
+  }
+
+  async function validateStep(paiementId) {
+    setValidating(paiementId);
+    setError("");
+    try {
+      const response = await fetch(`/api/marketplace/offres/${params.id}/paiement/${paiementId}/valider`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erreur lors de la validation.");
+      setPaiements((prev) => prev.map((p) => (p.id === paiementId ? { ...p, status: "released", validatedAt: data.paiement.validatedAt } : p)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setValidating("");
+    }
+  }
+
   return (
     <main className="client-space">
       <ClientTopbar showBack backHref="/client/radar" />
@@ -142,9 +260,8 @@ export default function RadarOffreDetailPage() {
               <div className="radar-recap-row"><span>Travaux</span><strong>{offre.description || "—"}</strong></div>
               <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
               <div className="radar-recap-row"><span>Adresse</span><strong>{offre.address || "—"}</strong></div>
-              <div className="radar-recap-row"><span>Budget</span><strong>{offre.budget ? euro(offre.budget) : "Non précisé"}</strong></div>
-              <div className="radar-recap-row"><span>Fournitures</span><strong>{offre.withSupplies ? "Incluses" : "Non incluses"}</strong></div>
-              <div className="radar-recap-row"><span>Prix visible</span><strong>{offre.priceVisible ? "Oui" : "Masqué"}</strong></div>
+              <div className="radar-recap-row"><span>Fourchette publiée</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non précisée"}</strong></div>
+              {offre.delaiEstimeJours ? <div className="radar-recap-row"><span>Délai estimé</span><strong>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</strong></div> : null}
             </div>
 
             <p className="radar-recap-note">
@@ -166,7 +283,7 @@ export default function RadarOffreDetailPage() {
                     <button key={conv.entrepriseUserId} type="button" className="radar-conv-row" onClick={() => setActiveEntrepriseId(conv.entrepriseUserId)}>
                       <span className="radar-conv-avatar">{(conv.snapshot?.raisonSociale || "?").slice(0, 1).toUpperCase()}</span>
                       <span className="radar-conv-main">
-                        <strong>{conv.snapshot?.raisonSociale || "Entreprise"}</strong>
+                        <strong>{conv.snapshot?.raisonSociale || "Entreprise"}{positioned.includes(conv.entrepriseUserId) ? <span className="radar-status-badge" style={{ marginLeft: 8 }}>Positionnée</span> : null}</strong>
                         <small>{last?.message?.slice(0, 60) || ""}</small>
                       </span>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
@@ -209,6 +326,32 @@ export default function RadarOffreDetailPage() {
                 ) : null}
               </div>
 
+              {activeConversation.messages.some((m) => m.entrepriseUserId === activeEntrepriseId) && paiements.filter((p) => p.entrepriseUserId === activeEntrepriseId).length > 0 ? (
+                <div className="radar-contact-card">
+                  <p className="radar-contact-title">Paiement échelonné</p>
+                  <div className="radar-paiement-list">
+                    {paiements.filter((p) => p.entrepriseUserId === activeEntrepriseId).map((p) => (
+                      <div key={p.id} className="radar-paiement-row">
+                        <div>
+                          <strong>{STEP_LABEL[p.step] || p.step}</strong>
+                          <small>{euro(p.amountTtc)} · {PAIEMENT_STATUS_LABEL[p.status]}</small>
+                        </div>
+                        {p.status === "pending" ? (
+                          <button type="button" className="button blue" onClick={() => payStep(p.id)} disabled={paying === p.id}>
+                            {paying === p.id ? "Redirection…" : "Payer"}
+                          </button>
+                        ) : null}
+                        {p.status === "paid_platform" && p.photos.length > 0 ? (
+                          <button type="button" className="button blue" onClick={() => validateStep(p.id)} disabled={validating === p.id}>
+                            {validating === p.id ? "Validation…" : "Valider cette étape"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="radar-chat-card">
                 <div className="radar-chat-header">
                   <span className="radar-chat-header-icon"><ChatIcon /></span>
@@ -221,10 +364,39 @@ export default function RadarOffreDetailPage() {
                   {activeConversation.messages.map((m) => (
                     <div key={m.id} className={`radar-chat-bubble ${m.senderType === "particulier" ? "entreprise" : "particulier"}`}>
                       <p>{m.message}</p>
+                      {m.kind === "rdv_proposal" && m.senderType === "entreprise" && !hasResponse(m.id) ? (
+                        <div className="radar-rdv-actions">
+                          <button type="button" className="button blue" onClick={() => respondRdv(m.id, "accepted")} disabled={sending}>Accepter</button>
+                          <button type="button" className="button secondary" onClick={() => respondRdv(m.id, "declined")} disabled={sending}>Refuser</button>
+                        </div>
+                      ) : null}
                       <small>{shortDate(m.createdAt)}</small>
                     </div>
                   ))}
                 </div>
+
+                {offre.photos?.length > 0 &&
+                activeConversation.messages.some((m) => m.kind === "photo_request") &&
+                !activeConversation.messages.some((m) => m.kind === "photo_grant") ? (
+                  <button type="button" className="radar-rdv-toggle" onClick={grantPhotos} disabled={sending}>
+                    <ChatIcon />
+                    Débloquer mes photos pour {activeConversation.snapshot?.raisonSociale || "cette entreprise"}
+                  </button>
+                ) : null}
+
+                {showRdvForm ? (
+                  <form className="radar-rdv-form" onSubmit={proposeRdv}>
+                    <input type="datetime-local" value={rdvDate} onChange={(e) => setRdvDate(e.target.value)} required />
+                    <button type="submit" className="button blue" disabled={sending || !rdvDate}>Proposer</button>
+                    <button type="button" className="button secondary" onClick={() => setShowRdvForm(false)}>Annuler</button>
+                  </form>
+                ) : (
+                  <button type="button" className="radar-rdv-toggle" onClick={() => setShowRdvForm(true)}>
+                    <CalendarIcon />
+                    Proposer un rendez-vous
+                  </button>
+                )}
+
                 <form className="radar-chat-form" onSubmit={sendReply}>
                   <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrire un message…" />
                   <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
