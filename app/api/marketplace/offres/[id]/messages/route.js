@@ -1,16 +1,21 @@
 import { badRequest, ok } from "../../../../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../../../../lib/db";
-import { getAccessToken, getVerifiedUserId } from "../../../../../../lib/server-auth";
-import { getSupabaseForToken } from "../../../../../../lib/supabase";
 import { getVerifiedPortalUserId } from "../../../../../../lib/portal-session";
-import { buildWebUser } from "../../../../../../lib/user-profile";
-import { isTrialUser } from "../../../../../../lib/plan";
+import { resolveEntreprise, loadEntrepriseSnapshot } from "../../../../../../lib/entreprise-auth";
 import { fixText } from "../../../../../../lib/text";
 
 // Messagerie interne Radar des Chantiers (module 4.5 du cahier des charges)
 // — un fil par (offre, entreprise). Cote entreprise : un seul fil, le sien.
 // Cote particulier (proprietaire de l'offre) : tous les fils, un par
 // entreprise qui a ecrit, regroupes cote client dans l'UI.
+//
+// "kind" distingue un message texte simple d'un message structure : "text"
+// (defaut, retrocompatible avec tous les messages envoyes avant l'ajout de
+// ce champ), "rdv_proposal"/"rdv_response" (module positionnement/RDV — une
+// proposition porte rdvDate, une reponse porte respondsToId et rdvStatus
+// "accepted"|"declined"), et "photo_request"/"photo_grant" (photos du
+// chantier masquees par defaut — l'entreprise demande, le particulier
+// debloque ; voir lib/photo-access.js).
 function publicMessage(message) {
   return {
     id: message.id,
@@ -18,35 +23,11 @@ function publicMessage(message) {
     entrepriseUserId: message.entrepriseUserId,
     entrepriseSnapshot: message.entrepriseSnapshot || null,
     message: message.message,
+    kind: message.kind || "text",
+    rdvDate: message.rdvDate || null,
+    respondsToId: message.respondsToId || null,
+    rdvStatus: message.rdvStatus || null,
     createdAt: message.createdAt
-  };
-}
-
-// getVerifiedUserId checks the token's signature against Supabase Auth
-// itself (unlike getAuth's plain decode) — the right check to gate access on
-// here, since a forged token must not be able to read another company's
-// message threads. The RLS-scoped client is only needed afterward, to read
-// this now-verified caller's own business_info for the snapshot.
-async function resolveEntreprise(request, body = null) {
-  const userId = await getVerifiedUserId(request, body);
-  if (!userId) return null;
-  const token = getAccessToken(request, body);
-  return { userId, supabase: getSupabaseForToken(token) };
-}
-
-async function loadEntrepriseSnapshot(entreprise) {
-  const { data: profile } = await entreprise.supabase
-    .from("users")
-    .select("*")
-    .eq("id", entreprise.userId)
-    .maybeSingle();
-  const webUser = buildWebUser({ id: entreprise.userId, email: profile?.email || "", profile });
-  return {
-    raisonSociale: webUser.business?.raisonSociale || webUser.name || "Une entreprise",
-    address: webUser.business?.address || "",
-    phone: webUser.business?.phone || "",
-    website: webUser.business?.website || "",
-    isPro: Boolean(webUser.isAdmin) || !isTrialUser(webUser)
   };
 }
 
@@ -79,9 +60,51 @@ export async function GET(request, context) {
   return badRequest("Session expirée. Reconnectez-vous.", 401);
 }
 
+const VALID_KINDS = new Set(["text", "rdv_proposal", "rdv_response", "photo_request", "photo_grant"]);
+
+// Valide et normalise les champs specifiques a un message de RDV ; renvoie
+// null si la demande est incoherente (kind invalide vus les champs fournis).
+function normalizeKindFields(body) {
+  const kind = VALID_KINDS.has(body.kind) ? body.kind : "text";
+  if (kind === "rdv_proposal") {
+    const rdvDate = String(body.rdvDate || "");
+    if (!rdvDate) return null;
+    return { kind, rdvDate, respondsToId: null, rdvStatus: null };
+  }
+  if (kind === "rdv_response") {
+    const respondsToId = String(body.respondsToId || "");
+    const rdvStatus = body.rdvStatus === "accepted" || body.rdvStatus === "declined" ? body.rdvStatus : "";
+    if (!respondsToId || !rdvStatus) return null;
+    return { kind, rdvDate: null, respondsToId, rdvStatus };
+  }
+  if (kind === "photo_request" || kind === "photo_grant") {
+    return { kind, rdvDate: null, respondsToId: null, rdvStatus: null };
+  }
+  return { kind: "text", rdvDate: null, respondsToId: null, rdvStatus: null };
+}
+
+function defaultMessageText(kindFields) {
+  if (kindFields.kind === "rdv_proposal") {
+    const formatted = new Date(kindFields.rdvDate).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+    return `Proposition de rendez-vous : ${formatted}`;
+  }
+  if (kindFields.kind === "rdv_response") {
+    return kindFields.rdvStatus === "accepted" ? "Rendez-vous confirmé." : "Rendez-vous refusé.";
+  }
+  if (kindFields.kind === "photo_request") {
+    return "Demande d'accès aux photos du chantier.";
+  }
+  if (kindFields.kind === "photo_grant") {
+    return "Photos du chantier débloquées.";
+  }
+  return "";
+}
+
 export async function POST(request, context) {
   const body = await request.json().catch(() => ({}));
-  const message = fixText(body.message || "");
+  const kindFields = normalizeKindFields(body);
+  if (!kindFields) return badRequest("Demande de rendez-vous incomplète.");
+  const message = fixText(body.message || "") || defaultMessageText(kindFields);
   if (!message.trim()) return badRequest("Écrivez un message.");
 
   const { id } = await context.params;
@@ -103,6 +126,7 @@ export async function POST(request, context) {
       entrepriseSnapshot,
       senderType: "entreprise",
       message,
+      ...kindFields,
       createdAt: now
     };
     db.chantierOffreMessages.push(entry);
@@ -153,6 +177,7 @@ export async function POST(request, context) {
       entrepriseSnapshot: existingThread.entrepriseSnapshot || null,
       senderType: "particulier",
       message,
+      ...kindFields,
       createdAt: now
     };
     db.chantierOffreMessages.push(entry);

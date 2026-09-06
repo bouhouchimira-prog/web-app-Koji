@@ -1,28 +1,48 @@
 import { badRequest, ok } from "../../../../../lib/http";
 import { readDb } from "../../../../../lib/db";
 import { getVerifiedUserId } from "../../../../../lib/server-auth";
+import { hasConfirmedRdv } from "../../../../../lib/rdv";
+import { hasPhotoAccess } from "../../../../../lib/photo-access";
 import { fixText } from "../../../../../lib/text";
 
-// Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers. V1 beta
-// interne (cahier des charges §9 : ouverture a de vraies entreprises externes
-// prevue seulement en V2) — toute entreprise connectee peut voir l'adresse
-// complete et les coordonnees du particulier des l'ouverture de l'offre, sans
-// etape de positionnement/RDV intermediaire (celle-ci n'est pas encore
-// construite). A revisiter avant l'ouverture a des entreprises externes.
-function detailOffer(offer) {
-  return {
+// Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers.
+// Regle unique (decisions du 4 septembre) : aucune coordonnee visible
+// (adresse exacte, email, telephone), dans les deux sens, tant que le RDV
+// n'est pas confirme — l'echange passe par la messagerie interne. Les
+// photos suivent une regle independante : masquees par defaut, debloquees
+// par le particulier entreprise par entreprise (lib/photo-access.js).
+function detailOffer(offer, rdvUnlocked, photosUnlocked) {
+  const base = {
     id: offer.id,
-    photos: Array.isArray(offer.photos) ? offer.photos : [],
+    photos: photosUnlocked ? (Array.isArray(offer.photos) ? offer.photos : []) : [],
+    photosCount: Array.isArray(offer.photos) ? offer.photos.length : 0,
+    photosUnlocked,
     description: fixText(offer.description || ""),
     metier: fixText(offer.metier || ""),
-    address: fixText(offer.address || ""),
-    budget: offer.priceVisible !== false ? Number(offer.budget || 0) : null,
-    withSupplies: Boolean(offer.withSupplies),
+    priceRangeMin: Number(offer.priceRangeMin || 0) || null,
+    priceRangeMax: Number(offer.priceRangeMax || 0) || null,
+    delaiEstimeJours: offer.delaiEstimeJours || null,
     status: offer.status,
     createdAt: offer.createdAt,
+    rdvConfirmed: rdvUnlocked
+  };
+
+  if (rdvUnlocked) {
+    return {
+      ...base,
+      address: fixText(offer.address || ""),
+      clientName: fixText(offer.clientName || "Particulier"),
+      clientEmail: offer.clientEmail || "",
+      clientPhone: fixText(offer.clientPhone || "")
+    };
+  }
+
+  return {
+    ...base,
+    address: [fixText(offer.postalCode || ""), fixText(offer.city || "")].filter(Boolean).join(" "),
     clientName: fixText(offer.clientName || "Particulier"),
-    clientEmail: offer.clientEmail || "",
-    clientPhone: fixText(offer.clientPhone || "")
+    clientEmail: "",
+    clientPhone: ""
   };
 }
 
@@ -35,5 +55,7 @@ export async function GET(request, context) {
   const offre = (db.chantierOffres || []).find((entry) => entry.id === id);
   if (!offre) return badRequest("Offre introuvable.", 404);
 
-  return ok({ offre: detailOffer(offre) });
+  const rdvUnlocked = hasConfirmedRdv(db.chantierOffreMessages, id, userId);
+  const photosUnlocked = hasPhotoAccess(db.chantierOffreMessages, id, userId);
+  return ok({ offre: detailOffer(offre, rdvUnlocked, photosUnlocked) });
 }

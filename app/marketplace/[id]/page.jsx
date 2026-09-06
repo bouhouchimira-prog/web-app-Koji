@@ -7,18 +7,12 @@ import { Shell } from "../../../components/Shell";
 import { apiGet, apiSend } from "../../../lib/client-api";
 import { euro, shortDate } from "../../../lib/pricing";
 
-function CallIcon() {
+function PhotoIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.68 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.32 1.85.55 2.81.68A2 2 0 0122 16.92z" />
-    </svg>
-  );
-}
-function MailIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16v16H4z" />
-      <path d="M22 6l-10 7L2 6" />
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="M21 15l-4.5-4.5L9 18" />
     </svg>
   );
 }
@@ -53,6 +47,33 @@ function SparkleIcon() {
     </svg>
   );
 }
+function PinIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s7-6.6 7-11.5A7 7 0 105 9.5C5 14.4 12 21 12 21z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </svg>
+  );
+}
+function CalendarIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3 10h18" />
+    </svg>
+  );
+}
+
+const STEP_LABEL = { acompte: "Acompte", avancement: "Avancement", solde: "Solde" };
+const PAIEMENT_STATUS_LABEL = { pending: "En attente de paiement", paid_platform: "Payé — en attente de vos photos", released: "Débloqué" };
+
+function readAsDataUrl(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function MarketplaceOffreDetailPage() {
   const params = useParams();
@@ -60,7 +81,6 @@ export default function MarketplaceOffreDetailPage() {
   const [offre, setOffre] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showEmail, setShowEmail] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -68,8 +88,16 @@ export default function MarketplaceOffreDetailPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [aiQuote, setAiQuote] = useState(null);
+  const [positionState, setPositionState] = useState({ positionnee: false, plafondAtteint: false });
+  const [positioning, setPositioning] = useState(false);
+  const [positionError, setPositionError] = useState("");
+  const [showRdvForm, setShowRdvForm] = useState(false);
+  const [rdvDate, setRdvDate] = useState("");
+  const [paiements, setPaiements] = useState([]);
+  const [paiementUploading, setPaiementUploading] = useState("");
+  const [photoRequesting, setPhotoRequesting] = useState(false);
 
-  useEffect(() => {
+  function reload() {
     apiGet(`/api/marketplace/offres/${params.id}`)
       .then((data) => setOffre(data.offre))
       .catch((err) => setError(err.message))
@@ -78,6 +106,17 @@ export default function MarketplaceOffreDetailPage() {
       .then((data) => setMessages(data.messages || []))
       .catch(() => {})
       .finally(() => setMessagesLoading(false));
+    apiGet(`/api/marketplace/offres/${params.id}/positionner`)
+      .then((data) => setPositionState(data))
+      .catch(() => {});
+    apiGet(`/api/marketplace/offres/${params.id}/paiement`)
+      .then((data) => setPaiements(data.paiements || []))
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   async function generateAiQuote() {
@@ -90,6 +129,19 @@ export default function MarketplaceOffreDetailPage() {
       setAiError(err.message);
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function sePositionner() {
+    setPositioning(true);
+    setPositionError("");
+    try {
+      await apiSend(`/api/marketplace/offres/${params.id}/positionner`, {});
+      setPositionState((s) => ({ ...s, positionnee: true }));
+    } catch (err) {
+      setPositionError(err.message);
+    } finally {
+      setPositioning(false);
     }
   }
 
@@ -108,6 +160,70 @@ export default function MarketplaceOffreDetailPage() {
     }
   }
 
+  async function requestPhotos() {
+    setPhotoRequesting(true);
+    try {
+      const data = await apiSend(`/api/marketplace/offres/${params.id}/messages`, { kind: "photo_request" });
+      setMessages((prev) => [...prev, data.message]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPhotoRequesting(false);
+    }
+  }
+
+  async function proposeRdv(event) {
+    event.preventDefault();
+    if (!rdvDate) return;
+    setSending(true);
+    try {
+      const data = await apiSend(`/api/marketplace/offres/${params.id}/messages`, {
+        kind: "rdv_proposal",
+        rdvDate: new Date(rdvDate).toISOString()
+      });
+      setMessages((prev) => [...prev, data.message]);
+      setShowRdvForm(false);
+      setRdvDate("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function respondRdv(proposalId, rdvStatus) {
+    setSending(true);
+    try {
+      const data = await apiSend(`/api/marketplace/offres/${params.id}/messages`, {
+        kind: "rdv_response",
+        respondsToId: proposalId,
+        rdvStatus
+      });
+      setMessages((prev) => [...prev, data.message]);
+      if (rdvStatus === "accepted") reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const hasResponse = (proposalId) => messages.some((m) => m.respondsToId === proposalId);
+
+  async function uploadPaiementPhotos(paiementId, files) {
+    if (!files.length) return;
+    setPaiementUploading(paiementId);
+    try {
+      const photos = await Promise.all(Array.from(files).slice(0, 8).map(readAsDataUrl));
+      await apiSend(`/api/marketplace/offres/${params.id}/paiement/${paiementId}`, { photos }, "PATCH");
+      setPaiements((prev) => prev.map((p) => (p.id === paiementId ? { ...p, photos } : p)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPaiementUploading("");
+    }
+  }
+
   return (
     <Shell>
       <section className="mobile-tool">
@@ -122,7 +238,7 @@ export default function MarketplaceOffreDetailPage() {
 
         {!loading && offre ? (
           <>
-            {offre.photos.length > 0 ? (
+            {offre.photosUnlocked && offre.photos.length > 0 ? (
               <div className="radar-photo-grid" style={{ marginBottom: 14 }}>
                 {offre.photos.map((photo, index) => (
                   <div className="radar-photo-thumb radar-photo-thumb-lg" key={index}>
@@ -130,22 +246,48 @@ export default function MarketplaceOffreDetailPage() {
                   </div>
                 ))}
               </div>
+            ) : offre.photosCount > 0 ? (
+              <button type="button" className="radar-contact-btn" style={{ width: "100%", marginBottom: 14 }} onClick={requestPhotos} disabled={photoRequesting}>
+                <span className="radar-contact-icon radar-contact-icon-alt"><PhotoIcon /></span>
+                <span>
+                  <strong>{photoRequesting ? "Demande envoyée…" : `Demander l'accès aux ${offre.photosCount} photo${offre.photosCount > 1 ? "s" : ""}`}</strong>
+                  <small>Le client débloque l'accès depuis la discussion</small>
+                </span>
+              </button>
             ) : null}
 
             <div className="radar-recap radar-recap-card">
               <div className="radar-recap-row"><span>Travaux</span><strong>{offre.description}</strong></div>
               <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
-              <div className="radar-recap-row"><span>Adresse</span><strong>{offre.address}</strong></div>
-              <div className="radar-recap-row"><span>Budget</span><strong>{offre.budget ? euro(offre.budget) : "Non communiqué"}</strong></div>
-              <div className="radar-recap-row"><span>Fournitures</span><strong>{offre.withSupplies ? "Incluses" : "Non incluses"}</strong></div>
+              <div className="radar-recap-row"><span>Zone</span><strong>{offre.address || "Non précisé"}{!offre.rdvConfirmed ? " (secteur uniquement)" : ""}</strong></div>
+              <div className="radar-recap-row"><span>Prix proposé</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non communiqué"}</strong></div>
+              {offre.delaiEstimeJours ? <div className="radar-recap-row"><span>Délai estimé</span><strong>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</strong></div> : null}
               <div className="radar-recap-row"><span>Publiée le</span><strong>{shortDate(offre.createdAt)}</strong></div>
             </div>
 
             <div className="radar-contact-card">
-              <p className="radar-contact-title">Devis assisté par IA</p>
+              <p className="radar-contact-title">Positionnement</p>
+              {positionState.positionnee ? (
+                <p className="radar-recap-note" style={{ margin: 0 }}>Vous êtes positionnée sur ce chantier.</p>
+              ) : (
+                <>
+                  <button type="button" className="radar-contact-btn radar-contact-btn-primary" style={{ width: "100%" }} onClick={sePositionner} disabled={positioning || positionState.plafondAtteint}>
+                    <span className="radar-contact-icon"><PinIcon /></span>
+                    <span>
+                      <strong>{positioning ? "Positionnement…" : "Se positionner"}</strong>
+                      <small>{positionState.plafondAtteint ? "Plafond de chantiers simultanés atteint" : "Premier arrivé, premier servi"}</small>
+                    </span>
+                  </button>
+                  {positionError ? <p className="profile-message error" style={{ marginTop: 10 }}>{positionError}</p> : null}
+                </>
+              )}
+            </div>
+
+            <div className="radar-contact-card">
+              <p className="radar-contact-title">Devis pré-rempli par koji</p>
               {aiQuote ? (
                 <div className="radar-ai-success">
-                  <p>Devis {aiQuote.quoteNumber} généré — {euro(aiQuote.totalTtc)} TTC. Il est enregistré en brouillon, à ajuster avant envoi.</p>
+                  <p>Devis {aiQuote.quoteNumber} créé — {euro(aiQuote.totalTtc)} TTC, à votre en-tête. Il est enregistré en brouillon, modifiable avant envoi.</p>
                   <Link href={`/devis?id=${aiQuote.id}`} className="radar-contact-btn radar-contact-btn-primary" style={{ width: "100%" }}>
                     <span className="radar-contact-icon"><SparkleIcon /></span>
                     <span>
@@ -159,8 +301,8 @@ export default function MarketplaceOffreDetailPage() {
                   <button type="button" className="radar-contact-btn radar-contact-btn-primary" onClick={generateAiQuote} disabled={aiLoading} style={{ width: "100%" }}>
                     <span className="radar-contact-icon"><SparkleIcon /></span>
                     <span>
-                      <strong>{aiLoading ? "Génération en cours…" : "Générer un devis avec l'IA"}</strong>
-                      <small>À partir de la photo, de la description et de notre base de prix</small>
+                      <strong>{aiLoading ? "Création en cours…" : "Créer mon devis"}</strong>
+                      <small>Repris de l'expertise koji : lots, cotes et prix, à votre en-tête</small>
                     </span>
                   </button>
                   {aiError ? <p className="profile-message error" style={{ marginTop: 10 }}>{aiError}</p> : null}
@@ -168,32 +310,31 @@ export default function MarketplaceOffreDetailPage() {
               )}
             </div>
 
-            <div className="radar-contact-card">
-              <p className="radar-contact-title">Contacter le client</p>
-              <div className="radar-contact-actions">
-                {offre.clientPhone ? (
-                  <a href={`tel:${offre.clientPhone}`} className="radar-contact-btn radar-contact-btn-primary">
-                    <span className="radar-contact-icon"><CallIcon /></span>
-                    <span>
-                      <strong>Appeler</strong>
-                      <small>{offre.clientPhone}</small>
-                    </span>
-                  </a>
-                ) : null}
-                {offre.clientEmail ? (
-                  <button type="button" className="radar-contact-btn" onClick={() => setShowEmail(true)}>
-                    <span className="radar-contact-icon radar-contact-icon-alt"><MailIcon /></span>
-                    <span>
-                      <strong>E-mail</strong>
-                      <small>{showEmail ? offre.clientEmail : "Cliquer pour afficher"}</small>
-                    </span>
-                  </button>
-                ) : null}
+            {!offre.rdvConfirmed ? (
+              <p className="radar-recap-note" style={{ margin: "0 0 14px" }}>Aucune coordonnée n'est visible tant que le rendez-vous n'est pas confirmé — tout passe par la discussion ci-dessous.</p>
+            ) : null}
+
+            {paiements.length > 0 ? (
+              <div className="radar-contact-card">
+                <p className="radar-contact-title">Paiement échelonné</p>
+                <div className="radar-paiement-list">
+                  {paiements.map((p) => (
+                    <div key={p.id} className="radar-paiement-row">
+                      <div>
+                        <strong>{STEP_LABEL[p.step] || p.step}</strong>
+                        <small>{euro(p.amountTtc)} · {PAIEMENT_STATUS_LABEL[p.status]}</small>
+                      </div>
+                      {p.status === "paid_platform" ? (
+                        <label className="button secondary" style={{ cursor: "pointer" }}>
+                          {paiementUploading === p.id ? "Envoi…" : p.photos.length ? "Changer les photos" : "Ajouter des photos"}
+                          <input type="file" accept="image/*" multiple hidden onChange={(e) => uploadPaiementPhotos(p.id, e.target.files)} disabled={paiementUploading === p.id} />
+                        </label>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </div>
-              {showEmail && offre.clientEmail ? (
-                <a href={`mailto:${offre.clientEmail}`} className="radar-contact-mailto">Écrire à {offre.clientEmail} →</a>
-              ) : null}
-            </div>
+            ) : null}
 
             <div className="radar-chat-card">
               <div className="radar-chat-header">
@@ -214,10 +355,30 @@ export default function MarketplaceOffreDetailPage() {
                 {messages.map((m) => (
                   <div key={m.id} className={`radar-chat-bubble ${m.senderType}`}>
                     <p>{m.message}</p>
+                    {m.kind === "rdv_proposal" && m.senderType === "particulier" && !hasResponse(m.id) ? (
+                      <div className="radar-rdv-actions">
+                        <button type="button" className="button blue" onClick={() => respondRdv(m.id, "accepted")} disabled={sending}>Accepter</button>
+                        <button type="button" className="button secondary" onClick={() => respondRdv(m.id, "declined")} disabled={sending}>Refuser</button>
+                      </div>
+                    ) : null}
                     <small>{shortDate(m.createdAt)}</small>
                   </div>
                 ))}
               </div>
+
+              {showRdvForm ? (
+                <form className="radar-rdv-form" onSubmit={proposeRdv}>
+                  <input type="datetime-local" value={rdvDate} onChange={(e) => setRdvDate(e.target.value)} required />
+                  <button type="submit" className="button blue" disabled={sending || !rdvDate}>Proposer</button>
+                  <button type="button" className="button secondary" onClick={() => setShowRdvForm(false)}>Annuler</button>
+                </form>
+              ) : (
+                <button type="button" className="radar-rdv-toggle" onClick={() => setShowRdvForm(true)}>
+                  <CalendarIcon />
+                  Proposer un rendez-vous
+                </button>
+              )}
+
               <form className="radar-chat-form" onSubmit={sendMessage}>
                 <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrire un message…" />
                 <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
