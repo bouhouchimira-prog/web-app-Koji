@@ -70,7 +70,7 @@ function ForgotPasswordScreen() {
         </form>
 
         <p className="muted" style={{ marginTop: 22 }}>
-          {L.auth.backToLogin} <Link className="auth-link" href={`/login?type=${accountType}`}>{L.auth.loginBtn}</Link>
+          {L.auth.backToLogin} <Link className="auth-link" href={accountType === "entreprise" ? "/login?type=entreprise" : "/login"}>{L.auth.loginBtn}</Link>
         </p>
       </section>
     </main>
