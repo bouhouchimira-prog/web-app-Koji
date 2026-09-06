@@ -28,7 +28,11 @@ const initialBusiness = {
   iban: "",
   bic: "",
   bankHolder: "",
-  paymentTerms: ""
+  paymentTerms: "",
+  zoneAddress: "",
+  zoneLat: null,
+  zoneLon: null,
+  zoneRadiusKm: 20
 };
 
 function readLocalUser() {
@@ -99,6 +103,8 @@ export default function ProfilPage() {
   const [message, setMessage] = useState("");
   const [cardLoading, setCardLoading] = useState(false);
   const [cardMessage, setCardMessage] = useState("");
+  const [zoneTouched, setZoneTouched] = useState(false);
+  const [zoneSuggestions, setZoneSuggestions] = useState([]);
 
   useEffect(() => {
     const localUser = readLocalUser();
@@ -121,6 +127,34 @@ export default function ProfilPage() {
 
   function setField(field, value) {
     setBusiness((current) => ({ ...current, [field]: value }));
+  }
+
+  // Autocompletion d'adresse pour la zone de travail (matching geographique
+  // Radar des Chantiers, cahier des charges 3.2/4.3) — meme API BAN gratuite
+  // que le parcours de publication d'offre cote particulier.
+  useEffect(() => {
+    if (!zoneTouched) return;
+    const query = (business.zoneAddress || "").trim();
+    if (query.length < 3) { setZoneSuggestions([]); return; }
+    const handle = setTimeout(() => {
+      fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`)
+        .then((r) => r.json())
+        .then((data) => setZoneSuggestions(data.features || []))
+        .catch(() => setZoneSuggestions([]));
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [business.zoneAddress, zoneTouched]);
+
+  function onZoneAddressChange(value) {
+    setBusiness((current) => ({ ...current, zoneAddress: value, zoneLat: null, zoneLon: null }));
+    setZoneTouched(true);
+  }
+
+  function selectZoneAddress(feature) {
+    const [lon, lat] = feature.geometry.coordinates;
+    setBusiness((current) => ({ ...current, zoneAddress: feature.properties.label, zoneLat: lat, zoneLon: lon }));
+    setZoneTouched(false);
+    setZoneSuggestions([]);
   }
 
   function toggleProfession(value) {
@@ -325,6 +359,36 @@ export default function ProfilPage() {
                 {item}
               </button>
             ))}
+          </div>
+        </section>
+
+        <section className="profile-block">
+          <h2>Zone de travail (Radar des Chantiers)</h2>
+          <p className="muted">Les chantiers publiés par les particuliers ne vous seront proposés que s'ils sont dans cette zone et correspondent à l'un de vos métiers.</p>
+          <div className="profile-grid">
+            <label className="profile-field radar-address-field">
+              <span>Adresse de référence</span>
+              <div className="profile-input">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("pin")} /></svg>
+                <input
+                  type="text"
+                  value={business.zoneAddress || ""}
+                  onChange={(event) => onZoneAddressChange(event.target.value)}
+                  placeholder="Adresse, ville..."
+                  autoComplete="off"
+                />
+              </div>
+              {zoneSuggestions.length > 0 ? (
+                <ul className="radar-address-suggestions">
+                  {zoneSuggestions.map((feature) => (
+                    <li key={feature.properties.id}>
+                      <button type="button" onClick={() => selectZoneAddress(feature)}>{feature.properties.label}</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </label>
+            <Field label="Rayon d'intervention (km)" iconName="pin" type="number" value={String(business.zoneRadiusKm ?? 20)} onChange={(event) => setField("zoneRadiusKm", event.target.value)} />
           </div>
         </section>
 

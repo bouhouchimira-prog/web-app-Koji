@@ -109,7 +109,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
     fetch(`/api/notifications?userId=${encodeURIComponent(user.id)}`)
       .then((r) => r.json())
       .then((data) => {
-        const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message"]);
+        const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message", "radar.positionnement"]);
       const count = (data.notifications || []).filter((n) => !n.read && !n.archived && CLIENT_TYPES.has(n.type)).length;
         setUnread(count);
       })

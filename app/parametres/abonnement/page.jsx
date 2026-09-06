@@ -36,6 +36,9 @@ function ParametresAbonnementContent() {
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingMessage, setBillingMessage] = useState("");
+  const [connectStatus, setConnectStatus] = useState({ hasAccount: false, onboarded: false });
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectMessage, setConnectMessage] = useState("");
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") setBillingMessage(L.settings.checkoutSuccess);
@@ -54,7 +57,22 @@ function ParametresAbonnementContent() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    apiGet("/api/billing/connect")
+      .then((data) => setConnectStatus({ hasAccount: Boolean(data.hasAccount), onboarded: Boolean(data.onboarded) }))
+      .catch(() => {});
   }, []);
+
+  async function startConnectOnboarding() {
+    setConnectLoading(true);
+    setConnectMessage("");
+    try {
+      const response = await apiSend("/api/billing/connect", {});
+      window.location.href = response.url;
+    } catch (error) {
+      setConnectMessage(error.message || "Impossible de démarrer la configuration.");
+      setConnectLoading(false);
+    }
+  }
 
   async function openBillingPortal() {
     setPortalLoading(true);
@@ -130,6 +148,17 @@ function ParametresAbonnementContent() {
             <span>{L.abonnement.marketplaceTitle}</span>
             <span className="plan-soon-badge plan-included-badge">{L.abonnement.marketplaceComingSoon}</span>
           </div>
+
+          <div className="plan-soon-row plan-included-row">
+            <span>Recevoir des paiements (Radar des Chantiers)</span>
+            <span className="plan-soon-badge plan-included-badge">{connectStatus.onboarded ? "Configuré" : connectStatus.hasAccount ? "À finaliser" : "Non configuré"}</span>
+          </div>
+          {connectMessage ? <p className="profile-message">{connectMessage}</p> : null}
+          {!connectStatus.onboarded ? (
+            <button type="button" className="button secondary profile-link-button" onClick={startConnectOnboarding} disabled={connectLoading}>
+              {connectLoading ? L.common.loading : connectStatus.hasAccount ? "Terminer la configuration Stripe" : "Configurer Stripe pour recevoir des paiements"}
+            </button>
+          ) : null}
 
           <div className="profile-card-actions profile-card-actions-column">
             {hasBillingAccount ? (
