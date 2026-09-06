@@ -50,7 +50,9 @@ export default function ClientRadarPage() {
                 <span>{offre.address} · {shortDate(offre.createdAt)}</span>
               </div>
               <div className="ct-devis-row-right">
-                {offre.budget ? <span className="client-amount">{euro(offre.budget)}</span> : null}
+                {offre.priceRangeMin ? (
+                  <span className="client-amount">{euro(offre.priceRangeMin)}–{euro(offre.priceRangeMax)}</span>
+                ) : null}
                 <span className="radar-status-badge">{STATUS_LABEL[offre.status] || offre.status}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
               </div>

@@ -3693,19 +3693,10 @@ p {
 }
 
 
-.auth-pro-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px 18px;
-}
-
-.auth-pro-card-title {
-  margin: 0 0 10px;
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #64748b;
+.auth-pro-section {
+  margin-top: 26px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .auth-pro-card-actions {
@@ -7906,6 +7897,17 @@ body :where(
   margin: 4px 0 8px;
 }
 
+/* Etapes de paiement Radar des Chantiers (module D) — meme visuel que les
+   lignes de majoration (recap-surcharge-*), sans les cases de mode. */
+.payment-milestone-sum {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 4px 0 0;
+}
+
+.payment-milestone-sum.ok { color: #16a34a; }
+.payment-milestone-sum.warn { color: #c0392b; }
+
 .recap-total-ht {
   border-bottom: none;
   padding: 10px 0 6px;
@@ -10408,6 +10410,138 @@ body :where(
   height: 84px;
 }
 
+/* Parcours chat-first (refonte du 4 septembre) — boutons de reponse rapide,
+   ecran de chargement de l'expertise, resultat (fourchette + conseils). */
+.radar-quick-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.radar-quick-option-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d74ff;
+  background: #f7fafe;
+  cursor: pointer;
+}
+
+.radar-quick-option-btn:hover {
+  background: #eaf2ff;
+}
+
+.radar-quick-option-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.radar-expertise-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 56px 16px;
+  text-align: center;
+}
+
+.radar-expertise-spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid #dcebff;
+  border-top-color: #1d74ff;
+  animation: radar-spin 0.9s linear infinite;
+}
+
+@keyframes radar-spin {
+  to { transform: rotate(360deg); }
+}
+
+.radar-expertise-loading strong {
+  color: var(--navy);
+  font-size: 15px;
+}
+
+.radar-expertise-loading p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.radar-price-range-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 22px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eaf2ff, #f7fafe);
+  text-align: center;
+}
+
+.radar-price-range-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.radar-price-range-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.radar-delay-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d74ff;
+  background: white;
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.radar-conseil-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radar-conseil-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.radar-conseil-item.checked {
+  border-color: #1d74ff;
+  background: #f7fafe;
+}
+
+.radar-conseil-item input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.radar-conseil-item .radar-conseil-label {
+  flex: 1;
+  color: var(--text);
+}
+
+.radar-conseil-item .radar-conseil-discount {
+  color: #1d74ff;
+  font-weight: 700;
+  font-size: 12.5px;
+  flex-shrink: 0;
+}
+
 .radar-contact-card {
   background: white;
   border: 1px solid var(--line);
@@ -10684,6 +10818,95 @@ body :where(
   background: #f7f6f3;
   border-radius: 999px;
   padding: 5px 5px 5px 16px;
+}
+
+.radar-rdv-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: none;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.radar-rdv-toggle:hover {
+  border-color: #1d74ff;
+  color: #1d74ff;
+}
+
+.radar-rdv-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: #f7f6f3;
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.radar-rdv-form input {
+  flex: 1;
+  min-width: 180px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  background: white;
+}
+
+.radar-rdv-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.radar-rdv-actions .button {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  border-radius: 10px;
+}
+
+.radar-paiement-list {
+  display: grid;
+  gap: 8px;
+}
+
+.radar-paiement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #f7f6f3;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.radar-paiement-row strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--navy);
+}
+
+.radar-paiement-row small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.radar-paiement-row .button {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  border-radius: 10px;
+  white-space: nowrap;
 }
 
 .radar-chat-form input {
