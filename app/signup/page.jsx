@@ -119,7 +119,7 @@ function SignupScreen() {
                 {L.auth.retry}
               </button>
             </p>
-            <Link className="auth-link" href="/login">{L.auth.goToLogin}</Link>
+            <Link className="auth-link" href="/login?type=entreprise">{L.auth.goToLogin}</Link>
           </div>
         </section>
       </main>
@@ -157,7 +157,7 @@ function SignupScreen() {
               <button type="submit" className="auth-btn-primary">{L.auth.continueBtn}</button>
               <p className="auth-alt-link">
                 {L.auth.alreadyAccount}{" "}
-                <Link className="auth-link" href={`/login?type=${accountType}`}>{L.auth.signIn}</Link>
+                <Link className="auth-link" href="/login?type=entreprise">{L.auth.signIn}</Link>
               </p>
             </form>
           )}
@@ -245,7 +245,7 @@ function SignupScreen() {
 
               <p className="auth-alt-link">
                 {L.auth.alreadyAccount}{" "}
-                <Link className="auth-link" href={`/login?type=${accountType}`}>{L.auth.signIn}</Link>
+                <Link className="auth-link" href="/login?type=entreprise">{L.auth.signIn}</Link>
               </p>
             </form>
           )}

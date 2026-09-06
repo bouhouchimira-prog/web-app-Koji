@@ -37,7 +37,8 @@ const NOTIF_TYPE_ICONS = {
   "client.note": "💬",
   "worker.time_overrun": "⏱️",
   "company.time_overrun": "⏱️",
-  "urgent.alert": "🚨"
+  "urgent.alert": "🚨",
+  "radar.expertise_publiee": "🧭"
 };
 
 function formatRelativeTime(value) {
