@@ -7,6 +7,29 @@ import { fixText } from "../../../../lib/text";
 
 const ACTIVATION_TTL_MS = 48 * 60 * 60 * 1000; // 48h, matches the signature-link convention elsewhere
 
+// Seul endpoint de ce repo appele en cross-origin depuis un navigateur : la
+// landing marketing koji-landing-particulier.vercel.app (repo separe) veut
+// creer le compte particulier directement depuis son propre formulaire,
+// plutot que de rediriger vers /signup. Sans ces en-tetes, le navigateur
+// bloque la requete avant meme qu'elle n'atteigne ce handler (erreur CORS,
+// pas une erreur applicative) — restreint a cette seule origine et ce seul
+// endpoint, pas un CORS global sur /api/*.
+const LANDING_ORIGIN = "https://koji-landing-particulier.vercel.app";
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": LANDING_ORIGIN,
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
+function withCors(response) {
+  for (const [key, value] of Object.entries(CORS_HEADERS)) response.headers.set(key, value);
+  return response;
+}
+
+export async function OPTIONS() {
+  return withCors(ok({}));
+}
+
 // Self-service signup for a "Koji" (particulier) account — the entry point
 // for Radar des Chantiers. Distinct from /api/auth/signup, which only ever
 // creates Supabase Auth accounts (entreprise side, shared with the mobile
@@ -27,12 +50,12 @@ export async function POST(request) {
   const password = String(body.password || "");
   const name = fixText(body.name || "") || email.split("@")[0] || "Particulier";
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest("Adresse e-mail invalide.");
-  if (password.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caractères.");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return withCors(badRequest("Adresse e-mail invalide."));
+  if (password.length < 8) return withCors(badRequest("Le mot de passe doit contenir au moins 8 caractères."));
 
   const db = await readDb();
   const existing = db.users.find((u) => u.accountType === "particulier" && normalizeEmail(u.email) === email);
-  if (existing) return badRequest("Un compte particulier existe déjà avec cet e-mail.", 409);
+  if (existing) return withCors(badRequest("Un compte particulier existe déjà avec cet e-mail.", 409));
 
   const { salt: passwordSalt, hash: passwordHash } = hashPassword(password);
   const now = new Date().toISOString();
@@ -69,7 +92,7 @@ export async function POST(request) {
   const activationUrl = `${appUrl}/activate?token=${activationToken}&type=particulier`;
   const mailResult = await sendParticulierVerificationEmail({ email, name, activationUrl });
 
-  return ok(
+  return withCors(ok(
     {
       activationRequired: true,
       emailSent: mailResult.ok,
@@ -78,5 +101,5 @@ export async function POST(request) {
       message: "Compte créé. Vérifiez votre boîte mail pour activer votre compte."
     },
     201
-  );
+  ));
 }
