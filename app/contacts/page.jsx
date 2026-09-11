@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AddressFields } from "../../components/AddressFields";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { contactDisplayName } from "../../lib/contacts";
@@ -18,6 +19,12 @@ const initialContact = {
   phone: "",
   email: "",
   address: "",
+  city: "",
+  postalCode: "",
+  floor: "",
+  accessCode: "",
+  complement: "",
+  accessInstructions: "",
   notes: "",
   roles: [],
   linkedUserId: ""
@@ -74,7 +81,7 @@ export default function ContactsPage() {
     return contacts.filter((contact) => {
       if (roleFilter && !(contact.roles || []).includes(roleFilter)) return false;
       if (!needle) return true;
-      const haystack = [contactDisplayName(contact), contact.companyName, contact.phone, contact.email, contact.address].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [contactDisplayName(contact), contact.companyName, contact.phone, contact.email, contact.address, contact.city, contact.postalCode].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(needle);
     }).sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), "fr"));
   }, [contacts, search, roleFilter]);
@@ -243,10 +250,20 @@ export default function ContactsPage() {
               <span>{L.contacts.email}</span>
               <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
             </label>
-            <label className="mobile-input full">
-              <span>{L.contacts.address}</span>
-              <input value={form.address} onChange={(event) => setField("address", event.target.value)} />
-            </label>
+            <div className="mobile-input full">
+              <AddressFields
+                value={{
+                  address: form.address,
+                  city: form.city,
+                  postalCode: form.postalCode,
+                  floor: form.floor,
+                  accessCode: form.accessCode,
+                  complement: form.complement,
+                  accessInstructions: form.accessInstructions
+                }}
+                onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+              />
+            </div>
             <label className="mobile-input full">
               <span>{L.contacts.notes}</span>
               <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
