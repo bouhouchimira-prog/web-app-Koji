@@ -10,6 +10,7 @@ import { parsePhoto } from "../../../lib/ai-photo";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { resolveAdminUserId } from "../../../lib/admin-account";
 import { fixText } from "../../../lib/text";
+import { parseAiJson } from "../../../lib/ai-json";
 
 // "Expertise koji" — decisions du 4 septembre : plus de budget demande au
 // client, c'est koji qui fixe le prix. L'IA chiffre a partir de la
@@ -102,14 +103,20 @@ export async function POST(request) {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-5",
       max_tokens: 4096,
+      // Sans ça, le modele peut consommer tout son budget de tokens en
+      // "reflexion" interne et ne rien ecrire du tout (observe le 11
+      // septembre sur un devis-ia a fort perimetre — meme risque ici).
+      thinking: { type: "disabled" },
       system: "Tu es l'expert chiffrage BTP de koji. Tu réponds uniquement en JSON strict, sans aucun texte ni balise markdown autour.",
+      // claude-sonnet-5 refuse le prefill du tour assistant ("This model
+      // does not support assistant message prefill") — plus de "{"
+      // pre-rempli, on compte sur la consigne du system prompt + parseAiJson.
       messages: [
-        { role: "user", content },
-        { role: "assistant", content: "{" }
+        { role: "user", content }
       ]
     });
     const textBlock = response.content.find((block) => block.type === "text");
-    aiText = "{" + (textBlock?.text || "");
+    aiText = textBlock?.text || "";
   } catch (error) {
     const message = error?.status === 401
       ? "Clé API Claude invalide."
@@ -121,7 +128,7 @@ export async function POST(request) {
 
   let parsed;
   try {
-    parsed = JSON.parse(aiText);
+    parsed = parseAiJson(aiText);
   } catch {
     return badRequest("Réponse de l'expertise illisible. Réessayez.", 502);
   }
