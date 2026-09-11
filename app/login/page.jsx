@@ -249,8 +249,8 @@ function KojiPanel({ L }) {
 // septembre, a la demande d'Amira — les deux profils cohabitent de nouveau
 // sur /login au lieu d'etre sur deux adresses separees. Presentee "en
 // grand", au meme gabarit que le panneau Koji au-dessus (pas de petite carte
-// bordee), avec "Connexion Entreprise" pour seul intitule (plus de label
-// "Koji Pro" separe qui doublonnait le titre du formulaire une fois deplie).
+// bordee) : "Koji Pro" en grand titre, "Connexion Entreprise" juste en
+// dessous en plus petit (meme traitement que dans EntrepriseLogin).
 function KojiProCard({ L, startOpen }) {
   const [open, setOpen] = useState(startOpen);
   return (
@@ -259,7 +259,8 @@ function KojiProCard({ L, startOpen }) {
         <EntrepriseLogin L={L} />
       ) : (
         <>
-          <h2 className="auth-title">{L.auth.loginCompany}</h2>
+          <h2 className="auth-title">{L.auth.tabCompany}</h2>
+          <p className="auth-subtitle-strong">{L.auth.loginCompany}</p>
           <div className="auth-pro-card-actions">
             <button type="button" className="auth-pro-btn" onClick={() => setOpen(true)}>{L.auth.loginBtn}</button>
             <Link href="/signup?type=entreprise" className="auth-pro-btn secondary">{L.auth.register}</Link>
