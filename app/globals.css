@@ -2854,6 +2854,17 @@ p {
   transform: translateY(0);
 }
 
+.home-primary-action.ia-variant {
+  margin-top: 10px;
+  background: linear-gradient(135deg, #eaf2ff 0%, #dcebff 100%);
+  color: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(29, 116, 255, 0.16);
+}
+
+.home-primary-action.ia-variant:hover {
+  box-shadow: 0 10px 22px rgba(29, 116, 255, 0.22);
+}
+
 .home-primary-plus {
   width: 26px;
   height: 26px;
@@ -3734,6 +3745,13 @@ p {
   font-size: 0.88rem;
   color: #64748b;
   margin: 0 0 24px;
+}
+
+.auth-subtitle-strong {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0 0 6px;
 }
 
 .auth-form-v2 {
@@ -10307,6 +10325,17 @@ body :where(
   position: relative;
 }
 
+.address-autocomplete-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.address-autocomplete-row input {
+  flex: 1;
+  min-width: 0;
+}
+
 .radar-address-suggestions {
   list-style: none;
   margin: 0;
@@ -10410,6 +10439,53 @@ body :where(
   height: 84px;
 }
 
+/* Bloc adresse reutilisable (components/AddressFields.jsx) — contact, profil
+   entreprise... rue/ville/code postal compacts + section repliable pour
+   etage/digicode/complement/instructions d'acces. */
+.address-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.address-fields-row {
+  display: flex;
+  gap: 10px;
+}
+
+.address-fields-row > label {
+  flex: 1;
+  min-width: 0;
+}
+
+.address-fields-narrow {
+  flex: 0 0 110px !important;
+}
+
+.address-fields-toggle {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1d74ff;
+  cursor: pointer;
+}
+
+.address-fields-toggle:hover {
+  text-decoration: underline;
+}
+
+.address-fields-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+}
+
 /* Parcours chat-first (refonte du 4 septembre) — boutons de reponse rapide,
    ecran de chargement de l'expertise, resultat (fourchette + conseils). */
 .radar-quick-options {
@@ -10436,6 +10512,12 @@ body :where(
 .radar-quick-option-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.radar-quick-option-btn.active {
+  border-color: #1d74ff;
+  color: white;
+  background: #1d74ff;
 }
 
 .radar-expertise-loading {

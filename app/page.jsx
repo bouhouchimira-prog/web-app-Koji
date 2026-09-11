@@ -731,6 +731,10 @@ export default function HomePage() {
           {activeProjects.length === 0 ? L.home.firstProject : L.home.newProject}
         </Link>
 
+        <Link className="home-primary-action ia-variant" href="/devis-ia/new">
+          ✨ Créer un devis avec l'IA
+        </Link>
+
         {/* À faire maintenant */}
         <Section
           title={L.home.todoNow}

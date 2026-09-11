@@ -9,6 +9,7 @@ import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../li
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
 import { createPaiementEcheancesForQuote } from "../../../lib/chantier-paiements";
 import { recordEstimationAccuracy } from "../../../lib/estimation-accuracy";
+import { recordIaDevisOutcome } from "../../../lib/ia-devis-outcomes";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -432,6 +433,7 @@ export async function PATCH(request) {
       entityId: quote.id,
       entityType: "quote"
     });
+    recordIaDevisOutcome(sideDb, quote, action, now);
     await writeDb(sideDb);
     return ok({ quote: { ...quote, deleted: true } });
   }
@@ -476,6 +478,7 @@ export async function PATCH(request) {
       } : undefined
     });
   }
+  recordIaDevisOutcome(sideDb, quote, action, now);
   await writeDb(sideDb);
 
   const recalculated = applyQuoteTotals(quote);
