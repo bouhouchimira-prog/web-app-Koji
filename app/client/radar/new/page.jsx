@@ -73,7 +73,13 @@ function readAsDataUrl(file) {
   });
 }
 
-function AddressAutocomplete({ value, onChange, onSelect }) {
+// Peut etre confirmee de deux facons : cliquer une suggestion BAN (adresse
+// geocodee, avec lat/lon pour le matching geographique des entreprises), ou
+// taper l'adresse a la main et valider avec Entree/le bouton d'envoi si
+// aucune suggestion ne correspond — sans ca, un client qui tape une adresse
+// precise sans jamais cliquer de suggestion reste bloque sans aucun moyen de
+// continuer (bug remonte le 7 septembre).
+function AddressAutocomplete({ value, onChange, onSelect, onManualSubmit }) {
   const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
@@ -88,16 +94,28 @@ function AddressAutocomplete({ value, onChange, onSelect }) {
     return () => clearTimeout(handle);
   }, [value]);
 
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (!value.trim()) return;
+    onManualSubmit(value.trim());
+    setSuggestions([]);
+  }
+
   return (
     <label className="radar-field radar-address-field">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Numéro, rue, ville, code postal"
-        autoComplete="off"
-        autoFocus
-      />
+      <form className="address-autocomplete-row" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Numéro, rue, ville, code postal"
+          autoComplete="off"
+          autoFocus
+        />
+        <button type="submit" className="radar-chat-send" disabled={!value.trim()} aria-label="Valider cette adresse">
+          <SendIcon />
+        </button>
+      </form>
       {suggestions.length > 0 ? (
         <ul className="radar-address-suggestions">
           {suggestions.map((feature) => (
@@ -221,6 +239,16 @@ export default function NewRadarOffrePage() {
     answerText(label);
   }
 
+  // Adresse tapee a la main, validee sans avoir clique de suggestion BAN —
+  // pas de lat/lon dans ce cas (le matching geographique par zone sera
+  // moins precis pour cette offre), mais au moins le client n'est jamais
+  // bloque.
+  function submitManualAddress(text) {
+    setAddress({ address: text, city: "", postalCode: "", lat: null, lon: null });
+    setAddressDraft("");
+    answerText(text);
+  }
+
   async function launchExpertise() {
     setPhase("expertise-loading");
     setError("");
@@ -301,6 +329,13 @@ export default function NewRadarOffrePage() {
     setReadyMessage("");
     setSlotKey(null);
     setExpertiseAnswers({});
+    // Vrai redemarrage a zero : sans ca, l'ecran "Decrivez vos travaux"
+    // reapparait avec l'ancien texte/l'ancienne photo encore remplis, ce qui
+    // donne l'impression que rien ne s'est passe / que l'appli est bloquee.
+    setIntroText("");
+    setPhotos([]);
+    setAddress({ address: "", city: "", postalCode: "", lat: null, lon: null });
+    setAddressDraft("");
   }
 
   const range = phase === "expertise-result" ? adjustedRange() : null;
@@ -385,7 +420,7 @@ export default function NewRadarOffrePage() {
                 Lancer l'expertise
               </button>
             ) : currentInputType === "address" ? (
-              <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} />
+              <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
             ) : currentOptions && currentOptions.length > 0 ? (
               <div className="radar-quick-options">
                 {currentOptions.map((option) => (
@@ -444,7 +479,7 @@ export default function NewRadarOffrePage() {
             {!address.address ? (
               <>
                 <span className="radar-field-label">Adresse du chantier</span>
-                <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={(f) => selectAddress(f)} />
+                <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
               </>
             ) : (
               <label className="radar-field">
