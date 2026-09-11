@@ -54,6 +54,12 @@ export async function POST(request) {
     phone: fixText(body.phone || ""),
     email: fixText(body.email || ""),
     address: fixText(body.address || ""),
+    city: fixText(body.city || ""),
+    postalCode: fixText(body.postalCode || ""),
+    floor: fixText(body.floor || ""),
+    accessCode: fixText(body.accessCode || ""),
+    complement: fixText(body.complement || ""),
+    accessInstructions: fixText(body.accessInstructions || ""),
     notes: fixText(body.notes || ""),
     roles,
     linkedUserId: body.linkedUserId || "",
@@ -115,7 +121,7 @@ export async function PATCH(request) {
     contact.archived = false;
     contact.archivedAt = "";
   } else {
-    for (const key of ["type", "firstName", "lastName", "companyName", "siret", "contactPerson", "phone", "email", "address", "notes", "linkedUserId"]) {
+    for (const key of ["type", "firstName", "lastName", "companyName", "siret", "contactPerson", "phone", "email", "address", "city", "postalCode", "floor", "accessCode", "complement", "accessInstructions", "notes", "linkedUserId"]) {
       if (Object.prototype.hasOwnProperty.call(body, key)) contact[key] = fixObjectText(body[key]);
     }
     if (Object.prototype.hasOwnProperty.call(body, "roles") && Array.isArray(body.roles)) {

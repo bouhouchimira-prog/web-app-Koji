@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AddressFields } from "../../components/AddressFields";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend, fetchWithAuthRetry } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
@@ -21,6 +22,9 @@ const initialBusiness = {
   addressLine2: "",
   postalCode: "",
   city: "",
+  floor: "",
+  accessCode: "",
+  accessInstructions: "",
   tva: "",
   dailyRate: 0,
   hoursPerDay: 7,
@@ -326,11 +330,29 @@ export default function ProfilPage() {
               <small className="muted">{L.parametres.qrCodeSub}</small>
               <input ref={qrFileRef} type="file" accept="image/png,image/jpeg" onChange={onQrCodeChange} style={{ display: "none" }} />
             </label>
-            <Field label={L.parametres.address} iconName="pin" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder={L.parametres.address} />
-            <Field label={L.parametres.postalCode} iconName="pin" value={business.postalCode} onChange={(event) => setField("postalCode", event.target.value)} placeholder="75010" />
-            <Field label={L.parametres.city} iconName="pin" value={business.city} onChange={(event) => setField("city", event.target.value)} placeholder="Paris" />
             <Field label={L.parametres.tva} iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
           </div>
+          <AddressFields
+            value={{
+              address: business.addressLine1,
+              city: business.city,
+              postalCode: business.postalCode,
+              floor: business.floor,
+              accessCode: business.accessCode,
+              complement: business.addressLine2,
+              accessInstructions: business.accessInstructions
+            }}
+            onChange={(next) => setBusiness((current) => ({
+              ...current,
+              addressLine1: next.address,
+              city: next.city,
+              postalCode: next.postalCode,
+              floor: next.floor,
+              accessCode: next.accessCode,
+              addressLine2: next.complement,
+              accessInstructions: next.accessInstructions
+            }))}
+          />
         </section>
 
         <section className="profile-block">
