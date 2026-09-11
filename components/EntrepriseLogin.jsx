@@ -1,4 +1,4 @@
-"use client";
+   "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -88,7 +88,8 @@ export function EntrepriseLogin({ L }) {
 
   return (
     <>
-      <h2 className="auth-title">{L.auth.loginCompany}</h2>
+      <h2 className="auth-title">{L.auth.tabCompany}</h2>
+      <p className="auth-subtitle-strong">{L.auth.loginCompany}</p>
       <p className="auth-subtitle">
         {step === "email" ? L.auth.subtitleEmail : L.auth.subtitlePassword}
       </p>
