@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { apiSend } from "../lib/client-api";
+import { apiGet, apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
 
@@ -62,6 +62,18 @@ function getTrialInfo(user) {
   const daysUsed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
   const daysLeft = Math.max(0, 14 - daysUsed);
   return { daysLeft, expired: daysLeft === 0, subscribed: false };
+}
+
+// Symbole koji (meme forme que public/koji-logo.svg) rendu inline en
+// currentColor plutot qu'un <img> fige — pour l'assistant koji, a la place
+// de l'etoile, tout en restant reteignable via CSS (bleu marine sur fond
+// blanc, blanc sur la bulle).
+function KojiSymbol({ className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 76 75" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="currentColor" d="M75.5188 0.0462758C75.4602 0.0288482 75.3146 -0.0014607 75.0001 5.47421e-05C66.5238 0.0621879 57.7947 0.0750692 49.0555 0.0386986C48.1338 0.0364254 47.5751 0.289505 46.9077 1.01237C37.1745 11.5477 27.2524 22.2346 17.6563 32.57L14.4296 36.0449C14.1814 36.3124 13.9171 36.5533 13.5827 36.8594C13.4008 37.0254 13.1942 37.2141 12.9515 37.4421L11.5928 38.7181L11.3932 36.8814C11.3563 36.5435 11.3185 36.2548 11.2854 36.0002C11.2206 35.5054 11.169 35.1144 11.169 34.6992V34.4703C11.169 23.4175 11.169 11.988 11.2129 0.746411C11.2145 0.368308 11.1767 0.212217 11.1567 0.156145C11.1043 0.139476 10.9655 0.109924 10.6611 0.12129C8.77227 0.189485 6.85953 0.18115 5.00844 0.173573C4.28094 0.170542 3.52802 0.167511 2.78974 0.169027C1.94126 0.170542 1.09201 0.170542 0.239671 0.169784H0V68.0359C7.0468 60.4951 13.4231 53.671 19.9027 46.725L23.9209 42.4181C32.919 32.7738 42.223 22.8007 51.3444 12.9662C52.4317 11.794 53.5785 11.2992 55.0604 11.3613C57.2321 11.453 59.3367 11.4614 61.3158 11.3871C61.9554 11.3629 62.7638 11.406 63.3464 11.9599C63.9352 12.5191 64.0076 13.3291 64.0053 13.9724C63.9745 22.1786 63.9822 30.5234 63.9899 38.5931C63.993 41.7513 63.9953 44.9087 63.9961 48.0669C63.9961 48.2829 63.9968 48.4988 63.9976 48.7148C64.0015 49.7824 64.0053 50.8864 63.9244 51.9836C63.7387 54.5151 62.9334 56.6716 61.5308 58.3916C60.1721 60.0586 58.2447 61.3248 55.8018 62.1552C53.5076 62.9357 51.134 63.019 48.9376 62.3977C46.7713 61.7839 44.7584 60.4784 43.1154 58.6212C42.2715 57.668 41.4184 56.6958 40.5923 55.7563C39.5142 54.5288 38.399 53.2596 37.2955 52.0184C35.8621 50.406 34.4456 48.8299 32.9459 47.1614C32.5136 46.6803 32.079 46.1961 31.6405 45.7081L23.7452 54.2636C24.9358 55.5661 26.135 56.8959 27.2963 58.1833C30.103 61.2952 33.0053 64.5133 35.9761 67.5563C39.9742 71.6502 45.0605 73.856 51.0939 74.1106C57.6074 74.3856 63.7341 72.1503 68.3479 67.8169C72.9602 63.4843 75.5103 57.571 75.528 51.1667C75.5527 42.1824 75.5527 33.0473 75.5519 24.2131C75.5519 16.4782 75.5512 8.47972 75.5673 0.613052C75.5673 0.260711 75.5373 0.107651 75.518 0.0462758H75.5188Z" />
+    </svg>
+  );
 }
 
 function Icon({ name, className = "" }) {
@@ -194,6 +206,196 @@ export function Shell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+
+  // Assistant koji (15 septembre, historique en menu deroulant le 19) —
+  // widget flottant bas-droite, visible sur toutes les pages entreprise
+  // puisque c'est ici, dans Shell, que ces pages sont toutes encadrees (30
+  // pages verifiees, aucune page particulier/ouvrier n'utilise ce
+  // composant). Shell est instancie par page (pas un app/layout.jsx
+  // persistant) : une navigation le remonte, donc l'ouvert/ferme et une
+  // clarification en cours ne survivent pas au changement de page — seul
+  // l'etat ouvert/ferme est memorise dans localStorage pour attenuer ca.
+  // Les discussions, elles, sont reellement persistees cote serveur
+  // (db.kojiAssistantMessages, regroupees par conversationId) et se
+  // rechargent a la demande.
+  const [kojiAssistantOpen, setKojiAssistantOpen] = useState(false);
+  // Menu deroulant d'historique (comme le menu notifications juste au-dessus
+  // dans ce meme fichier) — ouvre par-dessus la conversation en cours, ne la
+  // remplace jamais.
+  const [kojiAssistantMenuOpen, setKojiAssistantMenuOpen] = useState(false);
+  const kojiAssistantMenuRef = useRef(null);
+  const [kojiAssistantConversations, setKojiAssistantConversations] = useState([]);
+  const [kojiAssistantConversationId, setKojiAssistantConversationId] = useState("");
+  const [kojiAssistantMessages, setKojiAssistantMessages] = useState([]);
+  const [kojiAssistantDraft, setKojiAssistantDraft] = useState("");
+  const [kojiAssistantBusy, setKojiAssistantBusy] = useState(false);
+  const [kojiAssistantClarification, setKojiAssistantClarification] = useState(null);
+  const [kojiAssistantLive, setKojiAssistantLive] = useState(null);
+  const [kojiAssistantNotice, setKojiAssistantNotice] = useState("");
+  // Suggestions affichees quand la demande est hors-perimetre (ex: "pizza")
+  // — distinctes de kojiAssistantClarification pour que le prochain message
+  // reparte de zero (pas de conversation.state/question a reinjecter).
+  const [kojiAssistantSuggestions, setKojiAssistantSuggestions] = useState([]);
+  const [kojiAssistantPhotos, setKojiAssistantPhotos] = useState([]);
+
+  function newKojiConversationId() {
+    return `koji-conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  async function loadKojiConversations() {
+    try {
+      const data = await apiGet("/api/koji-assistant");
+      setKojiAssistantConversations(data.conversations || []);
+    } catch { /**/ }
+  }
+
+  async function reloadKojiMessages(conversationId) {
+    if (!conversationId) return;
+    try {
+      const data = await apiGet(`/api/koji-assistant?conversationId=${encodeURIComponent(conversationId)}`);
+      setKojiAssistantMessages(data.messages || []);
+    } catch { /**/ }
+  }
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem("koji-assistant-open") === "1") setKojiAssistantOpen(true);
+    } catch { /**/ }
+  }, []);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (kojiAssistantMenuRef.current && !kojiAssistantMenuRef.current.contains(e.target)) setKojiAssistantMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function toggleKojiAssistant() {
+    setKojiAssistantOpen((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem("koji-assistant-open", next ? "1" : "0"); } catch { /**/ }
+      if (!next) setKojiAssistantMenuOpen(false);
+      return next;
+    });
+  }
+
+  function toggleKojiAssistantMenu() {
+    setKojiAssistantMenuOpen((prev) => {
+      const next = !prev;
+      if (next) loadKojiConversations();
+      return next;
+    });
+  }
+
+  function openKojiConversation(id) {
+    setKojiAssistantConversationId(id);
+    setKojiAssistantMenuOpen(false);
+    setKojiAssistantClarification(null);
+    setKojiAssistantLive(null);
+    setKojiAssistantNotice("");
+    setKojiAssistantSuggestions([]);
+    reloadKojiMessages(id);
+  }
+
+  function startNewKojiConversation() {
+    setKojiAssistantConversationId(newKojiConversationId());
+    setKojiAssistantMenuOpen(false);
+    setKojiAssistantMessages([]);
+    setKojiAssistantDraft("");
+    setKojiAssistantClarification(null);
+    setKojiAssistantLive(null);
+    setKojiAssistantNotice("");
+    setKojiAssistantSuggestions([]);
+    setKojiAssistantPhotos([]);
+  }
+
+  async function submitKojiAssistant(text) {
+    const value = String(text || "").trim();
+    if (!value || kojiAssistantBusy) return;
+    setKojiAssistantBusy(true);
+    setKojiAssistantNotice("");
+    const activeConversationId = kojiAssistantConversationId || newKojiConversationId();
+    if (!kojiAssistantConversationId) setKojiAssistantConversationId(activeConversationId);
+    const payload = kojiAssistantClarification
+      ? { message: value, conversationId: activeConversationId, conversation: { question: kojiAssistantClarification.question, originalMessage: kojiAssistantClarification.originalMessage, state: kojiAssistantClarification.state } }
+      : { message: value, conversationId: activeConversationId, photos: kojiAssistantPhotos };
+    try {
+      const data = await apiSend("/api/koji-assistant", payload, "POST");
+      setKojiAssistantDraft("");
+      setKojiAssistantPhotos([]);
+      setKojiAssistantSuggestions([]);
+      if (data.conversationId) setKojiAssistantConversationId(data.conversationId);
+      if (data.outcome === "clarify") {
+        setKojiAssistantClarification({ question: data.question, quickReplies: data.quickReplies || [], originalMessage: data.originalMessage, state: data.state });
+        setKojiAssistantLive(null);
+      } else if (data.outcome === "created" || data.outcome === "confirmDelete") {
+        setKojiAssistantLive(data);
+        setKojiAssistantClarification(null);
+      } else if (data.outcome === "failed") {
+        setKojiAssistantNotice(data.message || "L'action a échoué.");
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
+      } else if (data.outcome === "unsupported") {
+        setKojiAssistantNotice(data.message || "Je n'ai pas ce service.");
+        setKojiAssistantSuggestions(data.quickReplies || []);
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
+      } else if (data.outcome === "navigate") {
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
+        toggleKojiAssistant();
+        router.push(data.path);
+      } else {
+        setKojiAssistantNotice("Je n'ai pas compris votre demande.");
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
+      }
+      if (data.outcome !== "navigate") await reloadKojiMessages(data.conversationId || activeConversationId);
+    } catch (error) {
+      setKojiAssistantNotice(error.message || "Une erreur est survenue.");
+    } finally {
+      setKojiAssistantBusy(false);
+    }
+  }
+
+  function performKojiDelete(deleteRoute, deleteMethod, id) {
+    if (deleteMethod === "query-delete") return apiSend(`${deleteRoute}?id=${encodeURIComponent(id)}`, {}, "DELETE");
+    const action = deleteMethod === "patch-resolve" ? "resolve" : "delete";
+    return apiSend(deleteRoute, { id, action }, "PATCH");
+  }
+
+  async function undoKojiAssistantCreate() {
+    if (!kojiAssistantLive) return;
+    try {
+      await performKojiDelete(kojiAssistantLive.deleteRoute, kojiAssistantLive.deleteMethod, kojiAssistantLive.id);
+    } catch { /**/ }
+    setKojiAssistantLive(null);
+  }
+
+  async function confirmKojiAssistantDelete() {
+    if (!kojiAssistantLive) return;
+    setKojiAssistantBusy(true);
+    try {
+      await performKojiDelete(kojiAssistantLive.deleteRoute, kojiAssistantLive.deleteMethod, kojiAssistantLive.id);
+      setKojiAssistantNotice(`${kojiAssistantLive.typeLabel} supprimé.`);
+    } catch (error) {
+      setKojiAssistantNotice(error.message || "La suppression a échoué.");
+    } finally {
+      setKojiAssistantBusy(false);
+      setKojiAssistantLive(null);
+    }
+  }
+
+  function handleKojiPhotoChange(event) {
+    const files = Array.from(event.target.files || []).slice(0, Math.max(0, 8 - kojiAssistantPhotos.length));
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => setKojiAssistantPhotos((prev) => (prev.length >= 8 ? prev : [...prev, reader.result]));
+      reader.readAsDataURL(file);
+    });
+    event.target.value = "";
+  }
 
   useEffect(() => {
     function handleClick(e) {
@@ -391,6 +593,186 @@ export function Shell({ children }) {
       )}
 
       <main className="web-main">{children}</main>
+
+      <button
+        type="button"
+        className="koji-assistant-bubble"
+        onClick={toggleKojiAssistant}
+        aria-label="Assistant koji"
+        aria-expanded={kojiAssistantOpen}
+      >
+        <KojiSymbol className="koji-assistant-bubble-icon" />
+      </button>
+
+      {kojiAssistantOpen ? (
+        <div className="koji-assistant-panel">
+          <div className="koji-assistant-panel-head">
+            <div className="koji-assistant-menu" ref={kojiAssistantMenuRef}>
+              <button
+                type="button"
+                className="koji-assistant-sidebar-toggle"
+                onClick={toggleKojiAssistantMenu}
+                aria-label="Historique des discussions"
+                aria-expanded={kojiAssistantMenuOpen}
+                title="Historique des discussions"
+              >
+                <Icon name="menu" className="svg-icon" />
+              </button>
+              {kojiAssistantMenuOpen ? (
+                <div className="koji-assistant-menu-dropdown">
+                  <button type="button" className="koji-assistant-menu-new" onClick={startNewKojiConversation}>
+                    + Nouvelle discussion
+                  </button>
+                  {kojiAssistantConversations.length > 0 ? (
+                    kojiAssistantConversations.map((conv) => (
+                      <button
+                        key={conv.id}
+                        type="button"
+                        className="koji-assistant-menu-item"
+                        onClick={() => openKojiConversation(conv.id)}
+                      >
+                        <span className="koji-assistant-menu-item-title">{conv.title}</span>
+                        <time>{formatRelativeTime(conv.updatedAt)}</time>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="koji-assistant-menu-empty">Aucune discussion pour l'instant.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <strong><KojiSymbol className="koji-assistant-panel-icon" /> KOJI</strong>
+            <button type="button" className="koji-assistant-summary-close" onClick={toggleKojiAssistant} aria-label={L.common.close}>✕</button>
+          </div>
+
+          <>
+              <div className="koji-assistant-panel-body">
+                {kojiAssistantMessages.length > 0 ? (
+                  <div className="koji-assistant-thread">
+                    {kojiAssistantMessages.slice(-12).map((entry) => (
+                      <div key={entry.id} className={`koji-assistant-thread-row koji-assistant-thread-${entry.role}`}>
+                        {entry.message}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="koji-assistant-notice">Demandez-moi de créer ou supprimer un RDV, un devis, une dépense, une tâche...</p>
+                )}
+
+                {kojiAssistantClarification?.quickReplies?.length > 0 ? (
+                  <div className="koji-assistant-quick-replies">
+                    {kojiAssistantClarification.quickReplies.map((reply) => (
+                      <button
+                        key={reply}
+                        type="button"
+                        className="radar-quick-option-btn"
+                        disabled={kojiAssistantBusy}
+                        onClick={() => submitKojiAssistant(reply)}
+                      >
+                        {reply}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {kojiAssistantNotice ? <p className="koji-assistant-notice">{kojiAssistantNotice}</p> : null}
+
+                {kojiAssistantSuggestions.length > 0 ? (
+                  <div className="koji-assistant-quick-replies">
+                    {kojiAssistantSuggestions.map((reply) => (
+                      <button
+                        key={reply}
+                        type="button"
+                        className="radar-quick-option-btn"
+                        disabled={kojiAssistantBusy}
+                        onClick={() => submitKojiAssistant(reply)}
+                      >
+                        {reply}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {kojiAssistantLive?.outcome === "created" ? (
+                  <div className="koji-assistant-summary-card">
+                    <div className="koji-assistant-summary-head">
+                      <strong>✓ {kojiAssistantLive.typeLabel}</strong>
+                      <button
+                        type="button"
+                        className="koji-assistant-summary-close"
+                        onClick={() => setKojiAssistantLive(null)}
+                        aria-label={L.common.close}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <dl className="koji-assistant-summary-fields">
+                      {Object.entries(kojiAssistantLive.summary || {}).map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="koji-assistant-summary-actions">
+                      <button type="button" className="koji-assistant-summary-confirm" onClick={() => setKojiAssistantLive(null)}>
+                        ✓ Valider
+                      </button>
+                      {kojiAssistantLive.correctUrl ? (
+                        <Link href={kojiAssistantLive.correctUrl} className="koji-assistant-summary-link">Corriger</Link>
+                      ) : null}
+                      <button type="button" className="koji-assistant-summary-undo" onClick={undoKojiAssistantCreate}>
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {kojiAssistantLive?.outcome === "confirmDelete" ? (
+                  <div className="koji-assistant-summary-card koji-assistant-summary-card-danger">
+                    <div className="koji-assistant-summary-head">
+                      <strong>Supprimer : {kojiAssistantLive.typeLabel} ?</strong>
+                    </div>
+                    <dl className="koji-assistant-summary-fields">
+                      {Object.entries(kojiAssistantLive.summary || {}).map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="koji-assistant-summary-actions">
+                      <button type="button" className="koji-assistant-summary-undo" disabled={kojiAssistantBusy} onClick={confirmKojiAssistantDelete}>
+                        Supprimer
+                      </button>
+                      <button type="button" className="koji-assistant-summary-link" disabled={kojiAssistantBusy} onClick={() => setKojiAssistantLive(null)}>
+                        Non
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <form
+                className="koji-assistant-bar"
+                onSubmit={(event) => { event.preventDefault(); submitKojiAssistant(kojiAssistantDraft); }}
+              >
+                <span className="koji-assistant-bar-icon"><KojiSymbol /></span>
+                <input
+                  type="text"
+                  value={kojiAssistantDraft}
+                  onChange={(event) => setKojiAssistantDraft(event.target.value)}
+                  placeholder={kojiAssistantClarification ? kojiAssistantClarification.question : "Demandez à l'assistant koji…"}
+                  disabled={kojiAssistantBusy}
+                />
+                <label className="koji-assistant-bar-photo" title="Joindre une photo (facture, reçu...)">
+                  📎{kojiAssistantPhotos.length > 0 ? ` ${kojiAssistantPhotos.length}` : ""}
+                  <input type="file" accept="image/*" multiple hidden onChange={handleKojiPhotoChange} disabled={kojiAssistantBusy} />
+                </label>
+              </form>
+            </>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -85,9 +85,6 @@ export default function MarketplaceOffreDetailPage() {
   const [messagesLoading, setMessagesLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
-  const [aiQuote, setAiQuote] = useState(null);
   const [positionState, setPositionState] = useState({ positionnee: false, plafondAtteint: false });
   const [positioning, setPositioning] = useState(false);
   const [positionError, setPositionError] = useState("");
@@ -118,19 +115,6 @@ export default function MarketplaceOffreDetailPage() {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
-
-  async function generateAiQuote() {
-    setAiLoading(true);
-    setAiError("");
-    try {
-      const data = await apiSend("/api/estimer-devis", { chantierOffreId: params.id });
-      setAiQuote(data.quote);
-    } catch (err) {
-      setAiError(err.message);
-    } finally {
-      setAiLoading(false);
-    }
-  }
 
   async function sePositionner() {
     setPositioning(true);
@@ -284,29 +268,17 @@ export default function MarketplaceOffreDetailPage() {
             </div>
 
             <div className="radar-contact-card">
-              <p className="radar-contact-title">Devis pré-rempli par koji</p>
-              {aiQuote ? (
-                <div className="radar-ai-success">
-                  <p>Devis {aiQuote.quoteNumber} créé — {euro(aiQuote.totalTtc)} TTC, à votre en-tête. Il est enregistré en brouillon, modifiable avant envoi.</p>
-                  <Link href={`/devis?id=${aiQuote.id}`} className="radar-contact-btn radar-contact-btn-primary" style={{ width: "100%" }}>
-                    <span className="radar-contact-icon"><SparkleIcon /></span>
-                    <span>
-                      <strong>Ouvrir le devis</strong>
-                      <small>Vérifier et envoyer depuis l'éditeur</small>
-                    </span>
-                  </Link>
-                </div>
+              <p className="radar-contact-title">Visite guidée</p>
+              {positionState.positionnee ? (
+                <Link href={`/marketplace/${params.id}/visite`} className="radar-contact-btn radar-contact-btn-primary" style={{ width: "100%" }}>
+                  <span className="radar-contact-icon"><SparkleIcon /></span>
+                  <span>
+                    <strong>Démarrer la visite guidée</strong>
+                    <small>Métré pièce par pièce, devis chiffré à votre taux horaire</small>
+                  </span>
+                </Link>
               ) : (
-                <>
-                  <button type="button" className="radar-contact-btn radar-contact-btn-primary" onClick={generateAiQuote} disabled={aiLoading} style={{ width: "100%" }}>
-                    <span className="radar-contact-icon"><SparkleIcon /></span>
-                    <span>
-                      <strong>{aiLoading ? "Création en cours…" : "Créer mon devis"}</strong>
-                      <small>Repris de l'expertise koji : lots, cotes et prix, à votre en-tête</small>
-                    </span>
-                  </button>
-                  {aiError ? <p className="profile-message error" style={{ marginTop: 10 }}>{aiError}</p> : null}
-                </>
+                <p className="radar-recap-note" style={{ margin: 0 }}>Positionnez-vous d'abord sur ce chantier pour démarrer la visite.</p>
               )}
             </div>
 
