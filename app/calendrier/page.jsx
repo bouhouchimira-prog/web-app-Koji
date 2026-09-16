@@ -188,6 +188,54 @@ export default function CalendrierPage() {
     if (calendarEvent?.deleted) setCalendarEvents(calendarEvents.filter((item) => item.id !== event.id));
   }
 
+  // Aujourd'hui en evidence (anime), les prochains en cartes, le passe en
+  // petit et discret — remplace le simple tri chronologique croissant unique
+  // par 3 groupes visuellement distincts, calcules a partir de la meme
+  // filteredTimeline (les filtres du haut continuent de s'appliquer).
+  const eventGroups = useMemo(() => {
+    const today = [];
+    const upcoming = [];
+    const past = [];
+    for (const event of filteredTimeline) {
+      const day = String(event.startAt || "").slice(0, 10);
+      if (day === todayKey) today.push(event);
+      else if (day > todayKey) upcoming.push(event);
+      else past.push(event);
+    }
+    today.sort((a, b) => String(a.startAt || "").localeCompare(String(b.startAt || "")));
+    upcoming.sort((a, b) => String(a.startAt || "").localeCompare(String(b.startAt || "")));
+    past.sort((a, b) => String(b.startAt || "").localeCompare(String(a.startAt || "")));
+    return { today, upcoming, past };
+  }, [filteredTimeline, todayKey]);
+
+  function renderEventRow(event, variant) {
+    const isTask = String(event.id || "").startsWith("task-");
+    return (
+      <article
+        className={`calendar-row clickable calendar-row-${variant}`}
+        key={event.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => openRow(event)}
+        onKeyDown={(keyEvent) => { if (keyEvent.key === "Enter" || keyEvent.key === " ") { keyEvent.preventDefault(); openRow(event); } }}
+      >
+        <div className="calendar-date">
+          <strong>{formatEventDate(event.startAt)}</strong>
+          <span>{event.eventType}</span>
+        </div>
+        <div>
+          <strong>{fixText(event.title)}</strong>
+          <small>{fixText(event.projectTitle || event.clientName || event.project || "Sans chantier")}</small>
+          <small>{fixText(event.workerNames || "Aucun participant")}</small>
+        </div>
+        <span className="status">{fixText(event.status || "En attente")}</span>
+        {!isTask ? (
+          <button type="button" className="mini-danger" onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event); }}>{L.calendrier.delete}</button>
+        ) : null}
+      </article>
+    );
+  }
+
   if (detailTask) {
     return (
       <Shell>
@@ -336,30 +384,33 @@ export default function CalendrierPage() {
 
         <div className="calendar-list">
           {filteredTimeline.length === 0 ? <div className="tool-empty">{L.calendrier.noEvents}</div> : null}
-          {filteredTimeline.map((event) => (
-            <article
-              className="calendar-row clickable"
-              key={event.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openRow(event)}
-              onKeyDown={(keyEvent) => { if (keyEvent.key === "Enter" || keyEvent.key === " ") { keyEvent.preventDefault(); openRow(event); } }}
-            >
-              <div className="calendar-date">
-                <strong>{formatEventDate(event.startAt)}</strong>
-                <span>{event.eventType}</span>
+
+          {eventGroups.today.length > 0 ? (
+            <section className="calendar-group calendar-group-today">
+              <h2 className="calendar-group-title">Aujourd'hui</h2>
+              <div className="calendar-list-inner">
+                {eventGroups.today.map((event) => renderEventRow(event, "today"))}
               </div>
-              <div>
-                <strong>{fixText(event.title)}</strong>
-                <small>{fixText(event.projectTitle || event.clientName || event.project || "Sans chantier")}</small>
-                <small>{fixText(event.workerNames || "Aucun participant")}</small>
+            </section>
+          ) : null}
+
+          {eventGroups.upcoming.length > 0 ? (
+            <section className="calendar-group calendar-group-upcoming">
+              <h2 className="calendar-group-title">À venir</h2>
+              <div className="calendar-card-grid">
+                {eventGroups.upcoming.map((event) => renderEventRow(event, "upcoming"))}
               </div>
-              <span className="status">{fixText(event.status || "En attente")}</span>
-              {!String(event.id || "").startsWith("task-") ? (
-                <button type="button" className="mini-danger" onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event); }}>{L.calendrier.delete}</button>
-              ) : null}
-            </article>
-          ))}
+            </section>
+          ) : null}
+
+          {eventGroups.past.length > 0 ? (
+            <section className="calendar-group calendar-group-past">
+              <h2 className="calendar-group-title">Passé</h2>
+              <div className="calendar-list-inner">
+                {eventGroups.past.map((event) => renderEventRow(event, "past"))}
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
     </Shell>

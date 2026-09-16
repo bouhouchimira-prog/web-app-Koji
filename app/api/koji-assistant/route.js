@@ -1,0 +1,361 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { badRequest, ok } from "../../../lib/http";
+import { getAuth } from "../../../lib/server-auth";
+import { readDb, scopedItems, writeDb } from "../../../lib/db";
+import { parseAiJson } from "../../../lib/ai-json";
+import { parsePhoto } from "../../../lib/ai-photo";
+import { TOOLS, PAGES, resolveByHint } from "../../../lib/koji-assistant-tools";
+import { startDevisFlow, advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
+import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
+
+// Assistant koji v2 (15 septembre) : pipeline a deux phases.
+// Phase 1 (IA, 1 appel) : classe le message parmi les 13 outils de
+// lib/koji-assistant-tools.js + une action create/delete, et extrait les
+// champs — toute reference a une AUTRE entite (un chantier, un devis, un
+// fournisseur...) ressort comme un indice texte (ex: chantierHint), pas un
+// id, puisque l'IA n'a vu aucune liste a ce stade.
+// Phase 2 (code, deterministe, 0 appel IA) : une fois le type connu, on va
+// chercher UNIQUEMENT la liste pertinente pour ce type et on resout l'indice
+// par recherche sous-chaine (resolveByHint) — jamais d'id invente par l'IA.
+// La creation elle-meme appelle directement le POST existant du type
+// (callInternal) ; la suppression ne s'execute JAMAIS depuis cette route —
+// elle propose une confirmation, executee par un clic cote client (comme le
+// bouton "Annuler" d'une creation).
+
+const TYPE_KEYS = Object.keys(TOOLS);
+
+async function callInternal(handler, path, body, token) {
+  const request = new Request(`http://internal${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...body, accessToken: token })
+  });
+  const response = await handler(request);
+  let data = {};
+  try { data = await response.json(); } catch { /* pas de corps */ }
+  return { ok: response.status >= 200 && response.status < 300, data };
+}
+
+function buildPrompt({ today, message, isSecondRound, previousQuestion, previousMessage, hasPhotos }) {
+  const conversationBlock = isSecondRound
+    ? `\nTu as déjà posé cette question à l'utilisatrice : "${previousQuestion}" (à propos du message original : "${previousMessage}"). Voici sa réponse : "${message}". Combine le message original et cette réponse pour finaliser. Tu NE PEUX PLUS reposer de question : needsClarification doit être false, complète avec les meilleures valeurs disponibles.`
+    : "";
+  const photoBlock = hasPhotos
+    ? `\nUne ou plusieurs photos sont jointes au message — regarde-les avant de classer. Si une photo ressemble à un ticket de caisse, une facture reçue ou un reçu de paiement (donc une DÉPENSE que l'entreprise a payée, pas un devis à créer), mets type="depense", extrais fields.amount (montant total TTC lu sur le document, nombre), fields.label (nom du commerce/fournisseur visible), fields.category (catégorie plausible), et mets "detectedFromPhoto": true — dans ce cas ne mets JAMAIS needsClarification/clarifyingQuestion, la confirmation est gérée séparément. Si le texte du message explique déjà clairement de quoi il s'agit, fais confiance au texte plutôt qu'à une supposition sur l'image.`
+    : "";
+
+  const pagesList = Object.entries(PAGES).map(([key, p]) => `${key} (${p.label})`).join(", ");
+
+  return `Tu es l'assistant koji du dashboard d'une entreprise du BTP. Un message libre doit être classé avec une action parmi : "create" (créer une entrée), "delete" (supprimer une entrée existante), "navigate" (ouvrir/afficher une page de l'application — ex: "ouvre le calendrier", "va sur les devis", "montre-moi les contacts") ou "autre" si rien ne correspond.
+
+Pour l'action "navigate", mets uniquement fields.page = une des clés suivantes (choisis la plus proche, ne réponds jamais avec une clé qui n'est pas dans cette liste) : ${pagesList}.
+
+Date du jour : ${today}
+
+Les 13 types (pour l'action "create", champs à extraire) :
+- "rdv" : rendez-vous/évènement futur daté. Champs : title, eventType, clientName, address, startAt (ISO 8601, résous les dates relatives comme "jeudi"/"mardi matin" par rapport à la date du jour), endAt, notes.
+- "visite" : COMPTE-RENDU d'une visite déjà effectuée/en cours (constat/état des lieux, PAS un rendez-vous futur). Champs : client, site, date (YYYY-MM-DD), constat, analyse, preconisations, chantierHint (nom/adresse du chantier si mentionné).
+- "depense" : ACHAT réel dépensé sur un chantier précis (toujours lié à un chantier). Champs : chantierHint (nom/adresse du chantier — OBLIGATOIRE), amount (nombre), label, category, notes.
+- "facture" : transformer un devis SIGNÉ existant en facture. Champs : quoteHint (nom du client ou numéro de devis mentionné).
+- "fourniture" : référence d'article ajoutée au catalogue de l'entreprise, JAMAIS liée à un chantier (sert pour les futurs devis). Champs : name, category, purchasePriceHt, salePriceHt, quantity, unit, supplierHint (nom du fournisseur si mentionné).
+- "alerte" : incident urgent sur un chantier (fuite, dégât, urgence, incendie). Champs : message, type (degat/fuite/urgence/incendie/autre), chantierHint (OBLIGATOIRE).
+- "devis" : générer un devis/chiffrage complet pour un client — déclenche un questionnaire pièce par pièce (métré, état des supports, finitions, accès), pas une génération en un seul message. Ne demande JAMAIS qui va réaliser les travaux — l'affectation d'une équipe se fait plus tard, au démarrage du chantier, pas à la création du devis. Champs à extraire du tout premier message seulement (le reste sera demandé question par question) : clientName, address, pieces (tableau de noms de pièces UNIQUEMENT si clairement énumérées, ex: ["salle de bain", "cuisine"] — sinon tableau vide, ne devine jamais une pièce non explicitement mentionnée).
+- "tache" : une tâche/to-do sur un chantier. Champs : label, chantierHint, dueDate, assignedTo.
+- "equipe" : ajouter un membre d'équipe/ouvrier. Champs : name, profession, phone, email, hourlyRate.
+- "contact" : ajouter un contact/client. Champs : type ("particulier" ou "societe"), firstName, lastName, companyName, phone, email, address.
+- "chantier" : créer un nouveau chantier/projet. Champs : title (synthétise un titre court et clair à partir du message), address, clientEmail.
+- "fournisseur" : ajouter un fournisseur. Champs : name.
+- "ouvrage" : ajouter une prestation à la bibliothèque de prix de l'entreprise. Champs : label, unit, normativeTime (en heures), hourlyRate, family.
+
+Pour une SUPPRESSION (action "delete"), quel que soit le type identifié ci-dessus, n'extrais que : searchHint (les mots-clés qui identifient l'entrée à supprimer — nom, lieu, sujet) et, si une date est mentionnée et pertinente pour ce type (rdv/tache/visite), dateHint (date ISO résolue). Ne mets aucun autre champ pour une suppression.
+${conversationBlock}${photoBlock}
+
+Message de l'utilisatrice : "${message}"
+
+Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
+{
+  "action": "create" | "delete" | "navigate" | "autre",
+  "type": "rdv" | "visite" | "depense" | "facture" | "fourniture" | "alerte" | "devis" | "tache" | "equipe" | "contact" | "chantier" | "fournisseur" | "ouvrage" | "autre",
+  "fields": { ... },
+  "detectedFromPhoto": boolean,
+  "needsClarification": boolean,
+  "clarifyingQuestion": string | null,
+  "quickReplies": string[]
+}
+
+Si une information essentielle manque pour CRÉER (ex: pas de date pour un RDV, chantier non identifiable pour une dépense/alerte, nom manquant, client/description manquants pour un devis), ou si tu ne peux pas identifier clairement CE QUI doit être supprimé, mets needsClarification à true et pose UNE seule question claire — ne devine jamais une valeur essentielle.`;
+}
+
+export async function handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos }) {
+  const fields = parsed.fields && typeof parsed.fields === "object" ? { ...parsed.fields } : {};
+  if (type === "devis" && Array.isArray(rawPhotos)) fields.photos = rawPhotos;
+
+  if (tool.reference) {
+    const hint = fields[tool.reference.hintField];
+    if (hint || tool.reference.required) {
+      const candidates = await tool.reference.fetchCandidates(ctx);
+      const { match, matches } = resolveByHint(candidates, hint);
+      if (match) {
+        fields[tool.reference.resolvedField] = match.id;
+      } else if (tool.reference.required || hint) {
+        if (isSecondRound) {
+          return { outcome: "failed", message: "Je n'ai pas assez d'informations pour créer cette entrée. Réessayez avec un message plus précis." };
+        }
+        return {
+          outcome: "clarify",
+          question: matches.length ? "Plusieurs correspondances possibles — laquelle ?" : "Je ne trouve pas de correspondance — pouvez-vous préciser ?",
+          quickReplies: matches.map((m) => m.label),
+          originalMessage: message
+        };
+      }
+    }
+  }
+
+  const missingReason = tool.requiredCheck(fields);
+  if (missingReason) {
+    if (isSecondRound) {
+      return { outcome: "failed", message: `Je n'ai pas assez d'informations pour créer cette entrée (${missingReason}). Réessayez avec un message plus précis.` };
+    }
+    const question = parsed.needsClarification && parsed.clarifyingQuestion ? parsed.clarifyingQuestion : `Pouvez-vous préciser : ${missingReason} ?`;
+    const quickReplies = Array.isArray(parsed.quickReplies) ? parsed.quickReplies : [];
+    return { outcome: "clarify", question, quickReplies, originalMessage: message };
+  }
+
+  const mappedBody = tool.mapCreateBody(fields);
+  const created = await callInternal(tool.createHandler, tool.createPath, mappedBody, ctx.auth.token);
+  if (!created.ok) {
+    return { outcome: "failed", message: created.data?.error || "La création a échoué." };
+  }
+  const entity = created.data[Object.keys(created.data)[0]];
+
+  return {
+    outcome: "created",
+    type,
+    typeLabel: tool.label,
+    id: entity.id,
+    deleteRoute: tool.deleteRoute,
+    deleteMethod: tool.deleteMethod,
+    correctUrl: tool.correctUrl(entity),
+    summary: tool.summary(entity)
+  };
+}
+
+async function handleDelete({ ctx, tool, type, parsed, isSecondRound, message }) {
+  const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+  const candidates = await tool.ownCandidates(ctx);
+  let pool = candidates;
+  if (fields.dateHint) {
+    const day = String(fields.dateHint).slice(0, 10);
+    const filtered = pool.filter((c) => String(c.date || "").slice(0, 10) === day);
+    if (filtered.length) pool = filtered;
+  }
+  const { match, matches } = resolveByHint(pool, fields.searchHint);
+
+  if (!match) {
+    if (isSecondRound) {
+      return { outcome: "failed", message: "Je n'arrive pas à identifier précisément l'entrée à supprimer. Réessayez avec un message plus précis." };
+    }
+    return {
+      outcome: "clarify",
+      question: matches.length ? "Laquelle voulez-vous supprimer ?" : "Je ne trouve rien correspondant — pouvez-vous préciser ?",
+      quickReplies: matches.map((m) => m.label),
+      originalMessage: message
+    };
+  }
+
+  return {
+    outcome: "confirmDelete",
+    type,
+    typeLabel: tool.label,
+    id: match.id,
+    deleteRoute: tool.deleteRoute,
+    deleteMethod: tool.deleteMethod,
+    summary: match.summary
+  };
+}
+
+function handleNavigate(parsed) {
+  const key = parsed.fields?.page;
+  const page = key && PAGES[key] ? PAGES[key] : null;
+  if (!page) {
+    return {
+      outcome: "clarify",
+      question: "Quelle page voulez-vous ouvrir ?",
+      quickReplies: Object.values(PAGES).slice(0, 6).map((p) => p.label),
+      originalMessage: ""
+    };
+  }
+  return { outcome: "navigate", path: page.path, label: page.label };
+}
+
+function describeOutcome(result) {
+  if (result.outcome === "created") return `✓ ${result.typeLabel} créé.`;
+  if (result.outcome === "confirmDelete") return `Confirmer la suppression : ${result.typeLabel} ?`;
+  if (result.outcome === "navigate") return `→ Ouverture de ${result.label}.`;
+  if (result.outcome === "clarify") return result.question;
+  if (result.outcome === "failed") return result.message;
+  if (result.outcome === "unsupported") return result.message || "Je n'ai pas ce service.";
+  return "Je n'ai pas compris votre demande.";
+}
+
+// Relit le blob a la toute fin, apres l'eventuel appel interne de creation
+// (qui a pu ecrire sa propre version fraiche du blob) — jamais reutiliser le
+// `db` lu en debut de requete pour ecrire ici, sous peine d'ecraser ce que la
+// route cible vient d'enregistrer (tout writeDb() remplace le blob entier).
+async function logTurn(userId, userMessage, result, conversationId) {
+  const db = await readDb();
+  const now = new Date().toISOString();
+  db.kojiAssistantMessages.push({
+    id: `kojimsg-${Date.now()}-u`, userId, conversationId, role: "user", message: userMessage, outcome: null, meta: {}, createdAt: now
+  });
+  db.kojiAssistantMessages.push({
+    id: `kojimsg-${Date.now()}-a`, userId, conversationId, role: "assistant", message: describeOutcome(result), outcome: result.outcome, meta: result, createdAt: now
+  });
+  await writeDb(db);
+}
+
+// Aucune collection dediee aux discussions — regroupe simplement les
+// messages deja stockes par conversationId (titre = premier message de
+// l'utilisatrice, date = dernier message). Les messages anterieurs a cet
+// ajout (sans conversationId) tombent dans un seul groupe "legacy", pour ne
+// rien casser plutot que de les faire disparaitre.
+function groupConversations(messages) {
+  const byId = new Map();
+  for (const entry of messages) {
+    const id = entry.conversationId || "legacy";
+    if (!byId.has(id)) byId.set(id, { id, updatedAt: entry.createdAt, messageCount: 0, firstUserMessage: "" });
+    const conv = byId.get(id);
+    conv.messageCount += 1;
+    if (String(entry.createdAt) > String(conv.updatedAt)) conv.updatedAt = entry.createdAt;
+    if (entry.role === "user" && !conv.firstUserMessage) conv.firstUserMessage = entry.message;
+  }
+  return Array.from(byId.values())
+    .map((c) => ({ id: c.id, title: (c.firstUserMessage || "Discussion").slice(0, 60), updatedAt: c.updatedAt, messageCount: c.messageCount }))
+    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
+
+export async function GET(request) {
+  const db = await readDb();
+  const auth = getAuth(request);
+  if (!auth) return ok({ messages: [], conversations: [] });
+  const messages = scopedItems(db.kojiAssistantMessages, auth.userId);
+  const url = new URL(request.url);
+  const conversationId = url.searchParams.get("conversationId") || "";
+  if (conversationId) {
+    return ok({ messages: messages.filter((m) => m.conversationId === conversationId) });
+  }
+  return ok({ conversations: groupConversations(messages) });
+}
+
+export async function POST(request) {
+  const body = await request.json().catch(() => ({}));
+  const message = String(body.message || "").trim();
+  if (!message) return badRequest("Message vide.");
+
+  const auth = getAuth(request, body);
+  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+
+  const db = await readDb();
+  const ctx = { auth, db };
+
+  // Une discussion = un fil de messages regroupes par cet id (voir
+  // groupConversations/GET) — genere cote client au demarrage d'une
+  // discussion ; secours si absent (ancien client, appel isole).
+  const conversationId = String(body.conversationId || "") || `koji-conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // Poursuite d'un questionnaire devis deja en cours (voir
+  // lib/koji-assistant-devis-flow.js) : la reponse est un clic sur un bouton
+  // ou un texte libre attendu pour l'etape en cours, pas la peine de
+  // reclassifier via l'IA — garde les tours suivants rapides et gratuits.
+  if (body.conversation?.state?.flow === "devisVisite") {
+    const result = await advanceDevisFlow(ctx, body.conversation.state, message, body.conversation.originalMessage || message);
+    await logTurn(auth.userId, message, result, conversationId);
+    return ok({ ...result, conversationId });
+  }
+
+  // Poursuite d'une confirmation "detectee depuis une photo" deja en cours
+  // (voir lib/koji-assistant-photo-confirm.js) — meme principe que
+  // devisVisite ci-dessus : pas de reclassification IA, juste l'etape
+  // suivante (confirmer le type, puis la reference manquante comme le
+  // chantier) via le meme handleCreate deja utilise pour toutes les
+  // creations directes.
+  if (body.conversation?.state?.flow === "confirmType") {
+    const state = body.conversation.state;
+    const tool = TOOLS[state.type];
+    const result = tool
+      ? await advanceConfirmTypeFlow(ctx, state, message, body.conversation.originalMessage || message, tool, handleCreate)
+      : { outcome: "failed", message: "Une erreur est survenue." };
+    await logTurn(auth.userId, message, result, conversationId);
+    return ok({ ...result, conversationId });
+  }
+
+  const isSecondRound = Boolean(body.conversation && body.conversation.question);
+  const photos = Array.isArray(body.photos) ? body.photos.slice(0, 8) : [];
+  const promptText = buildPrompt({
+    today: new Date().toISOString().slice(0, 10),
+    message,
+    isSecondRound,
+    previousQuestion: body.conversation?.question || "",
+    previousMessage: body.conversation?.originalMessage || "",
+    hasPhotos: photos.length > 0
+  });
+
+  const content = [];
+  for (const dataUrl of photos) {
+    const photo = parsePhoto(dataUrl);
+    if (photo) content.push({ type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.data } });
+  }
+  content.push({ type: "text", text: promptText });
+
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  let aiText;
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 1024,
+      thinking: { type: "disabled" },
+      system: "Tu es l'assistant koji du dashboard entreprise. Tu réponds uniquement en JSON strict, sans aucun texte ni balise markdown autour.",
+      messages: [{ role: "user", content }]
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    aiText = textBlock?.text || "";
+  } catch {
+    return badRequest("L'assistant n'a pas pu traiter ce message. Réessayez.", 502);
+  }
+
+  let parsed;
+  try {
+    parsed = parseAiJson(aiText);
+  } catch {
+    return badRequest("Réponse de l'assistant illisible. Réessayez.", 502);
+  }
+
+  const action = ["delete", "create", "navigate"].includes(parsed.action) ? parsed.action : "autre";
+  const type = TYPE_KEYS.includes(parsed.type) ? parsed.type : null;
+  const tool = type ? TOOLS[type] : null;
+
+  let result;
+  if (action === "navigate") {
+    result = handleNavigate(parsed);
+  } else if (!tool || action === "autre") {
+    result = {
+      outcome: "unsupported",
+      message: "Je n'ai pas ce service. Je peux par exemple créer ou supprimer un RDV, un devis, une facture, une dépense, une tâche, un contact, un chantier, ou ouvrir une page (\"ouvre le calendrier\")...",
+      quickReplies: ["Créer un devis", "Créer une facture", "Ajouter un RDV", "Ajouter une dépense"]
+    };
+  } else if (action === "delete") {
+    result = await handleDelete({ ctx, tool, type, parsed, isSecondRound, message });
+  } else if (type === "devis") {
+    const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+    result = await startDevisFlow(ctx, fields, message);
+  } else if (parsed.detectedFromPhoto) {
+    const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+    result = startConfirmTypeFlow(type, fields, tool, message);
+  } else {
+    result = await handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos: body.photos });
+  }
+
+  await logTurn(auth.userId, message, result, conversationId);
+
+  return ok({ ...result, conversationId });
+}
