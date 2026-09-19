@@ -329,7 +329,7 @@ export function Shell({ children }) {
       if (data.outcome === "clarify") {
         setKojiAssistantClarification({ question: data.question, quickReplies: data.quickReplies || [], originalMessage: data.originalMessage, state: data.state });
         setKojiAssistantLive(null);
-      } else if (data.outcome === "created" || data.outcome === "confirmDelete") {
+      } else if (data.outcome === "created" || data.outcome === "confirmDelete" || data.outcome === "updated") {
         setKojiAssistantLive(data);
         setKojiAssistantClarification(null);
       } else if (data.outcome === "failed") {
@@ -724,6 +724,38 @@ export function Shell({ children }) {
                       <button type="button" className="koji-assistant-summary-undo" onClick={undoKojiAssistantCreate}>
                         Supprimer
                       </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {kojiAssistantLive?.outcome === "updated" ? (
+                  <div className="koji-assistant-summary-card">
+                    <div className="koji-assistant-summary-head">
+                      <strong>✓ {kojiAssistantLive.typeLabel} modifié</strong>
+                      <button
+                        type="button"
+                        className="koji-assistant-summary-close"
+                        onClick={() => setKojiAssistantLive(null)}
+                        aria-label={L.common.close}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <dl className="koji-assistant-summary-fields">
+                      {Object.entries(kojiAssistantLive.summary || {}).map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="koji-assistant-summary-actions">
+                      <button type="button" className="koji-assistant-summary-confirm" onClick={() => setKojiAssistantLive(null)}>
+                        ✓ Valider
+                      </button>
+                      {kojiAssistantLive.correctUrl ? (
+                        <Link href={kojiAssistantLive.correctUrl} className="koji-assistant-summary-link">Corriger</Link>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}

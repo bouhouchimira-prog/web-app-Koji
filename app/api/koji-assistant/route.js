@@ -4,8 +4,12 @@ import { getAuth } from "../../../lib/server-auth";
 import { readDb, scopedItems, writeDb } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
-import { TOOLS, PAGES, resolveByHint } from "../../../lib/koji-assistant-tools";
-import { startDevisFlow, advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
+import { TOOLS, PAGES, TOPIC_SUGGESTIONS, resolveByHint } from "../../../lib/koji-assistant-tools";
+// "Creer un devis" navigue desormais directement vers la page (voir plus
+// bas) — seul advanceDevisFlow reste importe, pour ne pas casser une
+// discussion deja en cours dans l'ancien questionnaire au moment du
+// deploiement. lib/koji-assistant-devis-flow.js n'est pas supprime.
+import { advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
 import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
 
 // Assistant koji v2 (15 septembre) : pipeline a deux phases.
@@ -24,9 +28,9 @@ import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-
 
 const TYPE_KEYS = Object.keys(TOOLS);
 
-async function callInternal(handler, path, body, token) {
+async function callInternal(handler, path, body, token, method = "POST") {
   const request = new Request(`http://internal${path}`, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...body, accessToken: token })
   });
@@ -46,9 +50,13 @@ function buildPrompt({ today, message, isSecondRound, previousQuestion, previous
 
   const pagesList = Object.entries(PAGES).map(([key, p]) => `${key} (${p.label})`).join(", ");
 
-  return `Tu es l'assistant koji du dashboard d'une entreprise du BTP. Un message libre doit être classé avec une action parmi : "create" (créer une entrée), "delete" (supprimer une entrée existante), "navigate" (ouvrir/afficher une page de l'application — ex: "ouvre le calendrier", "va sur les devis", "montre-moi les contacts") ou "autre" si rien ne correspond.
+  return `Tu es l'assistant koji du dashboard d'une entreprise du BTP. Un message libre doit être classé avec une action parmi : "create" (créer une entrée), "update" (modifier un champ d'une entrée EXISTANTE, ou ajouter une ligne à un devis existant), "delete" (supprimer une entrée existante), "navigate" (ouvrir/afficher une page de l'application — ex: "ouvre le calendrier", "va sur les devis", "montre-moi les contacts"), "ambiguous" (le message nomme juste un type parmi les 13 ci-dessous, sans verbe clair — ex: juste "devis", juste "facture" — sans dire s'il faut créer, modifier ou autre chose) ou "autre" si rien ne correspond.
 
 Pour l'action "navigate", mets uniquement fields.page = une des clés suivantes (choisis la plus proche, ne réponds jamais avec une clé qui n'est pas dans cette liste) : ${pagesList}.
+
+Pour l'action "ambiguous", mets uniquement fields.topic = la clé du type concerné (rdv/visite/depense/facture/fourniture/alerte/devis/tache/equipe/contact/chantier/fournisseur/ouvrage).
+
+Pour l'action "update", mets fields.searchHint (les mots-clés qui identifient l'entrée à modifier — nom, lieu, sujet, comme pour une suppression) et fields.changes (objet des champs à modifier, avec les MÊMES noms de champs que ceux listés pour la création de ce type ci-dessous, plus "status" quand pertinent). Cas particulier du type "devis" : pour ajouter une ligne à un devis existant (ex: "ajoute une ligne carrelage 20m² au devis de Dupont"), mets fields.changes.lineLabel (désignation de la ligne), fields.changes.quantity (nombre), fields.changes.unit, fields.changes.room (pièce/lot concerné si mentionné) — jamais de prix, il est calculé automatiquement depuis la bibliothèque de prix de l'entreprise.
 
 Date du jour : ${today}
 
@@ -59,7 +67,7 @@ Les 13 types (pour l'action "create", champs à extraire) :
 - "facture" : transformer un devis SIGNÉ existant en facture. Champs : quoteHint (nom du client ou numéro de devis mentionné).
 - "fourniture" : référence d'article ajoutée au catalogue de l'entreprise, JAMAIS liée à un chantier (sert pour les futurs devis). Champs : name, category, purchasePriceHt, salePriceHt, quantity, unit, supplierHint (nom du fournisseur si mentionné).
 - "alerte" : incident urgent sur un chantier (fuite, dégât, urgence, incendie). Champs : message, type (degat/fuite/urgence/incendie/autre), chantierHint (OBLIGATOIRE).
-- "devis" : générer un devis/chiffrage complet pour un client — déclenche un questionnaire pièce par pièce (métré, état des supports, finitions, accès), pas une génération en un seul message. Ne demande JAMAIS qui va réaliser les travaux — l'affectation d'une équipe se fait plus tard, au démarrage du chantier, pas à la création du devis. Champs à extraire du tout premier message seulement (le reste sera demandé question par question) : clientName, address, pieces (tableau de noms de pièces UNIQUEMENT si clairement énumérées, ex: ["salle de bain", "cuisine"] — sinon tableau vide, ne devine jamais une pièce non explicitement mentionnée).
+- "devis" : créer un nouveau devis — ceci ouvre directement la page de création du devis (pas de génération automatique dans le chat). Aucun champ à extraire pour la création.
 - "tache" : une tâche/to-do sur un chantier. Champs : label, chantierHint, dueDate, assignedTo.
 - "equipe" : ajouter un membre d'équipe/ouvrier. Champs : name, profession, phone, email, hourlyRate.
 - "contact" : ajouter un contact/client. Champs : type ("particulier" ou "societe"), firstName, lastName, companyName, phone, email, address.
@@ -74,7 +82,7 @@ Message de l'utilisatrice : "${message}"
 
 Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
 {
-  "action": "create" | "delete" | "navigate" | "autre",
+  "action": "create" | "update" | "delete" | "navigate" | "ambiguous" | "autre",
   "type": "rdv" | "visite" | "depense" | "facture" | "fourniture" | "alerte" | "devis" | "tache" | "equipe" | "contact" | "chantier" | "fournisseur" | "ouvrage" | "autre",
   "fields": { ... },
   "detectedFromPhoto": boolean,
@@ -83,7 +91,7 @@ Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
   "quickReplies": string[]
 }
 
-Si une information essentielle manque pour CRÉER (ex: pas de date pour un RDV, chantier non identifiable pour une dépense/alerte, nom manquant, client/description manquants pour un devis), ou si tu ne peux pas identifier clairement CE QUI doit être supprimé, mets needsClarification à true et pose UNE seule question claire — ne devine jamais une valeur essentielle.`;
+Si une information essentielle manque pour CRÉER (ex: pas de date pour un RDV, chantier non identifiable pour une dépense/alerte, nom manquant), ou si tu ne peux pas identifier clairement CE QUI doit être supprimé ou modifié, mets needsClarification à true et pose UNE seule question claire — ne devine jamais une valeur essentielle.`;
 }
 
 export async function handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos }) {
@@ -174,6 +182,59 @@ async function handleDelete({ ctx, tool, type, parsed, isSecondRound, message })
   };
 }
 
+async function handleUpdate({ ctx, tool, type, parsed, isSecondRound, message }) {
+  if (!tool.updateHandler) {
+    return { outcome: "failed", message: `"${tool.label}" ne peut pas encore être modifié depuis l'assistant.` };
+  }
+  const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+  const changes = fields.changes && typeof fields.changes === "object" ? fields.changes : {};
+
+  const candidates = await tool.ownCandidates(ctx);
+  const { match, matches } = resolveByHint(candidates, fields.searchHint);
+  if (!match) {
+    if (isSecondRound) {
+      return { outcome: "failed", message: "Je n'arrive pas à identifier précisément l'entrée à modifier. Réessayez avec un message plus précis." };
+    }
+    return {
+      outcome: "clarify",
+      question: matches.length ? "Laquelle voulez-vous modifier ?" : "Je ne trouve rien correspondant — pouvez-vous préciser ?",
+      quickReplies: matches.map((m) => m.label),
+      originalMessage: message
+    };
+  }
+
+  const mappedBody = await tool.mapUpdateBody(ctx, match.id, changes);
+  if (!mappedBody) {
+    return { outcome: "failed", message: "Modification impossible." };
+  }
+  const updated = await callInternal(tool.updateHandler, tool.updateRoute, mappedBody, ctx.auth.token, "PATCH");
+  if (!updated.ok) {
+    return { outcome: "failed", message: updated.data?.error || "La modification a échoué." };
+  }
+  const entity = updated.data[Object.keys(updated.data)[0]];
+
+  return {
+    outcome: "updated",
+    type,
+    typeLabel: tool.label,
+    id: entity.id || match.id,
+    correctUrl: tool.correctUrl(entity),
+    summary: tool.summary ? tool.summary(entity) : match.summary
+  };
+}
+
+function handleAmbiguous(parsed) {
+  const topic = parsed.fields?.topic;
+  const suggestions = topic && TOPIC_SUGGESTIONS[topic] ? TOPIC_SUGGESTIONS[topic] : null;
+  if (!suggestions) return null;
+  return {
+    outcome: "clarify",
+    question: "Que voulez-vous faire ?",
+    quickReplies: suggestions,
+    originalMessage: ""
+  };
+}
+
 function handleNavigate(parsed) {
   const key = parsed.fields?.page;
   const page = key && PAGES[key] ? PAGES[key] : null;
@@ -190,6 +251,7 @@ function handleNavigate(parsed) {
 
 function describeOutcome(result) {
   if (result.outcome === "created") return `✓ ${result.typeLabel} créé.`;
+  if (result.outcome === "updated") return `✓ ${result.typeLabel} modifié.`;
   if (result.outcome === "confirmDelete") return `Confirmer la suppression : ${result.typeLabel} ?`;
   if (result.outcome === "navigate") return `→ Ouverture de ${result.label}.`;
   if (result.outcome === "clarify") return result.question;
@@ -330,12 +392,18 @@ export async function POST(request) {
     return badRequest("Réponse de l'assistant illisible. Réessayez.", 502);
   }
 
-  const action = ["delete", "create", "navigate"].includes(parsed.action) ? parsed.action : "autre";
+  const action = ["delete", "create", "update", "navigate", "ambiguous"].includes(parsed.action) ? parsed.action : "autre";
   const type = TYPE_KEYS.includes(parsed.type) ? parsed.type : null;
   const tool = type ? TOOLS[type] : null;
 
   let result;
-  if (action === "navigate") {
+  if (action === "ambiguous") {
+    result = handleAmbiguous(parsed) || {
+      outcome: "unsupported",
+      message: "Je n'ai pas ce service. Je peux par exemple créer ou supprimer un RDV, un devis, une facture, une dépense, une tâche, un contact, un chantier, ou ouvrir une page (\"ouvre le calendrier\")...",
+      quickReplies: ["Créer un devis", "Créer une facture", "Ajouter un RDV", "Ajouter une dépense"]
+    };
+  } else if (action === "navigate") {
     result = handleNavigate(parsed);
   } else if (!tool || action === "autre") {
     result = {
@@ -345,9 +413,14 @@ export async function POST(request) {
     };
   } else if (action === "delete") {
     result = await handleDelete({ ctx, tool, type, parsed, isSecondRound, message });
+  } else if (action === "update") {
+    result = await handleUpdate({ ctx, tool, type, parsed, isSecondRound, message });
   } else if (type === "devis") {
-    const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
-    result = await startDevisFlow(ctx, fields, message);
+    // "Creer un devis" ouvre directement la page de creation au lieu du
+    // questionnaire dans le chat (decision du 19 septembre) —
+    // lib/koji-assistant-devis-flow.js reste dans le depot, juste plus
+    // appelee ici.
+    result = { outcome: "navigate", path: "/devis?new=1", label: "Créer un devis" };
   } else if (parsed.detectedFromPhoto) {
     const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
     result = startConfirmTypeFlow(type, fields, tool, message);
