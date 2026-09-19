@@ -42,6 +42,54 @@ function moCost(item, fallbackRate = 0) {
   return Math.max(0, base * coefficient * discount);
 }
 
+// Catalogue Electricite recu le 19 septembre (KOJI_ouvrages_ELEC_Suchet.pdf,
+// 21 lignes) — pre-rempli dans la zone d'import ci-dessous pour que cette
+// demande se traite en un clic, tout en laissant la zone reutilisable pour
+// d'autres catalogues (colle simplement un nouveau tableau par-dessus).
+// Colonnes : code, designation, famille, sous-famille, unite, temps (h/u),
+// taux horaire (€/h), commentaire — separees par une tabulation.
+const DEFAULT_IMPORT_TEXT = [
+  "ELEC-GEN-001\tInstallation de chantier, déplacements, protections, nettoyage\tÉlectricité\tGEN\tforfait\t4,00\t60\tchantier < 150 m²",
+  "ELEC-GEN-002\tEssais, mise en service, étiquetage du tableau\tÉlectricité\tGEN\tforfait\t4,00\t60\t",
+  "ELEC-DEP-001\tDépose point existant supprimé, mise en sécurité\tÉlectricité\tDEP\tu\t0,25\t60\tpoint non reposé",
+  "ELEC-DEP-002\tDépose appareillage existant, neutralisation de la boîte, point neuf complet en goulotte\tÉlectricité\tDEP\tu\t1,00\t60\taucune boîte encastrée réutilisée",
+  "ELEC-TAB-001\tRemplacement tableau 3 rangées, 2 ID 30 mA, 14 départs, repérage\tÉlectricité\tTAB\tu\t8,00\t60\t",
+  "ELEC-TAB-002\tLiaison disjoncteur de branchement → tableau, 16 mm²\tÉlectricité\tTAB\tu\t3,00\t60\t",
+  "ELEC-TAB-003\tMise à la terre / liaison équipotentielle pièces d'eau\tÉlectricité\tTAB\tforfait\t3,00\t60\t",
+  "ELEC-CHE-001\tGoulotte PVC 2 compartiments, câbles compris\tÉlectricité\tCHE\tml\t0,30\t60\tcompté au périmètre hors portes",
+  "ELEC-CHE-002\tDépose plinthe bois existante, évacuation\tÉlectricité\tCHE\tml\t0,10\t60\toption plinthe électrique",
+  "ELEC-CHE-003\tPlinthe électrique 3 compartiments, câbles compris\tÉlectricité\tCHE\tml\t0,35\t60\tremplace ELEC-CHE-001",
+  "ELEC-PT-001\tPrise 2P+T 16 A, point complet\tÉlectricité\tPT\tu\t0,75\t60\t",
+  "ELEC-PT-002\tPrise dédiée 20 A, circuit spécialisé\tÉlectricité\tPT\tu\t0,90\t60\t",
+  "ELEC-PT-003\tPrise RJ45 cat.6\tÉlectricité\tPT\tu\t1,00\t60\t",
+  "ELEC-PT-004\tInterrupteur simple allumage\tÉlectricité\tPT\tu\t0,75\t60\t",
+  "ELEC-PT-005\tVa-et-vient / double commande\tÉlectricité\tPT\tu\t1,10\t60\t",
+  "ELEC-PT-006\tPoint lumineux plafond DCL\tÉlectricité\tPT\tu\t1,00\t60\t",
+  "ELEC-PT-007\tSortie applique murale\tÉlectricité\tPT\tu\t0,90\t60\t",
+  "ELEC-LUM-001\tSpot LED encastré, raccordement\tÉlectricité\tLUM\tu\t0,80\t60\t",
+  "ELEC-LUM-002\tRail triphasé plafond, alimentation\tÉlectricité\tLUM\tml\t0,50\t60\t",
+  "ELEC-LUM-003\tSpot LED sur rail\tÉlectricité\tLUM\tu\t0,25\t60\t",
+  "ELEC-EQU-001\tAlimentation VMC, circuit dédié\tÉlectricité\tEQU\tu\t1,50\t60\t"
+].join("\n");
+
+function parseImportLine(line) {
+  const parts = line.split("\t").map((p) => p.trim());
+  if (parts.length < 7) return null;
+  const [code, label, family, category, unit, normativeTime, hourlyRate, description = ""] = parts;
+  if (!code || !label) return null;
+  const comment = description ? `${description} — estimation KOJI, à vérifier (source PDF, sept. 2026)` : "Estimation KOJI, à vérifier (source PDF, sept. 2026)";
+  return {
+    code,
+    label,
+    family: family || "Autre",
+    category: category || "General",
+    unit: unit || "u",
+    normativeTime: Number(String(normativeTime).replace(",", ".")) || 0,
+    hourlyRate: Number(String(hourlyRate).replace(",", ".")) || 0,
+    description: comment
+  };
+}
+
 function nextSubCode(parentCode, siblings) {
   const numbers = siblings
     .map((item) => item.code?.replace(`${parentCode}-`, ""))
@@ -55,13 +103,25 @@ export default function OuvragesLibraryPage() {
   const { L } = useLocale();
   const { data: ouvrages, setData: setOuvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
   const [query, setQuery] = useState("");
-  const [family, setFamily] = useState("Toutes");
+  // Plus d'onglet "Toutes" (demande du 19 septembre) — un metier est
+  // toujours selectionne, jamais une liste complete non filtree.
+  const [family, setFamily] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
   const [formMode, setFormMode] = useState("list");
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
   const [companyHourlyRate, setCompanyHourlyRate] = useState(0);
+  // Import en masse (19 septembre) — colle un tableau code/designation/
+  // famille/sous-famille/unite/temps/taux (separateurs tabulation, comme un
+  // copier-coller depuis un tableur ou un PDF) et cree chaque ouvrage via le
+  // meme POST /api/ouvrages que le formulaire "+", un par un. Pre-rempli ici
+  // avec le catalogue Electricite recu (21 lignes), reutilisable ensuite
+  // pour d'autres metiers (Plomberie...).
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState(DEFAULT_IMPORT_TEXT);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
 
   useEffect(() => {
     apiGet("/api/auth/profile")
@@ -75,13 +135,19 @@ export default function OuvragesLibraryPage() {
   }, []);
 
   const families = useMemo(() => {
-    return [L.fournitures.all, ...Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort()];
+    return Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort();
   }, [ouvrages]);
+
+  // Selectionne automatiquement le premier metier des que la bibliotheque
+  // est chargee — jamais d'etat "aucun metier choisi" affichant tout.
+  useEffect(() => {
+    if (!family && families.length > 0) setFamily(families[0]);
+  }, [families, family]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return ouvrages.filter((item) => {
-      if (family !== L.fournitures.all && item.family !== family) return false;
+      if (family && item.family !== family) return false;
       if (!normalized) return true;
       return [item.code, item.label, item.family, item.category, item.description]
         .join(" ")
@@ -149,7 +215,7 @@ export default function OuvragesLibraryPage() {
     setForm({
       ...emptyForm,
       hourlyRate: companyHourlyRate,
-      family: parent?.family || (family !== L.fournitures.all ? family : "Carrelage"),
+      family: parent?.family || family || "Carrelage",
       category: parent?.category || "General",
       unit: parent?.unit || "m²",
       parentCode: parent?.code || "",
@@ -202,6 +268,35 @@ export default function OuvragesLibraryPage() {
     setOuvrages(payload.ouvrages);
     setSelectedIds((current) => current.filter((id) => id !== item.id));
     setMessage(L.bibliotheque.deletedMsg);
+  }
+
+  async function importCatalog() {
+    const lines = importText.split("\n").map((line) => line.trim()).filter(Boolean);
+    const rows = lines.map(parseImportLine).filter(Boolean);
+    if (rows.length === 0) {
+      setImportMessage("Aucune ligne valide à importer (code et désignation obligatoires).");
+      return;
+    }
+    setImportBusy(true);
+    setImportMessage("");
+    let created = 0;
+    let lastOuvrages = ouvrages;
+    for (const row of rows) {
+      try {
+        const { ouvrages: nextOuvrages } = await apiSend("/api/ouvrages", row, "POST");
+        lastOuvrages = nextOuvrages;
+        created += 1;
+      } catch {
+        // une ligne en erreur ne bloque pas les suivantes
+      }
+    }
+    setOuvrages(lastOuvrages);
+    setImportBusy(false);
+    setImportMessage(`${created}/${rows.length} ouvrage(s) importé(s).`);
+    if (created === rows.length) {
+      setImportText("");
+      setImportOpen(false);
+    }
   }
 
   function addSelectionToQuote() {
@@ -275,7 +370,7 @@ export default function OuvragesLibraryPage() {
                 placeholder={L.bibliotheque.familyPlaceholder}
               />
               <datalist id="family-options">
-                {families.filter((item) => item !== L.fournitures.all).map((item) => <option key={item} value={item} />)}
+                {families.map((item) => <option key={item} value={item} />)}
               </datalist>
             </label>
             <label className="library-field">{L.bibliotheque.unit}<select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
@@ -303,6 +398,28 @@ export default function OuvragesLibraryPage() {
           <h1>{L.bibliotheque.chooseItem}</h1>
           <button type="button" className="library-add" onClick={() => startCreate()} aria-label="Nouvel ouvrage">+</button>
         </header>
+
+        <button type="button" className="library-import-toggle" onClick={() => setImportOpen((prev) => !prev)}>
+          {importOpen ? "Fermer l'import" : "Importer un catalogue (coller un tableau)"}
+        </button>
+
+        {importOpen ? (
+          <div className="library-import-panel">
+            <p className="library-import-hint">
+              Une ligne par ouvrage, colonnes séparées par une tabulation : code, désignation, famille, sous-famille, unité, temps (h/u), taux horaire (€/h), commentaire (optionnel).
+            </p>
+            <textarea
+              className="library-import-textarea"
+              value={importText}
+              onChange={(event) => setImportText(event.target.value)}
+              rows={8}
+            />
+            {importMessage ? <p className="library-message">{importMessage}</p> : null}
+            <button type="button" className="library-submit" onClick={importCatalog} disabled={importBusy}>
+              {importBusy ? "Import en cours…" : `Importer (${importText.split("\n").filter((l) => l.trim()).length} ligne(s))`}
+            </button>
+          </div>
+        ) : null}
 
         <input
           className="library-search"
