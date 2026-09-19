@@ -6463,6 +6463,14 @@ p {
   line-height: 1.35;
 }
 
+.library-subfamily {
+  margin: 0;
+  color: #8892a0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .library-stats {
   margin: 0;
   color: #a0a5ad;

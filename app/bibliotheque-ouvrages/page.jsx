@@ -16,8 +16,6 @@ const emptyForm = {
   unit: "m²",
   normativeTime: "",
   hourlyRate: 0,
-  coefficient: 1,
-  discount: 0,
   description: "",
   parentCode: ""
 };
@@ -36,10 +34,7 @@ function formatMoney(value) {
 
 function moCost(item, fallbackRate = 0) {
   const rate = Number(item.hourlyRate || 0) || fallbackRate;
-  const base = Number(item.normativeTime || 0) * rate;
-  const coefficient = Number(item.coefficient || 1);
-  const discount = 1 - Number(item.discount || 0) / 100;
-  return Math.max(0, base * coefficient * discount);
+  return Math.max(0, Number(item.normativeTime || 0) * rate);
 }
 
 // Catalogue Electricite recu le 19 septembre (KOJI_ouvrages_ELEC_Suchet.pdf,
@@ -137,6 +132,20 @@ export default function OuvragesLibraryPage() {
   const families = useMemo(() => {
     return Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort();
   }, [ouvrages]);
+
+  // Sous-familles proposees dans le formulaire : celles deja utilisees pour
+  // la famille en cours de saisie (ex: GEN/DEP/TAB/CHE/PT/LUM/EQU pour
+  // Electricite) — evite de retaper la meme sous-famille a chaque ouvrage.
+  const categories = useMemo(() => {
+    return Array.from(
+      new Set(
+        ouvrages
+          .filter((item) => !form.family || item.family === form.family)
+          .map((item) => item.category)
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [ouvrages, form.family]);
 
   // Selectionne automatiquement le premier metier des que la bibliotheque
   // est chargee — jamais d'etat "aucun metier choisi" affichant tout.
@@ -327,6 +336,7 @@ export default function OuvragesLibraryPage() {
             <b>{item.unit}</b>
           </div>
           <h3>{item.label}</h3>
+          {item.category ? <p className="library-subfamily">{item.category}</p> : null}
           <p className="library-stats">
             <span>{L.bibliotheque.normTime}: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
             <span>{L.bibliotheque.hourlyRate}: <strong>{formatMoney(item.hourlyRate || companyHourlyRate)}</strong></span>
@@ -373,14 +383,23 @@ export default function OuvragesLibraryPage() {
                 {families.map((item) => <option key={item} value={item} />)}
               </datalist>
             </label>
+            <label className="library-field">{L.bibliotheque.category}
+              <input
+                list="category-options"
+                value={form.category}
+                onChange={(event) => setField("category", event.target.value)}
+                placeholder={L.bibliotheque.categoryPlaceholder}
+              />
+              <datalist id="category-options">
+                {categories.map((item) => <option key={item} value={item} />)}
+              </datalist>
+            </label>
             <label className="library-field">{L.bibliotheque.unit}<select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
               {units.map((item) => <option key={item}>{item}</option>)}
             </select></label>
             <label className="library-field">{L.bibliotheque.time}<input type="number" step="0.001" value={form.normativeTime} onChange={(event) => setField("normativeTime", event.target.value)} placeholder="1.20" /></label>
             <label className="library-field">{L.bibliotheque.hourlyRateEur}<input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} /></label>
             <div className="mo-box">{L.bibliotheque.moCostPerUnit} : <strong>{formatMoney(cost)}</strong></div>
-            <label className="library-field">{L.bibliotheque.coefficient}<input type="number" step="0.05" value={form.coefficient} onChange={(event) => setField("coefficient", event.target.value)} /></label>
-            <label className="library-field">{L.bibliotheque.reduction}<input type="number" step="1" value={form.discount} onChange={(event) => setField("discount", event.target.value)} /></label>
             <label className="library-field full">{L.bibliotheque.comment}<textarea value={form.description} onChange={(event) => setField("description", event.target.value)} placeholder={L.bibliotheque.comment} /></label>
             {form.parentCode ? <p className="library-note">{L.bibliotheque.subOf} {form.parentCode}</p> : null}
             <button className="library-submit">{buttonLabel}</button>
