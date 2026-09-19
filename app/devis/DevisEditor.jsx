@@ -223,11 +223,14 @@ export default function DevisEditor() {
   const [messageType, setMessageType] = useState("info");
   const [generatedQuote, setGeneratedQuote] = useState(null);
   const [savedLineId, setSavedLineId] = useState(null);
+  // Une ligne "Enregistree" se replie en resume compact (designation,
+  // quantite, unite, prix unitaire HT, total HT) — clic dessus pour la
+  // rouvrir en edition. S'applique pareil aux ouvrages, fournitures et
+  // sous-ouvrages (meme rendu, la ligne parente porte l'etat).
+  const [collapsedLineIds, setCollapsedLineIds] = useState(() => new Set());
   const [confirmDeleteLineId, setConfirmDeleteLineId] = useState(null);
   const [confirmDeleteSubId, setConfirmDeleteSubId] = useState(null);
   const [clientMessage, setClientMessage] = useState("");
-  const [openRooms, setOpenRooms] = useState(() => new Set());
-  const [savingCompany, setSavingCompany] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [signatureDelivery, setSignatureDelivery] = useState(null);
   const [copyMessage, setCopyMessage] = useState("");
@@ -267,8 +270,26 @@ export default function DevisEditor() {
   const [roomNotes, setRoomNotes] = useState([]);
   const [customRoom, setCustomRoom] = useState("");
   const [isNewChantier, setIsNewChantier] = useState(false);
-  const [identityOpen, setIdentityOpen] = useState(false);
-  const [roomsOpen, setRoomsOpen] = useState(true);
+  // Tous les lots visibles en accordeon (19 septembre, v2) : chaque lot a son
+  // propre repli/depli ; "targetRoom" = dernier lot clique, c'est lui que
+  // vise le panneau de droite (onglet Bibliotheque/Fournitures).
+  const [expandedLotIds, setExpandedLotIds] = useState(() => new Set(["Services"]));
+  const [lotsInitialized, setLotsInitialized] = useState(false);
+  const [targetRoom, setTargetRoom] = useState("Services");
+  const [rightPanelTab, setRightPanelTab] = useState("client");
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [libraryFamily, setLibraryFamily] = useState("");
+  const [supplyQuery, setSupplyQuery] = useState("");
+  const [supplyCategory, setSupplyCategory] = useState("");
+  const [conditioningOpen, setConditioningOpen] = useState(false);
+  const [paymentCardOpen, setPaymentCardOpen] = useState(false);
+  const [totalsDetailOpen, setTotalsDetailOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const moreActionsRef = useRef(null);
+  const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
+  const addLineMenuRef = useRef(null);
+  const [dragRoom, setDragRoom] = useState(null);
+  const [dragOverRoom, setDragOverRoom] = useState(null);
   const [customSources, setCustomSources] = useState([]);
   const [surcharges, setSurcharges] = useState([
     { id: "sc-coord", label: "Coordination de chantier", percent: 10, mode: "client" },
@@ -305,6 +326,28 @@ export default function DevisEditor() {
   // network calls resolve in the wrong order.
   const quoteCompanyAppliedRef = useRef(false);
   const persistQuoteInFlightRef = useRef(null);
+
+  useEffect(() => {
+    if (!moreActionsOpen) return;
+    function handleClickOutside(event) {
+      if (moreActionsRef.current && !moreActionsRef.current.contains(event.target)) {
+        setMoreActionsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreActionsOpen]);
+
+  useEffect(() => {
+    if (!addLineMenuRoom) return;
+    function handleClickOutside(event) {
+      if (addLineMenuRef.current && !addLineMenuRef.current.contains(event.target)) {
+        setAddLineMenuRoom(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [addLineMenuRoom]);
 
   useEffect(() => {
     apiGet("/api/auth/profile")
@@ -345,7 +388,7 @@ export default function DevisEditor() {
     const ouvrage = params.get("ouvrage");
     const fromSelection = params.get("selection") === "ouvrages";
     const fromFournitureSelection = params.get("selection") === "fourniture";
-    const targetRoom = window.localStorage.getItem("koji-devis-target-room") || "";
+    const restoredTargetRoom = window.localStorage.getItem("koji-devis-target-room") || "";
     window.localStorage.removeItem("koji-devis-target-room");
 
     // Restore persisted draft state (only if it belongs to the current user)
@@ -383,18 +426,19 @@ export default function DevisEditor() {
     }
 
     function applyTargetRoom(ids) {
-      if (!targetRoom || !ids.length) return;
+      if (!restoredTargetRoom || !ids.length) return;
       setLineSettings((current) => {
         const next = { ...current };
         ids.forEach((id) => {
-          if (!next[id]?.room) next[id] = { ...next[id], room: targetRoom };
+          if (!next[id]?.room) next[id] = { ...next[id], room: restoredTargetRoom };
         });
         return next;
       });
     }
 
-    if (targetRoom) {
-      setOpenRooms((current) => new Set(current).add(targetRoom));
+    if (restoredTargetRoom) {
+      setExpandedLotIds((current) => new Set(current).add(restoredTargetRoom));
+      setTargetRoom(restoredTargetRoom);
     }
 
     if (fromSelection) {
@@ -420,9 +464,10 @@ export default function DevisEditor() {
         const stored = JSON.parse(window.localStorage.getItem("koji-devis-fourniture") || "null");
         window.localStorage.removeItem("koji-devis-fourniture");
         if (stored?.supply) {
-          const supplyRoom = stored.room || targetRoom || "Services";
+          const supplyRoom = stored.room || restoredTargetRoom || "Services";
           addFournitureLine(stored.supply, stored.quantity || 1, supplyRoom);
-          setOpenRooms((current) => new Set(current).add(supplyRoom));
+          setExpandedLotIds((current) => new Set(current).add(supplyRoom));
+          setTargetRoom(supplyRoom);
         }
       } catch {
         window.localStorage.removeItem("koji-devis-fourniture");
@@ -634,6 +679,48 @@ export default function DevisEditor() {
     }), { hours: 0, labor: 0, supplies: 0, ht: 0, ttc: 0 });
   }, [quoteLines, company.hoursPerDay]);
 
+  // Pied de page (19 septembre) : "Total ouvrages" / "Total fournitures" —
+  // separe simplement les lignes "fourniture" (code FOURN, ajoutees via
+  // addFournitureLine) du reste.
+  const lotTotals = useMemo(() => {
+    return quoteLines.reduce((sum, line) => {
+      if (line.code === "FOURN") return { ...sum, supplies: sum.supplies + Number(line.totalHt || 0) };
+      return { ...sum, works: sum.works + Number(line.totalHt || 0) };
+    }, { works: 0, supplies: 0 });
+  }, [quoteLines]);
+
+  // Onglet "Bibliotheque" du panneau de droite (19 septembre) — meme
+  // convention de filtrage que app/bibliotheque-ouvrages/page.jsx (familles
+  // derivees des donnees, recherche sur code/designation), directement sur
+  // le catalogue deja charge (`postes`), sans nouvel appel reseau.
+  const libraryFamilies = useMemo(() => {
+    return Array.from(new Set(postes.map((item) => item.family || "Autre"))).sort();
+  }, [postes]);
+
+  const filteredLibraryItems = useMemo(() => {
+    const normalized = libraryQuery.trim().toLowerCase();
+    return postes.filter((item) => {
+      if (libraryFamily && item.family !== libraryFamily) return false;
+      if (!normalized) return true;
+      return [item.code, item.label, item.family].join(" ").toLowerCase().includes(normalized);
+    });
+  }, [postes, libraryQuery, libraryFamily]);
+
+  // Onglet "Fournitures" — meme formule, categories derivees de `supplies`
+  // (deja charge par la page pour le calcul des lignes existantes).
+  const supplyCategories = useMemo(() => {
+    return Array.from(new Set(supplies.map((item) => item.category).filter(Boolean))).sort();
+  }, [supplies]);
+
+  const filteredSupplyItems = useMemo(() => {
+    const normalized = supplyQuery.trim().toLowerCase();
+    return supplies.filter((item) => {
+      if (supplyCategory && item.category !== supplyCategory) return false;
+      if (!normalized) return true;
+      return [item.name, item.category, item.supplierName].join(" ").toLowerCase().includes(normalized);
+    });
+  }, [supplies, supplyQuery, supplyCategory]);
+
   const roomGroups = useMemo(() => {
     const labels = [...rooms];
     quoteLines.forEach((line) => {
@@ -641,6 +728,17 @@ export default function DevisEditor() {
     });
     return labels;
   }, [rooms, quoteLines]);
+
+  // Panneau gauche : tous les lots deplies par defaut au chargement d'un
+  // devis (une seule fois) — l'utilisatrice replie ensuite ce qu'elle veut.
+  useEffect(() => {
+    if (lotsInitialized) return;
+    if (roomGroups.length > 0) {
+      setExpandedLotIds(new Set(["Services", ...roomGroups]));
+      setTargetRoom(roomGroups[0]);
+      setLotsInitialized(true);
+    }
+  }, [roomGroups, lotsInitialized]);
 
   const linesByRoom = useMemo(() => {
     const map = {};
@@ -709,38 +807,76 @@ export default function DevisEditor() {
     setCustomRoom("");
   }
 
-  function removeRoom(label) {
-    setRooms((current) => current.filter((item) => item !== label));
-    clearLineOverride("room", label);
+  // Onglet "Lots" du panneau droit : cree le lot et le deplie/cible
+  // immediatement a gauche (au lieu de rester replie).
+  function addCustomRoomAndFocus() {
+    const label = customRoom.trim();
+    if (!label) return;
+    addCustomRoom();
+    setExpandedLotIds((current) => new Set(current).add(label));
+    setTargetRoom(label);
   }
 
-  function moveRoom(room, direction) {
-    setRooms((current) => {
-      const base = current.length ? current : roomGroups.filter((item) => item !== "Services");
-      const list = base.includes(room) ? [...base] : [...base, room];
-      const index = list.indexOf(room);
-      const swapIndex = direction === "up" ? index - 1 : index + 1;
-      if (swapIndex < 0 || swapIndex >= list.length) return current;
-      [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
-      return list;
-    });
-  }
-
-  function scrollToRoom(room) {
-    if (typeof window === "undefined") return;
-    setOpenRooms((current) => new Set(current).add(room));
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`lot-section-${encodeURIComponent(room)}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }
-
-  function toggleRoomOpen(room) {
-    setOpenRooms((current) => {
+  // Clic sur l'en-tete d'un lot a gauche : le cible (pour le panneau de
+  // droite) et bascule son repli/depli — les deux en un seul geste.
+  function selectAndToggleLot(room) {
+    setTargetRoom(room);
+    setExpandedLotIds((current) => {
       const next = new Set(current);
       if (next.has(room)) next.delete(room);
       else next.add(room);
       return next;
+    });
+  }
+
+  function handleRoomPointerDown(event, room) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragRoom(room);
+    setDragOverRoom(room);
+  }
+
+  function handleRoomPointerMove(event) {
+    if (!dragRoom) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const rowEl = target ? target.closest("[data-room-row]") : null;
+    const room = rowEl ? rowEl.getAttribute("data-room-row") : null;
+    if (room && room !== "Services") setDragOverRoom(room);
+  }
+
+  function handleRoomPointerUp() {
+    if (dragRoom && dragOverRoom && dragRoom !== dragOverRoom) {
+      reorderRooms(dragRoom, dragOverRoom);
+    }
+    setDragRoom(null);
+    setDragOverRoom(null);
+  }
+
+  function removeRoom(label) {
+    setRooms((current) => current.filter((item) => item !== label));
+    clearLineOverride("room", label);
+    setTargetRoom((current) => (current === label ? "Services" : current));
+    setExpandedLotIds((current) => {
+      if (!current.has(label)) return current;
+      const next = new Set(current);
+      next.delete(label);
+      return next;
+    });
+  }
+
+  // Reordonne les lots au glisser (liste de droite) — meme logique de "seed"
+  // depuis roomGroups que l'ancien systeme de boutons ▲▼, mais insertion a
+  // un index arbitraire plutot qu'un echange avec le voisin.
+  function reorderRooms(fromRoom, toRoom) {
+    if (!fromRoom || !toRoom || fromRoom === toRoom) return;
+    setRooms((current) => {
+      const base = current.length ? current : roomGroups.filter((item) => item !== "Services");
+      const list = base.includes(fromRoom) ? [...base] : [...base, fromRoom];
+      const fromIndex = list.indexOf(fromRoom);
+      if (fromIndex === -1) return current;
+      list.splice(fromIndex, 1);
+      const toIndex = list.indexOf(toRoom);
+      list.splice(toIndex === -1 ? list.length : toIndex, 0, fromRoom);
+      return list;
     });
   }
 
@@ -756,6 +892,14 @@ export default function DevisEditor() {
       return next;
     });
     setRoomNotes((prev) => prev.map((note) => note.room === oldName ? { ...note, room: trimmed } : note));
+    setTargetRoom((current) => (current === oldName ? trimmed : current));
+    setExpandedLotIds((current) => {
+      if (!current.has(oldName)) return current;
+      const next = new Set(current);
+      next.delete(oldName);
+      next.add(trimmed);
+      return next;
+    });
     setGeneratedQuote(null);
   }
 
@@ -817,10 +961,12 @@ export default function DevisEditor() {
     }));
   }
 
+  // Repointe vers l'onglet "Fournitures" du panneau de droite (integre a
+  // la page depuis le 19 septembre) au lieu de naviguer vers /fournitures.
   function openFournitureComposer(room = "Services") {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("koji-devis-target-room", room);
-    window.location.assign("/fournitures?from=devis");
+    setTargetRoom(room);
+    setExpandedLotIds((current) => new Set(current).add(room));
+    setRightPanelTab("fournitures");
   }
 
   function addFournitureLine(supply, quantity, room) {
@@ -1097,11 +1243,26 @@ export default function DevisEditor() {
     }
   }
 
+  // Repointe vers l'onglet "Bibliotheque" du panneau de droite (integre a
+  // la page depuis le 19 septembre) au lieu de naviguer vers
+  // /bibliotheque-ouvrages.
   function openOuvragesLibrary(room = "Services") {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem("koji-devis-ouvrages");
-    window.localStorage.setItem("koji-devis-target-room", room);
-    window.location.assign("/bibliotheque-ouvrages?from=devis&resetSelection=1");
+    setTargetRoom(room);
+    setExpandedLotIds((current) => new Set(current).add(room));
+    setRightPanelTab("bibliotheque");
+  }
+
+  // Insere un ouvrage du catalogue dans le lot cible (onglet Bibliotheque,
+  // panneau de droite) — meme mecanisme que le retour de
+  // /bibliotheque-ouvrages, sans le detour navigation+localStorage.
+  function addOuvrageToRoom(ouvrage, room) {
+    setSelectedIds((current) => current.includes(ouvrage.id) ? current : [...current, ouvrage.id]);
+    setLineSettings((current) => ({
+      ...current,
+      [ouvrage.id]: { ...(current[ouvrage.id] || {}), room, quantity: current[ouvrage.id]?.quantity ?? "1" }
+    }));
+    setExpandedLotIds((current) => new Set(current).add(room));
+    setGeneratedQuote(null);
   }
 
   function openNoteComposer(room = "Services") {
@@ -1175,37 +1336,6 @@ export default function DevisEditor() {
     notify(error?.message || fallback, "error");
     if (error?.upgradeRequired) {
       window.setTimeout(() => router.push("/abonnement"), 2200);
-    }
-  }
-
-  async function saveCompanyProfile() {
-    if (typeof window === "undefined") return;
-    setSavingCompany(true);
-    try {
-      let localUser = null;
-      try { localUser = JSON.parse(window.localStorage.getItem("koji-user") || "null"); } catch { /**/ }
-      const payload = {
-        userId: localUser?.id,
-        name: localUser?.name || company.name,
-        email: localUser?.email || company.email,
-        accountType: localUser?.accountType || "entreprise",
-        business: {
-          raisonSociale: company.name,
-          addressLine1: company.address,
-          emailPro: company.email,
-          phone: company.phone,
-          siret: company.siret,
-          tva: company.tva,
-          logoDataUrl: company.logoDataUrl
-        }
-      };
-      const response = await apiSend("/api/auth/profile", payload, "PATCH");
-      window.localStorage.setItem("koji-user", JSON.stringify(response.user));
-      notify("Informations entreprise enregistrées.", "success");
-    } catch (error) {
-      notify(error.message || "Impossible d'enregistrer les informations.", "error");
-    } finally {
-      setSavingCompany(false);
     }
   }
 
@@ -1358,10 +1488,20 @@ export default function DevisEditor() {
     try {
       await persistQuote();
       setSavedLineId(`saved-${lineId}`);
+      setCollapsedLineIds((current) => new Set(current).add(lineId));
       setTimeout(() => setSavedLineId(null), 2000);
     } catch {
       setSavedLineId(null);
     }
+  }
+
+  function reopenLine(lineId) {
+    setCollapsedLineIds((current) => {
+      if (!current.has(lineId)) return current;
+      const next = new Set(current);
+      next.delete(lineId);
+      return next;
+    });
   }
 
   async function sendQuoteToSignature(quoteId) {
@@ -1596,6 +1736,43 @@ export default function DevisEditor() {
     const roomLines = linesByRoom[line.room || "Services"] || [];
     const lineIndex = roomLines.findIndex((item) => item.id === line.id);
     const linkedOuvrage = ouvrages.find((item) => item.id === line.id);
+    const lineNumber = lineIndex + 1;
+
+    if (collapsedLineIds.has(line.id)) {
+      const qty = Number(settings.quantity ?? line.quantity ?? 0) || (line.billingMode === "fixed" ? 1 : 0);
+      const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
+      return (
+        <article key={line.id} className="quote-final-line quote-final-line-collapsed">
+          <button type="button" className="quote-line-collapsed-row" onClick={() => reopenLine(line.id)}>
+            <span className="quote-line-collapsed-index">{lineNumber}</span>
+            <span className="quote-line-collapsed-label">{settings.label ?? line.label ?? L.devis.designation}</span>
+            <span className="quote-line-collapsed-qty">{qty > 0 ? qty : "—"}</span>
+            <span className="quote-line-collapsed-unit">{(settings.unit ?? line.unit ?? "u").toUpperCase()}</span>
+            <span className="quote-line-collapsed-unitprice">{money(unitPriceHt)}</span>
+            <strong className="quote-line-collapsed-total">{money(line.totalHt)}</strong>
+          </button>
+          {hasSubItems ? (
+            <div className="quote-line-collapsed-subs">
+              {subItems.map((sub, subIndex) => {
+                const subQty = Number(sub.quantity || 0) || (sub.billingMode === "fixed" ? 1 : 0);
+                const subUnitPriceHt = subQty > 0 ? sub.totalHt / subQty : sub.totalHt;
+                return (
+                  <div className="quote-line-collapsed-row quote-line-collapsed-sub" key={sub.id}>
+                    <span className="quote-line-collapsed-index">{lineNumber}.{subIndex + 1}</span>
+                    <span className="quote-line-collapsed-label">{sub.label || L.devis.designation}</span>
+                    <span className="quote-line-collapsed-qty">{subQty > 0 ? subQty : "—"}</span>
+                    <span className="quote-line-collapsed-unit">{(sub.unit || "u").toUpperCase()}</span>
+                    <span className="quote-line-collapsed-unitprice">{money(subUnitPriceHt)}</span>
+                    <strong className="quote-line-collapsed-total">{money(sub.totalHt)}</strong>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </article>
+      );
+    }
+
     return (
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
@@ -1668,7 +1845,7 @@ export default function DevisEditor() {
                 <>
                   <span>{L.devis.hours}: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
                   <span>{L.devis.labor}: {money(line.laborCost)}</span>
-                  <span>{L.nav.fournitures}: {money(line.materialCost)}</span>
+                  <span>{L.nav.supplies}: {money(line.materialCost)}</span>
                 </>
               )}
               <span>HT: {money(line.totalHt)}</span>
@@ -1679,7 +1856,7 @@ export default function DevisEditor() {
               return (
                 <div className="quote-line-supplies">
                   <div className="quote-line-supplies-head">
-                    <span>{L.nav.fournitures}</span>
+                    <span>{L.nav.supplies}</span>
                   </div>
                   {visibleMaterials.map((material) => {
                     const linkedSupply = findSupplyForMaterial(supplies, material);
@@ -1847,6 +2024,9 @@ export default function DevisEditor() {
           <h1>{L.devis.generate}</h1>
         </div>
         <div className="quote-final-actions">
+          <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
+          <button type="button" className="button secondary" onClick={handleGenerate}>{L.devis.save}</button>
+          <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
           <Link className="button secondary" href="/signature">{L.devis.mySignature}</Link>
         </div>
       </header>
@@ -1857,56 +2037,154 @@ export default function DevisEditor() {
             <span>{L.devis.quoteNum} : {previewQuoteNumber}</span>
             <span className="quote-meta-version">{L.devis.versionNum} : {previewVersionNumber}</span>
           </div>
-          <button type="button" className={`quote-meta-toggle ${identityOpen ? "open" : ""}`} onClick={() => setIdentityOpen((open) => !open)} aria-expanded={identityOpen} aria-label={identityOpen ? "Réduire les informations" : "Afficher les informations"}>
-            <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-          </button>
         </div>
 
-        {identityOpen ? (
-          <section className="quote-identity-grid">
-            <article className="quote-identity-card quote-identity-card-editable">
-              {company.logoDataUrl ? (
-                <img src={company.logoDataUrl} alt="Logo entreprise" className="koji-mini-logo koji-mini-logo-img" />
-              ) : (
-                <div className="koji-mini-logo">{(company.name || "KJ").slice(0, 2).toUpperCase()}</div>
-              )}
-              <div className="quote-identity-fields">
-                <span>{L.devis.companySection}</span>
-                <div className="quote-client-grid quote-company-grid">
-                  <label>{L.devis.companyName}<input value={company.name} onChange={(event) => setCompanyField("name", event.target.value)} placeholder={L.devis.companyName} /></label>
-                  <label className="wide">{L.devis.address}<input value={company.address} onChange={(event) => setCompanyField("address", event.target.value)} placeholder={L.devis.address} /></label>
-                  <label>{L.devis.clientEmail}<input type="email" value={company.email} onChange={(event) => setCompanyField("email", event.target.value)} placeholder="contact@entreprise.fr" /></label>
-                  <label>{L.parametres.phone}<input value={company.phone} onChange={(event) => setCompanyField("phone", event.target.value)} placeholder="+33..." /></label>
-                  <label>{L.parametres.siret}<input value={company.siret} onChange={(event) => setCompanyField("siret", event.target.value)} placeholder="12345678901234" /></label>
-                  <label>{L.parametres.tva}<input value={company.tva} onChange={(event) => setCompanyField("tva", event.target.value)} placeholder="FR..." /></label>
-                </div>
-                <div className="quote-identity-card-save">
-                  <button
-                    type="button"
-                    className={`quote-identity-save-btn${savingCompany ? " saving" : ""}`}
-                    onClick={saveCompanyProfile}
-                  >
-                    {savingCompany ? L.devis.saving : L.devis.save}
-                  </button>
+        <div className="quote-two-col">
+          <div className="quote-col-left">
+            <section className="quote-final-card">
+              <div className="quote-section-title">
+                <div>
+                  <span>{L.devis.presentation}</span>
+                  <h2>{L.devis.workDescTitle}</h2>
                 </div>
               </div>
-            </article>
+              <textarea
+                className="quote-work-description"
+                value={form.workDescription}
+                onChange={(event) => setField("workDescription", event.target.value)}
+                placeholder={L.devis.workDescPh}
+                rows={3}
+              />
+            </section>
 
-            <article className="quote-identity-card">
-              <div>
-                <span>{L.devis.clientSite}</span>
+            {["Services", ...roomGroups.filter((r) => r !== "Services")].map((room) => {
+              const roomLines = linesByRoom[room] || [];
+              const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+              const isExpanded = expandedLotIds.has(room);
+              const isTargeted = targetRoom === room;
+              return (
+                <section key={room} className={`quote-final-card quote-room-card quote-lot-editor${isTargeted ? " targeted" : ""}`}>
+                  <button type="button" className="quote-section-title quote-room-title-row quote-lot-header-refined quote-lot-header-btn" onClick={() => selectAndToggleLot(room)}>
+                    <span className="quote-lot-number-badge">
+                      <span className="quote-lot-number-badge-emoji" aria-hidden="true">📦</span>
+                      {room === "Services" ? "•" : roomGroups.filter((r) => r !== "Services").indexOf(room) + 1}
+                    </span>
+                    {room === "Services" ? (
+                      <h2 className="quote-lot-name">{L.devis.generalWorks}</h2>
+                    ) : (
+                      <div className="quote-lot-name-edit">
+                        <input
+                          key={room}
+                          className="quote-room-name-input"
+                          defaultValue={room}
+                          onClick={(e) => e.stopPropagation()}
+                          onBlur={(e) => renameRoom(room, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                          placeholder="Nom du lot…"
+                        />
+                        <svg className="quote-lot-edit-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                      </div>
+                    )}
+                    <span className="quote-room-subtotal-badge">{money(roomTotalHt)} HT</span>
+                    <svg className={`svg-icon quote-lot-chevron ${isExpanded ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+                  </button>
+
+                  {isExpanded ? (
+                    <>
+                      <div className="quote-add-line-row" ref={addLineMenuRoom === room ? addLineMenuRef : null}>
+                        <button type="button" className="quote-add-line-btn" onClick={() => setAddLineMenuRoom((current) => current === room ? null : room)} aria-expanded={addLineMenuRoom === room}>
+                          <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
+                          {L.devis.addLineFull}
+                        </button>
+                        {addLineMenuRoom === room ? (
+                          <div className="quote-add-line-dropdown">
+                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openOuvragesLibrary(room); }}>
+                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 6.5C10.5 5.5 8 5 4 5v13c4 0 6.5.5 8 1.5M12 6.5c1.5-1 4-1.5 8-1.5v13c-4 0-6.5.5-8 1.5M12 6.5v13" /></svg>
+                              {L.devis.library}
+                            </button>
+                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openOuvrageComposer(room); }}>
+                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" /></svg>
+                              {L.devis.createWork}
+                            </button>
+                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openFournitureComposer(room); }}>
+                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5" fill="currentColor" /><circle cx="18" cy="20" r="1.5" fill="currentColor" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" /></svg>
+                              {L.devis.addSupplyBtn}
+                            </button>
+                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openNoteComposer(room); }}>
+                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                              {L.devis.noteBtn}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {roomNotes.filter((note) => note.room === room).map((note) => (
+                        <div key={note.id} className="room-note-card">
+                          <div className="room-note-header">
+                            <span className="room-note-type">
+                              {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
+                            </span>
+                            <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
+                          </div>
+                          {note.message ? <p className="room-note-message">{note.message}</p> : null}
+                          {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" className="room-note-photo" /> : null}
+                          {note.fileName && !note.photoDataUrl ? <span className="room-note-file">{note.fileName}</span> : null}
+                        </div>
+                      ))}
+
+                      {!roomLines.length ? (
+                        <div className="empty-state">{L.devis.noWorkForLot}</div>
+                      ) : (
+                        <div className="quote-final-lines">
+                          {roomLines.map((line) => renderLineCard(line))}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </section>
+              );
+            })}
+
+            <section className="quote-final-card quote-lots-footer">
+              <button type="button" className="quote-totals-detail-toggle" onClick={() => setTotalsDetailOpen((open) => !open)}>
+                {totalsDetailOpen ? "▾" : "▸"} {L.devis.detailsBtn}
+              </button>
+              {totalsDetailOpen ? (
+                <div className="quote-total-panel-compact">
+                  <div><span>{L.devis.totalHours}</span><strong>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</strong></div>
+                  <div><span>{L.devis.laborHt}</span><strong>{money(totals.labor)}</strong></div>
+                  <div><span>{L.devis.suppliesHt}</span><strong>{money(totals.supplies)}</strong></div>
+                  <div><span>{L.devis.subtotalHt}</span><strong>{money(totals.ht)}</strong></div>
+                </div>
+              ) : null}
+              <div className="quote-lots-footer-left">
+                <div><span>{L.devis.worksTotal}</span><strong>{money(lotTotals.works)}</strong></div>
+                <div><span>{L.devis.suppliesTotal}</span><strong>{money(lotTotals.supplies)}</strong></div>
+              </div>
+              <div className="quote-lots-footer-right">
+                <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
+                <div><span>TVA / VAT</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
+                <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
+              </div>
+            </section>
+          </div>
+
+          <div className="quote-col-right">
+            <div className="quote-right-tabs">
+              <button type="button" className={rightPanelTab === "client" ? "active" : ""} onClick={() => setRightPanelTab("client")}>{L.devis.tabClient}</button>
+              <button type="button" className={rightPanelTab === "lots" ? "active" : ""} onClick={() => setRightPanelTab("lots")}>{L.devis.tabLots}</button>
+              <button type="button" className={rightPanelTab === "bibliotheque" ? "active" : ""} onClick={() => setRightPanelTab("bibliotheque")}>{L.devis.library}</button>
+              <button type="button" className={rightPanelTab === "fournitures" ? "active" : ""} onClick={() => setRightPanelTab("fournitures")}>{L.nav.supplies}</button>
+            </div>
+
+            {rightPanelTab === "client" ? (
+              <section className="quote-final-card quote-client-card">
                 <div className="quote-client-grid quote-client-grid-pair">
                   <label>{L.devis.clientRef}<input value={form.clientReference} onChange={(event) => setField("clientReference", event.target.value)} placeholder={L.devis.clientRef} /></label>
                   <label>{L.devis.client}<input value={form.client} onChange={(event) => setField("client", event.target.value)} placeholder={L.devis.client} /></label>
-                </div>
-                <div className="quote-client-grid quote-client-grid-pair">
                   <label>{L.devis.clientPhone}<input value={form.clientPhone} onChange={(event) => setField("clientPhone", event.target.value)} placeholder="06 12 34 56 78" /></label>
                   <label>{L.devis.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
-                </div>
-                <div className="quote-client-grid">
                   <label className="wide">{L.devis.clientAddress}<input value={form.chantierAddress} onChange={(event) => setField("chantierAddress", event.target.value)} placeholder={L.devis.clientAddress} /></label>
-                </div>
-                <div className="quote-client-grid">
                   <label>{L.devis.project}<select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
                     if (event.target.value === "nouveau") {
                       setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "" }));
@@ -1937,263 +2215,156 @@ export default function DevisEditor() {
                     <option>Local</option>
                     <option>Autre</option>
                   </select></label>
+                  <div className="quote-identity-card-save">
+                    <button
+                      type="button"
+                      className={`quote-identity-save-btn${savingClient ? " saving" : ""}`}
+                      onClick={saveClientInfo}
+                    >
+                      {savingClient ? L.devis.saving : L.devis.save}
+                    </button>
+                  </div>
                 </div>
-                <div className="quote-identity-card-save">
-                  <button
-                    type="button"
-                    className={`quote-identity-save-btn${savingClient ? " saving" : ""}`}
-                    onClick={saveClientInfo}
+              </section>
+            ) : null}
+
+            {rightPanelTab === "lots" ? (
+              <section className="quote-final-card quote-lots-list-card">
+                <div className="quote-section-title">
+                  <div>
+                    <span>{L.devis.organization}</span>
+                    <h2>{L.devis.lotsTitle}</h2>
+                  </div>
+                </div>
+                <div className="room-add-card">
+                  <div className="room-add-row">
+                    <input
+                      value={customRoom}
+                      onChange={(event) => setCustomRoom(event.target.value)}
+                      placeholder={L.devis.roomPh}
+                      list="room-suggestions"
+                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoomAndFocus(); } }}
+                    />
+                    <datalist id="room-suggestions">
+                      {ROOM_SUGGESTIONS.map((room) => <option key={room} value={room} />)}
+                    </datalist>
+                    <button type="button" onClick={addCustomRoomAndFocus}>+</button>
+                  </div>
+                </div>
+                <div className="lot-list">
+                  <div
+                    className={`lot-list-row lot-list-row-pinned ${targetRoom === "Services" ? "active" : ""}`}
+                    data-room-row="Services"
                   >
-                    {savingClient ? L.devis.saving : L.devis.save}
-                  </button>
-                </div>
-              </div>
-            </article>
-          </section>
-        ) : null}
-
-        <section className="quote-final-card">
-          <div className="quote-section-title">
-            <div>
-              <span>{L.devis.presentation}</span>
-              <h2>{L.devis.workDescTitle}</h2>
-            </div>
-          </div>
-          <textarea
-            className="quote-work-description"
-            value={form.workDescription}
-            onChange={(event) => setField("workDescription", event.target.value)}
-            placeholder={L.devis.workDescPh}
-            rows={3}
-          />
-        </section>
-
-        <section className="quote-final-card">
-          <div className="quote-section-title">
-            <div>
-              <span>{L.devis.organization}</span>
-              <h2>{L.devis.lotsTitle}</h2>
-            </div>
-            <button type="button" className={`quote-meta-toggle ${roomsOpen ? "open" : ""}`} onClick={() => setRoomsOpen((open) => !open)} aria-expanded={roomsOpen} aria-label={roomsOpen ? "Réduire les pièces" : "Afficher les pièces"}>
-              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-            </button>
-          </div>
-
-          {roomsOpen ? (
-            <>
-              <div className="room-add-card">
-                <div className="room-add-row">
-                  <input
-                    value={customRoom}
-                    onChange={(event) => setCustomRoom(event.target.value)}
-                    placeholder={L.devis.roomPh}
-                    list="room-suggestions"
-                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoom(); } }}
-                  />
-                  <datalist id="room-suggestions">
-                    {ROOM_SUGGESTIONS.map((room) => <option key={room} value={room} />)}
-                  </datalist>
-                  <button type="button" onClick={addCustomRoom}>+</button>
-                </div>
-              </div>
-              {roomGroups.filter((room) => room !== "Services").length ? (
-                <div className="lot-chip-list">
-                  {roomGroups.filter((room) => room !== "Services").map((room, index, list) => (
-                    <span className="lot-chip lot-chip-clickable" key={room}>
-                      <button type="button" className="lot-chip-move" title={L.devis.moveUp} aria-label={L.devis.moveUp} onClick={(e) => { e.stopPropagation(); moveRoom(room, "up"); }} disabled={index === 0}>▲</button>
-                      <button type="button" className="lot-chip-move" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={(e) => { e.stopPropagation(); moveRoom(room, "down"); }} disabled={index === list.length - 1}>▼</button>
-                      <button type="button" className="lot-chip-label" onClick={() => scrollToRoom(room)}>{room}</button>
-                      <button type="button" className="lot-chip-remove" onClick={(e) => { e.stopPropagation(); removeRoom(room); }} aria-label={`Retirer ${room}`}>x</button>
-                    </span>
+                    <span className="lot-list-drag-handle lot-list-drag-handle-fixed" aria-hidden="true" />
+                    <button type="button" className="lot-list-label" onClick={() => setTargetRoom("Services")}>{L.devis.generalWorks}</button>
+                  </div>
+                  {roomGroups.filter((room) => room !== "Services").map((room) => (
+                    <div
+                      key={room}
+                      data-room-row={room}
+                      className={`lot-list-row ${targetRoom === room ? "active" : ""} ${dragOverRoom === room && dragRoom && dragRoom !== room ? "drag-over" : ""} ${dragRoom === room ? "dragging" : ""}`}
+                    >
+                      <span
+                        className="lot-list-drag-handle"
+                        onPointerDown={(e) => handleRoomPointerDown(e, room)}
+                        onPointerMove={handleRoomPointerMove}
+                        onPointerUp={handleRoomPointerUp}
+                        onPointerCancel={handleRoomPointerUp}
+                        aria-hidden="true"
+                      >⠿</span>
+                      <button type="button" className="lot-list-label" onClick={() => setTargetRoom(room)}>{room}</button>
+                      <button type="button" className="lot-list-remove" onClick={() => removeRoom(room)} aria-label={`Retirer ${room}`}>×</button>
+                    </div>
                   ))}
                 </div>
-              ) : null}
-            </>
-          ) : null}
-        </section>
+              </section>
+            ) : null}
 
-        <section className="quote-final-card">
-          <div className="quote-section-title quote-room-title-row">
-            <div>
-              <span>{L.devis.works}</span>
-              <h2>{L.devis.worksTitle}</h2>
-            </div>
-            <div className="quote-room-header-right">
-              <span className="quote-room-subtotal-badge">{money((linesByRoom["Services"] || []).reduce((s, l) => s + l.totalHt, 0))} HT</span>
-              <button
-                type="button"
-                className={`quote-meta-toggle ${openRooms.has("Services") ? "open" : ""}`}
-                onClick={() => toggleRoomOpen("Services")}
-                aria-expanded={openRooms.has("Services")}
-                aria-label={openRooms.has("Services") ? "Réduire les ouvrages sans lot" : "Ouvrir les ouvrages sans lot"}
-              >
-                <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+            {rightPanelTab === "bibliotheque" ? (
+              <section className="quote-final-card quote-picker-card">
+                <p className="quote-picker-hint">{L.devis.addToLot} : <strong>{targetRoom === "Services" ? L.devis.generalWorks : targetRoom}</strong></p>
+                <input
+                  className="quote-picker-search"
+                  value={libraryQuery}
+                  onChange={(event) => setLibraryQuery(event.target.value)}
+                  placeholder={L.bibliotheque.search}
+                />
+                <div className="quote-picker-chips">
+                  <button type="button" className={!libraryFamily ? "active" : ""} onClick={() => setLibraryFamily("")}>{L.fournitures.all}</button>
+                  {libraryFamilies.map((family) => (
+                    <button type="button" key={family} className={libraryFamily === family ? "active" : ""} onClick={() => setLibraryFamily(family)}>{family}</button>
+                  ))}
+                </div>
+                <div className="quote-picker-list">
+                  {filteredLibraryItems.map((item) => {
+                    const unitPrice = Number(item.normativeTime || 0) * (Number(item.hourlyRate || 0) || company.hourlyRate || 0);
+                    return (
+                      <div className="quote-picker-row" key={item.id}>
+                        <div className="quote-picker-row-main">
+                          <span className="quote-picker-row-code">{item.code}</span>
+                          <strong>{item.label}</strong>
+                          <span className="quote-picker-row-stats">{L.bibliotheque.time} : {item.normativeTime || 0} h/{item.unit || "u"} · {money(unitPrice)} HT</span>
+                        </div>
+                        <button type="button" className="quote-picker-add-btn" onClick={() => addOuvrageToRoom(item, targetRoom)}>{L.bibliotheque.addToCatalog}</button>
+                      </div>
+                    );
+                  })}
+                  {!filteredLibraryItems.length ? <p className="empty-state">{L.bibliotheque.noFound}</p> : null}
+                </div>
+                <div className="quote-picker-footer">
+                  <button type="button" className="button secondary" onClick={() => openOuvrageComposer(targetRoom)}>+ {L.devis.createWork}</button>
+                  <Link className="quote-picker-full-link" href="/bibliotheque-ouvrages">{L.bibliotheque.title} →</Link>
+                </div>
+              </section>
+            ) : null}
+
+            {rightPanelTab === "fournitures" ? (
+              <section className="quote-final-card quote-picker-card">
+                <p className="quote-picker-hint">{L.devis.addToLot} : <strong>{targetRoom === "Services" ? L.devis.generalWorks : targetRoom}</strong></p>
+                <input
+                  className="quote-picker-search"
+                  value={supplyQuery}
+                  onChange={(event) => setSupplyQuery(event.target.value)}
+                  placeholder={L.bibliotheque.search}
+                />
+                <div className="quote-picker-chips">
+                  <button type="button" className={!supplyCategory ? "active" : ""} onClick={() => setSupplyCategory("")}>{L.fournitures.all}</button>
+                  {supplyCategories.map((category) => (
+                    <button type="button" key={category} className={supplyCategory === category ? "active" : ""} onClick={() => setSupplyCategory(category)}>{category}</button>
+                  ))}
+                </div>
+                <div className="quote-picker-list">
+                  {filteredSupplyItems.map((item) => (
+                    <div className="quote-picker-row" key={item.id}>
+                      <div className="quote-picker-row-main">
+                        <strong>{item.name}</strong>
+                        <span className="quote-picker-row-stats">{item.category || ""} · {money(supplyPrice(item))} HT/{item.unit || "u"}</span>
+                      </div>
+                      <button type="button" className="quote-picker-add-btn" onClick={() => addFournitureLine(item, 1, targetRoom)}>{L.bibliotheque.addToCatalog}</button>
+                    </div>
+                  ))}
+                  {!filteredSupplyItems.length ? <p className="empty-state">{L.bibliotheque.noFound}</p> : null}
+                </div>
+                <div className="quote-picker-footer">
+                  <Link className="quote-picker-full-link" href="/fournitures">{L.nav.supplies} →</Link>
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </div>
+
+        <section className="quote-final-card quote-conditioning-toggle-card">
+          <button type="button" className="quote-conditioning-toggle" onClick={() => setConditioningOpen((open) => !open)} aria-expanded={conditioningOpen}>
+            <span>{L.devis.conditioning}</span>
+            <svg className={`svg-icon ${conditioningOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
               </button>
-            </div>
-          </div>
-
-          {openRooms.has("Services") ? (
-          <>
-          <div className="quote-toolbar">
-            <button type="button" className="quote-toolbar-button purple" onClick={() => openNoteComposer("Services")}>
-              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-              {L.devis.noteBtn}
-            </button>
-            <button type="button" className="quote-toolbar-button orange" onClick={() => openOuvragesLibrary("Services")}>
-              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 6.5C10.5 5.5 8 5 4 5v13c4 0 6.5.5 8 1.5M12 6.5c1.5-1 4-1.5 8-1.5v13c-4 0-6.5.5-8 1.5M12 6.5v13" /></svg>
-              {L.devis.library}
-            </button>
-            <button type="button" className="quote-toolbar-button blue" onClick={() => openOuvrageComposer("Services")}>
-              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" /></svg>
-              {L.devis.createWork}
-            </button>
-            <button type="button" className="quote-toolbar-button green" onClick={() => openFournitureComposer("Services")}>
-              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5" fill="currentColor" /><circle cx="18" cy="20" r="1.5" fill="currentColor" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" /></svg>
-              {L.devis.addSupplyBtn}
-            </button>
-          </div>
-
-          {roomNotes.filter((note) => note.room === "Services").map((note) => (
-            <div key={note.id} className="room-note-card">
-              <div className="room-note-header">
-                <span className="room-note-type">
-                  {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
-                </span>
-                <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
-              </div>
-              {note.message ? <p className="room-note-message">{note.message}</p> : null}
-              {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" className="room-note-photo" /> : null}
-              {note.fileName && !note.photoDataUrl ? <span className="room-note-file">{note.fileName}</span> : null}
-            </div>
-          ))}
-
-          {(linesByRoom["Services"] || []).length > 0 ? (
-            <div className="quote-final-lines">
-              {(linesByRoom["Services"] || []).map((line) => renderLineCard(line))}
-            </div>
-          ) : null}
-          </>
-          ) : null}
-        </section>
-
-        {roomGroups.filter((room) => room !== "Services").map((room, roomIndex, roomList) => {
-          const roomLines = linesByRoom[room] || [];
-          const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
-          const isRoomOpen = openRooms.has(room);
-          return (
-            <section className={`quote-final-card quote-room-card${isRoomOpen ? "" : " collapsed"}`} id={`lot-section-${encodeURIComponent(room)}`} key={room}>
-              <div className="quote-section-title quote-room-title-row">
-                <div className="quote-line-move-group">
-                  <button type="button" className="quote-line-move-btn" title={L.devis.moveUp} aria-label={L.devis.moveUp} onClick={() => moveRoom(room, "up")} disabled={roomIndex === 0}>▲</button>
-                  <button type="button" className="quote-line-move-btn" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={() => moveRoom(room, "down")} disabled={roomIndex === roomList.length - 1}>▼</button>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <span>LOT</span>
-                  <input
-                    key={room}
-                    className="quote-room-name-input"
-                    defaultValue={room}
-                    onBlur={(e) => renameRoom(room, e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                    placeholder="Nom du lot…"
-                  />
-                </div>
-                <div className="quote-room-header-right">
-                  <span className="quote-room-subtotal-badge">{money(roomTotalHt)} HT</span>
-                  <button
-                    type="button"
-                    className={`quote-meta-toggle ${isRoomOpen ? "open" : ""}`}
-                    onClick={() => toggleRoomOpen(room)}
-                    aria-expanded={isRoomOpen}
-                    aria-label={isRoomOpen ? `Réduire ${room}` : `Ouvrir ${room}`}
-                  >
-                    <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-                  </button>
-                </div>
-              </div>
-
-              {isRoomOpen ? (
-              <>
-              <div className="quote-toolbar">
-                <button type="button" className="quote-toolbar-button purple" onClick={() => openNoteComposer(room)}>
-                  <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                  Note
-                </button>
-                <button type="button" className="quote-toolbar-button orange" onClick={() => openOuvragesLibrary(room)}>
-                  <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 6.5C10.5 5.5 8 5 4 5v13c4 0 6.5.5 8 1.5M12 6.5c1.5-1 4-1.5 8-1.5v13c-4 0-6.5.5-8 1.5M12 6.5v13" /></svg>
-                  {L.devis.library}
-                </button>
-                <button type="button" className="quote-toolbar-button blue" onClick={() => openOuvrageComposer(room)}>
-                  <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" /></svg>
-                  {L.devis.createWork}
-                </button>
-                <button type="button" className="quote-toolbar-button green" onClick={() => openFournitureComposer(room)}>
-                  <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5" fill="currentColor" /><circle cx="18" cy="20" r="1.5" fill="currentColor" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" /></svg>
-                  {L.devis.addSupplyBtn}
-                </button>
-              </div>
-
-              {roomNotes.filter((note) => note.room === room).map((note) => (
-                <div key={note.id} className="room-note-card">
-                  <div className="room-note-header">
-                    <span className="room-note-type">
-                      {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
-                    </span>
-                    <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
-                  </div>
-                  {note.message ? <p className="room-note-message">{note.message}</p> : null}
-                  {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" className="room-note-photo" /> : null}
-                  {note.fileName && !note.photoDataUrl ? <span className="room-note-file">{note.fileName}</span> : null}
-                </div>
-              ))}
-
-              {!roomLines.length ? (
-                <div className="empty-state">{L.devis.noWorkForLot}</div>
-              ) : (
-                <>
-                  <div className="quote-final-lines">
-                    {roomLines.map((line) => renderLineCard(line))}
-                  </div>
-                  <div className="quote-room-subtotal">
-                    <span className="quote-room-subtotal-label">{L.devis.subtotal} {room}</span>
-                    <span>{money(roomTotalHt)} HT</span>
-                  </div>
-                </>
-              )}
-              </>
-              ) : null}
             </section>
-          );
-        })}
 
-        <section className="room-add-bottom-card">
-          <span className="room-add-bottom-label">{L.devis.addLot}</span>
-          <div className="room-add-card">
-            <div className="room-add-row">
-              <input
-                value={customRoom}
-                onChange={(event) => setCustomRoom(event.target.value)}
-                placeholder="Nom de la pièce (ex: Salon, Cuisine...)"
-                list="room-suggestions"
-                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoom(); } }}
-              />
-              <button type="button" onClick={addCustomRoom}>+</button>
-            </div>
-          </div>
-        </section>
-
-        <section className="quote-total-panel">
-          <div><span>{L.devis.totalHours}</span><strong>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</strong></div>
-          <div><span>{L.devis.laborHt}</span><strong>{money(totals.labor)}</strong></div>
-          <div><span>{L.devis.suppliesHt}</span><strong>{money(totals.supplies)}</strong></div>
-          <div><span>{L.devis.subtotalHt}</span><strong>{money(totals.ht)}</strong></div>
-          <div className="total"><span>{L.devis.total}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
-        </section>
-
+            {conditioningOpen ? (
         <section className="quote-recap-card">
           <div className="recap-title-row">
             <div>
-              <h2 className="recap-title">{L.devis.conditioning}</h2>
               <p className="recap-title-hint">{L.devis.clickStatus}</p>
             </div>
             <div className="recap-mode-legend">
@@ -2325,53 +2496,56 @@ export default function DevisEditor() {
             <strong>{money(summaryTotals.totalTtc)}</strong>
           </div>
         </section>
+            ) : null}
 
-        <section className="quote-final-card quote-payment-card">
-          <div className="quote-section-title">
-            <div>
-              <span>{L.devis.payment}</span>
-              <h2>{L.devis.paymentTitle}</h2>
-            </div>
-          </div>
+            <section className="quote-final-card quote-conditioning-toggle-card">
+              <button type="button" className="quote-conditioning-toggle" onClick={() => setPaymentCardOpen((open) => !open)} aria-expanded={paymentCardOpen}>
+                <span>{L.devis.paymentTitle}</span>
+                <svg className={`svg-icon ${paymentCardOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </button>
+            </section>
 
-          <div className="payment-fields-grid">
-            <label className="payment-field">
-              <span>IBAN</span>
-              <input
-                value={company.iban || ""}
-                onChange={(e) => setCompanyField("iban", e.target.value)}
-                placeholder="FR76 3000 6000 0112 3456 7890 189"
-              />
-            </label>
-            <label className="payment-field">
-              <span>BIC / SWIFT</span>
-              <input
-                value={company.bic || ""}
-                onChange={(e) => setCompanyField("bic", e.target.value)}
-                placeholder="BNPAFRPP"
-              />
-            </label>
-            <label className="payment-field">
-              <span>{L.devis.accountHolder}</span>
-              <input
-                value={company.bankHolder || ""}
-                onChange={(e) => setCompanyField("bankHolder", e.target.value)}
-                placeholder="Nom du titulaire"
-              />
-            </label>
-          </div>
+            {paymentCardOpen ? (
+              <section className="quote-final-card quote-payment-card">
+                <div className="payment-fields-grid">
+                  <label className="payment-field">
+                    <span>IBAN</span>
+                    <input
+                      value={company.iban || ""}
+                      onChange={(e) => setCompanyField("iban", e.target.value)}
+                      placeholder="FR76 3000 6000 0112 3456 7890 189"
+                    />
+                  </label>
+                  <label className="payment-field">
+                    <span>BIC / SWIFT</span>
+                    <input
+                      value={company.bic || ""}
+                      onChange={(e) => setCompanyField("bic", e.target.value)}
+                      placeholder="BNPAFRPP"
+                    />
+                  </label>
+                  <label className="payment-field">
+                    <span>{L.devis.accountHolder}</span>
+                    <input
+                      value={company.bankHolder || ""}
+                      onChange={(e) => setCompanyField("bankHolder", e.target.value)}
+                      placeholder="Nom du titulaire"
+                    />
+                  </label>
+                </div>
 
-          <label className="payment-field payment-field-wide">
-            <span>{L.devis.paymentCond}</span>
-            <textarea
-              className="payment-terms-textarea"
-              value={company.paymentTerms || ""}
-              onChange={(e) => setCompanyField("paymentTerms", e.target.value)}
-              placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
-              rows={3}
-            />
-          </label>
-        </section>
+                <label className="payment-field payment-field-wide">
+                  <span>{L.devis.paymentCond}</span>
+                  <textarea
+                    className="payment-terms-textarea"
+                    value={company.paymentTerms || ""}
+                    onChange={(e) => setCompanyField("paymentTerms", e.target.value)}
+                    placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
+                    rows={3}
+                  />
+                </label>
+              </section>
+            ) : null}
 
         {generatedQuote?.chantierOffreId ? (
           <section className="quote-final-card quote-payment-card">
@@ -2424,21 +2598,24 @@ export default function DevisEditor() {
 
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 
-        <div className="quote-action-row">
-          <button type="button" className="button blue" onClick={handleGenerate}>{L.devis.generateQuote}</button>
-          <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
-          <button type="button" className="button danger" onClick={handleCancel}>{L.common.cancel}</button>
-          <button type="button" className="button secondary" onClick={handleConfirm}>{L.devis.confirm}</button>
-          <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
-          {generatedQuote?.signatureStatus !== "Signe" ? (
-            <button type="button" className="button secondary" onClick={openAcceptComposer}>{L.devis.acceptManually}</button>
+        <div className="quote-more-actions" ref={moreActionsRef}>
+          <button type="button" className="quote-more-actions-trigger" onClick={() => setMoreActionsOpen((open) => !open)} aria-expanded={moreActionsOpen} aria-label="Plus d'actions">•••</button>
+          {moreActionsOpen ? (
+            <div className="quote-more-actions-dropdown">
+              <button type="button" onClick={() => { setMoreActionsOpen(false); handleGenerate(); }}>{L.devis.generateQuote}</button>
+              <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleCancel(); }}>{L.common.cancel}</button>
+              <button type="button" onClick={() => { setMoreActionsOpen(false); handleConfirm(); }}>{L.devis.confirm}</button>
+              {generatedQuote?.signatureStatus !== "Signe" ? (
+                <button type="button" onClick={() => { setMoreActionsOpen(false); openAcceptComposer(); }}>{L.devis.acceptManually}</button>
+              ) : null}
+              {generatedQuote?.signatureStatus === "Signe" && generatedQuote?.projectId ? (
+                <button type="button" onClick={() => { setMoreActionsOpen(false); router.push(`/chantiers?project=${generatedQuote.projectId}`); }}>
+                  {L.devis.startSite}
+                </button>
+              ) : null}
+              <button type="button" onClick={() => { setMoreActionsOpen(false); handleTransformToInvoice(); }}>{L.devis.transformToInvoice}</button>
+            </div>
           ) : null}
-          {generatedQuote?.signatureStatus === "Signe" && generatedQuote?.projectId ? (
-            <button type="button" className="button blue" onClick={() => router.push(`/chantiers?project=${generatedQuote.projectId}`)}>
-              {L.devis.startSite}
-            </button>
-          ) : null}
-          <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
         </div>
 
         {generatedQuote ? (

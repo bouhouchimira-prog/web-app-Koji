@@ -5250,17 +5250,17 @@ p {
 
 .room-add-row {
   display: grid;
-  grid-template-columns: 1fr 48px;
+  grid-template-columns: 1fr 40px;
   gap: 10px;
 }
 
 .room-add-row button {
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #e8ebf1;
   color: var(--navy);
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .section-divider {
@@ -7072,6 +7072,494 @@ body :where(
   transform: rotate(180deg);
 }
 
+/* ───── Mise en page 2 colonnes "Generer mon devis" (19 septembre) ───── */
+.quote-two-col {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.quote-col-left,
+.quote-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.quote-col-right {
+  position: sticky;
+  top: 16px;
+}
+
+.quote-right-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #eef1f6;
+}
+
+.quote-right-tabs button {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  padding: 8px 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quote-right-tabs button.active {
+  background: white;
+  color: var(--navy);
+  box-shadow: 0 4px 10px rgba(0, 11, 40, 0.08);
+}
+
+.quote-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quote-picker-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.quote-picker-hint strong {
+  color: var(--navy);
+}
+
+.quote-picker-search {
+  border: 1px solid #d6dfec;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  color: var(--navy);
+}
+
+.quote-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quote-picker-chips button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: white;
+  color: var(--navy);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.quote-picker-chips button.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: white;
+}
+
+.quote-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.quote-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fbfcfe;
+}
+
+.quote-picker-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quote-picker-row-code {
+  color: #b98a3e;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.quote-picker-row-main strong {
+  color: var(--navy);
+  font-size: 0.84rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-picker-row-stats {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.quote-picker-add-btn {
+  flex: 0 0 auto;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  background: #eef6ff;
+  color: var(--blue);
+  padding: 6px 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.quote-picker-add-btn:hover {
+  background: var(--blue);
+  color: white;
+}
+
+.quote-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.quote-picker-full-link {
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.quote-lots-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.quote-lots-footer-left,
+.quote-lots-footer-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.quote-lots-footer-left > div,
+.quote-lots-footer-right > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quote-lots-footer-left span,
+.quote-lots-footer-right span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.quote-lots-footer-left strong,
+.quote-lots-footer-right strong {
+  color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.quote-lots-footer-right .total strong {
+  color: var(--blue);
+}
+
+.quote-client-card .quote-client-grid {
+  margin-top: 14px;
+}
+
+.quote-add-line-row {
+  position: relative;
+}
+
+.quote-add-line-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed #c7d3e3;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--navy);
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.quote-add-line-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.quote-add-line-btn:hover {
+  background: #eef2f9;
+  border-color: var(--blue);
+}
+
+.quote-add-line-dropdown {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  border-radius: 12px;
+  background: white;
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 26px rgba(0, 11, 40, 0.18);
+  padding: 8px;
+  display: grid;
+  gap: 2px;
+}
+
+.quote-add-line-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  color: var(--navy);
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.quote-add-line-dropdown button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.quote-add-line-dropdown button:hover {
+  background: var(--soft);
+}
+
+.lot-list-add-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: #f5f7fb;
+  color: var(--navy);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lot-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 8px;
+  background: #fbfcfe;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.lot-list-row.active {
+  border-color: var(--navy);
+  background: #eef2f9;
+}
+
+.lot-list-row.drag-over {
+  border-color: #c9a25c;
+  border-style: dashed;
+}
+
+.lot-list-row.dragging {
+  opacity: 0.5;
+}
+
+.lot-list-row-pinned {
+  background: #f5eadf;
+}
+
+.lot-list-drag-handle {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #a3adbb;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.lot-list-drag-handle-fixed {
+  cursor: default;
+  color: transparent;
+}
+
+.lot-list-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 3px 2px;
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lot-list-remove {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: #9aa4b2;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.lot-list-remove:hover {
+  background: #fbe7e7;
+  color: #c0392b;
+}
+
+.quote-conditioning-toggle-card {
+  padding: 0 !important;
+}
+
+.quote-conditioning-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 0.76rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.quote-conditioning-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.quote-conditioning-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+.quote-conditioning-toggle svg.open {
+  transform: rotate(180deg);
+}
+
+.quote-totals-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quote-totals-detail-toggle {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.quote-total-panel-compact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.quote-total-panel-compact div {
+  padding: 10px 12px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.quote-total-panel-compact div:nth-child(2n) {
+  border-right: 0;
+}
+
+.quote-total-panel-compact div:nth-last-child(-n+2) {
+  border-bottom: 0;
+}
+
+.quote-total-panel-compact strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--navy);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.quote-totals-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quote-totals-compact > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px;
+  color: var(--navy);
+  font-size: 0.88rem;
+}
+
+.quote-totals-compact > div.total {
+  border-radius: 12px;
+  background: var(--navy);
+  color: white;
+  padding: 10px 14px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.quote-totals-compact > div.total strong,
+.quote-totals-compact > div.total span {
+  color: white;
+}
+
 .quote-identity-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
@@ -7283,28 +7771,94 @@ body :where(
 
 /* LOT header — bande colorée en haut de chaque carte room */
 .quote-room-card > .quote-section-title {
-  background: #E6D7C4;
   margin: -16px -16px 16px -16px;
-  padding: 14px 20px;
-  border-radius: 14px 14px 0 0;
-  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eef1f6;
+  align-items: center;
 }
 
-.quote-room-card > .quote-section-title span {
-  font-size: 0.68rem;
+.quote-lot-header-refined {
+  gap: 12px;
+}
+
+.quote-lot-header-btn {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.quote-lot-chevron {
+  flex: 0 0 auto;
+  color: #9aabc4;
+  transition: transform 0.2s ease;
+}
+
+.quote-lot-chevron.open {
+  transform: rotate(180deg);
+}
+
+.quote-room-card.targeted > .quote-lot-header-btn {
+  color: var(--blue);
+}
+
+.quote-room-card.targeted .quote-lot-number-badge {
+  background: var(--blue);
+}
+
+.quote-lot-number-badge-emoji {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.quote-lot-header-refined .quote-room-subtotal-badge {
+  color: var(--navy);
   font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: #7E715F;
-  display: block;
+  font-size: 0.92rem;
+  white-space: nowrap;
 }
 
-.quote-room-card > .quote-section-title h2 {
-  font-size: 1.28rem;
-  font-weight: 800;
-  color: #000B28;
-  margin: 3px 0 0;
+.quote-lot-number-badge {
+  flex: 0 0 auto;
+  min-width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.quote-lot-name {
+  flex: 1;
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--navy);
   letter-spacing: -0.01em;
+}
+
+.quote-lot-name-edit {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quote-lot-edit-icon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: #b7c0cf;
 }
 
 .quote-room-name-input {
@@ -7313,9 +7867,9 @@ body :where(
   background: none;
   border: none;
   border-bottom: 1.5px solid transparent;
-  font-size: 1.28rem;
-  font-weight: 800;
-  color: #000B28;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--navy);
   letter-spacing: -0.01em;
   padding: 2px 0;
   margin: 3px 0 0;
@@ -7518,13 +8072,23 @@ body :where(
 
 .quote-final-line,
 .supplies-review-list article {
-  border: 1px solid #e2e9f3;
-  border-radius: 11px;
+  border: 1px solid #e6ecf5;
+  border-radius: 14px;
   background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 11, 40, 0.04);
   overflow: hidden;
 }
 
-.quote-final-line header,
+.quote-final-line header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  background: #fbfcfe;
+  border-bottom: 1px solid #eef2f8;
+}
+
 .supplies-review-list article header {
   display: flex;
   justify-content: flex-end;
@@ -7544,16 +8108,16 @@ body :where(
 }
 
 .quote-line-move-btn {
-  width: 22px;
-  height: 18px;
+  width: 20px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d8e4f4;
+  border: 1px solid #e6ecf5;
   border-radius: 4px;
   background: #fff;
-  color: #4a7fd4;
-  font-size: 0.6rem;
+  color: #9aabc4;
+  font-size: 0.55rem;
   line-height: 1;
   cursor: pointer;
   padding: 0;
@@ -7564,23 +8128,104 @@ body :where(
   cursor: default;
 }
 
+.quote-final-line-collapsed {
+  box-shadow: none;
+}
+
+.quote-line-collapsed-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 60px 48px 88px 88px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 10px 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quote-line-collapsed-row:hover {
+  background: #fafbfd;
+}
+
+.quote-line-collapsed-index {
+  color: #a3adbb;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.quote-line-collapsed-label {
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-line-collapsed-qty,
+.quote-line-collapsed-unit,
+.quote-line-collapsed-unitprice {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.quote-line-collapsed-total {
+  color: var(--navy);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.quote-line-collapsed-subs {
+  border-top: 1px solid #eef2f8;
+}
+
+.quote-line-collapsed-sub {
+  padding-left: 30px;
+}
+
+.quote-line-collapsed-sub:not(:last-child) {
+  border-bottom: 1px solid #f2f5fa;
+}
+
+.quote-line-collapsed-sub .quote-line-collapsed-label {
+  font-weight: 500;
+  color: #4b5a72;
+}
+
+@media (max-width: 560px) {
+  .quote-line-collapsed-row {
+    grid-template-columns: 22px minmax(0, 1fr) 70px;
+  }
+  .quote-line-collapsed-unit,
+  .quote-line-collapsed-unitprice {
+    display: none;
+  }
+}
+
 .quote-line-open-button {
   flex-shrink: 0;
-  min-height: 30px;
+  min-height: 26px;
   border: 1px solid #bad7ff;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #eef6ff;
   color: var(--blue);
-  padding: 0 12px;
-  font-size: 0.78rem;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .quote-line-label-input-header {
   flex: 1;
   border-bottom: none !important;
-  padding: 14px 4px 6px !important;
-  text-align: center;
+  padding: 4px 2px !important;
+  margin-bottom: 0 !important;
+  text-align: left;
+  font-size: 0.98rem;
 }
 
 .quote-line-label-input-header:focus {
@@ -8554,6 +9199,75 @@ body :where(
   min-width: 160px;
 }
 
+.quote-more-actions {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.quote-more-actions-trigger {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+  color: var(--navy);
+  width: 32px;
+  height: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.quote-more-actions-trigger:hover {
+  background: #f5f7fb;
+}
+
+/* Boutons plus fins sur toute la page devis (19 septembre) — l'apparence
+   du bouton .button partage ailleurs dans l'appli reste inchangee. */
+.quote-final-header .button,
+.quote-final-page .button {
+  min-height: 30px;
+  padding: 0 13px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.quote-more-actions-dropdown {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  top: 44px;
+  width: 220px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 26px rgba(0, 11, 40, 0.18);
+  padding: 8px 0;
+  display: grid;
+}
+
+.quote-more-actions-dropdown button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--navy);
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.quote-more-actions-dropdown button:hover {
+  background: var(--soft);
+}
+
+.quote-more-actions-dropdown button.danger {
+  color: #c93545;
+}
+
+.quote-col-right .payment-fields-grid {
+  grid-template-columns: 1fr;
+}
+
 /* ── Sub-ouvrages ─────────────────────────────────────────── */
 
 .quote-final-line.has-sub-items {
@@ -9381,8 +10095,14 @@ body :where(
   .quote-client-grid,
   .quote-line-inputs.compact,
   .quote-total-panel,
+  .quote-two-col,
+  .quote-total-panel-compact,
   .quote-documents-grid {
     grid-template-columns: 1fr;
+  }
+
+  .quote-col-right {
+    position: static;
   }
 
   .quote-ready-card,
