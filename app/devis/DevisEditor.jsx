@@ -796,11 +796,17 @@ export default function DevisEditor() {
   }
 
   // Onglet "Lots" du panneau droit : cree le lot et le deplie/cible
-  // immediatement a gauche (au lieu de rester replie).
-  function addCustomRoomAndFocus() {
-    const label = customRoom.trim();
+  // immediatement a gauche (au lieu de rester replie). Prend un nom
+  // optionnel (clic sur une suggestion) — sinon lit le champ libre
+  // customRoom, toujours modifiable a la main (22 septembre : les
+  // suggestions ne doivent jamais empecher de taper un nom personnalise,
+  // corrige un souci de lisibilite sur iPad ou la liste native du
+  // datalist pouvait donner l'impression d'un choix ferme).
+  function addCustomRoomAndFocus(nameOverride) {
+    const label = (nameOverride ?? customRoom).trim();
     if (!label) return;
-    addCustomRoom();
+    setRooms((current) => current.includes(label) ? current : [...current, label]);
+    setCustomRoom("");
     setExpandedLotIds((current) => new Set(current).add(label));
     setTargetRoom(label);
   }
@@ -2480,13 +2486,16 @@ export default function DevisEditor() {
                       value={customRoom}
                       onChange={(event) => setCustomRoom(event.target.value)}
                       placeholder={L.devis.roomPh}
-                      list="room-suggestions"
                       onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoomAndFocus(); } }}
                     />
-                    <datalist id="room-suggestions">
-                      {ROOM_SUGGESTIONS.map((room) => <option key={room} value={room} />)}
-                    </datalist>
-                    <button type="button" onClick={addCustomRoomAndFocus}>+</button>
+                    <button type="button" onClick={() => addCustomRoomAndFocus()}>+</button>
+                  </div>
+                  <div className="room-add-suggestions">
+                    {ROOM_SUGGESTIONS.map((room) => (
+                      <button type="button" key={room} className="room-add-suggestion-chip" onClick={() => addCustomRoomAndFocus(room)}>
+                        {room}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="lot-list">
