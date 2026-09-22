@@ -1366,6 +1366,28 @@ export default function DevisEditor() {
     setGeneratedQuote(null);
   }
 
+  // Ligne au forfait a partir d'un montant HT explicitement donne par
+  // l'utilisatrice (ex: "5000€ HT pour la peinture complete") — jamais un
+  // prix devine : uniquement transcrit tel quel depuis ce qu'elle a
+  // elle-meme communique, jamais calcule/estime par l'assistant.
+  function addForfaitLineToRoom(label, room, amountHt) {
+    const id = `koji-${Date.now()}`;
+    setCustomSources((current) => [...current, {
+      id,
+      code: "PERSO",
+      label,
+      unit: "u",
+      normativeTime: 0,
+      materialCategories: []
+    }]);
+    setLineSettings((current) => ({
+      ...current,
+      [id]: { room, billingMode: "fixed", fixedAmountInput: String(amountHt), fixedAmountMode: "ht" }
+    }));
+    setExpandedLotIds((current) => new Set(current).add(room));
+    setGeneratedQuote(null);
+  }
+
   function openNoteComposer(room = "Services") {
     setNoteComposer({ open: true, room, type: "message", message: "", photoDataUrl: "", fileName: "", error: "" });
   }
@@ -1868,7 +1890,17 @@ export default function DevisEditor() {
           chantierAddress: detail.clientAddress || current.chantierAddress,
           workDescription: detail.description || current.workDescription
         }));
-        notify("Informations client remplies par l'assistant.", "success");
+        if (detail.vatRate) {
+          setQuoteVatRate(Number(detail.vatRate));
+          setVatManual(true);
+        }
+        if (detail.lotName || detail.forfaitAmount) {
+          const room = resolveTargetRoom(detail.lotName);
+          if (detail.forfaitAmount) {
+            addForfaitLineToRoom(detail.forfaitLabel || detail.client || "Forfait travaux", room, Number(detail.forfaitAmount));
+          }
+        }
+        notify("Informations remplies par l'assistant.", "success");
         return;
       }
 
