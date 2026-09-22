@@ -22,6 +22,8 @@ export async function POST(request) {
     code: body.code,
     label: body.label,
     description: body.description || "",
+    noteInterne: body.noteInterne || "",
+    sourceInterne: body.sourceInterne || "",
     profession: body.family || "Autre",
     family: body.family || "Autre",
     category: body.category || body.family || "General",

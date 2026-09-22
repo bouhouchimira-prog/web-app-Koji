@@ -17,6 +17,8 @@ const emptyForm = {
   normativeTime: "",
   hourlyRate: 0,
   description: "",
+  noteInterne: "",
+  sourceInterne: "",
   parentCode: ""
 };
 
@@ -400,7 +402,9 @@ export default function OuvragesLibraryPage() {
             <label className="library-field">{L.bibliotheque.time}<input type="number" step="0.001" value={form.normativeTime} onChange={(event) => setField("normativeTime", event.target.value)} placeholder="1.20" /></label>
             <label className="library-field">{L.bibliotheque.hourlyRateEur}<input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} /></label>
             <div className="mo-box">{L.bibliotheque.moCostPerUnit} : <strong>{formatMoney(cost)}</strong></div>
-            <label className="library-field full">{L.bibliotheque.comment}<textarea value={form.description} onChange={(event) => setField("description", event.target.value)} placeholder={L.bibliotheque.comment} /></label>
+            <label className="library-field full">{L.devis.descriptionClient}<textarea value={form.description} onChange={(event) => setField("description", event.target.value)} placeholder={L.bibliotheque.comment} /></label>
+            <label className="library-field full">{L.devis.noteInterne} <span className="library-field-hint">({L.devis.noteInterneHint})</span><textarea value={form.noteInterne} onChange={(event) => setField("noteInterne", event.target.value)} placeholder={L.devis.noteInterne} /></label>
+            <label className="library-field full">{L.devis.sourceInterne}<input value={form.sourceInterne} onChange={(event) => setField("sourceInterne", event.target.value)} placeholder={L.devis.sourceInterne} /></label>
             {form.parentCode ? <p className="library-note">{L.bibliotheque.subOf} {form.parentCode}</p> : null}
             <button className="library-submit">{buttonLabel}</button>
           </form>

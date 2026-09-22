@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 import { badRequest, ok } from "../../../lib/http";
 import { getAuth } from "../../../lib/server-auth";
 import { readDb, scopedItems, writeDb } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
-import { TOOLS, PAGES, TOPIC_SUGGESTIONS, resolveByHint } from "../../../lib/koji-assistant-tools";
+import { TOOLS, PAGES, TOPIC_SUGGESTIONS, resolveByHint, resolveOuvrageForLabel, resolveSupplyForLabel } from "../../../lib/koji-assistant-tools";
 // "Creer un devis" navigue desormais directement vers la page (voir plus
 // bas) — seul advanceDevisFlow reste importe, pour ne pas casser une
 // discussion deja en cours dans l'ancien questionnaire au moment du
@@ -40,17 +41,29 @@ async function callInternal(handler, path, body, token, method = "POST") {
   return { ok: response.status >= 200 && response.status < 300, data };
 }
 
-function buildPrompt({ today, message, isSecondRound, previousQuestion, previousMessage, hasPhotos }) {
+function buildPrompt({ today, message, isSecondRound, previousQuestion, previousMessage, hasPhotos, onDevisPage }) {
   const conversationBlock = isSecondRound
     ? `\nTu as déjà posé cette question à l'utilisatrice : "${previousQuestion}" (à propos du message original : "${previousMessage}"). Voici sa réponse : "${message}". Combine le message original et cette réponse pour finaliser. Tu NE PEUX PLUS reposer de question : needsClarification doit être false, complète avec les meilleures valeurs disponibles.`
     : "";
   const photoBlock = hasPhotos
     ? `\nUne ou plusieurs photos sont jointes au message — regarde-les avant de classer. Si une photo ressemble à un ticket de caisse, une facture reçue ou un reçu de paiement (donc une DÉPENSE que l'entreprise a payée, pas un devis à créer), mets type="depense", extrais fields.amount (montant total TTC lu sur le document, nombre), fields.label (nom du commerce/fournisseur visible), fields.category (catégorie plausible), et mets "detectedFromPhoto": true — dans ce cas ne mets JAMAIS needsClarification/clarifyingQuestion, la confirmation est gérée séparément. Si le texte du message explique déjà clairement de quoi il s'agit, fais confiance au texte plutôt qu'à une supposition sur l'image.`
     : "";
+  // L'utilisatrice est actuellement sur la page de creation/edition d'un
+  // devis (app/devis/DevisEditor.jsx). Le code de dispatch (pas ce prompt)
+  // se charge de rediriger automatiquement les actions "create" de type
+  // devis/ouvrage/fourniture vers CE devis affiche a l'ecran plutot que
+  // vers la bibliotheque/le catalogue — la seule chose que le modele doit
+  // savoir en plus, c'est reconnaitre une demande de creer un LOT (concept
+  // qui n'existe pas parmi les 13 types), et ne jamais reposer de question
+  // dans ce contexte (20 septembre, suite a un echec de classification ou
+  // le modele choisissait "create"+type=devis SANS extraire les champs).
+  const devisPageBlock = onDevisPage
+    ? `\nL'utilisatrice est actuellement sur la page de création d'un devis, dans son navigateur — ne pose JAMAIS de question de clarification pour une demande de création dans ce contexte (needsClarification reste false, complète avec le mieux disponible). Cas particulier : si le message demande de créer un LOT/une pièce dans ce devis (ex: "crée un lot Cuisine", "ajoute un lot Salon"), classe action="devisPageAction" avec fields.subAction="addLot" et fields.label (nom du lot).`
+    : "";
 
   const pagesList = Object.entries(PAGES).map(([key, p]) => `${key} (${p.label})`).join(", ");
 
-  return `Tu es l'assistant koji du dashboard d'une entreprise du BTP. Un message libre doit être classé avec une action parmi : "create" (créer une entrée), "update" (modifier un champ d'une entrée EXISTANTE, ou ajouter une ligne à un devis existant), "delete" (supprimer une entrée existante), "navigate" (ouvrir/afficher une page de l'application — ex: "ouvre le calendrier", "va sur les devis", "montre-moi les contacts"), "ambiguous" (le message nomme juste un type parmi les 13 ci-dessous, sans verbe clair — ex: juste "devis", juste "facture" — sans dire s'il faut créer, modifier ou autre chose) ou "autre" si rien ne correspond.
+  return `Tu es l'assistant koji du dashboard d'une entreprise du BTP. Un message libre doit être classé avec une action parmi : "create" (créer une entrée), "update" (modifier un champ d'une entrée EXISTANTE, ou ajouter une ligne à un devis existant), "delete" (supprimer une entrée existante), "navigate" (ouvrir/afficher une page de l'application — ex: "ouvre le calendrier", "va sur les devis", "montre-moi les contacts"), "ambiguous" (le message nomme juste un type parmi les 13 ci-dessous, sans verbe clair — ex: juste "devis", juste "facture" — sans dire s'il faut créer, modifier ou autre chose)${onDevisPage ? `, "devisPageAction" (voir consigne dédiée plus bas)` : ""} ou "autre" si rien ne correspond.${devisPageBlock}
 
 Pour l'action "navigate", mets uniquement fields.page = une des clés suivantes (choisis la plus proche, ne réponds jamais avec une clé qui n'est pas dans cette liste) : ${pagesList}.
 
@@ -67,7 +80,7 @@ Les 13 types (pour l'action "create", champs à extraire) :
 - "facture" : transformer un devis SIGNÉ existant en facture. Champs : quoteHint (nom du client ou numéro de devis mentionné).
 - "fourniture" : référence d'article ajoutée au catalogue de l'entreprise, JAMAIS liée à un chantier (sert pour les futurs devis). Champs : name, category, purchasePriceHt, salePriceHt, quantity, unit, supplierHint (nom du fournisseur si mentionné).
 - "alerte" : incident urgent sur un chantier (fuite, dégât, urgence, incendie). Champs : message, type (degat/fuite/urgence/incendie/autre), chantierHint (OBLIGATOIRE).
-- "devis" : créer un nouveau devis — ceci ouvre directement la page de création du devis (pas de génération automatique dans le chat). Aucun champ à extraire pour la création.
+- "devis" : créer un nouveau devis. Champs : client (nom du client mentionné), address (adresse du chantier mentionnée), description (résumé clair en français des travaux décrits — s'il y a un budget/montant global mentionné sans ligne précise à chiffrer, ajoute-le en fin de description comme note, ex: "Budget indicatif communiqué : 5000€", NE JAMAIS en faire un prix). Si aucune de ces informations n'est donnée (juste "crée un devis"), laisse ces champs vides.
 - "tache" : une tâche/to-do sur un chantier. Champs : label, chantierHint, dueDate, assignedTo.
 - "equipe" : ajouter un membre d'équipe/ouvrier. Champs : name, profession, phone, email, hourlyRate.
 - "contact" : ajouter un contact/client. Champs : type ("particulier" ou "societe"), firstName, lastName, companyName, phone, email, address.
@@ -82,7 +95,7 @@ Message de l'utilisatrice : "${message}"
 
 Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
 {
-  "action": "create" | "update" | "delete" | "navigate" | "ambiguous" | "autre",
+  "action": "create" | "update" | "delete" | "navigate" | "ambiguous" | "devisPageAction" | "autre",
   "type": "rdv" | "visite" | "depense" | "facture" | "fourniture" | "alerte" | "devis" | "tache" | "equipe" | "contact" | "chantier" | "fournisseur" | "ouvrage" | "autre",
   "fields": { ... },
   "detectedFromPhoto": boolean,
@@ -257,7 +270,62 @@ function describeOutcome(result) {
   if (result.outcome === "clarify") return result.question;
   if (result.outcome === "failed") return result.message;
   if (result.outcome === "unsupported") return result.message || "Je n'ai pas ce service.";
+  if (result.outcome === "devisPageAction") return `✓ Ajouté sur le devis ouvert : ${result.label}.`;
   return "Je n'ai pas compris votre demande.";
+}
+
+// Ajoute un ouvrage/une fourniture/un lot directement sur le devis
+// actuellement ouvert dans le navigateur (app/devis/DevisEditor.jsx) —
+// aucune ecriture en base ici : la page applique elle-meme le resultat a
+// son etat local (voir l'evenement "koji-devis-page-action" cote client),
+// exactement comme un clic sur "Ajouter" depuis l'onglet Bibliotheque/
+// Fournitures. Le devis se sauvegarde ensuite via l'autosave deja en place.
+async function handleDevisPageAction({ ctx, parsed }) {
+  const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+  const subAction = fields.subAction;
+  const label = String(fields.label || "").trim();
+  const room = fields.room ? String(fields.room).trim() : null;
+  const quantity = Math.max(0, Number(fields.quantity) || 1);
+  const unit = fields.unit ? String(fields.unit).trim() : null;
+
+  if (subAction === "addLot") {
+    if (!label) return { outcome: "failed", message: "Indiquez le nom du lot à créer." };
+    return { outcome: "devisPageAction", subAction, label, lotName: label };
+  }
+
+  if (subAction === "addOuvrage") {
+    if (!label) return { outcome: "failed", message: "Indiquez l'ouvrage à ajouter." };
+    const ouvrage = await resolveOuvrageForLabel(ctx, label, { unit });
+    return { outcome: "devisPageAction", subAction, label: ouvrage.label, room, quantity, ouvrage };
+  }
+
+  if (subAction === "addFourniture") {
+    if (!label) return { outcome: "failed", message: "Indiquez la fourniture à ajouter." };
+    const supply = await resolveSupplyForLabel(ctx, label);
+    if (!supply) {
+      return { outcome: "failed", message: `Aucune fourniture correspondant à "${label}" dans votre catalogue.` };
+    }
+    return { outcome: "devisPageAction", subAction, label: supply.name, room, quantity, supply };
+  }
+
+  if (subAction === "setClientInfo") {
+    const client = fields.client ? String(fields.client).trim() : "";
+    const clientAddress = fields.clientAddress ? String(fields.clientAddress).trim() : "";
+    const description = fields.description ? String(fields.description).trim() : "";
+    if (!client && !clientAddress && !description) {
+      return { outcome: "failed", message: "Je n'ai pas trouvé d'informations client à renseigner." };
+    }
+    return {
+      outcome: "devisPageAction",
+      subAction,
+      label: client || "Informations client",
+      client,
+      clientAddress,
+      description
+    };
+  }
+
+  return { outcome: "failed", message: "Je n'ai pas compris ce qu'il faut ajouter au devis." };
 }
 
 // Relit le blob a la toute fin, apres l'eventuel appel interne de creation
@@ -331,7 +399,7 @@ export async function POST(request) {
   // reclassifier via l'IA — garde les tours suivants rapides et gratuits.
   if (body.conversation?.state?.flow === "devisVisite") {
     const result = await advanceDevisFlow(ctx, body.conversation.state, message, body.conversation.originalMessage || message);
-    await logTurn(auth.userId, message, result, conversationId);
+    after(() => logTurn(auth.userId, message, result, conversationId));
     return ok({ ...result, conversationId });
   }
 
@@ -347,19 +415,21 @@ export async function POST(request) {
     const result = tool
       ? await advanceConfirmTypeFlow(ctx, state, message, body.conversation.originalMessage || message, tool, handleCreate)
       : { outcome: "failed", message: "Une erreur est survenue." };
-    await logTurn(auth.userId, message, result, conversationId);
+    after(() => logTurn(auth.userId, message, result, conversationId));
     return ok({ ...result, conversationId });
   }
 
   const isSecondRound = Boolean(body.conversation && body.conversation.question);
   const photos = Array.isArray(body.photos) ? body.photos.slice(0, 8) : [];
+  const onDevisPage = body.pageContext?.page === "devis";
   const promptText = buildPrompt({
     today: new Date().toISOString().slice(0, 10),
     message,
     isSecondRound,
     previousQuestion: body.conversation?.question || "",
     previousMessage: body.conversation?.originalMessage || "",
-    hasPhotos: photos.length > 0
+    hasPhotos: photos.length > 0,
+    onDevisPage
   });
 
   const content = [];
@@ -373,7 +443,12 @@ export async function POST(request) {
   let aiText;
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-5",
+      // Haiku 4.5 : classification structuree, reflexion desactivee — un
+      // modele plus leger repond nettement plus vite qu'un modele de
+      // raisonnement pour cette tache, sans perte de fiabilite sur un
+      // prompt aussi explicite (20 septembre, temps de reponse ressenti
+      // trop long).
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       thinking: { type: "disabled" },
       system: "Tu es l'assistant koji du dashboard entreprise. Tu réponds uniquement en JSON strict, sans aucun texte ni balise markdown autour.",
@@ -392,7 +467,7 @@ export async function POST(request) {
     return badRequest("Réponse de l'assistant illisible. Réessayez.", 502);
   }
 
-  const action = ["delete", "create", "update", "navigate", "ambiguous"].includes(parsed.action) ? parsed.action : "autre";
+  const action = ["delete", "create", "update", "navigate", "ambiguous", "devisPageAction"].includes(parsed.action) ? parsed.action : "autre";
   const type = TYPE_KEYS.includes(parsed.type) ? parsed.type : null;
   const tool = type ? TOOLS[type] : null;
 
@@ -405,6 +480,24 @@ export async function POST(request) {
     };
   } else if (action === "navigate") {
     result = handleNavigate(parsed);
+  } else if (action === "devisPageAction" && onDevisPage) {
+    result = await handleDevisPageAction({ ctx, parsed });
+  } else if (onDevisPage && action === "create" && (type === "devis" || type === "ouvrage" || type === "fourniture")) {
+    // Sur la page devis, une creation de type devis/ouvrage/fourniture vise
+    // TOUJOURS le devis actuellement ouvert a l'ecran, jamais la
+    // bibliotheque/le catalogue partage — redirige vers le meme traitement
+    // que action="devisPageAction", a partir des champs deja extraits par
+    // le schema de creation habituel de ce type (plus fiable que de
+    // compter sur le modele pour choisir un action="devisPageAction" qu'il
+    // connait moins bien — 20 septembre, corrige un echec de
+    // classification observe en test).
+    const f = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+    const devisPageParsed = type === "devis"
+      ? { fields: { subAction: "setClientInfo", client: f.client, clientAddress: f.address || f.clientAddress, description: f.description } }
+      : type === "ouvrage"
+        ? { fields: { subAction: "addOuvrage", label: f.label, unit: f.unit } }
+        : { fields: { subAction: "addFourniture", label: f.name, quantity: f.quantity, unit: f.unit } };
+    result = await handleDevisPageAction({ ctx, parsed: devisPageParsed });
   } else if (!tool || action === "autre") {
     result = {
       outcome: "unsupported",
@@ -428,7 +521,7 @@ export async function POST(request) {
     result = await handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos: body.photos });
   }
 
-  await logTurn(auth.userId, message, result, conversationId);
+  after(() => logTurn(auth.userId, message, result, conversationId));
 
   return ok({ ...result, conversationId });
 }
