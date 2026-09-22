@@ -80,7 +80,7 @@ Les 13 types (pour l'action "create", champs à extraire) :
 - "facture" : transformer un devis SIGNÉ existant en facture. Champs : quoteHint (nom du client ou numéro de devis mentionné).
 - "fourniture" : référence d'article ajoutée au catalogue de l'entreprise, JAMAIS liée à un chantier (sert pour les futurs devis). Champs : name, category, purchasePriceHt, salePriceHt, quantity, unit, supplierHint (nom du fournisseur si mentionné).
 - "alerte" : incident urgent sur un chantier (fuite, dégât, urgence, incendie). Champs : message, type (degat/fuite/urgence/incendie/autre), chantierHint (OBLIGATOIRE).
-- "devis" : créer un nouveau devis. Champs : client (nom du client mentionné), address (adresse du chantier mentionnée), description (résumé clair en français des travaux décrits — s'il y a un budget/montant global mentionné sans ligne précise à chiffrer, ajoute-le en fin de description comme note, ex: "Budget indicatif communiqué : 5000€", NE JAMAIS en faire un prix). Si aucune de ces informations n'est donnée (juste "crée un devis"), laisse ces champs vides.
+- "devis" : créer un nouveau devis. Champs : client (nom du client mentionné), address (adresse du chantier mentionnée), description (résumé clair en français des travaux décrits UNIQUEMENT — jamais de prix, de TVA ou de nom de lot dans ce texte, ils ont leurs propres champs ci-dessous), lotName (nom du lot/de la pièce/zone concernée SEULEMENT s'il est identifiable dans le message, ex: "Peinture F2", "Salon" — sinon laisse vide), vatRate (nombre : taux de TVA en % SEULEMENT s'il est explicitement mentionné, ex "TVA 20%" → 20 — sinon laisse vide), forfaitAmount (nombre : montant HT global SEULEMENT si l'utilisatrice le donne elle-même explicitement pour l'ensemble des travaux décrits, ex "5000€ fournitures et main d'oeuvre" → 5000 — ne JAMAIS estimer/deviner ce montant toi-même, uniquement le retranscrire s'il est donné tel quel), forfaitLabel (désignation courte du forfait si forfaitAmount est rempli, ex: "Peinture complète — forfait"). Si aucune information n'est donnée (juste "crée un devis"), laisse tous ces champs vides.
 - "tache" : une tâche/to-do sur un chantier. Champs : label, chantierHint, dueDate, assignedTo.
 - "equipe" : ajouter un membre d'équipe/ouvrier. Champs : name, profession, phone, email, hourlyRate.
 - "contact" : ajouter un contact/client. Champs : type ("particulier" ou "societe"), firstName, lastName, companyName, phone, email, address.
@@ -312,16 +312,24 @@ async function handleDevisPageAction({ ctx, parsed }) {
     const client = fields.client ? String(fields.client).trim() : "";
     const clientAddress = fields.clientAddress ? String(fields.clientAddress).trim() : "";
     const description = fields.description ? String(fields.description).trim() : "";
-    if (!client && !clientAddress && !description) {
-      return { outcome: "failed", message: "Je n'ai pas trouvé d'informations client à renseigner." };
+    const lotName = fields.lotName ? String(fields.lotName).trim() : "";
+    const vatRate = fields.vatRate ? Number(fields.vatRate) : null;
+    const forfaitAmount = fields.forfaitAmount ? Number(fields.forfaitAmount) : null;
+    const forfaitLabel = fields.forfaitLabel ? String(fields.forfaitLabel).trim() : "";
+    if (!client && !clientAddress && !description && !lotName && !vatRate && !forfaitAmount) {
+      return { outcome: "failed", message: "Je n'ai pas trouvé d'informations à renseigner." };
     }
     return {
       outcome: "devisPageAction",
       subAction,
-      label: client || "Informations client",
+      label: client || lotName || "Informations client",
       client,
       clientAddress,
-      description
+      description,
+      lotName,
+      vatRate,
+      forfaitAmount,
+      forfaitLabel
     };
   }
 
@@ -493,7 +501,7 @@ export async function POST(request) {
     // classification observe en test).
     const f = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
     const devisPageParsed = type === "devis"
-      ? { fields: { subAction: "setClientInfo", client: f.client, clientAddress: f.address || f.clientAddress, description: f.description } }
+      ? { fields: { subAction: "setClientInfo", client: f.client, clientAddress: f.address || f.clientAddress, description: f.description, lotName: f.lotName, vatRate: f.vatRate, forfaitAmount: f.forfaitAmount, forfaitLabel: f.forfaitLabel } }
       : type === "ouvrage"
         ? { fields: { subAction: "addOuvrage", label: f.label, unit: f.unit } }
         : { fields: { subAction: "addFourniture", label: f.name, quantity: f.quantity, unit: f.unit } };
