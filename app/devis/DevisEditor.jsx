@@ -11,6 +11,7 @@ import { calculateTaskPrice } from "../../lib/pricing";
 import { computeSurchargeBreakdown } from "../../lib/quote-calculations";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
+import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import catalog from "../../data/catalog-ouvrages.json";
 
 const ROOM_SUGGESTIONS = ["Salon", "Cuisine", "Chambre", "Salle de bain", "Bureau", "Exterieur"];
@@ -288,6 +289,11 @@ export default function DevisEditor() {
   const [targetRoom, setTargetRoom] = useState("Services");
   const [rightPanelTab, setRightPanelTab] = useState("client");
   const [clientEditing, setClientEditing] = useState(false);
+  // Avenants du devis signé (18 septembre) : chargés dès qu'un devis signé
+  // est ouvert, pour l'onglet "Avenants" et le total de marché à jour dans
+  // l'en-tête — jamais sur un devis non signé (un avenant exige un devis
+  // signé, voir app/api/avenants/route.js).
+  const [avenants, setAvenants] = useState([]);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [libraryFamily, setLibraryFamily] = useState("");
   const [supplyQuery, setSupplyQuery] = useState("");
@@ -495,6 +501,21 @@ export default function DevisEditor() {
     if (quotesLoading) return;
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
   }, [quotes, quotesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Avenants du devis signé courant — rechargés à chaque changement de devis
+  // ou de statut de signature (un devis fraîchement signé doit faire
+  // apparaître l'onglet "Avenants" sans re-navigation).
+  useEffect(() => {
+    if (!generatedQuote?.id || generatedQuote?.signatureStatus !== "Signe") {
+      setAvenants([]);
+      return;
+    }
+    let alive = true;
+    apiGet(`/api/avenants?quoteId=${encodeURIComponent(generatedQuote.id)}`)
+      .then((payload) => { if (alive) setAvenants(payload.avenants || []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [generatedQuote?.id, generatedQuote?.signatureStatus]);
 
   // Restore an existing quote (opened via /devis?id=...) with everything that was noted on it
   const restoredEditQuoteRef = useRef(false);
@@ -2283,6 +2304,9 @@ export default function DevisEditor() {
           <div className="quote-meta-number">
             <span>{L.devis.quoteNum} : {previewQuoteNumber}</span>
             <span className="quote-meta-version">{L.devis.versionNum} : {previewVersionNumber}</span>
+            {avenants.some((item) => item.status === "Signe") ? (
+              <span className="quote-meta-version">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</span>
+            ) : null}
           </div>
           {form.client || form.chantierAddress ? (
             <div className="quote-meta-client">
@@ -2438,6 +2462,9 @@ export default function DevisEditor() {
               <button type="button" className={rightPanelTab === "lots" ? "active" : ""} onClick={() => setRightPanelTab("lots")}>{L.devis.tabLots}</button>
               <button type="button" className={rightPanelTab === "bibliotheque" ? "active" : ""} onClick={() => setRightPanelTab("bibliotheque")}>{L.devis.library}</button>
               <button type="button" className={rightPanelTab === "fournitures" ? "active" : ""} onClick={() => setRightPanelTab("fournitures")}>{L.nav.supplies}</button>
+              {generatedQuote?.signatureStatus === "Signe" ? (
+                <button type="button" className={rightPanelTab === "avenants" ? "active" : ""} onClick={() => setRightPanelTab("avenants")}>{L.avenants.tabAvenants}</button>
+              ) : null}
             </div>
 
             {rightPanelTab === "client" && !clientEditing ? (
@@ -2665,6 +2692,38 @@ export default function DevisEditor() {
                 <div className="quote-picker-footer">
                   <Link className="quote-picker-full-link" href="/fournitures">{L.nav.supplies} →</Link>
                 </div>
+              </section>
+            ) : null}
+
+            {rightPanelTab === "avenants" && generatedQuote?.signatureStatus === "Signe" ? (
+              <section className="quote-final-card quote-avenants-card">
+                <div className="quote-section-title">
+                  <div><span>{L.avenants.title}</span><h2>{L.avenants.tabAvenants}</h2></div>
+                </div>
+                {avenants.some((item) => item.status === "Signe") ? (
+                  <div className="avenant-market-total-row">
+                    <span>{L.avenants.marketTotalUpdated}</span>
+                    <strong>{money(cumulativeMarketTotal(generatedQuote, avenants))}</strong>
+                  </div>
+                ) : null}
+                {avenants.length ? (
+                  <div className="avenant-list">
+                    {avenants.map((item) => (
+                      <Link key={item.id} href={`/avenant?id=${item.id}`} className="avenant-list-row">
+                        <div className="avenant-list-row-main">
+                          <strong>{item.numero}</strong>
+                          <span>{L.avenants[AVENANT_STATUS_LABEL_KEYS[item.status]] || item.status}</span>
+                        </div>
+                        <span className="avenant-list-row-amount">{money(item.totalTtcDelta)}</span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">{L.avenants.noAvenants}</p>
+                )}
+                <button type="button" className="button secondary" style={{ marginTop: 10 }} onClick={() => router.push(`/avenant?quoteId=${generatedQuote.id}`)}>
+                  {L.avenants.newAvenant}
+                </button>
               </section>
             ) : null}
           </div>
