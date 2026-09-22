@@ -67,13 +67,13 @@ function buildPrompt({ today, message, isSecondRound, previousQuestion, previous
 
 Pour l'action "navigate", mets uniquement fields.page = une des clés suivantes (choisis la plus proche, ne réponds jamais avec une clé qui n'est pas dans cette liste) : ${pagesList}.
 
-Pour l'action "ambiguous", mets uniquement fields.topic = la clé du type concerné (rdv/visite/depense/facture/fourniture/alerte/devis/tache/equipe/contact/chantier/fournisseur/ouvrage).
+Pour l'action "ambiguous", mets uniquement fields.topic = la clé du type concerné (rdv/visite/depense/facture/fourniture/alerte/devis/tache/equipe/contact/chantier/fournisseur/ouvrage/avenant).
 
 Pour l'action "update", mets fields.searchHint (les mots-clés qui identifient l'entrée à modifier — nom, lieu, sujet, comme pour une suppression) et fields.changes (objet des champs à modifier, avec les MÊMES noms de champs que ceux listés pour la création de ce type ci-dessous, plus "status" quand pertinent). Cas particulier du type "devis" : pour ajouter une ligne à un devis existant (ex: "ajoute une ligne carrelage 20m² au devis de Dupont"), mets fields.changes.lineLabel (désignation de la ligne), fields.changes.quantity (nombre), fields.changes.unit, fields.changes.room (pièce/lot concerné si mentionné) — jamais de prix, il est calculé automatiquement depuis la bibliothèque de prix de l'entreprise.
 
 Date du jour : ${today}
 
-Les 13 types (pour l'action "create", champs à extraire) :
+Les 14 types (pour l'action "create", champs à extraire) :
 - "rdv" : rendez-vous/évènement futur daté. Champs : title, eventType, clientName, address, startAt (ISO 8601, résous les dates relatives comme "jeudi"/"mardi matin" par rapport à la date du jour), endAt, notes.
 - "visite" : COMPTE-RENDU d'une visite déjà effectuée/en cours (constat/état des lieux, PAS un rendez-vous futur). Champs : client, site, date (YYYY-MM-DD), constat, analyse, preconisations, chantierHint (nom/adresse du chantier si mentionné).
 - "depense" : ACHAT réel dépensé sur un chantier précis (toujours lié à un chantier). Champs : chantierHint (nom/adresse du chantier — OBLIGATOIRE), amount (nombre), label, category, notes.
@@ -87,6 +87,7 @@ Les 13 types (pour l'action "create", champs à extraire) :
 - "chantier" : créer un nouveau chantier/projet. Champs : title (synthétise un titre court et clair à partir du message), address, clientEmail.
 - "fournisseur" : ajouter un fournisseur. Champs : name.
 - "ouvrage" : ajouter une prestation à la bibliothèque de prix de l'entreprise. Champs : label, unit, normativeTime (en heures), hourlyRate, family.
+- "avenant" : créer un AVENANT (modification/complément) sur un devis déjà SIGNÉ — reconnais aussi le mot seul "avenant" comme cette intention (toujours "create", jamais "ambiguous" pour ce mot). Champs : quoteHint (nom du client ou numéro de devis mentionné, SEULEMENT s'il est donné dans le message — sinon laisse vide, on demandera lequel).
 
 Pour une SUPPRESSION (action "delete"), quel que soit le type identifié ci-dessus, n'extrais que : searchHint (les mots-clés qui identifient l'entrée à supprimer — nom, lieu, sujet) et, si une date est mentionnée et pertinente pour ce type (rdv/tache/visite), dateHint (date ISO résolue). Ne mets aucun autre champ pour une suppression.
 ${conversationBlock}${photoBlock}
@@ -96,7 +97,7 @@ Message de l'utilisatrice : "${message}"
 Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
 {
   "action": "create" | "update" | "delete" | "navigate" | "ambiguous" | "devisPageAction" | "autre",
-  "type": "rdv" | "visite" | "depense" | "facture" | "fourniture" | "alerte" | "devis" | "tache" | "equipe" | "contact" | "chantier" | "fournisseur" | "ouvrage" | "autre",
+  "type": "rdv" | "visite" | "depense" | "facture" | "fourniture" | "alerte" | "devis" | "tache" | "equipe" | "contact" | "chantier" | "fournisseur" | "ouvrage" | "avenant" | "autre",
   "fields": { ... },
   "detectedFromPhoto": boolean,
   "needsClarification": boolean,
@@ -234,6 +235,33 @@ async function handleUpdate({ ctx, tool, type, parsed, isSecondRound, message })
     correctUrl: tool.correctUrl(entity),
     summary: tool.summary ? tool.summary(entity) : match.summary
   };
+}
+
+// "avenant" se compose ligne par ligne sur sa propre page (app/avenant/), pas
+// via un create() classique — cette fonction se contente de resoudre QUEL
+// devis signe est vise (meme resolution generique que le reste de l'app :
+// indice texte -> resolveByHint -> clarify si ambigu, jamais d'id invente),
+// puis navigue vers /avenant?quoteId=... une fois le devis identifie.
+async function handleAvenantNavigate({ ctx, tool, parsed, isSecondRound, message }) {
+  const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+  const hint = fields[tool.reference.hintField];
+  const candidates = await tool.reference.fetchCandidates(ctx);
+  if (!candidates.length) {
+    return { outcome: "failed", message: "Aucun devis signé pour l'instant — un avenant ne peut être créé que sur un devis déjà signé." };
+  }
+  const { match, matches } = resolveByHint(candidates, hint);
+  if (!match) {
+    if (isSecondRound) {
+      return { outcome: "failed", message: "Je n'ai pas trouvé le devis concerné. Réessayez avec le nom du client ou le numéro de devis." };
+    }
+    return {
+      outcome: "clarify",
+      question: "Pour quel devis signé souhaitez-vous créer cet avenant ?",
+      quickReplies: matches.map((m) => m.label),
+      originalMessage: message
+    };
+  }
+  return { outcome: "navigate", path: `/avenant?quoteId=${match.id}`, label: `Nouvel avenant — ${match.label}` };
 }
 
 function handleAmbiguous(parsed) {
@@ -522,6 +550,8 @@ export async function POST(request) {
     // lib/koji-assistant-devis-flow.js reste dans le depot, juste plus
     // appelee ici.
     result = { outcome: "navigate", path: "/devis?new=1", label: "Créer un devis" };
+  } else if (type === "avenant") {
+    result = await handleAvenantNavigate({ ctx, tool, parsed, isSecondRound, message });
   } else if (parsed.detectedFromPhoto) {
     const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
     result = startConfirmTypeFlow(type, fields, tool, message);
