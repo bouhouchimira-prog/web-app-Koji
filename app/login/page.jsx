@@ -281,12 +281,17 @@ function LoginScreen() {
     <main className="auth-screen-v2">
       <AuthBrandPanel />
       <section className="auth-panel-v2">
-        <div className="auth-card">
+        <div className="auth-card auth-card-wide">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          <KojiPanel L={L} />
-
-          <KojiProCard L={L} startOpen={proStartsOpen} />
+          <div className="auth-dual">
+            <div className="auth-dual-col">
+              <KojiPanel L={L} />
+            </div>
+            <div className="auth-dual-col">
+              <KojiProCard L={L} startOpen={proStartsOpen} />
+            </div>
+          </div>
         </div>
       </section>
     </main>

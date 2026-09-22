@@ -4165,6 +4165,79 @@ p {
   box-shadow: 0 4px 32px rgba(10, 21, 56, 0.08);
 }
 
+/* Koji (particulier) et Koji Pro (entreprise) cote a cote sur /login (22
+   septembre, demande d'Amira — plus de liste empilee) — .auth-card-wide
+   n'affecte que cette page, les autres pages continuent d'utiliser
+   .auth-card seule a 420px (signup/client/activate).
+   Le passage 2 colonnes -> 1 colonne se decide sur la largeur REELLE de la
+   carte (container query), pas sur la largeur de l'ecran entier : cette
+   carte ne prend que la moitie droite de l'ecran (a cote du bandeau de
+   marque), donc un simple @media base sur le viewport la faisait rester en
+   2 colonnes bien avant qu'elle ait assez de place, et le formulaire se
+   retrouvait ecrase (22 septembre, corrige un probleme de responsivite). */
+.auth-card.auth-card-wide {
+  max-width: 860px;
+  container-type: inline-size;
+}
+
+.auth-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  align-items: start;
+}
+
+.auth-dual-col {
+  min-width: 0;
+}
+
+.auth-dual-col + .auth-dual-col {
+  padding-left: 36px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.auth-dual .auth-pro-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+@container (max-width: 620px) {
+  .auth-dual {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .auth-dual-col + .auth-dual-col {
+    padding-left: 0;
+    border-left: none;
+  }
+  .auth-dual .auth-pro-section {
+    margin-top: 26px;
+    padding-top: 24px;
+    border-top: 1px solid #e2e8f0;
+  }
+}
+
+/* Filet de securite pour les tres vieux navigateurs sans support des
+   container queries : repli sur un seuil d'ecran large, mieux que rien. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 900px) {
+    .auth-dual {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .auth-dual-col + .auth-dual-col {
+      padding-left: 0;
+      border-left: none;
+    }
+    .auth-dual .auth-pro-section {
+      margin-top: 26px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+    }
+  }
+}
+
 .auth-type-toggle {
   display: flex;
   background: #f1f5f9;
@@ -5288,6 +5361,27 @@ p {
   display: grid;
   grid-template-columns: 1fr 40px;
   gap: 10px;
+}
+
+.room-add-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.room-add-suggestion-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: #f5f7fb;
+  color: var(--navy);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.room-add-suggestion-chip:hover {
+  background: #eef2f9;
 }
 
 .room-add-row button {
