@@ -41,6 +41,12 @@ const NOTIF_TYPE_ICONS = {
   "radar.expertise_publiee": "🧭"
 };
 
+function kojiGreeting(firstName) {
+  const hour = new Date().getHours();
+  const base = hour >= 18 || hour < 5 ? "Bonsoir" : "Bonjour";
+  return firstName ? `${base} ${firstName}` : base;
+}
+
 function formatRelativeTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -219,11 +225,13 @@ export function Shell({ children }) {
   // (db.kojiAssistantMessages, regroupees par conversationId) et se
   // rechargent a la demande.
   const [kojiAssistantOpen, setKojiAssistantOpen] = useState(false);
+  const [kojiAssistantExpanded, setKojiAssistantExpanded] = useState(false);
   // Menu deroulant d'historique (comme le menu notifications juste au-dessus
   // dans ce meme fichier) — ouvre par-dessus la conversation en cours, ne la
   // remplace jamais.
   const [kojiAssistantMenuOpen, setKojiAssistantMenuOpen] = useState(false);
   const kojiAssistantMenuRef = useRef(null);
+  const kojiAssistantInputRef = useRef(null);
   const [kojiAssistantConversations, setKojiAssistantConversations] = useState([]);
   const [kojiAssistantConversationId, setKojiAssistantConversationId] = useState("");
   const [kojiAssistantMessages, setKojiAssistantMessages] = useState([]);
@@ -317,9 +325,13 @@ export function Shell({ children }) {
     setKojiAssistantNotice("");
     const activeConversationId = kojiAssistantConversationId || newKojiConversationId();
     if (!kojiAssistantConversationId) setKojiAssistantConversationId(activeConversationId);
+    // Sur la page devis, l'assistant peut ajouter des ouvrages/fournitures/
+    // lots directement dans la page ouverte (20 septembre) — voir l'ecoute
+    // de "koji-devis-page-action" dans app/devis/DevisEditor.jsx.
+    const pageContext = pathname?.startsWith("/devis") ? { page: "devis" } : undefined;
     const payload = kojiAssistantClarification
-      ? { message: value, conversationId: activeConversationId, conversation: { question: kojiAssistantClarification.question, originalMessage: kojiAssistantClarification.originalMessage, state: kojiAssistantClarification.state } }
-      : { message: value, conversationId: activeConversationId, photos: kojiAssistantPhotos };
+      ? { message: value, conversationId: activeConversationId, conversation: { question: kojiAssistantClarification.question, originalMessage: kojiAssistantClarification.originalMessage, state: kojiAssistantClarification.state }, pageContext }
+      : { message: value, conversationId: activeConversationId, photos: kojiAssistantPhotos, pageContext };
     try {
       const data = await apiSend("/api/koji-assistant", payload, "POST");
       setKojiAssistantDraft("");
@@ -346,6 +358,11 @@ export function Shell({ children }) {
         setKojiAssistantLive(null);
         toggleKojiAssistant();
         router.push(data.path);
+      } else if (data.outcome === "devisPageAction") {
+        window.dispatchEvent(new CustomEvent("koji-devis-page-action", { detail: data }));
+        setKojiAssistantNotice(`✓ Ajouté sur le devis : ${data.label}`);
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
       } else {
         setKojiAssistantNotice("Je n'ai pas compris votre demande.");
         setKojiAssistantClarification(null);
@@ -405,6 +422,7 @@ export function Shell({ children }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
   const [profileType, setProfileType] = useState("entreprise");
+  const [kojiUserName, setKojiUserName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
@@ -461,6 +479,7 @@ export function Shell({ children }) {
       }
       if (parsed?.accountType === "particulier") setProfileType("particulier");
       else setProfileType("entreprise");
+      if (parsed?.name) setKojiUserName(String(parsed.name).trim().split(" ")[0]);
       if (parsed?.isAdmin) setIsAdmin(true);
       const trialInfo = getTrialInfo(parsed);
       setTrial(trialInfo);
@@ -605,7 +624,7 @@ export function Shell({ children }) {
       </button>
 
       {kojiAssistantOpen ? (
-        <div className="koji-assistant-panel">
+        <div className={`koji-assistant-panel ${kojiAssistantExpanded ? "koji-assistant-panel-expanded" : ""}`}>
           <div className="koji-assistant-panel-head">
             <div className="koji-assistant-menu" ref={kojiAssistantMenuRef}>
               <button
@@ -642,7 +661,22 @@ export function Shell({ children }) {
               ) : null}
             </div>
             <strong><KojiSymbol className="koji-assistant-panel-icon" /> KOJI</strong>
-            <button type="button" className="koji-assistant-summary-close" onClick={toggleKojiAssistant} aria-label={L.common.close}>✕</button>
+            <div className="koji-assistant-head-actions">
+              <button
+                type="button"
+                className="koji-assistant-resize-toggle"
+                onClick={() => setKojiAssistantExpanded((expanded) => !expanded)}
+                aria-label={kojiAssistantExpanded ? "Réduire l'assistant" : "Agrandir l'assistant"}
+                title={kojiAssistantExpanded ? "Réduire l'assistant" : "Agrandir l'assistant"}
+              >
+                {kojiAssistantExpanded ? (
+                  <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" /></svg>
+                ) : (
+                  <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+                )}
+              </button>
+              <button type="button" className="koji-assistant-summary-close" onClick={toggleKojiAssistant} aria-label={L.common.close}>✕</button>
+            </div>
           </div>
 
           <>
@@ -656,7 +690,9 @@ export function Shell({ children }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="koji-assistant-notice">Demandez-moi de créer ou supprimer un RDV, un devis, une dépense, une tâche...</p>
+                  <p className="koji-assistant-notice">
+                    {kojiGreeting(kojiUserName)} 👋 Demandez-moi de créer ou supprimer un RDV, un devis, une dépense, une tâche...
+                  </p>
                 )}
 
                 {kojiAssistantClarification?.quickReplies?.length > 0 ? (
@@ -672,6 +708,14 @@ export function Shell({ children }) {
                         {reply}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="radar-quick-option-btn koji-assistant-quick-other"
+                      disabled={kojiAssistantBusy}
+                      onClick={() => kojiAssistantInputRef.current?.focus()}
+                    >
+                      Autre
+                    </button>
                   </div>
                 ) : null}
 
@@ -690,6 +734,14 @@ export function Shell({ children }) {
                         {reply}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="radar-quick-option-btn koji-assistant-quick-other"
+                      disabled={kojiAssistantBusy}
+                      onClick={() => kojiAssistantInputRef.current?.focus()}
+                    >
+                      Autre
+                    </button>
                   </div>
                 ) : null}
 
@@ -791,6 +843,7 @@ export function Shell({ children }) {
               >
                 <span className="koji-assistant-bar-icon"><KojiSymbol /></span>
                 <input
+                  ref={kojiAssistantInputRef}
                   type="text"
                   value={kojiAssistantDraft}
                   onChange={(event) => setKojiAssistantDraft(event.target.value)}

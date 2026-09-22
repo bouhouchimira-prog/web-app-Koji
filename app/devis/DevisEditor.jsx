@@ -228,6 +228,16 @@ export default function DevisEditor() {
   // rouvrir en edition. S'applique pareil aux ouvrages, fournitures et
   // sous-ouvrages (meme rendu, la ligne parente porte l'etat).
   const [collapsedLineIds, setCollapsedLineIds] = useState(() => new Set());
+  // Fiche avancee par ligne (recap manager, 19 septembre) : temps normatif,
+  // taux horaire, ajustement/reduction %, lot et sous-ouvrages restent
+  // caches derriere "Details avances" — seuls Designation/Description
+  // client/Quantite/Unite/Prix unitaire HT restent visibles par defaut.
+  const [advancedLineIds, setAdvancedLineIds] = useState(() => new Set());
+  // Menu "⋮" unique par ligne (recap manager, 19-20 septembre) : regroupe
+  // monter/descendre/ouvrir la reference/details avances/supprimer — une
+  // seule ligne ouverte a la fois, ferme au clic exterieur.
+  const [lineMenuOpenId, setLineMenuOpenId] = useState(null);
+  const lineMenuRef = useRef(null);
   const [confirmDeleteLineId, setConfirmDeleteLineId] = useState(null);
   const [confirmDeleteSubId, setConfirmDeleteSubId] = useState(null);
   const [clientMessage, setClientMessage] = useState("");
@@ -277,6 +287,7 @@ export default function DevisEditor() {
   const [lotsInitialized, setLotsInitialized] = useState(false);
   const [targetRoom, setTargetRoom] = useState("Services");
   const [rightPanelTab, setRightPanelTab] = useState("client");
+  const [clientEditing, setClientEditing] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [libraryFamily, setLibraryFamily] = useState("");
   const [supplyQuery, setSupplyQuery] = useState("");
@@ -287,6 +298,10 @@ export default function DevisEditor() {
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
+  // Panneau "outils" (Client/Lots/Bibliotheque/Fournitures) en tiroir sur
+  // mobile (recap manager, 19 septembre) — sans effet au-dessus de 900px,
+  // ou la colonne de droite reste affichee normalement.
+  const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
   const addLineMenuRef = useRef(null);
   const [dragRoom, setDragRoom] = useState(null);
   const [dragOverRoom, setDragOverRoom] = useState(null);
@@ -308,6 +323,9 @@ export default function DevisEditor() {
     open: false,
     label: "",
     room: "Services",
+    quantity: "1",
+    unit: "u",
+    priceHt: "",
     error: ""
   });
   const [noteComposer, setNoteComposer] = useState({
@@ -337,6 +355,17 @@ export default function DevisEditor() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [moreActionsOpen]);
+
+  useEffect(() => {
+    if (!lineMenuOpenId) return;
+    function handleClickOutside(event) {
+      if (lineMenuRef.current && !lineMenuRef.current.contains(event.target)) {
+        setLineMenuOpenId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [lineMenuOpenId]);
 
   useEffect(() => {
     if (!addLineMenuRoom) return;
@@ -391,39 +420,14 @@ export default function DevisEditor() {
     const restoredTargetRoom = window.localStorage.getItem("koji-devis-target-room") || "";
     window.localStorage.removeItem("koji-devis-target-room");
 
-    // Restore persisted draft state (only if it belongs to the current user)
-    let draftIds = [];
-    try {
-      const raw = window.localStorage.getItem("koji-devis-draft");
-      if (raw) {
-        const draft = JSON.parse(raw);
-        let currentUserId = "";
-        try { currentUserId = JSON.parse(window.localStorage.getItem("koji-user") || "null")?.id || ""; } catch { /**/ }
-        if (draft.userId && currentUserId && draft.userId !== currentUserId) {
-          // Draft belongs to a different, identified user — discard it
-          window.localStorage.removeItem("koji-devis-draft");
-        } else {
-          if (Array.isArray(draft.customSources) && draft.customSources.length) setCustomSources(draft.customSources);
-          if (draft.lineSettings && Object.keys(draft.lineSettings).length) setLineSettings(draft.lineSettings);
-          if (Array.isArray(draft.roomNotes) && draft.roomNotes.length) setRoomNotes(draft.roomNotes);
-          if (Array.isArray(draft.rooms) && draft.rooms.length) setRooms(draft.rooms);
-          if (Array.isArray(draft.surcharges)) setSurcharges(draft.surcharges);
-          if (draft.quoteVatRate != null) setQuoteVatRate(Number(draft.quoteVatRate));
-          if (draft.form && typeof draft.form === "object") setForm((current) => ({ ...current, ...draft.form }));
-          if (draft.vatManual != null) setVatManual(Boolean(draft.vatManual));
-          if (draft.draftQuoteNumber) setDraftQuoteNumber(draft.draftQuoteNumber);
-          if (Array.isArray(draft.selectedIds)) draftIds = draft.selectedIds;
-          if (draft.generatedQuote?.id) {
-            setGeneratedQuote(draft.generatedQuote);
-            if (draft.generatedQuote.signatureClientAccess) {
-              setSignatureDelivery(draft.generatedQuote.signatureClientAccess);
-            }
-          }
-        }
-      }
-    } catch {
-      window.localStorage.removeItem("koji-devis-draft");
-    }
+    // "Nouveau devis" doit toujours repartir d'une page vierge (20 septembre)
+    // — plus de restauration silencieuse d'un brouillon localStorage. Un
+    // devis avec du contenu reel est desormais toujours enregistre en base
+    // (voir l'effet d'autosave plus bas) et se retrouve dans l'historique
+    // /devis, avec le statut Brouillon, pour etre repris volontairement via
+    // /devis?id=... — jamais en resurgissant tout seul sur un "nouveau".
+    window.localStorage.removeItem("koji-devis-draft");
+    const draftIds = [];
 
     function applyTargetRoom(ids) {
       if (!restoredTargetRoom || !ids.length) return;
@@ -483,31 +487,6 @@ export default function DevisEditor() {
       setSelectedIds(draftIds);
     }
   }, []);
-
-  // Persist working draft to localStorage on every relevant change
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (editQuoteIdFromUrl()) return;
-    const hasContent = selectedIds.length || customSources.length ||
-      Object.keys(lineSettings).length || roomNotes.length || rooms.length || generatedQuote?.id;
-    if (!hasContent) return;
-    let currentUserId = "";
-    try { currentUserId = JSON.parse(window.localStorage.getItem("koji-user") || "null")?.id || ""; } catch { /**/ }
-    window.localStorage.setItem("koji-devis-draft", JSON.stringify({
-      userId: currentUserId,
-      selectedIds,
-      customSources,
-      lineSettings,
-      roomNotes,
-      rooms,
-      surcharges,
-      quoteVatRate,
-      vatManual,
-      draftQuoteNumber,
-      form,
-      generatedQuote: generatedQuote || null
-    }));
-  }, [selectedIds, customSources, lineSettings, roomNotes, rooms, surcharges, quoteVatRate, vatManual, draftQuoteNumber, generatedQuote, form]);
 
   // Freeze the preview number once quotes are loaded; only regenerate on "Nouveau devis"
   useEffect(() => {
@@ -591,13 +570,22 @@ export default function DevisEditor() {
 
   // Autosave: once a quote exists, further edits are persisted automatically -
   // no need to keep pressing the "Enregistrer" buttons for each change to stick.
+  // Avant meme le premier clic explicite, des qu'un ouvrage/fourniture est
+  // ajoute, le meme mecanisme cree le brouillon en base (statut "Brouillon",
+  // visible dans l'historique /devis) — plus besoin d'un enregistrement
+  // manuel pour que le travail en cours existe quelque part de retrouvable
+  // (20 septembre : remplace l'ancien brouillon localStorage, invisible et
+  // qui resurgissait sur "Nouveau devis").
   const autosaveTimerRef = useRef(null);
   const autosaveReadyRef = useRef(false);
   useEffect(() => {
-    if (!generatedQuote?.id) return;
-    if (!autosaveReadyRef.current) {
-      // Skip the run that fires right when a quote is loaded/restored.
-      autosaveReadyRef.current = true;
+    if (generatedQuote?.id) {
+      if (!autosaveReadyRef.current) {
+        // Skip the run that fires right when an existing quote is loaded.
+        autosaveReadyRef.current = true;
+        return;
+      }
+    } else if (!selectedIds.length && !customSources.length) {
       return;
     }
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
@@ -605,7 +593,7 @@ export default function DevisEditor() {
       persistQuote(false).catch(() => {});
     }, 1200);
     return () => clearTimeout(autosaveTimerRef.current);
-  }, [form, rooms, roomNotes, surcharges, paymentMilestones, quoteVatRate, customSources, lineSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [form, rooms, roomNotes, surcharges, paymentMilestones, quoteVatRate, customSources, lineSettings, selectedIds, generatedQuote?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSources = useMemo(() => {
     const fromCatalog = selectedIds.map((id) => postes.find((item) => item.id === id)).filter(Boolean);
@@ -863,6 +851,56 @@ export default function DevisEditor() {
     });
   }
 
+  // Duplique un lot et toutes ses lignes (nouveaux ids, valeurs figees a
+  // l'instant T) dans une copie independante — ne modifie ni le lot ni les
+  // lignes d'origine.
+  function duplicateRoom(room) {
+    let name = `${room} (copie)`;
+    let n = 2;
+    while (roomGroups.includes(name)) {
+      name = `${room} (copie ${n})`;
+      n += 1;
+    }
+    setRooms((current) => {
+      const base = current.length ? current : roomGroups.filter((item) => item !== "Services");
+      return [...base, name];
+    });
+    const roomLines = linesByRoom[room] || [];
+    const newCustomSources = [];
+    const newLineSettings = {};
+    roomLines.forEach((line, index) => {
+      const id = `copy-${Date.now()}-${index}`;
+      newCustomSources.push({
+        id,
+        code: line.code || "COPY",
+        label: line.label,
+        unit: line.unit,
+        normativeTime: line.normativeTime,
+        materialCategories: []
+      });
+      newLineSettings[id] = {
+        room: name,
+        label: line.label,
+        description: line.description,
+        billingMode: line.billingMode,
+        quantity: line.quantity != null ? String(line.quantity) : "",
+        unit: line.unit,
+        normativeTime: line.normativeTime,
+        hourlyRate: line.hourlyRate,
+        fixedAmountInput: line.fixedAmountInput,
+        fixedAmountMode: line.fixedAmountMode,
+        adjustmentPercent: line.adjustmentPercent,
+        discountPercent: line.discountPercent,
+        materialLines: line.materialLines,
+        subItems: line.subItems
+      };
+    });
+    setCustomSources((current) => [...current, ...newCustomSources]);
+    setLineSettings((current) => ({ ...current, ...newLineSettings }));
+    setExpandedLotIds((current) => new Set(current).add(name));
+    setGeneratedQuote(null);
+  }
+
   // Reordonne les lots au glisser (liste de droite) — meme logique de "seed"
   // depuis roomGroups que l'ancien systeme de boutons ▲▼, mais insertion a
   // un index arbitraire plutot qu'un echange avec le voisin.
@@ -919,7 +957,7 @@ export default function DevisEditor() {
   }
 
   function openOuvrageComposer(room = "Services") {
-    setOuvrageComposer({ open: true, label: "", room, error: "" });
+    setOuvrageComposer({ open: true, label: "", room, quantity: "1", unit: "u", priceHt: "", error: "" });
   }
 
   function closeOuvrageComposer() {
@@ -937,17 +975,27 @@ export default function DevisEditor() {
       return;
     }
     const id = `custom-${Date.now()}`;
+    const unit = ouvrageComposer.unit || "u";
     setCustomSources((current) => [...current, {
       id,
       code: "PERSO",
       label,
-      unit: "u",
+      unit,
       normativeTime: 0,
       materialCategories: []
     }]);
     setLineSettings((current) => ({
       ...current,
-      [id]: { room: ouvrageComposer.room }
+      [id]: {
+        room: ouvrageComposer.room,
+        quantity: ouvrageComposer.quantity || "1",
+        unit,
+        // normativeTime=1 : meme mecanisme que le "Prix unitaire HT" simple
+        // (updateLineUnitPrice) — Quantite x Prix HT = Total HT sans
+        // exposer temps/taux a l'utilisatrice pour une creation rapide.
+        normativeTime: 1,
+        hourlyRate: Number(ouvrageComposer.priceHt || 0)
+      }
     }));
     setGeneratedQuote(null);
     setOuvrageComposer((current) => ({ ...current, open: false }));
@@ -1023,6 +1071,33 @@ export default function DevisEditor() {
       return {
         ...current,
         [id]: nextSettings
+      };
+    });
+  }
+
+  function toggleLineAdvanced(id) {
+    setAdvancedLineIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Champ "Prix unitaire HT" simple (vue non-avancee) : reecrit uniquement
+  // hourlyRate a partir du prix affiche, sans toucher normativeTime tant
+  // qu'il a deja une valeur reelle (visible en avance) — si normativeTime
+  // est encore a 0 (ligne toute neuve), on le fixe a 1 pour que Quantite x
+  // Prix unitaire = Total HT reste vrai sans exposer le calcul.
+  function updateLineUnitPrice(id, line, settings, rawValue) {
+    setGeneratedQuote(null);
+    const price = Number(rawValue) || 0;
+    setLineSettings((current) => {
+      const currentSettings = current[id] || {};
+      const normativeTime = Number(currentSettings.normativeTime ?? line.normativeTime ?? 0) || 1;
+      return {
+        ...current,
+        [id]: { ...currentSettings, normativeTime, hourlyRate: price / normativeTime }
       };
     });
   }
@@ -1255,11 +1330,31 @@ export default function DevisEditor() {
   // Insere un ouvrage du catalogue dans le lot cible (onglet Bibliotheque,
   // panneau de droite) — meme mecanisme que le retour de
   // /bibliotheque-ouvrages, sans le detour navigation+localStorage.
-  function addOuvrageToRoom(ouvrage, room) {
+  function addOuvrageToRoom(ouvrage, room, quantity) {
     setSelectedIds((current) => current.includes(ouvrage.id) ? current : [...current, ouvrage.id]);
     setLineSettings((current) => ({
       ...current,
-      [ouvrage.id]: { ...(current[ouvrage.id] || {}), room, quantity: current[ouvrage.id]?.quantity ?? "1" }
+      [ouvrage.id]: { ...(current[ouvrage.id] || {}), room, quantity: quantity != null ? String(quantity) : (current[ouvrage.id]?.quantity ?? "1") }
+    }));
+    setExpandedLotIds((current) => new Set(current).add(room));
+    setGeneratedQuote(null);
+  }
+
+  // Ligne "a chiffrer manuellement" (aucune correspondance catalogue) —
+  // meme schema que submitOuvrageComposer, avec un prix a 0€ jamais invente.
+  function addUnmatchedOuvrageToRoom(label, room, quantity, unit) {
+    const id = `koji-${Date.now()}`;
+    setCustomSources((current) => [...current, {
+      id,
+      code: "PERSO",
+      label,
+      unit: unit || "u",
+      normativeTime: 0,
+      materialCategories: []
+    }]);
+    setLineSettings((current) => ({
+      ...current,
+      [id]: { room, quantity: String(quantity || 1), unit: unit || "u" }
     }));
     setExpandedLotIds((current) => new Set(current).add(room));
     setGeneratedQuote(null);
@@ -1344,6 +1439,7 @@ export default function DevisEditor() {
     try {
       await persistQuote();
       notify("Informations client et chantier enregistrées.", "success");
+      setClientEditing(false);
     } catch (error) {
       notifyError(error, "Impossible d'enregistrer les informations.");
     } finally {
@@ -1729,6 +1825,69 @@ export default function DevisEditor() {
     }
   }, [signatureDelivery]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Assistant koji : ajout d'un ouvrage/fourniture/lot directement sur ce
+  // devis pendant qu'il est ouvert (20 septembre) — voir la demande envoyee
+  // par components/Shell.jsx (evenement "koji-devis-page-action", declenche
+  // quand action="devisPageAction" cote serveur). Resout le lot cible
+  // (nom mentionne, cree s'il n'existe pas encore, sinon le lot
+  // actuellement selectionne) puis reutilise les memes fonctions d'ajout
+  // que les onglets Bibliotheque/Fournitures — rien de duplique.
+  useEffect(() => {
+    function handleDevisPageAction(event) {
+      const detail = event.detail || {};
+      const { subAction, quantity } = detail;
+
+      function resolveTargetRoom(requestedName) {
+        if (!requestedName) return targetRoom;
+        const existing = roomGroups.find((r) => r.toLowerCase() === String(requestedName).toLowerCase());
+        if (existing) return existing;
+        setRooms((current) => current.includes(requestedName) ? current : [...current, requestedName]);
+        return requestedName;
+      }
+
+      if (subAction === "addLot") {
+        const name = detail.lotName || detail.label;
+        if (!name) return;
+        setRooms((current) => current.includes(name) ? current : [...current, name]);
+        setTargetRoom(name);
+        setExpandedLotIds((current) => new Set(current).add(name));
+        notify(`Lot "${name}" ajouté par l'assistant.`, "success");
+        return;
+      }
+
+      if (subAction === "setClientInfo") {
+        setForm((current) => ({
+          ...current,
+          client: detail.client || current.client,
+          chantierAddress: detail.clientAddress || current.chantierAddress,
+          workDescription: detail.description || current.workDescription
+        }));
+        notify("Informations client remplies par l'assistant.", "success");
+        return;
+      }
+
+      const room = resolveTargetRoom(detail.room);
+
+      if (subAction === "addOuvrage" && detail.ouvrage) {
+        if (detail.ouvrage.matched) {
+          addOuvrageToRoom(detail.ouvrage, room, quantity);
+        } else {
+          addUnmatchedOuvrageToRoom(detail.ouvrage.label, room, quantity, detail.ouvrage.unit);
+        }
+        notify(`Ouvrage ajouté par l'assistant : ${detail.ouvrage.label}`, "success");
+        return;
+      }
+
+      if (subAction === "addFourniture" && detail.supply) {
+        addFournitureLine(detail.supply, quantity, room);
+        notify(`Fourniture ajoutée par l'assistant : ${detail.supply.name}`, "success");
+      }
+    }
+
+    window.addEventListener("koji-devis-page-action", handleDevisPageAction);
+    return () => window.removeEventListener("koji-devis-page-action", handleDevisPageAction);
+  }, [roomGroups, targetRoom]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function renderLineCard(line) {
     const settings = lineSettings[line.id] || {};
     const subItems = Array.isArray(line.subItems) ? line.subItems : [];
@@ -1737,20 +1896,39 @@ export default function DevisEditor() {
     const lineIndex = roomLines.findIndex((item) => item.id === line.id);
     const linkedOuvrage = ouvrages.find((item) => item.id === line.id);
     const lineNumber = lineIndex + 1;
+    const isAdvanced = advancedLineIds.has(line.id);
 
     if (collapsedLineIds.has(line.id)) {
       const qty = Number(settings.quantity ?? line.quantity ?? 0) || (line.billingMode === "fixed" ? 1 : 0);
       const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
       return (
         <article key={line.id} className="quote-final-line quote-final-line-collapsed">
-          <button type="button" className="quote-line-collapsed-row" onClick={() => reopenLine(line.id)}>
-            <span className="quote-line-collapsed-index">{lineNumber}</span>
-            <span className="quote-line-collapsed-label">{settings.label ?? line.label ?? L.devis.designation}</span>
-            <span className="quote-line-collapsed-qty">{qty > 0 ? qty : "—"}</span>
-            <span className="quote-line-collapsed-unit">{(settings.unit ?? line.unit ?? "u").toUpperCase()}</span>
-            <span className="quote-line-collapsed-unitprice">{money(unitPriceHt)}</span>
-            <strong className="quote-line-collapsed-total">{money(line.totalHt)}</strong>
-          </button>
+          <div className="quote-line-collapsed-row-wrap" ref={lineMenuOpenId === line.id ? lineMenuRef : null}>
+            <button type="button" className="quote-line-collapsed-row" onClick={() => reopenLine(line.id)}>
+              <span className="quote-line-collapsed-index">{lineNumber}</span>
+              <span className="quote-line-collapsed-label">{settings.label ?? line.label ?? L.devis.designation}</span>
+              <span className="quote-line-collapsed-qty">{qty > 0 ? qty : "—"}</span>
+              <span className="quote-line-collapsed-unit">{(settings.unit ?? line.unit ?? "u").toUpperCase()}</span>
+              <span className="quote-line-collapsed-unitprice">{money(unitPriceHt)}</span>
+              <strong className="quote-line-collapsed-total">{money(line.totalHt)}</strong>
+            </button>
+            <button
+              type="button"
+              className="quote-line-menu-trigger"
+              onClick={(event) => { event.stopPropagation(); setLineMenuOpenId((current) => current === line.id ? null : line.id); }}
+              aria-label={L.devis.advancedDetails}
+            >⋮</button>
+            {lineMenuOpenId === line.id ? (
+              <div className="quote-line-menu-dropdown">
+                <button type="button" disabled={lineIndex <= 0} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "up"); }}>{L.devis.moveUp}</button>
+                <button type="button" disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "down"); }}>{L.devis.moveDown}</button>
+                {linkedOuvrage ? (
+                  <button type="button" onClick={() => { setLineMenuOpenId(null); openOuvrageReference(line); }}>{L.devis.openBtn}</button>
+                ) : null}
+                <button type="button" className="danger" onClick={() => { setLineMenuOpenId(null); reopenLine(line.id); setConfirmDeleteLineId(line.id); }}>{L.common.delete}</button>
+              </div>
+            ) : null}
+          </div>
           {hasSubItems ? (
             <div className="quote-line-collapsed-subs">
               {subItems.map((sub, subIndex) => {
@@ -1776,17 +1954,29 @@ export default function DevisEditor() {
     return (
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
-          <div className="quote-line-move-group">
-            <button type="button" className="quote-line-move-btn" title={L.devis.moveUp} aria-label={L.devis.moveUp} onClick={() => moveLine(line.id, "up")} disabled={lineIndex <= 0}>▲</button>
-            <button type="button" className="quote-line-move-btn" title={L.devis.moveDown} aria-label={L.devis.moveDown} onClick={() => moveLine(line.id, "down")} disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1}>▼</button>
-          </div>
           <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
-          {linkedOuvrage ? (
-            <button type="button" className="quote-line-open-button" onClick={() => openOuvrageReference(line)}>{L.devis.openBtn}</button>
-          ) : null}
+          <div className="quote-line-menu-wrap" ref={lineMenuOpenId === line.id ? lineMenuRef : null}>
+            <button
+              type="button"
+              className="quote-line-menu-trigger"
+              onClick={() => setLineMenuOpenId((current) => current === line.id ? null : line.id)}
+              aria-label={L.devis.advancedDetails}
+            >⋮</button>
+            {lineMenuOpenId === line.id ? (
+              <div className="quote-line-menu-dropdown">
+                <button type="button" disabled={lineIndex <= 0} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "up"); }}>{L.devis.moveUp}</button>
+                <button type="button" disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "down"); }}>{L.devis.moveDown}</button>
+                {linkedOuvrage ? (
+                  <button type="button" onClick={() => { setLineMenuOpenId(null); openOuvrageReference(line); }}>{L.devis.openBtn}</button>
+                ) : null}
+                <button type="button" onClick={() => { setLineMenuOpenId(null); toggleLineAdvanced(line.id); }}>{L.devis.advancedDetails}</button>
+                <button type="button" className="danger" onClick={() => { setLineMenuOpenId(null); setConfirmDeleteLineId(line.id); }}>{L.common.delete}</button>
+              </div>
+            ) : null}
+          </div>
         </header>
         <label className="quote-line-description">
-          <span>{L.devis.descriptionLabel}</span>
+          <span>{L.devis.descriptionClient}</span>
           <textarea
             rows={2}
             value={settings.description ?? line.description ?? ""}
@@ -1796,24 +1986,9 @@ export default function DevisEditor() {
         </label>
         {!hasSubItems ? (
           <>
-            <div className="quote-mode-row">
-              <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>{L.devis.realTime}</button>
-              <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
-              <label>{L.devis.room}<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
-                <option value="Services">{L.devis.noRoom}</option>
-                {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
-              </select></label>
-            </div>
-            <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
+            <div className="quote-line-inputs compact quote-line-inputs-simple">
               {line.billingMode === "fixed" ? (
-                <>
-                  <label className="forfait-amount-field">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
-                  <label>{L.devis.duration}<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
-                  <label>{L.bibliotheque.unit}<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
-                    <option value="h">{L.devis.hours}</option>
-                    <option value="j">Jours</option>
-                  </select></label>
-                </>
+                <label className="forfait-amount-field">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
               ) : (
                 <>
                   <label>{L.devis.quantity}<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
@@ -1828,13 +2003,48 @@ export default function DevisEditor() {
                     <option value="ml">ML</option>
                     <option value="autre">Autre</option>
                   </select></label>
-                  <label>{L.bibliotheque.time} h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
-                  <label>{L.devis.hourlyRate}<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
-                  <label>{L.devis.adjustment}<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
-                  <label>{L.devis.discountPct}<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
+                  <label>{L.devis.priceHt}<input type="number" min="0" step="0.01" value={formatNumberInput((settings.normativeTime ?? line.normativeTime ?? 0) * (settings.hourlyRate ?? line.hourlyRate ?? 0))} onChange={(event) => updateLineUnitPrice(line.id, line, settings, event.target.value)} placeholder="0.00" /></label>
                 </>
               )}
             </div>
+
+            {isAdvanced ? (
+              <div className="quote-line-advanced">
+                <div className="quote-mode-row">
+                  <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>{L.devis.realTime}</button>
+                  <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
+                  <label>{L.devis.room}<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
+                    <option value="Services">{L.devis.noRoom}</option>
+                    {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
+                  </select></label>
+                </div>
+                <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
+                  {line.billingMode === "fixed" ? (
+                    <>
+                      <label>{L.devis.duration}<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
+                      <label>{L.bibliotheque.unit}<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
+                        <option value="h">{L.devis.hours}</option>
+                        <option value="j">Jours</option>
+                      </select></label>
+                    </>
+                  ) : (
+                    <>
+                      <label>{L.bibliotheque.time} h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
+                      <label>{L.devis.hourlyRate}<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
+                      <label>{L.devis.adjustment}<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
+                      <label>{L.devis.discountPct}<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
+                    </>
+                  )}
+                </div>
+                {linkedOuvrage && (linkedOuvrage.noteInterne || linkedOuvrage.sourceInterne) ? (
+                  <div className="quote-line-internal-ref">
+                    {linkedOuvrage.noteInterne ? <p><span>{L.devis.noteInterne}</span>{linkedOuvrage.noteInterne}</p> : null}
+                    {linkedOuvrage.sourceInterne ? <p><span>{L.devis.sourceInterne}</span>{linkedOuvrage.sourceInterne}</p> : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="quote-line-breakdown">
               {line.billingMode === "fixed" ? (
                 <>
@@ -1921,6 +2131,7 @@ export default function DevisEditor() {
             <span>HT total : {money(line.totalHt)}</span>
           </div>
         )}
+        {(hasSubItems || isAdvanced) ? (
         <div className="quote-sub-items">
           {subItems.map((sub) => (
             <article key={sub.id} className="quote-sub-item-card">
@@ -1992,6 +2203,7 @@ export default function DevisEditor() {
             {L.devis.addSubWork}
           </button>
         </div>
+        ) : null}
         <div className="quote-line-save-bar">
           {confirmDeleteLineId === line.id ? (
             <span className="quote-line-confirm-delete">
@@ -2000,16 +2212,13 @@ export default function DevisEditor() {
               <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteLineId(null)}>{L.common.cancel}</button>
             </span>
           ) : (
-            <>
-              <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteLineId(line.id)}>{L.common.delete}</button>
-              <button
-                type="button"
-                className={`quote-line-save-btn${savedLineId === `saving-${line.id}` ? " saving" : ""}${savedLineId === `saved-${line.id}` ? " saved" : ""}`}
-                onClick={() => saveLineDraft(line.id)}
-              >
-                {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : L.devis.save}
-              </button>
-            </>
+            <button
+              type="button"
+              className={`quote-line-save-btn${savedLineId === `saving-${line.id}` ? " saving" : ""}${savedLineId === `saved-${line.id}` ? " saved" : ""}`}
+              onClick={() => saveLineDraft(line.id)}
+            >
+              {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : L.devis.save}
+            </button>
           )}
         </div>
       </article>
@@ -2037,7 +2246,22 @@ export default function DevisEditor() {
             <span>{L.devis.quoteNum} : {previewQuoteNumber}</span>
             <span className="quote-meta-version">{L.devis.versionNum} : {previewVersionNumber}</span>
           </div>
+          {form.client || form.chantierAddress ? (
+            <div className="quote-meta-client">
+              {form.client ? <strong>{form.client}</strong> : null}
+              {form.chantierAddress ? <span>{form.chantierAddress}</span> : null}
+            </div>
+          ) : null}
+          <button type="button" className="quote-tools-drawer-trigger" onClick={() => setToolsDrawerOpen(true)}>
+            <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a4 4 0 0 1-5.4 5.4L6 20 4 18l8.4-9.4a4 4 0 0 1 5.4-5.4l-3.1 3.1Z" /></svg>
+            {L.devis.tabTools}
+          </button>
         </div>
+
+        <div
+          className={`quote-tools-drawer-backdrop ${toolsDrawerOpen ? "open" : ""}`}
+          onClick={() => setToolsDrawerOpen(false)}
+        />
 
         <div className="quote-two-col">
           <div className="quote-col-left">
@@ -2169,7 +2393,8 @@ export default function DevisEditor() {
             </section>
           </div>
 
-          <div className="quote-col-right">
+          <div className={`quote-col-right ${toolsDrawerOpen ? "open" : ""}`}>
+            <button type="button" className="quote-tools-drawer-close" onClick={() => setToolsDrawerOpen(false)} aria-label={L.common.cancel}>×</button>
             <div className="quote-right-tabs">
               <button type="button" className={rightPanelTab === "client" ? "active" : ""} onClick={() => setRightPanelTab("client")}>{L.devis.tabClient}</button>
               <button type="button" className={rightPanelTab === "lots" ? "active" : ""} onClick={() => setRightPanelTab("lots")}>{L.devis.tabLots}</button>
@@ -2177,7 +2402,20 @@ export default function DevisEditor() {
               <button type="button" className={rightPanelTab === "fournitures" ? "active" : ""} onClick={() => setRightPanelTab("fournitures")}>{L.nav.supplies}</button>
             </div>
 
-            {rightPanelTab === "client" ? (
+            {rightPanelTab === "client" && !clientEditing ? (
+              <section className="quote-final-card quote-client-card">
+                <div className="quote-client-summary">
+                  <div><span>{L.devis.client}</span><strong>{form.client || "—"}</strong></div>
+                  <div><span>{L.devis.clientPhone}</span><strong>{form.clientPhone || "—"}</strong></div>
+                  <div><span>{L.devis.clientEmail}</span><strong>{form.clientEmail || "—"}</strong></div>
+                  <div><span>{L.devis.clientAddress}</span><strong>{form.chantierAddress || "—"}</strong></div>
+                  <div><span>{L.devis.project}</span><strong>{form.project || "—"}</strong></div>
+                </div>
+                <button type="button" className="button secondary" onClick={() => setClientEditing(true)}>{L.common.edit}</button>
+              </section>
+            ) : null}
+
+            {rightPanelTab === "client" && clientEditing ? (
               <section className="quote-final-card quote-client-card">
                 <div className="quote-client-grid quote-client-grid-pair">
                   <label>{L.devis.clientRef}<input value={form.clientReference} onChange={(event) => setField("clientReference", event.target.value)} placeholder={L.devis.clientRef} /></label>
@@ -2274,6 +2512,7 @@ export default function DevisEditor() {
                         aria-hidden="true"
                       >⠿</span>
                       <button type="button" className="lot-list-label" onClick={() => setTargetRoom(room)}>{room}</button>
+                      <button type="button" className="lot-list-duplicate" onClick={() => duplicateRoom(room)} aria-label={L.devis.duplicateLot} title={L.devis.duplicateLot}>⧉</button>
                       <button type="button" className="lot-list-remove" onClick={() => removeRoom(room)} aria-label={`Retirer ${room}`}>×</button>
                     </div>
                   ))}
@@ -2313,9 +2552,45 @@ export default function DevisEditor() {
                   {!filteredLibraryItems.length ? <p className="empty-state">{L.bibliotheque.noFound}</p> : null}
                 </div>
                 <div className="quote-picker-footer">
-                  <button type="button" className="button secondary" onClick={() => openOuvrageComposer(targetRoom)}>+ {L.devis.createWork}</button>
+                  <button type="button" className="button secondary" onClick={() => (ouvrageComposer.open ? closeOuvrageComposer() : openOuvrageComposer(targetRoom))}>
+                    {ouvrageComposer.open ? "▾" : "+"} {L.devis.createWork}
+                  </button>
                   <Link className="quote-picker-full-link" href="/bibliotheque-ouvrages">{L.bibliotheque.title} →</Link>
                 </div>
+
+                {ouvrageComposer.open ? (
+                  <div className="quote-picker-inline-form">
+                    <label className="supply-composer-field full">
+                      <span>{L.devis.designation}</span>
+                      <input
+                        value={ouvrageComposer.label}
+                        onChange={(event) => setOuvrageComposerField("label", event.target.value)}
+                        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitOuvrageComposer(); } }}
+                        placeholder="Ex: Pose de carrelage, Peinture murs..."
+                        autoFocus
+                      />
+                    </label>
+                    <label className="supply-composer-field">
+                      <span>{L.devis.quantity}</span>
+                      <input type="number" min="0" step="any" value={ouvrageComposer.quantity} onChange={(event) => setOuvrageComposerField("quantity", event.target.value)} placeholder="1" />
+                    </label>
+                    <label className="supply-composer-field">
+                      <span>{L.bibliotheque.unit}</span>
+                      <select value={ouvrageComposer.unit} onChange={(event) => setOuvrageComposerField("unit", event.target.value)}>
+                        {CUSTOM_OUVRAGE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                      </select>
+                    </label>
+                    <label className="supply-composer-field">
+                      <span>{L.devis.priceHt}</span>
+                      <input type="number" min="0" step="0.01" value={ouvrageComposer.priceHt} onChange={(event) => setOuvrageComposerField("priceHt", event.target.value)} placeholder="0.00" />
+                    </label>
+                    {ouvrageComposer.error ? <p className="profile-message error">{ouvrageComposer.error}</p> : null}
+                    <div className="supply-modal-actions">
+                      <button type="button" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
+                      <button type="button" className="button blue" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
+                    </div>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 
@@ -2782,38 +3057,6 @@ export default function DevisEditor() {
               <div className="supply-modal-actions">
                 <button type="button" onClick={closeSupplyComposer}>{L.common.cancel}</button>
                 <button type="button" className="button blue" onClick={saveSupplyFromComposer} disabled={supplyComposer.loading}>{supplyComposer.loading ? L.devis.importing : L.common.add}</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {ouvrageComposer.open ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeOuvrageComposer}>
-            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{L.devis.createWork}</h2>
-              <label className="supply-composer-field full">
-                <span>{L.devis.designation}</span>
-                <input
-                  value={ouvrageComposer.label}
-                  onChange={(event) => setOuvrageComposerField("label", event.target.value)}
-                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitOuvrageComposer(); } }}
-                  placeholder="Ex: Pose de carrelage, Peinture murs..."
-                  autoFocus
-                />
-              </label>
-              {roomGroups.filter((r) => r !== "Services").length > 0 ? (
-                <label className="supply-composer-field full">
-                  <span>{L.devis.room}</span>
-                  <select value={ouvrageComposer.room} onChange={(event) => setOuvrageComposerField("room", event.target.value)}>
-                    <option value="Services">{L.devis.noRoom}</option>
-                    {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
-                  </select>
-                </label>
-              ) : null}
-              {ouvrageComposer.error ? <p className="profile-message error">{ouvrageComposer.error}</p> : null}
-              <div className="supply-modal-actions">
-                <button type="button" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
-                <button type="button" className="button blue" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
               </div>
             </div>
           </div>
