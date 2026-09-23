@@ -26,6 +26,11 @@ const PRO_YEARLY_CENTS = PRO_MONTHLY_CENTS * 10;
 const WEBSITE_MONTHLY_CENTS = 1499; // 14,99 €
 const WEBSITE_YEARLY_CENTS = WEBSITE_MONTHLY_CENTS * 10;
 
+// Placeholder — a deuxieme add-on cumulatif avec Koji Pro (23 septembre),
+// jamais confirme par Amira. Ajustez avant de lancer le script.
+const PREMIUM_MONTHLY_CENTS = 2999; // 29,99 €
+const PREMIUM_YEARLY_CENTS = PREMIUM_MONTHLY_CENTS * 10;
+
 async function createRecurringPrices(product, monthlyCents, yearlyCents, name) {
   const monthly = await stripe.prices.create({
     product: product.id,
@@ -53,12 +58,18 @@ async function main() {
   const website = await createRecurringPrices(websiteProduct, WEBSITE_MONTHLY_CENTS, WEBSITE_YEARLY_CENTS, "Site web Koji");
   console.log(`Site web Koji: produit ${websiteProduct.id} (mensuel ${website.monthly.id}, annuel ${website.yearly.id})`);
 
+  const premiumProduct = await stripe.products.create({ name: "Koji Premium" });
+  const premium = await createRecurringPrices(premiumProduct, PREMIUM_MONTHLY_CENTS, PREMIUM_YEARLY_CENTS, "Koji Premium");
+  console.log(`Koji Premium: produit ${premiumProduct.id} (mensuel ${premium.monthly.id}, annuel ${premium.yearly.id})`);
+
   console.log("\nAjoutez ces lignes à .env.local, puis sur Vercel (Project Settings → Environment Variables) :\n");
   console.log([
     `STRIPE_PRICE_PRO_MONTHLY=${pro.monthly.id}`,
     `STRIPE_PRICE_PRO_YEARLY=${pro.yearly.id}`,
     `STRIPE_PRICE_WEBSITE_MONTHLY=${website.monthly.id}`,
-    `STRIPE_PRICE_WEBSITE_YEARLY=${website.yearly.id}`
+    `STRIPE_PRICE_WEBSITE_YEARLY=${website.yearly.id}`,
+    `STRIPE_PRICE_PREMIUM_MONTHLY=${premium.monthly.id}`,
+    `STRIPE_PRICE_PREMIUM_YEARLY=${premium.yearly.id}`
   ].join("\n"));
 }
 

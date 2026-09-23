@@ -1,6 +1,6 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { getAuth } from "../../../../lib/server-auth";
-import { getStripe, priceIdFor, addonPriceIdFor } from "../../../../lib/stripe";
+import { getStripe, priceIdFor, addonPriceIdFor, addonPremiumPriceIdFor } from "../../../../lib/stripe";
 
 // Uses getAuth (Supabase Auth session cookie) on purpose: only entreprise
 // accounts authenticate that way, so particulier/ouvrier sessions (which use
@@ -16,6 +16,7 @@ export async function POST(request) {
 
   const interval = VALID_INTERVALS.has(body.interval) ? body.interval : "month";
   const wantsWebsite = Boolean(body.addons?.website);
+  const wantsPremium = Boolean(body.addons?.premium);
 
   const proPriceId = priceIdFor(interval);
   if (!proPriceId) {
@@ -24,6 +25,10 @@ export async function POST(request) {
   const websitePriceId = wantsWebsite ? addonPriceIdFor(interval) : "";
   if (wantsWebsite && !websitePriceId) {
     return badRequest("L'option Site web n'est pas encore configurée côté paiement. Réessayez plus tard.", 500);
+  }
+  const premiumPriceId = wantsPremium ? addonPremiumPriceIdFor(interval) : "";
+  if (wantsPremium && !premiumPriceId) {
+    return badRequest("L'option Koji Premium n'est pas encore configurée côté paiement. Réessayez plus tard.", 500);
   }
 
   let stripe;
@@ -59,8 +64,9 @@ export async function POST(request) {
 
     const lineItems = [{ price: proPriceId, quantity: 1 }];
     if (websitePriceId) lineItems.push({ price: websitePriceId, quantity: 1 });
+    if (premiumPriceId) lineItems.push({ price: premiumPriceId, quantity: 1 });
 
-    const metadata = { kojiUserId: auth.userId, interval, website: wantsWebsite ? "1" : "0" };
+    const metadata = { kojiUserId: auth.userId, interval, website: wantsWebsite ? "1" : "0", premium: wantsPremium ? "1" : "0" };
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

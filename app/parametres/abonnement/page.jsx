@@ -32,7 +32,9 @@ function ParametresAbonnementContent() {
   const [billingInterval, setBillingInterval] = useState("");
   const [hasBillingAccount, setHasBillingAccount] = useState(false);
   const [addonWebsite, setAddonWebsite] = useState(false);
+  const [addonPremium, setAddonPremium] = useState(false);
   const [addonLoading, setAddonLoading] = useState(false);
+  const [addonPremiumLoading, setAddonPremiumLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingMessage, setBillingMessage] = useState("");
@@ -54,6 +56,7 @@ function ParametresAbonnementContent() {
         setBillingInterval(user.billingInterval || "");
         setHasBillingAccount(Boolean(user.hasBillingAccount));
         setAddonWebsite(Boolean(user.addonWebsite));
+        setAddonPremium(Boolean(user.premiumTools));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -91,12 +94,26 @@ function ParametresAbonnementContent() {
     setAddonLoading(true);
     setBillingMessage("");
     try {
-      await apiSend("/api/billing/addon", { enable: next });
+      await apiSend("/api/billing/addon", { addon: "website", enable: next });
       setAddonWebsite(next);
     } catch (error) {
       setBillingMessage(error.message || L.settings.addonError);
     } finally {
       setAddonLoading(false);
+    }
+  }
+
+  async function toggleAddonPremium() {
+    const next = !addonPremium;
+    setAddonPremiumLoading(true);
+    setBillingMessage("");
+    try {
+      await apiSend("/api/billing/addon", { addon: "premium", enable: next });
+      setAddonPremium(next);
+    } catch (error) {
+      setBillingMessage(error.message || L.settings.addonError);
+    } finally {
+      setAddonPremiumLoading(false);
     }
   }
 
@@ -135,13 +152,22 @@ function ParametresAbonnementContent() {
           {billingMessage ? <p className="profile-message">{billingMessage}</p> : null}
 
           {plan === "pro" && billingStatus === "active" ? (
-            <label className="plan-addon-row">
-              <input type="checkbox" checked={addonWebsite} onChange={toggleAddonWebsite} disabled={addonLoading} />
-              <span className="plan-addon-text">
-                <strong>{L.abonnement.addonWebsite}</strong>
-                <span>{L.abonnement.addonWebsiteDesc}</span>
-              </span>
-            </label>
+            <>
+              <label className="plan-addon-row">
+                <input type="checkbox" checked={addonWebsite} onChange={toggleAddonWebsite} disabled={addonLoading} />
+                <span className="plan-addon-text">
+                  <strong>{L.abonnement.addonWebsite}</strong>
+                  <span>{L.abonnement.addonWebsiteDesc}</span>
+                </span>
+              </label>
+              <label className="plan-addon-row">
+                <input type="checkbox" checked={addonPremium} onChange={toggleAddonPremium} disabled={addonPremiumLoading} />
+                <span className="plan-addon-text">
+                  <strong>{L.abonnement.addonPremium}</strong>
+                  <span>{L.abonnement.addonPremiumDesc}</span>
+                </span>
+              </label>
+            </>
           ) : null}
 
           <div className="plan-soon-row plan-included-row">
