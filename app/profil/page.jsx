@@ -49,6 +49,12 @@ function readLocalUser() {
   }
 }
 
+// Gratuit pour les admins, sinon reserve a l'option payante "Site web Koji"
+// — meme condition que hasWebsiteAccess cote serveur (app/api/site/route.js).
+function hasWebsiteAccess(user) {
+  return Boolean(user?.addonWebsite || user?.isAdmin);
+}
+
 function icon(name) {
   switch (name) {
     case "building":
@@ -77,6 +83,8 @@ function icon(name) {
       return "M4 6h16M4 10h16M4 14h10M4 18h6";
     case "pen":
       return "M3 21l4-1 11-11-3-3L4 17l-1 4zM14 6l3 3";
+    case "globe":
+      return "M12 22a10 10 0 100-20 10 10 0 000 20zM2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20";
     default:
       return "";
   }
@@ -107,6 +115,12 @@ export default function ProfilPage() {
   const [message, setMessage] = useState("");
   const [cardLoading, setCardLoading] = useState(false);
   const [cardMessage, setCardMessage] = useState("");
+  const [site, setSite] = useState(null);
+  const [siteLoading, setSiteLoading] = useState(false);
+  const [siteSaving, setSiteSaving] = useState(false);
+  const [siteMessage, setSiteMessage] = useState("");
+  const [siteCopied, setSiteCopied] = useState(false);
+  const siteFileRef = useRef(null);
   const [zoneTouched, setZoneTouched] = useState(false);
   const [zoneSuggestions, setZoneSuggestions] = useState([]);
 
@@ -129,8 +143,101 @@ export default function ProfilPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Site web Koji (23 septembre) : ne charge le brouillon/enregistrement que
+  // pour les comptes ayant l'option payante OU les admins (gratuit pour eux,
+  // meme principe que la carte de visite a l'origine) — GET /api/site
+  // renverrait de toute facon 402 sinon (voir app/api/site/route.js).
+  const websiteAccess = hasWebsiteAccess(user);
+  useEffect(() => {
+    if (!websiteAccess) return;
+    let alive = true;
+    setSiteLoading(true);
+    apiGet("/api/site")
+      .then((payload) => { if (alive) setSite(payload.site); })
+      .catch(() => {})
+      .finally(() => { if (alive) setSiteLoading(false); });
+    return () => { alive = false; };
+  }, [websiteAccess]);
+
   function setField(field, value) {
     setBusiness((current) => ({ ...current, [field]: value }));
+  }
+
+  // Redimensionne une photo cote navigateur avant de la stocker en data URL
+  // (meme principe que le logo, app/profil/page.jsx:onLogoChange, mais
+  // obligatoire ici puisque plusieurs photos rejoignent le meme blob JSON
+  // partage koji_web_state, qui n'a pas de stockage fichier dedie).
+  function compressImageFile(file, maxWidth = 1600) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Image invalide."));
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        img.src = String(reader.result || "");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function onSitePhotoChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !site) return;
+    try {
+      const dataUrl = await compressImageFile(file);
+      setSite((current) => ({ ...current, photos: [...(current.photos || []), dataUrl].slice(0, current.maxPhotos || 8) }));
+    } catch (error) {
+      setSiteMessage(error.message || "Impossible d'ajouter cette photo.");
+    }
+  }
+
+  function removeSitePhoto(index) {
+    setSite((current) => ({ ...current, photos: (current.photos || []).filter((_, i) => i !== index) }));
+  }
+
+  function setSiteField(field, value) {
+    setSite((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveSite(publish) {
+    if (!site) return;
+    setSiteSaving(true);
+    setSiteMessage("");
+    try {
+      const payload = {
+        slug: site.slug,
+        tagline: site.tagline,
+        description: site.description,
+        photos: site.photos,
+        published: publish === undefined ? site.published : publish
+      };
+      const { site: saved } = await apiSend("/api/site", payload, "PATCH");
+      setSite(saved);
+      setSiteMessage(saved.published ? "Site publié." : "Modifications enregistrées.");
+    } catch (error) {
+      setSiteMessage(error.message || "Erreur lors de l'enregistrement.");
+    } finally {
+      setSiteSaving(false);
+    }
+  }
+
+  function copySiteLink() {
+    if (!site?.slug || typeof window === "undefined") return;
+    const url = `${window.location.origin}/site/${site.slug}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setSiteCopied(true);
+      setTimeout(() => setSiteCopied(false), 2000);
+    }).catch(() => {});
   }
 
   // Autocompletion d'adresse pour la zone de travail (matching geographique
@@ -303,6 +410,106 @@ export default function ProfilPage() {
             </button>
           </div>
           {cardMessage ? <p className="profile-message">{cardMessage}</p> : null}
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.parametres.siteWebKoji}</h2>
+          <p className="muted">{L.parametres.websiteSub}</p>
+
+          {!websiteAccess ? (
+            <div className="profile-website-upsell">
+              <p>{L.parametres.websiteUpsell}</p>
+              <Link href="/parametres/abonnement" className="button secondary profile-link-button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("globe")} /></svg>
+                {L.parametres.websiteUpsellCta}
+              </Link>
+            </div>
+          ) : siteLoading || !site ? (
+            <p className="muted">{L.common.loading}</p>
+          ) : (
+            <div className="profile-website-editor">
+              <label className="profile-field">
+                <span>{L.parametres.websiteSlug}</span>
+                <div className="profile-input">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("globe")} /></svg>
+                  <input value={site.slug} onChange={(event) => setSiteField("slug", event.target.value)} />
+                </div>
+                <span className="profile-website-url-preview">
+                  {typeof window !== "undefined" ? window.location.origin : ""}/site/{site.slug || "…"}
+                </span>
+              </label>
+
+              <label className="profile-field">
+                <span>{L.parametres.websiteTagline}</span>
+                <div className="profile-input">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("tag")} /></svg>
+                  <input value={site.tagline} onChange={(event) => setSiteField("tagline", event.target.value)} placeholder={L.parametres.websiteTaglinePh} />
+                </div>
+              </label>
+
+              <label className="profile-field profile-field-wide">
+                <span>{L.parametres.websiteDescription}</span>
+                <textarea
+                  className="profile-website-textarea"
+                  rows={4}
+                  value={site.description}
+                  onChange={(event) => setSiteField("description", event.target.value)}
+                  placeholder={L.parametres.websiteDescriptionPh}
+                />
+              </label>
+
+              <div className="profile-website-photos">
+                <div className="profile-website-photos-head">
+                  <span>{L.parametres.websitePhotos}</span>
+                  <span className={`profile-website-photos-count ${site.photos.length >= site.minPhotos ? "ok" : ""}`}>
+                    {L.parametres.websitePhotosHint(site.minPhotos, site.photos.length)}
+                  </span>
+                </div>
+                <div className="profile-website-photo-grid">
+                  {site.photos.map((photo, index) => (
+                    <div key={index} className="profile-website-photo-tile">
+                      <img src={photo} alt={`Photo ${index + 1}`} />
+                      <button type="button" onClick={() => removeSitePhoto(index)}>{L.parametres.websiteRemovePhoto}</button>
+                    </div>
+                  ))}
+                  {site.photos.length < (site.maxPhotos || 8) ? (
+                    <button type="button" className="profile-website-photo-add" onClick={() => siteFileRef.current?.click()}>
+                      {L.parametres.websiteAddPhoto}
+                    </button>
+                  ) : null}
+                </div>
+                <input ref={siteFileRef} type="file" accept="image/*" onChange={onSitePhotoChange} style={{ display: "none" }} />
+              </div>
+
+              {siteMessage ? <p className="profile-message">{siteMessage}</p> : null}
+
+              <div className="profile-website-actions">
+                <button type="button" className="button secondary" onClick={() => saveSite(site.published)} disabled={siteSaving}>
+                  {L.parametres.websiteSave}
+                </button>
+                {site.published ? (
+                  <button type="button" className="button secondary" onClick={() => saveSite(false)} disabled={siteSaving}>
+                    {L.parametres.websiteUnpublish}
+                  </button>
+                ) : (
+                  <button type="button" className="button" onClick={() => saveSite(true)} disabled={siteSaving || site.photos.length < site.minPhotos}>
+                    {L.parametres.websitePublish}
+                  </button>
+                )}
+              </div>
+
+              <div className={`profile-website-live ${site.published ? "" : "draft"}`}>
+                <span>{site.published ? L.parametres.websitePublished : L.parametres.websiteDraftHint}</span>
+                <a href={`/site/${site.slug}`} target="_blank" rel="noreferrer" className="button secondary profile-link-button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("globe")} /></svg>
+                  {site.published ? L.parametres.websiteOpenLink : L.parametres.websitePreview}
+                </a>
+                {site.published ? (
+                  <button type="button" onClick={copySiteLink}>{siteCopied ? L.parametres.websiteLinkCopied : L.parametres.websiteCopyLink}</button>
+                ) : null}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="profile-block">
