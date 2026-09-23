@@ -91,20 +91,41 @@ export function PublicLanding() {
       </section>
 
       <section className="landing-features">
-        <div className="landing-feature">
+        <div className="landing-feature landing-feature-featured">
           <span className="landing-feature-icon">📍</span>
           <strong>Marketplace de proximité</strong>
-          <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés.</p>
+          <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés — le cœur de Koji.</p>
         </div>
-        <div className="landing-feature">
-          <span className="landing-feature-icon">✨</span>
-          <strong>Devis chiffrés par IA</strong>
-          <p>Décrivez le chantier, l'assistant koji prépare un devis prêt à envoyer.</p>
+        <div className="landing-features-secondary">
+          <div className="landing-feature">
+            <span className="landing-feature-icon">✨</span>
+            <strong>Devis chiffrés par IA</strong>
+            <p>Décrivez le chantier, l'assistant koji prépare un devis prêt à envoyer.</p>
+          </div>
+          <div className="landing-feature">
+            <span className="landing-feature-icon">📋</span>
+            <strong>Suivi jusqu'à la facture</strong>
+            <p>Chantiers, équipe et facturation dans le même outil, du premier contact à la fin des travaux.</p>
+          </div>
         </div>
-        <div className="landing-feature">
-          <span className="landing-feature-icon">📋</span>
-          <strong>Suivi jusqu'à la facture</strong>
-          <p>Chantiers, équipe et facturation dans le même outil, du premier contact à la fin des travaux.</p>
+      </section>
+
+      <section className="landing-app">
+        <div className="landing-app-card">
+          <div className="landing-app-text">
+            <strong>Koji sur le chantier</strong>
+            <p>L'application mobile Koji arrive bientôt, pour suivre vos chantiers directement depuis le terrain.</p>
+          </div>
+          <div className="landing-app-badges">
+            <span className="landing-app-badge">
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.475 2.18-1.24 2.94-.87.87-2.24 1.55-3.34 1.46-.14-1.1.44-2.25 1.24-3.02.85-.83 2.3-1.44 3.34-1.38zM20.5 17.17c-.56 1.29-.83 1.87-1.55 3.02-1 1.6-2.4 3.6-4.15 3.62-1.55.02-1.95-1.02-4.05-1-2.1.02-2.55 1.03-4.1 1.01-1.75-.02-3.08-1.82-4.08-3.42C0.02 16.9-.68 12.44 1.4 9.4c1.02-1.48 2.65-2.42 4.25-2.44 1.6-.03 2.6 1.1 4.05 1.1 1.4 0 2.15-1.1 4.05-1.06 1.7.04 3.5.93 4.5 2.4-3.95 2.17-3.32 7.83 2.25 9.77-.15.35-.35.7-.5 1z"/></svg>
+              Bientôt sur l'App Store
+            </span>
+            <span className="landing-app-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.2c-.4.4-.6.9-.6 1.5v16.6c0 .6.2 1.1.6 1.5l.1.1L13 12.6v-.2L3.7 2.1l-.1.1zM16.8 15.4l-3.1-3.1v-.2l3.1-3.1 3.6 2c1 .6 1 1.6 0 2.2l-3.6 2.2zM14.4 12.2l-10.4 10.4c.4.2.9.2 1.5-.1l12.3-7-3.4-3.3zM4 1.5c.5-.2 1-.2 1.5.1l12.3 7-3.4 3.4L4 1.5z"/></svg>
+              Bientôt sur Google Play
+            </span>
+          </div>
         </div>
       </section>
 
@@ -142,8 +163,8 @@ export function PublicLanding() {
       <footer className="landing-footer">
         <div className="landing-footer-top">
           <div className="landing-footer-brand">
-            <div className="landing-nav-brand">
-              <img src="/koji-logo-blue.svg" alt="Koji" />
+            <div className="landing-nav-brand landing-nav-brand-dark">
+              <img src="/koji-logo.svg" alt="Koji" />
               <span>Koji</span>
             </div>
             <p>Le Marketplace BTP français qui met en relation particuliers et entreprises près de chez eux — devis IA, facturation et suivi de chantier suivent, dans le même outil.</p>

@@ -29,7 +29,7 @@ export default function PublicCompanySite() {
   if (error || !site) {
     return (
       <main className="koji-site koji-site-notfound">
-        <img src="/koji-logo.svg" alt="Koji" className="koji-site-notfound-logo" />
+        <img src="/koji-logo-blue.svg" alt="Koji" className="koji-site-notfound-logo" />
         <h1>Page introuvable</h1>
         <p>{error || "Ce site n'existe pas ou n'est plus publié."}</p>
       </main>
