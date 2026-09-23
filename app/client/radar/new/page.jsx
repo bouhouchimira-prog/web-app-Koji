@@ -4,12 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 
-// Parcours de creation d'offre — refonte du 4 septembre : le formulaire en 6
-// etapes a disparu. Le client depose photos + un texte libre, puis
-// l'assistant koji (app/api/radar-assistant) prend le relais en chat, une
-// question a la fois. Quand il a assez d'elements, le client lance
-// l'expertise (app/api/expertise-koji) qui fixe une fourchette de prix —
-// jamais de budget demande au client, jamais de devis interne montre.
+// Parcours de creation d'offre — refonte du 23 septembre : meme moteur que
+// depuis le 4 septembre (photos + texte libre, puis l'assistant koji en chat
+// une question a la fois via /api/radar-assistant, puis /api/expertise-koji
+// fixe une fourchette de prix — jamais de budget demande au client, jamais
+// de devis interne montre, jamais d'estimation affichee avant la fin), mais
+// habille en deroule d'etapes (gauche) + assistant koji permanent (droite),
+// au lieu d'un ecran qui remplace tout son contenu a chaque phase. Le fil de
+// discussion est desormais toujours monte des l'arrivee sur la page — la
+// question "quel type de travaux ?" (ancien <textarea> separe) est devenue
+// le tout premier message affiche par l'assistant dans ce meme panneau.
+
+const STEPS = ["Photos du chantier", "Adresse", "Dimensions", "Fournitures", "Accès & état", "Estimation"];
+
+const GREETING = "Quel type de travaux souhaitez-vous réaliser ? Décrivez-les en quelques mots — vous pouvez aussi ajouter des photos à gauche.";
 
 function ChatIcon() {
   return (
@@ -134,10 +142,10 @@ function AddressAutocomplete({ value, onChange, onSelect, onManualSubmit }) {
 
 export default function NewRadarOffrePage() {
   const router = useRouter();
-  const [phase, setPhase] = useState("intro"); // intro | chat | expertise-loading | expertise-result
+  const [phase, setPhase] = useState("gathering"); // gathering | expertise-loading | expertise-result
+  const [stepIndex, setStepIndex] = useState(0);
   const [photos, setPhotos] = useState([]);
-  const [introText, setIntroText] = useState("");
-  const [turns, setTurns] = useState([]);
+  const [turns, setTurns] = useState([{ role: "assistant", text: GREETING, local: true }]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -153,9 +161,11 @@ export default function NewRadarOffrePage() {
   const [publishing, setPublishing] = useState(false);
   const messagesEndRef = useRef(null);
 
+  const hasStarted = turns.some((t) => t.role === "user");
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, phase, sending]);
+  }, [turns, sending]);
 
   function onPhotosChange(event) {
     const files = Array.from(event.target.files || []).slice(0, 8 - photos.length);
@@ -171,13 +181,19 @@ export default function NewRadarOffrePage() {
     setSending(true);
     setError("");
     setCurrentOptions(null);
+    // Le message d'accueil (GREETING) est purement local/affichage — jamais
+    // envoye a /api/radar-assistant, qui ne l'a jamais connu et reste
+    // stateless sur la vraie conversation (meme contrat qu'avant le 23
+    // septembre, ou le premier appel n'envoyait jamais qu'un seul tour
+    // "user").
+    const apiTurns = nextTurns.filter((t) => !t.local);
     try {
       const response = await fetch("/api/radar-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          turns: nextTurns.map(({ role, text }) => ({ role, text })),
-          photos: nextTurns.filter((t) => t.role === "user").length === 1 ? photos : undefined,
+          turns: apiTurns.map(({ role, text }) => ({ role, text })),
+          photos: apiTurns.filter((t) => t.role === "user").length === 1 ? photos : undefined,
           currentSlotKey: slotKey,
           answers: expertiseAnswers
         })
@@ -191,6 +207,7 @@ export default function NewRadarOffrePage() {
         setCurrentOptions(null);
         setCurrentInputType("text");
         setSlotKey(null);
+        setStepIndex(5);
       } else {
         setReadyMessage("");
         setCurrentOptions(data.options || null);
@@ -202,15 +219,6 @@ export default function NewRadarOffrePage() {
     } finally {
       setSending(false);
     }
-  }
-
-  function startChat() {
-    const text = introText.trim();
-    if (!text || sending) return;
-    setPhase("chat");
-    const firstTurns = [{ role: "user", text }];
-    setTurns(firstTurns);
-    sendTurn(firstTurns);
   }
 
   function answerText(text) {
@@ -251,6 +259,7 @@ export default function NewRadarOffrePage() {
 
   async function launchExpertise() {
     setPhase("expertise-loading");
+    setStepIndex(5);
     setError("");
     try {
       const response = await fetch("/api/expertise-koji", {
@@ -265,7 +274,7 @@ export default function NewRadarOffrePage() {
       setPhase("expertise-result");
     } catch (err) {
       setError(err.message);
-      setPhase("chat");
+      setPhase("gathering");
     }
   }
 
@@ -320,25 +329,31 @@ export default function NewRadarOffrePage() {
     }
   }
 
-  function backFromChat() {
+  // "Recommencer" reste une action a part, clairement distincte de
+  // Retour/Continuer (qui ne font eux que naviguer entre les etapes sans
+  // rien effacer) — repart a zero comme avant.
+  function restart() {
     if (sending) return;
-    setPhase("intro");
-    setTurns([]);
+    setPhase("gathering");
+    setStepIndex(0);
+    setTurns([{ role: "assistant", text: GREETING, local: true }]);
     setError("");
     setCurrentOptions(null);
     setReadyMessage("");
     setSlotKey(null);
     setExpertiseAnswers({});
-    // Vrai redemarrage a zero : sans ca, l'ecran "Decrivez vos travaux"
-    // reapparait avec l'ancien texte/l'ancienne photo encore remplis, ce qui
-    // donne l'impression que rien ne s'est passe / que l'appli est bloquee.
-    setIntroText("");
     setPhotos([]);
     setAddress({ address: "", city: "", postalCode: "", lat: null, lon: null });
     setAddressDraft("");
+    setExpertise(null);
   }
 
   const range = phase === "expertise-result" ? adjustedRange() : null;
+  const introTypeText = turns.find((t) => t.role === "user")?.text || "";
+
+  function goToStep(index) {
+    setStepIndex(Math.max(0, Math.min(STEPS.length - 1, index)));
+  }
 
   return (
     <main className="client-space">
@@ -348,161 +363,250 @@ export default function NewRadarOffrePage() {
         <strong>Publier une offre</strong>
       </div>
 
-      <section className="ct-section radar-form-card">
-        {phase === "intro" ? (
-          <div className="radar-field">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Décrivez vos travaux</h3>
-                <p>Ajoutez des photos si vous en avez, et dites-nous ce que vous voulez faire. L'assistant koji s'occupe du reste.</p>
-              </div>
+      <div className="radar-wizard">
+        <section className="radar-form-card radar-wizard-main">
+          <div className="radar-wizard-steps-header">
+            <div className="radar-wizard-steps-title">
+              <strong>Publier une offre</strong>
+              <span>Étape {stepIndex + 1} sur {STEPS.length}</span>
             </div>
+            <div className="radar-wizard-progress">
+              {STEPS.map((label, index) => (
+                <span key={label} className={`radar-wizard-progress-seg ${index <= stepIndex ? "done" : ""} ${index === stepIndex ? "active" : ""}`} />
+              ))}
+            </div>
+          </div>
 
-            <label className="radar-dropzone">
-              <input type="file" accept="image/*" multiple onChange={onPhotosChange} />
-              <UploadIcon />
-              <strong>Ajouter des photos</strong>
-              <span>Cliquez ou glissez vos fichiers ici · 8 max</span>
-            </label>
-            {photos.length > 0 ? (
-              <div className="radar-photo-grid">
-                {photos.map((photo, index) => (
-                  <div className="radar-photo-thumb" key={index}>
-                    <img src={photo} alt={`Photo ${index + 1}`} />
-                    <button type="button" onClick={() => removePhoto(index)}>×</button>
+          <div className="radar-wizard-step-body">
+            {stepIndex === 0 ? (
+              <div className="radar-field">
+                <div className="radar-step-header">
+                  <span className="radar-step-icon"><UploadIcon /></span>
+                  <div>
+                    <h3>Photos du chantier</h3>
+                    <p>Ajoutez une ou plusieurs photos de la pièce ou de la zone concernée.</p>
                   </div>
-                ))}
+                </div>
+                <label className="radar-dropzone">
+                  <input type="file" accept="image/*" multiple onChange={onPhotosChange} />
+                  <UploadIcon />
+                  <strong>Ajouter des photos</strong>
+                  <span>Cliquez ou glissez vos fichiers ici · 8 max</span>
+                </label>
+                {photos.length > 0 ? (
+                  <div className="radar-photo-grid">
+                    {photos.map((photo, index) => (
+                      <div className="radar-photo-thumb" key={index}>
+                        <img src={photo} alt={`Photo ${index + 1}`} />
+                        <button type="button" onClick={() => removePhoto(index)}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <p className="radar-wizard-step-hint">Facultatif — vous pouvez continuer et discuter avec l'assistant koji à droite.</p>
               </div>
             ) : null}
 
-            <textarea
-              rows={4}
-              value={introText}
-              onChange={(e) => setIntroText(e.target.value)}
-              placeholder="Ex : Je veux refaire la plomberie de ma salle de bain, remplacer la baignoire par une douche…"
-            />
+            {stepIndex === 1 ? (
+              <div className="radar-field radar-wizard-recap-step">
+                <div className="radar-step-header">
+                  <span className="radar-step-icon"><PinIcon /></span>
+                  <div><h3>Adresse du chantier</h3><p>Renseignée via l'assistant koji, à droite.</p></div>
+                </div>
+                {address.address ? (
+                  <p className="radar-wizard-recap-value">{address.address}</p>
+                ) : (
+                  <p className="radar-wizard-recap-empty">En attente — répondez à l'assistant koji →</p>
+                )}
+              </div>
+            ) : null}
 
-            {error ? <p className="profile-message error">{error}</p> : null}
+            {stepIndex === 2 ? (
+              <div className="radar-field radar-wizard-recap-step">
+                <div className="radar-step-header">
+                  <span className="radar-step-icon"><SparkleIcon /></span>
+                  <div><h3>Dimensions</h3><p>Renseignées via l'assistant koji, à droite.</p></div>
+                </div>
+                {expertiseAnswers.cotes ? (
+                  <p className="radar-wizard-recap-value">{expertiseAnswers.cotes}</p>
+                ) : (
+                  <p className="radar-wizard-recap-empty">En attente — répondez à l'assistant koji →</p>
+                )}
+              </div>
+            ) : null}
 
-            <button type="button" className="button blue" style={{ width: "100%" }} onClick={startChat} disabled={!introText.trim()}>
-              Discuter avec l'assistant koji
-              <SendIcon />
+            {stepIndex === 3 ? (
+              <div className="radar-field radar-wizard-recap-step">
+                <div className="radar-step-header">
+                  <span className="radar-step-icon"><SparkleIcon /></span>
+                  <div><h3>Fournitures</h3><p>Renseignées via l'assistant koji, à droite.</p></div>
+                </div>
+                {expertiseAnswers.fournitures ? (
+                  <p className="radar-wizard-recap-value">{expertiseAnswers.fournitures}</p>
+                ) : (
+                  <p className="radar-wizard-recap-empty">En attente — répondez à l'assistant koji →</p>
+                )}
+              </div>
+            ) : null}
+
+            {stepIndex === 4 ? (
+              <div className="radar-field radar-wizard-recap-step">
+                <div className="radar-step-header">
+                  <span className="radar-step-icon"><SparkleIcon /></span>
+                  <div><h3>Accès & état</h3><p>Renseignés via l'assistant koji, à droite.</p></div>
+                </div>
+                {expertiseAnswers.acces ? <p className="radar-wizard-recap-value">Accès : {expertiseAnswers.acces}</p> : <p className="radar-wizard-recap-empty">En attente — répondez à l'assistant koji →</p>}
+                {expertiseAnswers.etat ? <p className="radar-wizard-recap-value">État : {expertiseAnswers.etat}</p> : null}
+              </div>
+            ) : null}
+
+            {stepIndex === 5 ? (
+              <div className="radar-field">
+                {phase === "expertise-loading" ? (
+                  <div className="radar-expertise-loading">
+                    <div className="radar-expertise-spinner" />
+                    <strong>Un architecte koji analyse votre projet…</strong>
+                    <p>Chiffrage à partir de la bibliothèque de prix koji, ça ne prend que quelques instants.</p>
+                  </div>
+                ) : null}
+
+                {phase === "expertise-result" && expertise ? (
+                  <>
+                    <div className="radar-price-range-card">
+                      <span className="radar-price-range-label">Fourchette de prix estimée</span>
+                      <span className="radar-price-range-value">{range.min.toLocaleString("fr-FR")} € – {range.max.toLocaleString("fr-FR")} €</span>
+                      {expertise.delaiEstimeJours ? <span className="radar-delay-badge">Délai estimé : {expertise.delaiEstimeJours} jour{expertise.delaiEstimeJours > 1 ? "s" : ""}</span> : null}
+                    </div>
+
+                    {expertise.conseils && expertise.conseils.length > 0 ? (
+                      <>
+                        <span className="radar-field-label">Conseils pour réduire le coût</span>
+                        <div className="radar-conseil-list">
+                          {expertise.conseils.map((c) => (
+                            <label key={c.id} className={`radar-conseil-item${selectedConseils.has(c.id) ? " checked" : ""}`}>
+                              <input type="checkbox" checked={selectedConseils.has(c.id)} onChange={() => toggleConseil(c.id)} />
+                              <span className="radar-conseil-label">{c.label}</span>
+                              <span className="radar-conseil-discount">-{c.discountPercent}%</span>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
+
+                    {!address.address ? (
+                      <>
+                        <span className="radar-field-label">Adresse du chantier</span>
+                        <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+                      </>
+                    ) : (
+                      <label className="radar-field">
+                        <span>Adresse du chantier</span>
+                        <input type="text" value={address.address} onChange={(e) => setAddress((c) => ({ ...c, address: e.target.value }))} />
+                      </label>
+                    )}
+
+                    <p className="radar-recap-note">Vous pouvez relancer l'expertise autant de fois que vous voulez pour comparer. La publication reste gratuite et illimitée.</p>
+
+                    {error ? <p className="profile-message error">{error}</p> : null}
+
+                    <button type="button" className="button secondary" style={{ width: "100%" }} onClick={launchExpertise}>
+                      <SparkleIcon />
+                      Relancer l'expertise
+                    </button>
+                    <button type="button" className="button blue" style={{ width: "100%" }} onClick={publish} disabled={publishing}>
+                      {publishing ? "Publication…" : "Publier l'offre"}
+                      {!publishing ? <CheckIcon /> : null}
+                    </button>
+                  </>
+                ) : null}
+
+                {phase === "gathering" ? (
+                  readyMessage ? (
+                    <button type="button" className="button blue" style={{ width: "100%" }} onClick={launchExpertise}>
+                      <SparkleIcon />
+                      Lancer l'expertise
+                    </button>
+                  ) : (
+                    <p className="radar-wizard-recap-empty">Terminez la discussion avec l'assistant koji pour lancer l'estimation.</p>
+                  )
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="radar-wizard-nav">
+            <button type="button" className="button secondary" onClick={() => goToStep(stepIndex - 1)} disabled={stepIndex === 0}>
+              <ArrowLeftIcon />
+              Retour
+            </button>
+            <button type="button" className="button blue" onClick={() => goToStep(stepIndex + 1)} disabled={stepIndex === STEPS.length - 1}>
+              Continuer
             </button>
           </div>
-        ) : null}
+        </section>
 
-        {phase === "chat" ? (
-          <div className="radar-assistant-card">
-            <div className="radar-chat-header">
-              <span className="radar-chat-header-icon"><ChatIcon /></span>
-              <div>
-                <strong>Assistant koji</strong>
-                <small>Répondez à ses questions pour préparer l'expertise</small>
-              </div>
+        <aside className="radar-assistant-card radar-wizard-assistant">
+          <div className="radar-chat-header">
+            <span className="radar-chat-header-icon"><ChatIcon /></span>
+            <div>
+              <strong>Assistant koji</strong>
+              <small>Vous guide en quelques questions</small>
             </div>
+          </div>
 
-            <div className="radar-chat-messages">
-              {turns.map((t, index) => (
-                <div key={index} className={`radar-chat-bubble ${t.role === "user" ? "user" : "assistant"}`}>
-                  <p>{t.text}</p>
-                </div>
-              ))}
-              {sending ? <p className="radar-chat-empty">L'assistant réfléchit…</p> : null}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {error ? <p className="profile-message error">{error}</p> : null}
-
-            {readyMessage ? (
-              <button type="button" className="button blue" style={{ width: "100%" }} onClick={launchExpertise}>
-                <SparkleIcon />
-                Lancer l'expertise
-              </button>
-            ) : currentInputType === "address" ? (
-              <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
-            ) : currentOptions && currentOptions.length > 0 ? (
-              <div className="radar-quick-options">
-                {currentOptions.map((option) => (
-                  <button key={option} type="button" className="radar-quick-option-btn" disabled={sending} onClick={() => answerText(option)}>
-                    {option}
-                  </button>
-                ))}
+          <div className="radar-chat-messages">
+            {turns.map((t, index) => (
+              <div key={index} className={`radar-chat-bubble ${t.role === "user" ? "user" : "assistant"}`}>
+                <p>{t.text}</p>
               </div>
-            ) : (
-              <form className="radar-chat-form" onSubmit={handleChatSubmit}>
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Votre réponse…" disabled={sending} />
-                <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
-                  <SendIcon />
+            ))}
+            {sending ? <p className="radar-chat-empty">L'assistant réfléchit…</p> : null}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {(address.address || expertiseAnswers.cotes || introTypeText || expertise) ? (
+            <div className="radar-wizard-summary-card">
+              <span className="radar-wizard-summary-title">Voici un résumé — vous pouvez tout modifier :</span>
+              <dl className="radar-wizard-summary-fields">
+                {introTypeText ? (<><dt>Type</dt><dd>{introTypeText}</dd></>) : null}
+                {expertiseAnswers.cotes ? (<><dt>Dimensions</dt><dd>{expertiseAnswers.cotes}</dd></>) : null}
+                {address.address ? (<><dt>Adresse</dt><dd>{address.address}</dd></>) : null}
+                {phase === "expertise-loading" ? (<><dt>Estimation</dt><dd>En cours d'analyse…</dd></>) : null}
+                {phase === "expertise-result" && expertise && range ? (<><dt>Estimation</dt><dd>{range.min.toLocaleString("fr-FR")} € – {range.max.toLocaleString("fr-FR")} €</dd></>) : null}
+              </dl>
+              {phase === "expertise-result" ? <span className="radar-wizard-summary-disclaimer">Estimation indicative, non engageante.</span> : null}
+            </div>
+          ) : null}
+
+          {error ? <p className="profile-message error">{error}</p> : null}
+
+          {phase !== "gathering" ? null : readyMessage ? null : currentInputType === "address" ? (
+            <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+          ) : currentOptions && currentOptions.length > 0 ? (
+            <div className="radar-quick-options">
+              {currentOptions.map((option) => (
+                <button key={option} type="button" className="radar-quick-option-btn" disabled={sending} onClick={() => answerText(option)}>
+                  {option}
                 </button>
-              </form>
-            )}
+              ))}
+            </div>
+          ) : (
+            <form className="radar-chat-form" onSubmit={handleChatSubmit}>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Votre réponse…" disabled={sending} />
+              <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
+                <SendIcon />
+              </button>
+            </form>
+          )}
 
-            <button type="button" className="button secondary" onClick={backFromChat} disabled={sending}>
+          {hasStarted ? (
+            <button type="button" className="button secondary radar-wizard-restart" onClick={restart} disabled={sending}>
               <ArrowLeftIcon />
               Recommencer
             </button>
-          </div>
-        ) : null}
-
-        {phase === "expertise-loading" ? (
-          <div className="radar-expertise-loading">
-            <div className="radar-expertise-spinner" />
-            <strong>Un architecte koji analyse votre projet…</strong>
-            <p>Chiffrage à partir de la bibliothèque de prix koji, ça ne prend que quelques instants.</p>
-          </div>
-        ) : null}
-
-        {phase === "expertise-result" && expertise ? (
-          <div className="radar-field">
-            <div className="radar-price-range-card">
-              <span className="radar-price-range-label">Fourchette de prix estimée</span>
-              <span className="radar-price-range-value">{range.min.toLocaleString("fr-FR")} € – {range.max.toLocaleString("fr-FR")} €</span>
-              {expertise.delaiEstimeJours ? <span className="radar-delay-badge">Délai estimé : {expertise.delaiEstimeJours} jour{expertise.delaiEstimeJours > 1 ? "s" : ""}</span> : null}
-            </div>
-
-            {expertise.conseils && expertise.conseils.length > 0 ? (
-              <>
-                <span className="radar-field-label">Conseils pour réduire le coût</span>
-                <div className="radar-conseil-list">
-                  {expertise.conseils.map((c) => (
-                    <label key={c.id} className={`radar-conseil-item${selectedConseils.has(c.id) ? " checked" : ""}`}>
-                      <input type="checkbox" checked={selectedConseils.has(c.id)} onChange={() => toggleConseil(c.id)} />
-                      <span className="radar-conseil-label">{c.label}</span>
-                      <span className="radar-conseil-discount">-{c.discountPercent}%</span>
-                    </label>
-                  ))}
-                </div>
-              </>
-            ) : null}
-
-            {!address.address ? (
-              <>
-                <span className="radar-field-label">Adresse du chantier</span>
-                <AddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
-              </>
-            ) : (
-              <label className="radar-field">
-                <span>Adresse du chantier</span>
-                <input type="text" value={address.address} onChange={(e) => setAddress((c) => ({ ...c, address: e.target.value }))} />
-              </label>
-            )}
-
-            <p className="radar-recap-note">Vous pouvez relancer l'expertise autant de fois que vous voulez pour comparer. La publication reste gratuite et illimitée.</p>
-
-            {error ? <p className="profile-message error">{error}</p> : null}
-
-            <button type="button" className="button secondary" style={{ width: "100%" }} onClick={launchExpertise}>
-              <SparkleIcon />
-              Relancer l'expertise
-            </button>
-            <button type="button" className="button blue" style={{ width: "100%" }} onClick={publish} disabled={publishing}>
-              {publishing ? "Publication…" : "Publier l'offre"}
-              {!publishing ? <CheckIcon /> : null}
-            </button>
-          </div>
-        ) : null}
-      </section>
+          ) : null}
+        </aside>
+      </div>
     </main>
   );
 }
