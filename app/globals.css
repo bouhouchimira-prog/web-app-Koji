@@ -1460,6 +1460,181 @@
   background: #e2e5ed;
 }
 
+/* CTA "Publier une offre" (espace particulier) : dediee, ne touche pas
+   .new-chantier-bar (partagee avec /chantiers cote entreprise) — habillage
+   plus marque, coherent avec les cartes blanches du nouveau parcours
+   assistant koji (.radar-form-card/.radar-assistant-card). */
+.client-publish-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--navy);
+  border-radius: 16px;
+  padding: 16px 20px;
+  color: white;
+  font-weight: 800;
+  font-size: 15px;
+  text-decoration: none;
+  margin-bottom: 10px;
+  box-shadow: 0 10px 24px rgba(0, 11, 40, 0.18);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.client-publish-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(0, 11, 40, 0.24);
+}
+
+.client-publish-cta .new-chantier-icon {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+.ct-offer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: white;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.ct-offer-card:hover {
+  border-color: #c7d8f8;
+  background: #f9fbff;
+}
+
+.ct-offer-card-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ct-offer-card-info strong { font-size: 14.5px; color: var(--navy); }
+.ct-offer-card-info small { font-size: 12px; color: var(--muted); }
+
+/* ── "Creer une offre" : onglets IA/Saisie libre + bandeau (23 sept v2) ── */
+
+.radar-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.radar-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(10, 21, 56, 0.04);
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+
+.radar-mode-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(10, 21, 56, 0.09);
+}
+
+.radar-mode-tab.active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(29, 116, 255, 0.15);
+}
+
+.radar-mode-tab-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-mode-tab-icon.ia { background: #eaf2ff; color: #1d74ff; }
+.radar-mode-tab-icon.manuel { background: #eef0f5; color: #3a4155; }
+
+.radar-mode-tab strong { display: block; font-size: 14.5px; color: var(--navy); }
+.radar-mode-tab small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+
+.radar-form-card-flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.radar-form-card-pad {
+  padding: 20px;
+}
+
+.radar-hero-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, var(--navy), #0a1538);
+  color: white;
+  padding: 22px 20px;
+}
+
+.radar-hero-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-hero-banner strong { display: block; font-size: 17px; }
+.radar-hero-banner p { margin: 2px 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.78); }
+
+.radar-hint-callout {
+  background: #eaf2ff;
+  border: 1px solid #c7d8f8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #1a3d80;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.radar-generate-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(135deg, #5b7fb5, #79b7e8);
+  cursor: pointer;
+}
+
+.radar-generate-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .radar-mode-tabs {
+    grid-template-columns: 1fr;
+  }
+}
+
 .resume-draft-card {
   display: flex;
   align-items: center;
@@ -4206,7 +4381,7 @@ p {
   border-top: none;
 }
 
-@container (max-width: 620px) {
+@container (max-width: 480px) {
   .auth-dual {
     grid-template-columns: 1fr;
     gap: 0;
@@ -4225,7 +4400,7 @@ p {
 /* Filet de securite pour les tres vieux navigateurs sans support des
    container queries : repli sur un seuil d'ecran large, mieux que rien. */
 @supports not (container-type: inline-size) {
-  @media (max-width: 900px) {
+  @media (max-width: 1056px) {
     .auth-dual {
       grid-template-columns: 1fr;
       gap: 0;
@@ -12138,169 +12313,6 @@ body :where(
   flex-direction: column;
   gap: 16px;
   box-shadow: 0 8px 20px rgba(10, 21, 56, 0.04);
-}
-
-/* ── Radar : "Publier une offre" en étapes + assistant koji permanent ──── */
-
-.radar-wizard {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.radar-wizard-main {
-  min-width: 0;
-}
-
-.radar-wizard-steps-header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.radar-wizard-steps-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.radar-wizard-steps-title strong {
-  font-size: 17px;
-  color: var(--navy);
-}
-
-.radar-wizard-steps-title span {
-  font-size: 12.5px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.radar-wizard-progress {
-  display: flex;
-  gap: 6px;
-}
-
-.radar-wizard-progress-seg {
-  flex: 1;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--line);
-}
-
-.radar-wizard-progress-seg.done {
-  background: var(--blue);
-}
-
-.radar-wizard-step-body {
-  min-height: 220px;
-}
-
-.radar-wizard-step-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.radar-wizard-recap-step {
-  gap: 10px;
-}
-
-.radar-wizard-recap-value {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-  background: var(--soft);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-
-.radar-wizard-recap-empty {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--blue);
-}
-
-.radar-wizard-nav {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.radar-wizard-nav .button {
-  flex: 1;
-  justify-content: center;
-}
-
-.radar-wizard-assistant {
-  position: sticky;
-  top: 16px;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-}
-
-.radar-wizard-summary-card {
-  background: var(--soft);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.radar-wizard-summary-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--navy);
-}
-
-.radar-wizard-summary-fields {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  margin: 0;
-}
-
-.radar-wizard-summary-fields dt {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.radar-wizard-summary-fields dd {
-  margin: 0;
-  font-size: 13px;
-  color: var(--navy);
-  font-weight: 700;
-  text-align: right;
-}
-
-.radar-wizard-summary-disclaimer {
-  font-size: 11px;
-  font-style: italic;
-  color: var(--muted);
-}
-
-.radar-wizard-restart {
-  width: 100%;
-  justify-content: center;
-}
-
-@media (max-width: 900px) {
-  .radar-wizard {
-    grid-template-columns: 1fr;
-  }
-
-  .radar-wizard-assistant {
-    position: static;
-    max-height: none;
-  }
 }
 
 .radar-step-header {

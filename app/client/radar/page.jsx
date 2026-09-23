@@ -28,26 +28,29 @@ export default function ClientRadarPage() {
       <ClientTopbar showBack backHref="/client" />
 
       <div className="ct-welcome">
-        <strong>Mes offres</strong>
+        <strong>Créer une offre</strong>
         <small>Publiez vos travaux, les entreprises du BTP vous contactent. Gratuit et illimité.</small>
       </div>
 
       <section className="ct-section">
-        <Link href="/client/radar/new" className="home-primary-action">
-          <span className="home-primary-plus">+</span>
-          Publier une offre
+        <Link href="/client/radar/new" className="client-publish-cta">
+          <span className="new-chantier-icon">+</span>
+          Créer une offre
         </Link>
       </section>
 
       <section className="ct-section">
+        <div className="ct-section-title-row">
+          <h2 className="ct-section-title">Mes offres</h2>
+        </div>
         {loading ? <div className="client-empty">Chargement…</div> : null}
         {!loading && offres.length === 0 ? <div className="client-empty">Aucune offre publiée pour l'instant.</div> : null}
         <div className="client-list">
           {offres.map((offre) => (
-            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="client-row client-row-link">
-              <div>
+            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="ct-offer-card">
+              <div className="ct-offer-card-info">
                 <strong>{offre.description.slice(0, 60)}{offre.description.length > 60 ? "…" : ""}</strong>
-                <span>{offre.address} · {shortDate(offre.createdAt)}</span>
+                <small>{offre.address} · {shortDate(offre.createdAt)}</small>
               </div>
               <div className="ct-devis-row-right">
                 {offre.priceRangeMin ? (
