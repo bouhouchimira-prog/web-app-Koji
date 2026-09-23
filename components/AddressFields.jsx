@@ -15,6 +15,7 @@ export const EMPTY_ADDRESS_FIELDS = {
   address: "",
   city: "",
   postalCode: "",
+  department: "",
   floor: "",
   accessCode: "",
   complement: "",
@@ -27,7 +28,11 @@ export const EMPTY_ADDRESS_FIELDS = {
 // les infos complementaires (etage, digicode, complement, instructions
 // d'acces) — repliee par defaut pour ne pas alourdir un formulaire qui n'en
 // a pas toujours besoin.
-export function AddressFields({ value, onChange }) {
+// `showDepartment` (22 septembre, demande devis) : affiche un 3e champ
+// "Departement" dans la ligne Ville/Code postal — desactive par defaut pour
+// ne rien changer aux appelants existants (Contacts, Profil entreprise) qui
+// n'ont pas ce champ dans leur modele.
+export function AddressFields({ value, onChange, showDepartment = false }) {
   const v = { ...EMPTY_ADDRESS_FIELDS, ...value };
   const [suggestions, setSuggestions] = useState([]);
   const [expanded, setExpanded] = useState(
@@ -94,6 +99,12 @@ export function AddressFields({ value, onChange }) {
           <span>Code postal</span>
           <input type="text" value={v.postalCode} onChange={(event) => patch({ postalCode: event.target.value })} placeholder="75010" />
         </label>
+        {showDepartment ? (
+          <label className="radar-field address-fields-narrow">
+            <span>Département</span>
+            <input type="text" value={v.department} onChange={(event) => patch({ department: event.target.value })} placeholder="75" />
+          </label>
+        ) : null}
       </div>
 
       <button type="button" className="address-fields-toggle" onClick={() => setExpanded((current) => !current)}>
