@@ -46,8 +46,10 @@ function buildPrompt({ answers, catalogText }) {
 - Adresse du chantier : ${fixText(a.adresse || "non précisée")}
 - Dimensions / surface concernées : ${fixText(a.cotes || "non précisées")}
 - Fournitures : ${fixText(a.fournitures || "non précisé")}
-- Accès au chantier : ${fixText(a.acces || "non précisé")}
-- État actuel de la pièce/l'espace : ${fixText(a.etat || "non précisé")}
+- Étage / ascenseur : ${fixText(a.etage || a.acces || "non précisé")}
+- Stationnement pour les artisans : ${fixText(a.stationnement || "non précisé")}
+- Nettoyage de fin de chantier : ${fixText(a.nettoyage || "non précisé")}
+- État actuel de la pièce/l'espace (meubles, vide...) : ${fixText(a.etat || "non précisé")}
 
 Bibliothèque de prix interne Koji (base-toi dessus en priorité pour les temps et coûts unitaires) :
 ${catalogText}

@@ -159,7 +159,7 @@ export default function ClientHomePage() {
     <main className="client-space">
       <ClientTopbar />
 
-      <Link href="/client/radar/new" className="new-chantier-bar">
+      <Link href="/client/radar/new" className="client-publish-cta">
         <span className="new-chantier-icon">+</span>
         Publier une offre
       </Link>
@@ -180,10 +180,10 @@ export default function ClientHomePage() {
         ) : null}
         <div className="client-list">
           {offres.map((offre) => (
-            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="client-row client-row-link">
-              <div>
+            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="ct-offer-card">
+              <div className="ct-offer-card-info">
                 <strong>{offre.description.slice(0, 60)}{offre.description.length > 60 ? "…" : ""}</strong>
-                <span>{offre.address} · {shortDate(offre.createdAt)}</span>
+                <small>{offre.address} · {shortDate(offre.createdAt)}</small>
               </div>
               <div className="ct-devis-row-right">
                 <span className="radar-status-badge">{RADAR_STATUS_LABEL[offre.status] || offre.status}</span>

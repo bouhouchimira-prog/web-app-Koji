@@ -74,8 +74,8 @@ const SLOTS = [
     standardAssumption: null
   },
   {
-    key: "acces",
-    question: "Comment se présente l'accès au chantier (étage, ascenseur, stationnement...) ?",
+    key: "etage",
+    question: "À quel étage se trouve le chantier, et y a-t-il un ascenseur ?",
     inputType: "text",
     options: ["Rez-de-chaussée", "Étage avec ascenseur", "Étage sans ascenseur", "Je ne sais pas"],
     unknownDefault: {
@@ -86,8 +86,32 @@ const SLOTS = [
     standardAssumption: null
   },
   {
+    key: "stationnement",
+    question: "Le stationnement pour les artisans est-il facile près du chantier ?",
+    inputType: "text",
+    options: ["Stationnement facile", "Stationnement difficile", "Je ne sais pas"],
+    unknownDefault: {
+      matchLabel: "Je ne sais pas",
+      ackMessage: "Pas de problème, l'expertise partira sur un stationnement facile.",
+      value: "Stationnement facile (hypothèse par défaut, le client ne savait pas)"
+    },
+    standardAssumption: null
+  },
+  {
+    key: "nettoyage",
+    question: "Qui s'occupe du nettoyage de fin de chantier ?",
+    inputType: "text",
+    options: ["À la charge de l'entreprise", "Je m'en occupe moi-même", "Je ne sais pas"],
+    unknownDefault: {
+      matchLabel: "Je ne sais pas",
+      ackMessage: "Pas de problème, l'expertise partira sur un nettoyage de fin de chantier à la charge de l'entreprise, c'est le plus courant.",
+      value: "Nettoyage de fin de chantier à la charge de l'entreprise (hypothèse par défaut, le client ne savait pas)"
+    },
+    standardAssumption: null
+  },
+  {
     key: "etat",
-    question: "Dans quel état est la pièce ou l'espace concerné actuellement ?",
+    question: "Dans quel état est la pièce ou l'espace concerné actuellement (meubles à sortir, à protéger, ou déjà vide) ?",
     inputType: "text",
     options: ["Déjà vide", "À vider avant travaux", "À protéger seulement", "Je ne sais pas"],
     unknownDefault: {
