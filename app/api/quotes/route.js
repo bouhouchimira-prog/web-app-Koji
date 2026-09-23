@@ -239,11 +239,16 @@ export async function POST(request) {
     clientReference: fixText(body.clientReference || ""),
     clientEmail: body.clientEmail || "",
     clientPhone: fixText(body.clientPhone || ""),
+    clientType: body.clientType === "societe" ? "societe" : "particulier",
+    clientFirstName: fixText(body.clientFirstName || ""),
+    clientLastName: fixText(body.clientLastName || ""),
+    clientCompanyName: fixText(body.clientCompanyName || ""),
     project: fixText(body.project || "Chantier"),
     projectId: body.projectId || "",
     projectReference: body.projectReference || "",
     contactId: body.contactId || "",
     chantierAddress: fixText(body.chantierAddress || ""),
+    chantierAddressDetails: body.chantierAddressDetails ? fixObjectText(body.chantierAddressDetails) : null,
     startDate: body.startDate || "",
     expectedDuration: fixText(body.expectedDuration || ""),
     workDescription: fixText(body.workDescription || ""),
@@ -439,7 +444,7 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "project", "projectId", "projectReference", "contactId", "chantierAddress", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
+    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);

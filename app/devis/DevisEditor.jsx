@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
+import { AddressFields } from "../../components/AddressFields";
 import { apiGet, apiSend } from "../../lib/client-api";
+import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
 import { calculateTaskPrice } from "../../lib/pricing";
@@ -16,7 +18,7 @@ import catalog from "../../data/catalog-ouvrages.json";
 
 const ROOM_SUGGESTIONS = ["Salon", "Cuisine", "Chambre", "Salle de bain", "Bureau", "Exterieur"];
 
-const CUSTOM_OUVRAGE_UNITS = ["u", "m²", "ml", "m³", "h"];
+const CUSTOM_OUVRAGE_UNITS = ["u", "m²", "ml", "m³", "h", "forfait"];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -161,9 +163,7 @@ function recalculateLine(line, settings = {}, quoteVatRatePercent) {
   const adjustmentAmount = totalHtBase * (adjustmentPercent / 100);
   const totalHtAfterAdjustment = totalHtBase + adjustmentAmount;
   const discountAmount = totalHtAfterAdjustment * (discountPercent / 100);
-  const totalHtBeforeMargin = Math.max(0, totalHtAfterAdjustment - discountAmount);
-  const marginAmount = isFixed ? 0 : totalHtBeforeMargin * Number(pricingProfile.marginRate || 0);
-  const totalHt = totalHtBeforeMargin + marginAmount;
+  const totalHt = Math.max(0, totalHtAfterAdjustment - discountAmount);
   const vatAmount = totalHt * lineVatRate;
   // For TTC forfait: use the typed value directly to avoid HT→TTC float round-trip errors
   const totalTtc = isFixedTtcMode
@@ -180,11 +180,9 @@ function recalculateLine(line, settings = {}, quoteVatRatePercent) {
     discountPercent,
     adjustmentAmount,
     discountAmount,
-    marginAmount,
     vatAmount,
     vatRate: lineVatRate,
     totalHtBase,
-    totalHtBeforeMargin,
     totalHt: round2(totalHt),
     totalTtc
   };
@@ -215,6 +213,7 @@ export default function DevisEditor() {
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: ouvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
+  const { data: contacts, setData: setContacts } = useApi("/api/contacts", "contacts");
 
   const postes = useMemo(() => ouvrages.filter((item) => item.type === "POSTE" || item.type === "SOUS-POSTE"), [ouvrages]);
   const [company, setCompany] = useState(profileCompany(null));
@@ -266,11 +265,23 @@ export default function DevisEditor() {
     clientReference: "",
     clientEmail: "",
     clientPhone: "",
+    // Identite structuree (22 septembre) : "client" (chaine) reste calcule
+    // depuis ces champs au moment de l'enregistrement (voir persistQuoteImpl)
+    // — tout le reste de l'app (PDF, factures, assistant koji) continue de
+    // lire "client" sans aucun changement.
+    clientType: "particulier",
+    clientFirstName: "",
+    clientLastName: "",
+    clientCompanyName: "",
     contactId: "",
     projectId: "",
     project: "",
     propertyType: "Maison",
     chantierAddress: "",
+    // Adresse structuree (22 septembre) : "chantierAddress" (chaine) reste
+    // calcule depuis ces champs a l'enregistrement, meme principe que
+    // "client" ci-dessus. Forme attendue par components/AddressFields.jsx.
+    chantierAddressDetails: null,
     quoteDate: todayIso(),
     startDate: "",
     expectedDuration: "",
@@ -572,10 +583,18 @@ export default function DevisEditor() {
       clientReference: quote.clientReference || "",
       clientEmail: quote.clientEmail || "",
       clientPhone: quote.clientPhone || "",
+      clientType: quote.clientType === "societe" ? "societe" : "particulier",
+      clientFirstName: quote.clientFirstName || "",
+      clientLastName: quote.clientLastName || "",
+      clientCompanyName: quote.clientCompanyName || "",
       contactId: quote.contactId || "",
       projectId: quote.projectId || "",
       project: quote.project || "",
       chantierAddress: quote.chantierAddress || "",
+      // Devis anterieur a l'adresse structuree : reprend l'ancienne chaine
+      // unique comme point de depart de la rue, sans jamais tenter de la
+      // decouper automatiquement en ville/code postal/departement.
+      chantierAddressDetails: quote.chantierAddressDetails || (quote.chantierAddress ? { address: quote.chantierAddress } : null),
       quoteDate: quote.quoteDate || (quote.createdAt || "").slice(0, 10) || todayIso(),
       startDate: quote.startDate || "",
       expectedDuration: quote.expectedDuration || "",
@@ -1076,9 +1095,63 @@ export default function DevisEditor() {
       client: project?.client || current.client,
       clientEmail: project?.clientEmail || current.clientEmail,
       clientPhone: project?.clientPhone || current.clientPhone,
-      chantierAddress: project?.address || project?.fullAddress || current.chantierAddress
+      chantierAddress: project?.address || project?.fullAddress || current.chantierAddress,
+      // Le chantier n'a qu'une adresse en une seule chaine — reprise comme
+      // rue, ville/code postal/departement restent a completer a la main.
+      chantierAddressDetails: (project?.address || project?.fullAddress)
+        ? { ...(current.chantierAddressDetails || {}), address: project.address || project.fullAddress }
+        : current.chantierAddressDetails
     }));
   }
+
+  // Rattache un Contact deja enregistre (22 septembre) : pre-remplit
+  // l'identite structuree + coordonnees + adresse depuis le contact — meme
+  // esprit que selectProject ci-dessus. form.contactId est ensuite envoye
+  // tel quel par persistQuoteImpl, qui liait deja le contact au chantier via
+  // /api/chantier-contacts des que ce champ est renseigne.
+  function selectContact(contactId) {
+    if (!contactId) {
+      setForm((current) => ({ ...current, contactId: "" }));
+      return;
+    }
+    const contact = contacts.find((item) => item.id === contactId);
+    if (!contact) return;
+    setForm((current) => ({
+      ...current,
+      contactId: contact.id,
+      clientType: contact.type === "societe" ? "societe" : "particulier",
+      clientFirstName: contact.firstName || "",
+      clientLastName: contact.lastName || "",
+      clientCompanyName: contact.companyName || "",
+      clientEmail: contact.email || current.clientEmail,
+      clientPhone: contact.phone || current.clientPhone,
+      // Le Contact n'a pas de champ "departement" (absent du modele Contact) —
+      // laisse vide, a completer manuellement si besoin.
+      chantierAddressDetails: {
+        ...(current.chantierAddressDetails || {}),
+        address: contact.address || current.chantierAddressDetails?.address || "",
+        city: contact.city || current.chantierAddressDetails?.city || "",
+        postalCode: contact.postalCode || current.chantierAddressDetails?.postalCode || ""
+      }
+    }));
+  }
+
+  // Saisie du nom (23 septembre) : taper un nom deja connu propose le
+  // contact correspondant (clientSuggestions ci-dessous, calcule sur
+  // `contacts` deja charge) — des qu'elle retape un nom different du contact
+  // rattache, on delie ce dernier (sinon l'enregistrement mettrait a jour le
+  // MAUVAIS contact avec ce nouveau nom).
+  function updateClientNameField(field, value) {
+    setForm((current) => ({ ...current, [field]: value, contactId: "" }));
+  }
+
+  const clientNameQuery = (form.clientType === "societe" ? form.clientCompanyName : `${form.clientFirstName} ${form.clientLastName}`).trim();
+  const clientSuggestions = useMemo(() => {
+    if (form.contactId) return [];
+    const needle = clientNameQuery.toLowerCase();
+    if (needle.length < 2) return [];
+    return contacts.filter((contact) => contactDisplayName(contact).toLowerCase().includes(needle)).slice(0, 6);
+  }, [contacts, clientNameQuery, form.contactId]);
 
   function updateLine(id, field, value) {
     setGeneratedQuote(null);
@@ -1533,12 +1606,70 @@ export default function DevisEditor() {
     let projectReference = selectedProject?.reference || "";
     let nextProjects = projects;
 
+    // "client"/"chantierAddress" (chaines uniques) restent ce que tout le
+    // reste de l'app lit deja (PDF, factures, assistant koji...) — calcules
+    // ici depuis les nouveaux champs structures, avec repli sur l'ancienne
+    // valeur si les champs structures sont vides (devis non retouche par ce
+    // formulaire, ou rempli par l'assistant koji qui ecrit encore "client"
+    // directement).
+    const derivedClient = contactDisplayName({
+      type: form.clientType,
+      firstName: form.clientFirstName,
+      lastName: form.clientLastName,
+      companyName: form.clientCompanyName
+    }) || form.client;
+    const addressDetails = form.chantierAddressDetails || {};
+    const derivedChantierAddress = [addressDetails.address, addressDetails.postalCode, addressDetails.city]
+      .filter(Boolean).join(", ") || form.chantierAddress;
+
+    // Synchronisation automatique du client vers le carnet de Contacts (23
+    // septembre) : cree ou met a jour le Contact correspondant a chaque
+    // enregistrement du devis, pour le retrouver ensuite via les suggestions
+    // de saisie (clientSuggestions, plus bas) sans jamais dupliquer un
+    // contact deja rattache — meme detection que la page Contacts
+    // (findSimilarContacts, lib/contacts.js). Non bloquant : le devis
+    // s'enregistre meme si cette synchronisation echoue.
+    let contactId = form.contactId || "";
+    const hasClientIdentity = form.clientType === "societe"
+      ? form.clientCompanyName.trim().length >= 2
+      : form.clientLastName.trim().length >= 2;
+    if (hasClientIdentity) {
+      const contactFields = {
+        type: form.clientType,
+        firstName: form.clientFirstName,
+        lastName: form.clientLastName,
+        companyName: form.clientCompanyName,
+        phone: form.clientPhone,
+        email: form.clientEmail,
+        address: addressDetails.address || "",
+        city: addressDetails.city || "",
+        postalCode: addressDetails.postalCode || ""
+      };
+      try {
+        if (contactId) {
+          await apiSend("/api/contacts", { id: contactId, ...contactFields }, "PATCH");
+        } else {
+          const similar = findSimilarContacts(contacts, { email: form.clientEmail, phone: form.clientPhone });
+          if (similar.length) {
+            contactId = similar[0].id;
+            await apiSend("/api/contacts", { id: contactId, ...contactFields }, "PATCH");
+          } else {
+            const { contact } = await apiSend("/api/contacts", { ...contactFields, roles: ["client"] });
+            contactId = contact.id;
+            setContacts((current) => [contact, ...current]);
+          }
+        }
+      } catch {
+        contactId = form.contactId || "";
+      }
+    }
+
     if (!projectId && isNewChantier) {
       const { project } = await apiSend("/api/projects", {
         title: form.project || "Nouveau chantier",
-        client: form.client || "Client",
+        client: derivedClient || "Client",
         clientEmail: form.clientEmail,
-        address: form.chantierAddress,
+        address: derivedChantierAddress,
         budgetHt: totals.ht,
         dueDate: form.startDate || todayIso(),
         startDate: form.startDate,
@@ -1551,15 +1682,20 @@ export default function DevisEditor() {
     }
 
     const payload = {
-      client: form.client || selectedProject?.client || "Client",
+      client: derivedClient || selectedProject?.client || "Client",
       clientReference: form.clientReference,
       clientEmail: form.clientEmail,
       clientPhone: form.clientPhone,
-      contactId: form.contactId || "",
+      clientType: form.clientType,
+      clientFirstName: form.clientFirstName,
+      clientLastName: form.clientLastName,
+      clientCompanyName: form.clientCompanyName,
+      contactId,
       project: form.project || selectedProject?.title || "Chantier",
       projectId,
       projectReference,
-      chantierAddress: form.chantierAddress,
+      chantierAddress: derivedChantierAddress,
+      chantierAddressDetails: form.chantierAddressDetails,
       startDate: form.startDate,
       expectedDuration: form.expectedDuration,
       workDescription: form.workDescription,
@@ -1603,19 +1739,19 @@ export default function DevisEditor() {
       const { project: syncedProject } = await apiSend("/api/projects", {
         id: projectId,
         title: form.project || selectedProject?.title || "Chantier",
-        client: form.client || selectedProject?.client || "Client",
+        client: derivedClient || selectedProject?.client || "Client",
         clientEmail: form.clientEmail,
-        address: form.chantierAddress,
+        address: derivedChantierAddress,
         startDate: form.startDate,
         quoteId: quote.id,
         budgetHt: totals.ht,
         status: "Devis genere"
       }, "PATCH");
       nextProjects = nextProjects.map((item) => item.id === syncedProject.id ? syncedProject : item);
-      if (form.contactId) {
+      if (contactId) {
         // The dedup check lives server-side (app/api/chantier-contacts POST),
         // so this is safe to call on every save without creating duplicates.
-        apiSend("/api/chantier-contacts", { contactId: form.contactId, projectId, roleOnSite: "client" }).catch(() => {});
+        apiSend("/api/chantier-contacts", { contactId, projectId, roleOnSite: "client" }).catch(() => {});
       }
     }
     setProjects(nextProjects);
@@ -1625,6 +1761,7 @@ export default function DevisEditor() {
       : [quote, ...current]);
     setGeneratedQuote(quote);
     setIsNewChantier(false);
+    if (contactId !== form.contactId) setForm((current) => ({ ...current, contactId }));
     return quote;
   }
 
@@ -1794,9 +1931,8 @@ export default function DevisEditor() {
     setQuoteVatRate(20);
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
-    setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", contactId: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
+    setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", clientType: "particulier", clientFirstName: "", clientLastName: "", clientCompanyName: "", contactId: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", chantierAddressDetails: null, quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
     setIsNewChantier(false);
-    setSelectedClientId("");
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("koji-devis-ouvrages");
       window.localStorage.removeItem("koji-devis-draft");
@@ -2470,10 +2606,13 @@ export default function DevisEditor() {
             {rightPanelTab === "client" && !clientEditing ? (
               <section className="quote-final-card quote-client-card">
                 <div className="quote-client-summary">
-                  <div><span>{L.devis.client}</span><strong>{form.client || "—"}</strong></div>
+                  <div><span>{L.devis.client}</span><strong>{contactDisplayName({ type: form.clientType, firstName: form.clientFirstName, lastName: form.clientLastName, companyName: form.clientCompanyName }) || form.client || "—"}</strong></div>
                   <div><span>{L.devis.clientPhone}</span><strong>{form.clientPhone || "—"}</strong></div>
                   <div><span>{L.devis.clientEmail}</span><strong>{form.clientEmail || "—"}</strong></div>
-                  <div><span>{L.devis.clientAddress}</span><strong>{form.chantierAddress || "—"}</strong></div>
+                  <div><span>{L.devis.clientAddress}</span><strong>{[form.chantierAddressDetails?.address, form.chantierAddressDetails?.postalCode, form.chantierAddressDetails?.city].filter(Boolean).join(", ") || form.chantierAddress || "—"}</strong></div>
+                  {form.chantierAddressDetails?.department ? (
+                    <div><span>{L.devis.department}</span><strong>{form.chantierAddressDetails.department}</strong></div>
+                  ) : null}
                   <div><span>{L.devis.project}</span><strong>{form.project || "—"}</strong></div>
                 </div>
                 <button type="button" className="button secondary" onClick={() => setClientEditing(true)}>{L.common.edit}</button>
@@ -2484,13 +2623,51 @@ export default function DevisEditor() {
               <section className="quote-final-card quote-client-card">
                 <div className="quote-client-grid quote-client-grid-pair">
                   <label>{L.devis.clientRef}<input value={form.clientReference} onChange={(event) => setField("clientReference", event.target.value)} placeholder={L.devis.clientRef} /></label>
-                  <label>{L.devis.client}<input value={form.client} onChange={(event) => setField("client", event.target.value)} placeholder={L.devis.client} /></label>
+                  <div className="wide">
+                    <span className="quote-client-type-label">{L.contacts.typeLabel}</span>
+                    <div className="segmented large">
+                      <button type="button" className={form.clientType !== "societe" ? "active" : ""} onClick={() => setField("clientType", "particulier")}>{L.contacts.typeParticulier}</button>
+                      <button type="button" className={form.clientType === "societe" ? "active" : ""} onClick={() => setField("clientType", "societe")}>{L.contacts.typeSociete}</button>
+                    </div>
+                  </div>
+                  {form.clientType === "societe" ? (
+                    <label className="wide">{L.contacts.companyName}<input value={form.clientCompanyName} onChange={(event) => updateClientNameField("clientCompanyName", event.target.value)} placeholder={L.contacts.companyName} /></label>
+                  ) : (
+                    <>
+                      <label>{L.contacts.firstName}<input value={form.clientFirstName} onChange={(event) => updateClientNameField("clientFirstName", event.target.value)} placeholder={L.contacts.firstName} /></label>
+                      <label>{L.contacts.lastName}<input value={form.clientLastName} onChange={(event) => updateClientNameField("clientLastName", event.target.value)} placeholder={L.contacts.lastName} /></label>
+                    </>
+                  )}
+                  {clientSuggestions.length ? (
+                    <div className="wide quote-client-suggestions">
+                      <span className="quote-client-suggestions-hint">{L.devis.clientSuggestHint}</span>
+                      {clientSuggestions.map((contact) => (
+                        <button type="button" key={contact.id} className="quote-client-suggestion-chip" onClick={() => selectContact(contact.id)}>
+                          <strong>{contactDisplayName(contact)}</strong>
+                          {contact.phone || contact.email ? <span>{[contact.phone, contact.email].filter(Boolean).join(" · ")}</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {form.contactId ? (
+                    <div className="wide quote-client-linked-hint">
+                      {L.devis.clientLinked}
+                      <button type="button" onClick={() => selectContact("")}>{L.devis.clientUnlink}</button>
+                    </div>
+                  ) : null}
                   <label>{L.devis.clientPhone}<input value={form.clientPhone} onChange={(event) => setField("clientPhone", event.target.value)} placeholder="06 12 34 56 78" /></label>
                   <label>{L.devis.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
-                  <label className="wide">{L.devis.clientAddress}<input value={form.chantierAddress} onChange={(event) => setField("chantierAddress", event.target.value)} placeholder={L.devis.clientAddress} /></label>
+                  <div className="wide">
+                    <span className="quote-client-type-label">{L.devis.clientAddress}</span>
+                    <AddressFields
+                      value={form.chantierAddressDetails}
+                      onChange={(next) => setField("chantierAddressDetails", next)}
+                      showDepartment
+                    />
+                  </div>
                   <label>{L.devis.project}<select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
                     if (event.target.value === "nouveau") {
-                      setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "" }));
+                      setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "", chantierAddressDetails: null }));
                       setIsNewChantier(true);
                     } else {
                       setIsNewChantier(false);
