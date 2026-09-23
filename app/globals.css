@@ -4938,7 +4938,7 @@ p {
   gap: 40px;
 }
 
-.auth-brand-animated .brand-store-block {
+.auth-brand-animated .brand-pitch {
   margin-top: auto;
 }
 
@@ -5000,57 +5000,62 @@ p {
   font-weight: 500;
 }
 
-.brand-store-block {
+/* ── Accroche Marketplace du panneau de marque (24 septembre) ──────────── */
+
+.brand-pitch {
   display: grid;
   gap: 12px;
 }
 
-.brand-store-label {
+.brand-pitch-eyebrow {
   margin: 0;
-  color: rgba(255, 255, 255, 0.5);
   font-size: 12px;
-  text-transform: uppercase;
+  font-weight: 800;
   letter-spacing: 0.08em;
-  font-weight: 700;
+  color: var(--gold);
 }
 
-.brand-store-badges {
+.brand-pitch h2 {
+  margin: 0;
+  color: white;
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  line-height: 1.22;
+}
+
+.brand-pitch h2 em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.brand-pitch-sub {
+  margin: 0;
+  max-width: 380px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.brand-stats {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 10px;
 }
 
-.brand-store-badge {
+.brand-stat {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  padding: 10px 16px;
-  color: white;
-  min-width: 148px;
-}
-
-.brand-store-badge svg {
-  flex-shrink: 0;
-  opacity: 0.9;
-}
-
-.brand-store-badge span {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-  font-size: 15px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12.5px;
   font-weight: 700;
 }
 
-.brand-store-badge small {
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.brand-stat-icon {
+  font-size: 14px;
 }
 
 @keyframes koji-spin {
@@ -17040,8 +17045,8 @@ body :where(
 }
 
 .landing-nav-brand img {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
 }
 
 .landing-nav-menu {
@@ -17265,12 +17270,18 @@ body :where(
 .landing-radar-pin-3 { bottom: 0%; left: 8%; animation-delay: 1.6s; }
 
 .landing-features {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 20px;
   max-width: 1100px;
   margin: 0 auto;
-  padding: 20px clamp(20px, 5vw, 64px) 70px;
+  padding: 20px clamp(20px, 5vw, 64px) 40px;
+}
+
+.landing-features-secondary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .landing-feature {
@@ -17278,6 +17289,30 @@ body :where(
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 22px;
+}
+
+/* Carte "Marketplace de proximite" mise en avant (24 septembre, demande
+   d'Amira) : bien plus grande, sur toute la largeur, avant les deux autres
+   cartes secondaires rangees en dessous. */
+.landing-feature-featured {
+  padding: clamp(32px, 5vw, 48px);
+  background: linear-gradient(135deg, #eef5ff, white 60%);
+  border-color: rgba(29, 116, 255, 0.25);
+}
+
+.landing-feature-featured .landing-feature-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+}
+
+.landing-feature-featured strong {
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  margin-bottom: 10px;
+}
+
+.landing-feature-featured p {
+  max-width: 480px;
+  font-size: 15px;
 }
 
 .landing-feature-icon {
@@ -17298,6 +17333,59 @@ body :where(
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.5;
+}
+
+/* ── Section app mobile "bientot disponible" (24 septembre) ─────────────── */
+
+.landing-app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 64px) 70px;
+}
+
+.landing-app-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: clamp(24px, 4vw, 34px);
+}
+
+.landing-app-text strong {
+  display: block;
+  color: var(--navy);
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.landing-app-text p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  max-width: 380px;
+}
+
+.landing-app-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.landing-app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--navy);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 /* ── Section "parcours entreprise" (24 septembre) ───────────────────────── */
@@ -17535,7 +17623,7 @@ body :where(
     margin-bottom: 12px;
   }
 
-  .landing-features {
+  .landing-features-secondary {
     grid-template-columns: 1fr;
   }
 

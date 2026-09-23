@@ -67,7 +67,7 @@ export default function PublicSignaturePage() {
     <main className="signature-public">
       <section className="signature-card">
         <div className="signature-brand">
-          <img src="/koji-logo.svg" alt="Koji" />
+          <img src="/koji-logo-blue.svg" alt="Koji" />
           <div>
             <strong>Koji</strong>
             <span>{L.signaturePub.clientSig}</span>
