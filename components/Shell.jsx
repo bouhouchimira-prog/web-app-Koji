@@ -7,21 +7,27 @@ import { apiGet, apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
 
+// Menu restructure en 2 groupes (23 septembre, Koji Premium) : "principal"
+// toujours accessible, "premium" verrouille sauf abonnement Koji Premium
+// (ou compte admin) — Devis reste en principal, necessaire pour creer un
+// devis a partir d'une offre publiee sur le Marketplace, lui-meme gratuit.
 function getNavItems(L) {
   return [
-    { href: "/",                      label: L.nav.home,        icon: "home"     },
-    { href: "/archives",              label: L.nav.archives,    icon: "archive"  },
-    { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book"     },
-    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar" },
-    { href: "/chantiers",             label: L.nav.projects,    icon: "tools"    },
-    { href: "/contacts",              label: L.nav.contacts,    icon: "user"     },
-    { href: "/devis",                 label: L.nav.quotes,      icon: "file"     },
-    { href: "/equipe",                label: L.nav.team,        icon: "users"    },
-    { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice"  },
-    { href: "/fournitures",           label: L.nav.supplies,    icon: "box"      },
-    { href: "/marketplace",           label: L.nav.marketplace, icon: "market"   },
+    { href: "/",                      label: L.nav.home,        icon: "home",    group: "principal", color: "#1d74ff" },
+    { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book",    group: "principal", color: "#7c4dff" },
+    { href: "/marketplace",           label: L.nav.marketplace, icon: "market",  group: "principal", color: "#12b3a8" },
+    { href: "/archives",              label: L.nav.archives,    icon: "archive", group: "principal", color: "#6b7280" },
+    { href: "/devis",                 label: L.nav.quotes,      icon: "file",    group: "principal", color: "#f2994a" },
+    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
+    { href: "/chantiers",             label: L.nav.projects,    icon: "tools",    group: "premium", color: "#e6398b" },
+    { href: "/contacts",              label: L.nav.contacts,    icon: "user",     group: "premium", color: "#2fa1e8" },
+    { href: "/equipe",                label: L.nav.team,        icon: "users",    group: "premium", color: "#8a5cf6" },
+    { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice",  group: "premium", color: "#17ad5b" },
+    { href: "/fournitures",           label: L.nav.supplies,    icon: "box",      group: "premium", color: "#b08542" },
   ];
 }
+
+const PREMIUM_PATHS = ["/calendrier", "/planning", "/chantiers", "/contacts", "/equipe", "/facturation", "/fournitures"];
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
@@ -198,6 +204,21 @@ function Icon({ name, className = "" }) {
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
           <path {...base} d="M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4" />
           <path {...base} d="M13 16l4-4-4-4M9 12h8" />
+        </svg>
+      );
+    case "lock":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <rect {...base} x="5" y="11" width="14" height="9" rx="2" />
+          <path {...base} d="M8 11V7a4 4 0 018 0v4" />
+        </svg>
+      );
+    case "help":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <circle {...base} cx="12" cy="12" r="9" />
+          <path {...base} d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4.5" />
+          <path {...base} d="M12 17.5h.01" />
         </svg>
       );
     default:
@@ -424,6 +445,7 @@ export function Shell({ children }) {
   const [profileType, setProfileType] = useState("entreprise");
   const [kojiUserName, setKojiUserName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [premiumTools, setPremiumTools] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
@@ -480,10 +502,19 @@ export function Shell({ children }) {
       if (parsed?.accountType === "particulier") setProfileType("particulier");
       else setProfileType("entreprise");
       if (parsed?.name) setKojiUserName(String(parsed.name).trim().split(" ")[0]);
-      if (parsed?.isAdmin) setIsAdmin(true);
+      const isAdminNow = Boolean(parsed?.isAdmin);
+      if (isAdminNow) setIsAdmin(true);
+      setPremiumTools(Boolean(parsed?.premiumTools));
       const trialInfo = getTrialInfo(parsed);
       setTrial(trialInfo);
       if (trialInfo.expired && !FREE_PATHS.some((p) => pathname.startsWith(p))) {
+        router.replace("/abonnement");
+      }
+      // Koji Premium (23 septembre) : abonnement distinct de Koji Pro,
+      // gratuit pour les admins — verrouille les outils Calendrier/
+      // Chantiers/Contacts/Equipe/Facturation/Fournitures tant qu'il n'est
+      // pas pris, meme mecanisme de redirection que le trial expire ci-dessus.
+      if (!isAdminNow && !parsed?.premiumTools && PREMIUM_PATHS.some((p) => pathname.startsWith(p))) {
         router.replace("/abonnement");
       }
     } catch {
@@ -575,17 +606,39 @@ export function Shell({ children }) {
           </div>
         )}
 
+        {profileType !== "particulier" ? (
+          <Link href="/marketplace" className="drawer-hero-cta">
+            <Icon name="market" className="svg-icon" />
+            {L.shell.findSite}
+          </Link>
+        ) : null}
+
         <nav className="drawer-nav" aria-label="nav">
-          {navItems.map((item) => {
-            const active = item.href === "/"
-              ? pathname === "/"
-              : item.href === "/calendrier"
-                ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
-                : pathname.startsWith(item.href);
+          <span className="drawer-nav-section">{L.nav.sectionPrincipal}</span>
+          {navItems.filter((item) => item.group === "principal").map((item) => {
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link href={item.href} className={active ? "active" : ""} key={item.href}>
-                <span><Icon name={item.icon} className="svg-icon" /></span>
+                <span className="drawer-nav-icon" style={{ background: item.color }}><Icon name={item.icon} className="svg-icon" /></span>
                 {item.label}
+              </Link>
+            );
+          })}
+
+          <span className="drawer-nav-section drawer-nav-section-premium">
+            <Icon name="lock" className="svg-icon" />
+            {L.nav.sectionPremium}
+          </span>
+          {navItems.filter((item) => item.group === "premium").map((item) => {
+            const active = item.href === "/calendrier"
+              ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
+              : pathname.startsWith(item.href);
+            const locked = !isAdmin && !premiumTools;
+            return (
+              <Link href={locked ? "/abonnement" : item.href} className={`${active ? "active" : ""}${locked ? " locked" : ""}`} key={item.href}>
+                <span className="drawer-nav-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
+                {item.label}
+                {locked ? <Icon name="lock" className="svg-icon drawer-nav-lock" /> : null}
               </Link>
             );
           })}
@@ -595,6 +648,8 @@ export function Shell({ children }) {
 
         <div className="drawer-footer">
           <Link href="/profil"><Icon name="user" className="svg-icon" />{L.nav.profile}</Link>
+          <span className="drawer-nav-section">{L.nav.sectionConfiguration}</span>
+          <Link href="/aide"><Icon name="help" className="svg-icon" />{L.nav.help}</Link>
           <Link href="/parametres"><Icon name="settings" className="svg-icon" />{L.nav.settings}</Link>
           <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />{L.nav.logout}</button>
         </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
+import { PublicLanding } from "../components/PublicLanding";
 import { apiSend, readStoredUser } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { euro, shortDate } from "../lib/pricing";
@@ -489,7 +490,7 @@ function Section({ title, href, children, count, headerAction }) {
   );
 }
 
-export default function HomePage() {
+function DashboardHome() {
   const router = useRouter();
   const { L } = useLocale();
   const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
@@ -915,4 +916,30 @@ export default function HomePage() {
       </div>
     </Shell>
   );
+}
+
+// "/" sert deux publics (23 septembre) : la page publique de presentation
+// (visiteur non connecte, voir components/PublicLanding.jsx) et le tableau
+// de bord entreprise existant (DashboardHome ci-dessus, inchange) — decide
+// une seule fois via le meme cache localStorage "koji-user" que Shell.jsx
+// utilise deja pour sa propre verification de session, pour ne jamais
+// monter le tableau de bord (et ses appels API authentifies) tant que la
+// decision n'est pas prise.
+export default function RootPage() {
+  const [status, setStatus] = useState("checking"); // checking | guest | member
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("koji-user");
+      const parsed = raw ? JSON.parse(raw) : null;
+      setStatus(parsed?.id ? "member" : "guest");
+    } catch {
+      setStatus("guest");
+    }
+  }, []);
+
+  if (status === "checking") return null;
+  if (status === "guest") return <PublicLanding />;
+  return <DashboardHome />;
 }

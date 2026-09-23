@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripe, intervalFromProPriceId, isWebsitePriceId } from "../../../../lib/stripe";
+import { getStripe, intervalFromProPriceId, isWebsitePriceId, isPremiumPriceId } from "../../../../lib/stripe";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { readDb, writeDb } from "../../../../lib/db";
 
@@ -41,7 +41,8 @@ export async function POST(request) {
             _billingPlan: "pro",
             _billingInterval: session.metadata.interval || null,
             _billingStatus: "active",
-            _addonWebsite: session.metadata.website === "1"
+            _addonWebsite: session.metadata.website === "1",
+            _addonPremium: session.metadata.premium === "1"
           });
         }
         if (session.mode === "payment" && session.metadata?.chantierPaiementId) {
@@ -60,12 +61,14 @@ export async function POST(request) {
         const userId = subscription.metadata?.kojiUserId;
         if (userId) {
           const items = subscription.items?.data || [];
-          const proItem = items.find((item) => !isWebsitePriceId(item.price?.id));
+          const proItem = items.find((item) => !isWebsitePriceId(item.price?.id) && !isPremiumPriceId(item.price?.id));
           const addonWebsite = items.some((item) => isWebsitePriceId(item.price?.id));
+          const addonPremium = items.some((item) => isPremiumPriceId(item.price?.id));
           const patch = {
             _stripeSubscriptionId: subscription.id,
             _billingStatus: subscription.status,
-            _addonWebsite: addonWebsite
+            _addonWebsite: addonWebsite,
+            _addonPremium: addonPremium
           };
           const interval = intervalFromProPriceId(proItem?.price?.id);
           if (interval) {
@@ -83,7 +86,8 @@ export async function POST(request) {
           await updateUserBilling(userId, {
             _billingPlan: null,
             _billingStatus: "canceled",
-            _addonWebsite: false
+            _addonWebsite: false,
+            _addonPremium: false
           });
         }
         break;

@@ -10,6 +10,8 @@ const PRO_MONTHLY = 49.99;
 const PRO_YEARLY = 499.9;
 const WEBSITE_MONTHLY = 14.99;
 const WEBSITE_YEARLY = 149.9;
+const PREMIUM_MONTHLY = 29.99;
+const PREMIUM_YEARLY = 299.9;
 
 const FEATURES = [
   { text: "Création de chantiers et devis illimités", highlight: true },
@@ -43,6 +45,7 @@ function AbonnementContent() {
   const searchParams = useSearchParams();
   const [interval, setInterval] = useState("month");
   const [website, setWebsite] = useState(false);
+  const [premium, setPremium] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [accountType, setAccountType] = useState("entreprise");
@@ -60,7 +63,7 @@ function AbonnementContent() {
     setError("");
     setPending(true);
     try {
-      const response = await apiSend("/api/billing/checkout", { interval, addons: { website } });
+      const response = await apiSend("/api/billing/checkout", { interval, addons: { website, premium } });
       window.location.href = response.url;
     } catch (err) {
       setError(err.message || L.abonnement.checkoutError);
@@ -89,7 +92,8 @@ function AbonnementContent() {
   const period = interval === "month" ? L.abonnement.perMonth : L.abonnement.perYear;
   const proPrice = interval === "month" ? PRO_MONTHLY : PRO_YEARLY;
   const websitePrice = interval === "month" ? WEBSITE_MONTHLY : WEBSITE_YEARLY;
-  const total = proPrice + (website ? websitePrice : 0);
+  const premiumPrice = interval === "month" ? PREMIUM_MONTHLY : PREMIUM_YEARLY;
+  const total = proPrice + (website ? websitePrice : 0) + (premium ? premiumPrice : 0);
 
   return (
     <Shell>
@@ -137,6 +141,15 @@ function AbonnementContent() {
               <strong className="plan-addon-title">{L.abonnement.addonWebsite}</strong>
               <span>{L.abonnement.addonWebsiteDesc}</span>
               <span className="plan-addon-price">+ {formatPrice(websitePrice)} € {period}</span>
+            </span>
+          </label>
+
+          <label className="plan-addon-row">
+            <input type="checkbox" checked={premium} onChange={(event) => setPremium(event.target.checked)} />
+            <span className="plan-addon-text">
+              <strong className="plan-addon-title">{L.abonnement.addonPremium}</strong>
+              <span>{L.abonnement.addonPremiumDesc}</span>
+              <span className="plan-addon-price">+ {formatPrice(premiumPrice)} € {period}</span>
             </span>
           </label>
 
