@@ -60,7 +60,7 @@ ${catalogText}
 
 À partir de ces informations (et des photos jointes s'il y en a), réponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour, de cette forme exacte :
 
-{"metier":"string (métier principal concerné, ex: Plomberie)","description":"string (description claire et complète des travaux, à la 3e personne, prête à publier)","lots":[{"nom":"string","postes":[{"designation":"string","quantite":number,"prix_unitaire":number,"prix_total":number}]}],"prix_total_estime":number,"conseils":[{"label":"string (conseil concret et réaliste pour réduire le coût, ex: vider la pièce soi-même)","discountPercent":number (impact estimé sur le total, ex: 8 pour -8%)}],"delaiEstimeJours":number}
+{"metier":"string (métier principal concerné, ex: Plomberie)","description":"string (résumé du projet en UNE seule phrase courte, façon titre d'annonce — ex: \"Rénovation complète d'une salle de bain de 5 m², style moderne\" — jamais un paragraphe détaillé, le détail des travaux est dans lots/postes)","lots":[{"nom":"string","postes":[{"designation":"string","quantite":number,"prix_unitaire":number,"prix_total":number}]}],"prix_total_estime":number,"conseils":[{"label":"string (conseil concret et réaliste pour réduire le coût, ex: vider la pièce soi-même)","discountPercent":number (impact estimé sur le total, ex: 8 pour -8%)}],"delaiEstimeJours":number}
 
 Fournis entre 2 et 4 conseils. Les prix sont en euros HT.`;
 }

@@ -13156,6 +13156,38 @@ body :where(
   margin-top: 6px;
 }
 
+.radar-ouvrages-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.radar-ouvrages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.radar-ouvrages-lot strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--navy);
+}
+
+.radar-ouvrages-lot ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .radar-recap-card {
   background: white;
   border: 1px solid var(--line);
