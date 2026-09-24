@@ -207,6 +207,18 @@ export default function NewRadarOffrePage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Erreur de l'assistant.");
       if (data.answers) setExpertiseAnswers(data.answers);
+      // Adresse validee et geocodee cote serveur (meme si tapee a la main
+      // sans cliquer de suggestion) — aligne l'etat `address` (utilise plus
+      // tard pour publier l'offre) sur ce que le chat vient d'accepter.
+      if (data.geocode) {
+        setAddress({
+          address: data.geocode.label,
+          city: data.geocode.city,
+          postalCode: data.geocode.postalCode,
+          lat: data.geocode.lat,
+          lon: data.geocode.lon
+        });
+      }
       if (isIntroCall && data.type !== "ready_for_expertise") {
         // Ecran "Visuels et photos" de la maquette : la vraie premiere
         // question (data) est mise en attente, revelee par

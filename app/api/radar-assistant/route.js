@@ -217,6 +217,24 @@ function optionMatches(options, text) {
   return options.some((o) => o.toLowerCase() === needle);
 }
 
+// Validation de completude de l'adresse (24 septembre, remonte par Amira :
+// "paris" tape a la main etait accepte tel quel comme adresse complete du
+// chantier). Reutilise la meme Base Adresse Nationale (BAN) que l'autocomplete
+// cote client (components/RadarAddressAutocomplete.jsx) — aucun appel IA,
+// resultat deterministe : le champ `type` du meilleur resultat dit exactement
+// ce qui manque ("municipality"/"locality"/"village" = juste une ville,
+// "street" = rue sans numero, "housenumber" = adresse complete).
+async function geocodeAddress(query) {
+  try {
+    const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=1`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.features?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 async function classifyReply({ slot, userMessage, recentTurns }) {
   const context = (recentTurns || [])
     .slice(-4)
@@ -312,11 +330,11 @@ export async function POST(request) {
   if (!slot) return badRequest("Étape de conversation invalide.");
   const slotIndex = SLOTS.findIndex((s) => s.key === slot.key);
 
-  function advanceWith(value, prefix = "") {
+  function advanceWith(value, prefix = "", extra = {}) {
     answers[slot.key] = value;
     const next = SLOTS[slotIndex + 1];
-    if (!next) return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers });
-    return ok({ ...questionPayload(next, prefix), answers });
+    if (!next) return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers, ...extra });
+    return ok({ ...questionPayload(next, prefix), answers, ...extra });
   }
 
   if (isConfirmStep && slot.standardAssumption) {
@@ -381,6 +399,35 @@ export async function POST(request) {
   // explicite plutot que d'avancer avec une valeur choisie par l'IA seule.
   if (slot.standardAssumption && !outcome.precise) {
     return ok({ ...confirmPayload(slot), answers });
+  }
+
+  if (slot.key === "adresse") {
+    const geo = await geocodeAddress(userMessage);
+    if (!geo) {
+      return ok({ ...questionPayload(slot, "Je n'ai pas trouvé cette adresse — pouvez-vous préciser le numéro, la rue et la ville ?"), answers });
+    }
+    const geoType = geo.properties.type;
+    if (geoType === "municipality" || geoType === "locality" || geoType === "village") {
+      const city = geo.properties.city || geo.properties.label;
+      return ok({ ...questionPayload(slot, `Il me manque le numéro et le nom de la rue à ${city} — pouvez-vous préciser ?`), answers });
+    }
+    if (geoType === "street") {
+      return ok({ ...questionPayload(slot, `Il me manque le numéro — quel est le numéro dans ${geo.properties.name} ?`), answers });
+    }
+    // "housenumber" : adresse complete, geocodee de facon fiable (meme base
+    // que components/RadarAddressAutocomplete.jsx) — l'etat `address` cote
+    // client (lat/lon/ville/code postal) est aligne via `geocode` dans la
+    // reponse, meme si le client a tape l'adresse a la main sans jamais
+    // cliquer de suggestion.
+    const [lon, lat] = geo.geometry.coordinates;
+    return advanceWith(geo.properties.label, "", {
+      geocode: {
+        label: geo.properties.label,
+        city: geo.properties.city || "",
+        postalCode: geo.properties.postcode || "",
+        lat, lon
+      }
+    });
   }
 
   return advanceWith(fixText(userMessage));
