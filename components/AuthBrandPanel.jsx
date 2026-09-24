@@ -7,18 +7,13 @@ const letters = ["K", "O", "J", "I"];
 // que la page publique, pour une identite coherente sur tout le site.
 // Jamais de chiffre invente (nombre d'entreprises, de chantiers...) tant
 // qu'on n'a pas de vraie donnee a afficher.
+//
+// Photo de fond (public/auth-brand-photo.jpg, 24 sept) : Wesley Pacifico
+// sur Unsplash, licence Unsplash (gratuite, usage commercial autorise,
+// attribution non requise) — https://unsplash.com/photos/MThcHX1xBAs
 export function AuthBrandPanel({ tagline } = {}) {
   return (
     <section className="auth-brand auth-brand-animated">
-      <div className="auth-brand-radar" aria-hidden="true">
-        <div className="landing-radar-ring landing-radar-ring-1" />
-        <div className="landing-radar-ring landing-radar-ring-2" />
-        <div className="landing-radar-ring landing-radar-ring-3" />
-      </div>
-      <span className="auth-brand-chip auth-brand-chip-1" aria-hidden="true">🔨 Plomberie</span>
-      <span className="auth-brand-chip auth-brand-chip-2" aria-hidden="true">🎨 Peinture</span>
-      <span className="auth-brand-chip auth-brand-chip-3" aria-hidden="true">⚡ Électricité</span>
-
       <div className="brand-hero" aria-label="Koji">
         <div className="brand-hero-logo">
           <img src="/koji-logo.svg" alt="Koji" />
