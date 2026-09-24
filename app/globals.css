@@ -1514,6 +1514,129 @@
 .ct-offer-card-info strong { font-size: 14.5px; color: var(--navy); }
 .ct-offer-card-info small { font-size: 12px; color: var(--muted); }
 
+/* ── "Créer une offre" (accueil radar client, 24 sept) : hero plein format,
+   remplace l'ancien bandeau texte + bouton simple ── */
+
+.client-radar-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 460px;
+  text-align: left;
+  background:
+    radial-gradient(ellipse 60% 55% at 88% 8%, rgba(255, 210, 140, 0.2), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 10% 95%, rgba(94, 122, 190, 0.22), transparent 65%),
+    linear-gradient(165deg, #322a22 0%, #221f33 38%, #131a32 64%, #05070f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 24px;
+  padding: 26px 22px 24px;
+  color: white;
+  margin-bottom: 10px;
+  box-shadow: 0 22px 50px rgba(5, 8, 20, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.client-radar-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  pointer-events: none;
+}
+
+.client-radar-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(4, 6, 14, 0.9) 0%, rgba(4, 6, 14, 0.22) 42%, transparent 64%);
+  pointer-events: none;
+}
+
+.client-radar-hero-orb {
+  position: absolute;
+  top: -70px;
+  right: -50px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 150, 0.4), rgba(255, 214, 150, 0) 70%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.client-radar-hero-top,
+.client-radar-hero-bottom {
+  position: relative;
+  z-index: 1;
+}
+
+.client-radar-hero-eyebrow {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.client-radar-hero h1 {
+  margin: 0;
+  max-width: 320px;
+  font-size: clamp(22px, 6vw, 28px);
+  font-weight: 800;
+  line-height: 1.22;
+  color: white;
+}
+
+.client-radar-hero-sub {
+  max-width: 320px;
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.client-radar-hero-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.client-radar-hero-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #0d1230;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: white;
+  font-weight: 700;
+  font-size: 14.5px;
+  padding: 15px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.client-radar-hero-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+}
+
+.client-radar-hero-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
 /* ── "Creer une offre" : onglets IA/Saisie libre + bandeau (23 sept v2) ── */
 
 .radar-mode-tabs {
@@ -1523,44 +1646,59 @@
 }
 
 .radar-mode-tab {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   background: white;
   border: 1.5px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 18px;
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(10, 21, 56, 0.04);
-  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  box-shadow: 0 8px 20px rgba(10, 21, 56, 0.05);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
 .radar-mode-tab:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(10, 21, 56, 0.09);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(10, 21, 56, 0.1);
 }
 
 .radar-mode-tab.active {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(29, 116, 255, 0.15);
+  border-color: #1d74ff;
+  box-shadow: 0 0 0 3px rgba(29, 116, 255, 0.14), 0 14px 30px rgba(29, 116, 255, 0.12);
 }
 
 .radar-mode-tab-icon {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.radar-mode-tab-icon.ia { background: #eaf2ff; color: #1d74ff; }
-.radar-mode-tab-icon.manuel { background: #eef0f5; color: #3a4155; }
+.radar-mode-tab-icon.ia { background: linear-gradient(135deg, #eaf2ff, #d3e6ff); color: #1d74ff; }
+.radar-mode-tab-icon.manuel { background: linear-gradient(135deg, #eef0f5, #e2e5ee); color: #3a4155; }
 
-.radar-mode-tab strong { display: block; font-size: 14.5px; color: var(--navy); }
-.radar-mode-tab small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.radar-mode-tab strong { display: block; font-size: 15px; color: var(--navy); }
+.radar-mode-tab small { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+
+.radar-mode-tab-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #1d74ff;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .radar-form-card-flush {
   padding: 0;
@@ -1632,6 +1770,374 @@
 @media (max-width: 640px) {
   .radar-mode-tabs {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── "Offre IA" enrichie (24 sept) : écran d'accueil, cartes visuelles
+   équipements/styles, liste travaux, récap et prochaines étapes ── */
+
+.radar-progress-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.radar-progress-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.radar-progress-dot.done {
+  background: #1d74ff;
+  transform: scale(1.2);
+}
+
+.radar-hero-screen {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 46px 26px 38px;
+  background:
+    radial-gradient(ellipse 60% 55% at 85% 8%, rgba(255, 210, 140, 0.2), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 10% 95%, rgba(94, 122, 190, 0.22), transparent 65%),
+    linear-gradient(165deg, #322a22 0%, #221f33 38%, #131a32 64%, #05070f 100%);
+}
+
+.radar-hero-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  pointer-events: none;
+}
+
+.radar-hero-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.radar-hero-screen-badge {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #d9ae4c, #c99a2e);
+  color: var(--navy);
+  box-shadow: 0 12px 26px rgba(201, 154, 46, 0.35);
+}
+
+.radar-hero-screen h1 {
+  margin: 4px 0 0;
+  max-width: 340px;
+  font-size: clamp(22px, 5.5vw, 27px);
+  font-weight: 800;
+  line-height: 1.28;
+  color: white;
+}
+
+.radar-hero-screen h1 em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.radar-hero-screen-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.radar-hero-screen-sub {
+  margin: 10px 0 24px;
+  max-width: 380px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.radar-hero-screen-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  border: 0;
+  border-radius: 999px;
+  padding: 15px 22px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--navy);
+  background: linear-gradient(135deg, #d9ae4c, #c99a2e);
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(201, 154, 46, 0.3);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.radar-hero-screen-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(201, 154, 46, 0.4);
+}
+
+.radar-hero-screen-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 16px;
+  margin-top: 22px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.radar-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.radar-choice-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: white;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+
+.radar-choice-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(10, 21, 56, 0.06);
+}
+
+.radar-choice-card.selected {
+  border-color: #1d74ff;
+  background: #f5f9ff;
+  box-shadow: 0 0 0 2px rgba(29, 116, 255, 0.15);
+}
+
+.radar-choice-card:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.radar-choice-card-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.radar-choice-card-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.radar-choice-card-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: -4px;
+}
+
+.radar-choice-card-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #1d74ff;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radar-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.radar-toggle-row:last-child {
+  border-bottom: 0;
+}
+
+.radar-toggle-switch {
+  appearance: none;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #dfe3ee;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.radar-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+
+.radar-toggle-switch:checked {
+  background: #1d74ff;
+}
+
+.radar-toggle-switch:checked::after {
+  transform: translateX(16px);
+}
+
+.radar-wizard-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.radar-wizard-nav .radar-generate-btn {
+  flex: 1;
+}
+
+.radar-recap-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radar-recap-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.radar-recap-row:last-child {
+  border-bottom: 0;
+}
+
+.radar-recap-row span {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.radar-recap-row strong {
+  text-align: right;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.radar-next-steps {
+  background: #f7f9fd;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.radar-next-steps-title {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #1d74ff;
+}
+
+.radar-next-steps ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.radar-next-steps ol li {
+  position: relative;
+  padding: 0 0 18px 26px;
+}
+
+.radar-next-steps ol li:last-child {
+  padding-bottom: 0;
+}
+
+.radar-next-steps ol li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px white, 0 0 0 4px rgba(201, 154, 46, 0.4);
+}
+
+.radar-next-steps ol li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 13px;
+  bottom: -5px;
+  width: 2px;
+  background: rgba(201, 154, 46, 0.35);
+}
+
+@media (max-width: 640px) {
+  .radar-choice-grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   }
 }
 
@@ -12479,6 +12985,16 @@ body :where(
   font-size: 12px;
 }
 
+.radar-photo-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radar-dropzone-compact {
+  padding: 20px 16px;
+}
+
 .radar-dropzone input[type="file"] {
   position: absolute;
   inset: 0;
@@ -13064,6 +13580,95 @@ body :where(
   border-bottom-left-radius: 4px;
 }
 
+/* Bulles avec avatar + horodatage (onglet "Offre IA", 24 sept) — n'affecte
+   pas les usages existants de .radar-chat-bubble seule (messages projet). */
+.radar-chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.radar-chat-row.user {
+  justify-content: flex-end;
+}
+
+.radar-chat-row.assistant {
+  justify-content: flex-start;
+}
+
+.radar-chat-avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+
+.radar-chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.radar-chat-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+}
+
+.radar-chat-row.user .radar-chat-bubble-wrap {
+  align-items: flex-end;
+}
+
+.radar-chat-row.assistant .radar-chat-bubble-wrap {
+  align-items: flex-start;
+}
+
+.radar-chat-bubble-wrap .radar-chat-bubble {
+  max-width: 100%;
+}
+
+.radar-chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.radar-chat-meta svg {
+  color: #1d74ff;
+}
+
+.radar-chat-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+}
+
+.radar-chat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9aa3b8;
+  animation: radar-typing-bounce 1.2s infinite ease-in-out;
+}
+
+.radar-chat-dot:nth-child(2) { animation-delay: 0.15s; }
+.radar-chat-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes radar-typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
 .radar-ai-start-btn {
   display: flex;
   align-items: center;
@@ -13121,6 +13726,28 @@ body :where(
   background: #f7f6f3;
   border-radius: 999px;
   padding: 5px 5px 5px 16px;
+}
+
+.radar-chat-form:has(.radar-chat-attach) {
+  padding-left: 6px;
+}
+
+.radar-chat-attach {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.radar-chat-attach:hover {
+  background: #eaeae4;
+  color: var(--navy);
 }
 
 .radar-rdv-toggle {

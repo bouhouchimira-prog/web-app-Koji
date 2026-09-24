@@ -45,11 +45,15 @@ function buildPrompt({ answers, catalogText }) {
 - Description initiale du projet : ${fixText(a.intro || "non précisée")}
 - Adresse du chantier : ${fixText(a.adresse || "non précisée")}
 - Dimensions / surface concernées : ${fixText(a.cotes || "non précisées")}
+- Configuration de la pièce : ${fixText(a.configuration || "non précisée")}
+- Disposition souhaitée : ${fixText(a.disposition || "non précisée")}
 - Fournitures : ${fixText(a.fournitures || "non précisé")}
-- Étage / ascenseur : ${fixText(a.etage || a.acces || "non précisé")}
+- Étage : ${fixText(a.etage || "non précisé")}
+- Ascenseur : ${fixText(a.ascenseur || "non précisé")}
+- Accès pour les artisans : ${fixText(a.acces || "non précisé")}
 - Stationnement pour les artisans : ${fixText(a.stationnement || "non précisé")}
 - Nettoyage de fin de chantier : ${fixText(a.nettoyage || "non précisé")}
-- État actuel de la pièce/l'espace (meubles, vide...) : ${fixText(a.etat || "non précisé")}
+- État actuel de la pièce/l'espace (meubles, vide...) : ${fixText(a.etat || "non précisé")}${a.metier ? `\n- Métier principal identifié : ${fixText(a.metier)}` : ""}${a.equipements ? `\n- Équipements souhaités : ${fixText(a.equipements)}` : ""}${a.style ? `\n- Style / finitions souhaités : ${fixText(a.style)}` : ""}${a.gamme ? `\n- Gamme souhaitée : ${fixText(a.gamme)}` : ""}${a.etatGeneral ? `\n- État général actuel de l'espace : ${fixText(a.etatGeneral)}` : ""}${a.travauxDetail ? `\n- Travaux détaillés demandés : ${fixText(a.travauxDetail)}` : ""}
 
 Bibliothèque de prix interne Koji (base-toi dessus en priorité pour les temps et coûts unitaires) :
 ${catalogText}
