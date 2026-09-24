@@ -49,39 +49,38 @@ const SLOTS = [
     standardAssumption: null
   },
   {
-    key: "cotes",
-    question: "Quelles sont les dimensions ou la surface concernées (m², nombre de pièces, longueur...) ?",
+    key: "etage",
+    question: "À quel étage se situe le chantier ?",
     inputType: "text",
-    options: null,
-    unknownDefault: null,
-    standardAssumption: {
-      proposalMessage: "Pour être précis, il me faudrait les dimensions exactes (par exemple 4 m × 3 m). Si vous ne les avez pas sous la main, je peux partir sur une surface standard de 10-12 m².",
-      acceptLabel: "Surface standard (10-12 m²)",
-      refineLabel: "Je précise moi-même",
-      value: "Surface standard estimée à 10-12 m² (hypothèse par défaut, non mesurée par le client)"
-    }
-  },
-  {
-    key: "fournitures",
-    question: "Les fournitures sont-elles déjà prévues, ou à la charge de l'entreprise ?",
-    inputType: "text",
-    options: ["Avec fournitures", "Sans fournitures", "Je ne sais pas"],
+    options: ["Rez-de-chaussée", "1er étage", "2ème étage", "3ème étage", "4ème étage et plus", "Je ne sais pas"],
     unknownDefault: {
       matchLabel: "Je ne sais pas",
-      ackMessage: "Pas de problème, l'expertise partira sur fournitures incluses, c'est le plus courant.",
-      value: "Avec fournitures (hypothèse par défaut, le client ne savait pas)"
+      ackMessage: "Pas de problème, l'expertise partira sur un rez-de-chaussée, c'est le plus simple.",
+      value: "Rez-de-chaussée (hypothèse par défaut, le client ne savait pas)"
     },
     standardAssumption: null
   },
   {
-    key: "etage",
-    question: "À quel étage se trouve le chantier, et y a-t-il un ascenseur ?",
+    key: "ascenseur",
+    question: "Y a-t-il un ascenseur ?",
     inputType: "text",
-    options: ["Rez-de-chaussée", "Étage avec ascenseur", "Étage sans ascenseur", "Je ne sais pas"],
+    options: ["Oui", "Non", "Je ne sais pas"],
     unknownDefault: {
       matchLabel: "Je ne sais pas",
-      ackMessage: "Pas de problème, l'expertise partira sur un accès simple, sans contrainte particulière.",
-      value: "Accès simple, sans contrainte particulière (hypothèse par défaut, le client ne savait pas)"
+      ackMessage: "Pas de problème, l'expertise partira sans ascenseur, c'est plus prudent pour l'estimation.",
+      value: "Pas d'ascenseur (hypothèse par défaut, le client ne savait pas)"
+    },
+    standardAssumption: null
+  },
+  {
+    key: "acces",
+    question: "Comment est l'accès pour les artisans et le matériel (escaliers, largeur des passages...) ?",
+    inputType: "text",
+    options: ["Facile", "Escalier étroit", "Accès compliqué", "Je ne sais pas"],
+    unknownDefault: {
+      matchLabel: "Je ne sais pas",
+      ackMessage: "Pas de problème, l'expertise partira sur un accès facile.",
+      value: "Accès facile (hypothèse par défaut, le client ne savait pas)"
     },
     standardAssumption: null
   },
@@ -94,6 +93,55 @@ const SLOTS = [
       matchLabel: "Je ne sais pas",
       ackMessage: "Pas de problème, l'expertise partira sur un stationnement facile.",
       value: "Stationnement facile (hypothèse par défaut, le client ne savait pas)"
+    },
+    standardAssumption: null
+  },
+  {
+    key: "cotes",
+    question: "Quelles sont les dimensions ou la surface concernées (m², nombre de pièces, longueur...) ?",
+    inputType: "text",
+    options: ["Moins de 3 m²", "3 à 5 m²", "5 à 10 m²", "Plus de 10 m²"],
+    unknownDefault: null,
+    standardAssumption: {
+      proposalMessage: "Pour être précis, il me faudrait les dimensions exactes (par exemple 4 m × 3 m). Si vous ne les avez pas sous la main, je peux partir sur une surface standard de 10-12 m².",
+      acceptLabel: "Surface standard (10-12 m²)",
+      refineLabel: "Je précise moi-même",
+      value: "Surface standard estimée à 10-12 m² (hypothèse par défaut, non mesurée par le client)"
+    }
+  },
+  {
+    key: "configuration",
+    question: "Quelle est la configuration de la pièce ou de l'espace ?",
+    inputType: "text",
+    options: ["Rectangulaire", "Carrée", "En longueur", "Forme atypique", "Je ne sais pas"],
+    unknownDefault: {
+      matchLabel: "Je ne sais pas",
+      ackMessage: "Pas de problème, l'expertise partira sur une configuration rectangulaire standard.",
+      value: "Configuration rectangulaire standard (hypothèse par défaut, le client ne savait pas)"
+    },
+    standardAssumption: null
+  },
+  {
+    key: "disposition",
+    question: "Souhaitez-vous modifier la disposition des éléments existants, ou garder la même implantation ?",
+    inputType: "text",
+    options: ["Modifier la disposition", "Garder la même disposition", "Je ne sais pas"],
+    unknownDefault: {
+      matchLabel: "Je ne sais pas",
+      ackMessage: "Pas de problème, l'expertise partira sur la même implantation, c'est le plus économique.",
+      value: "Garder la même disposition (hypothèse par défaut, le client ne savait pas)"
+    },
+    standardAssumption: null
+  },
+  {
+    key: "fournitures",
+    question: "Les fournitures sont-elles déjà prévues, ou à la charge de l'entreprise ?",
+    inputType: "text",
+    options: ["Avec fournitures", "Sans fournitures", "Je ne sais pas"],
+    unknownDefault: {
+      matchLabel: "Je ne sais pas",
+      ackMessage: "Pas de problème, l'expertise partira sur fournitures incluses, c'est le plus courant.",
+      value: "Avec fournitures (hypothèse par défaut, le client ne savait pas)"
     },
     standardAssumption: null
   },

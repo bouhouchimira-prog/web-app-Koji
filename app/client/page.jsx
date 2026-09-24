@@ -119,13 +119,6 @@ export function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel
   );
 }
 
-const RADAR_STATUS_LABEL = {
-  Publiee: "Publiée",
-  "En attente": "En attente",
-  Terminee: "Terminée",
-  SansSuite: "Sans suite"
-};
-
 export default function ClientHomePage() {
   const { L } = useLocale();
   const [user, setUser] = useState(null);
@@ -159,39 +152,41 @@ export default function ClientHomePage() {
     <main className="client-space">
       <ClientTopbar />
 
-      <Link href="/client/radar/new" className="client-publish-cta">
-        <span className="new-chantier-icon">+</span>
-        Publier une offre
-      </Link>
-
-      <div className="ct-welcome ct-welcome-center ct-welcome-spaced">
-        <strong>{L.clientSpace.hello} {user.name || user.email.split("@")[0]}</strong>
-        <small>Publiez vos chantiers et trouvez le bon artisan pour une meilleure qualité des travaux.</small>
-      </div>
+      <section className="client-radar-hero">
+        <div className="client-radar-hero-orb" aria-hidden="true" />
+        <div className="client-radar-hero-top">
+          <p className="client-radar-hero-eyebrow">MARKETPLACE BTP</p>
+          <h1>Votre projet de rénovation, simplement.</h1>
+          <p className="client-radar-hero-sub">
+            Décrivez votre projet à notre assistant KOJI et recevez rapidement des offres d'artisans qualifiés.
+          </p>
+        </div>
+        <div className="client-radar-hero-bottom">
+          <Link href="/client/radar/new" className="client-radar-hero-cta">
+            Démarrer mon projet <span aria-hidden="true">→</span>
+          </Link>
+          <div className="client-radar-hero-trust">
+            <span>✓ 100% gratuit</span>
+            <span>✓ Sans engagement</span>
+            <span>✓ Artisans vérifiés</span>
+          </div>
+        </div>
+      </section>
 
       <section className="ct-section">
-        <div className="ct-section-title-row">
-          <h2 className="ct-section-title">Mes offres</h2>
-          <Link href="/client/radar" className="ct-section-link">Voir tout →</Link>
-        </div>
-        {loading ? <div className="client-empty">{L.clientSpace.loading}</div> : null}
-        {!loading && offres.length === 0 ? (
-          <Link href="/client/radar" className="client-empty client-empty-link">Aucune offre publiée pour l'instant.</Link>
-        ) : null}
-        <div className="client-list">
-          {offres.map((offre) => (
-            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="ct-offer-card">
-              <div className="ct-offer-card-info">
-                <strong>{offre.description.slice(0, 60)}{offre.description.length > 60 ? "…" : ""}</strong>
-                <small>{offre.address} · {shortDate(offre.createdAt)}</small>
-              </div>
-              <div className="ct-devis-row-right">
-                <span className="radar-status-badge">{RADAR_STATUS_LABEL[offre.status] || offre.status}</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <Link href="/client/radar" className="ct-offer-card">
+          <div className="ct-offer-card-info">
+            <strong>Mes offres</strong>
+            <small>
+              {loading
+                ? L.clientSpace.loading
+                : offres.length === 0
+                  ? "Aucune offre publiée pour l'instant"
+                  : `${offres.length} offre${offres.length > 1 ? "s" : ""} publiée${offres.length > 1 ? "s" : ""}`}
+            </small>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+        </Link>
       </section>
     </main>
   );
