@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { RadarAddressAutocomplete } from "../../../../components/RadarAddressAutocomplete";
-import { questionBankFor, GAMME_OPTIONS, ETAT_GENERAL_OPTIONS } from "../../../../lib/renovation-question-bank";
+import { questionBankFor, GAMME_OPTIONS, ETAT_GENERAL_OPTIONS, normesFor } from "../../../../lib/renovation-question-bank";
 
 // Creer une offre — refonte du 23 septembre (v3) : une seule page avec deux
 // onglets ("Offre IA" / "Saisie libre") — habillage inspire d'une maquette
@@ -123,7 +123,7 @@ function readAsDataUrl(file) {
 
 // Ordre des phases de l'onglet "Offre IA", pour l'indicateur de
 // progression (points) — la maquette d'Amira numerote chaque etape.
-const IA_PHASES = ["hero", "chat", "equipements", "styles", "gamme", "etat-general", "travaux", "recap", "result"];
+const IA_PHASES = ["hero", "chat", "equipements", "styles", "gamme", "etat-general", "travaux", "travaux-detail", "recap", "result"];
 
 export default function NewRadarOffrePage() {
   const router = useRouter();
@@ -135,6 +135,7 @@ export default function NewRadarOffrePage() {
   const [selectedGamme, setSelectedGamme] = useState("");
   const [selectedEtatGeneral, setSelectedEtatGeneral] = useState("");
   const [travauxToggles, setTravauxToggles] = useState({});
+  const [travauxDetailAnswers, setTravauxDetailAnswers] = useState({});
   const [photos, setPhotos] = useState([]);
   const [description, setDescription] = useState("");
   const [surface, setSurface] = useState("");
@@ -367,6 +368,7 @@ export default function NewRadarOffrePage() {
       setSelectedStyle("");
       setSelectedGamme("");
       setSelectedEtatGeneral("");
+      setTravauxDetailAnswers({});
       setPhase("equipements");
     } catch {
       // Jamais bloquant : sans metier detecte, on part sur le jeu generique
@@ -374,6 +376,7 @@ export default function NewRadarOffrePage() {
       setMetier("Tout corps d'état");
       const bank = questionBankFor("Tout corps d'état");
       setTravauxToggles(Object.fromEntries(bank.travaux.map((t) => [t.id, true])));
+      setTravauxDetailAnswers({});
       setPhase("equipements");
     }
   }
@@ -390,6 +393,19 @@ export default function NewRadarOffrePage() {
     setTravauxToggles((current) => ({ ...current, [id]: !current[id] }));
   }
 
+  function setTravauxDetail(key, value) {
+    setTravauxDetailAnswers((current) => ({ ...current, [key]: value }));
+  }
+
+  // Apres la liste des travaux : s'il n'y a aucune sous-question a poser
+  // (aucun travail coche parmi ceux qui portent un `detail`), on saute
+  // directement au recapitulatif plutot que d'afficher un ecran vide.
+  function goAfterTravaux() {
+    const bank = questionBankFor(metier);
+    const hasDetail = bank.travaux.some((t) => travauxToggles[t.id] && t.detail);
+    setPhase(hasDetail ? "travaux-detail" : "recap");
+  }
+
   // Valide le recapitulatif : fusionne equipements/style/travaux dans les
   // reponses avant de lancer l'expertise — passe l'objet directement a
   // launchExpertise plutot que de compter sur expertiseAnswers (setState
@@ -401,7 +417,12 @@ export default function NewRadarOffrePage() {
     const gamme = GAMME_OPTIONS.find((g) => g.id === selectedGamme)?.label || "";
     const etatGeneral = ETAT_GENERAL_OPTIONS.find((e) => e.id === selectedEtatGeneral)?.label || "";
     const travauxDetail = bank.travaux.filter((t) => travauxToggles[t.id]).map((t) => t.label).join(", ");
-    const enriched = { ...expertiseAnswers, metier, equipements, style, gamme, etatGeneral, travauxDetail };
+    const travauxPrecisions = bank.travaux
+      .filter((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim())
+      .map((t) => `${t.label} : ${travauxDetailAnswers[t.detail.key].trim()}`)
+      .join(", ");
+    const normes = normesFor(metier);
+    const enriched = { ...expertiseAnswers, metier, equipements, style, gamme, etatGeneral, travauxDetail, travauxPrecisions, normes };
     setExpertiseAnswers(enriched);
     launchExpertise(enriched);
   }
@@ -500,6 +521,7 @@ export default function NewRadarOffrePage() {
     setSelectedGamme("");
     setSelectedEtatGeneral("");
     setTravauxToggles({});
+    setTravauxDetailAnswers({});
     setPhotos([]);
     setAwaitingPhotoStep(false);
     setPendingFirstQuestion(null);
@@ -826,8 +848,44 @@ export default function NewRadarOffrePage() {
                 </label>
               ))}
             </div>
+            <p className="radar-hint-callout radar-normes-callout">
+              🛡️ Normes applicables (information) — {normesFor(metier)}
+            </p>
             <div className="radar-wizard-nav">
               <button type="button" className="button secondary" onClick={() => setPhase("etat-general")}>Retour</button>
+              <button type="button" className="radar-generate-btn" onClick={goAfterTravaux}>
+                Continuer <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {phase === "travaux-detail" && bank ? (
+          <div className="radar-field radar-form-card-pad">
+            <div className="radar-step-header">
+              <span className="radar-step-icon"><SparkleIcon /></span>
+              <div>
+                <h3>Quelques précisions sur les travaux</h3>
+                <p>Surfaces et quantités approximatives — ça affine l'estimation.</p>
+              </div>
+            </div>
+            <div className="radar-detail-list">
+              {bank.travaux
+                .filter((item) => travauxToggles[item.id] && item.detail)
+                .map((item) => (
+                  <label key={item.id} className="radar-field">
+                    <span className="radar-field-label">{item.detail.question}</span>
+                    <input
+                      type="text"
+                      value={travauxDetailAnswers[item.detail.key] || ""}
+                      onChange={(e) => setTravauxDetail(item.detail.key, e.target.value)}
+                      placeholder={item.detail.placeholder}
+                    />
+                  </label>
+                ))}
+            </div>
+            <div className="radar-wizard-nav">
+              <button type="button" className="button secondary" onClick={() => setPhase("travaux")}>Retour</button>
               <button type="button" className="radar-generate-btn" onClick={() => setPhase("recap")}>
                 Continuer <span aria-hidden="true">→</span>
               </button>
@@ -867,6 +925,17 @@ export default function NewRadarOffrePage() {
                 <div className="radar-recap-row"><span>💳 Gamme</span><strong>{GAMME_OPTIONS.find((g) => g.id === selectedGamme)?.label}</strong></div>
               ) : null}
               <div className="radar-recap-row"><span>🔨 Travaux</span><strong>{bank.travaux.filter((t) => travauxToggles[t.id]).map((t) => t.label).join(", ") || "—"}</strong></div>
+              {bank.travaux.some((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim()) ? (
+                <div className="radar-recap-row">
+                  <span>📏 Précisions</span>
+                  <strong>
+                    {bank.travaux
+                      .filter((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim())
+                      .map((t) => `${t.label} : ${travauxDetailAnswers[t.detail.key].trim()}`)
+                      .join(", ")}
+                  </strong>
+                </div>
+              ) : null}
               <div className="radar-recap-row"><span>📷 Photos</span><strong>{photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? "s" : ""} ajoutée${photos.length > 1 ? "s" : ""}` : "Aucune"}</strong></div>
             </div>
             {error ? <p className="profile-message error">{error}</p> : null}

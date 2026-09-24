@@ -1744,6 +1744,18 @@
   line-height: 1.5;
 }
 
+.radar-normes-callout {
+  background: #fdf3e0;
+  border-color: #f0dcae;
+  color: #7a5c14;
+}
+
+.radar-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .radar-generate-btn {
   width: 100%;
   display: flex;
