@@ -4,17 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ClientTopbar } from "../../components/ClientTopbar";
-import { euro, shortDate } from "../../lib/pricing";
+import { euro } from "../../lib/pricing";
 import { useLocale } from "../../lib/i18n";
 
 function getStoredUser() {
   if (typeof window === "undefined") return null;
   try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
-}
-
-function formatDate(v) {
-  if (!v) return "-";
-  try { return shortDate(v); } catch { return v; }
 }
 
 function ProgressRing({ percent, size = 72 }) {
@@ -29,64 +24,6 @@ function ProgressRing({ percent, size = 72 }) {
         transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       <text x={size / 2} y={size / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--navy)">{percent}%</text>
     </svg>
-  );
-}
-
-function getTaskStep(task) {
-  if (task.done) return 3;
-  if (task.clientValidationStatus === "Valide" || task.status === "Valide par client") return 2;
-  if (task.pendingValidation || task.startedAt || task.status === "En cours" || task.status === "Terminee (a valider)") return 1;
-  return 0;
-}
-
-function TaskRow({ task, onValidate, taskSteps }) {
-  const [open, setOpen] = useState(false);
-  const step = getTaskStep(task);
-  const canValidate = step === 1 && (task.pendingValidation || task.status === "Terminee (a valider)");
-
-  return (
-    <div className={`ct-task${open ? " open" : ""}`}>
-      <button type="button" className="ct-task-head" onClick={() => setOpen((v) => !v)}>
-        <span className={`ct-task-dot step-${step}`} />
-        <div className="ct-task-info">
-          <span className="ct-task-room">{task.room || "Chantier"}</span>
-          <strong>{task.label || task.title || task.name}</strong>
-        </div>
-        <span className={`ct-task-badge step-${step}`}>{taskSteps[step]}</span>
-        <svg className={`ct-chevron${open ? " open" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-      </button>
-
-      {open ? (
-        <div className="ct-task-body">
-          <div className="ct-status-bar">
-            {taskSteps.map((label, i) => (
-              <div key={label} className={`ct-step${i <= step ? " active" : ""}${i === step ? " current" : ""}`}>
-                <div className="ct-step-dot" />
-                {i < taskSteps.length - 1 && <div className="ct-step-line" />}
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="ct-task-meta">
-            {task.startDate || task.dueDate ? <div><small>Planifié</small><span>{formatDate(task.startDate || task.dueDate)}{task.endDate ? ` → ${formatDate(task.endDate)}` : ""}</span></div> : null}
-            <div><small>Équipe</small><span>{task.assignedTo || "—"}</span></div>
-            {task.completedByName ? <div><small>Terminé par</small><span>{task.completedByName}</span></div> : null}
-          </div>
-
-          {canValidate ? (
-            <div className="ct-validate-block">
-              <p>L'équipe a terminé cet ouvrage et attend votre confirmation. Validez si le travail est conforme.</p>
-              <button type="button" className="primary-button" onClick={() => onValidate(task.id)}>
-                Valider l'ouvrage (procès-verbal)
-              </button>
-            </div>
-          ) : step === 3 ? (
-            <div className="ct-done-badge">Ouvrage terminé et validé</div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
