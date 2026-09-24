@@ -62,6 +62,17 @@ export async function POST(request) {
   const expertise = expertiseRow ? mapQuote(expertiseRow) : null;
   if (!expertise || !expertise.internalOnly) return badRequest("Expertise introuvable.", 404);
 
+  // Detail lisible des travaux (24 sept) : le particulier voit desormais
+  // les intitules de postes groupes par lot — jamais les prix ni quantites,
+  // qui restent internes (expertise.internalOnly) — plutot qu'un seul
+  // paragraphe dense genere par l'IA.
+  const ouvrages = (expertise.rooms || [])
+    .map((room) => ({
+      room,
+      postes: (expertise.items || []).filter((it) => it.room === room).map((it) => it.label)
+    }))
+    .filter((r) => r.postes.length > 0);
+
   const selectedIds = new Set(Array.isArray(body.conseilsSelectionnes) ? body.conseilsSelectionnes.map(String) : []);
   const allConseils = expertise.expertiseConseils || [];
   const appliedDiscount = allConseils
@@ -80,6 +91,7 @@ export async function POST(request) {
     clientPhone: fixText(user.phone || user.personal?.phone || ""),
     photos: Array.isArray(body.photos) ? body.photos.slice(0, 8) : [],
     description: fixText(body.description || expertise.workDescription || ""),
+    ouvrages,
     metier: fixText(body.metier || ""),
     address,
     city: fixText(body.city || ""),

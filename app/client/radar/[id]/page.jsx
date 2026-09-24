@@ -257,12 +257,28 @@ export default function RadarOffreDetailPage() {
             <div className="radar-recap">
               <div className="radar-recap-row"><span>Statut</span><strong><span className="radar-status-badge">{STATUS_LABEL[offre.status] || offre.status}</span></strong></div>
               <div className="radar-recap-row"><span>Publiée le</span><strong>{shortDate(offre.createdAt)}</strong></div>
-              <div className="radar-recap-row"><span>Travaux</span><strong>{offre.description || "—"}</strong></div>
+              <div className="radar-recap-row"><span>Description</span><strong>{offre.description || "—"}</strong></div>
               <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
               <div className="radar-recap-row"><span>Adresse</span><strong>{offre.address || "—"}</strong></div>
               <div className="radar-recap-row"><span>Fourchette publiée</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non précisée"}</strong></div>
               {offre.delaiEstimeJours ? <div className="radar-recap-row"><span>Délai estimé</span><strong>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</strong></div> : null}
             </div>
+
+            {offre.ouvrages?.length > 0 ? (
+              <div className="radar-ouvrages-block">
+                <span className="radar-field-label">Travaux prévus</span>
+                <div className="radar-ouvrages-list">
+                  {offre.ouvrages.map((lot) => (
+                    <div className="radar-ouvrages-lot" key={lot.room}>
+                      <strong>{lot.room}</strong>
+                      <ul>
+                        {lot.postes.map((poste, index) => <li key={index}>{poste}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <p className="radar-recap-note">
               Dès qu'une entreprise dont la zone couvre votre adresse se positionne, vous recevrez son devis ici.

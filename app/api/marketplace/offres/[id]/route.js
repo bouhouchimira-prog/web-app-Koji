@@ -18,6 +18,7 @@ function detailOffer(offer, rdvUnlocked, photosUnlocked) {
     photosCount: Array.isArray(offer.photos) ? offer.photos.length : 0,
     photosUnlocked,
     description: fixText(offer.description || ""),
+    ouvrages: Array.isArray(offer.ouvrages) ? offer.ouvrages : [],
     metier: fixText(offer.metier || ""),
     priceRangeMin: Number(offer.priceRangeMin || 0) || null,
     priceRangeMax: Number(offer.priceRangeMax || 0) || null,
