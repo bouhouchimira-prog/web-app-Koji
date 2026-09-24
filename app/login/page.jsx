@@ -240,33 +240,76 @@ function KojiPanel({ L }) {
     : <ParticulierSignup L={L} onBack={() => setMode("login")} />;
 }
 
-// Section "Connexion Entreprise", repliee en 2 boutons par defaut — le
-// formulaire (email, mot de passe...) ne s'affiche qu'apres avoir appuye sur
-// "Se connecter". Auto-depliee si on arrive avec ?type=entreprise (ex:
-// session entreprise expiree ailleurs dans l'app, qui redirige vers ce lien
-// precis) pour ne pas ajouter un clic superflu a une entreprise qui doit
-// deja se reconnecter. Remise sur la meme page que Koji (particulier) le 6
-// septembre, a la demande d'Amira — les deux profils cohabitent de nouveau
-// sur /login au lieu d'etre sur deux adresses separees. Presentee "en
-// grand", au meme gabarit que le panneau Koji au-dessus (pas de petite carte
-// bordee) : "Koji Pro" en grand titre, "Connexion Entreprise" juste en
-// dessous en plus petit (meme traitement que dans EntrepriseLogin).
-function KojiProCard({ L, startOpen }) {
-  const [open, setOpen] = useState(startOpen);
+function GoogleIcon() {
   return (
-    <div className="auth-pro-section">
-      {open ? (
-        <EntrepriseLogin L={L} />
-      ) : (
-        <>
-          <h2 className="auth-title">{L.auth.tabCompany}</h2>
-          <p className="auth-subtitle-strong">{L.auth.loginCompany}</p>
-          <div className="auth-pro-card-actions">
-            <button type="button" className="auth-pro-btn" onClick={() => setOpen(true)}>{L.auth.loginBtn}</button>
-            <Link href="/signup?type=entreprise" className="auth-pro-btn secondary">{L.auth.register}</Link>
-          </div>
-        </>
-      )}
+    <svg width="20" height="20" viewBox="0 0 48 48">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.5 6 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.9 14.1-5.1l-6.5-5.5C29.5 35.4 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.4l6.5 5.5C41.5 36 44 30.5 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+function MicrosoftIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 23 23">
+      <path fill="#f35325" d="M1 1h10v10H1z" /><path fill="#81bc06" d="M12 1h10v10H12z" />
+      <path fill="#05a6f0" d="M1 12h10v10H1z" /><path fill="#ffba08" d="M12 12h10v10H12z" />
+    </svg>
+  );
+}
+function AppleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#000">
+      <path d="M16.36 1.43c0 1.14-.42 2.19-1.25 3.02-.88.9-2.14 1.59-3.24 1.5-.14-1.1.44-2.24 1.24-3.02.86-.85 2.28-1.5 3.25-1.5zM20.6 17.1c-.5 1.16-.75 1.68-1.4 2.7-.9 1.42-2.18 3.2-3.75 3.22-1.4.02-1.76-.9-3.66-.9-1.9 0-2.3.88-3.66.92-1.53.05-2.7-1.53-3.6-2.94-2.47-3.85-2.73-8.37-1.2-10.78 1.08-1.72 2.79-2.72 4.4-2.72 1.64 0 2.67.94 4.02.94 1.31 0 2.11-.94 4.01-.94 1.44 0 2.97.78 4.05 2.13-3.56 1.95-2.98 7.03.79 8.37z" />
+    </svg>
+  );
+}
+
+// Ecran de connexion en 3 etapes : "quel profil ?" -> formulaire du profil
+// choisi -> (dans le formulaire) options Google/Microsoft/Apple, visibles
+// comme dans la maquette de reference d'Amira mais desactivees et marquees
+// "Bientot disponible" — aucune de ces connexions n'est reellement branchee
+// (pas d'app OAuth enregistree cote Google/Microsoft/Apple), les afficher
+// comme actives serait trompeur.
+function SsoOptions() {
+  return (
+    <div className="auth-sso-group">
+      <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
+        <GoogleIcon /> Continuer avec Google <span className="auth-sso-soon">Bientôt</span>
+      </button>
+      <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
+        <MicrosoftIcon /> Continuer avec Microsoft <span className="auth-sso-soon">Bientôt</span>
+      </button>
+      <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
+        <AppleIcon /> Continuer avec Apple <span className="auth-sso-soon">Bientôt</span>
+      </button>
+      <div className="auth-sso-divider"><span>ou</span></div>
+    </div>
+  );
+}
+
+function ProfileChooser({ onChoose }) {
+  return (
+    <div className="auth-profile-chooser">
+      <h2 className="auth-title">Bienvenue sur koji</h2>
+      <p className="auth-subtitle">Choisissez votre profil pour continuer.</p>
+      <button type="button" className="auth-profile-card" onClick={() => onChoose("particulier")}>
+        <span className="auth-profile-card-icon particulier">🏠</span>
+        <span className="auth-profile-card-text">
+          <strong>Koji</strong>
+          <small>Publiez vos offres</small>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+      </button>
+      <button type="button" className="auth-profile-card" onClick={() => onChoose("entreprise")}>
+        <span className="auth-profile-card-icon entreprise">🛠️</span>
+        <span className="auth-profile-card-text">
+          <strong>Koji Pro</strong>
+          <small>Trouvez des offres et gérez vos travaux</small>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+      </button>
     </div>
   );
 }
@@ -275,23 +318,29 @@ function LoginScreen() {
   const { L } = useLocale();
   const params = useSearchParams();
   const typeParam = params.get("type");
-  const proStartsOpen = typeParam === "entreprise";
+  const [profile, setProfile] = useState(
+    typeParam === "entreprise" ? "entreprise" : typeParam === "particulier" ? "particulier" : null
+  );
 
   return (
     <main className="auth-screen-v2">
       <AuthBrandPanel />
       <section className="auth-panel-v2">
-        <div className="auth-card auth-card-wide">
+        <div className="auth-card">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          <div className="auth-dual">
-            <div className="auth-dual-col">
-              <KojiPanel L={L} />
-            </div>
-            <div className="auth-dual-col">
-              <KojiProCard L={L} startOpen={proStartsOpen} />
-            </div>
-          </div>
+          {!profile ? (
+            <ProfileChooser onChoose={setProfile} />
+          ) : (
+            <>
+              <button type="button" className="auth-back-btn" onClick={() => setProfile(null)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+                Changer de profil
+              </button>
+              <SsoOptions />
+              {profile === "particulier" ? <KojiPanel L={L} /> : <EntrepriseLogin L={L} />}
+            </>
+          )}
 
           <p className="auth-help-footer">
             Besoin d'aide ? <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
