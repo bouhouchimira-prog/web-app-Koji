@@ -292,6 +292,10 @@ function LoginScreen() {
               <KojiProCard L={L} startOpen={proStartsOpen} />
             </div>
           </div>
+
+          <p className="auth-help-footer">
+            Besoin d'aide ? <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
+          </p>
         </div>
       </section>
     </main>
