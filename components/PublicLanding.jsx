@@ -69,7 +69,10 @@ export function PublicLanding() {
               <Link href="/login?type=particulier" className="landing-btn-primary">Publier une offre</Link>
               <Link href="/signup?type=entreprise" className="landing-btn-secondary">Je suis une entreprise →</Link>
             </div>
-            <p className="landing-trust">Publication d'offre gratuite et illimitée</p>
+            <p className="landing-trust">
+              <span className="landing-trust-icon" aria-hidden="true">✓</span>
+              Publication d'offre gratuite et illimitée
+            </p>
           </div>
 
           <div className="landing-hero-visual" aria-hidden="true">

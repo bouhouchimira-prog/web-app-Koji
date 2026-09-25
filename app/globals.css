@@ -17874,10 +17874,26 @@ body :where(
 }
 
 .landing-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.7);
   font-weight: 600;
+}
+
+.landing-trust-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(120, 200, 150, 0.18);
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .landing-hero-visual {
@@ -17958,14 +17974,15 @@ body :where(
 
 .landing-radar-pin {
   position: absolute;
-  background: white;
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: 6px 10px;
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--navy);
-  box-shadow: var(--shadow);
+  color: white;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   animation: landing-float 4s ease-in-out infinite;
   white-space: nowrap;
 }
