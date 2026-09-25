@@ -94,9 +94,10 @@ export function PublicLanding() {
 
       <section className="landing-features">
         <div className="landing-feature landing-feature-featured">
-          <span className="landing-feature-icon">📍</span>
+          <span className="landing-feature-featured-badge" aria-hidden="true">📍</span>
+          <p className="landing-feature-featured-eyebrow">Le cœur de Koji</p>
           <strong>Marketplace de proximité</strong>
-          <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés — le cœur de Koji.</p>
+          <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés.</p>
 
           <div className="landing-marketplace-split">
             <div className="landing-marketplace-side">
