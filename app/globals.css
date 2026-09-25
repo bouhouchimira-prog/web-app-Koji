@@ -17770,14 +17770,14 @@ body :where(
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: white;
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
   padding: 7px 14px;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--navy);
-  box-shadow: var(--shadow);
+  color: white;
+  backdrop-filter: blur(6px);
   margin-bottom: 18px;
 }
 
@@ -17897,6 +17897,26 @@ body :where(
   justify-content: center;
 }
 
+.landing-radar::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background: radial-gradient(circle, rgba(201, 154, 46, 0.16), transparent 65%);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.landing-radar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(255, 255, 255, 0.25), transparent 22%);
+  mix-blend-mode: screen;
+  animation: landing-radar-rotate 5s linear infinite;
+  pointer-events: none;
+}
+
 .landing-radar-ring {
   position: absolute;
   border-radius: 50%;
@@ -17924,7 +17944,16 @@ body :where(
   height: 14%;
   border-radius: 50%;
   background: linear-gradient(135deg, #d9ae4c, #c99a2e);
-  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.1);
+  animation: landing-radar-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes landing-radar-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes landing-radar-pulse {
+  0%, 100% { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.1), 0 0 18px rgba(201, 154, 46, 0.35); }
+  50% { box-shadow: 0 0 0 13px rgba(255, 255, 255, 0.06), 0 0 30px rgba(201, 154, 46, 0.6); }
 }
 
 .landing-radar-pin {
@@ -18425,6 +18454,8 @@ body :where(
   .landing-hero-visual,
   .landing-pill-dot,
   .landing-radar-ring::after,
+  .landing-radar::after,
+  .landing-radar-center,
   .landing-radar-pin {
     animation: none !important;
   }
