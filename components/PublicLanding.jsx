@@ -33,7 +33,7 @@ export function PublicLanding() {
     <main className="landing">
       <header className="landing-nav">
         <div className="landing-nav-brand">
-          <img src="/koji-logo-blue.svg" alt="Koji" />
+          <img src="/koji-logo.svg" alt="Koji" />
           <span>Koji</span>
         </div>
         <nav className="landing-nav-menu" aria-label="Menu">
