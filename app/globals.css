@@ -17967,6 +17967,88 @@ body :where(
   font-size: 15px;
 }
 
+/* Vitrine "double sens" de la marketplace (25 septembre, demande d'Amira) :
+   comment un particulier trouve un artisan, et comment une entreprise
+   trouve un chantier — a l'interieur meme de la carte mise en avant. */
+.landing-marketplace-split {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: clamp(20px, 4vw, 40px);
+  margin-top: clamp(28px, 4vw, 40px);
+  padding-top: clamp(28px, 4vw, 40px);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.landing-marketplace-side h3 {
+  margin: 10px 0 16px;
+  font-size: 18px;
+  color: white;
+}
+
+.landing-marketplace-tag {
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #79b7e8;
+  background: rgba(121, 183, 232, 0.12);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.landing-marketplace-tag-gold {
+  color: var(--gold);
+  background: rgba(230, 215, 196, 0.12);
+}
+
+.landing-marketplace-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-marketplace-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.landing-marketplace-steps li span {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.landing-marketplace-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 700px) {
+  .landing-marketplace-split {
+    grid-template-columns: 1fr;
+  }
+  .landing-marketplace-divider {
+    width: 100%;
+    height: 1px;
+  }
+}
+
 .landing-feature-icon {
   display: inline-flex;
   font-size: 22px;

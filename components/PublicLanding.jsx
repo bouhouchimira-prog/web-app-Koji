@@ -97,6 +97,28 @@ export function PublicLanding() {
           <span className="landing-feature-icon">📍</span>
           <strong>Marketplace de proximité</strong>
           <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés — le cœur de Koji.</p>
+
+          <div className="landing-marketplace-split">
+            <div className="landing-marketplace-side">
+              <span className="landing-marketplace-tag">Particuliers</span>
+              <h3>Trouvez le meilleur artisan</h3>
+              <ol className="landing-marketplace-steps">
+                <li><span>1</span>Publiez votre projet en quelques clics, gratuitement</li>
+                <li><span>2</span>Les entreprises du BTP près de chez vous répondent</li>
+                <li><span>3</span>Vous comparez et choisissez l'artisan qui vous convient</li>
+              </ol>
+            </div>
+            <div className="landing-marketplace-divider" aria-hidden="true" />
+            <div className="landing-marketplace-side">
+              <span className="landing-marketplace-tag landing-marketplace-tag-gold">Entreprises</span>
+              <h3>Trouvez vos prochains chantiers</h3>
+              <ol className="landing-marketplace-steps">
+                <li><span>1</span>Parcourez les chantiers publiés autour de votre zone</li>
+                <li><span>2</span>Positionnez-vous sur ceux qui vous intéressent</li>
+                <li><span>3</span>Décrochez le chantier et suivez-le jusqu'à la facture</li>
+              </ol>
+            </div>
+          </div>
         </div>
         <div className="landing-features-secondary">
           <div className="landing-feature">
