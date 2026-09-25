@@ -97,10 +97,19 @@ export function PublicLanding() {
 
       <section className="landing-features">
         <div className="landing-feature landing-feature-featured">
-          <span className="landing-feature-featured-badge" aria-hidden="true">📍</span>
-          <p className="landing-feature-featured-eyebrow">Le cœur de Koji</p>
-          <strong>Marketplace de proximité</strong>
-          <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés.</p>
+          <div className="landing-feature-featured-header">
+            <div className="landing-feature-featured-text">
+              <p className="landing-feature-featured-eyebrow">Le cœur de Koji</p>
+              <strong>Marketplace de proximité</strong>
+              <p>Des chantiers repérés autour de votre zone d'activité, dès qu'ils sont publiés.</p>
+            </div>
+            <div className="landing-feature-featured-visual" aria-hidden="true">
+              <div className="landing-feature-featured-ring landing-feature-featured-ring-1" />
+              <div className="landing-feature-featured-ring landing-feature-featured-ring-2" />
+              <div className="landing-feature-featured-ring landing-feature-featured-ring-3" />
+              <div className="landing-feature-featured-pin">📍</div>
+            </div>
+          </div>
 
           <div className="landing-marketplace-split">
             <div className="landing-marketplace-side">
