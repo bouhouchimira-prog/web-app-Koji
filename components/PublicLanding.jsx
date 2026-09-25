@@ -28,6 +28,10 @@ const NAV_MENU = [
 // plus de sections plus tard. Met en avant le Marketplace/Radar des
 // Chantiers (trouver des chantiers pres de chez soi) comme argument
 // principal, avant le reste de l'outil (devis, factures, suivi).
+//
+// Photo public/marketplace-card-photo.jpg (25 septembre) : Margo White sur
+// Pexels, licence Pexels (gratuite, usage commercial autorise, attribution
+// non requise) — https://www.pexels.com/photo/aerial-view-photography-of-crane-towers-1383866/
 export function PublicLanding() {
   return (
     <main className="landing">
@@ -107,6 +111,7 @@ export function PublicLanding() {
               <div className="landing-feature-featured-ring landing-feature-featured-ring-1" />
               <div className="landing-feature-featured-ring landing-feature-featured-ring-2" />
               <div className="landing-feature-featured-ring landing-feature-featured-ring-3" />
+              <div className="landing-feature-featured-photo" />
               <div className="landing-feature-featured-pin">📍</div>
             </div>
           </div>
