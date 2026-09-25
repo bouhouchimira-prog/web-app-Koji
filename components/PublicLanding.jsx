@@ -51,40 +51,42 @@ export function PublicLanding() {
       </header>
 
       <section className="landing-hero">
-        <div className="landing-hero-text">
-          <span className="landing-pill">
-            <span className="landing-pill-dot" />
-            Chantiers publiés en direct, près de chez vous
-          </span>
-          <p className="landing-eyebrow">MARKETPLACE BTP</p>
-          <h1>
-            Trouvez des chantiers,<br />
-            <em>près de chez vous.</em>
-          </h1>
-          <p className="landing-subtitle">
-            Les particuliers publient leurs travaux sur Koji, les entreprises du BTP les découvrent autour d'elles et répondent en quelques clics. Devis, facturation et suivi de chantier suivent, dans le même outil.
-          </p>
-          <div className="landing-cta-row">
-            <Link href="/login?type=particulier" className="landing-btn-primary">Publier une offre</Link>
-            <Link href="/signup?type=entreprise" className="landing-btn-secondary">Je suis une entreprise →</Link>
+        <div className="landing-hero-inner">
+          <div className="landing-hero-text">
+            <span className="landing-pill">
+              <span className="landing-pill-dot" />
+              Chantiers publiés en direct, près de chez vous
+            </span>
+            <p className="landing-eyebrow">MARKETPLACE BTP</p>
+            <h1>
+              Trouvez des chantiers,<br />
+              <em>près de chez vous.</em>
+            </h1>
+            <p className="landing-subtitle">
+              Les particuliers publient leurs travaux sur Koji, les entreprises du BTP les découvrent autour d'elles et répondent en quelques clics. Devis, facturation et suivi de chantier suivent, dans le même outil.
+            </p>
+            <div className="landing-cta-row">
+              <Link href="/login?type=particulier" className="landing-btn-primary">Publier une offre</Link>
+              <Link href="/signup?type=entreprise" className="landing-btn-secondary">Je suis une entreprise →</Link>
+            </div>
+            <p className="landing-trust">Publication d'offre gratuite et illimitée</p>
           </div>
-          <p className="landing-trust">Publication d'offre gratuite et illimitée</p>
-        </div>
 
-        <div className="landing-hero-visual" aria-hidden="true">
-          <div className="landing-radar">
-            <div className="landing-radar-ring landing-radar-ring-1" />
-            <div className="landing-radar-ring landing-radar-ring-2" />
-            <div className="landing-radar-ring landing-radar-ring-3" />
-            <div className="landing-radar-center" />
-            <div className="landing-radar-pin landing-radar-pin-1">
-              <span>Salle de bain · 5 m²</span>
-            </div>
-            <div className="landing-radar-pin landing-radar-pin-2">
-              <span>Toiture · Urgent</span>
-            </div>
-            <div className="landing-radar-pin landing-radar-pin-3">
-              <span>Cuisine complète</span>
+          <div className="landing-hero-visual" aria-hidden="true">
+            <div className="landing-radar">
+              <div className="landing-radar-ring landing-radar-ring-1" />
+              <div className="landing-radar-ring landing-radar-ring-2" />
+              <div className="landing-radar-ring landing-radar-ring-3" />
+              <div className="landing-radar-center" />
+              <div className="landing-radar-pin landing-radar-pin-1">
+                <span>Salle de bain · 5 m²</span>
+              </div>
+              <div className="landing-radar-pin landing-radar-pin-2">
+                <span>Toiture · Urgent</span>
+              </div>
+              <div className="landing-radar-pin landing-radar-pin-3">
+                <span>Cuisine complète</span>
+              </div>
             </div>
           </div>
         </div>
