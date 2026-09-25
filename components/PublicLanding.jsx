@@ -198,14 +198,16 @@ export function PublicLanding() {
           <div className="landing-footer-col">
             <span className="landing-footer-title">Marketplace</span>
             <Link href="/login?type=particulier">Publier une offre</Link>
-            <Link href="/signup?type=entreprise">Trouver des chantiers</Link>
+            <button type="button">Trouvez des artisans</button>
             <button type="button">Comment ça marche</button>
           </div>
 
           <div className="landing-footer-col">
             <span className="landing-footer-title">Gestion BTP</span>
-            <button type="button">Devis par IA</button>
+            <Link href="/signup?type=entreprise">Trouver des chantiers</Link>
+            <button type="button">Devis par IA en 5 minutes</button>
             <button type="button">Facturation</button>
+            <button type="button">Comptabilité</button>
             <button type="button">Suivi de chantier</button>
           </div>
 
@@ -223,7 +225,6 @@ export function PublicLanding() {
 
         <div className="landing-footer-bottom">
           <span>© {new Date().getFullYear()} Koji</span>
-          <span>Fait avec passion pour les artisans</span>
         </div>
       </footer>
     </main>
