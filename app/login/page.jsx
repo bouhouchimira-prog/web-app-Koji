@@ -267,16 +267,48 @@ function AppleIcon() {
 }
 
 // Ecran de connexion en 3 etapes : "quel profil ?" -> formulaire du profil
-// choisi -> (dans le formulaire) options Google/Microsoft/Apple, visibles
-// comme dans la maquette de reference d'Amira mais desactivees et marquees
-// "Bientot disponible" — aucune de ces connexions n'est reellement branchee
-// (pas d'app OAuth enregistree cote Google/Microsoft/Apple), les afficher
-// comme actives serait trompeur.
-function SsoOptions() {
+// choisi -> (dans le formulaire) options Google/Microsoft/Apple. Google est
+// branche pour Koji Pro (entreprise) — meme compte Supabase que le
+// email/mot de passe (voir app/api/auth/login/route.js), juste un autre
+// chemin pour obtenir la session. Microsoft/Apple restent "Bientot
+// disponible" (pas d'app OAuth enregistree cote Microsoft/Apple), et Google
+// aussi pour Koji (particulier) — ces comptes ne sont pas sur Supabase Auth,
+// brancher Google pour eux est un chantier separe.
+function SsoOptions({ profile }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const googleEnabled = profile === "entreprise";
+
+  async function handleGoogle() {
+    setError("");
+    setLoading(true);
+    try {
+      const { getSupabaseBrowser } = await import("../../lib/supabase-browser");
+      const supabase = getSupabaseBrowser();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/google/callback` }
+      });
+      if (oauthError) throw oauthError;
+      // La suite se passe hors de cette page : Supabase redirige vers Google,
+      // puis vers /auth/google/callback une fois revenu.
+    } catch (err) {
+      setError(err.message || "Connexion Google impossible.");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="auth-sso-group">
-      <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
-        <GoogleIcon /> Continuer avec Google <span className="auth-sso-soon">Bientôt</span>
+      <button
+        type="button"
+        className="auth-sso-btn"
+        disabled={!googleEnabled || loading}
+        title={googleEnabled ? undefined : "Bientôt disponible"}
+        onClick={googleEnabled ? handleGoogle : undefined}
+      >
+        <GoogleIcon /> {loading ? "Redirection…" : "Continuer avec Google"}
+        {!googleEnabled ? <span className="auth-sso-soon">Bientôt</span> : null}
       </button>
       <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
         <MicrosoftIcon /> Continuer avec Microsoft <span className="auth-sso-soon">Bientôt</span>
@@ -284,6 +316,7 @@ function SsoOptions() {
       <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
         <AppleIcon /> Continuer avec Apple <span className="auth-sso-soon">Bientôt</span>
       </button>
+      {error ? <p className="auth-error">{error}</p> : null}
       <div className="auth-sso-divider"><span>ou</span></div>
     </div>
   );
@@ -337,7 +370,7 @@ function LoginScreen() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 Changer de profil
               </button>
-              <SsoOptions />
+              <SsoOptions profile={profile} />
               {profile === "particulier" ? <KojiPanel L={L} /> : <EntrepriseLogin L={L} />}
             </>
           )}
