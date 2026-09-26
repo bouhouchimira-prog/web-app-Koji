@@ -215,7 +215,14 @@ export async function GET(request) {
   if (error) return badRequest(`Lecture des devis impossible: ${error.message}`, 500);
 
   const db = await readDb();
-  const quotes = (data || []).map((row) => withClientPortalAccess(mapQuote(row), db));
+  // Les devis internes de l'expertise Radar des Chantiers (internalOnly,
+  // voir lib/quote-mapping.js) appartiennent administrativement au compte
+  // admin tant qu'aucune entreprise ne s'est positionnee dessus — jamais a
+  // afficher dans la liste de devis d'une entreprise, meme le compte admin
+  // lui-meme quand il navigue son propre espace entreprise.
+  const quotes = (data || [])
+    .map((row) => withClientPortalAccess(mapQuote(row), db))
+    .filter((quote) => !quote.internalOnly);
   const nextQuoteNumber = await nextQuoteNumberFor(auth);
 
   return ok({ quotes, nextQuoteNumber });
