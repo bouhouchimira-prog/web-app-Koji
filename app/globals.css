@@ -3315,6 +3315,23 @@ p {
   height: 18px;
 }
 
+.drawer-hero-cta-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e23434;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.drawer-nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e23434;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .drawer-nav {
   display: grid;
   gap: 4px;

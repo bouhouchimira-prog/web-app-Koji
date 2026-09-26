@@ -449,6 +449,11 @@ export function Shell({ children }) {
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
+  // Point rouge sur "Marketplace" / "Trouvez un chantier" (26 septembre,
+  // demande d'Amira) : reutilise la meme notification que la cloche
+  // (radar.expertise_publiee, creee par app/api/chantier-offres/route.js a
+  // chaque nouvelle offre publiee) plutot qu'un nouveau systeme separe.
+  const hasNewMarketplaceOffers = notifications.some((n) => n.type === "radar.expertise_publiee" && !n.read && !n.archived);
   const recentNotifications = useMemo(() => {
     return [...notifications]
       .filter((n) => !n.archived)
@@ -610,6 +615,7 @@ export function Shell({ children }) {
           <Link href="/marketplace" className="drawer-hero-cta">
             <Icon name="market" className="svg-icon" />
             {L.shell.findSite}
+            {hasNewMarketplaceOffers ? <span className="drawer-hero-cta-dot" aria-label="Nouvelles offres" /> : null}
           </Link>
         ) : null}
 
@@ -621,6 +627,9 @@ export function Shell({ children }) {
               <Link href={item.href} className={active ? "active" : ""} key={item.href}>
                 <span className="drawer-nav-icon" style={{ background: item.color }}><Icon name={item.icon} className="svg-icon" /></span>
                 {item.label}
+                {item.href === "/marketplace" && hasNewMarketplaceOffers ? (
+                  <span className="drawer-nav-dot" aria-label="Nouvelles offres" />
+                ) : null}
               </Link>
             );
           })}
