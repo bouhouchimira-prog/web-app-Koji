@@ -3629,42 +3629,6 @@ p {
   gap: 20px;
 }
 
-.home-greeting {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--blue, #1d74ff);
-  margin: 0;
-  text-align: center;
-}
-
-/* Bouton principal créer chantier */
-.home-primary-action {
-  min-height: 52px;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #eceef1 0%, #dde1e6 100%);
-  color: #2c3138;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 14.5px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  transition: transform 0.18s, box-shadow 0.18s;
-  text-decoration: none;
-  box-shadow: 0 6px 16px rgba(44, 49, 56, 0.14);
-}
-
-.home-primary-action:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px rgba(44, 49, 56, 0.2);
-}
-
-.home-primary-action:active {
-  transform: translateY(0);
-}
-
 .koji-assistant-bar {
   display: flex;
   align-items: center;
@@ -4101,33 +4065,6 @@ p {
   }
 }
 
-.home-primary-action.ia-variant {
-  margin-top: 10px;
-  background: linear-gradient(135deg, #eaf2ff 0%, #dcebff 100%);
-  color: #1d4ed8;
-  box-shadow: 0 6px 16px rgba(29, 116, 255, 0.16);
-}
-
-.home-primary-action.ia-variant:hover {
-  box-shadow: 0 10px 22px rgba(29, 116, 255, 0.22);
-}
-
-.home-primary-plus {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #2c3138;
-  color: #eceef1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 1;
-  flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
-}
-
 /* Section */
 .home-section {
   display: grid;
@@ -4185,75 +4122,6 @@ p {
   box-shadow: 0 2px 16px rgba(0, 11, 40, 0.05);
   border: 1px solid #ede8e0;
   padding: 14px;
-}
-
-.home-revenue-chip-row {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.home-revenue-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #1d74ff 0%, #6a2fd0 100%);
-  color: white;
-  border: 0;
-  border-radius: 16px;
-  padding: 10px 14px;
-  cursor: pointer;
-  text-decoration: none;
-  box-shadow: 0 8px 22px rgba(106, 47, 208, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.home-revenue-chip:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 26px rgba(106, 47, 208, 0.45);
-}
-
-.home-revenue-chip-icon {
-  display: inline-flex;
-  width: 30px;
-  height: 30px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #f5c842;
-  color: #000b28;
-  font-weight: 900;
-  font-size: 15px;
-  flex-shrink: 0;
-}
-
-.home-revenue-chip-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-}
-
-.home-revenue-chip-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.home-revenue-chip-amount {
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.home-revenue-chip .home-revenue-chevron {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.home-revenue-chevron {
-  display: inline-flex;
-  color: #7e715f;
 }
 
 .home-revenue-hero {
@@ -4417,9 +4285,7 @@ p {
 }
 
 .home-icon-task   { background: #fef3c7; color: #92400e; }
-.home-icon-project { background: #dbeafe; color: #1d4ed8; }
 .home-icon-quote  { background: #f3e8ff; color: #7c3aed; }
-.home-icon-intervention { background: #ffedd5; color: #c2410c; }
 .home-icon-radar { background: #eaf2ff; color: #1d74ff; }
 
 .home-list-main {
