@@ -4,6 +4,7 @@ import { readDb, writeDb, makeToken } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixText } from "../../../lib/text";
+import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 
 // Assistant IA conversationnel, cote particulier — suit le message
 // d'introduction libre (photos + texte) du parcours de creation d'offre
@@ -263,7 +264,6 @@ async function geocodeAddress(query) {
 
 const INTRO_CLARIFY_SLOT_KEY = "intro:clarify";
 const INTRO_CLARIFY_MESSAGE = "Pouvez-vous préciser votre projet ? Par exemple : refaire une salle de bain, repeindre un salon, remplacer une prise électrique...";
-const EXTRA_QUESTION_SLOT_KEY = "extra:cadrage";
 
 // Cles des 11 questions SLOTS qu'une analyse d'intro peut juger clairement
 // hors-sujet pour CE projet precis — jamais "adresse" ni "etage" (toujours
@@ -272,25 +272,22 @@ const SKIPPABLE_SLOT_KEYS = ["acces", "stationnement", "cotes", "configuration",
 
 // Garde-fou du 27 septembre (remonte par Amira : "offre" tape comme tout
 // premier message etait accepte tel quel comme description du projet, sans
-// jamais redemander de quoi il s'agissait), etendu le meme jour a la demande
-// d'Amira ("une vraie logique conditionnelle... et si l'algorithme rencontre
-// une situation qu'il ne comprend pas, donner la main a l'IA") : en plus de
-// juger si le message decrit un projet, cette meme analyse (1) repere les
-// questions fixes qui n'ont clairement aucun sens pour CE projet (ex: une
-// fuite d'eau n'a pas besoin de "cotes"/"configuration"/"disposition") et (2)
-// peut proposer UNE question de cadrage supplementaire si un point important
-// n'est couvert par aucune des 11 questions — jamais plus d'une, jamais posee
-// avant les 11 questions fixes, toujours journalisee (radarChatIncidents)
-// pour qu'Amira transforme les cas recurrents en vraies regles permanentes.
-// Meme modele leger (Haiku, reflexion desactivee) que classifyMetier.
+// jamais redemander de quoi il s'agissait), etendu le meme jour ("une vraie
+// logique conditionnelle") : en plus de juger si le message decrit un
+// projet, cette meme analyse repere les questions fixes qui n'ont
+// clairement aucun sens pour CE projet (ex: une fuite d'eau n'a pas besoin
+// de "cotes"/"configuration"/"disposition"). Meme modele leger (Haiku,
+// reflexion desactivee) que classifyMetier. Le cadrage specifique au metier
+// (ex: "remplacement ou reparation du tableau electrique ?") est gere a
+// part par analyzeCadrage, juste apres.
 async function analyzeIntro(text) {
-  const fallback = { projetDecrit: true, necessiteSurface: true, clesASauter: [], questionSupplementaire: "" };
+  const fallback = { projetDecrit: true, necessiteSurface: true, clesASauter: [] };
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+      max_tokens: 200,
       thinking: { type: "disabled" },
       system: `Tu prepares le questionnaire de cadrage d'un projet de renovation/BTP. La liste FIXE de questions (avec leur cle) est :
 - adresse : adresse du chantier (toujours posee)
@@ -306,12 +303,11 @@ async function analyzeIntro(text) {
 - etat : etat actuel de la piece (meubles a sortir, a proteger, deja vide)
 
 Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
-{"projet_decrit":true|false,"necessite_surface":true|false,"cles_a_sauter":["..."],"question_supplementaire":"string"}
+{"projet_decrit":true|false,"necessite_surface":true|false,"cles_a_sauter":["..."]}
 
 - "projet_decrit" : le message decrit-il, meme brievement, un vrai projet (quel type de travaux, quelle piece ou quel element) ? false pour "offre", "bonjour", "test", une simple salutation.
 - "necessite_surface" : les dimensions/la configuration/la disposition de la piece sont-elles pertinentes pour CE projet ? Mets false pour une reparation ponctuelle (fuite, panne, serrure bloquee) sans travaux de surface.
-- "cles_a_sauter" : UNIQUEMENT parmi acces/stationnement/cotes/configuration/disposition/fournitures/nettoyage/etat, celles qui n'ont clairement AUCUN sens pour ce projet precis. Liste vide en cas de doute — ne jamais sauter une question qui pourrait rester utile.
-- "question_supplementaire" : UNE SEULE question de cadrage en francais, uniquement si un point important propre a ce metier n'est couvert par AUCUNE des 11 questions ci-dessus et est necessaire pour bien chiffrer. Chaine vide sinon. Jamais une question de prix, de delai ferme, ou d'avis juridique/assurance — ces sujets restent deviés comme d'habitude.`,
+- "cles_a_sauter" : UNIQUEMENT parmi acces/stationnement/cotes/configuration/disposition/fournitures/nettoyage/etat, celles qui n'ont clairement AUCUN sens pour ce projet precis. Liste vide en cas de doute — ne jamais sauter une question qui pourrait rester utile.`,
       messages: [{ role: "user", content: `Message du client : "${text}"` }]
     });
     const textBlock = response.content.find((b) => b.type === "text");
@@ -323,9 +319,86 @@ Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown auto
     return {
       projetDecrit: parsed.projet_decrit,
       necessiteSurface: parsed.necessite_surface !== false,
-      clesASauter,
-      questionSupplementaire: typeof parsed.question_supplementaire === "string" ? fixText(parsed.question_supplementaire).trim().slice(0, 300) : ""
+      clesASauter
     };
+  } catch {
+    return fallback;
+  }
+}
+
+// Metier principal (parmi la liste fixe deja utilisee pour les cartes
+// equipements/styles/travaux, lib/renovation-question-bank.js) determine
+// ici, tot dans la conversation, pour piloter le cadrage specifique au
+// metier ci-dessous — reutilise par le client (expertiseAnswers.metier)
+// pour eviter un second appel identique une fois la conversation terminee.
+async function classifyMetierEarly(text) {
+  if (!process.env.ANTHROPIC_API_KEY) return "Tout corps d'état";
+  try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 100,
+      thinking: { type: "disabled" },
+      system: "Tu classes une description de travaux de renovation/BTP dans un metier. Reponds uniquement en JSON strict, sans texte ni balise markdown autour.",
+      messages: [{
+        role: "user",
+        content: `Métiers possibles : ${RENOVATION_METIERS.join(", ")}.\n\nDescription du client : "${text}"\n\nRéponds avec : {"metier": "un des métiers ci-dessus, celui qui correspond le mieux — \\"Tout corps d'état\\" si plusieurs corps de métier sont mélangés ou si ce n'est pas clair"}`
+      }]
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    const parsed = parseAiJson(textBlock?.text);
+    return RENOVATION_METIERS.includes(parsed?.metier) ? parsed.metier : "Tout corps d'état";
+  } catch {
+    return "Tout corps d'état";
+  }
+}
+
+const CADRAGE_SLOT_PREFIX = "cadrage:";
+const MAX_CADRAGE_QUESTIONS = 3;
+
+// Demande explicite d'Amira (28 sept) : que le parcours "fonctionne comme
+// une conversation intelligente" sur LA NATURE DES TRAVAUX eux-memes (quel
+// element, remplacement ou reparation, quelle finition...) avant d'enchainer
+// sur les 11 questions fixes de logistique (adresse, etage...), qui ne
+// changent jamais. Contrairement a ces 11 questions, le contenu ICI est
+// invente par l'IA au cas par cas — extension assumee et voulue du garde-fou
+// habituel (aucune improvisation), bornee par : un metier deja identifie
+// (jamais hors du referentiel de l'app), un plafond strict de
+// MAX_CADRAGE_QUESTIONS, jamais de prix/delai/avis juridique (memes
+// deviations que classifyReply, reutilise tel quel pour classer chaque
+// reponse), et une trace complete dans expertiseAnswers.cadragePrecisions
+// pour que le devis reste explicable.
+async function analyzeCadrage({ metier, intro, history }) {
+  const fallback = { besoinPrecision: false, question: "" };
+  if (!process.env.ANTHROPIC_API_KEY) return fallback;
+  const historyText = history.length
+    ? history.map((h) => `- ${h.question} → ${h.reponse}`).join("\n")
+    : "(aucune pour l'instant)";
+  try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 300,
+      thinking: { type: "disabled" },
+      system: `Tu prepares un devis de ${metier}. Le client decrit ce projet : "${fixText(intro)}".
+
+Les 11 questions fixes de logistique (adresse, etage, ascenseur, acces, stationnement, dimensions, configuration, implantation, fournitures, nettoyage, etat de la piece) sont posees APRES cette etape — ne les repose jamais ici. Ton unique role ici : preciser LA NATURE DES TRAVAUX eux-memes pour ce metier (quel element exact, remplacement ou reparation, quel niveau de finition, quelles contraintes techniques propres au metier) — jamais le prix, jamais un delai ferme, jamais un avis juridique/assurance (devies comme d'habitude si le client insiste).
+
+Precisions deja obtenues :
+${historyText}
+
+Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
+{"besoin_precision":true|false,"question":"string"}
+
+- "besoin_precision" : false des que tu as assez d'informations sur LA NATURE des travaux pour chiffrer serieusement — 1 a 2 precisions suffisent generalement, ne cherche pas la perfection.
+- "question" : UNE SEULE question courte et concrete en francais, uniquement si besoin_precision est true. Chaine vide sinon.`,
+      messages: [{ role: "user", content: "Génère l'étape suivante." }]
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    const parsed = parseAiJson(textBlock?.text);
+    if (typeof parsed?.besoin_precision !== "boolean") return fallback;
+    const question = typeof parsed.question === "string" ? fixText(parsed.question).trim().slice(0, 300) : "";
+    return { besoinPrecision: parsed.besoin_precision && Boolean(question), question };
   } catch {
     return fallback;
   }
@@ -411,13 +484,49 @@ export async function POST(request) {
   const userMessage = turns[turns.length - 1].text || "";
   const answers = body.answers && typeof body.answers === "object" ? { ...body.answers } : {};
 
+  // Une seule fois, juste apres l'intro/le cadrage, avant la premiere des 11
+  // questions fixes — jamais reappelee ensuite (voir analyzeCadrage).
+  async function startOrContinueCadrage() {
+    const history = Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : [];
+    if (history.length >= MAX_CADRAGE_QUESTIONS) return finishCadrage();
+    const result = await analyzeCadrage({ metier: answers.metier, intro: answers.intro, history });
+    if (!result.besoinPrecision) return finishCadrage();
+    answers._cadrageLastQuestion = result.question;
+    const round = history.length + 1;
+    return ok({ type: "cadrage", message: result.question, options: null, inputType: "text", slotKey: `${CADRAGE_SLOT_PREFIX}${round}`, answers });
+  }
+
+  async function finishCadrage() {
+    const history = Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : [];
+    if (history.length > 0) {
+      answers.cadragePrecisions = history.map((h) => `${h.question} → ${h.reponse}`).join(" ; ");
+      // Trace complete du cadrage invente par l'IA pour ce projet (jamais
+      // pour les 11 questions fixes) — permet a Amira de relire les cas
+      // rencontres et, si un motif revient souvent, d'en faire une vraie
+      // question fixe plutot que de laisser l'IA la reinventer a chaque fois.
+      const db = await readDb();
+      logIncident(db, {
+        portalUserId,
+        slotKey: "cadrage",
+        category: "adaptive_cadrage",
+        userMessage: answers.intro,
+        aiReply: `[${answers.metier}] ${answers.cadragePrecisions}`
+      });
+      await writeDb(db);
+    }
+    delete answers._cadrageHistory;
+    delete answers._cadrageLastQuestion;
+    return ok({ ...questionPayload(SLOTS[0]), answers });
+  }
+
   // Tout premier appel, juste apres le message d'introduction libre : la
   // liste fixe demarre directement des que le message decrit reellement un
   // projet — sinon (ex: "offre" tape seul) koji redemande plutot que
   // d'avancer avec une description vide de sens. rawSlotKey reste a
   // INTRO_CLARIFY_SLOT_KEY tant que ce n'est pas le cas, autant de tours que
   // necessaire. C'est aussi ici, une seule fois, que se decide quelles
-  // questions sauter pour ce projet precis (voir analyzeIntro ci-dessus).
+  // questions sauter pour ce projet precis (voir analyzeIntro ci-dessus),
+  // puis le metier est determine pour demarrer le cadrage specifique.
   const rawSlotKey = body.currentSlotKey ? String(body.currentSlotKey) : "";
   if (!rawSlotKey || rawSlotKey === INTRO_CLARIFY_SLOT_KEY) {
     const introText = fixText(userMessage).trim();
@@ -431,8 +540,7 @@ export async function POST(request) {
     answers.intro = introText;
     answers.necessiteSurface = analysis.necessiteSurface;
     if (analysis.clesASauter.length > 0) answers._clesASauter = analysis.clesASauter;
-    if (analysis.questionSupplementaire) answers._extraQuestion = analysis.questionSupplementaire;
-    if (analysis.clesASauter.length > 0 || analysis.questionSupplementaire || !analysis.necessiteSurface) {
+    if (analysis.clesASauter.length > 0 || !analysis.necessiteSurface) {
       // Cas non couvert par une regle fixe : journalise pour qu'Amira
       // transforme les cas recurrents en vraies regles permanentes plutot
       // que de laisser l'IA re-decider seule a chaque fois.
@@ -442,19 +550,49 @@ export async function POST(request) {
         slotKey: "intro",
         category: "adaptive_flow",
         userMessage: introText,
-        aiReply: JSON.stringify({ necessiteSurface: analysis.necessiteSurface, clesASauter: analysis.clesASauter, questionSupplementaire: analysis.questionSupplementaire })
+        aiReply: JSON.stringify({ necessiteSurface: analysis.necessiteSurface, clesASauter: analysis.clesASauter })
       });
       await writeDb(db);
     }
-    return ok({ ...questionPayload(SLOTS[0]), answers });
+    answers.metier = await classifyMetierEarly(introText);
+    answers._cadrageHistory = [];
+    return startOrContinueCadrage();
   }
 
-  if (rawSlotKey === EXTRA_QUESTION_SLOT_KEY) {
-    // Question de cadrage proposee par analyzeIntro, posee en tout dernier
-    // (apres les 11 questions fixes) — reponse gardee comme contexte
-    // supplementaire pour l'expertise, jamais reclassifiee.
-    answers.extraCadrage = fixText(userMessage).trim();
-    return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers });
+  if (rawSlotKey.startsWith(CADRAGE_SLOT_PREFIX)) {
+    const question = answers._cadrageLastQuestion || "";
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return badRequest("L'assistant IA n'est pas configuré (clé API manquante).", 500);
+    }
+    let outcome;
+    try {
+      outcome = await classifyReply({ slot: { question }, userMessage, recentTurns: turns.slice(0, -1) });
+    } catch (error) {
+      const message = error?.status === 401
+        ? "Clé API Claude invalide."
+        : error?.status === 429 || /credit/i.test(String(error?.message || ""))
+          ? "Crédits API Claude épuisés."
+          : "L'assistant n'a pas pu répondre. Réessayez dans quelques instants.";
+      return badRequest(message, 502);
+    }
+    if (outcome.classification === "off_topic_price" || outcome.classification === "off_topic_delay" || outcome.classification === "off_topic") {
+      const category = outcome.classification === "off_topic_price" ? "price" : outcome.classification === "off_topic_delay" ? "delay" : "other";
+      const aiReply = category === "price"
+        ? "L'expertise koji vous donnera votre tranche de prix une fois toutes mes questions terminées."
+        : category === "delay"
+          ? DELAY_QUESTION_MESSAGE
+          : OFF_TOPIC_MESSAGE;
+      const db = await readDb();
+      logIncident(db, { portalUserId, slotKey: rawSlotKey, category, userMessage, aiReply });
+      await writeDb(db);
+      return ok({ type: "cadrage", message: `${aiReply} ${question}`, options: null, inputType: "text", slotKey: rawSlotKey, answers });
+    }
+    if (outcome.classification === "clarification") {
+      const explanation = outcome.clarificationAnswer || "Répondez du mieux que vous pouvez.";
+      return ok({ type: "cadrage", message: `${explanation} ${question}`, options: null, inputType: "text", slotKey: rawSlotKey, answers });
+    }
+    answers._cadrageHistory = [...(Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : []), { question, reponse: fixText(userMessage).trim() }];
+    return startOrContinueCadrage();
   }
 
   const isConfirmStep = rawSlotKey.endsWith(CONFIRM_SUFFIX);
@@ -470,16 +608,7 @@ export async function POST(request) {
       nextIndex += 1;
     }
     const next = SLOTS[nextIndex];
-    if (!next) {
-      // Question de cadrage proposee par analyzeIntro (voir EXTRA_QUESTION_SLOT_KEY) :
-      // posee une seule fois, en tout dernier, jamais a la place d'une des 11 questions fixes.
-      if (answers._extraQuestion) {
-        const question = answers._extraQuestion;
-        delete answers._extraQuestion;
-        return ok({ type: "question", message: question, options: null, inputType: "text", slotKey: EXTRA_QUESTION_SLOT_KEY, answers, ...extra });
-      }
-      return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers, ...extra });
-    }
+    if (!next) return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers, ...extra });
     return ok({ ...questionPayload(next, prefix), answers, ...extra });
   }
 
