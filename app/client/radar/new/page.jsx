@@ -225,9 +225,10 @@ export default function NewRadarOffrePage() {
           lon: data.geocode.lon
         });
       }
-      if (data.type === "intro_clarify") {
+      if (data.type === "intro_clarify" || data.type === "cadrage") {
         // Le tout premier message ne decrivait pas vraiment un projet (ex:
-        // "offre" tape seul) — koji redemande, sans jamais passer par
+        // "offre" tape seul), ou koji precise encore la nature exacte des
+        // travaux (cadrage specifique au metier) — dans les deux cas, jamais
         // l'ecran "Visuels et photos" tant que ce n'est pas resolu.
         setTurns([...nextTurns, { role: "assistant", text: data.message, time: nowTime() }]);
         setReadyMessage("");
@@ -371,32 +372,33 @@ export default function NewRadarOffrePage() {
   async function startEnrichment() {
     setPhase("metier-loading");
     setError("");
-    try {
-      const response = await fetch("/api/classify-metier", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: expertiseAnswers.intro || description })
-      });
-      const data = await response.json();
-      const detectedMetier = data.metier || "Tout corps d'état";
-      setMetier(detectedMetier);
-      const bank = questionBankFor(detectedMetier);
-      setTravauxToggles(Object.fromEntries(bank.travaux.map((t) => [t.id, true])));
-      setSelectedEquipements(new Set());
-      setSelectedStyle("");
-      setSelectedGamme("");
-      setSelectedEtatGeneral("");
-      setTravauxDetailAnswers({});
-      setPhase("equipements");
-    } catch {
-      // Jamais bloquant : sans metier detecte, on part sur le jeu generique
-      // et on continue quand meme.
-      setMetier("Tout corps d'état");
-      const bank = questionBankFor("Tout corps d'état");
-      setTravauxToggles(Object.fromEntries(bank.travaux.map((t) => [t.id, true])));
-      setTravauxDetailAnswers({});
-      setPhase("equipements");
+    // Le metier est deja determine cote serveur, tot dans la conversation
+    // (pour piloter le cadrage specifique — voir /api/radar-assistant),
+    // et renvoye dans expertiseAnswers.metier : pas besoin de reclassifier.
+    // Le second appel n'est qu'un filet de securite si jamais il manquait.
+    let detectedMetier = expertiseAnswers.metier;
+    if (!detectedMetier) {
+      try {
+        const response = await fetch("/api/classify-metier", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: expertiseAnswers.intro || description })
+        });
+        const data = await response.json();
+        detectedMetier = data.metier || "Tout corps d'état";
+      } catch {
+        detectedMetier = "Tout corps d'état";
+      }
     }
+    setMetier(detectedMetier);
+    const bank = questionBankFor(detectedMetier);
+    setTravauxToggles(Object.fromEntries(bank.travaux.map((t) => [t.id, true])));
+    setSelectedEquipements(new Set());
+    setSelectedStyle("");
+    setSelectedGamme("");
+    setSelectedEtatGeneral("");
+    setTravauxDetailAnswers({});
+    setPhase("equipements");
   }
 
   function toggleEquipement(id) {
@@ -924,6 +926,7 @@ export default function NewRadarOffrePage() {
             <div className="radar-recap-card">
               <div className="radar-recap-row"><span>📝 Description</span><strong>{expertiseAnswers.intro}</strong></div>
               <div className="radar-recap-row"><span>🔧 Métier</span><strong>{metier}</strong></div>
+              {expertiseAnswers.cadragePrecisions ? <div className="radar-recap-row"><span>❓ Précisions sur les travaux</span><strong>{expertiseAnswers.cadragePrecisions}</strong></div> : null}
               {expertiseAnswers.adresse ? <div className="radar-recap-row"><span>📍 Adresse</span><strong>{expertiseAnswers.adresse}</strong></div> : null}
               {expertiseAnswers.cotes ? <div className="radar-recap-row"><span>📐 Surface</span><strong>{expertiseAnswers.cotes}</strong></div> : null}
               {expertiseAnswers.configuration ? <div className="radar-recap-row"><span>🔷 Configuration</span><strong>{expertiseAnswers.configuration}</strong></div> : null}
@@ -931,7 +934,6 @@ export default function NewRadarOffrePage() {
               {expertiseAnswers.etage ? <div className="radar-recap-row"><span>🏢 Étage</span><strong>{expertiseAnswers.etage}{expertiseAnswers.ascenseur ? ` · Ascenseur : ${expertiseAnswers.ascenseur}` : ""}</strong></div> : null}
               {expertiseAnswers.acces ? <div className="radar-recap-row"><span>🚪 Accès</span><strong>{expertiseAnswers.acces}</strong></div> : null}
               {expertiseAnswers.stationnement ? <div className="radar-recap-row"><span>🅿️ Stationnement</span><strong>{expertiseAnswers.stationnement}</strong></div> : null}
-              {expertiseAnswers.extraCadrage ? <div className="radar-recap-row"><span>❓ Précision</span><strong>{expertiseAnswers.extraCadrage}</strong></div> : null}
               {selectedEtatGeneral ? (
                 <div className="radar-recap-row"><span>🏠 État actuel</span><strong>{ETAT_GENERAL_OPTIONS.find((e) => e.id === selectedEtatGeneral)?.label}</strong></div>
               ) : null}
