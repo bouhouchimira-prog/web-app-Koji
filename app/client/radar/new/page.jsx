@@ -164,6 +164,12 @@ export default function NewRadarOffrePage() {
   // puis revelee via continueAfterPhotos(), sans toucher a /api/radar-assistant.
   const [awaitingPhotoStep, setAwaitingPhotoStep] = useState(false);
   const [pendingFirstQuestion, setPendingFirstQuestion] = useState(null);
+  // Vrai une fois que le tout premier message decrit reellement un projet
+  // (jamais juste apres l'ouverture du chat) — distinct de `slotKey` car le
+  // garde-fou "intro:clarify" peut redemander plusieurs fois avant d'y
+  // arriver ; l'ecran "Visuels et photos" ne doit s'intercaler qu'une seule
+  // fois, juste apres cette confirmation, jamais avant.
+  const [introConfirmed, setIntroConfirmed] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -193,7 +199,6 @@ export default function NewRadarOffrePage() {
     setSending(true);
     setError("");
     setCurrentOptions(null);
-    const isIntroCall = !slotKey;
     try {
       const response = await fetch("/api/radar-assistant", {
         method: "POST",
@@ -220,10 +225,22 @@ export default function NewRadarOffrePage() {
           lon: data.geocode.lon
         });
       }
-      if (isIntroCall && data.type !== "ready_for_expertise") {
+      if (data.type === "intro_clarify") {
+        // Le tout premier message ne decrivait pas vraiment un projet (ex:
+        // "offre" tape seul) — koji redemande, sans jamais passer par
+        // l'ecran "Visuels et photos" tant que ce n'est pas resolu.
+        setTurns([...nextTurns, { role: "assistant", text: data.message, time: nowTime() }]);
+        setReadyMessage("");
+        setCurrentOptions(null);
+        setCurrentInputType("text");
+        setSlotKey(data.slotKey || null);
+        return;
+      }
+      if (!introConfirmed && data.type !== "ready_for_expertise") {
         // Ecran "Visuels et photos" de la maquette : la vraie premiere
         // question (data) est mise en attente, revelee par
         // continueAfterPhotos() une fois les photos ajoutees ou ignorees.
+        setIntroConfirmed(true);
         setTurns([...nextTurns, {
           role: "assistant",
           text: "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable.",
@@ -278,6 +295,7 @@ export default function NewRadarOffrePage() {
     setExpertiseAnswers({});
     setAwaitingPhotoStep(false);
     setPendingFirstQuestion(null);
+    setIntroConfirmed(false);
   }
 
   // Revele la vraie premiere question du garde-fou, mise en attente par
@@ -525,6 +543,7 @@ export default function NewRadarOffrePage() {
     setPhotos([]);
     setAwaitingPhotoStep(false);
     setPendingFirstQuestion(null);
+    setIntroConfirmed(false);
   }
 
   const range = phase === "result" ? adjustedRange() : null;
@@ -912,6 +931,7 @@ export default function NewRadarOffrePage() {
               {expertiseAnswers.etage ? <div className="radar-recap-row"><span>🏢 Étage</span><strong>{expertiseAnswers.etage}{expertiseAnswers.ascenseur ? ` · Ascenseur : ${expertiseAnswers.ascenseur}` : ""}</strong></div> : null}
               {expertiseAnswers.acces ? <div className="radar-recap-row"><span>🚪 Accès</span><strong>{expertiseAnswers.acces}</strong></div> : null}
               {expertiseAnswers.stationnement ? <div className="radar-recap-row"><span>🅿️ Stationnement</span><strong>{expertiseAnswers.stationnement}</strong></div> : null}
+              {expertiseAnswers.extraCadrage ? <div className="radar-recap-row"><span>❓ Précision</span><strong>{expertiseAnswers.extraCadrage}</strong></div> : null}
               {selectedEtatGeneral ? (
                 <div className="radar-recap-row"><span>🏠 État actuel</span><strong>{ETAT_GENERAL_OPTIONS.find((e) => e.id === selectedEtatGeneral)?.label}</strong></div>
               ) : null}

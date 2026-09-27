@@ -39,6 +39,20 @@ import { fixText } from "../../../lib/text";
 // le serveur ne garde aucun etat entre deux appels. Un currentSlotKey qui
 // se termine par ":confirm" signifie qu'une hypothese standard a ete
 // proposee au tour precedent et attend une confirmation du client.
+// Sauts conditionnels (27 sept, remonte par Amira : on demandait l'ascenseur
+// meme au rez-de-chaussee, les dimensions meme pour une simple fuite). Deux
+// sources : une regle fixe et deterministe quand le contexte le permet
+// (etage), et le jugement de analyzeIntro() pour le reste (necessiteSurface,
+// clesASauter) — jamais l'IA qui decide en direct pendant la conversation,
+// toujours une decision prise une seule fois, au tout debut, sur la
+// description du projet.
+function skippedByAi(key) {
+  return (answers) => Array.isArray(answers._clesASauter) && answers._clesASauter.includes(key);
+}
+function needsNoSurface(answers) {
+  return answers.necessiteSurface === false;
+}
+
 const SLOTS = [
   {
     key: "adresse",
@@ -70,7 +84,10 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sans ascenseur, c'est plus prudent pour l'estimation.",
       value: "Pas d'ascenseur (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    // Rez-de-chaussee : la question n'a pas de sens (ni le bouton, ni la
+    // valeur par defaut du "Je ne sais pas" de la question precedente).
+    skipIf: (answers) => String(answers.etage || "").startsWith("Rez-de-chaussée")
   },
   {
     key: "acces",
@@ -82,7 +99,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur un accès facile.",
       value: "Accès facile (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: skippedByAi("acces")
   },
   {
     key: "stationnement",
@@ -94,7 +112,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur un stationnement facile.",
       value: "Stationnement facile (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: skippedByAi("stationnement")
   },
   {
     key: "cotes",
@@ -107,7 +126,9 @@ const SLOTS = [
       acceptLabel: "Surface standard (10-12 m²)",
       refineLabel: "Je précise moi-même",
       value: "Surface standard estimée à 10-12 m² (hypothèse par défaut, non mesurée par le client)"
-    }
+    },
+    // Reparation ponctuelle (fuite, panne...) : pas de surface a chiffrer.
+    skipIf: (answers) => needsNoSurface(answers) || skippedByAi("cotes")(answers)
   },
   {
     key: "configuration",
@@ -119,7 +140,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur une configuration rectangulaire standard.",
       value: "Configuration rectangulaire standard (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: (answers) => needsNoSurface(answers) || skippedByAi("configuration")(answers)
   },
   {
     key: "disposition",
@@ -131,7 +153,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur la même implantation, c'est le plus économique.",
       value: "Garder la même disposition (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: (answers) => needsNoSurface(answers) || skippedByAi("disposition")(answers)
   },
   {
     key: "fournitures",
@@ -143,7 +166,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur fournitures incluses, c'est le plus courant.",
       value: "Avec fournitures (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: skippedByAi("fournitures")
   },
   {
     key: "nettoyage",
@@ -155,7 +179,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur un nettoyage de fin de chantier à la charge de l'entreprise, c'est le plus courant.",
       value: "Nettoyage de fin de chantier à la charge de l'entreprise (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: skippedByAi("nettoyage")
   },
   {
     key: "etat",
@@ -167,7 +192,8 @@ const SLOTS = [
       ackMessage: "Pas de problème, l'expertise partira sur une pièce à vider avant travaux, c'est le cas le plus courant.",
       value: "Pièce à vider avant travaux (hypothèse par défaut, le client ne savait pas)"
     },
-    standardAssumption: null
+    standardAssumption: null,
+    skipIf: skippedByAi("etat")
   }
 ];
 
@@ -232,6 +258,76 @@ async function geocodeAddress(query) {
     return data.features?.[0] || null;
   } catch {
     return null;
+  }
+}
+
+const INTRO_CLARIFY_SLOT_KEY = "intro:clarify";
+const INTRO_CLARIFY_MESSAGE = "Pouvez-vous préciser votre projet ? Par exemple : refaire une salle de bain, repeindre un salon, remplacer une prise électrique...";
+const EXTRA_QUESTION_SLOT_KEY = "extra:cadrage";
+
+// Cles des 11 questions SLOTS qu'une analyse d'intro peut juger clairement
+// hors-sujet pour CE projet precis — jamais "adresse" ni "etage" (toujours
+// necessaires), le reste peut etre saute si l'IA le juge justifie.
+const SKIPPABLE_SLOT_KEYS = ["acces", "stationnement", "cotes", "configuration", "disposition", "fournitures", "nettoyage", "etat"];
+
+// Garde-fou du 27 septembre (remonte par Amira : "offre" tape comme tout
+// premier message etait accepte tel quel comme description du projet, sans
+// jamais redemander de quoi il s'agissait), etendu le meme jour a la demande
+// d'Amira ("une vraie logique conditionnelle... et si l'algorithme rencontre
+// une situation qu'il ne comprend pas, donner la main a l'IA") : en plus de
+// juger si le message decrit un projet, cette meme analyse (1) repere les
+// questions fixes qui n'ont clairement aucun sens pour CE projet (ex: une
+// fuite d'eau n'a pas besoin de "cotes"/"configuration"/"disposition") et (2)
+// peut proposer UNE question de cadrage supplementaire si un point important
+// n'est couvert par aucune des 11 questions — jamais plus d'une, jamais posee
+// avant les 11 questions fixes, toujours journalisee (radarChatIncidents)
+// pour qu'Amira transforme les cas recurrents en vraies regles permanentes.
+// Meme modele leger (Haiku, reflexion desactivee) que classifyMetier.
+async function analyzeIntro(text) {
+  const fallback = { projetDecrit: true, necessiteSurface: true, clesASauter: [], questionSupplementaire: "" };
+  if (!process.env.ANTHROPIC_API_KEY) return fallback;
+  try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      thinking: { type: "disabled" },
+      system: `Tu prepares le questionnaire de cadrage d'un projet de renovation/BTP. La liste FIXE de questions (avec leur cle) est :
+- adresse : adresse du chantier (toujours posee)
+- etage : etage du chantier (toujours posee)
+- ascenseur : presence d'un ascenseur
+- acces : facilite d'acces pour les artisans/materiel
+- stationnement : facilite de stationnement pres du chantier
+- cotes : dimensions ou surface de la piece/l'espace concerne
+- configuration : forme de la piece/l'espace (rectangulaire, carree...)
+- disposition : garder ou modifier l'implantation existante
+- fournitures : fournitures a la charge du client ou de l'entreprise
+- nettoyage : qui nettoie en fin de chantier
+- etat : etat actuel de la piece (meubles a sortir, a proteger, deja vide)
+
+Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
+{"projet_decrit":true|false,"necessite_surface":true|false,"cles_a_sauter":["..."],"question_supplementaire":"string"}
+
+- "projet_decrit" : le message decrit-il, meme brievement, un vrai projet (quel type de travaux, quelle piece ou quel element) ? false pour "offre", "bonjour", "test", une simple salutation.
+- "necessite_surface" : les dimensions/la configuration/la disposition de la piece sont-elles pertinentes pour CE projet ? Mets false pour une reparation ponctuelle (fuite, panne, serrure bloquee) sans travaux de surface.
+- "cles_a_sauter" : UNIQUEMENT parmi acces/stationnement/cotes/configuration/disposition/fournitures/nettoyage/etat, celles qui n'ont clairement AUCUN sens pour ce projet precis. Liste vide en cas de doute — ne jamais sauter une question qui pourrait rester utile.
+- "question_supplementaire" : UNE SEULE question de cadrage en francais, uniquement si un point important propre a ce metier n'est couvert par AUCUNE des 11 questions ci-dessus et est necessaire pour bien chiffrer. Chaine vide sinon. Jamais une question de prix, de delai ferme, ou d'avis juridique/assurance — ces sujets restent deviés comme d'habitude.`,
+      messages: [{ role: "user", content: `Message du client : "${text}"` }]
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    const parsed = parseAiJson(textBlock?.text);
+    if (typeof parsed?.projet_decrit !== "boolean") return fallback;
+    const clesASauter = Array.isArray(parsed.cles_a_sauter)
+      ? parsed.cles_a_sauter.filter((k) => SKIPPABLE_SLOT_KEYS.includes(k))
+      : [];
+    return {
+      projetDecrit: parsed.projet_decrit,
+      necessiteSurface: parsed.necessite_surface !== false,
+      clesASauter,
+      questionSupplementaire: typeof parsed.question_supplementaire === "string" ? fixText(parsed.question_supplementaire).trim().slice(0, 300) : ""
+    };
+  } catch {
+    return fallback;
   }
 }
 
@@ -316,12 +412,49 @@ export async function POST(request) {
   const answers = body.answers && typeof body.answers === "object" ? { ...body.answers } : {};
 
   // Tout premier appel, juste apres le message d'introduction libre : la
-  // liste fixe demarre directement, sans aucun appel IA — rien a
-  // classifier, rien a improviser.
+  // liste fixe demarre directement des que le message decrit reellement un
+  // projet — sinon (ex: "offre" tape seul) koji redemande plutot que
+  // d'avancer avec une description vide de sens. rawSlotKey reste a
+  // INTRO_CLARIFY_SLOT_KEY tant que ce n'est pas le cas, autant de tours que
+  // necessaire. C'est aussi ici, une seule fois, que se decide quelles
+  // questions sauter pour ce projet precis (voir analyzeIntro ci-dessus).
   const rawSlotKey = body.currentSlotKey ? String(body.currentSlotKey) : "";
-  if (!rawSlotKey) {
-    answers.intro = fixText(userMessage);
+  if (!rawSlotKey || rawSlotKey === INTRO_CLARIFY_SLOT_KEY) {
+    const introText = fixText(userMessage).trim();
+    if (!introText) {
+      return ok({ type: "intro_clarify", message: INTRO_CLARIFY_MESSAGE, options: null, inputType: "text", slotKey: INTRO_CLARIFY_SLOT_KEY, answers });
+    }
+    const analysis = await analyzeIntro(introText);
+    if (!analysis.projetDecrit) {
+      return ok({ type: "intro_clarify", message: INTRO_CLARIFY_MESSAGE, options: null, inputType: "text", slotKey: INTRO_CLARIFY_SLOT_KEY, answers });
+    }
+    answers.intro = introText;
+    answers.necessiteSurface = analysis.necessiteSurface;
+    if (analysis.clesASauter.length > 0) answers._clesASauter = analysis.clesASauter;
+    if (analysis.questionSupplementaire) answers._extraQuestion = analysis.questionSupplementaire;
+    if (analysis.clesASauter.length > 0 || analysis.questionSupplementaire || !analysis.necessiteSurface) {
+      // Cas non couvert par une regle fixe : journalise pour qu'Amira
+      // transforme les cas recurrents en vraies regles permanentes plutot
+      // que de laisser l'IA re-decider seule a chaque fois.
+      const db = await readDb();
+      logIncident(db, {
+        portalUserId,
+        slotKey: "intro",
+        category: "adaptive_flow",
+        userMessage: introText,
+        aiReply: JSON.stringify({ necessiteSurface: analysis.necessiteSurface, clesASauter: analysis.clesASauter, questionSupplementaire: analysis.questionSupplementaire })
+      });
+      await writeDb(db);
+    }
     return ok({ ...questionPayload(SLOTS[0]), answers });
+  }
+
+  if (rawSlotKey === EXTRA_QUESTION_SLOT_KEY) {
+    // Question de cadrage proposee par analyzeIntro, posee en tout dernier
+    // (apres les 11 questions fixes) — reponse gardee comme contexte
+    // supplementaire pour l'expertise, jamais reclassifiee.
+    answers.extraCadrage = fixText(userMessage).trim();
+    return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers });
   }
 
   const isConfirmStep = rawSlotKey.endsWith(CONFIRM_SUFFIX);
@@ -332,9 +465,51 @@ export async function POST(request) {
 
   function advanceWith(value, prefix = "", extra = {}) {
     answers[slot.key] = value;
-    const next = SLOTS[slotIndex + 1];
-    if (!next) return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers, ...extra });
+    let nextIndex = slotIndex + 1;
+    while (SLOTS[nextIndex] && SLOTS[nextIndex].skipIf && SLOTS[nextIndex].skipIf(answers)) {
+      nextIndex += 1;
+    }
+    const next = SLOTS[nextIndex];
+    if (!next) {
+      // Question de cadrage proposee par analyzeIntro (voir EXTRA_QUESTION_SLOT_KEY) :
+      // posee une seule fois, en tout dernier, jamais a la place d'une des 11 questions fixes.
+      if (answers._extraQuestion) {
+        const question = answers._extraQuestion;
+        delete answers._extraQuestion;
+        return ok({ type: "question", message: question, options: null, inputType: "text", slotKey: EXTRA_QUESTION_SLOT_KEY, answers, ...extra });
+      }
+      return ok({ type: "ready_for_expertise", message: READY_MESSAGE, answers, ...extra });
+    }
     return ok({ ...questionPayload(next, prefix), answers, ...extra });
+  }
+
+  // Confirmation "ville manquante" (27 sept, remonte par Amira : une adresse
+  // tapee sans ville ni code postal — ex. "98 quai de la loire" — pouvait se
+  // faire deviner une ville par la BAN sans jamais le demander au client).
+  // Meme mecanique que le CONFIRM_SUFFIX generique (slot.standardAssumption)
+  // mais l'hypothese est dynamique (dependante du geocodage), donc stockee
+  // temporairement dans answers._pendingAdresseGeo entre les deux appels.
+  if (isConfirmStep && slot.key === "adresse") {
+    const needle = fixText(userMessage).trim().toLowerCase();
+    const pending = answers._pendingAdresseGeo;
+    delete answers._pendingAdresseGeo;
+    if (needle === "oui, c'est ça" && pending) {
+      const [lon, lat] = pending.geometry.coordinates;
+      return advanceWith(pending.properties.label, "", {
+        geocode: {
+          label: pending.properties.label,
+          city: pending.properties.city || "",
+          postalCode: pending.properties.postcode || "",
+          lat, lon
+        }
+      });
+    }
+    if (needle === "non, je précise") {
+      return ok({ ...questionPayload(slot, "Pas de souci, précisez l'adresse complète avec la ville."), answers });
+    }
+    // Ni l'un ni l'autre bouton (ou hypothese perdue) : le client a tape
+    // directement une nouvelle adresse au lieu de cliquer — traitee plus bas
+    // comme une nouvelle tentative de reponse a la question d'origine.
   }
 
   if (isConfirmStep && slot.standardAssumption) {
@@ -414,19 +589,36 @@ export async function POST(request) {
     if (geoType === "street") {
       return ok({ ...questionPayload(slot, `Il me manque le numéro — quel est le numéro dans ${geo.properties.name} ?`), answers });
     }
-    // "housenumber" : adresse complete, geocodee de facon fiable (meme base
-    // que components/RadarAddressAutocomplete.jsx) — l'etat `address` cote
-    // client (lat/lon/ville/code postal) est aligne via `geocode` dans la
-    // reponse, meme si le client a tape l'adresse a la main sans jamais
-    // cliquer de suggestion.
+    // "housenumber" : numero+rue reconnus avec certitude, mais la BAN peut
+    // deviner une ville quelque part en France meme si le client n'en a tape
+    // aucune (ex. "98 quai de la loire" existe a Paris) — sans verification,
+    // l'assistant validerait silencieusement une ville jamais confirmee par
+    // le client. On ne saute cette confirmation que si la ville ou le code
+    // postal apparaissent deja dans son message.
+    const city = geo.properties.city || "";
+    const postcode = geo.properties.postcode || "";
+    const normalized = fixText(userMessage).toLowerCase();
+    const mentionsCity = Boolean(city) && normalized.includes(fixText(city).toLowerCase());
+    const mentionsPostcode = Boolean(postcode) && userMessage.includes(postcode);
+    if (!mentionsCity && !mentionsPostcode) {
+      answers._pendingAdresseGeo = geo;
+      return ok({
+        type: "question",
+        message: `Vous n'avez pas précisé la ville. Est-ce la bonne adresse : ${geo.properties.label} ?`,
+        options: ["Oui, c'est ça", "Non, je précise"],
+        inputType: "text",
+        slotKey: `${slot.key}${CONFIRM_SUFFIX}`,
+        answers
+      });
+    }
+    // Adresse complete, geocodee de facon fiable (meme base que
+    // components/RadarAddressAutocomplete.jsx) — l'etat `address` cote client
+    // (lat/lon/ville/code postal) est aligne via `geocode` dans la reponse,
+    // meme si le client a tape l'adresse a la main sans jamais cliquer de
+    // suggestion.
     const [lon, lat] = geo.geometry.coordinates;
     return advanceWith(geo.properties.label, "", {
-      geocode: {
-        label: geo.properties.label,
-        city: geo.properties.city || "",
-        postalCode: geo.properties.postcode || "",
-        lat, lon
-      }
+      geocode: { label: geo.properties.label, city, postalCode: postcode, lat, lon }
     });
   }
 
