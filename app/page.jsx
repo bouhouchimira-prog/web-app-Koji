@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { PublicLanding } from "../components/PublicLanding";
-import { apiSend, readStoredUser } from "../lib/client-api";
+import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
+import "./dashboard.css";
 
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 const URGENT_ICONS  = { degat: "🧱", fuite: "💧", urgence: "⚡", incendie: "🔥", autre: "⚠️" };
@@ -33,26 +34,10 @@ function ChevronRight() {
   );
 }
 
-function IconProject() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
-}
-
 function IconQuote() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" />
-    </svg>
-  );
-}
-
-function IconIntervention() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </svg>
   );
 }
@@ -490,44 +475,200 @@ function Section({ title, href, children, count, headerAction }) {
   );
 }
 
+// ── Bloc "Chantiers disponibles" (design repris de la branche dashboard-imed
+// du fork github.com/imedlachiheb/web-app-Koji, à sa demande) : mêmes routes
+// existantes (/api/marketplace/offres/[id]/positionner et /messages), juste
+// une présentation plus riche (vignette par métier, statut de suivi, etc.)
+const OFFRES_VISIBLES = 6;
+const NOUVEAU_HEURES = 48;
+const MAX_POSITIONNEMENTS = 5; // même limite que /api/marketplace/offres/[id]/positionner
+
+function IconBolt({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
+    </svg>
+  );
+}
+
+function IconPhoto() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-8 8" />
+    </svg>
+  );
+}
+
+// Pictogramme et couleur de vignette par métier (tant que les photos du
+// client ne sont pas débloquées).
+const METIERS_VISUEL = [
+  { match: /plomb|chauffe|sanitaire/i, color: "#2f6fb5", icon: <path d="M12 2.5s6.5 7.2 6.5 11.8a6.5 6.5 0 0 1-13 0C5.5 9.7 12 2.5 12 2.5z" /> },
+  { match: /[ée]lectri/i, color: "#d99a1e", icon: <path d="M13 2 4 14h7l-1 8 9-12h-7z" /> },
+  { match: /serrur/i, color: "#6b5bb5", icon: <><circle cx="8" cy="12" r="4" /><path d="M12 12h9M18 12v3M21 12v2" /></> },
+  { match: /peint/i, color: "#c0567a", icon: <><rect x="3" y="3" width="15" height="6" rx="1" /><path d="M18 6h2v5h-9v3M10 14h2v7h-2z" /></> },
+  { match: /carrel|fa[iï]ence/i, color: "#1f8a7a", icon: <><rect x="3" y="3" width="8" height="8" /><rect x="13" y="3" width="8" height="8" /><rect x="3" y="13" width="8" height="8" /><rect x="13" y="13" width="8" height="8" /></> },
+  { match: /ma[çc]on|b[ée]ton|gros/i, color: "#a0673a", icon: <><rect x="2" y="4" width="20" height="16" /><path d="M2 10h20M2 16h20M12 4v6M7 10v6M17 10v6M12 16v4" /></> },
+  { match: /menuis|bois/i, color: "#8a6a3a", icon: <><path d="M3 21 14 10" /><path d="m13 5 6 6-3 3-6-6z" /></> }
+];
+const METIER_VISUEL_DEFAUT = { color: "#172549", icon: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" /> };
+
+function metierVisuel(metier) {
+  return METIERS_VISUEL.find((m) => m.match.test(String(metier || ""))) || METIER_VISUEL_DEFAUT;
+}
+
+// L'API renvoie l'adresse complète : on n'affiche que la ville.
+function villeSeule(address) {
+  const text = String(address || "").trim();
+  const match = text.match(/\b\d{5}\s+(.+)$/);
+  if (match) return match[1].trim();
+  const parts = text.split(",").map((p) => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1].replace(/^\d{5}\s*/, "") : "";
+}
+
+// Titre court tiré de la description (l'app n'a pas encore de champ titre) :
+// on garde le début de la phrase, avant les précisions.
+const TITRE_COUPURES = [",", ".", ";", " : ", " - ", " qui ", " car ", " dans ", " pour ", " avec ", " depuis ", " et "];
+const TITRE_MAX = 40;
+
+function titreCourt(description) {
+  let text = String(description || "").replace(/\s+/g, " ").trim();
+  if (!text) return "Chantier";
+  for (const sep of TITRE_COUPURES) {
+    const index = text.indexOf(sep);
+    if (index >= 15) text = text.slice(0, index);
+  }
+  if (text.length > TITRE_MAX) {
+    const cut = text.slice(0, TITRE_MAX);
+    text = `${cut.slice(0, cut.lastIndexOf(" ")) || cut}…`;
+  }
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function estNouveau(createdAt) {
+  const time = new Date(createdAt || 0).getTime();
+  return Number.isFinite(time) && Date.now() - time < NOUVEAU_HEURES * 3600 * 1000;
+}
+
+function publieLe(createdAt) {
+  if (!createdAt) return "";
+  const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+  if (diff < 3600) return "Publié à l'instant";
+  if (diff < 86400) return `Publié il y a ${Math.floor(diff / 3600)} h`;
+  const jours = Math.floor(diff / 86400);
+  return jours === 1 ? "Publié hier" : `Publié il y a ${jours} jours`;
+}
+
+// Où en est un positionnement, d'après la conversation du chantier
+// (route existante GET /api/marketplace/offres/[id]/messages).
+function suiviDepuisMessages(messages) {
+  const fil = Array.isArray(messages) ? messages : [];
+  const dernier = fil[fil.length - 1];
+  const propositions = fil.filter((m) => m.kind === "rdv_proposal" && m.rdvDate);
+  const proposition = propositions[propositions.length - 1];
+  const reponse = proposition ? fil.find((m) => m.kind === "rdv_response" && m.respondsToId === proposition.id) : null;
+  const visite = proposition
+    ? { date: proposition.rdvDate, statut: reponse?.rdvStatus === "accepted" ? "confirmee" : reponse?.rdvStatus === "declined" ? "refusee" : "proposee" }
+    : null;
+  const clientARepondu = Boolean(dernier && dernier.senderType === "particulier" && (dernier.kind || "text") === "text");
+  return { clientARepondu, visite };
+}
+
+function dateVisite(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function libelleSuivi(suivi) {
+  if (suivi?.clientARepondu) return { texte: "Le client vous a répondu", ton: "action" };
+  if (suivi?.visite?.statut === "confirmee") return { texte: `Visite confirmée · ${dateVisite(suivi.visite.date)}`, ton: "ok" };
+  if (suivi?.visite?.statut === "proposee") return { texte: `Visite proposée · ${dateVisite(suivi.visite.date)}`, ton: "info" };
+  if (suivi?.visite?.statut === "refusee") return { texte: "Visite refusée, proposez une autre date", ton: "action" };
+  return { texte: "En attente du client", ton: "attente" };
+}
+
+function Vignette({ offre }) {
+  const visuel = metierVisuel(offre.metier);
+  return (
+    <span className="kd-thumb" style={{ background: visuel.color }} aria-hidden="true">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {visuel.icon}
+      </svg>
+      {offre.photosCount ? <small><IconPhoto />{offre.photosCount}</small> : null}
+    </span>
+  );
+}
+
+function OffreCard({ offre, etat, onPositionner }) {
+  const ville = villeSeule(offre.address);
+  return (
+    <article className="kd-offre">
+      <Link href={`/marketplace/${offre.id}`} className="kd-offre-link">
+        <Vignette offre={offre} />
+        <span className="kd-offre-body">
+          <strong className="kd-offre-title">{titreCourt(offre.description)}</strong>
+          <span className="kd-offre-place">
+            <span>{offre.metier}</span>
+            {ville ? <span className="kd-ville"><IconMapPin /><span className="kd-ville-name">{ville}</span></span> : null}
+          </span>
+          {estNouveau(offre.createdAt)
+            ? <span className="kd-new">Nouveau</span>
+            : <span className="kd-when">{publieLe(offre.createdAt)}</span>}
+        </span>
+        {offre.priceRangeMin ? (
+          <span className="kd-offre-price">
+            {euro(offre.priceRangeMin)}
+            <small>à {euro(offre.priceRangeMax)}</small>
+          </span>
+        ) : null}
+      </Link>
+      <div className="kd-offre-actions">
+        {etat?.positionnee ? (
+          <span className="kd-positionne"><IconCheck /> Positionné</span>
+        ) : (
+          <button type="button" className="kd-btn kd-btn-navy" disabled={etat?.envoi} onClick={() => onPositionner(offre.id)}>
+            {etat?.envoi ? "Envoi…" : "Me positionner"}
+          </button>
+        )}
+        {etat?.erreur ? <p className="kd-offre-error" role="alert">{etat.erreur}</p> : null}
+      </div>
+    </article>
+  );
+}
+
 function DashboardHome() {
   const router = useRouter();
   const { L } = useLocale();
-  const { data: projects, setData: setProjects } = useApi("/api/projects", "projects");
+  const { data: projects } = useApi("/api/projects", "projects");
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
-  const { data: interventions, setData: setInterventions } = useApi("/api/interventions", "interventions");
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
   const { data: calendarEvents, setData: setCalendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: urgentAlerts, setData: setUrgentAlerts } = useApi("/api/urgent-alerts", "alerts");
+  const { data: offres, loading: offresLoading } = useApi("/api/marketplace/offres", "offres");
 
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState(null);
-  const [confirmDeleteProject, setConfirmDeleteProject] = useState(null);
-  const [confirmDeleteIntervention, setConfirmDeleteIntervention] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [greetingName, setGreetingName] = useState("");
+  // "Mode Urgences" (26 sept, demande d'Amira) : fonctionnalite Koji Premium
+  // — meme verrou que les pages de PREMIUM_PATHS dans components/Shell.jsx
+  // (isAdmin ou premiumTools), pas un nouveau systeme de permission.
+  const [premiumUnlocked, setPremiumUnlocked] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(true);
+  const [positions, setPositions] = useState({}); // { [offreId]: { positionnee, envoi, erreur } }
+  const [suivis, setSuivis] = useState({}); // { [offreId]: { clientARepondu, visite } }
+  const [info, setInfo] = useState("");
 
   useEffect(() => {
     const user = readStoredUser();
     if (!user) return;
+    setPremiumUnlocked(Boolean(user.isAdmin || user.premiumTools));
+    setProfileComplete(Boolean(user.profileComplete && user.businessInfoComplete));
     setGreetingName(user.name || (user.email ? user.email.split("@")[0] : ""));
   }, []);
 
-  const activeProjects = projects.filter((p) => p.status !== "Archive");
-  const activeInterventions = interventions.filter((i) => i.status !== "archivee");
   const today = new Date().toISOString().slice(0, 10);
-
-  function interventionWorkStatus(item) {
-    if (item.completedAt) return "terminee";
-    return item.date && item.date <= today ? "en_cours" : "a_faire";
-  }
-
-  function interventionStatus(item) {
-    if (item.status === "facturee") return { label: L.interventions.statusLabels.facturee, className: "status-green" };
-    const work = interventionWorkStatus(item);
-    const className = work === "terminee" ? "status-green" : work === "en_cours" ? "status-blue" : "status-neutral";
-    return { label: L.interventions.workStatusLabels[work], className };
-  }
+  const currentMonthLabel = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(new Date());
 
   const agendaItems = useMemo(() => {
     const rdvItems = calendarEvents
@@ -584,6 +725,60 @@ function DashboardHome() {
   const quotesInProgress = quotes.filter((q) => ["Brouillon", "Pret a envoyer", "Envoye"].includes(q.status));
   const billedRevenue = invoices.filter((i) => i.status !== "Annulee").reduce((s, i) => s + Number(i.amountTtc || 0), 0);
 
+  // Statut « déjà positionné » de chaque chantier (pas de route qui liste
+  // tous les positionnements d'une entreprise : voir docs/NOTES-POUR-AMIRA.md)
+  const idsOffres = offres.map((o) => o.id).join(",");
+  useEffect(() => {
+    if (!idsOffres) return;
+    let annule = false;
+    idsOffres.split(",").forEach(async (id) => {
+      try {
+        const data = await apiGet(`/api/marketplace/offres/${id}/positionner`);
+        const positionnee = Boolean(data?.positionnee || data?.positionnement?.status === "Active");
+        if (!annule && positionnee) setPositions((prev) => ({ ...prev, [id]: { positionnee: true } }));
+      } catch { /**/ }
+    });
+    return () => { annule = true; };
+  }, [idsOffres]);
+
+  useEffect(() => {
+    if (!info) return undefined;
+    const timer = setTimeout(() => setInfo(""), 3500);
+    return () => clearTimeout(timer);
+  }, [info]);
+
+  async function positionner(offreId) {
+    setPositions((prev) => ({ ...prev, [offreId]: { envoi: true } }));
+    try {
+      await apiSend(`/api/marketplace/offres/${offreId}/positionner`, {});
+      setPositions((prev) => ({ ...prev, [offreId]: { positionnee: true } }));
+      setInfo("Positionnement envoyé au client");
+    } catch (error) {
+      setPositions((prev) => ({ ...prev, [offreId]: { erreur: error.message || "Le positionnement n'a pas pu être envoyé." } }));
+    }
+  }
+
+  const mesPositionnements = offres.filter((o) => positions[o.id]?.positionnee);
+  const idsPositionnes = mesPositionnements.map((o) => o.id).join(",");
+  const reponsesClients = mesPositionnements.filter((o) => suivis[o.id]?.clientARepondu);
+  const offresDisponibles = offres.filter((o) => !positions[o.id]?.positionnee);
+  const offresVisibles = offresDisponibles.slice(0, OFFRES_VISIBLES);
+  const offresRestantes = offresDisponibles.length - offresVisibles.length;
+  const nouveauxChantiers = offresDisponibles.filter((o) => estNouveau(o.createdAt)).length;
+
+  // Suivi de chaque positionnement : réponse du client, visite
+  useEffect(() => {
+    if (!idsPositionnes) return undefined;
+    let annule = false;
+    idsPositionnes.split(",").forEach(async (id) => {
+      try {
+        const data = await apiGet(`/api/marketplace/offres/${id}/messages`);
+        if (!annule) setSuivis((prev) => ({ ...prev, [id]: suiviDepuisMessages(data?.messages) }));
+      } catch { /**/ }
+    });
+    return () => { annule = true; };
+  }, [idsPositionnes]);
+
   async function markTaskDone(task) {
     try {
       const { task: updated } = await apiSend("/api/tasks", { id: task.id, action: "toggle" }, "PATCH");
@@ -606,36 +801,6 @@ function DashboardHome() {
     setConfirmDeleteQuote(null);
   }
 
-  async function archiveProject(projectId) {
-    try {
-      const { project } = await apiSend("/api/projects", { id: projectId, action: "archive" }, "PATCH");
-      setProjects((prev) => prev.map((p) => p.id === project.id ? project : p));
-    } catch { /**/ }
-  }
-
-  async function deleteProject(projectId) {
-    try {
-      await apiSend("/api/projects", { id: projectId, action: "delete" }, "PATCH");
-      setProjects((prev) => prev.filter((p) => p.id !== projectId));
-    } catch { /**/ }
-    setConfirmDeleteProject(null);
-  }
-
-  async function archiveIntervention(interventionId) {
-    try {
-      const { intervention } = await apiSend("/api/interventions", { id: interventionId, status: "archivee" }, "PATCH");
-      setInterventions((prev) => prev.map((item) => item.id === intervention.id ? intervention : item));
-    } catch { /**/ }
-  }
-
-  async function deleteIntervention(interventionId) {
-    try {
-      await apiSend("/api/interventions", { id: interventionId, action: "delete" }, "PATCH");
-      setInterventions((prev) => prev.filter((item) => item.id !== interventionId));
-    } catch { /**/ }
-    setConfirmDeleteIntervention(null);
-  }
-
   async function resolveAlert(alertId) {
     try {
       await apiSend("/api/urgent-alerts", { id: alertId, action: "resolve" }, "PATCH");
@@ -656,18 +821,134 @@ function DashboardHome() {
       ) : null}
       <div className="home-feed">
 
-        {greetingName ? <h1 className="home-greeting">Bonjour {greetingName}</h1> : null}
+        <div className="kd">
+          {/* Bandeau d'accueil */}
+          <section className="kd-hero">
+            <p className="kd-hello">{greetingName ? `Bonjour ${greetingName}` : "Bonjour"}</p>
+            <p className="kd-hero-label">Chiffre d'affaires de {currentMonthLabel}</p>
+            {billedRevenue > 0 ? (
+              <p className="kd-hero-amount">{euro(billedRevenue)}</p>
+            ) : (
+              <p className="kd-hero-first">Vos premiers gains apparaîtront ici</p>
+            )}
 
-        {/* Chiffre d'affaires */}
-        <div className="home-revenue-chip-row">
-          <Link href="/chiffre-affaires" className="home-revenue-chip">
-            <span className="home-revenue-chip-icon">€</span>
-            <span className="home-revenue-chip-text">
-              <span className="home-revenue-chip-label">{L.home.revenue}</span>
-              <strong className="home-revenue-chip-amount">{euro(billedRevenue)}</strong>
-            </span>
-            <span className="home-revenue-chevron"><ChevronRight /></span>
-          </Link>
+            {premiumUnlocked ? (
+              <Link href="/interventions" className="kd-urgence">
+                <span className="kd-urgence-text">
+                  <strong><IconBolt /> Mode Urgences</strong>
+                  <small>Recevez les petits dépannages urgents près de chez vous.</small>
+                </span>
+                <span className="kd-btn kd-btn-lemon">Passer en ligne</span>
+              </Link>
+            ) : (
+              <Link href="/abonnement" className="kd-urgence">
+                <span className="kd-urgence-text">
+                  <strong><IconBolt /> Mode Urgences</strong>
+                  <small>Fonctionnalité Koji Premium — recevez les dépannages urgents près de chez vous.</small>
+                </span>
+                <span className="kd-btn kd-btn-lemon">Découvrir</span>
+              </Link>
+            )}
+
+            <div className="kd-hero-chips">
+              {reponsesClients.length > 0 ? (
+                <Link href={`/marketplace/${reponsesClients[0].id}`} className="kd-chip kd-chip-alert">
+                  {reponsesClients.length === 1 ? "1 client vous a répondu" : `${reponsesClients.length} clients vous ont répondu`}
+                </Link>
+              ) : null}
+              <Link href="/marketplace" className="kd-chip kd-chip-lemon">
+                {nouveauxChantiers > 0
+                  ? `${nouveauxChantiers} nouveau${nouveauxChantiers > 1 ? "x" : ""} chantier${nouveauxChantiers > 1 ? "s" : ""}`
+                  : `${offresDisponibles.length} chantier${offresDisponibles.length > 1 ? "s" : ""} disponible${offresDisponibles.length > 1 ? "s" : ""}`}
+              </Link>
+              <Link href="/devis" className="kd-chip">{quotesInProgress.length} devis en cours</Link>
+            </div>
+          </section>
+
+          {/* Profil entreprise à compléter */}
+          {!profileComplete ? (
+            <section className="kd-profil">
+              <span className="kd-profil-text">
+                <strong>Complétez votre profil entreprise</strong>
+                <small>Un profil complet inspire confiance aux clients qui choisissent entre plusieurs entreprises.</small>
+              </span>
+              <Link href="/profil" className="kd-btn kd-btn-navy">Compléter mon profil</Link>
+            </section>
+          ) : null}
+
+          {/* Mes positionnements */}
+          {mesPositionnements.length > 0 ? (
+            <section className="kd-block">
+              <div className="kd-block-head">
+                <h2 className="kd-block-title">
+                  Mes positionnements
+                  <span className="kd-count">{mesPositionnements.length}/{MAX_POSITIONNEMENTS}</span>
+                </h2>
+              </div>
+              <ul className="kd-positions">
+                {mesPositionnements.map((offre) => {
+                  const visuel = metierVisuel(offre.metier);
+                  const ville = villeSeule(offre.address);
+                  const suivi = libelleSuivi(suivis[offre.id]);
+                  return (
+                    <li key={offre.id}>
+                      <Link href={`/marketplace/${offre.id}`} className="kd-position">
+                        <span className="kd-position-thumb" style={{ background: visuel.color }} aria-hidden="true">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            {visuel.icon}
+                          </svg>
+                        </span>
+                        <span className="kd-position-text">
+                          <strong>{titreCourt(offre.description)}</strong>
+                          <small>{[offre.metier, ville].filter(Boolean).join(" · ")}</small>
+                        </span>
+                        <span className={`kd-position-status is-${suivi.ton}`}>{suivi.texte}</span>
+                        <span className="kd-position-chevron"><ChevronRight /></span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {mesPositionnements.length >= MAX_POSITIONNEMENTS ? (
+                <p className="kd-position-note">Vous avez atteint la limite de {MAX_POSITIONNEMENTS} chantiers en même temps. Retirez-vous de l'un d'eux pour vous positionner ailleurs.</p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {/* Chantiers disponibles */}
+          <section className="kd-block">
+            <div className="kd-block-head">
+              <h2 className="kd-block-title">
+                Chantiers disponibles
+                {offresDisponibles.length ? <span className="kd-count">{offresDisponibles.length}</span> : null}
+              </h2>
+              <Link href="/marketplace" className="kd-btn kd-btn-lemon">Voir les chantiers <ChevronRight /></Link>
+            </div>
+
+            {offresLoading ? (
+              <div className="kd-empty">Chargement…</div>
+            ) : offresDisponibles.length === 0 ? (
+              <div className="kd-empty">
+                <strong>Aucun chantier disponible pour le moment</strong>
+                <span>Les chantiers publiés dans votre métier et votre zone apparaîtront ici.</span>
+              </div>
+            ) : (
+              <>
+                <div className="kd-offres">
+                  {offresVisibles.map((offre) => (
+                    <OffreCard key={offre.id} offre={offre} etat={positions[offre.id]} onPositionner={positionner} />
+                  ))}
+                </div>
+                {offresRestantes > 0 ? (
+                  <Link href="/marketplace" className="kd-btn kd-btn-more">
+                    Voir {offresRestantes} chantier{offresRestantes > 1 ? "s" : ""} de plus <ChevronRight />
+                  </Link>
+                ) : null}
+              </>
+            )}
+          </section>
+
+          {info ? <div className="kd-toast" role="status">{info}</div> : null}
         </div>
 
         {/* Alertes urgentes */}
@@ -726,11 +1007,6 @@ function DashboardHome() {
             </div>
           </div>
         ) : null}
-
-        <Link className="home-primary-action" href="/devis?new=1">
-          <span className="home-primary-plus">+</span>
-          {activeProjects.length === 0 ? L.home.firstProject : L.home.newProject}
-        </Link>
 
         {/* À faire maintenant */}
         <Section
@@ -805,108 +1081,6 @@ function DashboardHome() {
               {quotesInProgress.length > 5 ? (
                 <Link href="/devis" className="home-more-link">
                   {L.home.seeMore(quotesInProgress.length - 5)} <ChevronRight />
-                </Link>
-              ) : null}
-            </div>
-          )}
-        </Section>
-
-        {/* Chantiers */}
-        <Section title={L.home.projects} href="/chantiers" count={activeProjects.length || null}>
-          {activeProjects.length === 0 ? (
-            <div className="home-empty">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
-              <strong>{L.home.noProjects}</strong>
-              <span>{L.home.noProjectsSub}</span>
-            </div>
-          ) : (
-            <div className="home-list">
-              {activeProjects.slice(0, 5).map((project) => (
-                <article className="home-list-item home-quote-item" key={project.id}>
-                  <Link href={`/chantiers?project=${project.id}`} className="home-list-link home-quote-link">
-                    <div className="home-list-icon home-icon-project">
-                      <IconProject />
-                    </div>
-                    <div className="home-list-main">
-                      <strong>{project.title}</strong>
-                      <small>{[project.client, project.startDate ? shortDate(project.startDate) : null].filter(Boolean).join(" · ")}</small>
-                    </div>
-                    <StatusBadge status={project.status} />
-                  </Link>
-                  <div className="home-task-actions">
-                    {confirmDeleteProject === project.id ? (
-                      <span className="home-task-confirm">
-                        <button className="home-task-btn home-task-btn-danger" onClick={() => deleteProject(project.id)}>{L.common.delete}</button>
-                        <button className="home-task-btn" onClick={() => setConfirmDeleteProject(null)}>{L.common.no}</button>
-                      </span>
-                    ) : (
-                      <>
-                        <button className="home-task-btn" title={L.common.archive} onClick={() => archiveProject(project.id)}>
-                          <IconArchive />
-                        </button>
-                        <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteProject(project.id)}>
-                          <IconTrash />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </article>
-              ))}
-              {activeProjects.length > 5 ? (
-                <Link href="/chantiers" className="home-more-link">
-                  {L.home.seeMore(activeProjects.length - 5)} <ChevronRight />
-                </Link>
-              ) : null}
-            </div>
-          )}
-        </Section>
-
-        {/* Interventions */}
-        <Section title={L.interventions.title} href="/interventions" count={activeInterventions.length || null}>
-          {activeInterventions.length === 0 ? (
-            <div className="home-empty">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c5b8a7" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
-              <strong>{L.interventions.empty}</strong>
-            </div>
-          ) : (
-            <div className="home-list">
-              {activeInterventions.slice(0, 5).map((item) => {
-                const status = interventionStatus(item);
-                return (
-                  <article className="home-list-item home-quote-item" key={item.id}>
-                    <Link href={`/interventions?open=${item.id}`} className="home-list-link home-quote-link">
-                      <div className="home-list-icon home-icon-intervention">
-                        <IconIntervention />
-                      </div>
-                      <div className="home-list-main">
-                        <strong>{item.client}</strong>
-                        <small>{[item.site, shortDate(item.date)].filter(Boolean).join(" · ")}</small>
-                      </div>
-                      <span className={`intervention-status-badge ${status.className}`}>{status.label}</span>
-                    </Link>
-                    <div className="home-task-actions">
-                      {confirmDeleteIntervention === item.id ? (
-                        <span className="home-task-confirm">
-                          <button className="home-task-btn home-task-btn-danger" onClick={() => deleteIntervention(item.id)}>{L.common.delete}</button>
-                          <button className="home-task-btn" onClick={() => setConfirmDeleteIntervention(null)}>{L.common.no}</button>
-                        </span>
-                      ) : (
-                        <>
-                          <button className="home-task-btn" title={L.common.archive} onClick={() => archiveIntervention(item.id)}>
-                            <IconArchive />
-                          </button>
-                          <button className="home-task-btn home-task-btn-delete" title={L.common.delete} onClick={() => setConfirmDeleteIntervention(item.id)}>
-                            <IconTrash />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-              {activeInterventions.length > 5 ? (
-                <Link href="/interventions" className="home-more-link">
-                  {L.home.seeMore(activeInterventions.length - 5)} <ChevronRight />
                 </Link>
               ) : null}
             </div>

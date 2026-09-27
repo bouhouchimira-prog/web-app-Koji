@@ -18,8 +18,9 @@ function getNavItems(L) {
     { href: "/marketplace",           label: L.nav.marketplace, icon: "market",  group: "principal", color: "#12b3a8" },
     { href: "/archives",              label: L.nav.archives,    icon: "archive", group: "principal", color: "#6b7280" },
     { href: "/devis",                 label: L.nav.quotes,      icon: "file",    group: "principal", color: "#f2994a" },
-    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
     { href: "/chantiers",             label: L.nav.projects,    icon: "tools",    group: "premium", color: "#e6398b" },
+    { href: "/interventions",         label: L.nav.interventions, icon: "wrench", group: "premium", color: "#ff8a3d" },
+    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
     { href: "/contacts",              label: L.nav.contacts,    icon: "user",     group: "premium", color: "#2fa1e8" },
     { href: "/equipe",                label: L.nav.team,        icon: "users",    group: "premium", color: "#8a5cf6" },
     { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice",  group: "premium", color: "#17ad5b" },
@@ -27,7 +28,7 @@ function getNavItems(L) {
   ];
 }
 
-const PREMIUM_PATHS = ["/calendrier", "/planning", "/chantiers", "/contacts", "/equipe", "/facturation", "/fournitures"];
+const PREMIUM_PATHS = ["/calendrier", "/planning", "/chantiers", "/contacts", "/equipe", "/facturation", "/fournitures", "/interventions"];
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
@@ -211,6 +212,12 @@ function Icon({ name, className = "" }) {
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
           <rect {...base} x="5" y="11" width="14" height="9" rx="2" />
           <path {...base} d="M8 11V7a4 4 0 018 0v4" />
+        </svg>
+      );
+    case "wrench":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path {...base} d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
         </svg>
       );
     case "help":
