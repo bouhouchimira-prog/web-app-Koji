@@ -1,0 +1,192 @@
+/* Mise en page du Shell (components/Shell.jsx).
+   - Ordinateur (1024 px et plus) : le menu reste affiché en permanence à gauche.
+   - Téléphone et tablette : barre de navigation fixe en bas de l'écran.
+   globals.css n'est pas modifié : ces règles viennent s'ajouter par-dessus. */
+
+:root {
+  --shell-sidebar: 300px;
+  --shell-bottom-nav: 68px;
+}
+
+/* ---------- Menu : en-tête et bouton « Gestion » ---------- */
+/* L'en-tête du menu garde toujours sa hauteur (76 px, comme la barre du haut) */
+.drawer-brand { flex-shrink: 0; }
+
+.drawer-nav-group {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #0c1732;
+  font-size: 13.5px;
+  font-weight: 600 !important;
+  text-align: left;
+  cursor: pointer;
+}
+.drawer-nav-group:hover { background: #f3f5f9; }
+.drawer-nav-group.open { background: #f3f5f9; }
+
+.drawer-nav-chevron {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: #7a8299;
+  transition: transform 0.2s;
+}
+.drawer-nav-group.open .drawer-nav-chevron { transform: rotate(180deg); }
+
+.drawer-nav-sub {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 4px 26px;
+  padding-left: 10px;
+  border-left: 2px solid #e3e6ee;
+}
+
+.drawer-nav-sub a { min-height: 40px; }
+
+/* ---------- Barre de navigation du bas (téléphone) ---------- */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  height: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
+  padding: 0 6px env(safe-area-inset-bottom, 0px);
+  background: #ffffff;
+  border-top: 1px solid #e3e6ee;
+  box-shadow: 0 -6px 20px rgba(23, 37, 73, 0.06);
+}
+
+.bottom-nav-item {
+  position: relative;
+  height: var(--shell-bottom-nav);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #7a8299;
+  font-size: 11px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-item .svg-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.bottom-nav-item.active { color: #172549; }
+.bottom-nav-item.active .bottom-nav-label { font-weight: 700 !important; }
+
+.bottom-nav-item.locked { color: #b3b9c8; }
+
+.bottom-nav-badge {
+  position: absolute;
+  top: 9px;
+  left: calc(50% + 4px);
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #e23434;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800 !important;
+  line-height: 17px;
+  text-align: center;
+  border: 2px solid #ffffff;
+}
+
+/* Bouton central : la Marketplace, qui est aussi l'accueil */
+.bottom-nav-main {
+  position: relative;
+  height: var(--shell-bottom-nav);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 8px;
+  color: #172549;
+  font-size: 11px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-main-circle {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #172549;
+  color: #fffacd;
+  border: 4px solid #ffffff;
+  box-shadow: 0 8px 20px rgba(23, 37, 73, 0.3);
+}
+
+.bottom-nav-main-circle .svg-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.bottom-nav-main .bottom-nav-label { font-weight: 700 !important; }
+.bottom-nav-main.active .bottom-nav-main-circle { background: #22335f; }
+
+/* Place libérée en bas de page, et éléments flottants remontés */
+@media (max-width: 1023px) {
+  /* Menu fermé : son ombre ne dépasse plus sur le bord gauche de l'écran */
+  .web-shell .drawer:not(.open) { box-shadow: none; }
+
+  .web-shell .web-main {
+    padding-bottom: calc(var(--shell-bottom-nav) + 36px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .web-shell .koji-assistant-bubble {
+    bottom: calc(var(--shell-bottom-nav) + 18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .web-shell .koji-assistant-panel {
+    bottom: calc(var(--shell-bottom-nav) + 82px + env(safe-area-inset-bottom, 0px));
+    max-height: min(62vh, 600px);
+  }
+}
+
+/* ---------- Ordinateur : menu affiché en permanence ---------- */
+@media (min-width: 1024px) {
+  .bottom-nav { display: none; }
+
+  .web-shell { padding-left: var(--shell-sidebar); }
+
+  .web-shell .drawer {
+    width: var(--shell-sidebar);
+    transform: none;
+    transition: none;
+    box-shadow: none;
+    border-right: 1px solid #e3e6ee;
+    z-index: 25;
+  }
+
+  .web-shell .drawer-backdrop { display: none; }
+
+  /* Le menu est déjà visible : plus besoin du bouton menu ni du logo au centre */
+  .web-shell .app-topbar-menu,
+  .web-shell .topbar-logo { display: none; }
+
+  .web-shell .app-topbar { justify-content: flex-end; }
+}

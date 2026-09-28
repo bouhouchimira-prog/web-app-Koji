@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
+import "./shell-layout.css";
 
 // Menu restructure en 2 groupes (23 septembre, Koji Premium) : "principal"
 // toujours accessible, "premium" verrouille sauf abonnement Koji Premium
@@ -233,11 +234,43 @@ function Icon({ name, className = "" }) {
   }
 }
 
+// Barre de navigation fixe en bas de l'écran (téléphone), de gauche à
+// droite. Le bouton central, plus grand, est la Marketplace, qui est aussi
+// l'accueil ("/"). Sur ordinateur, le menu reste affiché à gauche
+// (components/shell-layout.css).
+const BOTTOM_NAV = [
+  { href: "/chantiers", label: "Chantiers", icon: "tools", premium: true },
+  { href: "/devis", label: "Devis", icon: "file" },
+  { href: "/", label: "Marketplace", icon: "market", main: true },
+  { href: "/bibliotheque-ouvrages", label: "Bibliothèque", icon: "book" },
+  { href: "/notifications", label: "Notifications", icon: "bell", badge: true }
+];
+
+// Photo de profil dans la barre du haut (logo de l'entreprise ou initiales).
+// Styles en ligne pour ne pas modifier globals.css.
+const AVATAR_STYLE = {
+  width: 36,
+  height: 36,
+  flex: "none",
+  display: "inline-grid",
+  placeItems: "center",
+  overflow: "hidden",
+  borderRadius: "50%",
+  background: "#fffacd",
+  color: "#172549",
+  fontSize: 13,
+  textDecoration: "none",
+  boxShadow: "0 0 0 2px rgba(255, 255, 255, 0.25)"
+};
+
 export function Shell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { L } = useLocale();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Outils de gestion (Koji Premium) : repliés derrière un bouton « Gestion »,
+  // dépliés d'office quand on est sur l'une de ces pages.
+  const [gestionOpen, setGestionOpen] = useState(() => PREMIUM_PATHS.some((p) => pathname?.startsWith(p)));
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
@@ -451,6 +484,8 @@ export function Shell({ children }) {
   }, []);
   const [profileType, setProfileType] = useState("entreprise");
   const [kojiUserName, setKojiUserName] = useState("");
+  // Photo de profil (logo de l'entreprise) ou initiales, à côté des notifications
+  const [avatar, setAvatar] = useState({ url: "", initials: "" });
   const [isAdmin, setIsAdmin] = useState(false);
   const [premiumTools, setPremiumTools] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
@@ -514,6 +549,16 @@ export function Shell({ children }) {
       if (parsed?.accountType === "particulier") setProfileType("particulier");
       else setProfileType("entreprise");
       if (parsed?.name) setKojiUserName(String(parsed.name).trim().split(" ")[0]);
+      setAvatar({
+        url: String(parsed?.logoUrl || ""),
+        initials: String(parsed?.name || parsed?.email || "")
+          .trim()
+          .split(/[\s@.]+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0].toUpperCase())
+          .join("")
+      });
       const isAdminNow = Boolean(parsed?.isAdmin);
       if (isAdminNow) setIsAdmin(true);
       setPremiumTools(Boolean(parsed?.premiumTools));
@@ -546,7 +591,7 @@ export function Shell({ children }) {
   return (
     <div className="web-shell">
       <header className="app-topbar">
-        <button type="button" className="icon-round" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
+        <button type="button" className="icon-round app-topbar-menu" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
           <Icon name="menu" className="svg-icon" />
         </button>
         <Link href="/" className="topbar-logo" aria-label={L.shell.spaceCompany}>
@@ -598,7 +643,13 @@ export function Shell({ children }) {
               </div>
             ) : null}
           </div>
-          <Link href="/profil" className="icon-round" aria-label={L.nav.profile}><Icon name="user" className="svg-icon" /></Link>
+          <Link href="/profil" className="topbar-avatar" style={AVATAR_STYLE} aria-label={L.nav.profile}>
+            {avatar.url
+              ? <img src={avatar.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : avatar.initials
+                ? <span style={{ fontWeight: 700 }}>{avatar.initials}</span>
+                : <Icon name="user" className="svg-icon" />}
+          </Link>
         </div>
       </header>
 
@@ -641,23 +692,35 @@ export function Shell({ children }) {
             );
           })}
 
-          <span className="drawer-nav-section drawer-nav-section-premium">
-            <Icon name="lock" className="svg-icon" />
-            {L.nav.sectionPremium}
-          </span>
-          {navItems.filter((item) => item.group === "premium").map((item) => {
-            const active = item.href === "/calendrier"
-              ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
-              : pathname.startsWith(item.href);
-            const locked = !isAdmin && !premiumTools;
-            return (
-              <Link href={locked ? "/abonnement" : item.href} className={`${active ? "active" : ""}${locked ? " locked" : ""}`} key={item.href}>
-                <span className="drawer-nav-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
-                {item.label}
-                {locked ? <Icon name="lock" className="svg-icon drawer-nav-lock" /> : null}
-              </Link>
-            );
-          })}
+          <button
+            type="button"
+            className={`drawer-nav-group${gestionOpen ? " open" : ""}`}
+            onClick={() => setGestionOpen((open) => !open)}
+            aria-expanded={gestionOpen}
+          >
+            <span className="drawer-nav-icon" style={{ background: "#172549" }}><Icon name="tools" className="svg-icon" /></span>
+            Gestion
+            <svg className="drawer-nav-chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {gestionOpen ? (
+            <div className="drawer-nav-sub">
+              {navItems.filter((item) => item.group === "premium").map((item) => {
+                const active = item.href === "/calendrier"
+                  ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
+                  : pathname.startsWith(item.href);
+                const locked = !isAdmin && !premiumTools;
+                return (
+                  <Link href={locked ? "/abonnement" : item.href} className={`${active ? "active" : ""}${locked ? " locked" : ""}`} key={item.href}>
+                    <span className="drawer-nav-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
+                    {item.label}
+                    {locked ? <Icon name="lock" className="svg-icon drawer-nav-lock" /> : null}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
         </nav>
 
         <div className="drawer-divider" />
@@ -683,6 +746,36 @@ export function Shell({ children }) {
       )}
 
       <main className="web-main">{children}</main>
+
+      {profileType !== "particulier" ? (
+        <nav className="bottom-nav" aria-label="Navigation principale">
+          {BOTTOM_NAV.map((item) => {
+            if (item.main) {
+              const active = pathname === "/" || pathname.startsWith("/marketplace");
+              return (
+                <Link href={item.href} className={`bottom-nav-main${active ? " active" : ""}`} key={item.href} aria-current={active ? "page" : undefined}>
+                  <span className="bottom-nav-main-circle"><Icon name={item.icon} className="svg-icon" /></span>
+                  <span className="bottom-nav-label">{item.label}</span>
+                </Link>
+              );
+            }
+            const locked = item.premium && !isAdmin && !premiumTools;
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                href={locked ? "/abonnement" : item.href}
+                className={`bottom-nav-item${active ? " active" : ""}${locked ? " locked" : ""}`}
+                key={item.href}
+                aria-current={active ? "page" : undefined}
+              >
+                <Icon name={item.icon} className="svg-icon" />
+                {item.badge && unreadCount > 0 ? <span className="bottom-nav-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+                <span className="bottom-nav-label">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
 
       <button
         type="button"
