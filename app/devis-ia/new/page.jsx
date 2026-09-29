@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "../../../components/Shell";
 import { apiSend } from "../../../lib/client-api";
+import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 
 // Devis "100% IA" — deuxieme chemin de creation de devis, en parallele du
 // chemin manuel (/devis?new=1). Formulaire court, puis (11 septembre)
@@ -13,7 +14,10 @@ import { apiSend } from "../../../lib/client-api";
 // choisi applique un coefficient de prix deterministe, jamais decide par
 // l'IA elle-meme. On atterrit ensuite dans l'editeur existant
 // (/devis?id=...) pour la relecture, les ajustements et l'envoi.
-const METIERS = ["Electricien", "Plombier", "Carreleur", "Menuisier", "Peintre", "Tout corps d'état"];
+// Reprend la meme liste que le dictionnaire de metiers (lib/renovation-question-bank.js)
+// — cette liste etait restee figee au 6 metiers d'origine (Maçon/Chauffagiste/
+// Climaticien avaient ete ajoutes ailleurs sans etre repercutes ici, 29 sept).
+const METIERS = RENOVATION_METIERS;
 const FINITIONS = ["Standard", "Milieu de gamme", "Haut de gamme"];
 const LABOR_LEVELS = ["Standard", "Qualifié", "Expert"];
 const FOURNITURES_OPTIONS = [
