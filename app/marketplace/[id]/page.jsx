@@ -47,6 +47,14 @@ function SparkleIcon() {
     </svg>
   );
 }
+function FileIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z" />
+      <path d="M14 3v6h6M9 13h6M9 17h6" />
+    </svg>
+  );
+}
 function PinIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -66,6 +74,14 @@ function CalendarIcon() {
 
 const STEP_LABEL = { acompte: "Acompte", avancement: "Avancement", solde: "Solde" };
 const PAIEMENT_STATUS_LABEL = { pending: "En attente de paiement", paid_platform: "Payé — en attente de vos photos", released: "Débloqué" };
+
+function descriptionToPoints(text) {
+  if (!text) return [];
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 function readAsDataUrl(file) {
   return new Promise((resolve) => {
@@ -93,6 +109,8 @@ export default function MarketplaceOffreDetailPage() {
   const [paiements, setPaiements] = useState([]);
   const [paiementUploading, setPaiementUploading] = useState("");
   const [photoRequesting, setPhotoRequesting] = useState(false);
+  const [creatingDevis, setCreatingDevis] = useState(false);
+  const [devisError, setDevisError] = useState("");
 
   function reload() {
     apiGet(`/api/marketplace/offres/${params.id}`)
@@ -115,6 +133,18 @@ export default function MarketplaceOffreDetailPage() {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  async function creerDevis() {
+    setCreatingDevis(true);
+    setDevisError("");
+    try {
+      const data = await apiSend("/api/estimer-devis", { chantierOffreId: params.id });
+      router.push(`/devis?id=${data.quote.id}`);
+    } catch (err) {
+      setDevisError(err.message);
+      setCreatingDevis(false);
+    }
+  }
 
   async function sePositionner() {
     setPositioning(true);
@@ -222,6 +252,21 @@ export default function MarketplaceOffreDetailPage() {
 
         {!loading && offre ? (
           <>
+            <button
+              type="button"
+              className="radar-contact-btn radar-contact-btn-primary"
+              style={{ width: "100%", marginBottom: 14 }}
+              onClick={creerDevis}
+              disabled={creatingDevis}
+            >
+              <span className="radar-contact-icon"><FileIcon /></span>
+              <span>
+                <strong>{creatingDevis ? "Création du devis…" : "Créer mon devis via cette offre"}</strong>
+                <small>Ouvrages, informations client et prix repris automatiquement</small>
+              </span>
+            </button>
+            {devisError ? <p className="profile-message error" style={{ marginTop: -8, marginBottom: 14 }}>{devisError}</p> : null}
+
             {offre.photosUnlocked && offre.photos.length > 0 ? (
               <div className="radar-photo-grid" style={{ marginBottom: 14 }}>
                 {offre.photos.map((photo, index) => (
@@ -241,7 +286,6 @@ export default function MarketplaceOffreDetailPage() {
             ) : null}
 
             <div className="radar-recap radar-recap-card">
-              <div className="radar-recap-row"><span>Description</span><strong>{offre.description}</strong></div>
               <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
               <div className="radar-recap-row"><span>Zone</span><strong>{offre.address || "Non précisé"}{!offre.rdvConfirmed ? " (secteur uniquement)" : ""}</strong></div>
               <div className="radar-recap-row"><span>Prix proposé</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non communiqué"}</strong></div>
@@ -249,9 +293,9 @@ export default function MarketplaceOffreDetailPage() {
               <div className="radar-recap-row"><span>Publiée le</span><strong>{shortDate(offre.createdAt)}</strong></div>
             </div>
 
-            {offre.ouvrages?.length > 0 ? (
-              <div className="radar-recap-card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span className="radar-field-label">Travaux prévus</span>
+            <div className="radar-recap-card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span className="radar-field-label">Travaux prévus</span>
+              {offre.ouvrages?.length > 0 ? (
                 <div className="radar-ouvrages-list">
                   {offre.ouvrages.map((lot) => (
                     <div className="radar-ouvrages-lot" key={lot.room}>
@@ -262,8 +306,14 @@ export default function MarketplaceOffreDetailPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : null}
+              ) : (
+                <div className="radar-ouvrages-lot">
+                  <ul>
+                    {descriptionToPoints(offre.description).map((point, index) => <li key={index}>{point}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
 
             <div className="radar-contact-card">
               <p className="radar-contact-title">Positionnement</p>
