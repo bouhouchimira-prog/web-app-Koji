@@ -225,14 +225,16 @@ export default function NewRadarOffrePage() {
           lon: data.geocode.lon
         });
       }
-      if (data.type === "intro_clarify" || data.type === "cadrage") {
+      if (data.type === "intro_clarify" || data.type === "cadrage" || data.type === "metier_choice") {
         // Le tout premier message ne decrivait pas vraiment un projet (ex:
-        // "offre" tape seul), ou koji precise encore la nature exacte des
-        // travaux (cadrage specifique au metier) — dans les deux cas, jamais
-        // l'ecran "Visuels et photos" tant que ce n'est pas resolu.
+        // "offre" tape seul), plusieurs corps de metier sont evoques a la
+        // fois (koji demande lequel est le principal), ou koji precise
+        // encore la nature exacte des travaux (cadrage specifique au
+        // metier) — dans tous les cas, jamais l'ecran "Visuels et photos"
+        // tant que ce n'est pas resolu.
         setTurns([...nextTurns, { role: "assistant", text: data.message, time: nowTime() }]);
         setReadyMessage("");
-        setCurrentOptions(null);
+        setCurrentOptions(data.options || null);
         setCurrentInputType("text");
         setSlotKey(data.slotKey || null);
         return;
@@ -693,7 +695,15 @@ export default function NewRadarOffrePage() {
             ) : currentOptions && currentOptions.length > 0 ? (
               <div className="radar-choice-grid">
                 {currentOptions.map((option) => (
-                  <button key={option} type="button" className="radar-choice-card" disabled={sending} onClick={() => answerText(option)}>
+                  <button
+                    key={option}
+                    type="button"
+                    className="radar-choice-card"
+                    disabled={sending}
+                    // "Autre, précisez" (cadrage métier) : jamais envoyée telle
+                    // quelle au serveur, révèle juste le champ de saisie libre.
+                    onClick={() => (option === "Autre, précisez" ? setCurrentOptions(null) : answerText(option))}
+                  >
                     <span className="radar-choice-card-icon">{optionIcon(option)}</span>
                     <span className="radar-choice-card-label">{option}</span>
                   </button>

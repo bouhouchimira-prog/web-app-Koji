@@ -4,7 +4,7 @@ import { readDb, writeDb, makeToken } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixText } from "../../../lib/text";
-import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
+import { RENOVATION_METIERS, matchMetierFromVocabulaire, matchAllMetiersFromVocabulaire } from "../../../lib/renovation-question-bank";
 
 // Assistant IA conversationnel, cote particulier — suit le message
 // d'introduction libre (photos + texte) du parcours de creation d'offre
@@ -264,6 +264,8 @@ async function geocodeAddress(query) {
 
 const INTRO_CLARIFY_SLOT_KEY = "intro:clarify";
 const INTRO_CLARIFY_MESSAGE = "Pouvez-vous préciser votre projet ? Par exemple : refaire une salle de bain, repeindre un salon, remplacer une prise électrique...";
+const METIER_CHOICE_SLOT_KEY = "metier:choice";
+const METIER_AUTRE_OPTION = "Autre, précisez";
 
 // Cles des 11 questions SLOTS qu'une analyse d'intro peut juger clairement
 // hors-sujet pour CE projet precis — jamais "adresse" ni "etage" (toujours
@@ -332,6 +334,11 @@ Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown auto
 // metier ci-dessous — reutilise par le client (expertiseAnswers.metier)
 // pour eviter un second appel identique une fois la conversation terminee.
 async function classifyMetierEarly(text) {
+  // Dictionnaire deterministe d'abord (lib/renovation-question-bank.js) :
+  // plus rapide, gratuit, et fiable des qu'un seul metier ressort clairement
+  // du texte — l'appel IA ne sert plus que pour les cas ambigus/melanges.
+  const vocabularyMatch = matchMetierFromVocabulaire(text);
+  if (vocabularyMatch) return vocabularyMatch;
   if (!process.env.ANTHROPIC_API_KEY) return "Tout corps d'état";
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -368,8 +375,10 @@ const MAX_CADRAGE_QUESTIONS = 3;
 // deviations que classifyReply, reutilise tel quel pour classer chaque
 // reponse), et une trace complete dans expertiseAnswers.cadragePrecisions
 // pour que le devis reste explicable.
+const CADRAGE_AUTRE_OPTION = "Autre, précisez";
+
 async function analyzeCadrage({ metier, intro, history }) {
-  const fallback = { besoinPrecision: false, question: "" };
+  const fallback = { besoinPrecision: false, question: "", options: [] };
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
   const historyText = history.length
     ? history.map((h) => `- ${h.question} → ${h.reponse}`).join("\n")
@@ -388,17 +397,21 @@ Precisions deja obtenues :
 ${historyText}
 
 Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
-{"besoin_precision":true|false,"question":"string"}
+{"besoin_precision":true|false,"question":"string","options":["..."]}
 
 - "besoin_precision" : false des que tu as assez d'informations sur LA NATURE des travaux pour chiffrer serieusement — 1 a 2 precisions suffisent generalement, ne cherche pas la perfection.
-- "question" : UNE SEULE question courte et concrete en francais, uniquement si besoin_precision est true. Chaine vide sinon.`,
+- "question" : UNE SEULE question courte et concrete en francais, uniquement si besoin_precision est true. Chaine vide sinon.
+- "options" : 2 a 4 reponses plausibles et courtes a cette question, dans le vocabulaire du metier (ex: "Remplacement complet", "Réparation ponctuelle") — UNIQUEMENT si la question se prete a un choix ferme. Tableau vide si la question appelle plutot un chiffre ou une reponse libre (ex: "combien de kVA ?").`,
       messages: [{ role: "user", content: "Génère l'étape suivante." }]
     });
     const textBlock = response.content.find((b) => b.type === "text");
     const parsed = parseAiJson(textBlock?.text);
     if (typeof parsed?.besoin_precision !== "boolean") return fallback;
     const question = typeof parsed.question === "string" ? fixText(parsed.question).trim().slice(0, 300) : "";
-    return { besoinPrecision: parsed.besoin_precision && Boolean(question), question };
+    const options = Array.isArray(parsed.options)
+      ? parsed.options.filter((o) => typeof o === "string" && o.trim()).map((o) => fixText(o).trim().slice(0, 80)).slice(0, 4)
+      : [];
+    return { besoinPrecision: parsed.besoin_precision && Boolean(question), question, options };
   } catch {
     return fallback;
   }
@@ -493,7 +506,14 @@ export async function POST(request) {
     if (!result.besoinPrecision) return finishCadrage();
     answers._cadrageLastQuestion = result.question;
     const round = history.length + 1;
-    return ok({ type: "cadrage", message: result.question, options: null, inputType: "text", slotKey: `${CADRAGE_SLOT_PREFIX}${round}`, answers });
+    // "Autre, precisez" ajoutee systematiquement par le serveur (jamais
+    // laissee a l'IA) des qu'il y a des choix rapides — garantit que le
+    // client peut toujours repondre librement si aucun choix ne convient.
+    const options = result.options.length > 0 ? [...result.options, CADRAGE_AUTRE_OPTION] : null;
+    // Memorisee pour pouvoir re-proposer les memes boutons si la prochaine
+    // reponse est jugee imprecise (voir plus bas, "!outcome.precise").
+    answers._cadrageLastOptions = options;
+    return ok({ type: "cadrage", message: result.question, options, inputType: "text", slotKey: `${CADRAGE_SLOT_PREFIX}${round}`, answers });
   }
 
   async function finishCadrage() {
@@ -516,6 +536,7 @@ export async function POST(request) {
     }
     delete answers._cadrageHistory;
     delete answers._cadrageLastQuestion;
+    delete answers._cadrageLastOptions;
     return ok({ ...questionPayload(SLOTS[0]), answers });
   }
 
@@ -533,8 +554,15 @@ export async function POST(request) {
     if (!introText) {
       return ok({ type: "intro_clarify", message: INTRO_CLARIFY_MESSAGE, options: null, inputType: "text", slotKey: INTRO_CLARIFY_SLOT_KEY, answers });
     }
+    // Dictionnaire de vocabulaire metier (lib/renovation-question-bank.js) :
+    // un mot seul qui nomme clairement un metier ("electricite", "plomberie")
+    // est accepte immediatement, meme si analyzeIntro le jugerait trop vague
+    // (il ne decrit pas encore DES travaux precis, juste LE metier) — le
+    // cadrage juste apres se charge de preciser quels travaux exactement.
+    const vocabularyMatches = matchAllMetiersFromVocabulaire(introText);
+    const vocabularyMetier = vocabularyMatches.length === 1 ? vocabularyMatches[0] : null;
     const analysis = await analyzeIntro(introText);
-    if (!analysis.projetDecrit) {
+    if (!analysis.projetDecrit && vocabularyMatches.length === 0) {
       return ok({ type: "intro_clarify", message: INTRO_CLARIFY_MESSAGE, options: null, inputType: "text", slotKey: INTRO_CLARIFY_SLOT_KEY, answers });
     }
     answers.intro = introText;
@@ -554,7 +582,37 @@ export async function POST(request) {
       });
       await writeDb(db);
     }
-    answers.metier = await classifyMetierEarly(introText);
+
+    // Plusieurs metiers a la fois dans le vocabulaire (ex: "peinture et
+    // electricite") : demande d'Amira (28 sept) — proposer les metiers
+    // reconnus plutot que de deviner ou de basculer directement sur l'IA.
+    // L'IA ne tranche que si le client rejette les propositions.
+    if (vocabularyMatches.length >= 2) {
+      answers._metierChoices = vocabularyMatches;
+      return ok({
+        type: "metier_choice",
+        message: `Votre projet semble concerner plusieurs corps de métier (${vocabularyMatches.join(", ")}) — lequel est le principal pour ce chantier ?`,
+        options: [...vocabularyMatches, METIER_AUTRE_OPTION],
+        inputType: "text",
+        slotKey: METIER_CHOICE_SLOT_KEY,
+        answers
+      });
+    }
+
+    answers.metier = vocabularyMetier || await classifyMetierEarly(introText);
+    answers._cadrageHistory = [];
+    return startOrContinueCadrage();
+  }
+
+  if (rawSlotKey === METIER_CHOICE_SLOT_KEY) {
+    const choices = Array.isArray(answers._metierChoices) ? answers._metierChoices : [];
+    delete answers._metierChoices;
+    const picked = fixText(userMessage).trim();
+    // Reponse hors des propositions (dont "Autre, precisez") : jugee fausse
+    // par rapport aux choix suggeres, l'IA tranche a partir de la description
+    // d'origine ET de cette precision — jamais un simple retour a "Tout corps
+    // d'état" par defaut.
+    answers.metier = choices.includes(picked) ? picked : await classifyMetierEarly(`${answers.intro || ""} ${picked}`.trim());
     answers._cadrageHistory = [];
     return startOrContinueCadrage();
   }
@@ -590,6 +648,14 @@ export async function POST(request) {
     if (outcome.classification === "clarification") {
       const explanation = outcome.clarificationAnswer || "Répondez du mieux que vous pouvez.";
       return ok({ type: "cadrage", message: `${explanation} ${question}`, options: null, inputType: "text", slotKey: rawSlotKey, answers });
+    }
+    // Meme garde-fou que pour les 11 questions fixes (29 sept, demande
+    // d'Amira) : une reponse vague pendant le cadrage n'est jamais acceptee
+    // telle quelle — redemande, en reproposant les memes boutons s'il y en
+    // avait, jamais un simple "j'ai note" silencieux.
+    if (!outcome.precise) {
+      const lastOptions = Array.isArray(answers._cadrageLastOptions) ? answers._cadrageLastOptions : null;
+      return ok({ type: "cadrage", message: `Je n'ai pas bien saisi votre réponse — pouvez-vous préciser ? ${question}`, options: lastOptions, inputType: "text", slotKey: rawSlotKey, answers });
     }
     answers._cadrageHistory = [...(Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : []), { question, reponse: fixText(userMessage).trim() }];
     return startOrContinueCadrage();
@@ -703,6 +769,18 @@ export async function POST(request) {
   // explicite plutot que d'avancer avec une valeur choisie par l'IA seule.
   if (slot.standardAssumption && !outcome.precise) {
     return ok({ ...confirmPayload(slot), answers });
+  }
+
+  // Meme principe (29 sept, demande d'Amira : "des questions liees aux
+  // reponses incompletes"), etendu aux 9 questions a choix qui n'ont pas
+  // d'hypothese standard dediee (etage, ascenseur, acces, stationnement,
+  // configuration, disposition, fournitures, nettoyage, etat) : une reponse
+  // texte jugee imprecise par le meme classificateur (outcome.precise,
+  // deja calcule ci-dessus, aucun appel IA supplementaire) redemande au
+  // lieu d'avancer avec une valeur approximative. Les boutons de la
+  // question restent affiches, donc jamais de boucle sans issue.
+  if (slot.options && !outcome.precise) {
+    return ok({ ...questionPayload(slot, "Je n'ai pas bien saisi votre réponse — pouvez-vous préciser, par exemple en choisissant une option ci-dessous ?"), answers });
   }
 
   if (slot.key === "adresse") {

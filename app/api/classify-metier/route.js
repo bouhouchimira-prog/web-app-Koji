@@ -3,7 +3,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { parseAiJson } from "../../../lib/ai-json";
 import { fixText } from "../../../lib/text";
-import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
+import { RENOVATION_METIERS, matchMetierFromVocabulaire } from "../../../lib/renovation-question-bank";
 
 // Classification etroite (24 septembre) : determine UNIQUEMENT le metier
 // principal parmi la liste fixe deja utilisee ailleurs dans l'app (voir
@@ -20,6 +20,9 @@ export async function POST(request) {
 
   const description = fixText(body.description || "").trim();
   if (!description) return ok({ metier: "Tout corps d'état" });
+
+  const vocabularyMatch = matchMetierFromVocabulaire(description);
+  if (vocabularyMatch) return ok({ metier: vocabularyMatch });
 
   if (!process.env.ANTHROPIC_API_KEY) return ok({ metier: "Tout corps d'état" });
 
