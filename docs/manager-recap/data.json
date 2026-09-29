@@ -786,6 +786,42 @@
       "theme": "Connexion",
       "title": "Onglet Particulier retire de la page de connexion, teaser Radar des Chantiers a la place",
       "detail": "L'onglet 'Particulier' (acces client + ouvrier) n'est plus affiche en avant-plan sur la page de connexion, en preparation du repositionnement de ce profil autour du futur module grand public 'Koji'. Le code et le fonctionnement restent intacts : un lien direct (?type=particulier ou ?type=ouvrier, celui deja envoye avec les identifiants) continue de fonctionner normalement pour les clients et ouvriers existants. A sa place, une carte degradee bleu-violet annonce 'Radar des Chantiers' avec un slogan et un badge 'Bientot disponible'."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Dictionnaire de vocabulaire metier pour l'assistant de creation d'offre",
+      "detail": "Dans le parcours 'Creer une offre' (assistant conversationnel), taper un seul mot de metier ('electricite', 'plomberie', 'climatisation'...) n'etait pas reconnu : l'assistant le jugeait trop vague et redemandait de preciser en boucle. Il reconnait desormais ces mots instantanement et adapte la suite des questions au metier concerne. Trois metiers ajoutes au passage (Macon, Chauffagiste, Climaticien), qui n'existaient pas encore dans l'application."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "L'assistant demande desormais quel metier est concerne si plusieurs sont evoques",
+      "detail": "Quand un client decrit un projet touchant plusieurs corps de metier a la fois (ex: 'carrelage et plomberie'), l'assistant proposait auparavant de deviner via l'IA sans jamais demander confirmation. Il propose maintenant les metiers reconnus en boutons a choisir, avec une option 'Autre, precisez' si aucun ne correspond."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Confirmation demandee si l'adresse tapee ne precise pas la ville",
+      "detail": "Un numero et une rue reconnus par le service d'adresses peuvent correspondre a une ville que le client n'a jamais tapee (ex: '98 quai de la loire' se resout a Paris sans que 'Paris' soit ecrit). Avant, cette ville devinee etait validee silencieusement. L'assistant demande desormais confirmation avant de continuer."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Le tout premier message du client est mieux compris",
+      "detail": "Un message trop vague pour decrire un projet ('offre', 'bonjour', 'test'...) relance desormais une demande de precision au lieu d'etre accepte tel quel comme description du projet. A l'inverse, les questions de logistique qui n'ont pas de sens pour le projet decrit (l'ascenseur pour un rez-de-chaussee, les dimensions pour une simple reparation) sont sautees automatiquement."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Questions ciblees sur la nature des travaux avant les questions de logistique",
+      "detail": "Des que le metier est identifie, l'assistant pose jusqu'a 3 questions specifiques a ce metier (ex: pour de la climatisation, quel type d'installation) avant d'enchainer sur les questions habituelles (adresse, etage, dimensions...). Les reponses possibles sont proposees en boutons quand c'est pertinent, avec toujours une option pour preciser librement."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Une reponse trop vague a une question relance desormais une precision",
+      "detail": "Sur les questions a choix (etage, acces, stationnement, etat de la piece...), une reponse tapee a la main mais trop approximative ('assez facile je pense') etait acceptee telle quelle. L'assistant redemande maintenant une precision, en reproposant les memes choix, plutot que d'avancer avec une information peu fiable."
     }
   ]
 }
