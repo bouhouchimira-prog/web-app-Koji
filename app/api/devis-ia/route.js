@@ -50,14 +50,14 @@ function buildPrompt({ metier, clientName, address, description, surface, finiti
 - Surface ou pièce concernée : ${fixText(surface || "non précisée")}
 - Niveau de finition souhaité : ${fixText(finition || "standard")}${buildLotDetailsText(lotDetails)}
 
-Bibliothèque de prix interne koji (base-toi dessus en priorité pour les temps et coûts unitaires — n'invente un prix que pour un poste absent de cette liste) :
+Bibliothèque de prix interne koji — SOURCE DE PRIX PRIORITAIRE, obligatoire quand un poste y correspond :
 ${catalogText}
 
 À partir de ces informations (et des photos jointes s'il y en a), réponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour, de cette forme exacte :
 
-{"metier":"string","description":"string (description claire et complète des travaux, à la 3e personne, prête à être insérée dans un devis)","lots":[{"nom":"string (nom de la pièce ou du lot)","postes":[{"designation":"string","quantite":number,"unite":"string (ex: m², ml, u, h)","prix_unitaire":number,"prix_total":number}],"materiaux":[{"nom":"string","quantite":number,"unite":"string","prix_estime":number}]}]}
+{"metier":"string","description":"string (description claire et complète des travaux, à la 3e personne, prête à être insérée dans un devis)","lots":[{"nom":"string (nom de la pièce ou du lot)","postes":[{"designation":"string","codeCatalogue":"string ou null — le code EXACT (ex: CARMUR-001) d'un ouvrage de la bibliothèque ci-dessus si ce poste y correspond, sinon null","quantite":number,"unite":"string (ex: m², ml, u, h)","prix_unitaire":number,"prix_total":number (uniquement si codeCatalogue est null ; si codeCatalogue est renseigné mets 0, le prix est calculé automatiquement à partir de la bibliothèque)}],"materiaux":[{"nom":"string","quantite":number,"unite":"string","prix_estime":number}]}]}
 
-Les prix sont en euros HT. Sois aussi précis que possible en t'appuyant sur la bibliothèque de prix ci-dessus (y compris ses "materialCategories" quand pertinent) pour chaque poste qui y figure, et adapte le niveau de gamme des matériaux/prestations au niveau de finition indiqué.
+Règle de chiffrage impérative : pour CHAQUE poste, cherche D'ABORD une correspondance dans la bibliothèque de prix ci-dessus et renseigne alors "codeCatalogue" — n'estime un "prix_total" toi-même QUE pour un poste qui n'existe vraiment dans aucun ouvrage de la bibliothèque. Les prix sont en euros HT. Adapte le niveau de gamme des matériaux/prestations hors catalogue au niveau de finition indiqué.
 
 Pour le champ "materiaux" de chaque lot : laisse-le vide ([]) pour un lot dont les fournitures sont à la charge de l'entreprise (matériaux déjà intégrés aux postes). Pour un lot dont les fournitures sont à la charge du client, liste dans "materiaux" ce que le client doit acheter lui-même (nom, quantité, unité, prix estimatif) — ces matériaux ne doivent JAMAIS apparaître dans "postes" pour ce lot, uniquement dans "materiaux".`;
 }
@@ -68,7 +68,12 @@ function validateGeneratedQuote(parsed) {
 }
 
 // Applique le coefficient de main d'oeuvre choisi pour chaque lot,
-// deterministe (pas decide par l'IA) — voir LABOR_LEVEL_COEFFICIENTS.
+// deterministe (pas decide par l'IA) — voir LABOR_LEVEL_COEFFICIENTS. Un
+// poste chiffre depuis la bibliotheque de prix (billingMode "time") n'a pas
+// de fixedAmountHt a multiplier : on multiplie plutot son "coefficient"
+// (deja utilise par le moteur de calcul, lib/quote-calculations.js) — meme
+// resultat final, sans jamais toucher au prix "fixed" propose par l'IA pour
+// un poste hors catalogue.
 function applyLaborLevelCoefficients(items, lotDetails) {
   if (!Array.isArray(lotDetails) || lotDetails.length === 0) return items;
   const levelByRoom = new Map(
@@ -78,6 +83,9 @@ function applyLaborLevelCoefficients(items, lotDetails) {
     const level = levelByRoom.get(String(item.room || "").trim().toLowerCase());
     const coefficient = LABOR_LEVEL_COEFFICIENTS[level];
     if (!coefficient || coefficient === 1) return item;
+    if (item.billingMode === "time") {
+      return { ...item, coefficient: Math.round(Number(item.coefficient || 1) * coefficient * 1000) / 1000 };
+    }
     return {
       ...item,
       fixedAmountHt: Math.round(Number(item.fixedAmountHt || 0) * coefficient * 100) / 100
@@ -150,7 +158,7 @@ export async function POST(request) {
 
   const db = await readDb();
   const catalog = mergedOuvrages(db).map((o) => ({
-    code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate
+    code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate, coefficient: o.coefficient
   }));
   const catalogText = catalog.length
     ? catalog.map((o) => `- [${o.code}] ${o.label} (unite: ${o.unit}, temps normatif: ${o.normativeTime}h${o.hourlyRate ? `, taux: ${o.hourlyRate}€/h` : ""})`).join("\n")
@@ -220,7 +228,7 @@ export async function POST(request) {
     return badRequest("Réponse de génération incomplète. Réessayez.", 502);
   }
 
-  const { rooms, items: rawItems } = buildItemsFromAiQuote(parsed);
+  const { rooms, items: rawItems } = buildItemsFromAiQuote(parsed, catalog);
   const items = applyLaborLevelCoefficients(rawItems, lotDetails);
   const materialNotes = buildMaterialNotes(parsed.lots, lotDetails);
 

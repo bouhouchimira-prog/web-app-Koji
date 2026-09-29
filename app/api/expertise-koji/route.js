@@ -55,14 +55,14 @@ function buildPrompt({ answers, catalogText }) {
 - Nettoyage de fin de chantier : ${fixText(a.nettoyage || "non précisé")}
 - État actuel de la pièce/l'espace (meubles, vide...) : ${fixText(a.etat || "non précisé")}${a.metier ? `\n- Métier principal identifié : ${fixText(a.metier)}` : ""}${a.equipements ? `\n- Équipements souhaités : ${fixText(a.equipements)}` : ""}${a.style ? `\n- Style / finitions souhaités : ${fixText(a.style)}` : ""}${a.gamme ? `\n- Gamme souhaitée : ${fixText(a.gamme)}` : ""}${a.etatGeneral ? `\n- État général actuel de l'espace : ${fixText(a.etatGeneral)}` : ""}${a.travauxDetail ? `\n- Travaux détaillés demandés : ${fixText(a.travauxDetail)}` : ""}${a.travauxPrecisions ? `\n- Précisions chiffrées sur les travaux (surfaces, quantités) : ${fixText(a.travauxPrecisions)}` : ""}${a.normes ? `\n- Normes de référence pour ce corps de métier (contexte, à respecter dans le chiffrage sans l'affirmer comme une certification) : ${fixText(a.normes)}` : ""}${a.cadragePrecisions ? `\n- Précisions sur la nature exacte des travaux (obtenues en début de conversation) : ${fixText(a.cadragePrecisions)}` : ""}
 
-Bibliothèque de prix interne Koji (base-toi dessus en priorité pour les temps et coûts unitaires) :
+Bibliothèque de prix interne Koji — SOURCE DE PRIX PRIORITAIRE, obligatoire quand un poste y correspond :
 ${catalogText}
 
 À partir de ces informations (et des photos jointes s'il y en a), réponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour, de cette forme exacte :
 
-{"metier":"string (métier principal concerné, ex: Plomberie)","description":"string (résumé du projet en UNE seule phrase courte, façon titre d'annonce — ex: \"Rénovation complète d'une salle de bain de 5 m², style moderne\" — jamais un paragraphe détaillé, le détail des travaux est dans lots/postes)","lots":[{"nom":"string","postes":[{"designation":"string","quantite":number,"prix_unitaire":number,"prix_total":number}]}],"prix_total_estime":number,"conseils":[{"label":"string (conseil concret et réaliste pour réduire le coût, ex: vider la pièce soi-même)","discountPercent":number (impact estimé sur le total, ex: 8 pour -8%)}],"delaiEstimeJours":number}
+{"metier":"string (métier principal concerné, ex: Plomberie)","description":"string (résumé du projet en UNE seule phrase courte, façon titre d'annonce — ex: \"Rénovation complète d'une salle de bain de 5 m², style moderne\" — jamais un paragraphe détaillé, le détail des travaux est dans lots/postes)","lots":[{"nom":"string","postes":[{"designation":"string","codeCatalogue":"string ou null — le code EXACT (ex: CARMUR-001) d'un ouvrage de la bibliothèque ci-dessus si ce poste y correspond, sinon null","quantite":number,"prix_unitaire":number,"prix_total":number (uniquement si codeCatalogue est null ; si codeCatalogue est renseigné mets 0, le prix est calculé automatiquement à partir de la bibliothèque)}]}],"prix_total_estime":number,"conseils":[{"label":"string (conseil concret et réaliste pour réduire le coût, ex: vider la pièce soi-même)","discountPercent":number (impact estimé sur le total, ex: 8 pour -8%)}],"delaiEstimeJours":number}
 
-Fournis entre 2 et 4 conseils. Les prix sont en euros HT.`;
+Règle de chiffrage impérative : pour CHAQUE poste, cherche D'ABORD une correspondance dans la bibliothèque de prix ci-dessus et renseigne alors "codeCatalogue" — n'estime un "prix_total" toi-même QUE pour un poste qui n'existe vraiment dans aucun ouvrage de la bibliothèque. Fournis entre 2 et 4 conseils. Les prix sont en euros HT.`;
 }
 
 function validateExpertiseResponse(parsed) {
@@ -87,7 +87,7 @@ export async function POST(request) {
 
   const db = await readDb();
   const catalog = mergedOuvrages(db).map((o) => ({
-    code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate
+    code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate, coefficient: o.coefficient
   }));
   const catalogText = catalog.length
     ? catalog.map((o) => `- [${o.code}] ${o.label} (unite: ${o.unit}, temps normatif: ${o.normativeTime}h${o.hourlyRate ? `, taux: ${o.hourlyRate}€/h` : ""})`).join("\n")
@@ -145,7 +145,7 @@ export async function POST(request) {
   const adminUserId = await resolveAdminUserId();
   if (!adminUserId) return badRequest("Configuration interne manquante (compte admin introuvable).", 500);
 
-  const { rooms, items } = buildItemsFromAiQuote(parsed);
+  const { rooms, items } = buildItemsFromAiQuote(parsed, catalog);
   const total = Math.max(0, Number(parsed.prix_total_estime) || 0);
   const conseils = parsed.conseils.map((c, index) => ({
     id: `conseil-${index}`,
