@@ -5,7 +5,26 @@ import { buildWebUser } from "../../../lib/user-profile";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
+import { buildMissingPriceNotes } from "../../../lib/ai-devis-shape";
 import { fixText } from "../../../lib/text";
+
+// Un poste de l'expertise interne marque priceSource "ia" (voir
+// lib/ai-devis-shape.js) a ete chiffre par l'IA faute de correspondance
+// dans la bibliotheque de prix — fiable pour donner au particulier une
+// fourchette indicative (voir expertise-koji), mais jamais a faire passer
+// pour un prix sur, tel quel, sur le devis REEL de l'entreprise (30 sept,
+// demande d'Amira). On le remet a 0€ ici, avec une note demandant a
+// l'entreprise de le completer elle-meme — la professionnelle la mieux
+// placee pour donner un vrai prix, jamais une estimation IA non verifiee.
+function clearUnverifiedAiPrices(items) {
+  const missingPriceNotes = [];
+  const cleaned = (items || []).map((item) => {
+    if (item.priceSource !== "ia") return item;
+    missingPriceNotes.push({ room: item.room || "Général", label: item.label || "Prestation" });
+    return { ...item, billingMode: "fixed", fixedAmountHt: 0, priceSource: "manquant", needsPrice: true };
+  });
+  return { items: cleaned, missingPriceNotes };
+}
 
 // Devis pre-rempli par koji (decisions du 4 septembre) — une entreprise
 // consultant un chantier Radar des Chantiers reçoit une COPIE du devis
@@ -43,6 +62,7 @@ export async function POST(request) {
 
   const now = new Date().toISOString();
   const quoteNumber = await nextQuoteNumberFor(auth);
+  const { items: cleanedItems, missingPriceNotes } = clearUnverifiedAiPrices(expertise.items || []);
 
   const draft = {
     id: "",
@@ -62,8 +82,8 @@ export async function POST(request) {
     status: "Brouillon",
     signatureStatus: "Non envoye",
     rooms: expertise.rooms || [],
-    items: expertise.items || [],
-    notes: [],
+    items: cleanedItems,
+    notes: buildMissingPriceNotes(missingPriceNotes),
     surcharges: [],
     vatRate: 0.2,
     draftStep: 0,
@@ -75,7 +95,9 @@ export async function POST(request) {
     createdAtIso: now,
     updatedAt: now,
     chantierOffreId: offre.id,
-    aiGenerated: true
+    aiGenerated: true,
+    offrePriceRangeMin: offre.priceRangeMin || null,
+    offrePriceRangeMax: offre.priceRangeMax || null
   };
 
   const computed = applyQuoteTotals(draft);

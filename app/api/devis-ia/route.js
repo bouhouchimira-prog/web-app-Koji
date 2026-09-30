@@ -4,7 +4,7 @@ import { addHistory, readDb, writeDb } from "../../../lib/db";
 import { getAuth } from "../../../lib/server-auth";
 import { buildWebUser } from "../../../lib/user-profile";
 import { mergedOuvrages } from "../../../lib/ouvrages";
-import { validateAiQuote, buildItemsFromAiQuote } from "../../../lib/ai-devis-shape";
+import { validateAiQuote, buildItemsFromAiQuote, buildMissingPriceNotes } from "../../../lib/ai-devis-shape";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
@@ -228,9 +228,15 @@ export async function POST(request) {
     return badRequest("Réponse de génération incomplète. Réessayez.", 502);
   }
 
-  const { rooms, items: rawItems } = buildItemsFromAiQuote(parsed, catalog);
+  // trustAiPriceForUnmatched: false (30 sept) — cote entreprise, un poste
+  // hors bibliotheque ne recoit jamais un prix invente par l'IA : il est
+  // cree a 0€ avec une note visible demandant a l'entreprise de le
+  // completer elle-meme, jamais un chiffre IA non verifie affiche comme
+  // fiable sur un devis reel.
+  const { rooms, items: rawItems, missingPriceNotes } = buildItemsFromAiQuote(parsed, catalog, { trustAiPriceForUnmatched: false });
   const items = applyLaborLevelCoefficients(rawItems, lotDetails);
   const materialNotes = buildMaterialNotes(parsed.lots, lotDetails);
+  const missingPriceRoomNotes = buildMissingPriceNotes(missingPriceNotes);
 
   const { data: profile } = await auth.supabase.from("users").select("*").eq("id", auth.userId).maybeSingle();
   const webUser = buildWebUser({ id: auth.userId, email: profile?.email || "", profile });
@@ -255,7 +261,7 @@ export async function POST(request) {
     signatureStatus: "Non envoye",
     rooms,
     items,
-    notes: materialNotes,
+    notes: [...materialNotes, ...missingPriceRoomNotes],
     surcharges: [],
     vatRate: 0.2,
     draftStep: 0,
