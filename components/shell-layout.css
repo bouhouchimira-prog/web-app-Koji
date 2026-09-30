@@ -1,0 +1,328 @@
+/* Navigation entreprise — refonte du 29 septembre.
+   Uniquement la navigation (topbar, drawer, nouvelle barre mobile) :
+   aucune classe de app/globals.css n'est redefinie ici pour autre chose
+   que la navigation elle-meme, et globals.css n'est pas touche. */
+
+/* Demande d'Amira (29 septembre) : la sidebar (panneau complet avec textes,
+   voir .drawer dans app/globals.css) reste un panneau qui s'ouvre et se
+   ferme, sur toutes les tailles d'ecran — pas de mode "toujours affichee"
+   pour CE panneau-la. Le bouton menu et le comportement d'ouverture/
+   fermeture de app/globals.css restent donc inchanges ici.
+
+   Le 30 septembre, sur une inspiration Gmail (colonne d'icones repliee,
+   toujours visible, sans avoir besoin d'ouvrir un menu), une DEUXIEME
+   navigation a ete ajoutee pour le bureau uniquement (>= 1024px) : .side-rail
+   ci-dessous, une colonne fine avec uniquement les icones des rubriques —
+   totalement separee du .drawer existant (qui reste le panneau mobile,
+   ouvert via le bouton menu, desormais cache sur bureau puisque la colonne
+   d'icones le remplace a cette taille). Volontairement un nouvel element,
+   pas une modification de .drawer, pour ne jamais reproduire l'echec du 29
+   septembre (tentative de rendre .drawer lui-meme persistant sur bureau via
+   position:fixed + marges, layout casse, revertee). */
+
+/* Correction : la bande bleue (drawer-brand) en haut du panneau, qui
+   pouvait apparaitre legerement decalee. */
+.drawer-brand {
+  margin-top: 0;
+  position: relative;
+  top: 0;
+}
+
+/* ── Groupe "Gestion" (outils Koji Premium repliables) ───────────────── */
+.drawer-gestion-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.drawer-gestion-chevron {
+  margin-left: auto;
+  width: 12px !important;
+  height: 12px !important;
+  transition: transform 0.18s ease;
+}
+
+.drawer-gestion-chevron.open {
+  transform: rotate(180deg);
+}
+
+.drawer-gestion-list {
+  display: grid;
+  gap: 4px;
+}
+
+/* ── Photo de profil / initiales, a cote des notifications ───────────── */
+.avatar-btn {
+  padding: 0;
+  overflow: hidden;
+}
+
+.avatar-btn-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.avatar-btn-initials {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--gold, #e6d7c4);
+  color: var(--navy, #000b28);
+  letter-spacing: 0.02em;
+}
+
+/* ── Barre de navigation mobile (< 1024px, entreprise uniquement) ────── */
+@media (min-width: 1024px) {
+  .bottom-nav {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .web-main.has-bottom-nav {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* La bulle de l'assistant koji et le bouton "+" flottant (utilise sur
+     /equipe, /fournitures, /planning) passent au-dessus de la nouvelle
+     barre plutot que de se superposer avec elle. */
+  .has-bottom-nav ~ .koji-assistant-bubble,
+  body:has(.bottom-nav) .koji-assistant-bubble {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+  body:has(.bottom-nav) .floating-add {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  height: 62px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: #fff;
+  border-top: 1px solid #e4e8f0;
+  box-shadow: 0 -6px 20px rgba(0, 11, 40, 0.06);
+}
+
+.bottom-nav-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 62px;
+  color: var(--muted, #7e715f);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bottom-nav-item .svg-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.bottom-nav-item.active {
+  color: var(--navy, #000b28);
+}
+
+.bottom-nav-item.locked {
+  color: #b7bdc9;
+}
+
+.bottom-nav-lock {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 18px);
+  width: 10px !important;
+  height: 10px !important;
+  color: #9aa1b4;
+}
+
+.bottom-nav-dot {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 16px);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e23434;
+}
+
+.bottom-nav-badge {
+  position: absolute;
+  top: 0;
+  right: calc(50% - 20px);
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #e23434;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+}
+
+/* Marketplace : bouton central, plus grand, surélevé. */
+.bottom-nav-item-main {
+  flex: 1.1;
+}
+
+.bottom-nav-main-btn {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  margin-top: -22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy, #000b28);
+  color: var(--gold, #e6d7c4);
+  box-shadow: 0 10px 22px rgba(0, 11, 40, 0.35);
+}
+
+.bottom-nav-main-btn .bottom-nav-dot {
+  top: 2px;
+  right: 2px;
+  box-shadow: 0 0 0 2px var(--navy, #000b28);
+}
+
+.bottom-nav-main-btn .svg-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.bottom-nav-item-main span:last-child {
+  margin-top: 2px;
+}
+
+/* ── Colonne d'icones type Gmail, bureau uniquement (>= 1024px) ──────────
+   Cachee par defaut (mobile/tablette) : c'est la barre du bas (.bottom-nav
+   ci-dessus) qui sert de navigation rapide a ces tailles. */
+.side-rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .web-shell {
+    padding-left: 72px;
+  }
+
+  /* Le bouton menu (hamburger) ouvrait le panneau complet — sur bureau,
+     la colonne d'icones le remplace, plus besoin de cliquer pour voir les
+     rubriques principales. visibility (pas display:none) : le bouton garde
+     sa place dans la barre du haut (justify-content:space-between n'a que
+     2 elements de chaque cote — logo et notifications/avatar — un
+     display:none ici les recolle tous les deux a gauche puisqu'il ne reste
+     plus qu'un seul element flex, voir bug du 30 septembre). */
+  .menu-toggle-btn {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .side-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 72px;
+    height: 100vh;
+    height: 100dvh;
+    background: var(--navy, #000b28);
+    padding: 16px 0;
+    z-index: 10;
+    overflow-y: auto;
+  }
+}
+
+.side-rail-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.side-rail-item.active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.side-rail-menu-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.side-rail-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.side-rail-icon-neutral {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.side-rail-item.locked .side-rail-icon {
+  color: #6b7280;
+}
+
+.side-rail-lock {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 12px !important;
+  height: 12px !important;
+  color: #e6d7c4;
+  background: var(--navy, #000b28);
+  border-radius: 50%;
+  padding: 1px;
+}
+
+.side-rail-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e23434;
+  box-shadow: 0 0 0 2px var(--navy, #000b28);
+}
+
+.side-rail-divider {
+  width: 32px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 6px 0;
+  flex-shrink: 0;
+}
