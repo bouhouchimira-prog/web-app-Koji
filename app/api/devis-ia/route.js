@@ -263,7 +263,9 @@ export async function POST(request) {
     items,
     notes: [...materialNotes, ...missingPriceRoomNotes],
     surcharges: [],
-    vatRate: 0.2,
+    // vatRate est un pourcentage ENTIER (20, pas 0.2) — voir le meme
+    // correctif dans app/api/expertise-koji/route.js.
+    vatRate: 20,
     draftStep: 0,
     draftData: null,
     isCreationDraft: false,

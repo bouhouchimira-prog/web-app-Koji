@@ -175,7 +175,13 @@ export async function POST(request) {
     items,
     notes: [],
     surcharges: [],
-    vatRate: 0.2,
+    // vatRate est un pourcentage ENTIER (20, pas 0.2) — c'est ce que lit
+    // DevisEditor.jsx directement (Number(quote.vatRate)), comme le fait
+    // deja la creation manuelle d'un devis (app/api/quotes/route.js,
+    // "Number(body.vatRate ?? 20)"). lib/quote-calculations.js normalise
+    // les deux formes cote calcul serveur, DevisEditor non (30 sept, bug
+    // remonte par Amira : TVA affichee "0,2 %" au lieu de "20 %").
+    vatRate: 20,
     draftStep: 0,
     draftData: null,
     isCreationDraft: false,
