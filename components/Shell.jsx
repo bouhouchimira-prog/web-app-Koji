@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
+import "./shell-layout.css";
 
 // Menu restructure en 2 groupes (23 septembre, Koji Premium) : "principal"
 // toujours accessible, "premium" verrouille sauf abonnement Koji Premium
@@ -47,6 +48,16 @@ const NOTIF_TYPE_ICONS = {
   "urgent.alert": "🚨",
   "radar.expertise_publiee": "🧭"
 };
+
+// Initiales affichees dans la photo de profil quand aucun logo n'est
+// renseigne (raison sociale, sinon nom du compte).
+function initialsFrom(text) {
+  const clean = String(text || "").trim();
+  if (!clean) return "?";
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 function kojiGreeting(firstName) {
   const hour = new Date().getHours();
@@ -226,6 +237,12 @@ function Icon({ name, className = "" }) {
           <circle {...base} cx="12" cy="12" r="9" />
           <path {...base} d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4.5" />
           <path {...base} d="M12 17.5h.01" />
+        </svg>
+      );
+    case "chevron-down":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <polyline {...base} points="6 9 12 15 18 9" />
         </svg>
       );
     default:
@@ -454,6 +471,14 @@ export function Shell({ children }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [premiumTools, setPremiumTools] = useState(false);
   const [trial, setTrial] = useState({ daysLeft: Infinity, expired: false, subscribed: true });
+  // Photo de profil dans la barre du haut (29 septembre) : logo de
+  // l'entreprise si renseigne (profile.logo_url, voir lib/user-profile.js),
+  // sinon les initiales de la raison sociale ou du nom du compte.
+  const [avatarLogo, setAvatarLogo] = useState("");
+  const [avatarLabel, setAvatarLabel] = useState("");
+  // Groupe "Gestion" (outils Koji Premium) repliable (29 septembre) :
+  // ouvert par defaut des qu'on est deja sur une de ces pages, sinon replie.
+  const [gestionOpen, setGestionOpen] = useState(() => PREMIUM_PATHS.some((p) => pathname.startsWith(p)));
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
   // Point rouge sur "Marketplace" / "Trouvez un chantier" (26 septembre,
@@ -479,6 +504,10 @@ export function Shell({ children }) {
 
   useEffect(() => {
     setDrawerOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (PREMIUM_PATHS.some((p) => pathname.startsWith(p))) setGestionOpen(true);
   }, [pathname]);
 
   useEffect(() => {
@@ -514,6 +543,8 @@ export function Shell({ children }) {
       if (parsed?.accountType === "particulier") setProfileType("particulier");
       else setProfileType("entreprise");
       if (parsed?.name) setKojiUserName(String(parsed.name).trim().split(" ")[0]);
+      setAvatarLogo(parsed?.logoUrl || "");
+      setAvatarLabel(parsed?.business?.raisonSociale || parsed?.name || "");
       const isAdminNow = Boolean(parsed?.isAdmin);
       if (isAdminNow) setIsAdmin(true);
       setPremiumTools(Boolean(parsed?.premiumTools));
@@ -546,7 +577,7 @@ export function Shell({ children }) {
   return (
     <div className="web-shell">
       <header className="app-topbar">
-        <button type="button" className="icon-round" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
+        <button type="button" className="icon-round menu-toggle-btn" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
           <Icon name="menu" className="svg-icon" />
         </button>
         <Link href="/" className="topbar-logo" aria-label={L.shell.spaceCompany}>
@@ -598,9 +629,46 @@ export function Shell({ children }) {
               </div>
             ) : null}
           </div>
-          <Link href="/profil" className="icon-round" aria-label={L.nav.profile}><Icon name="user" className="svg-icon" /></Link>
+          <Link href="/profil" className="icon-round avatar-btn" aria-label={L.nav.profile}>
+            {avatarLogo ? (
+              <img src={avatarLogo} alt="" className="avatar-btn-img" />
+            ) : (
+              <span className="avatar-btn-initials">{initialsFrom(avatarLabel)}</span>
+            )}
+          </Link>
         </div>
       </header>
+
+      {profileType !== "particulier" ? (
+        <nav className="side-rail" aria-label="nav bureau">
+          <button type="button" className="side-rail-item side-rail-menu-btn" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
+            <span className="side-rail-icon side-rail-icon-neutral"><Icon name="menu" className="svg-icon" /></span>
+          </button>
+          <div className="side-rail-divider" />
+          {navItems.filter((item) => item.group === "principal").map((item) => {
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            return (
+              <Link href={item.href} key={item.href} className={`side-rail-item${active ? " active" : ""}`} title={item.label}>
+                <span className="side-rail-icon" style={{ background: item.color }}><Icon name={item.icon} className="svg-icon" /></span>
+                {item.href === "/marketplace" && hasNewMarketplaceOffers ? <span className="side-rail-dot" aria-label="Nouvelles offres" /> : null}
+              </Link>
+            );
+          })}
+          <div className="side-rail-divider" />
+          {navItems.filter((item) => item.group === "premium").map((item) => {
+            const active = item.href === "/calendrier"
+              ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
+              : pathname.startsWith(item.href);
+            const locked = !isAdmin && !premiumTools;
+            return (
+              <Link href={locked ? "/abonnement" : item.href} key={item.href} className={`side-rail-item${active ? " active" : ""}${locked ? " locked" : ""}`} title={item.label}>
+                <span className="side-rail-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
+                {locked ? <Icon name="lock" className="svg-icon side-rail-lock" /> : null}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
 
       <div className={`drawer-backdrop ${drawerOpen ? "open" : ""}`} onClick={() => setDrawerOpen(false)} />
       <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-label={L.nav.settings}>
@@ -641,23 +709,33 @@ export function Shell({ children }) {
             );
           })}
 
-          <span className="drawer-nav-section drawer-nav-section-premium">
+          <button
+            type="button"
+            className="drawer-nav-section drawer-nav-section-premium drawer-gestion-toggle"
+            onClick={() => setGestionOpen((open) => !open)}
+            aria-expanded={gestionOpen}
+          >
             <Icon name="lock" className="svg-icon" />
             {L.nav.sectionPremium}
-          </span>
-          {navItems.filter((item) => item.group === "premium").map((item) => {
-            const active = item.href === "/calendrier"
-              ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
-              : pathname.startsWith(item.href);
-            const locked = !isAdmin && !premiumTools;
-            return (
-              <Link href={locked ? "/abonnement" : item.href} className={`${active ? "active" : ""}${locked ? " locked" : ""}`} key={item.href}>
-                <span className="drawer-nav-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
-                {item.label}
-                {locked ? <Icon name="lock" className="svg-icon drawer-nav-lock" /> : null}
-              </Link>
-            );
-          })}
+            <Icon name="chevron-down" className={`svg-icon drawer-gestion-chevron${gestionOpen ? " open" : ""}`} />
+          </button>
+          {gestionOpen ? (
+            <div className="drawer-gestion-list">
+              {navItems.filter((item) => item.group === "premium").map((item) => {
+                const active = item.href === "/calendrier"
+                  ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
+                  : pathname.startsWith(item.href);
+                const locked = !isAdmin && !premiumTools;
+                return (
+                  <Link href={locked ? "/abonnement" : item.href} className={`${active ? "active" : ""}${locked ? " locked" : ""}`} key={item.href}>
+                    <span className="drawer-nav-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
+                    {item.label}
+                    {locked ? <Icon name="lock" className="svg-icon drawer-nav-lock" /> : null}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
         </nav>
 
         <div className="drawer-divider" />
@@ -682,7 +760,43 @@ export function Shell({ children }) {
         </div>
       )}
 
-      <main className="web-main">{children}</main>
+      {profileType !== "particulier" ? (
+        <nav className="bottom-nav" aria-label="nav mobile">
+          {(() => {
+            const chantiersLocked = !isAdmin && !premiumTools;
+            const chantiersActive = pathname.startsWith("/chantiers");
+            return (
+              <Link href={chantiersLocked ? "/abonnement" : "/chantiers"} className={`bottom-nav-item${chantiersActive ? " active" : ""}${chantiersLocked ? " locked" : ""}`}>
+                <Icon name="tools" className="svg-icon" />
+                <span>{L.nav.projects}</span>
+                {chantiersLocked ? <Icon name="lock" className="svg-icon bottom-nav-lock" /> : null}
+              </Link>
+            );
+          })()}
+          <Link href="/devis" className={`bottom-nav-item${pathname.startsWith("/devis") ? " active" : ""}`}>
+            <Icon name="file" className="svg-icon" />
+            <span>{L.nav.quotes}</span>
+          </Link>
+          <Link href="/marketplace" className="bottom-nav-item bottom-nav-item-main">
+            <span className="bottom-nav-main-btn">
+              <Icon name="market" className="svg-icon" />
+              {hasNewMarketplaceOffers ? <span className="bottom-nav-dot" aria-label="Nouvelles offres" /> : null}
+            </span>
+            <span>{L.nav.marketplace}</span>
+          </Link>
+          <Link href="/bibliotheque-ouvrages" className={`bottom-nav-item${pathname.startsWith("/bibliotheque-ouvrages") ? " active" : ""}`}>
+            <Icon name="book" className="svg-icon" />
+            <span>{L.nav.library}</span>
+          </Link>
+          <Link href="/notifications" className={`bottom-nav-item${pathname.startsWith("/notifications") ? " active" : ""}`}>
+            <Icon name="bell" className="svg-icon" />
+            {unreadCount > 0 ? <span className="bottom-nav-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+            <span>{L.shell.notifications}</span>
+          </Link>
+        </nav>
+      ) : null}
+
+      <main className={`web-main${profileType !== "particulier" ? " has-bottom-nav" : ""}`}>{children}</main>
 
       <button
         type="button"
