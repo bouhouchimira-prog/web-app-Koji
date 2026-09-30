@@ -619,6 +619,24 @@ export async function POST(request) {
 
   if (rawSlotKey.startsWith(CADRAGE_SLOT_PREFIX)) {
     const question = answers._cadrageLastQuestion || "";
+
+    // Correction du 30 septembre (remontée par Amira en capture — "Murs
+    // uniquement", un bouton propose tel quel, était jugé imprécis et
+    // relançait la même question en boucle) : contrairement aux 11 questions
+    // fixes (optionMatches(slot.options, userMessage) plus bas dans ce
+    // fichier), le cadrage appelait TOUJOURS l'IA classificatrice, même pour
+    // une réponse qui correspond exactement à un des boutons proposés — donc
+    // même un choix garanti sans ambiguïté pouvait se faire bloquer par un
+    // jugement IA erroné. Un clic exact sur un bouton (hors "Autre,
+    // précisez", qui n'est jamais une vraie réponse) saute maintenant
+    // directement à la suite, sans passer par l'IA, exactement comme pour
+    // les 11 questions fixes.
+    const cadrageOptions = Array.isArray(answers._cadrageLastOptions) ? answers._cadrageLastOptions : null;
+    if (optionMatches(cadrageOptions, userMessage) && fixText(userMessage).trim().toLowerCase() !== CADRAGE_AUTRE_OPTION.toLowerCase()) {
+      answers._cadrageHistory = [...(Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : []), { question, reponse: fixText(userMessage).trim() }];
+      return startOrContinueCadrage();
+    }
+
     if (!process.env.ANTHROPIC_API_KEY) {
       return badRequest("L'assistant IA n'est pas configuré (clé API manquante).", 500);
     }
