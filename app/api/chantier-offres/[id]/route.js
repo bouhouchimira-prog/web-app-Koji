@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../../lib/http";
 import { readDb } from "../../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { fixObjectText } from "../../../../lib/text";
+import { syncOfferPriceRange } from "../../../../lib/chantier-offre-sync";
 
 function publicOffer(offer) {
   return fixObjectText(offer);
@@ -16,5 +17,6 @@ export async function GET(request, context) {
   const offre = (db.chantierOffres || []).find((entry) => entry.id === id && entry.userId === userId);
   if (!offre) return badRequest("Offre introuvable.", 404);
 
+  await syncOfferPriceRange(db, offre);
   return ok({ offre: publicOffer(offre) });
 }
