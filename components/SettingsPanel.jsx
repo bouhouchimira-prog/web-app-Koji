@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLocale } from "../lib/i18n";
-import { apiSend } from "../lib/client-api";
+import { apiGet, apiSend } from "../lib/client-api";
 
 function getStoredTheme() {
   if (typeof window === "undefined") return "light";
@@ -33,6 +33,17 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
   const [reportSent, setReportSent] = useState(false);
   const [reportError, setReportError] = useState("");
   const [reportSending, setReportSending] = useState(false);
+
+  // Export des donnees (RGPD art. 20) et demande de suppression de compte
+  // (RGPD art. 17, 30 septembre) — memes composants partages entre les 3
+  // profils que le signalement technique ci-dessus.
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteSent, setDeleteSent] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteSending, setDeleteSending] = useState(false);
 
   // Entreprise gets its own dedicated page (bank details + plan) since a
   // real payment method requires more than an inline expandable card;
@@ -78,6 +89,50 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
       setReportError(error.message || L.settings.reportError);
     } finally {
       setReportSending(false);
+    }
+  }
+
+  async function exportData() {
+    setExporting(true);
+    setExportError("");
+    try {
+      const data = await apiGet("/api/account/export");
+      const blob = new Blob([JSON.stringify(data.export, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `koji-donnees-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setExportError(error.message || L.settings.exportDataError);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function openDelete() {
+    setDeleteReason("");
+    setDeleteError("");
+    setDeleteSent(false);
+    setDeleteOpen(true);
+  }
+
+  async function submitDelete(event) {
+    event.preventDefault();
+    setDeleteSending(true);
+    setDeleteError("");
+    try {
+      await apiSend("/api/account/deletion-request", { reason: deleteReason.trim(), accountType });
+      setDeleteSent(true);
+      setDeleteReason("");
+      window.setTimeout(() => setDeleteOpen(false), 1800);
+    } catch (error) {
+      setDeleteError(error.message || L.settings.deleteAccountError);
+    } finally {
+      setDeleteSending(false);
     }
   }
 
@@ -127,6 +182,31 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
     </div>
   ) : null;
 
+  const deleteModal = deleteOpen ? (
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setDeleteOpen(false)}>
+      <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
+        <h2>{L.settings.deleteAccount}</h2>
+        <p className="muted">{L.settings.deleteAccountIntro}</p>
+        <form onSubmit={submitDelete} className="settings-report-form">
+          <textarea
+            rows={3}
+            className="profile-textarea"
+            value={deleteReason}
+            onChange={(event) => setDeleteReason(event.target.value)}
+            placeholder={L.settings.deleteAccountPlaceholder}
+            autoFocus
+          />
+          {deleteError ? <p className="profile-message error">{deleteError}</p> : null}
+          {deleteSent ? <p className="profile-message">{L.settings.deleteAccountSent}</p> : null}
+          <div>
+            <button type="button" onClick={() => setDeleteOpen(false)}>{L.common.cancel}</button>
+            <button type="submit" disabled={deleteSending}>{L.common.send}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  ) : null;
+
   if (variant === "cards") {
     return (
       <>
@@ -156,10 +236,14 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
             <button type="button" className="button secondary profile-link-button" onClick={openReport}>{L.settings.reportProblem}</button>
             <Link href="/aide" className="button secondary profile-link-button">{L.settings.help}</Link>
             <Link href="/legal" className="button secondary profile-link-button">{L.settings.legal}</Link>
+            <button type="button" className="button secondary profile-link-button" onClick={exportData} disabled={exporting}>{L.settings.exportData}</button>
+            <button type="button" className="button secondary profile-link-button" onClick={openDelete}>{L.settings.deleteAccount}</button>
           </div>
+          {exportError ? <p className="profile-message error">{exportError}</p> : null}
         </section>
 
         {reportModal}
+        {deleteModal}
       </>
     );
   }
@@ -208,8 +292,18 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
         <strong>{L.settings.legal}</strong>
         <span className="settings-row-chevron">›</span>
       </Link>
+      <button type="button" className="settings-row settings-row-link" onClick={exportData} disabled={exporting}>
+        <strong>{L.settings.exportData}</strong>
+        <span className="settings-row-chevron">›</span>
+      </button>
+      {exportError ? <p className="profile-message error">{exportError}</p> : null}
+      <button type="button" className="settings-row settings-row-link" onClick={openDelete}>
+        <strong>{L.settings.deleteAccount}</strong>
+        <span className="settings-row-chevron">›</span>
+      </button>
 
       {reportModal}
+      {deleteModal}
     </section>
   );
 }
