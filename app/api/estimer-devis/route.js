@@ -85,7 +85,11 @@ export async function POST(request) {
     items: cleanedItems,
     notes: buildMissingPriceNotes(missingPriceNotes),
     surcharges: [],
-    vatRate: 0.2,
+    // Taux reduit travaux de renovation (30 sept, demande d'Amira) — un
+    // devis issu d'une offre Radar des Chantiers part a 10% au lieu des 20%
+    // par defaut ailleurs dans l'app ; reste un champ modifiable normalement
+    // par l'entreprise si ce chantier precis n'y est pas eligible.
+    vatRate: 0.1,
     draftStep: 0,
     draftData: null,
     isCreationDraft: false,

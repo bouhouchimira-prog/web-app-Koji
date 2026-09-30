@@ -2479,7 +2479,15 @@ export default function DevisEditor() {
               />
             </section>
 
-            {["Services", ...roomGroups.filter((r) => r !== "Services")].map((room) => {
+            {(
+              // "Services" ("Travaux généraux") ne s'affiche plus comme une
+              // carte vide par defaut (30 sept, demande d'Amira) — uniquement
+              // si elle contient deja des lignes, ou si elle a ete creee
+              // explicitement par l'entreprise via le selecteur de lot.
+              roomGroups.includes("Services") || (linesByRoom.Services || []).length > 0
+                ? ["Services", ...roomGroups.filter((r) => r !== "Services")]
+                : roomGroups.filter((r) => r !== "Services")
+            ).map((room) => {
               const roomLines = linesByRoom[room] || [];
               const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
               const isExpanded = expandedLotIds.has(room);
@@ -2585,7 +2593,7 @@ export default function DevisEditor() {
               </div>
               <div className="quote-lots-footer-right">
                 <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
-                <div><span>TVA / VAT</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
+                <div><span>TVA</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
                 <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
               </div>
             </section>
@@ -3003,7 +3011,7 @@ export default function DevisEditor() {
           </div>
 
           <div className="recap-row recap-tva-row">
-            <span>TVA / VAT</span>
+            <span>TVA</span>
             <div className="recap-tva-controls">
               {vatManual ? (
                 <>
