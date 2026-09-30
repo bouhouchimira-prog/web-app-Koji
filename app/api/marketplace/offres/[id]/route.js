@@ -4,6 +4,7 @@ import { getVerifiedUserId } from "../../../../../lib/server-auth";
 import { hasConfirmedRdv } from "../../../../../lib/rdv";
 import { hasPhotoAccess } from "../../../../../lib/photo-access";
 import { fixText } from "../../../../../lib/text";
+import { syncOfferPriceRange } from "../../../../../lib/chantier-offre-sync";
 
 // Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers.
 // Regle unique (decisions du 4 septembre) : aucune coordonnee visible
@@ -56,6 +57,7 @@ export async function GET(request, context) {
   const offre = (db.chantierOffres || []).find((entry) => entry.id === id);
   if (!offre) return badRequest("Offre introuvable.", 404);
 
+  await syncOfferPriceRange(db, offre);
   const rdvUnlocked = hasConfirmedRdv(db.chantierOffreMessages, id, userId);
   const photosUnlocked = hasPhotoAccess(db.chantierOffreMessages, id, userId);
   return ok({ offre: detailOffer(offre, rdvUnlocked, photosUnlocked) });
