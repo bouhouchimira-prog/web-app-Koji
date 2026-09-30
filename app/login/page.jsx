@@ -250,14 +250,6 @@ function GoogleIcon() {
     </svg>
   );
 }
-function MicrosoftIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 23 23">
-      <path fill="#f35325" d="M1 1h10v10H1z" /><path fill="#81bc06" d="M12 1h10v10H12z" />
-      <path fill="#05a6f0" d="M1 12h10v10H1z" /><path fill="#ffba08" d="M12 12h10v10H12z" />
-    </svg>
-  );
-}
 function AppleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="#000">
@@ -267,17 +259,19 @@ function AppleIcon() {
 }
 
 // Ecran de connexion en 3 etapes : "quel profil ?" -> formulaire du profil
-// choisi -> (dans le formulaire) options Google/Microsoft/Apple. Google est
-// branche pour Koji Pro (entreprise) — meme compte Supabase que le
-// email/mot de passe (voir app/api/auth/login/route.js), juste un autre
-// chemin pour obtenir la session. Microsoft/Apple restent "Bientot
-// disponible" (pas d'app OAuth enregistree cote Microsoft/Apple), et Google
-// aussi pour Koji (particulier) — ces comptes ne sont pas sur Supabase Auth,
-// brancher Google pour eux est un chantier separe.
+// choisi -> (dans le formulaire) options Google/Apple (Microsoft retire le
+// 30 sept, aucune app OAuth Microsoft prevue). Google est desormais branche
+// pour les DEUX profils : cote Koji Pro (entreprise), la session Supabase
+// obtenue est la session finale (app/api/auth/google/finish) ; cote Koji
+// (particulier), ces comptes ne sont pas sur Supabase Auth — la session
+// Supabase sert uniquement a prouver l'email verifie, puis
+// app/api/auth/google/finish-particulier retrouve ou cree le compte dans
+// db.users et pose un jeton de portail (voir app/auth/google/callback pour
+// le branchement des deux, via ?profile=... dans redirectTo). Apple reste
+// "Bientot disponible" (pas d'app Sign in with Apple enregistree).
 function SsoOptions({ profile }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const googleEnabled = profile === "entreprise";
 
   async function handleGoogle() {
     setError("");
@@ -287,7 +281,7 @@ function SsoOptions({ profile }) {
       const supabase = getSupabaseBrowser();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/google/callback` }
+        options: { redirectTo: `${window.location.origin}/auth/google/callback?profile=${profile}` }
       });
       if (oauthError) throw oauthError;
       // La suite se passe hors de cette page : Supabase redirige vers Google,
@@ -303,15 +297,10 @@ function SsoOptions({ profile }) {
       <button
         type="button"
         className="auth-sso-btn"
-        disabled={!googleEnabled || loading}
-        title={googleEnabled ? undefined : "Bientôt disponible"}
-        onClick={googleEnabled ? handleGoogle : undefined}
+        disabled={loading}
+        onClick={handleGoogle}
       >
         <GoogleIcon /> {loading ? "Redirection…" : "Continuer avec Google"}
-        {!googleEnabled ? <span className="auth-sso-soon">Bientôt</span> : null}
-      </button>
-      <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
-        <MicrosoftIcon /> Continuer avec Microsoft <span className="auth-sso-soon">Bientôt</span>
       </button>
       <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
         <AppleIcon /> Continuer avec Apple <span className="auth-sso-soon">Bientôt</span>
