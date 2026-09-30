@@ -139,7 +139,7 @@ export default function ClientProfilePage() {
             <div className="kc-grid">
               <label className="kc-field">
                 <span>Identifiant</span>
-                <input value={user?.portalIdentifier || ""} disabled />
+                <input value={user?.portalIdentifier || user?.email || ""} disabled />
               </label>
               <label className="kc-field">
                 <span>Nouveau mot de passe</span>

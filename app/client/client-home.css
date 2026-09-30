@@ -96,17 +96,6 @@
 
 .kc-hero .kc-btn { min-height: 50px; padding: 0 24px; font-size: 15px; }
 
-.kc-trust {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12.5px;
-}
-.kc-trust li::before { content: "✓ "; color: var(--kc-lemon); }
 
 /* ---------- Bloc « Mes demandes » ---------- */
 .kc-block {
@@ -622,7 +611,7 @@ button.kc-artisan:hover { border-color: #c9cfdd; box-shadow: 0 6px 18px rgba(23,
 .kc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .kc-grid-full { grid-column: 1 / -1; }
 
-.kc-field { display: grid; gap: 6px; font-size: 13px; color: var(--kc-muted); }
+.kc-field { display: grid; align-content: start; gap: 6px; font-size: 13px; color: var(--kc-muted); }
 .kc-field > span:first-child { font-weight: 600 !important; color: var(--kc-ink); }
 .kc-field input {
   width: 100%;
@@ -699,3 +688,7 @@ button.kc-artisan:hover { border-color: #c9cfdd; box-shadow: 0 6px 18px rgba(23,
 .kc-settings .settings-lang-pill { border-radius: 0; }
 .kc-settings .settings-theme-toggle button.active,
 .kc-settings .settings-lang-pill.active { background: var(--kc-navy); color: var(--kc-lemon); border-color: var(--kc-navy); }
+
+/* Mention sous le bouton de l'accueil */
+.kc-mention { margin: 6px 0 0; color: rgba(255, 255, 255, 0.72); font-size: 13px; }
+.kc-grid { align-items: start; }

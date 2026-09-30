@@ -49,21 +49,22 @@
 /* Carte principale */
 .kp .radar-form-card { border-radius: 18px; border-color: var(--kp-line); box-shadow: none; }
 
-/* Écran d'accueil de l'assistant */
-.kp .radar-hero-screen { background: var(--kp-navy); }
+/* Écran d'accueil de l'assistant : intro claire et compacte (plus de bloc sombre) */
+.kp .radar-hero-screen { background: #ffffff; padding: 32px 22px 28px; gap: 4px; }
 .kp .radar-hero-screen::before { display: none; }
-.kp .radar-hero-screen-badge { background: var(--kp-lemon); color: var(--kp-navy); box-shadow: none; }
-.kp .radar-hero-screen h1 { font-weight: 700 !important; }
-.kp .radar-hero-screen h1 em,
-.kp .radar-hero-screen-eyebrow { color: var(--kp-lemon); }
+.kp .radar-hero-screen-badge { width: 48px; height: 48px; margin-bottom: 8px; background: var(--kp-lemon); color: var(--kp-navy); box-shadow: none; }
+.kp .radar-hero-screen h1 { color: var(--kp-ink); font-weight: 700 !important; }
+.kp .radar-hero-screen h1 em { color: var(--kp-navy); }
+.kp .radar-hero-screen-sub { margin: 8px 0 20px; color: var(--kp-muted); font-size: 14.5px; }
 .kp .radar-hero-screen-btn {
   border-radius: 0;
-  background: var(--kp-lemon);
-  color: var(--kp-navy);
+  background: var(--kp-navy);
+  color: var(--kp-lemon);
   box-shadow: none;
   font-weight: 700 !important;
 }
-.kp .radar-hero-screen-btn:hover { transform: none; box-shadow: none; background: #fff6b0; }
+.kp .radar-hero-screen-btn:hover { transform: none; box-shadow: none; background: var(--kp-navy-2); }
+.kp .kp-mention { margin: 12px 0 0; color: var(--kp-muted); font-size: 13px; }
 
 /* Assistant : conversation */
 .kp .radar-chat-header-icon { background: var(--kp-navy); color: var(--kp-lemon); }

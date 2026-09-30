@@ -120,11 +120,7 @@ export default function ClientHomePage() {
           <Link href="/client/radar/new" className="kc-btn kc-btn-lemon">
             <IconPlus /> Publier un chantier
           </Link>
-          <ul className="kc-trust">
-            <li>100 % gratuit</li>
-            <li>Sans engagement</li>
-            <li>Artisans vérifiés</li>
-          </ul>
+          <p className="kc-mention">C'est gratuit, et c'est vous qui choisissez votre artisan.</p>
         </section>
 
         {/* Mes demandes */}
