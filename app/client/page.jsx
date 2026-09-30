@@ -6,19 +6,6 @@ import { useEffect, useState } from "react";
 import { ClientTopbar } from "../../components/ClientTopbar";
 import { euro } from "../../lib/pricing";
 import { useLocale } from "../../lib/i18n";
-import "./client-home.css";
-// Aperçu d'Imed uniquement (mode démo) : cette ligne n'est PAS dans la version pour Amira.
-import "../../lib/demo-client";
-import { ChevronRight, DemandeItem, IconPlus, IconShield, useSuivis } from "./demandes-ui";
-
-// Accueil particulier (refonte UX, septembre 2026) : couleurs Koji Pro,
-// un bouton principal « Publier un chantier » et la liste des demandes du
-// client avec leur état. Routes existantes uniquement :
-// GET /api/chantier-offres, GET /api/marketplace/offres/[id]/positionner
-// (côté particulier : liste des entreprises positionnées) et
-// GET /api/marketplace/offres/[id]/messages.
-
-const DEMANDES_VISIBLES = 5;
 
 function getStoredUser() {
   if (typeof window === "undefined") return null;
@@ -40,7 +27,6 @@ function ProgressRing({ percent, size = 72 }) {
   );
 }
 
-// Utilisé aussi par app/client/chantiers/page.jsx : inchangé.
 export function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel }) {
   const router = useRouter();
   const tasks = quote.tasks || [];
@@ -70,8 +56,6 @@ export function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel
   );
 }
 
-// ---------- Page ----------
-
 export default function ClientHomePage() {
   const { L } = useLocale();
   const [user, setUser] = useState(null);
@@ -85,11 +69,8 @@ export default function ClientHomePage() {
     fetch("/api/chantier-offres")
       .then((r) => r.json())
       .then((data) => setOffres(data.offres || []))
-      .catch(() => setOffres([]))
       .finally(() => setLoading(false));
   }, []);
-
-  const suivis = useSuivis(offres, DEMANDES_VISIBLES);
 
   if (!user?.email) {
     return (
@@ -104,73 +85,46 @@ export default function ClientHomePage() {
     );
   }
 
-  const prenom = String(user.name || "").trim().split(/\s+/)[0] || "";
-  const visibles = offres.slice(0, DEMANDES_VISIBLES);
-  const restantes = offres.length - visibles.length;
-  const aDesDemandes = offres.length > 0;
-
   return (
     <main className="client-space">
       <ClientTopbar />
 
-      <div className="kc">
-        {/* Bandeau d'accueil */}
-        <section className="kc-hero">
-          <p className="kc-hello">{prenom ? `Bonjour ${prenom}` : "Bonjour"}</p>
-          <h1 className="kc-title">{aDesDemandes ? "Un autre projet de travaux\u00a0?" : "Quels travaux voulez-vous faire\u00a0?"}</h1>
-          <p className="kc-sub">Décrivez votre projet en quelques minutes. Les artisans de votre secteur vous répondent.</p>
-          <Link href="/client/radar/new" className="kc-btn kc-btn-lemon">
-            <IconPlus /> Publier un chantier
+      <section className="client-radar-hero">
+        <div className="client-radar-hero-orb" aria-hidden="true" />
+        <div className="client-radar-hero-top">
+          <p className="client-radar-hero-eyebrow">MARKETPLACE BTP</p>
+          <h1>Votre projet de rénovation, simplement.</h1>
+          <p className="client-radar-hero-sub">
+            Décrivez votre projet à notre assistant KOJI et recevez rapidement des offres d'artisans qualifiés.
+          </p>
+        </div>
+        <div className="client-radar-hero-bottom">
+          <Link href="/client/radar/new" className="client-radar-hero-cta">
+            Démarrer mon projet <span aria-hidden="true">→</span>
           </Link>
-          <p className="kc-mention">C'est gratuit, et c'est vous qui choisissez votre artisan.</p>
-        </section>
-
-        {/* Mes demandes */}
-        <section className="kc-block">
-          <div className="kc-block-head">
-            <h2 className="kc-block-title">
-              {aDesDemandes || loading ? "Mes demandes" : "Comment ça marche"}
-              {aDesDemandes ? <span className="kc-count">{offres.length}</span> : null}
-            </h2>
-            {aDesDemandes ? (
-              <Link href="/client/radar" className="kc-btn kc-btn-ghost">Tout voir <ChevronRight /></Link>
-            ) : null}
+          <div className="client-radar-hero-trust">
+            <span>✓ 100% gratuit</span>
+            <span>✓ Sans engagement</span>
+            <span>✓ Artisans vérifiés</span>
           </div>
+        </div>
+      </section>
 
-          {loading ? (
-            <div className="kc-empty">Chargement…</div>
-          ) : !aDesDemandes ? (
-            <ol className="kc-steps">
-              <li>
-                <span className="kc-step-num">1</span>
-                <span><strong>Décrivez vos travaux</strong><small>L'assistant Koji vous pose quelques questions et estime le prix.</small></span>
-              </li>
-              <li>
-                <span className="kc-step-num">2</span>
-                <span><strong>Les artisans se positionnent</strong><small>Seuls les artisans du bon métier, près de chez vous, voient votre demande.</small></span>
-              </li>
-              <li>
-                <span className="kc-step-num">3</span>
-                <span><strong>Vous choisissez</strong><small>Vous échangez avec eux dans Koji et fixez une visite.</small></span>
-              </li>
-            </ol>
-          ) : (
-            <>
-              <ul className="kc-list">
-                {visibles.map((offre) => <DemandeItem key={offre.id} offre={offre} suivi={suivis[offre.id]} />)}
-              </ul>
-              {restantes > 0 ? (
-                <Link href="/client/radar" className="kc-btn kc-btn-more">
-                  Voir {restantes} demande{restantes > 1 ? "s" : ""} de plus <ChevronRight />
-                </Link>
-              ) : null}
-            </>
-          )}
-        </section>
-
-        {/* Réassurance */}
-        <p className="kc-note"><IconShield /> Votre adresse et votre numéro ne sont jamais transmis aux artisans. Tout se passe dans Koji.</p>
-      </div>
+      <section className="ct-section">
+        <Link href="/client/radar" className="ct-offer-card">
+          <div className="ct-offer-card-info">
+            <strong>Mes offres</strong>
+            <small>
+              {loading
+                ? L.clientSpace.loading
+                : offres.length === 0
+                  ? "Aucune offre publiée pour l'instant"
+                  : `${offres.length} offre${offres.length > 1 ? "s" : ""} publiée${offres.length > 1 ? "s" : ""}`}
+            </small>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+        </Link>
+      </section>
     </main>
   );
 }
