@@ -1,0 +1,127 @@
+/* Page « Publier un chantier » (app/client/radar/new/page.jsx).
+   Habillage Koji Pro par-dessus globals.css : bleu marine #172549, jaune
+   clair #fffacd, police système, cartes arrondies, boutons carrés.
+   Tout est limité à .kp : aucune autre page n'est touchée. */
+
+.kp {
+  --kp-navy: #172549;
+  --kp-navy-2: #22335f;
+  --kp-lemon: #fffacd;
+  --kp-ink: #0c1732;
+  --kp-muted: #647089;
+  --kp-line: #e3e6ee;
+}
+
+.kp,
+.kp button,
+.kp input,
+.kp textarea,
+.kp select {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.kp > .ct-welcome,
+.kp > .radar-mode-tabs,
+.kp > .radar-progress-dots,
+.kp > .radar-form-card {
+  max-width: 880px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Titre de la page */
+.kp .ct-welcome strong { color: var(--kp-ink); font-size: 26px; font-weight: 700 !important; }
+.kp .ct-welcome small { color: var(--kp-muted); font-size: 14px; }
+
+/* Choix : assistant / formulaire */
+.kp .radar-mode-tab { border-radius: 16px; border-color: var(--kp-line); box-shadow: none; }
+.kp .radar-mode-tab:hover { transform: none; box-shadow: 0 6px 18px rgba(23, 37, 73, 0.07); }
+.kp .radar-mode-tab.active { border-color: var(--kp-navy); box-shadow: 0 0 0 2px var(--kp-navy); }
+.kp .radar-mode-tab strong { color: var(--kp-ink); font-weight: 700 !important; }
+.kp .radar-mode-tab-icon.ia,
+.kp .radar-mode-tab-icon.manuel { background: #f1f3f8; color: var(--kp-navy); border-radius: 12px; }
+.kp .radar-mode-tab.active .radar-mode-tab-icon { background: var(--kp-navy); color: var(--kp-lemon); }
+.kp .radar-mode-tab-check { background: var(--kp-navy); color: var(--kp-lemon); }
+
+/* Indicateur d'étapes */
+.kp .radar-progress-dot.done { background: var(--kp-navy); }
+
+/* Carte principale */
+.kp .radar-form-card { border-radius: 18px; border-color: var(--kp-line); box-shadow: none; }
+
+/* Écran d'accueil de l'assistant */
+.kp .radar-hero-screen { background: var(--kp-navy); }
+.kp .radar-hero-screen::before { display: none; }
+.kp .radar-hero-screen-badge { background: var(--kp-lemon); color: var(--kp-navy); box-shadow: none; }
+.kp .radar-hero-screen h1 { font-weight: 700 !important; }
+.kp .radar-hero-screen h1 em,
+.kp .radar-hero-screen-eyebrow { color: var(--kp-lemon); }
+.kp .radar-hero-screen-btn {
+  border-radius: 0;
+  background: var(--kp-lemon);
+  color: var(--kp-navy);
+  box-shadow: none;
+  font-weight: 700 !important;
+}
+.kp .radar-hero-screen-btn:hover { transform: none; box-shadow: none; background: #fff6b0; }
+
+/* Assistant : conversation */
+.kp .radar-chat-header-icon { background: var(--kp-navy); color: var(--kp-lemon); }
+.kp .radar-chat-bubble.assistant { background: #f1f3f8; color: var(--kp-ink); }
+.kp .radar-chat-bubble.user { background: var(--kp-navy); color: #ffffff; }
+.kp .radar-chat-bubble.user p { color: #ffffff; }
+.kp .radar-chat-send { border-radius: 0; background: var(--kp-navy); color: var(--kp-lemon); }
+.kp .radar-chat-send:hover:not(:disabled) { background: var(--kp-navy-2); }
+.kp .radar-chat-send:disabled { background: #c9cfdd; color: #ffffff; }
+.kp .radar-chat-meta svg { color: var(--kp-navy); }
+
+/* Cartes de choix (équipements, gamme, état…) */
+.kp .radar-choice-card { border-color: var(--kp-line); }
+.kp .radar-choice-card.selected { border-color: var(--kp-navy); background: var(--kp-lemon); box-shadow: 0 0 0 1px var(--kp-navy); }
+.kp .radar-choice-card-check { background: var(--kp-navy); color: var(--kp-lemon); }
+
+/* Boutons : carrés */
+.kp .radar-generate-btn,
+.kp .button.blue {
+  border-radius: 0;
+  background: var(--kp-navy);
+  color: var(--kp-lemon);
+  font-weight: 700 !important;
+  box-shadow: none;
+}
+.kp .radar-generate-btn:hover,
+.kp .button.blue:hover { background: var(--kp-navy-2); }
+.kp .radar-generate-btn:disabled,
+.kp .button.blue:disabled { background: #c9cfdd; color: #ffffff; }
+
+.kp .button.secondary {
+  border-radius: 0;
+  background: #ffffff;
+  color: var(--kp-navy);
+  border: 1px solid #c9cfdd;
+  box-shadow: none;
+}
+.kp .button.secondary:hover { background: #f7f8fb; }
+
+/* Champs */
+.kp .radar-form-card input[type="text"],
+.kp .radar-form-card textarea { border-radius: 0; }
+.kp .radar-form-card input[type="text"]:focus,
+.kp .radar-form-card textarea:focus { border-color: var(--kp-navy); outline: 2px solid var(--kp-navy); outline-offset: -1px; }
+
+/* Photos */
+.kp .radar-dropzone { border-radius: 14px; }
+.kp .radar-dropzone svg { color: var(--kp-navy); }
+
+/* Estimation */
+.kp .radar-price-range-card { background: var(--kp-navy); border-radius: 16px; }
+.kp .radar-price-range-value { color: var(--kp-lemon); font-weight: 700 !important; }
+.kp .radar-price-range-label { color: rgba(255, 255, 255, 0.72); }
+
+/* Note de confidentialité sous l'adresse */
+.kp-privacy {
+  margin: 6px 0 0;
+  color: var(--kp-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}

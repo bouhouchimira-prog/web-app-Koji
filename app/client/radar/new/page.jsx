@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { RadarAddressAutocomplete } from "../../../../components/RadarAddressAutocomplete";
 import { questionBankFor, GAMME_OPTIONS, ETAT_GENERAL_OPTIONS, normesFor } from "../../../../lib/renovation-question-bank";
+import "./publier.css";
 
+// Refonte visuelle (28 sept, Imed) : couleurs Koji Pro via publier.css
+// (tout est scope sous .kp), textes « offre » remplaces par « demande »,
+// note de confidentialite sous l'adresse. Logique et algorithme inchanges.
+//
 // Creer une offre — refonte du 23 septembre (v3) : une seule page avec deux
 // onglets ("Offre IA" / "Saisie libre") — habillage inspire d'une maquette
 // fournie par Amira (bandeau navy, carte blanche, bouton degrade), sans les
@@ -555,12 +560,12 @@ export default function NewRadarOffrePage() {
   const iaStepIndex = IA_PHASES.indexOf(phase);
 
   return (
-    <main className="client-space">
+    <main className="client-space kp">
       <ClientTopbar showBack backHref="/client/radar" />
 
       <div className="ct-welcome">
-        <strong>Créer une offre</strong>
-        <small>Saisie manuelle ou assistée par IA.</small>
+        <strong>Publier un chantier</strong>
+        <small>Avec l'assistant Koji, ou en remplissant vous-même.</small>
       </div>
 
       {phase === "form" || phase === "hero" ? (
@@ -569,7 +574,7 @@ export default function NewRadarOffrePage() {
             {mode === "ia" ? <span className="radar-mode-tab-check"><CheckIcon /></span> : null}
             <span className="radar-mode-tab-icon ia"><SparkleIcon /></span>
             <div>
-              <strong>Offre IA</strong>
+              <strong>Avec l'assistant Koji</strong>
               <small>Description + photos, puis quelques questions</small>
             </div>
           </button>
@@ -577,8 +582,8 @@ export default function NewRadarOffrePage() {
             {mode === "manuel" ? <span className="radar-mode-tab-check"><CheckIcon /></span> : null}
             <span className="radar-mode-tab-icon manuel"><PencilIcon /></span>
             <div>
-              <strong>Saisie libre</strong>
-              <small>Tous les champs vous-même</small>
+              <strong>Je remplis moi-même</strong>
+              <small>Un formulaire à remplir vous-même</small>
             </div>
           </button>
         </section>
@@ -599,7 +604,7 @@ export default function NewRadarOffrePage() {
             <p className="radar-hero-screen-eyebrow">MARKETPLACE BTP</p>
             <h1>Votre projet, <em>simplement.</em></h1>
             <p className="radar-hero-screen-sub">
-              Décrivez votre projet à l'assistant koji, ajoutez des photos, répondez à quelques questions — votre offre est ensuite publiée aux entreprises du BTP près de chez vous.
+              Décrivez votre projet à l'assistant koji, ajoutez des photos, répondez à quelques questions. Votre demande est ensuite envoyée aux artisans près de chez vous.
             </p>
             <button type="button" className="radar-hero-screen-btn" onClick={openChat}>
               Démarrer mon projet <span aria-hidden="true">→</span>
@@ -607,7 +612,7 @@ export default function NewRadarOffrePage() {
             <div className="radar-hero-screen-trust">
               <span>✓ 100% gratuit</span>
               <span>✓ Sans engagement</span>
-              <span>✓ Entreprises du BTP vérifiées</span>
+              <span>✓ Artisans vérifiés</span>
             </div>
           </div>
         ) : null}
@@ -691,7 +696,10 @@ export default function NewRadarOffrePage() {
                 </button>
               </div>
             ) : currentInputType === "address" ? (
-              <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+              <>
+                <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+                <p className="kp-privacy">🔒 Votre adresse n'est jamais montrée aux artisans : ils ne voient que votre ville.</p>
+              </>
             ) : currentOptions && currentOptions.length > 0 ? (
               <div className="radar-choice-grid">
                 {currentOptions.map((option) => (
@@ -1009,7 +1017,10 @@ export default function NewRadarOffrePage() {
 
             <span className="radar-field-label">Adresse du chantier</span>
             {!address.address ? (
-              <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+              <>
+                <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+                <p className="kp-privacy">🔒 Votre adresse n'est jamais montrée aux artisans : ils ne voient que votre ville.</p>
+              </>
             ) : (
               <label className="radar-field">
                 <input type="text" value={address.address} onChange={(e) => setAddress((c) => ({ ...c, address: e.target.value }))} />
@@ -1063,6 +1074,7 @@ export default function NewRadarOffrePage() {
               <>
                 <span className="radar-field-label">Adresse du chantier</span>
                 <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+                <p className="kp-privacy">🔒 Votre adresse n'est jamais montrée aux artisans : ils ne voient que votre ville.</p>
               </>
             ) : (
               <label className="radar-field">
@@ -1083,7 +1095,7 @@ export default function NewRadarOffrePage() {
               Modifier ma demande
             </button>
             <button type="button" className="button blue" style={{ width: "100%" }} onClick={publish} disabled={publishing}>
-              {publishing ? "Publication…" : "Publier l'offre"}
+              {publishing ? "Publication…" : "Publier ma demande"}
               {!publishing ? <CheckIcon /> : null}
             </button>
 

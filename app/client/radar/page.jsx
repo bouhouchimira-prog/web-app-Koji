@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ClientTopbar } from "../../../components/ClientTopbar";
-import { euro, shortDate } from "../../../lib/pricing";
+import "../client-home.css";
+import { DemandeItem, IconPlus, useSuivis } from "../demandes-ui";
 
-const STATUS_LABEL = {
-  Publiee: "Publiée",
-  "En attente": "En attente",
-  Terminee: "Terminée",
-  SansSuite: "Sans suite"
-};
+// « Mes demandes » du particulier (refonte UX, septembre 2026) : toutes ses
+// demandes, en cours puis terminées. Mêmes routes qu'avant :
+// GET /api/chantier-offres, plus l'état de chaque demande
+// (GET .../positionner et .../messages, voir demandes-ui.jsx).
+
+const TERMINEES = new Set(["Terminee", "SansSuite"]);
 
 export default function ClientRadarPage() {
   const [offres, setOffres] = useState([]);
@@ -20,49 +21,68 @@ export default function ClientRadarPage() {
     fetch("/api/chantier-offres")
       .then((r) => r.json())
       .then((data) => setOffres(data.offres || []))
+      .catch(() => setOffres([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const suivis = useSuivis(offres);
+  const enCours = offres.filter((o) => !TERMINEES.has(o.status));
+  const terminees = offres.filter((o) => TERMINEES.has(o.status));
 
   return (
     <main className="client-space">
       <ClientTopbar showBack backHref="/client" />
 
-      <div className="ct-welcome">
-        <strong>Créer une offre</strong>
-        <small>Publiez vos travaux, les entreprises du BTP vous contactent. Gratuit et illimité.</small>
+      <div className="kc">
+        <div className="kc-page-head">
+          <div>
+            <h1 className="kc-page-title">Mes demandes</h1>
+            <p className="kc-page-sub">Gratuit et sans limite. Les artisans de votre secteur vous répondent.</p>
+          </div>
+          <Link href="/client/radar/new" className="kc-btn kc-btn-navy"><IconPlus /> Publier un chantier</Link>
+        </div>
+
+        {loading ? (
+          <div className="kc-empty">Chargement…</div>
+        ) : offres.length === 0 ? (
+          <div className="kc-empty">
+            <strong>Aucune demande pour l'instant</strong>
+            <span>Publiez votre premier chantier : c'est gratuit et sans engagement.</span>
+          </div>
+        ) : (
+          <>
+            <section className="kc-block">
+              <div className="kc-block-head">
+                <h2 className="kc-block-title">
+                  En cours
+                  <span className="kc-count">{enCours.length}</span>
+                </h2>
+              </div>
+              {enCours.length ? (
+                <ul className="kc-list">
+                  {enCours.map((offre) => <DemandeItem key={offre.id} offre={offre} suivi={suivis[offre.id]} />)}
+                </ul>
+              ) : (
+                <div className="kc-empty">Aucune demande en cours.</div>
+              )}
+            </section>
+
+            {terminees.length ? (
+              <section className="kc-block">
+                <div className="kc-block-head">
+                  <h2 className="kc-block-title">
+                    Terminées
+                    <span className="kc-count">{terminees.length}</span>
+                  </h2>
+                </div>
+                <ul className="kc-list">
+                  {terminees.map((offre) => <DemandeItem key={offre.id} offre={offre} suivi={suivis[offre.id]} />)}
+                </ul>
+              </section>
+            ) : null}
+          </>
+        )}
       </div>
-
-      <section className="ct-section">
-        <Link href="/client/radar/new" className="client-publish-cta">
-          <span className="new-chantier-icon">+</span>
-          Créer une offre
-        </Link>
-      </section>
-
-      <section className="ct-section">
-        <div className="ct-section-title-row">
-          <h2 className="ct-section-title">Mes offres</h2>
-        </div>
-        {loading ? <div className="client-empty">Chargement…</div> : null}
-        {!loading && offres.length === 0 ? <div className="client-empty">Aucune offre publiée pour l'instant.</div> : null}
-        <div className="client-list">
-          {offres.map((offre) => (
-            <Link key={offre.id} href={`/client/radar/${offre.id}`} className="ct-offer-card">
-              <div className="ct-offer-card-info">
-                <strong>{offre.description.slice(0, 60)}{offre.description.length > 60 ? "…" : ""}</strong>
-                <small>{offre.address} · {shortDate(offre.createdAt)}</small>
-              </div>
-              <div className="ct-devis-row-right">
-                {offre.priceRangeMin ? (
-                  <span className="client-amount">{euro(offre.priceRangeMin)}–{euro(offre.priceRangeMax)}</span>
-                ) : null}
-                <span className="radar-status-badge">{STATUS_LABEL[offre.status] || offre.status}</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
     </main>
   );
 }

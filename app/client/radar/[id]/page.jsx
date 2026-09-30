@@ -3,56 +3,67 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
-import { euro, shortDate } from "../../../../lib/pricing";
+import { euro } from "../../../../lib/pricing";
+import "../../client-home.css";
+import { ChevronRight, Svg, metierVisuel, publieLe, titreCourt, villeDe } from "../../demandes-ui";
+
+// Détail d'une demande côté particulier (refonte UX, septembre 2026).
+// Même logique et mêmes routes qu'avant, seul l'affichage change :
+// GET /api/chantier-offres/[id], GET et POST .../messages,
+// GET .../positionner, GET .../paiement, POST .../paiement/[id]/checkout
+// et .../valider, lien .../entreprise-card.
+// Nouveau : les artisans positionnés qui n'ont pas encore écrit apparaissent
+// aussi dans la liste (la route ne permet pas encore au client d'ouvrir la
+// conversation le premier, voir les notes pour Amira).
 
 const STEP_LABEL = { acompte: "Acompte", avancement: "Avancement", solde: "Solde" };
-const PAIEMENT_STATUS_LABEL = { pending: "À payer", paid_platform: "Payé — en attente des photos de l'entreprise", released: "Débloqué" };
+const PAIEMENT_STATUS_LABEL = { pending: "À payer", paid_platform: "Payé, en attente des photos de l'artisan", released: "Débloqué" };
 
-const STATUS_LABEL = {
-  Publiee: "Publiée",
-  "En attente": "En attente",
-  Terminee: "Terminée",
-  SansSuite: "Sans suite"
-};
+const IconSend = () => <Svg size={18}><path d="M22 2L11 13" /><path d="M22 2L15 22l-4-9-9-4 20-7z" /></Svg>;
+const IconCalendar = () => <Svg size={18}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" /></Svg>;
+const IconImage = () => <Svg size={18}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 17l-5-5-9 8" /></Svg>;
+const IconCard = () => <Svg size={18}><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></Svg>;
+const IconBack = () => <Svg size={16}><polyline points="15 18 9 12 15 6" /></Svg>;
+const IconLock = () => <Svg size={15}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Svg>;
 
-function ChatIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16v12H8l-4 4V4z" />
-    </svg>
-  );
+function dateHeure(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
-function SendIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 2L11 13" />
-      <path d="M22 2L15 22l-4-9-9-4 20-7z" />
-    </svg>
-  );
+
+function heureMessage(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const memeJour = d.toDateString() === new Date().toDateString();
+  return memeJour
+    ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
-function CardIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="2" />
-      <path d="M2 10h20M6 15h4" />
-    </svg>
-  );
+
+function initiale(nom) {
+  return String(nom || "?").trim().charAt(0).toUpperCase() || "?";
 }
-function GlobeIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18M12 3a15 15 0 010 18 15 15 0 010-18z" />
-    </svg>
-  );
+
+function villeEntreprise(snapshot) {
+  const parties = String(snapshot?.address || "").split(",").map((p) => p.trim()).filter(Boolean);
+  return (parties[parties.length - 1] || "").replace(/\b\d{5}\b/, "").trim();
 }
-function CalendarIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M8 3v4M16 3v4M3 10h18" />
-    </svg>
-  );
+
+// Où en est l'échange avec un artisan : ce qui s'affiche sous son nom
+function suiviArtisan(fil) {
+  if (!fil.length) return { texte: "Intéressé par votre chantier. Il va vous écrire.", ton: "attente" };
+  const propositions = fil.filter((m) => m.kind === "rdv_proposal" && m.rdvDate);
+  const proposition = propositions[propositions.length - 1];
+  const reponse = proposition ? fil.find((m) => m.kind === "rdv_response" && m.respondsToId === proposition.id) : null;
+  const dernier = fil[fil.length - 1];
+  if (proposition && !reponse && proposition.senderType === "entreprise") return { texte: `Propose une visite · ${dateHeure(proposition.rdvDate)}`, ton: "action" };
+  if (dernier.senderType === "entreprise" && (dernier.kind || "text") === "text") return { texte: "Vous a écrit", ton: "action" };
+  if (proposition && reponse?.rdvStatus === "accepted") return { texte: `Visite confirmée · ${dateHeure(proposition.rdvDate)}`, ton: "ok" };
+  if (proposition && !reponse) return { texte: `Visite proposée · ${dateHeure(proposition.rdvDate)}`, ton: "info" };
+  return { texte: "En discussion", ton: "attente" };
 }
 
 export default function RadarOffreDetailPage() {
@@ -65,12 +76,13 @@ export default function RadarOffreDetailPage() {
   const [activeEntrepriseId, setActiveEntrepriseId] = useState(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [positioned, setPositioned] = useState([]);
+  const [positionnements, setPositionnements] = useState([]);
   const [showRdvForm, setShowRdvForm] = useState(false);
   const [rdvDate, setRdvDate] = useState("");
   const [paiements, setPaiements] = useState([]);
   const [paying, setPaying] = useState("");
   const [validating, setValidating] = useState("");
+  const [detailOuvert, setDetailOuvert] = useState(false);
 
   useEffect(() => {
     fetch(`/api/chantier-offres/${params.id}`)
@@ -79,7 +91,7 @@ export default function RadarOffreDetailPage() {
         if (data.error) { setError(data.error); return; }
         setOffre(data.offre || null);
       })
-      .catch(() => setError("Impossible de charger cette offre."))
+      .catch(() => setError("Impossible de charger cette demande."))
       .finally(() => setLoading(false));
 
     fetch(`/api/marketplace/offres/${params.id}/messages`)
@@ -90,7 +102,7 @@ export default function RadarOffreDetailPage() {
 
     fetch(`/api/marketplace/offres/${params.id}/positionner`)
       .then((r) => r.json())
-      .then((data) => setPositioned((data.positionnements || []).map((p) => p.entrepriseUserId)))
+      .then((data) => setPositionnements(data.positionnements || []))
       .catch(() => {});
 
     fetch(`/api/marketplace/offres/${params.id}/paiement`)
@@ -99,38 +111,50 @@ export default function RadarOffreDetailPage() {
       .catch(() => {});
   }, [params.id]);
 
-  const conversations = useMemo(() => {
-    const byEntreprise = new Map();
-    for (const m of messages) {
-      if (!byEntreprise.has(m.entrepriseUserId)) {
-        byEntreprise.set(m.entrepriseUserId, { entrepriseUserId: m.entrepriseUserId, snapshot: m.entrepriseSnapshot, messages: [] });
-      }
-      const conv = byEntreprise.get(m.entrepriseUserId);
-      conv.messages.push(m);
-      if (m.entrepriseSnapshot) conv.snapshot = m.entrepriseSnapshot;
+  // Un artisan par ligne : ceux qui ont écrit, puis ceux qui se sont
+  // seulement positionnés. Le plus récent en premier.
+  const artisans = useMemo(() => {
+    const parId = new Map();
+    for (const p of positionnements) {
+      parId.set(p.entrepriseUserId, { entrepriseUserId: p.entrepriseUserId, snapshot: p.entrepriseSnapshot, positionne: true, messages: [], depuis: p.createdAt || "" });
     }
-    return Array.from(byEntreprise.values()).sort((a, b) => {
-      const aLast = a.messages[a.messages.length - 1]?.createdAt || "";
-      const bLast = b.messages[b.messages.length - 1]?.createdAt || "";
-      return bLast.localeCompare(aLast);
+    for (const m of messages) {
+      if (!parId.has(m.entrepriseUserId)) {
+        parId.set(m.entrepriseUserId, { entrepriseUserId: m.entrepriseUserId, snapshot: m.entrepriseSnapshot, positionne: false, messages: [], depuis: "" });
+      }
+      const a = parId.get(m.entrepriseUserId);
+      a.messages.push(m);
+      if (m.entrepriseSnapshot) a.snapshot = m.entrepriseSnapshot;
+    }
+    return Array.from(parId.values()).sort((a, b) => {
+      if (Boolean(a.messages.length) !== Boolean(b.messages.length)) return a.messages.length ? -1 : 1;
+      const aLast = a.messages[a.messages.length - 1]?.createdAt || a.depuis;
+      const bLast = b.messages[b.messages.length - 1]?.createdAt || b.depuis;
+      return String(bLast).localeCompare(String(aLast));
     });
-  }, [messages]);
+  }, [messages, positionnements]);
 
-  const activeConversation = conversations.find((c) => c.entrepriseUserId === activeEntrepriseId) || null;
+  const actif = artisans.find((a) => a.entrepriseUserId === activeEntrepriseId && a.messages.length) || null;
+  const paiementsActifs = actif ? paiements.filter((p) => p.entrepriseUserId === actif.entrepriseUserId) : [];
+
+  async function envoyer(payload) {
+    const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, entrepriseUserId: activeEntrepriseId })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
+    setMessages((prev) => [...prev, data.message]);
+  }
 
   async function sendReply(event) {
     event.preventDefault();
     if (!draft.trim() || !activeEntrepriseId) return;
     setSending(true);
+    setError("");
     try {
-      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: draft.trim(), entrepriseUserId: activeEntrepriseId })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
-      setMessages((prev) => [...prev, data.message]);
+      await envoyer({ message: draft.trim() });
       setDraft("");
     } catch (err) {
       setError(err.message);
@@ -143,15 +167,9 @@ export default function RadarOffreDetailPage() {
     event.preventDefault();
     if (!rdvDate || !activeEntrepriseId) return;
     setSending(true);
+    setError("");
     try {
-      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "rdv_proposal", rdvDate: new Date(rdvDate).toISOString(), entrepriseUserId: activeEntrepriseId })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
-      setMessages((prev) => [...prev, data.message]);
+      await envoyer({ kind: "rdv_proposal", rdvDate: new Date(rdvDate).toISOString() });
       setShowRdvForm(false);
       setRdvDate("");
     } catch (err) {
@@ -164,15 +182,9 @@ export default function RadarOffreDetailPage() {
   async function respondRdv(proposalId, rdvStatus) {
     if (!activeEntrepriseId) return;
     setSending(true);
+    setError("");
     try {
-      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "rdv_response", respondsToId: proposalId, rdvStatus, entrepriseUserId: activeEntrepriseId })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
-      setMessages((prev) => [...prev, data.message]);
+      await envoyer({ kind: "rdv_response", respondsToId: proposalId, rdvStatus });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -185,15 +197,9 @@ export default function RadarOffreDetailPage() {
   async function grantPhotos() {
     if (!activeEntrepriseId) return;
     setSending(true);
+    setError("");
     try {
-      const response = await fetch(`/api/marketplace/offres/${params.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "photo_grant", entrepriseUserId: activeEntrepriseId })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
-      setMessages((prev) => [...prev, data.message]);
+      await envoyer({ kind: "photo_grant" });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -230,200 +236,256 @@ export default function RadarOffreDetailPage() {
     }
   }
 
+  function ouvrir(artisan) {
+    if (!artisan.messages.length) return;
+    setActiveEntrepriseId(artisan.entrepriseUserId);
+    setShowRdvForm(false);
+    setDraft("");
+    setError("");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }
+
+  // ---------- Conversation avec un artisan ----------
+  if (!loading && offre && actif) {
+    const nom = actif.snapshot?.raisonSociale || "Artisan";
+    const photosDemandees = actif.messages.some((m) => m.kind === "photo_request") && !actif.messages.some((m) => m.kind === "photo_grant");
+    return (
+      <main className="client-space">
+        <ClientTopbar showBack backHref="/client/radar" />
+        <div className="kc">
+          <button type="button" className="kc-back" onClick={() => setActiveEntrepriseId(null)}>
+            <IconBack /> {titreCourt(offre.description)}
+          </button>
+
+          <section className="kc-artisan-head">
+            <span className="kc-avatar kc-avatar-lg">{initiale(nom)}</span>
+            <span className="kc-artisan-text">
+              <strong>{nom}</strong>
+              <small>{[offre.metier, villeEntreprise(actif.snapshot)].filter(Boolean).join(" · ")}</small>
+            </span>
+            {actif.snapshot?.isPro ? (
+              <a
+                className="kc-btn kc-btn-outline"
+                href={`/api/marketplace/offres/${params.id}/entreprise-card?entrepriseUserId=${actif.entrepriseUserId}&preview=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IconCard /> Carte de visite
+              </a>
+            ) : null}
+          </section>
+
+          {paiementsActifs.length > 0 ? (
+            <section className="kc-block">
+              <div className="kc-block-head"><h2 className="kc-block-title">Paiement par étapes</h2></div>
+              <ul className="kc-pay-list">
+                {paiementsActifs.map((p) => (
+                  <li key={p.id} className="kc-pay">
+                    <span>
+                      <strong>{STEP_LABEL[p.step] || p.step} · {euro(p.amountTtc)}</strong>
+                      <small>{PAIEMENT_STATUS_LABEL[p.status] || p.status}</small>
+                    </span>
+                    {p.status === "pending" ? (
+                      <button type="button" className="kc-btn kc-btn-navy" onClick={() => payStep(p.id)} disabled={paying === p.id}>
+                        {paying === p.id ? "Redirection…" : "Payer"}
+                      </button>
+                    ) : null}
+                    {p.status === "paid_platform" && p.photos?.length > 0 ? (
+                      <button type="button" className="kc-btn kc-btn-navy" onClick={() => validateStep(p.id)} disabled={validating === p.id}>
+                        {validating === p.id ? "Validation…" : "Valider cette étape"}
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="kc-chat">
+            <p className="kc-chat-note"><IconLock /> Messagerie Koji : vos coordonnées ne sont pas partagées.</p>
+
+            <div className="kc-chat-list">
+              {actif.messages.map((m) => {
+                const moi = m.senderType === "particulier";
+                if (m.kind === "rdv_proposal") {
+                  const aRepondre = !moi && !hasResponse(m.id);
+                  return (
+                    <div key={m.id} className={`kc-rdv${moi ? " is-mine" : ""}`}>
+                      <span className="kc-rdv-icon"><IconCalendar /></span>
+                      <span className="kc-rdv-text">
+                        <small>{moi ? "Vous proposez une visite" : `${nom} propose une visite`}</small>
+                        <strong>{dateHeure(m.rdvDate) || m.message}</strong>
+                      </span>
+                      {aRepondre ? (
+                        <span className="kc-rdv-actions">
+                          <button type="button" className="kc-btn kc-btn-navy" onClick={() => respondRdv(m.id, "accepted")} disabled={sending}>Accepter</button>
+                          <button type="button" className="kc-btn kc-btn-outline" onClick={() => respondRdv(m.id, "declined")} disabled={sending}>Refuser</button>
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                }
+                if (m.kind === "rdv_response") {
+                  return (
+                    <p key={m.id} className={`kc-chat-event ${m.rdvStatus === "accepted" ? "is-ok" : "is-no"}`}>
+                      {m.rdvStatus === "accepted" ? "✓ Visite confirmée" : "Visite refusée"}{moi ? " par vous" : ` par ${nom}`}
+                    </p>
+                  );
+                }
+                if (m.kind === "photo_request" || m.kind === "photo_grant") {
+                  return (
+                    <p key={m.id} className="kc-chat-event">
+                      {m.kind === "photo_request" ? `${nom} demande à voir vos photos` : "Vous avez débloqué vos photos"}
+                    </p>
+                  );
+                }
+                return (
+                  <div key={m.id} className={`kc-bubble${moi ? " is-mine" : ""}`}>
+                    <p>{m.message}</p>
+                    <small>{heureMessage(m.createdAt)}</small>
+                  </div>
+                );
+              })}
+            </div>
+
+            {offre.photos?.length > 0 && photosDemandees ? (
+              <button type="button" className="kc-chat-action" onClick={grantPhotos} disabled={sending}>
+                <IconImage /> Montrer mes photos à {nom}
+              </button>
+            ) : null}
+
+            {showRdvForm ? (
+              <form className="kc-rdv-form" onSubmit={proposeRdv}>
+                <input type="datetime-local" value={rdvDate} onChange={(e) => setRdvDate(e.target.value)} required />
+                <button type="submit" className="kc-btn kc-btn-navy" disabled={sending || !rdvDate}>Proposer</button>
+                <button type="button" className="kc-btn kc-btn-ghost" onClick={() => setShowRdvForm(false)}>Annuler</button>
+              </form>
+            ) : (
+              <button type="button" className="kc-chat-action" onClick={() => setShowRdvForm(true)}>
+                <IconCalendar /> Proposer une date de visite
+              </button>
+            )}
+
+            {error ? <p className="kc-error">{error}</p> : null}
+
+            <form className="kc-chat-form" onSubmit={sendReply}>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrire un message…" />
+              <button type="submit" className="kc-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
+                <IconSend />
+              </button>
+            </form>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  // ---------- Demande et liste des artisans ----------
+  const visuel = metierVisuel(offre?.metier);
+
   return (
     <main className="client-space">
       <ClientTopbar showBack backHref="/client/radar" />
 
-      <div className="ct-welcome">
-        <strong>Détail de l'offre</strong>
-      </div>
+      <div className="kc">
+        {loading ? <div className="kc-empty">Chargement…</div> : null}
+        {!loading && !offre ? <div className="kc-empty">{error || "Demande introuvable."}</div> : null}
 
-      {loading ? <div className="client-empty">Chargement…</div> : null}
-      {!loading && error ? <div className="client-empty">{error}</div> : null}
-
-      {!loading && offre ? (
-        <>
-          <section className="ct-section radar-form-card">
-            {offre.photos?.length > 0 ? (
-              <div className="radar-photo-grid">
-                {offre.photos.map((photo, index) => (
-                  <div className="radar-photo-thumb" key={index}>
-                    <img src={photo} alt={`Photo ${index + 1}`} />
-                  </div>
-                ))}
+        {!loading && offre ? (
+          <>
+            <section className="kc-demande-head">
+              <div className="kc-demande-top">
+                <span className="kc-thumb" style={{ background: visuel.color }}><Svg>{visuel.icon}</Svg></span>
+                <span className="kc-demande-text">
+                  <strong>{titreCourt(offre.description)}</strong>
+                  <small>{[offre.metier, villeDe(offre), publieLe(offre.publishedAt || offre.createdAt)].filter(Boolean).join(" · ")}</small>
+                </span>
               </div>
-            ) : null}
 
-            <div className="radar-recap">
-              <div className="radar-recap-row"><span>Statut</span><strong><span className="radar-status-badge">{STATUS_LABEL[offre.status] || offre.status}</span></strong></div>
-              <div className="radar-recap-row"><span>Publiée le</span><strong>{shortDate(offre.createdAt)}</strong></div>
-              <div className="radar-recap-row"><span>Description</span><strong>{offre.description || "—"}</strong></div>
-              <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
-              <div className="radar-recap-row"><span>Adresse</span><strong>{offre.address || "—"}</strong></div>
-              <div className="radar-recap-row"><span>Fourchette publiée</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non précisée"}</strong></div>
-              {offre.delaiEstimeJours ? <div className="radar-recap-row"><span>Délai estimé</span><strong>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</strong></div> : null}
-            </div>
-
-            {offre.ouvrages?.length > 0 ? (
-              <div className="radar-ouvrages-block">
-                <span className="radar-field-label">Travaux prévus</span>
-                <div className="radar-ouvrages-list">
-                  {offre.ouvrages.map((lot) => (
-                    <div className="radar-ouvrages-lot" key={lot.room}>
-                      <strong>{lot.room}</strong>
-                      <ul>
-                        {lot.postes.map((poste, index) => <li key={index}>{poste}</li>)}
-                      </ul>
-                    </div>
-                  ))}
+              {offre.priceRangeMin ? (
+                <div className="kc-estimation">
+                  <small>Estimation Koji</small>
+                  <strong>{euro(offre.priceRangeMin)} – {euro(offre.priceRangeMax)}</strong>
+                  {offre.delaiEstimeJours ? <small>Environ {offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""} de travaux</small> : null}
                 </div>
-              </div>
-            ) : null}
-
-            <p className="radar-recap-note">
-              Dès qu'une entreprise dont la zone couvre votre adresse se positionne, vous recevrez son devis ici.
-            </p>
-          </section>
-
-          {!activeConversation ? (
-            <section className="ct-section">
-              <h2 className="ct-section-title">Entreprises qui vous ont contacté</h2>
-              {messagesLoading ? <div className="client-empty">Chargement…</div> : null}
-              {!messagesLoading && conversations.length === 0 ? (
-                <div className="client-empty">Aucune entreprise ne vous a encore contacté pour ce chantier.</div>
               ) : null}
-              <div className="radar-conv-list">
-                {conversations.map((conv) => {
-                  const last = conv.messages[conv.messages.length - 1];
-                  return (
-                    <button key={conv.entrepriseUserId} type="button" className="radar-conv-row" onClick={() => setActiveEntrepriseId(conv.entrepriseUserId)}>
-                      <span className="radar-conv-avatar">{(conv.snapshot?.raisonSociale || "?").slice(0, 1).toUpperCase()}</span>
-                      <span className="radar-conv-main">
-                        <strong>{conv.snapshot?.raisonSociale || "Entreprise"}{positioned.includes(conv.entrepriseUserId) ? <span className="radar-status-badge" style={{ marginLeft: 8 }}>Positionnée</span> : null}</strong>
-                        <small>{last?.message?.slice(0, 60) || ""}</small>
-                      </span>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ) : (
-            <section className="ct-section">
-              <button type="button" className="radar-conv-back" onClick={() => setActiveEntrepriseId(null)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="15 18 9 12 15 6" /></svg>
-                Toutes les entreprises
+
+              <button type="button" className={`kc-toggle${detailOuvert ? " open" : ""}`} onClick={() => setDetailOuvert((o) => !o)} aria-expanded={detailOuvert}>
+                {detailOuvert ? "Masquer le détail" : "Voir le détail de ma demande"} <ChevronRight />
               </button>
 
-              <div className="radar-contact-card">
-                <p className="radar-contact-title">{activeConversation.snapshot?.raisonSociale || "Entreprise"}</p>
-                <div className="radar-entreprise-meta">
-                  {activeConversation.snapshot?.address ? <span>{activeConversation.snapshot.address}</span> : null}
-                  {activeConversation.snapshot?.website ? (
-                    <a href={activeConversation.snapshot.website.startsWith("http") ? activeConversation.snapshot.website : `https://${activeConversation.snapshot.website}`} target="_blank" rel="noopener noreferrer">
-                      <GlobeIcon />{activeConversation.snapshot.website}
-                    </a>
+              {detailOuvert ? (
+                <div className="kc-detail">
+                  <p className="kc-detail-desc">{offre.description || "—"}</p>
+                  {offre.photos?.length > 0 ? (
+                    <div className="kc-photos">
+                      {offre.photos.map((photo, index) => (
+                        <span className="kc-photo" key={index}><img src={photo} alt={`Photo ${index + 1}`} /></span>
+                      ))}
+                    </div>
                   ) : null}
-                </div>
-                {activeConversation.snapshot?.isPro ? (
-                  <a
-                    className="radar-contact-btn radar-contact-btn-primary"
-                    style={{ marginTop: 10 }}
-                    href={`/api/marketplace/offres/${params.id}/entreprise-card?entrepriseUserId=${activeConversation.entrepriseUserId}&preview=1`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span className="radar-contact-icon"><CardIcon /></span>
-                    <span>
-                      <strong>Carte de visite Koji</strong>
-                      <small>Voir la carte de cette entreprise</small>
-                    </span>
-                  </a>
-                ) : null}
-              </div>
-
-              {activeConversation.messages.some((m) => m.entrepriseUserId === activeEntrepriseId) && paiements.filter((p) => p.entrepriseUserId === activeEntrepriseId).length > 0 ? (
-                <div className="radar-contact-card">
-                  <p className="radar-contact-title">Paiement échelonné</p>
-                  <div className="radar-paiement-list">
-                    {paiements.filter((p) => p.entrepriseUserId === activeEntrepriseId).map((p) => (
-                      <div key={p.id} className="radar-paiement-row">
-                        <div>
-                          <strong>{STEP_LABEL[p.step] || p.step}</strong>
-                          <small>{euro(p.amountTtc)} · {PAIEMENT_STATUS_LABEL[p.status]}</small>
+                  {offre.ouvrages?.length > 0 ? (
+                    <div className="kc-ouvrages">
+                      {offre.ouvrages.map((lot) => (
+                        <div key={lot.room}>
+                          <strong>{lot.room}</strong>
+                          <ul>{lot.postes.map((poste, index) => <li key={index}>{poste}</li>)}</ul>
                         </div>
-                        {p.status === "pending" ? (
-                          <button type="button" className="button blue" onClick={() => payStep(p.id)} disabled={paying === p.id}>
-                            {paying === p.id ? "Redirection…" : "Payer"}
-                          </button>
-                        ) : null}
-                        {p.status === "paid_platform" && p.photos.length > 0 ? (
-                          <button type="button" className="button blue" onClick={() => validateStep(p.id)} disabled={validating === p.id}>
-                            {validating === p.id ? "Validation…" : "Valider cette étape"}
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="kc-detail-address"><IconLock /> Adresse : {offre.address || "—"} (visible par vous seul)</p>
                 </div>
               ) : null}
-
-              <div className="radar-chat-card">
-                <div className="radar-chat-header">
-                  <span className="radar-chat-header-icon"><ChatIcon /></span>
-                  <div>
-                    <strong>Discussion interne Koji</strong>
-                    <small>Vos échanges restent sur Koji tant que le rendez-vous n'est pas confirmé.</small>
-                  </div>
-                </div>
-                <div className="radar-chat-messages">
-                  {activeConversation.messages.map((m) => (
-                    <div key={m.id} className={`radar-chat-bubble ${m.senderType === "particulier" ? "entreprise" : "particulier"}`}>
-                      <p>{m.message}</p>
-                      {m.kind === "rdv_proposal" && m.senderType === "entreprise" && !hasResponse(m.id) ? (
-                        <div className="radar-rdv-actions">
-                          <button type="button" className="button blue" onClick={() => respondRdv(m.id, "accepted")} disabled={sending}>Accepter</button>
-                          <button type="button" className="button secondary" onClick={() => respondRdv(m.id, "declined")} disabled={sending}>Refuser</button>
-                        </div>
-                      ) : null}
-                      <small>{shortDate(m.createdAt)}</small>
-                    </div>
-                  ))}
-                </div>
-
-                {offre.photos?.length > 0 &&
-                activeConversation.messages.some((m) => m.kind === "photo_request") &&
-                !activeConversation.messages.some((m) => m.kind === "photo_grant") ? (
-                  <button type="button" className="radar-rdv-toggle" onClick={grantPhotos} disabled={sending}>
-                    <ChatIcon />
-                    Débloquer mes photos pour {activeConversation.snapshot?.raisonSociale || "cette entreprise"}
-                  </button>
-                ) : null}
-
-                {showRdvForm ? (
-                  <form className="radar-rdv-form" onSubmit={proposeRdv}>
-                    <input type="datetime-local" value={rdvDate} onChange={(e) => setRdvDate(e.target.value)} required />
-                    <button type="submit" className="button blue" disabled={sending || !rdvDate}>Proposer</button>
-                    <button type="button" className="button secondary" onClick={() => setShowRdvForm(false)}>Annuler</button>
-                  </form>
-                ) : (
-                  <button type="button" className="radar-rdv-toggle" onClick={() => setShowRdvForm(true)}>
-                    <CalendarIcon />
-                    Proposer un rendez-vous
-                  </button>
-                )}
-
-                <form className="radar-chat-form" onSubmit={sendReply}>
-                  <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrire un message…" />
-                  <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
-                    <SendIcon />
-                  </button>
-                </form>
-              </div>
             </section>
-          )}
-        </>
-      ) : null}
+
+            <section className="kc-block">
+              <div className="kc-block-head">
+                <h2 className="kc-block-title">
+                  Artisans intéressés
+                  {artisans.length ? <span className="kc-count">{artisans.length}</span> : null}
+                </h2>
+              </div>
+
+              {messagesLoading ? (
+                <div className="kc-empty">Chargement…</div>
+              ) : artisans.length === 0 ? (
+                <div className="kc-empty">
+                  <strong>Votre demande est en ligne</strong>
+                  <span>Les artisans de votre secteur la voient. Dès que l'un d'eux est intéressé, il apparaît ici et vous êtes prévenu.</span>
+                </div>
+              ) : (
+                <ul className="kc-list">
+                  {artisans.map((a) => {
+                    const nom = a.snapshot?.raisonSociale || "Artisan";
+                    const suivi = suiviArtisan(a.messages);
+                    const cliquable = a.messages.length > 0;
+                    const contenu = (
+                      <>
+                        <span className="kc-avatar">{initiale(nom)}</span>
+                        <span className="kc-demande-text">
+                          <strong>{nom}</strong>
+                          <small className={`kc-suivi is-${suivi.ton}`}>{suivi.texte}</small>
+                        </span>
+                        {cliquable ? <span className="kc-chevron"><ChevronRight /></span> : null}
+                      </>
+                    );
+                    return (
+                      <li key={a.entrepriseUserId}>
+                        {cliquable ? (
+                          <button type="button" className="kc-artisan" onClick={() => ouvrir(a)}>{contenu}</button>
+                        ) : (
+                          <div className="kc-artisan is-waiting">{contenu}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </>
+        ) : null}
+      </div>
     </main>
   );
 }
