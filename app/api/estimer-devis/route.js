@@ -88,8 +88,9 @@ export async function POST(request) {
     // Taux reduit travaux de renovation (30 sept, demande d'Amira) — un
     // devis issu d'une offre Radar des Chantiers part a 10% au lieu des 20%
     // par defaut ailleurs dans l'app ; reste un champ modifiable normalement
-    // par l'entreprise si ce chantier precis n'y est pas eligible.
-    vatRate: 0.1,
+    // par l'entreprise si ce chantier precis n'y est pas eligible. Pourcentage
+    // ENTIER (10, pas 0.1) — voir le correctif dans expertise-koji/route.js.
+    vatRate: 10,
     draftStep: 0,
     draftData: null,
     isCreationDraft: false,
