@@ -11,7 +11,8 @@ import {
   quoteDocumentFilename
 } from "../../../../../lib/document-generator";
 import { fixObjectText } from "../../../../../lib/text";
-import { checkTrialGenerateLimit } from "../../../../../lib/plan";
+import { checkTrialGenerateLimit, checkTrialEditLimit, persistTrialPatch } from "../../../../../lib/plan";
+import { buildWebUser } from "../../../../../lib/user-profile";
 
 function responseFor(bufferOrText, filename, contentType, inline = false) {
   return new NextResponse(bufferOrText, {
@@ -44,16 +45,39 @@ export async function GET(request, context) {
 
   const db = await readDb();
 
-  // Trial gate: only the first (or claimed) quote can be generated as PDF.
-  const quoteOwner = quote.userId ? db.users.find((u) => u.id === quote.userId) : null;
-  const generateGate = checkTrialGenerateLimit(db, quoteOwner, quote);
+  // Trial gate : seul le premier devis (ou celui deja "reclame") peut etre
+  // genere/apercu. Corrige le 30 sept : la requete "user_id" plus haut
+  // garantit deja auth.userId === quote.userId, inutile de re-chercher le
+  // proprietaire dans db.users (tableau JSON particulier/legacy, jamais les
+  // comptes entreprise) — et les devis reels viennent de Supabase, jamais de
+  // db.quotes (vide depuis la migration).
+  const { data: ownerProfile } = await auth.supabase.from("users").select("email, business_info").eq("id", auth.userId).maybeSingle();
+  const quoteOwner = buildWebUser({ id: auth.userId, email: ownerProfile?.email || "", profile: ownerProfile });
+  const { data: ownerQuoteRows } = await auth.supabase.from("quotes").select("id, created_at").eq("user_id", auth.userId);
+  const ownerQuotes = (ownerQuoteRows || []).map((r) => ({ id: r.id, createdAtIso: r.created_at }));
+  const generateGate = checkTrialGenerateLimit(quoteOwner, ownerQuotes, quote);
   if (!generateGate.allowed) {
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Formule requise — Koji</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}.card{background:#fff;border-radius:16px;padding:48px 40px;max-width:440px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}img{width:56px;margin-bottom:24px}h2{color:#1e293b;font-size:1.25rem;margin-bottom:12px}p{color:#64748b;line-height:1.6;font-size:.95rem;margin-bottom:28px}.btn{display:inline-block;padding:13px 32px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-weight:600;font-size:.95rem}.note{color:#94a3b8;font-size:.82rem;margin-top:16px}</style></head><body><div class="card"><img src="/koji-logo.svg" alt="Koji"><h2>Période d'essai — 1 devis inclus</h2><p>Votre période d'essai inclut la génération complète d'un seul devis. Pour générer ce devis, passez à une formule Koji.</p><a href="/abonnement" class="btn">Voir les formules Koji</a><p class="note">14 jours d'essai · Sans engagement</p></div></body></html>`;
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Formule requise — Koji</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}.card{background:#fff;border-radius:16px;padding:48px 40px;max-width:440px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}img{width:56px;margin-bottom:24px}h2{color:#1e293b;font-size:1.25rem;margin-bottom:12px}p{color:#64748b;line-height:1.6;font-size:.95rem;margin-bottom:28px}.btn{display:inline-block;padding:13px 32px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-weight:600;font-size:.95rem}.note{color:#94a3b8;font-size:.82rem;margin-top:16px}</style></head><body><div class="card"><img src="/koji-logo.svg" alt="Koji"><h2>Période d'essai — 1 devis inclus</h2><p>Votre période d'essai inclut la génération complète d'un seul devis. Pour générer ce devis, passez à une formule Koji.</p><a href="/abonnement" class="btn">Voir les formules Koji</a><p class="note">7 jours d'essai · Sans engagement</p></div></body></html>`;
     return new NextResponse(html, {
       status: 402,
       headers: { "Content-Type": "text/html; charset=utf-8" }
     });
   }
+
+  // Generer/Apercu compte aussi comme une des 10 actions autorisees sur le
+  // devis d'essai (avec "ready"/"send", voir app/api/quotes/route.js) —
+  // jamais brancher ce garde-fou sur la sauvegarde automatique de
+  // DevisEditor.jsx, qui se declenche a chaque modification de champ.
+  const editGate = checkTrialEditLimit(quoteOwner, quote.id);
+  if (!editGate.allowed) {
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Formule requise — Koji</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}.card{background:#fff;border-radius:16px;padding:48px 40px;max-width:440px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}img{width:56px;margin-bottom:24px}h2{color:#1e293b;font-size:1.25rem;margin-bottom:12px}p{color:#64748b;line-height:1.6;font-size:.95rem;margin-bottom:28px}.btn{display:inline-block;padding:13px 32px;background:#2563eb;color:#fff;border-radius:10px;text-decoration:none;font-weight:600;font-size:.95rem}.note{color:#94a3b8;font-size:.82rem;margin-top:16px}</style></head><body><div class="card"><img src="/koji-logo.svg" alt="Koji"><h2>Période d'essai — limite atteinte</h2><p>${editGate.reason}</p><a href="/abonnement" class="btn">Voir les formules Koji</a></div></body></html>`;
+    return new NextResponse(html, { status: 402, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  }
+  await persistTrialPatch(auth.supabase, auth.userId, {
+    ...(generateGate.claim ? { _trialQuoteId: quote.id } : {}),
+    ...(editGate.claim || editGate.nextCount > 0 ? { _trialQuoteId: quote.id, _trialSaveCount: editGate.nextCount } : {})
+  });
+
   let project = {};
   if (quote.projectId) {
     const { data: chantierRow } = await auth.supabase

@@ -84,7 +84,7 @@ function getTrialInfo(user) {
   const start = new Date(user.trialStartedAt);
   const now = new Date();
   const daysUsed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-  const daysLeft = Math.max(0, 14 - daysUsed);
+  const daysLeft = Math.max(0, 7 - daysUsed);
   return { daysLeft, expired: daysLeft === 0, subscribed: false };
 }
 
