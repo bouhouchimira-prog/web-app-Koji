@@ -3,7 +3,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { readDb } from "../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { mergedOuvrages } from "../../../lib/ouvrages";
-import { validateAiQuote, buildItemsFromAiQuote } from "../../../lib/ai-devis-shape";
+import { validateAiQuote, buildItemsFromAiQuote, PRICE_RANGE_SPREAD } from "../../../lib/ai-devis-shape";
 import { quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { parsePhoto } from "../../../lib/ai-photo";
@@ -22,8 +22,6 @@ import { parseAiJson } from "../../../lib/ai-json";
 // appartient administrativement au compte admin (resolveAdminUserId),
 // jusqu'a ce qu'une entreprise se positionne et en recoive une copie
 // (app/api/estimer-devis/route.js).
-const PRICE_RANGE_SPREAD = 0.15;
-
 // Fake auth wrapper: no entreprise Supabase Auth token exists for a
 // particulier session, so this route writes to `quotes` via the
 // service-role client rather than a per-user RLS-scoped one — the row's
