@@ -476,6 +476,9 @@ export function Shell({ children }) {
   // sinon les initiales de la raison sociale ou du nom du compte.
   const [avatarLogo, setAvatarLogo] = useState("");
   const [avatarLabel, setAvatarLabel] = useState("");
+  // Repli sur les initiales si l'image ne charge pas (lien casse/inaccessible)
+  // plutot que l'icone d'image cassee du navigateur (30 septembre).
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   // Groupe "Gestion" (outils Koji Premium) repliable (29 septembre) :
   // ouvert par defaut des qu'on est deja sur une de ces pages, sinon replie.
   const [gestionOpen, setGestionOpen] = useState(() => PREMIUM_PATHS.some((p) => pathname.startsWith(p)));
@@ -544,6 +547,7 @@ export function Shell({ children }) {
       else setProfileType("entreprise");
       if (parsed?.name) setKojiUserName(String(parsed.name).trim().split(" ")[0]);
       setAvatarLogo(parsed?.logoUrl || "");
+      setAvatarLoadError(false);
       setAvatarLabel(parsed?.business?.raisonSociale || parsed?.name || "");
       const isAdminNow = Boolean(parsed?.isAdmin);
       if (isAdminNow) setIsAdmin(true);
@@ -630,8 +634,8 @@ export function Shell({ children }) {
             ) : null}
           </div>
           <Link href="/profil" className="icon-round avatar-btn" aria-label={L.nav.profile}>
-            {avatarLogo ? (
-              <img src={avatarLogo} alt="" className="avatar-btn-img" />
+            {avatarLogo && !avatarLoadError ? (
+              <img src={avatarLogo} alt="" className="avatar-btn-img" onError={() => setAvatarLoadError(true)} />
             ) : (
               <span className="avatar-btn-initials">{initialsFrom(avatarLabel)}</span>
             )}
