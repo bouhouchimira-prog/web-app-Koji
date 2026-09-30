@@ -61,6 +61,25 @@ export async function POST(request) {
     user.name = authUser.user_metadata?.name || user.name;
   }
 
+  // Demarre le compte a rebours d'essai (30 sept) : trialStartedAt n'etait
+  // jamais renseigne nulle part (le trigger Supabase handle_new_user, partage
+  // avec l'app mobile, ne le fait pas), donc la banniere d'essai/redirection
+  // de components/Shell.jsx ne se declenchait jamais. Initialise au premier
+  // login observe d'un compte entreprise en essai, pas a l'inscription — un
+  // compte jamais reconnecte n'a pas besoin d'un compte a rebours qui tourne.
+  if (accountType === "entreprise" && user.plan === "trial" && !user.trialStartedAt) {
+    user.trialStartedAt = nowIso();
+    try {
+      const scoped = getSupabaseForToken(session.access_token);
+      await scoped.from("users").update({
+        business_info: { ...(profile?.business_info || {}), _trialStartedAt: user.trialStartedAt }
+      }).eq("id", authUser.id);
+    } catch {
+      // Best-effort : la session reste utilisable meme si l'ecriture echoue,
+      // le prochain login reessaiera.
+    }
+  }
+
   const response = ok({ user });
   setSessionCookie(response, "access", session.access_token);
   setSessionCookie(response, "refresh", session.refresh_token);
