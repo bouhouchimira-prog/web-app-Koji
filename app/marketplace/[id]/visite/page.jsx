@@ -13,6 +13,7 @@ import {
   metierByKey,
   timestampedAnswer
 } from "../../../../lib/visite-tree";
+import { matchMetierFromVocabulaire } from "../../../../lib/renovation-question-bank";
 
 // Assistant de visite guidee (12 septembre) — remplace le bouton "Creer mon
 // devis" instantane a l'etape ou l'entreprise positionnee visite le
@@ -34,11 +35,18 @@ function readAsDataUrl(file) {
   });
 }
 
+// Meme dictionnaire de vocabulaire que le reste de l'app (29 sept) — reprend
+// directement le metier deja identifie par l'offre (offre.metier, un des 10
+// metiers de RENOVATION_METIERS) quand il correspond a une entree de
+// VISITE_METIERS, sinon retente une reconnaissance par mots-cles sur le
+// libelle libre. Repli sur Plombier (ancien "plomberie_carrelage") faute de
+// mieux, comme avant.
 function guessMetier(offreMetier) {
-  const needle = String(offreMetier || "").toLowerCase();
-  if (needle.includes("peinture")) return "peinture";
-  if (needle.includes("electric") || needle.includes("électric")) return "electricite";
-  return "plomberie_carrelage";
+  const direct = VISITE_METIERS.find((m) => m.key === offreMetier);
+  if (direct) return direct.key;
+  const vocabularyMatch = matchMetierFromVocabulaire(offreMetier);
+  if (vocabularyMatch && VISITE_METIERS.find((m) => m.key === vocabularyMatch)) return vocabularyMatch;
+  return "Plombier";
 }
 
 function emptyPieceDraft(id) {

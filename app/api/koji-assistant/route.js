@@ -6,12 +6,14 @@ import { readDb, scopedItems, writeDb } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
 import { TOOLS, PAGES, TOPIC_SUGGESTIONS, resolveByHint, resolveOuvrageForLabel, resolveSupplyForLabel } from "../../../lib/koji-assistant-tools";
-// "Creer un devis" navigue desormais directement vers la page (voir plus
-// bas) — seul advanceDevisFlow reste importe, pour ne pas casser une
-// discussion deja en cours dans l'ancien questionnaire au moment du
+// "Creer un devis" avec assez d'informations (client + description) genere
+// desormais un vrai devis chiffre via l'IA (voir plus bas, branche
+// type === "devis") — seul advanceDevisFlow reste importe pour ne pas casser
+// une discussion deja en cours dans l'ancien questionnaire au moment du
 // deploiement. lib/koji-assistant-devis-flow.js n'est pas supprime.
 import { advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
 import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
+import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 
 // Assistant koji v2 (15 septembre) : pipeline a deux phases.
 // Phase 1 (IA, 1 appel) : classe le message parmi les 13 outils de
@@ -80,7 +82,7 @@ Les 14 types (pour l'action "create", champs à extraire) :
 - "facture" : transformer un devis SIGNÉ existant en facture. Champs : quoteHint (nom du client ou numéro de devis mentionné).
 - "fourniture" : référence d'article ajoutée au catalogue de l'entreprise, JAMAIS liée à un chantier (sert pour les futurs devis). Champs : name, category, purchasePriceHt, salePriceHt, quantity, unit, supplierHint (nom du fournisseur si mentionné).
 - "alerte" : incident urgent sur un chantier (fuite, dégât, urgence, incendie). Champs : message, type (degat/fuite/urgence/incendie/autre), chantierHint (OBLIGATOIRE).
-- "devis" : créer un nouveau devis. Champs : client (nom du client mentionné), address (adresse du chantier mentionnée), description (résumé clair en français des travaux décrits UNIQUEMENT — jamais de prix, de TVA ou de nom de lot dans ce texte, ils ont leurs propres champs ci-dessous), lotName (nom du lot/de la pièce/zone concernée SEULEMENT s'il est identifiable dans le message, ex: "Peinture F2", "Salon" — sinon laisse vide), vatRate (nombre : taux de TVA en % SEULEMENT s'il est explicitement mentionné, ex "TVA 20%" → 20 — sinon laisse vide), forfaitAmount (nombre : montant HT global SEULEMENT si l'utilisatrice le donne elle-même explicitement pour l'ensemble des travaux décrits, ex "5000€ fournitures et main d'oeuvre" → 5000 — ne JAMAIS estimer/deviner ce montant toi-même, uniquement le retranscrire s'il est donné tel quel), forfaitLabel (désignation courte du forfait si forfaitAmount est rempli, ex: "Peinture complète — forfait"). Si aucune information n'est donnée (juste "crée un devis"), laisse tous ces champs vides.
+- "devis" : créer un nouveau devis. Champs : client (nom du client mentionné), address (adresse du chantier mentionnée), description (résumé clair en français des travaux décrits UNIQUEMENT — jamais de prix, de TVA ou de nom de lot dans ce texte, ils ont leurs propres champs ci-dessous), metier (un seul, le plus proche parmi ${RENOVATION_METIERS.join(", ")} — SEULEMENT s'il ressort clairement de la description, ex: "fuite d'eau" → "Plombier", "tableau électrique" → "Electricien" ; sinon laisse vide, ne devine jamais), surface (surface ou pièce concernée si mentionnée), finition (niveau de finition si mentionné : Standard/Milieu de gamme/Haut de gamme), lotName (nom du lot/de la pièce/zone concernée SEULEMENT s'il est identifiable dans le message, ex: "Peinture F2", "Salon" — sinon laisse vide), vatRate (nombre : taux de TVA en % SEULEMENT s'il est explicitement mentionné, ex "TVA 20%" → 20 — sinon laisse vide), forfaitAmount (nombre : montant HT global SEULEMENT si l'utilisatrice le donne elle-même explicitement pour l'ensemble des travaux décrits, ex "5000€ fournitures et main d'oeuvre" → 5000 — ne JAMAIS estimer/deviner ce montant toi-même, uniquement le retranscrire s'il est donné tel quel), forfaitLabel (désignation courte du forfait si forfaitAmount est rempli, ex: "Peinture complète — forfait"). Si le message donne à la fois un client et une description des travaux, l'IA génère directement un devis chiffré depuis la bibliothèque de prix de l'entreprise (comme /devis-ia/new) — pas de question inutile sur ces deux champs s'ils sont déjà donnés. Si aucune information n'est donnée (juste "crée un devis"), laisse tous ces champs vides.
 - "tache" : une tâche/to-do sur un chantier. Champs : label, chantierHint, dueDate, assignedTo.
 - "equipe" : ajouter un membre d'équipe/ouvrier. Champs : name, profession, phone, email, hourlyRate.
 - "contact" : ajouter un contact/client. Champs : type ("particulier" ou "societe"), firstName, lastName, companyName, phone, email, address.
@@ -545,11 +547,20 @@ export async function POST(request) {
   } else if (action === "update") {
     result = await handleUpdate({ ctx, tool, type, parsed, isSecondRound, message });
   } else if (type === "devis") {
-    // "Creer un devis" ouvre directement la page de creation au lieu du
-    // questionnaire dans le chat (decision du 19 septembre) —
-    // lib/koji-assistant-devis-flow.js reste dans le depot, juste plus
-    // appelee ici.
-    result = { outcome: "navigate", path: "/devis?new=1", label: "Créer un devis" };
+    // Un message qui donne deja client + description ("cree un devis pour
+    // Dupont, fuite d'eau salle de bain") genere directement un devis
+    // chiffre depuis la bibliotheque de prix (meme moteur que
+    // /devis-ia/new, voir TOOLS.devis dans lib/koji-assistant-tools.js) —
+    // demande d'Amira (29 sept) : l'assistant koji doit comprendre et
+    // chiffrer avec la meme base partout dans l'app. Un simple "cree un
+    // devis" sans aucun detail ouvre toujours la page vierge (decision du
+    // 19 septembre, conservee pour ce cas precis — plus simple qu'une
+    // question de clarification par question).
+    const devisFields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+    const hasClientOrDescription = String(devisFields.client || "").trim() || String(devisFields.description || "").trim();
+    result = hasClientOrDescription
+      ? await handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos: body.photos })
+      : { outcome: "navigate", path: "/devis?new=1", label: "Créer un devis" };
   } else if (type === "avenant") {
     result = await handleAvenantNavigate({ ctx, tool, parsed, isSecondRound, message });
   } else if (parsed.detectedFromPhoto) {
