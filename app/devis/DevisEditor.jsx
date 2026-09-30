@@ -2513,6 +2513,28 @@ export default function DevisEditor() {
 
                   {isExpanded ? (
                     <>
+                      {roomNotes.filter((note) => note.room === room).map((note) => (
+                        <div key={note.id} className="room-note-card">
+                          <div className="room-note-header">
+                            <span className="room-note-type">
+                              {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
+                            </span>
+                            <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
+                          </div>
+                          {note.message ? <p className="room-note-message">{note.message}</p> : null}
+                          {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" className="room-note-photo" /> : null}
+                          {note.fileName && !note.photoDataUrl ? <span className="room-note-file">{note.fileName}</span> : null}
+                        </div>
+                      ))}
+
+                      {!roomLines.length ? (
+                        <div className="empty-state">{L.devis.noWorkForLot}</div>
+                      ) : (
+                        <div className="quote-final-lines">
+                          {roomLines.map((line) => renderLineCard(line))}
+                        </div>
+                      )}
+
                       <div className="quote-add-line-row" ref={addLineMenuRoom === room ? addLineMenuRef : null}>
                         <button type="button" className="quote-add-line-btn" onClick={() => setAddLineMenuRoom((current) => current === room ? null : room)} aria-expanded={addLineMenuRoom === room}>
                           <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
@@ -2539,28 +2561,6 @@ export default function DevisEditor() {
                           </div>
                         ) : null}
                       </div>
-
-                      {roomNotes.filter((note) => note.room === room).map((note) => (
-                        <div key={note.id} className="room-note-card">
-                          <div className="room-note-header">
-                            <span className="room-note-type">
-                              {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
-                            </span>
-                            <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
-                          </div>
-                          {note.message ? <p className="room-note-message">{note.message}</p> : null}
-                          {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" className="room-note-photo" /> : null}
-                          {note.fileName && !note.photoDataUrl ? <span className="room-note-file">{note.fileName}</span> : null}
-                        </div>
-                      ))}
-
-                      {!roomLines.length ? (
-                        <div className="empty-state">{L.devis.noWorkForLot}</div>
-                      ) : (
-                        <div className="quote-final-lines">
-                          {roomLines.map((line) => renderLineCard(line))}
-                        </div>
-                      )}
                     </>
                   ) : null}
                 </section>
