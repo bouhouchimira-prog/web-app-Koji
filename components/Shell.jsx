@@ -257,6 +257,13 @@ export function Shell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  // Menu deroulant sur l'avatar (30 sept, demande d'Amira) : Profil /
+  // Parametres / Deconnexion accessibles directement au clic sur l'avatar,
+  // sans dependre du bouton menu du panneau lateral (.side-rail) — ce
+  // dernier peut se retrouver cache (ex: mauvais profileType en cache), ce
+  // qui rendait la deconnexion inaccessible en version bureau.
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarMenuRef = useRef(null);
 
   // Assistant koji (15 septembre, historique en menu deroulant le 19) —
   // widget flottant bas-droite, visible sur toutes les pages entreprise
@@ -462,6 +469,7 @@ export function Shell({ children }) {
   useEffect(() => {
     function handleClick(e) {
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target)) setAvatarMenuOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -633,13 +641,40 @@ export function Shell({ children }) {
               </div>
             ) : null}
           </div>
-          <Link href="/profil" className="icon-round avatar-btn" aria-label={L.nav.profile}>
-            {avatarLogo && !avatarLoadError ? (
-              <img src={avatarLogo} alt="" className="avatar-btn-img" onError={() => setAvatarLoadError(true)} />
-            ) : (
-              <span className="avatar-btn-initials">{initialsFrom(avatarLabel)}</span>
-            )}
-          </Link>
+          <div className="topbar-avatar" ref={avatarMenuRef}>
+            <button
+              type="button"
+              className="icon-round avatar-btn"
+              aria-label={L.nav.profile}
+              aria-expanded={avatarMenuOpen}
+              onClick={() => setAvatarMenuOpen((v) => !v)}
+            >
+              {avatarLogo && !avatarLoadError ? (
+                <img src={avatarLogo} alt="" className="avatar-btn-img" onError={() => setAvatarLoadError(true)} />
+              ) : (
+                <span className="avatar-btn-initials">{initialsFrom(avatarLabel)}</span>
+              )}
+            </button>
+            {avatarMenuOpen ? (
+              <ul className="avatar-dropdown">
+                <li>
+                  <Link href="/profil" onClick={() => setAvatarMenuOpen(false)}>
+                    <Icon name="user" className="svg-icon" />{L.nav.profile}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/parametres" onClick={() => setAvatarMenuOpen(false)}>
+                    <Icon name="settings" className="svg-icon" />{L.nav.settings}
+                  </Link>
+                </li>
+                <li>
+                  <button type="button" onClick={logout}>
+                    <Icon name="logout" className="svg-icon" />{L.nav.logout}
+                  </button>
+                </li>
+              </ul>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -688,6 +723,11 @@ export function Shell({ children }) {
             <span>{L.shell.admin}</span>
             <small>{L.shell.adminHint}</small>
           </div>
+        )}
+        {isAdmin && (
+          <Link href="/admin/clients" className="drawer-nav-section" style={{ display: "block", textDecoration: "none" }} onClick={() => setDrawerOpen(false)}>
+            🗂️ Conversations enregistrées
+          </Link>
         )}
 
         {profileType !== "particulier" ? (
