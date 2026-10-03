@@ -5,26 +5,8 @@ import { buildWebUser } from "../../../lib/user-profile";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
-import { buildMissingPriceNotes, PRICE_RANGE_SPREAD } from "../../../lib/ai-devis-shape";
+import { buildMissingPriceNotes, clearUnverifiedAiPrices, PRICE_RANGE_SPREAD } from "../../../lib/ai-devis-shape";
 import { fixText } from "../../../lib/text";
-
-// Un poste de l'expertise interne marque priceSource "ia" (voir
-// lib/ai-devis-shape.js) a ete chiffre par l'IA faute de correspondance
-// dans la bibliotheque de prix — fiable pour donner au particulier une
-// fourchette indicative (voir expertise-koji), mais jamais a faire passer
-// pour un prix sur, tel quel, sur le devis REEL de l'entreprise (30 sept,
-// demande d'Amira). On le remet a 0€ ici, avec une note demandant a
-// l'entreprise de le completer elle-meme — la professionnelle la mieux
-// placee pour donner un vrai prix, jamais une estimation IA non verifiee.
-function clearUnverifiedAiPrices(items) {
-  const missingPriceNotes = [];
-  const cleaned = (items || []).map((item) => {
-    if (item.priceSource !== "ia") return item;
-    missingPriceNotes.push({ room: item.room || "Général", label: item.label || "Prestation" });
-    return { ...item, billingMode: "fixed", fixedAmountHt: 0, priceSource: "manquant", needsPrice: true };
-  });
-  return { items: cleaned, missingPriceNotes };
-}
 
 // Devis pre-rempli par koji (decisions du 4 septembre) — une entreprise
 // consultant un chantier Radar des Chantiers reçoit une COPIE du devis
@@ -34,6 +16,16 @@ function clearUnverifiedAiPrices(items) {
 // recopier lots/postes/prix deja calcules dans un nouveau devis, "Brouillon",
 // que l'entreprise ajuste et envoie normalement depuis /devis. Jamais un PDF
 // figé : un devis modifiable comme n'importe quel autre dans l'editeur.
+//
+// Depuis le 30 septembre (demande d'Amira), cette route n'est plus appelee
+// directement depuis la fiche de l'offre : l'entreprise passe d'abord par
+// un ecran de revue modifiable (app/marketplace/[id]/proposition-devis,
+// alimente par GET .../devis-preview) qui fusionne/supprime/ajuste les
+// lots et les prix AVANT de creer quoi que ce soit. body.rooms/body.items,
+// quand fournis, sont donc la version definitive choisie par l'entreprise
+// sur cet ecran — pas la peine de les re-deriver de l'expertise. Le repli
+// sur l'expertise brute reste en place pour ne rien casser si cette route
+// est appelee sans etre passee par l'ecran de revue.
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const auth = getAuth(request, body);
@@ -62,7 +54,15 @@ export async function POST(request) {
 
   const now = new Date().toISOString();
   const quoteNumber = await nextQuoteNumberFor(auth);
-  const { items: cleanedItems, missingPriceNotes } = clearUnverifiedAiPrices(expertise.items || []);
+
+  const overrideItems = Array.isArray(body.items) ? body.items : null;
+  const overrideRooms = Array.isArray(body.rooms) ? body.rooms : null;
+  const finalItems = overrideItems || clearUnverifiedAiPrices(expertise.items || []).items;
+  const finalRooms = overrideRooms || expertise.rooms || [];
+  // Recalculee depuis les items FINAUX (ceux edites sur l'ecran de revue,
+  // le cas echeant) — jamais depuis missingPriceNotes de l'expertise brute,
+  // qui ne refleterait plus les corrections apportees par l'entreprise.
+  const missingPriceNotes = finalItems.filter((it) => it.needsPrice).map((it) => ({ room: it.room, label: it.label }));
 
   const draft = {
     id: "",
@@ -81,8 +81,8 @@ export async function POST(request) {
     quoteDate: now.slice(0, 10),
     status: "Brouillon",
     signatureStatus: "Non envoye",
-    rooms: expertise.rooms || [],
-    items: cleanedItems,
+    rooms: finalRooms,
+    items: finalItems,
     notes: buildMissingPriceNotes(missingPriceNotes),
     surcharges: [],
     // Taux reduit travaux de renovation (30 sept, demande d'Amira) — un
