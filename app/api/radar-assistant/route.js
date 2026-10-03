@@ -311,7 +311,14 @@ const METIER_AUTRE_OPTION = "Autre, précisez";
 // un projet qui en avait besoin) : toutes les questions de SLOTS sont
 // desormais toujours posees.
 async function analyzeIntro(text) {
-  const fallback = { projetDecrit: true, needsRoomBreakdown: false, rooms: [] };
+  // Filet de securite PRUDENT (2 oct, remonte par Amira : "Test" tape seul
+  // a ete accepte comme un vrai projet jusqu'au bout — devis genere, offre
+  // publiee, email envoye a toutes les entreprises). Si l'appel IA echoue
+  // (ou si la cle API manque), on ne doit JAMAIS laisser passer un message
+  // en silence : mieux vaut redemander une precision, coherent avec le
+  // reste du fichier (classifyReply etc. echouent toujours "ferme", jamais
+  // "ouvert").
+  const fallback = { projetDecrit: false, needsRoomBreakdown: false, rooms: [] };
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
