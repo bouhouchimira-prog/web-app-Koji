@@ -36,8 +36,38 @@ async function nextQuoteNumberForAdmin(supabase, adminUserId) {
 // tentative d'injection de consignes glissee dans la conversation, ne peut
 // donc atteindre ce prompt. On construit un recapitulatif structure plutot
 // que de rejouer la conversation brute.
+// Ajouts de derniere minute a la question de cloture (1er oct, demande
+// d'Amira) — desormais une LISTE (plusieurs metiers/elements possibles, un
+// par un), chacun avec sa propre precision chiffree si l'IA en a demande une.
+function formatComplements(complements) {
+  if (!Array.isArray(complements) || complements.length === 0) return "";
+  return complements
+    .filter((c) => c && c.item)
+    .map((c) => (c.precision ? `${fixText(c.item)} (${fixText(c.precision)})` : fixText(c.item)))
+    .join(" ; ");
+}
+
+// Decoupage par piece (1er oct, cahier des charges d'Amira) — quand le
+// particulier a decrit son projet piece par piece (app/api/radar-assistant),
+// cette liste structuree remplace avantageusement les champs globaux
+// cotes/configuration/disposition/etat (non renseignes dans ce cas, voir
+// skipIf sur ces SLOTS) : chaque piece porte deja sa propre description, les
+// metiers detectes automatiquement, et un resume de ses reponses.
+function formatRooms(rooms) {
+  if (!Array.isArray(rooms) || rooms.length === 0) return "";
+  return rooms
+    .map((r) => {
+      const metiers = Array.isArray(r.metiers) && r.metiers.length > 0 ? ` [métiers concernés : ${r.metiers.join(", ")}]` : "";
+      const summary = r.summary ? ` — ${fixText(r.summary)}` : "";
+      return `  * ${fixText(r.label)}${metiers}${summary}`;
+    })
+    .join("\n");
+}
+
 function buildPrompt({ answers, catalogText }) {
   const a = answers || {};
+  const complementsText = formatComplements(a.complements);
+  const roomsText = formatRooms(a.rooms);
   return `Voici les informations recueillies aupres d'un particulier au sujet de travaux de rénovation/BTP :
 
 - Description initiale du projet : ${fixText(a.intro || "non précisée")}
@@ -51,7 +81,7 @@ function buildPrompt({ answers, catalogText }) {
 - Accès pour les artisans : ${fixText(a.acces || "non précisé")}
 - Stationnement pour les artisans : ${fixText(a.stationnement || "non précisé")}
 - Nettoyage de fin de chantier : ${fixText(a.nettoyage || "non précisé")}
-- État actuel de la pièce/l'espace (meubles, vide...) : ${fixText(a.etat || "non précisé")}${a.metier ? `\n- Métier principal identifié : ${fixText(a.metier)}` : ""}${a.equipements ? `\n- Équipements souhaités : ${fixText(a.equipements)}` : ""}${a.style ? `\n- Style / finitions souhaités : ${fixText(a.style)}` : ""}${a.gamme ? `\n- Gamme souhaitée : ${fixText(a.gamme)}` : ""}${a.etatGeneral ? `\n- État général actuel de l'espace : ${fixText(a.etatGeneral)}` : ""}${a.travauxDetail ? `\n- Travaux détaillés demandés : ${fixText(a.travauxDetail)}` : ""}${a.travauxPrecisions ? `\n- Précisions chiffrées sur les travaux (surfaces, quantités) : ${fixText(a.travauxPrecisions)}` : ""}${a.normes ? `\n- Normes de référence pour ce corps de métier (contexte, à respecter dans le chiffrage sans l'affirmer comme une certification) : ${fixText(a.normes)}` : ""}${a.cadragePrecisions ? `\n- Précisions sur la nature exacte des travaux (obtenues en début de conversation) : ${fixText(a.cadragePrecisions)}` : ""}
+- État actuel de la pièce/l'espace (meubles, vide...) : ${fixText(a.etat || "non précisé")}${a.metier ? `\n- Métier principal identifié : ${fixText(a.metier)}` : ""}${roomsText ? `\n- Projet décrit pièce par pièce par le client (utilise ces pièces comme base des lots du devis, un lot par pièce quand c'est pertinent) :\n${roomsText}` : ""}${a.equipements ? `\n- Équipements souhaités : ${fixText(a.equipements)}` : ""}${a.style ? `\n- Style / finitions souhaités : ${fixText(a.style)}` : ""}${a.etatGeneral ? `\n- État général actuel de l'espace : ${fixText(a.etatGeneral)}` : ""}${a.travauxDetail ? `\n- Travaux détaillés demandés : ${fixText(a.travauxDetail)}` : ""}${a.travauxPrecisions ? `\n- Précisions chiffrées sur les travaux (surfaces, quantités) : ${fixText(a.travauxPrecisions)}` : ""}${a.normes ? `\n- Normes de référence pour ce corps de métier (contexte, à respecter dans le chiffrage sans l'affirmer comme une certification) : ${fixText(a.normes)}` : ""}${a.cadragePrecisions ? `\n- Précisions sur la nature exacte des travaux (obtenues en début de conversation) : ${fixText(a.cadragePrecisions)}` : ""}${complementsText ? `\n- Éléments ajoutés par le client en fin de conversation (à chiffrer comme le reste du projet) : ${complementsText}` : ""}
 
 Bibliothèque de prix interne Koji — SOURCE DE PRIX PRIORITAIRE, obligatoire quand un poste y correspond :
 ${catalogText}
@@ -60,7 +90,27 @@ ${catalogText}
 
 {"metier":"string (métier principal concerné, ex: Plomberie)","description":"string (résumé du projet en UNE seule phrase courte, façon titre d'annonce — ex: \"Rénovation complète d'une salle de bain de 5 m², style moderne\" — jamais un paragraphe détaillé, le détail des travaux est dans lots/postes)","lots":[{"nom":"string","postes":[{"designation":"string","codeCatalogue":"string ou null — le code EXACT (ex: CARMUR-001) d'un ouvrage de la bibliothèque ci-dessus si ce poste y correspond, sinon null","quantite":number,"prix_unitaire":number,"prix_total":number (uniquement si codeCatalogue est null ; si codeCatalogue est renseigné mets 0, le prix est calculé automatiquement à partir de la bibliothèque)}]}],"prix_total_estime":number,"conseils":[{"label":"string (conseil concret et réaliste pour réduire le coût, ex: vider la pièce soi-même)","discountPercent":number (impact estimé sur le total, ex: 8 pour -8%)}],"delaiEstimeJours":number}
 
-Règle de chiffrage impérative : pour CHAQUE poste, cherche D'ABORD une correspondance dans la bibliothèque de prix ci-dessus et renseigne alors "codeCatalogue" — n'estime un "prix_total" toi-même QUE pour un poste qui n'existe vraiment dans aucun ouvrage de la bibliothèque. Fournis entre 2 et 4 conseils. Les prix sont en euros HT.`;
+Règle de chiffrage impérative : pour CHAQUE poste, cherche D'ABORD une correspondance dans la bibliothèque de prix ci-dessus et renseigne alors "codeCatalogue" — n'estime un "prix_total" toi-même QUE pour un poste qui n'existe vraiment dans aucun ouvrage de la bibliothèque.
+
+Règle anti-faux-raccordement (critique, cause déjà constatée de prix très sous-évalués) : "codeCatalogue" ne doit JAMAIS être renseigné "par approximation" ou parce qu'un code du même métier existe vaguement à proximité — uniquement si le code correspond EXACTEMENT à la prestation décrite (même nature de travaux, même type d'ouvrage). En cas de doute, codeCatalogue doit être null. La bibliothèque ci-dessus est une bibliothèque de MAIN D'ŒUVRE UNIQUEMENT (temps de pose/intervention) — elle ne contient AUCUN prix d'achat de fournitures, meubles, électroménager ou matériaux. Tout poste qui est un ACHAT (ex: "achat d'un meuble de cuisine", "achat d'une chaudière", "achat de carrelage") doit TOUJOURS avoir codeCatalogue null, même si un poste de pose/installation de ce même élément existe dans la bibliothèque — ne confonds jamais le prix de la main d'œuvre de pose avec le prix d'achat de l'élément lui-même.
+
+Fournis entre 2 et 4 conseils. Les prix sont en euros HT.`;
+}
+
+// Detail de la fourchette par lot (1er oct, demande d'Amira : "prix
+// cliquable et detaille, le total de chaque metier") — les lots de
+// l'expertise ("rooms") sont deja nommes par corps de metier par l'IA
+// (buildItemsFromAiQuote), donc regrouper par room revient a regrouper par
+// metier pour un projet multi-corps d'etat. Jamais le detail des postes
+// eux-memes ici (reste interne), juste un sous-total par lot.
+export function buildBreakdown(calculatedItems) {
+  const byRoom = new Map();
+  for (const item of calculatedItems || []) {
+    const room = fixText(item.room || "Général");
+    const current = byRoom.get(room) || 0;
+    byRoom.set(room, current + (Number(item.totalTtc) || 0));
+  }
+  return Array.from(byRoom.entries()).map(([room, totalTtc]) => ({ room, totalTtc: Math.round(totalTtc) }));
 }
 
 function validateExpertiseResponse(parsed) {
@@ -143,7 +193,15 @@ export async function POST(request) {
   const adminUserId = await resolveAdminUserId();
   if (!adminUserId) return badRequest("Configuration interne manquante (compte admin introuvable).", 500);
 
-  const { rooms, items } = buildItemsFromAiQuote(parsed, catalog);
+  // trustAiPriceForUnmatched:false (1er oct, demande d'Amira) — le particulier
+  // ne voit plus jamais un prix invente par l'IA pour un poste absent du
+  // catalogue : il est averti explicitement ("on n'a pas ce prix dans notre
+  // base") et peut en proposer un lui-meme sur l'ecran de resultat, sinon le
+  // poste reste a 0€. Change le comportement precedent (repli IA automatique,
+  // garde encore cote entreprise/devis-ia pour un motif different) — la
+  // fourchette de prix peut donc etre incomplete pour les metiers non encore
+  // couverts par la bibliotheque (voir lib/ouvrages.js).
+  const { rooms, items } = buildItemsFromAiQuote(parsed, catalog, { trustAiPriceForUnmatched: false });
   const total = Math.max(0, Number(parsed.prix_total_estime) || 0);
   const conseils = parsed.conseils.map((c, index) => ({
     id: `conseil-${index}`,
@@ -205,13 +263,19 @@ export async function POST(request) {
   const priceRangeMin = Math.round(finalTotal * (1 - PRICE_RANGE_SPREAD));
   const priceRangeMax = Math.round(finalTotal * (1 + PRICE_RANGE_SPREAD));
 
+  const missingPriceItems = computed.items
+    .filter((it) => it.needsPrice)
+    .map((it) => ({ id: it.id, room: it.room, label: it.label, quantity: it.quantity, unit: it.unit }));
+
   return ok({
     expertiseId: inserted.id,
     metier: fixText(parsed.metier || ""),
     description: fixText(parsed.description || ""),
     priceRangeMin,
     priceRangeMax,
+    breakdown: buildBreakdown(computed.calculatedItems),
     delaiEstimeJours: Math.max(1, Math.round(Number(parsed.delaiEstimeJours) || 7)),
-    conseils
+    conseils,
+    missingPriceItems
   }, 201);
 }
