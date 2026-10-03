@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { RadarAddressAutocomplete } from "../../../../components/RadarAddressAutocomplete";
-import { questionBankFor, GAMME_OPTIONS, ETAT_GENERAL_OPTIONS, normesFor } from "../../../../lib/renovation-question-bank";
+import { questionBankFor, ETAT_GENERAL_OPTIONS, normesFor } from "../../../../lib/renovation-question-bank";
 
 // Creer une offre — refonte du 23 septembre (v3) : une seule page avec deux
 // onglets ("Offre IA" / "Saisie libre") — habillage inspire d'une maquette
@@ -74,44 +74,16 @@ function nowTime() {
   return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Icones purement decoratives pour les choix rapides du chat (memes options
-// que SLOTS dans app/api/radar-assistant/route.js, jamais modifiees ici) —
-// habillage visuel seulement, aucune influence sur les reponses acceptees.
-const OPTION_ICON = {
-  "Avec fournitures": "📦",
-  "Sans fournitures": "🚫",
-  "Rez-de-chaussée": "🏠",
-  "1er étage": "🏢",
-  "2ème étage": "🏢",
-  "3ème étage": "🏢",
-  "4ème étage et plus": "🏙️",
-  "Oui": "✅",
-  "Non": "❌",
-  "Facile": "🟢",
-  "Escalier étroit": "🪜",
-  "Accès compliqué": "🚧",
-  "Stationnement facile": "🅿️",
-  "Stationnement difficile": "🚧",
-  "Moins de 3 m²": "📐",
-  "3 à 5 m²": "📐",
-  "5 à 10 m²": "📐",
-  "Plus de 10 m²": "📐",
-  "Rectangulaire": "▭",
-  "Carrée": "⬜",
-  "En longueur": "▬",
-  "Forme atypique": "🔷",
-  "Modifier la disposition": "🔀",
-  "Garder la même disposition": "↔️",
-  "À la charge de l'entreprise": "🧹",
-  "Je m'en occupe moi-même": "🧼",
-  "Déjà vide": "📭",
-  "À vider avant travaux": "📦",
-  "À protéger seulement": "🛡️",
-  "Je ne sais pas": "🤷"
-};
-function optionIcon(option) {
-  return OPTION_ICON[option] || "💬";
-}
+// Separateur de selection multiple sur les cartes du cadrage (30 sept) —
+// doit rester identique cote serveur (app/api/radar-assistant/route.js,
+// MULTI_SELECT_SEPARATOR) pour que le court-circuit sans IA fonctionne.
+const MULTI_SELECT_SEPARATOR = " • ";
+
+// Marge de la fourchette de prix (1er oct) — doit rester identique a
+// PRICE_RANGE_SPREAD cote serveur (lib/ai-devis-shape.js), utilisee ici
+// uniquement pour recalculer la fourchette par lot (expertise.breakdown
+// ne renvoie qu'un total par lot, pas deja une fourchette).
+const PRICE_RANGE_SPREAD_CLIENT = 0.15;
 
 function readAsDataUrl(file) {
   return new Promise((resolve) => {
@@ -123,16 +95,15 @@ function readAsDataUrl(file) {
 
 // Ordre des phases de l'onglet "Offre IA", pour l'indicateur de
 // progression (points) — la maquette d'Amira numerote chaque etape.
-const IA_PHASES = ["hero", "chat", "equipements", "styles", "gamme", "etat-general", "travaux", "travaux-detail", "recap", "result"];
+const IA_PHASES = ["hero", "chat", "equipements", "styles", "etat-general", "travaux", "travaux-detail", "recap", "result"];
 
 export default function NewRadarOffrePage() {
   const router = useRouter();
   const [mode, setMode] = useState("ia"); // ia | manuel
-  const [phase, setPhase] = useState("hero"); // hero | chat | metier-loading | equipements | styles | gamme | etat-general | travaux | recap | loading | result
+  const [phase, setPhase] = useState("hero"); // hero | chat | metier-loading | equipements | styles | etat-general | travaux | recap | loading | result
   const [metier, setMetier] = useState("");
   const [selectedEquipements, setSelectedEquipements] = useState(new Set());
   const [selectedStyle, setSelectedStyle] = useState("");
-  const [selectedGamme, setSelectedGamme] = useState("");
   const [selectedEtatGeneral, setSelectedEtatGeneral] = useState("");
   const [travauxToggles, setTravauxToggles] = useState({});
   const [travauxDetailAnswers, setTravauxDetailAnswers] = useState({});
@@ -145,12 +116,25 @@ export default function NewRadarOffrePage() {
   const [selectedConseils, setSelectedConseils] = useState(new Set());
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  // Prix manquants (1er oct, demande d'Amira) : des que l'IA ne fait plus
+  // confiance a son propre prix pour un poste hors catalogue, le particulier
+  // peut en proposer un ici, directement sur l'ecran de resultat.
+  const [missingPriceDrafts, setMissingPriceDrafts] = useState({});
+  const [submittingPrices, setSubmittingPrices] = useState(false);
+  // Detail de la fourchette par lot (1er oct, demande d'Amira : "le prix
+  // soit cliquable et detaille, le total de chaque metier").
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Etat du chat de questions (onglet "Offre IA" uniquement) — meme
   // mecanique que /api/radar-assistant utilisait deja dans le precedent
   // parcours en etapes : liste fixe, une question a la fois, jamais
   // d'improvisation IA sur le contenu des questions.
   const [turns, setTurns] = useState([]);
+  // Identifiant stable pour toute la conversation (2 oct, demande d'Amira :
+  // enregistrer la conversation "en cas ou on rencontre un probleme",
+  // consultable cote admin). Regenere a chaque nouvelle conversation
+  // (openChat/restart) — voir logConversation plus bas.
+  const [conversationId, setConversationId] = useState(() => `radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [currentOptions, setCurrentOptions] = useState(null);
@@ -170,7 +154,38 @@ export default function NewRadarOffrePage() {
   // arriver ; l'ecran "Visuels et photos" ne doit s'intercaler qu'une seule
   // fois, juste apres cette confirmation, jamais avant.
   const [introConfirmed, setIntroConfirmed] = useState(false);
+  // Selection multiple sur les cartes du cadrage (30 sept, demande d'Amira) :
+  // seule etape ou plusieurs reponses a la fois ont du sens (ex: "type de
+  // travaux") — les 11 questions fixes restent un clic = reponse immediate.
+  const [multiSelectChoices, setMultiSelectChoices] = useState(new Set());
+  // "Autre, précisez" en selection multiple (30 sept, demande d'Amira) :
+  // n'efface plus les cartes ni les cases deja cochees — ajoute juste une
+  // ligne de texte libre en bas, combinee aux choix coches au moment de
+  // valider.
+  const [showMultiSelectOther, setShowMultiSelectOther] = useState(false);
+  const [multiSelectOtherText, setMultiSelectOtherText] = useState("");
+  const isCadrageMultiStep = Boolean(slotKey) && slotKey.startsWith("cadrage:") && !slotKey.endsWith(":confirm");
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    setMultiSelectChoices(new Set());
+    setShowMultiSelectOther(false);
+    setMultiSelectOtherText("");
+  }, [slotKey]);
+
+  function toggleMultiSelectChoice(option) {
+    setMultiSelectChoices((current) => {
+      const next = new Set(current);
+      if (next.has(option)) next.delete(option); else next.add(option);
+      return next;
+    });
+  }
+
+  function submitMultiSelectChoices() {
+    const parts = [...multiSelectChoices, multiSelectOtherText.trim()].filter(Boolean);
+    if (parts.length === 0) return;
+    answerText(parts.join(MULTI_SELECT_SEPARATOR));
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -193,6 +208,21 @@ export default function NewRadarOffrePage() {
   }
   function removePhoto(index) {
     setPhotos((p) => p.filter((_, i) => i !== index));
+  }
+
+  // Enregistrement de la conversation (2 oct, demande d'Amira) — tache de
+  // fond, jamais bloquant, erreurs ignorees : n'interfere jamais avec la
+  // conversation garde-fou elle-meme si l'enregistrement echoue.
+  function logConversation(allTurns, metier) {
+    fetch("/api/radar-assistant/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationId,
+        turns: allTurns.map(({ role, text }) => ({ role, text })),
+        metier: metier || expertiseAnswers.metier || ""
+      })
+    }).catch(() => {});
   }
 
   async function sendTurn(nextTurns) {
@@ -225,14 +255,18 @@ export default function NewRadarOffrePage() {
           lon: data.geocode.lon
         });
       }
-      if (data.type === "intro_clarify" || data.type === "cadrage" || data.type === "metier_choice") {
+      if (data.type === "intro_clarify" || data.type === "cadrage" || data.type === "cadrage_confirm" || data.type === "metier_choice") {
         // Le tout premier message ne decrivait pas vraiment un projet (ex:
         // "offre" tape seul), plusieurs corps de metier sont evoques a la
         // fois (koji demande lequel est le principal), ou koji precise
         // encore la nature exacte des travaux (cadrage specifique au
         // metier) — dans tous les cas, jamais l'ecran "Visuels et photos"
         // tant que ce n'est pas resolu.
-        setTurns([...nextTurns, { role: "assistant", text: data.message, time: nowTime() }]);
+        {
+          const finalTurns = [...nextTurns, { role: "assistant", text: data.message, time: nowTime() }];
+          setTurns(finalTurns);
+          logConversation(finalTurns, data.answers?.metier);
+        }
         setReadyMessage("");
         setCurrentOptions(data.options || null);
         setCurrentInputType("text");
@@ -244,11 +278,15 @@ export default function NewRadarOffrePage() {
         // question (data) est mise en attente, revelee par
         // continueAfterPhotos() une fois les photos ajoutees ou ignorees.
         setIntroConfirmed(true);
-        setTurns([...nextTurns, {
-          role: "assistant",
-          text: "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable.",
-          time: nowTime()
-        }]);
+        {
+          const finalTurns = [...nextTurns, {
+            role: "assistant",
+            text: "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable.",
+            time: nowTime()
+          }];
+          setTurns(finalTurns);
+          logConversation(finalTurns, data.answers?.metier);
+        }
         setPendingFirstQuestion(data);
         setAwaitingPhotoStep(true);
         setReadyMessage("");
@@ -256,7 +294,11 @@ export default function NewRadarOffrePage() {
         setCurrentInputType("text");
         return;
       }
-      setTurns([...nextTurns, { role: "assistant", text: data.message, time: nowTime() }]);
+      {
+        const finalTurns = [...nextTurns, { role: "assistant", text: data.message, time: nowTime() }];
+        setTurns(finalTurns);
+        logConversation(finalTurns, data.answers?.metier);
+      }
       if (data.type === "ready_for_expertise") {
         setReadyMessage(data.message);
         setCurrentOptions(null);
@@ -285,6 +327,7 @@ export default function NewRadarOffrePage() {
   function openChat() {
     setError("");
     setPhotos([]);
+    setConversationId(`radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     setPhase("chat");
     setTurns([{
       role: "assistant",
@@ -393,11 +436,21 @@ export default function NewRadarOffrePage() {
       }
     }
     setMetier(detectedMetier);
+    // Decoupage par piece (1er oct, cahier des charges d'Amira) : le
+    // mini-cadrage par piece (app/api/radar-assistant) a deja couvert
+    // equipements/style/etat/travaux au niveau de chaque piece — reposer les
+    // memes questions globalement ici serait redondant (meme principe que
+    // le retrait de l'ecran "Gamme" plus tot ce soir), donc pas la peine de
+    // pre-remplir ces listes dans ce mode. Va direct au recapitulatif, qui
+    // affiche la liste des pieces a la place.
+    if (expertiseAnswers._needsRoomBreakdown) {
+      setPhase("recap");
+      return;
+    }
     const bank = questionBankFor(detectedMetier);
     setTravauxToggles(Object.fromEntries(bank.travaux.map((t) => [t.id, true])));
     setSelectedEquipements(new Set());
     setSelectedStyle("");
-    setSelectedGamme("");
     setSelectedEtatGeneral("");
     setTravauxDetailAnswers({});
     setPhase("equipements");
@@ -419,6 +472,49 @@ export default function NewRadarOffrePage() {
     setTravauxDetailAnswers((current) => ({ ...current, [key]: value }));
   }
 
+  // Edition directement sur l'ecran recapitulatif (30 sept, demande d'Amira :
+  // "modifier quelque chose" ne doit plus quitter cette page) — met a jour
+  // un champ texte issu de la conversation garde-fou (adresse, surface...).
+  function setAnswerField(key, value) {
+    setExpertiseAnswers((current) => ({ ...current, [key]: value }));
+  }
+
+  // Edition d'un ajout de derniere minute (1er oct, demande d'Amira :
+  // plusieurs ajouts possibles, un par un — voir app/api/radar-assistant) —
+  // expertiseAnswers.complements est une liste de {item, precision}.
+  function setComplementField(index, field, value) {
+    setExpertiseAnswers((current) => {
+      const complements = Array.isArray(current.complements) ? [...current.complements] : [];
+      complements[index] = { ...complements[index], [field]: value };
+      return { ...current, complements };
+    });
+  }
+
+  function removeComplement(index) {
+    setExpertiseAnswers((current) => {
+      const complements = Array.isArray(current.complements) ? current.complements.filter((_, i) => i !== index) : [];
+      return { ...current, complements };
+    });
+  }
+
+  // Edition d'une piece sur le recapitulatif (1er oct, decoupage par piece)
+  // — expertiseAnswers.rooms est la liste structuree construite cote serveur
+  // (app/api/radar-assistant), modifiable ici comme tout le reste.
+  function setRoomField(index, field, value) {
+    setExpertiseAnswers((current) => {
+      const rooms = Array.isArray(current.rooms) ? [...current.rooms] : [];
+      rooms[index] = { ...rooms[index], [field]: value };
+      return { ...current, rooms };
+    });
+  }
+
+  function removeRoom(index) {
+    setExpertiseAnswers((current) => {
+      const rooms = Array.isArray(current.rooms) ? current.rooms.filter((_, i) => i !== index) : [];
+      return { ...current, rooms };
+    });
+  }
+
   // Apres la liste des travaux : s'il n'y a aucune sous-question a poser
   // (aucun travail coche parmi ceux qui portent un `detail`), on saute
   // directement au recapitulatif plutot que d'afficher un ecran vide.
@@ -436,7 +532,6 @@ export default function NewRadarOffrePage() {
     const bank = questionBankFor(metier);
     const equipements = bank.equipements.filter((e) => selectedEquipements.has(e.id)).map((e) => e.label).join(", ");
     const style = bank.styles.find((s) => s.id === selectedStyle)?.label || "";
-    const gamme = GAMME_OPTIONS.find((g) => g.id === selectedGamme)?.label || "";
     const etatGeneral = ETAT_GENERAL_OPTIONS.find((e) => e.id === selectedEtatGeneral)?.label || "";
     const travauxDetail = bank.travaux.filter((t) => travauxToggles[t.id]).map((t) => t.label).join(", ");
     const travauxPrecisions = bank.travaux
@@ -444,7 +539,7 @@ export default function NewRadarOffrePage() {
       .map((t) => `${t.label} : ${travauxDetailAnswers[t.detail.key].trim()}`)
       .join(", ");
     const normes = normesFor(metier);
-    const enriched = { ...expertiseAnswers, metier, equipements, style, gamme, etatGeneral, travauxDetail, travauxPrecisions, normes };
+    const enriched = { ...expertiseAnswers, metier, equipements, style, etatGeneral, travauxDetail, travauxPrecisions, normes };
     setExpertiseAnswers(enriched);
     launchExpertise(enriched);
   }
@@ -469,6 +564,8 @@ export default function NewRadarOffrePage() {
       if (!response.ok) throw new Error(data.error || "L'expertise n'a pas pu se terminer.");
       setExpertise(data);
       setSelectedConseils(new Set());
+      setMissingPriceDrafts({});
+      setShowBreakdown(false);
       setPhase("result");
     } catch (err) {
       setError(err.message);
@@ -484,16 +581,50 @@ export default function NewRadarOffrePage() {
     });
   }
 
-  function adjustedRange() {
-    if (!expertise) return { min: 0, max: 0 };
+  function conseilsDiscountFactor() {
+    if (!expertise) return 1;
     const discount = (expertise.conseils || [])
       .filter((c) => selectedConseils.has(c.id))
       .reduce((sum, c) => sum + Number(c.discountPercent || 0), 0);
-    const factor = Math.max(0, 1 - discount / 100);
+    return Math.max(0, 1 - discount / 100);
+  }
+
+  function adjustedRange() {
+    if (!expertise) return { min: 0, max: 0 };
+    const factor = conseilsDiscountFactor();
     return {
       min: Math.round(expertise.priceRangeMin * factor),
       max: Math.round(expertise.priceRangeMax * factor)
     };
+  }
+
+  async function submitMissingPrices() {
+    const prices = Object.entries(missingPriceDrafts)
+      .filter(([, v]) => v !== "" && Number.isFinite(Number(v)))
+      .map(([itemId, v]) => ({ itemId, amountHt: Number(v) }));
+    if (prices.length === 0) return;
+    setSubmittingPrices(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/expertise-koji/${expertise.expertiseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prices })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Mise à jour impossible.");
+      setExpertise((current) => ({
+        ...current,
+        priceRangeMin: data.priceRangeMin,
+        priceRangeMax: data.priceRangeMax,
+        missingPriceItems: data.missingPriceItems
+      }));
+      setMissingPriceDrafts({});
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmittingPrices(false);
+    }
   }
 
   async function publish() {
@@ -514,7 +645,8 @@ export default function NewRadarOffrePage() {
           city: address.city,
           postalCode: address.postalCode,
           lat: address.lat,
-          lon: address.lon
+          lon: address.lon,
+          conversationId
         })
       });
       const data = await response.json();
@@ -533,6 +665,7 @@ export default function NewRadarOffrePage() {
     setSelectedConseils(new Set());
     setError("");
     setTurns([]);
+    setConversationId(`radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     setReadyMessage("");
     setCurrentOptions(null);
     setSlotKey(null);
@@ -540,7 +673,6 @@ export default function NewRadarOffrePage() {
     setMetier("");
     setSelectedEquipements(new Set());
     setSelectedStyle("");
-    setSelectedGamme("");
     setSelectedEtatGeneral("");
     setTravauxToggles({});
     setTravauxDetailAnswers({});
@@ -692,6 +824,46 @@ export default function NewRadarOffrePage() {
               </div>
             ) : currentInputType === "address" ? (
               <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
+            ) : currentOptions && currentOptions.length > 0 && isCadrageMultiStep ? (
+              <>
+                <div className="radar-choice-grid">
+                  {currentOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`radar-choice-card ${(option === "Autre, précisez" ? showMultiSelectOther : multiSelectChoices.has(option)) ? "selected" : ""}`}
+                      disabled={sending}
+                      // "Autre, précisez" : jamais une vraie reponse, garde
+                      // les cases deja cochees — revele juste une ligne de
+                      // texte libre en plus, combinee au moment de valider.
+                      onClick={() => (option === "Autre, précisez" ? setShowMultiSelectOther(true) : toggleMultiSelectChoice(option))}
+                    >
+                      {(option === "Autre, précisez" ? showMultiSelectOther : multiSelectChoices.has(option)) ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
+                      <span className="radar-choice-card-label">{option}</span>
+                    </button>
+                  ))}
+                </div>
+                {showMultiSelectOther ? (
+                  <label className="radar-field">
+                    <span className="radar-field-label">Précisez</span>
+                    <input
+                      type="text"
+                      value={multiSelectOtherText}
+                      onChange={(e) => setMultiSelectOtherText(e.target.value)}
+                      placeholder="Ajoutez ce qui manque…"
+                      disabled={sending}
+                    />
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  className="radar-generate-btn"
+                  onClick={submitMultiSelectChoices}
+                  disabled={sending || (multiSelectChoices.size === 0 && !multiSelectOtherText.trim())}
+                >
+                  Valider ma sélection <span aria-hidden="true">→</span>
+                </button>
+              </>
             ) : currentOptions && currentOptions.length > 0 ? (
               <div className="radar-choice-grid">
                 {currentOptions.map((option) => (
@@ -704,7 +876,6 @@ export default function NewRadarOffrePage() {
                     // quelle au serveur, révèle juste le champ de saisie libre.
                     onClick={() => (option === "Autre, précisez" ? setCurrentOptions(null) : answerText(option))}
                   >
-                    <span className="radar-choice-card-icon">{optionIcon(option)}</span>
                     <span className="radar-choice-card-label">{option}</span>
                   </button>
                 ))}
@@ -790,38 +961,6 @@ export default function NewRadarOffrePage() {
             </div>
             <div className="radar-wizard-nav">
               <button type="button" className="button secondary" onClick={() => setPhase("equipements")}>Retour</button>
-              <button type="button" className="radar-generate-btn" onClick={() => setPhase("gamme")}>
-                Continuer <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {phase === "gamme" ? (
-          <div className="radar-field radar-form-card-pad">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Quel niveau de gamme souhaitez-vous ?</h3>
-                <p>Cela influence les matériaux et équipements retenus pour l'estimation.</p>
-              </div>
-            </div>
-            <div className="radar-choice-grid">
-              {GAMME_OPTIONS.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`radar-choice-card ${selectedGamme === item.id ? "selected" : ""}`}
-                  onClick={() => setSelectedGamme(item.id)}
-                >
-                  {selectedGamme === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                  <span className="radar-choice-card-icon">{item.icon}</span>
-                  <span className="radar-choice-card-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("styles")}>Retour</button>
               <button type="button" className="radar-generate-btn" onClick={() => setPhase("etat-general")}>
                 Continuer <span aria-hidden="true">→</span>
               </button>
@@ -854,7 +993,7 @@ export default function NewRadarOffrePage() {
               ))}
             </div>
             <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("gamme")}>Retour</button>
+              <button type="button" className="button secondary" onClick={() => setPhase("styles")}>Retour</button>
               <button type="button" className="radar-generate-btn" onClick={() => setPhase("travaux")}>
                 Continuer <span aria-hidden="true">→</span>
               </button>
@@ -930,50 +1069,196 @@ export default function NewRadarOffrePage() {
               <span className="radar-step-icon"><SparkleIcon /></span>
               <div>
                 <h3>Voici le récapitulatif de votre projet</h3>
-                <p>Vérifiez que tout est correct avant l'estimation.</p>
+                <p>Modifiez directement ce qui ne convient pas avant l'estimation.</p>
               </div>
             </div>
+
             <div className="radar-recap-card">
-              <div className="radar-recap-row"><span>📝 Description</span><strong>{expertiseAnswers.intro}</strong></div>
+              <label className="radar-field">
+                <span className="radar-field-label">📝 Description</span>
+                <textarea rows={3} value={expertiseAnswers.intro || ""} onChange={(e) => setAnswerField("intro", e.target.value)} />
+              </label>
               <div className="radar-recap-row"><span>🔧 Métier</span><strong>{metier}</strong></div>
-              {expertiseAnswers.cadragePrecisions ? <div className="radar-recap-row"><span>❓ Précisions sur les travaux</span><strong>{expertiseAnswers.cadragePrecisions}</strong></div> : null}
-              {expertiseAnswers.adresse ? <div className="radar-recap-row"><span>📍 Adresse</span><strong>{expertiseAnswers.adresse}</strong></div> : null}
-              {expertiseAnswers.cotes ? <div className="radar-recap-row"><span>📐 Surface</span><strong>{expertiseAnswers.cotes}</strong></div> : null}
-              {expertiseAnswers.configuration ? <div className="radar-recap-row"><span>🔷 Configuration</span><strong>{expertiseAnswers.configuration}</strong></div> : null}
-              {expertiseAnswers.disposition ? <div className="radar-recap-row"><span>🔀 Disposition</span><strong>{expertiseAnswers.disposition}</strong></div> : null}
-              {expertiseAnswers.etage ? <div className="radar-recap-row"><span>🏢 Étage</span><strong>{expertiseAnswers.etage}{expertiseAnswers.ascenseur ? ` · Ascenseur : ${expertiseAnswers.ascenseur}` : ""}</strong></div> : null}
-              {expertiseAnswers.acces ? <div className="radar-recap-row"><span>🚪 Accès</span><strong>{expertiseAnswers.acces}</strong></div> : null}
-              {expertiseAnswers.stationnement ? <div className="radar-recap-row"><span>🅿️ Stationnement</span><strong>{expertiseAnswers.stationnement}</strong></div> : null}
-              {selectedEtatGeneral ? (
-                <div className="radar-recap-row"><span>🏠 État actuel</span><strong>{ETAT_GENERAL_OPTIONS.find((e) => e.id === selectedEtatGeneral)?.label}</strong></div>
-              ) : null}
-              {selectedEquipements.size > 0 ? (
-                <div className="radar-recap-row"><span>🛁 Équipements</span><strong>{bank.equipements.filter((e) => selectedEquipements.has(e.id)).map((e) => e.label).join(", ")}</strong></div>
-              ) : null}
-              {selectedStyle ? (
-                <div className="radar-recap-row"><span>🎨 Style</span><strong>{bank.styles.find((s) => s.id === selectedStyle)?.label}</strong></div>
-              ) : null}
-              {selectedGamme ? (
-                <div className="radar-recap-row"><span>💳 Gamme</span><strong>{GAMME_OPTIONS.find((g) => g.id === selectedGamme)?.label}</strong></div>
-              ) : null}
-              <div className="radar-recap-row"><span>🔨 Travaux</span><strong>{bank.travaux.filter((t) => travauxToggles[t.id]).map((t) => t.label).join(", ") || "—"}</strong></div>
-              {bank.travaux.some((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim()) ? (
+              {expertiseAnswers.cadragePrecisions ? (
                 <div className="radar-recap-row">
-                  <span>📏 Précisions</span>
-                  <strong>
-                    {bank.travaux
-                      .filter((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim())
-                      .map((t) => `${t.label} : ${travauxDetailAnswers[t.detail.key].trim()}`)
-                      .join(", ")}
-                  </strong>
+                  <span>❓ Précisions sur les travaux</span>
+                  <ul className="radar-recap-list">
+                    {expertiseAnswers.cadragePrecisions.split(" ; ").map((reponse, index) => <li key={index}>{reponse}</li>)}
+                  </ul>
                 </div>
               ) : null}
+              <label className="radar-field">
+                <span className="radar-field-label">📍 Adresse</span>
+                <input type="text" value={expertiseAnswers.adresse || ""} onChange={(e) => setAnswerField("adresse", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">📐 Surface</span>
+                <input type="text" value={expertiseAnswers.cotes || ""} onChange={(e) => setAnswerField("cotes", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">🔷 Configuration</span>
+                <input type="text" value={expertiseAnswers.configuration || ""} onChange={(e) => setAnswerField("configuration", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">🔀 Disposition</span>
+                <input type="text" value={expertiseAnswers.disposition || ""} onChange={(e) => setAnswerField("disposition", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">🏢 Étage</span>
+                <input type="text" value={expertiseAnswers.etage || ""} onChange={(e) => setAnswerField("etage", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">🛗 Ascenseur</span>
+                <input type="text" value={expertiseAnswers.ascenseur || ""} onChange={(e) => setAnswerField("ascenseur", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">🚪 Accès</span>
+                <input type="text" value={expertiseAnswers.acces || ""} onChange={(e) => setAnswerField("acces", e.target.value)} />
+              </label>
+              <label className="radar-field">
+                <span className="radar-field-label">🅿️ Stationnement</span>
+                <input type="text" value={expertiseAnswers.stationnement || ""} onChange={(e) => setAnswerField("stationnement", e.target.value)} />
+              </label>
+            </div>
+
+            {Array.isArray(expertiseAnswers.complements) && expertiseAnswers.complements.length > 0 ? (
+              <div className="radar-recap-card">
+                <span className="radar-field-label">➕ Ajouts de dernière minute</span>
+                {expertiseAnswers.complements.map((c, index) => (
+                  <div key={index} style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                    <input
+                      type="text"
+                      value={c.item || ""}
+                      onChange={(e) => setComplementField(index, "item", e.target.value)}
+                      style={{ flex: "1 1 50%" }}
+                    />
+                    <input
+                      type="text"
+                      value={c.precision || ""}
+                      onChange={(e) => setComplementField(index, "precision", e.target.value)}
+                      placeholder="Précision (surface, quantité...)"
+                      style={{ flex: "1 1 50%" }}
+                    />
+                    <button type="button" className="button secondary" onClick={() => removeComplement(index)}>×</button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {expertiseAnswers._needsRoomBreakdown ? (
+              <div className="radar-recap-card">
+                <span className="radar-field-label">🚪 Pièces détaillées</span>
+                {(expertiseAnswers.rooms || []).map((room, index) => (
+                  <div key={room.id || index} style={{ marginTop: 10, paddingTop: 10, borderTop: index > 0 ? "1px solid var(--border, #eee)" : "none" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input
+                        type="text"
+                        value={room.label || ""}
+                        onChange={(e) => setRoomField(index, "label", e.target.value)}
+                        style={{ flex: "1 1 60%", fontWeight: 600 }}
+                      />
+                      <button type="button" className="button secondary" onClick={() => removeRoom(index)}>×</button>
+                    </div>
+                    <small style={{ color: "var(--muted)" }}>
+                      {Array.isArray(room.metiers) && room.metiers.length > 0 ? room.metiers.join(", ") : "Métier non détecté"}
+                    </small>
+                    <textarea
+                      rows={2}
+                      value={room.summary || ""}
+                      onChange={(e) => setRoomField(index, "summary", e.target.value)}
+                      style={{ width: "100%", marginTop: 6 }}
+                      placeholder="Résumé des travaux pour cette pièce"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <span className="radar-field-label">🏠 État actuel</span>
+                <div className="radar-choice-grid">
+                  {ETAT_GENERAL_OPTIONS.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`radar-choice-card ${selectedEtatGeneral === item.id ? "selected" : ""}`}
+                      onClick={() => setSelectedEtatGeneral(item.id)}
+                    >
+                      {selectedEtatGeneral === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
+                      <span className="radar-choice-card-icon">{item.icon}</span>
+                      <span className="radar-choice-card-label">{item.label}</span>
+                      <span className="radar-choice-card-hint">{item.hint}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <span className="radar-field-label">🛁 Équipements</span>
+                <div className="radar-choice-grid">
+                  {bank.equipements.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`radar-choice-card ${selectedEquipements.has(item.id) ? "selected" : ""}`}
+                      onClick={() => toggleEquipement(item.id)}
+                    >
+                      {selectedEquipements.has(item.id) ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
+                      <span className="radar-choice-card-icon">{item.icon}</span>
+                      <span className="radar-choice-card-label">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <span className="radar-field-label">🎨 Style</span>
+                <div className="radar-choice-grid">
+                  {bank.styles.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`radar-choice-card ${selectedStyle === item.id ? "selected" : ""}`}
+                      onClick={() => setSelectedStyle(item.id)}
+                    >
+                      {selectedStyle === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
+                      <span className="radar-choice-card-icon">{item.icon}</span>
+                      <span className="radar-choice-card-label">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <span className="radar-field-label">🔨 Travaux</span>
+                <div className="radar-toggle-list">
+                  {bank.travaux.map((item) => (
+                    <label key={item.id} className="radar-toggle-row">
+                      <span>{item.label}</span>
+                      <input type="checkbox" checked={Boolean(travauxToggles[item.id])} onChange={() => toggleTravail(item.id)} className="radar-toggle-switch" />
+                    </label>
+                  ))}
+                </div>
+                {bank.travaux.some((t) => travauxToggles[t.id] && t.detail) ? (
+                  <div className="radar-detail-list">
+                    {bank.travaux
+                      .filter((item) => travauxToggles[item.id] && item.detail)
+                      .map((item) => (
+                        <label key={item.id} className="radar-field">
+                          <span className="radar-field-label">{item.detail.question}</span>
+                          <input
+                            type="text"
+                            value={travauxDetailAnswers[item.detail.key] || ""}
+                            onChange={(e) => setTravauxDetail(item.detail.key, e.target.value)}
+                            placeholder={item.detail.placeholder}
+                          />
+                        </label>
+                      ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+
+            <div className="radar-recap-card">
               <div className="radar-recap-row"><span>📷 Photos</span><strong>{photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? "s" : ""} ajoutée${photos.length > 1 ? "s" : ""}` : "Aucune"}</strong></div>
             </div>
+
             {error ? <p className="profile-message error">{error}</p> : null}
             <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("equipements")}>Modifier quelque chose</button>
-              <button type="button" className="radar-generate-btn" onClick={confirmRecap}>
+              <button type="button" className="radar-generate-btn" style={{ width: "100%" }} onClick={confirmRecap}>
                 C'est correct <span aria-hidden="true">→</span>
               </button>
             </div>
@@ -1038,11 +1323,68 @@ export default function NewRadarOffrePage() {
 
         {phase === "result" && expertise ? (
           <div className="radar-field radar-form-card-pad">
-            <div className="radar-price-range-card">
-              <span className="radar-price-range-label">Fourchette de prix estimée</span>
+            <button
+              type="button"
+              className="radar-price-range-card"
+              style={{ width: "100%", border: "none", font: "inherit", color: "inherit", cursor: expertise.breakdown?.length > 0 ? "pointer" : "default" }}
+              onClick={() => expertise.breakdown?.length > 0 && setShowBreakdown((v) => !v)}
+            >
+              <span className="radar-price-range-label">
+                Fourchette de prix estimée
+                {expertise.breakdown && expertise.breakdown.length > 0 ? (showBreakdown ? " ▲" : " ▼ (voir le détail)") : ""}
+              </span>
               <span className="radar-price-range-value">{range.min.toLocaleString("fr-FR")} € – {range.max.toLocaleString("fr-FR")} €</span>
               {expertise.delaiEstimeJours ? <span className="radar-delay-badge">Délai estimé : {expertise.delaiEstimeJours} jour{expertise.delaiEstimeJours > 1 ? "s" : ""}</span> : null}
-            </div>
+            </button>
+
+            {showBreakdown && expertise.breakdown && expertise.breakdown.length > 0 ? (
+              <div className="radar-recap-card">
+                <span className="radar-field-label">Détail par lot</span>
+                {expertise.breakdown.map((lot) => {
+                  const factor = conseilsDiscountFactor();
+                  const adjustedMin = Math.round(lot.totalTtc * (1 - PRICE_RANGE_SPREAD_CLIENT) * factor);
+                  const adjustedMax = Math.round(lot.totalTtc * (1 + PRICE_RANGE_SPREAD_CLIENT) * factor);
+                  return (
+                    <div key={lot.room} className="radar-recap-row">
+                      <span>{lot.room}</span>
+                      <strong>{adjustedMin.toLocaleString("fr-FR")} € – {adjustedMax.toLocaleString("fr-FR")} €</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {expertise.missingPriceItems && expertise.missingPriceItems.length > 0 ? (
+              <div className="radar-recap-card">
+                <span className="radar-field-label">⚠️ Prix manquants dans notre base</span>
+                <p className="radar-recap-note" style={{ margin: "4px 0 10px" }}>
+                  Nous n'avons pas encore ces prix dans la base de Koji — la fourchette ci-dessus ne les inclut pas. Vous pouvez en proposer un, sinon ils resteront à 0€.
+                </p>
+                {expertise.missingPriceItems.map((item) => (
+                  <div key={item.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ flex: "1 1 60%", fontSize: 13 }}>{item.room} — {item.label} ({item.quantity} {item.unit})</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Prix € HT"
+                      value={missingPriceDrafts[item.id] || ""}
+                      onChange={(e) => setMissingPriceDrafts((current) => ({ ...current, [item.id]: e.target.value }))}
+                      style={{ width: 110 }}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="button secondary"
+                  style={{ width: "100%", marginTop: 4 }}
+                  onClick={submitMissingPrices}
+                  disabled={submittingPrices}
+                >
+                  {submittingPrices ? "Mise à jour…" : "Mettre à jour l'estimation avec vos prix"}
+                </button>
+              </div>
+            ) : null}
 
             {expertise.conseils && expertise.conseils.length > 0 ? (
               <>
