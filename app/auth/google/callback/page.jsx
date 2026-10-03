@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "../../../../lib/supabase-browser";
 
 // Page de retour apres le redirect Google (voir SsoOptions dans
@@ -10,12 +10,21 @@ import { getSupabaseBrowser } from "../../../../lib/supabase-browser";
 // (detectSessionInUrl: true) — il ne reste qu'a recuperer cette session et
 // la transformer en cookies HttpOnly, exactement comme /api/auth/login le
 // fait deja pour la connexion email/mot de passe.
-export default function GoogleCallbackPage() {
+//
+// Deux profils possibles (30 sept, ?profile=entreprise|particulier dans
+// redirectTo) : cote entreprise (Koji Pro), la session Supabase EST la
+// session finale (/api/auth/google/finish). Cote particulier (Koji), les
+// comptes ne vivent pas dans Supabase Auth — la session Supabase ne sert
+// qu'a prouver l'email, /api/auth/google/finish-particulier retrouve ou
+// cree le compte dans db.users et pose un jeton de portail a la place.
+function GoogleCallbackContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    const profile = searchParams.get("profile") === "particulier" ? "particulier" : "entreprise";
 
     async function finish() {
       const supabase = getSupabaseBrowser();
@@ -26,7 +35,8 @@ export default function GoogleCallbackPage() {
         return;
       }
       try {
-        const response = await fetch("/api/auth/google/finish", {
+        const endpoint = profile === "particulier" ? "/api/auth/google/finish-particulier" : "/api/auth/google/finish";
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -36,8 +46,13 @@ export default function GoogleCallbackPage() {
         });
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "Connexion impossible.");
-        window.localStorage.setItem("koji-user", JSON.stringify(body.user));
-        router.push("/");
+        if (profile === "particulier") {
+          window.localStorage.setItem("koji-user", JSON.stringify(body.account));
+          router.push("/client");
+        } else {
+          window.localStorage.setItem("koji-user", JSON.stringify(body.user));
+          router.push("/");
+        }
       } catch (err) {
         if (!cancelled) setError(err.message || "Connexion impossible.");
       }
@@ -45,7 +60,7 @@ export default function GoogleCallbackPage() {
 
     finish();
     return () => { cancelled = true; };
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <main className="auth-screen-v2">
@@ -62,5 +77,13 @@ export default function GoogleCallbackPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense fallback={null}>
+      <GoogleCallbackContent />
+    </Suspense>
   );
 }

@@ -109,8 +109,6 @@ export default function MarketplaceOffreDetailPage() {
   const [paiements, setPaiements] = useState([]);
   const [paiementUploading, setPaiementUploading] = useState("");
   const [photoRequesting, setPhotoRequesting] = useState(false);
-  const [creatingDevis, setCreatingDevis] = useState(false);
-  const [devisError, setDevisError] = useState("");
 
   function reload() {
     apiGet(`/api/marketplace/offres/${params.id}`)
@@ -134,16 +132,8 @@ export default function MarketplaceOffreDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  async function creerDevis() {
-    setCreatingDevis(true);
-    setDevisError("");
-    try {
-      const data = await apiSend("/api/estimer-devis", { chantierOffreId: params.id });
-      router.push(`/devis?id=${data.quote.id}`);
-    } catch (err) {
-      setDevisError(err.message);
-      setCreatingDevis(false);
-    }
+  function creerDevis() {
+    router.push(`/marketplace/${params.id}/proposition-devis`);
   }
 
   async function sePositionner() {
@@ -257,15 +247,13 @@ export default function MarketplaceOffreDetailPage() {
               className="radar-contact-btn radar-contact-btn-primary"
               style={{ width: "100%", marginBottom: 14 }}
               onClick={creerDevis}
-              disabled={creatingDevis}
             >
               <span className="radar-contact-icon"><FileIcon /></span>
               <span>
-                <strong>{creatingDevis ? "Création du devis…" : "Créer mon devis via cette offre"}</strong>
-                <small>Ouvrages, informations client et prix repris automatiquement</small>
+                <strong>Créer mon devis via cette offre</strong>
+                <small>Relisez et ajustez les lots avant de créer le devis</small>
               </span>
             </button>
-            {devisError ? <p className="profile-message error" style={{ marginTop: -8, marginBottom: 14 }}>{devisError}</p> : null}
 
             {offre.photosUnlocked && offre.photos.length > 0 ? (
               <div className="radar-photo-grid" style={{ marginBottom: 14 }}>
