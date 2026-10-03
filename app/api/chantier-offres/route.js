@@ -4,7 +4,7 @@ import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 import { resolveAdminUserId, PRIMARY_ADMIN_EMAIL } from "../../../lib/admin-account";
-import { sendExpertiseAlertEmail } from "../../../lib/mailer";
+import { sendExpertiseAlertEmail, sendNewOfferEmailToEntreprises } from "../../../lib/mailer";
 import { fixObjectText, fixText } from "../../../lib/text";
 
 // V1 de Radar des Chantiers : cote particulier — creer/lister ses propres
@@ -111,6 +111,18 @@ export async function POST(request) {
   };
 
   db.chantierOffres.unshift(offer);
+
+  // Relie la conversation enregistree (2 oct, demande d'Amira) a l'offre
+  // maintenant qu'elle existe — consultable cote admin sur /admin/clients.
+  // Jamais bloquant : une conversation introuvable (log echoue, vieux
+  // navigateur sans conversationId...) ne doit jamais empecher la
+  // publication de l'offre elle-meme.
+  const conversationId = String(body.conversationId || "").trim();
+  if (conversationId && Array.isArray(db.radarConversations)) {
+    const conversation = db.radarConversations.find((c) => c.id === conversationId && c.userId === userId);
+    if (conversation) conversation.chantierOffreId = offer.id;
+  }
+
   addHistory(db, {
     userId: "",
     type: "radar.offer_created",
@@ -156,6 +168,27 @@ export async function POST(request) {
     description: offer.description,
     devisUrl: `${appUrl}/devis?id=${expertiseId}`
   }).catch(() => {});
+
+  // Alerte a toutes les entreprises inscrites (1er oct, demande d'Amira,
+  // sans filtrage par metier) — ne doit jamais faire echouer la publication
+  // de l'offre elle-meme si l'envoi echoue partiellement.
+  supabaseAdmin
+    .from("users")
+    .select("email")
+    .then(({ data: entreprises }) => {
+      const emails = (entreprises || []).map((e) => e.email).filter(Boolean);
+      if (emails.length === 0) return;
+      return sendNewOfferEmailToEntreprises({
+        emails,
+        metier: offer.metier,
+        description: offer.description,
+        priceRangeMin,
+        priceRangeMax,
+        offreId: offer.id,
+        marketplaceUrl: `${appUrl}/marketplace/${offer.id}`
+      });
+    })
+    .catch(() => {});
 
   return ok({ offre: publicOffer(offer) }, 201);
 }
