@@ -2057,6 +2057,20 @@
   font-weight: 700;
 }
 
+.radar-recap-list {
+  margin: 0;
+  padding-left: 18px;
+  text-align: left;
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 13px;
+  max-width: 60%;
+}
+
+.radar-recap-list li {
+  margin-bottom: 2px;
+}
+
 .radar-next-steps {
   background: #f7f9fd;
   border: 1px solid var(--line);

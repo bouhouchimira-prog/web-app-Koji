@@ -10,6 +10,8 @@ import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
 import { createPaiementEcheancesForQuote } from "../../../lib/chantier-paiements";
 import { recordEstimationAccuracy } from "../../../lib/estimation-accuracy";
 import { recordIaDevisOutcome } from "../../../lib/ia-devis-outcomes";
+import { checkTrialSendLimit, checkTrialEditLimit, persistTrialPatch } from "../../../lib/plan";
+import { buildWebUser } from "../../../lib/user-profile";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -323,6 +325,55 @@ export async function PATCH(request) {
   const now = new Date().toISOString();
   const quote = mapQuote(existingRow);
   const action = body.action || "update";
+
+  // Garde-fous d'essai (30 sept) : uniquement sur les actions explicites
+  // "ready" (Confirmer) et "send" (Envoyer) — jamais sur "update", qui est
+  // aussi le chemin de la sauvegarde automatique de DevisEditor.jsx et se
+  // declencherait a chaque frappe. checkTrialGenerateLimit/checkTrialEditLimit
+  // couvrent deja Generer/Apercu, voir app/api/quotes/[id]/documents/route.js.
+  if (action === "ready" || action === "send") {
+    const { data: ownerProfile } = await auth.supabase.from("users").select("email, business_info").eq("id", auth.userId).maybeSingle();
+    const actor = buildWebUser({ id: auth.userId, email: ownerProfile?.email || "", profile: ownerProfile });
+
+    const editGate = checkTrialEditLimit(actor, quote.id);
+    if (!editGate.allowed) return badRequest(editGate.reason, 402);
+
+    let sendGate = { allowed: true, claim: false };
+    if (action === "send") {
+      sendGate = checkTrialSendLimit(actor, quote);
+      if (!sendGate.allowed) return badRequest(sendGate.reason, 402);
+    }
+
+    await persistTrialPatch(auth.supabase, auth.userId, {
+      ...(editGate.claim || editGate.nextCount > 0 ? { _trialQuoteId: quote.id, _trialSaveCount: editGate.nextCount } : {}),
+      ...(sendGate.claim ? { _trialQuoteId: quote.id } : {})
+    });
+
+    // Garde-fou fourchette Radar des Chantiers (30 sept, demande d'Amira) :
+    // un devis ne provient d'une offre publiee (quote.chantierOffreId) que
+    // via app/api/estimer-devis — son total doit rester entre le prix min et
+    // le prix max deja annonces au particulier sur cette offre, jamais au-
+    // dessus ni en dessous. Verifie uniquement sur les actions explicites
+    // "Confirmer"/"Envoyer" (pas sur l'enregistrement automatique en continu,
+    // qui laisserait l'entreprise coincee en plein ajustement d'un devis) —
+    // meme principe que les garde-fous d'essai juste au-dessus. Le blocage
+    // reste possible a tout moment via la messagerie interne (section
+    // "Communication" de l'app) si le prix reel doit vraiment differer.
+    if (quote.chantierOffreId) {
+      const rangeDb = await readDb();
+      const offre = (rangeDb.chantierOffres || []).find((o) => o.id === quote.chantierOffreId);
+      if (offre && offre.priceRangeMin && offre.priceRangeMax) {
+        const projectedTotal = applyQuoteTotals(quote).totalTtc;
+        if (projectedTotal < offre.priceRangeMin || projectedTotal > offre.priceRangeMax) {
+          const fmt = (n) => `${Math.round(n).toLocaleString("fr-FR")} €`;
+          return badRequest(
+            `Ce devis (${fmt(projectedTotal)}) sort de la fourchette annoncée au client (${fmt(offre.priceRangeMin)} – ${fmt(offre.priceRangeMax)}). Ajustez le devis pour rester dans cette fourchette, ou contactez le client via la messagerie si le prix réel doit vraiment être différent.`,
+            409
+          );
+        }
+      }
+    }
+  }
 
   if (action === "ready") {
     quote.status = "Pret a envoyer";
