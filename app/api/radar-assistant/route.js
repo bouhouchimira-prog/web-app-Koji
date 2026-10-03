@@ -4,7 +4,7 @@ import { readDb, writeDb, makeToken } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixText } from "../../../lib/text";
-import { RENOVATION_METIERS, matchMetierFromVocabulaire, matchAllMetiersFromVocabulaire } from "../../../lib/renovation-question-bank";
+import { RENOVATION_METIERS, matchMetierFromVocabulaire, matchAllMetiersFromVocabulaire, matchesBtpGeneralVocabulaire } from "../../../lib/renovation-question-bank";
 
 // Assistant IA conversationnel, cote particulier — suit le message
 // d'introduction libre (photos + texte) du parcours de creation d'offre
@@ -1022,7 +1022,14 @@ export async function POST(request) {
     const vocabularyMatches = matchAllMetiersFromVocabulaire(introText);
     const vocabularyMetier = vocabularyMatches.length === 1 ? vocabularyMatches[0] : null;
     const analysis = await analyzeIntro(introText);
-    if (!analysis.projetDecrit && vocabularyMatches.length === 0) {
+    // Vocabulaire general du batiment (2 oct, remonte par Amira : "MURS" ou
+    // "SALLE DE BAIN" tapes seuls se faisaient rejeter — aucun metier precis
+    // n'y est nomme, mais c'est clairement un sujet BTP). Memes garanties que
+    // le dictionnaire de metiers juste au-dessus : deterministe, sans appel
+    // IA, jamais bloquant pour un vrai terme du batiment meme si analyzeIntro
+    // hesiterait seul.
+    const generalBtpMatch = matchesBtpGeneralVocabulaire(introText);
+    if (!analysis.projetDecrit && vocabularyMatches.length === 0 && !generalBtpMatch) {
       // Filet de securite (30 sept, remonte par Amira : "éléctricité" avec
       // une faute rejetee sans explication) — avant de vraiment redemander,
       // une derniere tentative reconnait un metier probable malgre la faute
