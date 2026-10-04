@@ -13461,6 +13461,13 @@ body :where(
   color: var(--text);
 }
 
+.radar-chat-generated-image {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  border-radius: 10px;
+}
+
 .radar-chat-bubble small {
   display: block;
   margin-top: 3px;

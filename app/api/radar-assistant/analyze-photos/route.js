@@ -42,7 +42,7 @@ export async function POST(request) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
       model: "claude-sonnet-5",
-      max_tokens: 400,
+      max_tokens: 700,
       thinking: { type: "disabled" },
       system: `Tu es koji, conseiller rénovation/BTP. Le client vient d'envoyer des photos de l'existant pour son projet.
 

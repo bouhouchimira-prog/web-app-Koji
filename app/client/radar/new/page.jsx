@@ -79,6 +79,11 @@ function nowTime() {
 // MULTI_SELECT_SEPARATOR) pour que le court-circuit sans IA fonctionne.
 const MULTI_SELECT_SEPARATOR = " • ";
 
+// Confirmation "voulez-vous une proposition visuelle ?" (4 oct, apres
+// l'analyse d'une photo) — purement cote client, jamais envoyee au serveur
+// (voir answerText) : /api/radar-assistant ne connait pas cette etape.
+const VISUAL_CONFIRM_SLOT_KEY = "photos:visual:confirm";
+
 // Marge de la fourchette de prix (1er oct) — doit rester identique a
 // PRICE_RANGE_SPREAD cote serveur (lib/ai-devis-shape.js), utilisee ici
 // uniquement pour recalculer la fourchette par lot (expertise.breakdown
@@ -153,6 +158,12 @@ export default function NewRadarOffrePage() {
   // puis revelee via continueAfterPhotos(), sans toucher a /api/radar-assistant.
   const [awaitingPhotoStep, setAwaitingPhotoStep] = useState(false);
   const [pendingFirstQuestion, setPendingFirstQuestion] = useState(null);
+  // Suite de la conversation mise en attente le temps de la question
+  // "voulez-vous une proposition visuelle ?" (4 oct) — meme principe que
+  // pendingFirstQuestion, mais generalise a n'importe quelle etape (cadrage,
+  // choix de metier, ecran photos, question fixe...), puisque le commentaire
+  // de photo peut survenir a n'importe quel moment de la conversation.
+  const [pendingVisualStep, setPendingVisualStep] = useState(null);
   // Vrai une fois que le tout premier message decrit reellement un projet
   // (jamais juste apres l'ouverture du chat) — distinct de `slotKey` car le
   // garde-fou "intro:clarify" peut redemander plusieurs fois avant d'y
@@ -258,6 +269,75 @@ export default function NewRadarOffrePage() {
     }
   }
 
+  // Revele une etape mise en attente (cadrage, choix de metier, ecran
+  // photos, question fixe, ou fin du parcours) — factorise car la meme
+  // logique doit s'executer, que l'etape ait ete revelee tout de suite ou
+  // apres la question "voulez-vous une proposition visuelle ?" (4 oct).
+  function revealPendingStep(pending, baseTurns) {
+    const { data, stepMessage, isIntroStep, isPhotoInterstitial } = pending;
+    const finalTurns = [...baseTurns, { role: "assistant", text: stepMessage, time: nowTime() }];
+    setTurns(finalTurns);
+    logConversation(finalTurns, data.answers?.metier);
+    if (isIntroStep) {
+      setReadyMessage("");
+      setCurrentOptions(data.options || null);
+      setCurrentInputType("text");
+      setSlotKey(data.slotKey || null);
+    } else if (isPhotoInterstitial) {
+      setIntroConfirmed(true);
+      setPendingFirstQuestion(data);
+      setAwaitingPhotoStep(true);
+      setReadyMessage("");
+      setCurrentOptions(null);
+      setCurrentInputType("text");
+    } else if (data.type === "ready_for_expertise") {
+      setReadyMessage(data.message);
+      setCurrentOptions(null);
+      setCurrentInputType("text");
+      setSlotKey(null);
+    } else {
+      setReadyMessage("");
+      setCurrentOptions(data.options || null);
+      setCurrentInputType(data.inputType || "text");
+      setSlotKey(data.slotKey || null);
+    }
+  }
+
+  // Reponse a "voulez-vous une proposition visuelle ?" (4 oct) — purement
+  // cote client, n'appelle jamais /api/radar-assistant. "Oui" genere une
+  // image via /api/radar-assistant/generate-visual (Replicate) a partir de
+  // la premiere photo envoyee ; jamais bloquant, un echec affiche un message
+  // d'excuse court et la conversation continue normalement.
+  async function handleVisualConfirm(text) {
+    const pending = pendingVisualStep;
+    setPendingVisualStep(null);
+    let afterTurns = [...turns, { role: "user", text, time: nowTime() }];
+    setTurns(afterTurns);
+    setDraft("");
+    if (text === "Oui, montrez-moi" && pending?.photo) {
+      setSending(true);
+      afterTurns = [...afterTurns, { role: "assistant", text: "Un instant, je prépare une proposition visuelle…", time: nowTime() }];
+      setTurns(afterTurns);
+      try {
+        const response = await fetch("/api/radar-assistant/generate-visual", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ metier: expertiseAnswers.metier, intro: expertiseAnswers.intro, photo: pending.photo })
+        });
+        const body = await response.json().catch(() => ({}));
+        afterTurns = [...afterTurns, body.imageUrl
+          ? { role: "assistant", image: body.imageUrl, time: nowTime() }
+          : { role: "assistant", text: "Désolé, je n'ai pas pu générer la proposition visuelle cette fois-ci.", time: nowTime() }];
+      } catch {
+        afterTurns = [...afterTurns, { role: "assistant", text: "Désolé, je n'ai pas pu générer la proposition visuelle cette fois-ci.", time: nowTime() }];
+      } finally {
+        setTurns(afterTurns);
+        setSending(false);
+      }
+    }
+    if (pending) revealPendingStep(pending, afterTurns);
+  }
+
   async function sendTurn(nextTurns) {
     setSending(true);
     setError("");
@@ -294,61 +374,32 @@ export default function NewRadarOffrePage() {
       // ce dernier est saute pour la plupart des projets reels (cadrage,
       // choix de metier, decoupage par piece...).
       const photoMessage = await analyzeNewPhotos(data.answers?.metier || expertiseAnswers.metier, data.answers?.intro || expertiseAnswers.intro);
-      function buildFinalTurns(message) {
-        const photoTurn = photoMessage ? [{ role: "assistant", text: photoMessage, time: nowTime() }] : [];
-        return [...nextTurns, ...photoTurn, { role: "assistant", text: message, time: nowTime() }];
-      }
-      if (data.type === "intro_clarify" || data.type === "cadrage" || data.type === "cadrage_confirm" || data.type === "metier_choice") {
-        // Le tout premier message ne decrivait pas vraiment un projet (ex:
-        // "offre" tape seul), plusieurs corps de metier sont evoques a la
-        // fois (koji demande lequel est le principal), ou koji precise
-        // encore la nature exacte des travaux (cadrage specifique au
-        // metier) — dans tous les cas, jamais l'ecran "Visuels et photos"
-        // tant que ce n'est pas resolu.
-        {
-          const finalTurns = buildFinalTurns(data.message);
-          setTurns(finalTurns);
-          logConversation(finalTurns, data.answers?.metier);
-        }
-        setReadyMessage("");
-        setCurrentOptions(data.options || null);
-        setCurrentInputType("text");
-        setSlotKey(data.slotKey || null);
-        return;
-      }
-      if (!introConfirmed && data.type !== "ready_for_expertise") {
-        // Ecran "Visuels et photos" de la maquette : la vraie premiere
-        // question (data) est mise en attente, revelee par
-        // continueAfterPhotos() une fois les photos ajoutees ou ignorees.
-        setIntroConfirmed(true);
-        {
-          const finalTurns = buildFinalTurns("Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable.");
-          setTurns(finalTurns);
-          logConversation(finalTurns, data.answers?.metier);
-        }
-        setPendingFirstQuestion(data);
-        setAwaitingPhotoStep(true);
-        setReadyMessage("");
-        setCurrentOptions(null);
-        setCurrentInputType("text");
-        return;
-      }
-      {
-        const finalTurns = buildFinalTurns(data.message);
+      const isIntroStep = data.type === "intro_clarify" || data.type === "cadrage" || data.type === "cadrage_confirm" || data.type === "metier_choice";
+      const isPhotoInterstitial = !isIntroStep && !introConfirmed && data.type !== "ready_for_expertise";
+      const stepMessage = isPhotoInterstitial
+        ? "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable."
+        : data.message;
+      const pending = { data, stepMessage, isIntroStep, isPhotoInterstitial, photo: photos[0] || null };
+      if (photoMessage) {
+        // Une vraie photo vient d'etre commentee (4 oct, demande d'Amira) :
+        // propose une proposition visuelle generee avant d'enchainer sur la
+        // suite, mise en attente le temps de la reponse (meme principe que
+        // pendingFirstQuestion pour l'ecran "Visuels et photos").
+        const finalTurns = [
+          ...nextTurns,
+          { role: "assistant", text: photoMessage, time: nowTime() },
+          { role: "assistant", text: "Souhaitez-vous que je vous montre une proposition visuelle des travaux ?", time: nowTime() }
+        ];
         setTurns(finalTurns);
         logConversation(finalTurns, data.answers?.metier);
-      }
-      if (data.type === "ready_for_expertise") {
-        setReadyMessage(data.message);
-        setCurrentOptions(null);
-        setCurrentInputType("text");
-        setSlotKey(null);
-      } else {
+        setPendingVisualStep(pending);
         setReadyMessage("");
-        setCurrentOptions(data.options || null);
-        setCurrentInputType(data.inputType || "text");
-        setSlotKey(data.slotKey || null);
+        setCurrentOptions(["Oui, montrez-moi", "Non merci"]);
+        setCurrentInputType("text");
+        setSlotKey(VISUAL_CONFIRM_SLOT_KEY);
+        return;
       }
+      revealPendingStep(pending, nextTurns);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -394,22 +445,27 @@ export default function NewRadarOffrePage() {
   async function continueAfterPhotos() {
     if (!pendingFirstQuestion) return;
     const data = pendingFirstQuestion;
+    setPendingFirstQuestion(null);
+    setAwaitingPhotoStep(false);
     setSending(true);
     const photoMessage = await analyzeNewPhotos(expertiseAnswers.metier, expertiseAnswers.intro);
     setSending(false);
+    const pending = { data, stepMessage: data.message, isIntroStep: false, isPhotoInterstitial: false, photo: photos[0] || null };
     if (photoMessage) {
-      setTurns((current) => {
-        const next = [...current, { role: "assistant", text: photoMessage, time: nowTime() }];
-        logConversation(next, expertiseAnswers.metier);
-        return next;
-      });
+      const finalTurns = [
+        ...turns,
+        { role: "assistant", text: photoMessage, time: nowTime() },
+        { role: "assistant", text: "Souhaitez-vous que je vous montre une proposition visuelle des travaux ?", time: nowTime() }
+      ];
+      setTurns(finalTurns);
+      logConversation(finalTurns, expertiseAnswers.metier);
+      setPendingVisualStep(pending);
+      setCurrentOptions(["Oui, montrez-moi", "Non merci"]);
+      setCurrentInputType("text");
+      setSlotKey(VISUAL_CONFIRM_SLOT_KEY);
+      return;
     }
-    setTurns((current) => [...current, { role: "assistant", text: data.message, time: nowTime() }]);
-    setCurrentOptions(data.options || null);
-    setCurrentInputType(data.inputType || "text");
-    setSlotKey(data.slotKey || null);
-    setAwaitingPhotoStep(false);
-    setPendingFirstQuestion(null);
+    revealPendingStep(pending, turns);
   }
 
   // Permet de repondre par texte a l'ecran "Visuels et photos" (ex: "je n'ai
@@ -433,6 +489,10 @@ export default function NewRadarOffrePage() {
 
   function answerText(text) {
     if (!text.trim() || sending || readyMessage) return;
+    if (slotKey === VISUAL_CONFIRM_SLOT_KEY) {
+      handleVisualConfirm(text.trim());
+      return;
+    }
     const nextTurns = [...turns, { role: "user", text: text.trim(), time: nowTime() }];
     setTurns(nextTurns);
     setDraft("");
@@ -814,7 +874,7 @@ export default function NewRadarOffrePage() {
                   {t.role === "assistant" ? <span className="radar-chat-avatar"><img src="/koji-logo.svg" alt="" /></span> : null}
                   <div className="radar-chat-bubble-wrap">
                     <div className={`radar-chat-bubble ${t.role === "user" ? "user" : "assistant"}`}>
-                      <p>{t.text}</p>
+                      {t.image ? <img src={t.image} alt="Proposition visuelle générée" className="radar-chat-generated-image" /> : <p>{t.text}</p>}
                     </div>
                     <span className="radar-chat-meta">
                       {t.time}
