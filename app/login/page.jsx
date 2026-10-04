@@ -281,7 +281,14 @@ function SsoOptions({ profile }) {
       const supabase = getSupabaseBrowser();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/google/callback?profile=${profile}` }
+        options: {
+          redirectTo: `${window.location.origin}/auth/google/callback?profile=${profile}`,
+          // Sans ca, Google saute l'ecran de choix de compte des qu'un seul
+          // compte est deja connecte dans le navigateur et que l'app a deja
+          // ete autorisee une fois (4 oct, remonte par Amira) — toujours
+          // montrer le choix, meme dans ce cas.
+          queryParams: { prompt: "select_account" }
+        }
       });
       if (oauthError) throw oauthError;
       // La suite se passe hors de cette page : Supabase redirige vers Google,
