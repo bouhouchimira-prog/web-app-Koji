@@ -108,6 +108,11 @@ export default function NewRadarOffrePage() {
   const [travauxToggles, setTravauxToggles] = useState({});
   const [travauxDetailAnswers, setTravauxDetailAnswers] = useState({});
   const [photos, setPhotos] = useState([]);
+  // Combien de photos (sur `photos`) ont deja ete envoyees a l'analyse (4
+  // oct, demande d'Amira) — evite de reanalyser/recommenter les memes
+  // photos a chaque tour. Un ref plutot qu'un state : jamais besoin de
+  // redeclencher un rendu, seulement lu/mis a jour dans sendTurn.
+  const photosAnalyzedCountRef = useRef(0);
   const [description, setDescription] = useState("");
   const [surface, setSurface] = useState("");
   const [address, setAddress] = useState({ address: "", city: "", postalCode: "", lat: null, lon: null });
@@ -225,6 +230,34 @@ export default function NewRadarOffrePage() {
     }).catch(() => {});
   }
 
+  // Commente les photos pas encore analysees (4 oct, demande d'Amira) —
+  // appelee a la fois depuis sendTurn() (photos deja jointes au moment ou
+  // l'intro/le metier sont connus, ex. attachees des le tout premier
+  // message) et depuis continueAfterPhotos() (photos ajoutees sur l'ecran
+  // dedie "Visuels et photos"), pour ne jamais dependre d'un seul point
+  // d'entree — les photos peuvent etre attachees a tout moment via le
+  // trombone. `photosAnalyzedCountRef` evite de reanalyser deux fois les
+  // memes photos. Ne fait rien tant que l'intro n'est pas encore connue
+  // (pas de contexte projet a donner a l'IA) ; jamais bloquant, toujours
+  // silencieuse en cas d'echec.
+  async function analyzeNewPhotos(metier, intro) {
+    if (!intro) return "";
+    const unanalyzed = photos.slice(photosAnalyzedCountRef.current);
+    if (unanalyzed.length === 0) return "";
+    photosAnalyzedCountRef.current = photos.length;
+    try {
+      const response = await fetch("/api/radar-assistant/analyze-photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metier, intro, photos: unanalyzed })
+      });
+      const body = await response.json().catch(() => ({}));
+      return body.message || "";
+    } catch {
+      return "";
+    }
+  }
+
   async function sendTurn(nextTurns) {
     setSending(true);
     setError("");
@@ -255,6 +288,16 @@ export default function NewRadarOffrePage() {
           lon: data.geocode.lon
         });
       }
+      // Commente les photos des qu'un intro/metier est connu, meme si elles
+      // ont ete jointes des le tout premier message (4 oct, demande
+      // d'Amira) — jamais a l'ecran "Visuels et photos" uniquement, puisque
+      // ce dernier est saute pour la plupart des projets reels (cadrage,
+      // choix de metier, decoupage par piece...).
+      const photoMessage = await analyzeNewPhotos(data.answers?.metier || expertiseAnswers.metier, data.answers?.intro || expertiseAnswers.intro);
+      function buildFinalTurns(message) {
+        const photoTurn = photoMessage ? [{ role: "assistant", text: photoMessage, time: nowTime() }] : [];
+        return [...nextTurns, ...photoTurn, { role: "assistant", text: message, time: nowTime() }];
+      }
       if (data.type === "intro_clarify" || data.type === "cadrage" || data.type === "cadrage_confirm" || data.type === "metier_choice") {
         // Le tout premier message ne decrivait pas vraiment un projet (ex:
         // "offre" tape seul), plusieurs corps de metier sont evoques a la
@@ -263,7 +306,7 @@ export default function NewRadarOffrePage() {
         // metier) — dans tous les cas, jamais l'ecran "Visuels et photos"
         // tant que ce n'est pas resolu.
         {
-          const finalTurns = [...nextTurns, { role: "assistant", text: data.message, time: nowTime() }];
+          const finalTurns = buildFinalTurns(data.message);
           setTurns(finalTurns);
           logConversation(finalTurns, data.answers?.metier);
         }
@@ -279,11 +322,7 @@ export default function NewRadarOffrePage() {
         // continueAfterPhotos() une fois les photos ajoutees ou ignorees.
         setIntroConfirmed(true);
         {
-          const finalTurns = [...nextTurns, {
-            role: "assistant",
-            text: "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable.",
-            time: nowTime()
-          }];
+          const finalTurns = buildFinalTurns("Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable.");
           setTurns(finalTurns);
           logConversation(finalTurns, data.answers?.metier);
         }
@@ -295,7 +334,7 @@ export default function NewRadarOffrePage() {
         return;
       }
       {
-        const finalTurns = [...nextTurns, { role: "assistant", text: data.message, time: nowTime() }];
+        const finalTurns = buildFinalTurns(data.message);
         setTurns(finalTurns);
         logConversation(finalTurns, data.answers?.metier);
       }
@@ -355,27 +394,15 @@ export default function NewRadarOffrePage() {
   async function continueAfterPhotos() {
     if (!pendingFirstQuestion) return;
     const data = pendingFirstQuestion;
-    if (photos.length > 0) {
-      setSending(true);
-      try {
-        const response = await fetch("/api/radar-assistant/analyze-photos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ metier: expertiseAnswers.metier, intro: expertiseAnswers.intro, photos })
-        });
-        const body = await response.json().catch(() => ({}));
-        if (body.message) {
-          setTurns((current) => {
-            const next = [...current, { role: "assistant", text: body.message, time: nowTime() }];
-            logConversation(next, expertiseAnswers.metier);
-            return next;
-          });
-        }
-      } catch {
-        // Jamais bloquant : on continue normalement sur la question suivante.
-      } finally {
-        setSending(false);
-      }
+    setSending(true);
+    const photoMessage = await analyzeNewPhotos(expertiseAnswers.metier, expertiseAnswers.intro);
+    setSending(false);
+    if (photoMessage) {
+      setTurns((current) => {
+        const next = [...current, { role: "assistant", text: photoMessage, time: nowTime() }];
+        logConversation(next, expertiseAnswers.metier);
+        return next;
+      });
     }
     setTurns((current) => [...current, { role: "assistant", text: data.message, time: nowTime() }]);
     setCurrentOptions(data.options || null);
