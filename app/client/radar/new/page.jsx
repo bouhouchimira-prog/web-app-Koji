@@ -347,9 +347,36 @@ export default function NewRadarOffrePage() {
   // Revele la vraie premiere question du garde-fou, mise en attente par
   // sendTurn() le temps de l'ecran "Visuels et photos" — les photos deja
   // ajoutees (ou non) restent dans `photos`, lues telles quelles plus tard.
-  function continueAfterPhotos() {
+  // S'il y a des photos (4 oct, demande d'Amira), koji les commente d'abord
+  // dans la conversation avant d'enchainer sur la question suivante — jamais
+  // bloquant : un echec de l'analyse (reseau, cle API...) n'empeche jamais
+  // de continuer, voir /api/radar-assistant/analyze-photos qui renvoie
+  // toujours un message vide plutot qu'une erreur.
+  async function continueAfterPhotos() {
     if (!pendingFirstQuestion) return;
     const data = pendingFirstQuestion;
+    if (photos.length > 0) {
+      setSending(true);
+      try {
+        const response = await fetch("/api/radar-assistant/analyze-photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ metier: expertiseAnswers.metier, intro: expertiseAnswers.intro, photos })
+        });
+        const body = await response.json().catch(() => ({}));
+        if (body.message) {
+          setTurns((current) => {
+            const next = [...current, { role: "assistant", text: body.message, time: nowTime() }];
+            logConversation(next, expertiseAnswers.metier);
+            return next;
+          });
+        }
+      } catch {
+        // Jamais bloquant : on continue normalement sur la question suivante.
+      } finally {
+        setSending(false);
+      }
+    }
     setTurns((current) => [...current, { role: "assistant", text: data.message, time: nowTime() }]);
     setCurrentOptions(data.options || null);
     setCurrentInputType(data.inputType || "text");
@@ -818,7 +845,7 @@ export default function NewRadarOffrePage() {
                     <SendIcon />
                   </button>
                 </form>
-                <button type="button" className="button secondary" onClick={continueAfterPhotos}>
+                <button type="button" className="button secondary" onClick={continueAfterPhotos} disabled={sending}>
                   Continuer sans note <span aria-hidden="true">→</span>
                 </button>
               </div>
