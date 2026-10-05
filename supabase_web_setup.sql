@@ -33,3 +33,21 @@ DROP POLICY IF EXISTS "koji_web_state_insert" ON koji_web_state;
 DROP POLICY IF EXISTS "koji_web_state_update" ON koji_web_state;
 
 REVOKE ALL ON koji_web_state FROM anon, authenticated;
+
+-- ── particulier_users_state (4 octobre) ──────────────────────────────────
+-- Les comptes particuliers (Koji) vivaient jusqu'ici dans koji_web_state,
+-- au milieu de tout le reste (offres, devis, historique...) — un simple
+-- login devait donc transporter 1,27 Mo pour n'en utiliser que 21 Ko. Meme
+-- principe de table que koji_web_state, juste dediee aux comptes (voir
+-- lib/particulier-users.js), pour que les routes qui ne touchent QUE les
+-- comptes (connexion Google, activation, profil) sautent completement le
+-- gros bloc partage. Meme posture de securite : service_role uniquement.
+CREATE TABLE IF NOT EXISTS particulier_users_state (
+  id INT PRIMARY KEY,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE particulier_users_state ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON particulier_users_state FROM anon, authenticated;

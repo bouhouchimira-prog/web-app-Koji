@@ -10,6 +10,7 @@ node_modules
 # plaintext passwords in it. Kept locally for dev fallback only (see
 # lib/db.js's storage tiers); never commit it again.
 data/koji-db.json
+data/particulier-users.json
 
 .vercel
 .env*

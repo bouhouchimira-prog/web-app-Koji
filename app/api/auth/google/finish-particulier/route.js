@@ -1,5 +1,6 @@
 import { badRequest, ok } from "../../../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../../../lib/db";
+import { readUsers, writeUsers } from "../../../../../lib/particulier-users";
 import { getSupabaseForToken } from "../../../../../lib/supabase";
 import { issuePortalToken } from "../../../../../lib/portal-session";
 import { setSessionCookie } from "../../../../../lib/session-cookies";
@@ -31,40 +32,62 @@ export async function POST(request) {
   const googleName = fixText(authUser.user_metadata?.name || authUser.user_metadata?.full_name || "");
   const now = new Date().toISOString();
 
-  const db = await readDb();
-  let clientUser = db.users.find((u) => u.accountType === "particulier" && normalizeEmail(u.email) === email);
+  // Compte deja existant (le cas courant, une reconnexion) : chemin rapide
+  // dedie (lib/particulier-users.js, 4 oct, remonte par Amira — connexion
+  // Google lente) qui saute entierement le gros bloc partage
+  // koji_web_state (1,27 Mo mesures, inutile pour une simple mise a jour
+  // de compte). Google verifie deja la propriete de l'adresse — inutile de
+  // redemander l'activation par e-mail si le compte existant l'attendait
+  // encore.
+  const users = await readUsers();
+  const existingUser = users.find((u) => u.accountType === "particulier" && normalizeEmail(u.email) === email);
+  if (existingUser) {
+    if (existingUser.isActive === false) existingUser.isActive = true;
+    if (!existingUser.name && googleName) existingUser.name = googleName;
+    existingUser.authProvider = "google";
+    existingUser.updatedAt = now;
+    await writeUsers(users);
 
-  if (clientUser) {
-    // Google verifie deja la propriete de l'adresse — inutile de redemander
-    // l'activation par e-mail si le compte existant l'attendait encore.
-    if (clientUser.isActive === false) clientUser.isActive = true;
-    if (!clientUser.name && googleName) clientUser.name = googleName;
-    clientUser.authProvider = "google";
-    clientUser.updatedAt = now;
-  } else {
-    clientUser = {
-      id: makeToken("client"),
-      email: authUser.email,
-      name: googleName || email.split("@")[0] || "Particulier",
-      portalIdentifier: makePortalIdentifier(),
-      accountType: "particulier",
-      authProvider: "google",
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-      personal: {},
-      clientAccess: { quoteIds: [], projectIds: [] }
-    };
-    db.users.push(clientUser);
-    addHistory(db, {
-      userId: "",
-      type: "particulier.signup",
-      label: `Nouveau compte Koji (particulier) via Google : ${clientUser.email}`,
-      entityId: clientUser.id,
-      entityType: "user",
-      meta: { email: clientUser.email }
+    const response = ok({
+      kind: "client",
+      account: {
+        id: existingUser.id,
+        email: existingUser.email,
+        name: existingUser.name,
+        accountType: existingUser.accountType,
+        portalIdentifier: existingUser.portalIdentifier,
+        clientAccess: existingUser.clientAccess || {}
+      }
     });
+    setSessionCookie(response, "portal", issuePortalToken(existingUser.id));
+    return response;
   }
+
+  // Nouveau compte (rare, touche aussi db.history) : reste sur le parcours
+  // classique readDb()/writeDb() — pas le goulot d'etranglement mesure.
+  const db = await readDb();
+  const clientUser = {
+    id: makeToken("client"),
+    email: authUser.email,
+    name: googleName || email.split("@")[0] || "Particulier",
+    portalIdentifier: makePortalIdentifier(),
+    accountType: "particulier",
+    authProvider: "google",
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+    personal: {},
+    clientAccess: { quoteIds: [], projectIds: [] }
+  };
+  db.users.push(clientUser);
+  addHistory(db, {
+    userId: "",
+    type: "particulier.signup",
+    label: `Nouveau compte Koji (particulier) via Google : ${clientUser.email}`,
+    entityId: clientUser.id,
+    entityType: "user",
+    meta: { email: clientUser.email }
+  });
   await writeDb(db);
 
   const response = ok({
