@@ -365,33 +365,54 @@ Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown auto
 // par un, une derniere tentative IA reconnait un metier probable meme mal
 // orthographie et propose une reformulation A CONFIRMER (jamais acceptee en
 // silence) avant de vraiment redemander de preciser.
+// Deuxieme niveau du garde-fou "algorithme d'abord, IA en complement" (2
+// oct puis etendu le 4 oct, demande d'Amira) : le dictionnaire de
+// vocabulaire (l'algorithme) a deja echoue a reconnaitre un metier dans ce
+// message — avant de vraiment redemander une precision, l'IA tente de
+// comprendre ce que le client a voulu dire, sur deux plans distincts :
+// 1) un metier probable malgre une faute de frappe ("eletricite") — comme
+//    avant, propose une reformulation A CONFIRMER, jamais acceptee en
+//    silence ;
+// 2) a defaut, si le message exprime quand meme une vraie intention de
+//    projet sans contenu exploitable ("créer mon chantier", "je veux faire
+//    des travaux") — distinct d'un message vide de sens ("bonjour",
+//    "test") — une question de clarification CIBLEE est generee plutot que
+//    de renvoyer le message fixe generique deux fois d'affilee. Jamais
+//    d'invention : si l'IA ne peut ni deviner un metier ni reconnaitre une
+//    intention, le message fixe generique reste le filet de securite final.
 async function guessMetierFromUnclearIntro(text) {
-  const fallback = { guessed: false, metier: "", reformulation: "" };
+  const fallback = { guessed: false, metier: "", reformulation: "", hasIntent: false, clarifyingQuestion: "" };
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 100,
+      max_tokens: 200,
       thinking: { type: "disabled" },
-      system: `Le client d'un site de renovation/BTP a tape un message tres court pour decrire son projet — peut-etre un seul mot, ou avec une faute de frappe (ex: "eletricite" ou "éléctricité" pour "électricité").
+      system: `Le client d'un site de renovation/BTP a tape un message tres court pour decrire son projet — peut-etre un seul mot, une faute de frappe (ex: "eletricite" pour "électricité"), ou une phrase qui exprime une intention sans dire quels travaux ("créer mon chantier", "je veux faire des travaux", "j'ai un projet").
 
 Metiers possibles : ${RENOVATION_METIERS.join(", ")}.
 
 Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
-{"metier_reconnu":true|false,"metier":"string","reformulation":"string"}
+{"metier_reconnu":true|false,"metier":"string","reformulation":"string","intention_projet":true|false,"question_precision":"string"}
 
-- "metier_reconnu" : true seulement si tu es raisonnablement sur que ce message designe un des metiers ci-dessus, meme mal orthographie. false si le message est vraiment ambigu, vide de sens, ou hors sujet (salutation, test...).
-- "metier" : un des metiers de la liste ci-dessus exactement, uniquement si metier_reconnu est true. Chaine vide sinon.
-- "reformulation" : une courte phrase reformulant ce que le client a probablement voulu dire (ex: "Travaux d'électricité"), uniquement si metier_reconnu est true. Chaine vide sinon.`,
+- "metier_reconnu" : true seulement si tu es raisonnablement sur que ce message designe un des metiers ci-dessus, meme mal orthographie.
+- "metier"/"reformulation" : uniquement si metier_reconnu est true (reformulation = courte phrase fidele, ex: "Travaux d'électricité"). Chaines vides sinon.
+- "intention_projet" : UNIQUEMENT si metier_reconnu est false. true si le message montre que le client veut vraiment demarrer/decrire un projet de renovation mais sans dire quels travaux ("créer mon chantier", "je veux faire des travaux", "j'ai un projet", "besoin d'un devis"). false si le message ne veut rien dire ou est hors sujet (salutation, "test", texte aleatoire).
+- "question_precision" : UNIQUEMENT si intention_projet est true — une question courte, chaleureuse et concrete pour obtenir le vrai contenu (ex: "Avec plaisir ! Quel type de travaux envisagez-vous — une pièce en particulier (cuisine, salle de bain...) ou un corps de métier (peinture, électricité...) ?"). Jamais de prix/délai. Chaine vide sinon.`,
       messages: [{ role: "user", content: `Message du client : "${text}"` }]
     });
     const textBlock = response.content.find((b) => b.type === "text");
     const parsed = parseAiJson(textBlock?.text);
-    if (parsed?.metier_reconnu !== true || !RENOVATION_METIERS.includes(parsed.metier)) return fallback;
-    const reformulation = typeof parsed.reformulation === "string" ? fixText(parsed.reformulation).trim().slice(0, 150) : "";
-    if (!reformulation) return fallback;
-    return { guessed: true, metier: parsed.metier, reformulation };
+    if (parsed?.metier_reconnu === true && RENOVATION_METIERS.includes(parsed.metier)) {
+      const reformulation = typeof parsed.reformulation === "string" ? fixText(parsed.reformulation).trim().slice(0, 150) : "";
+      if (reformulation) return { guessed: true, metier: parsed.metier, reformulation, hasIntent: false, clarifyingQuestion: "" };
+    }
+    if (parsed?.intention_projet === true) {
+      const clarifyingQuestion = typeof parsed.question_precision === "string" ? fixText(parsed.question_precision).trim().slice(0, 250) : "";
+      if (clarifyingQuestion) return { guessed: false, metier: "", reformulation: "", hasIntent: true, clarifyingQuestion };
+    }
+    return fallback;
   } catch {
     return fallback;
   }
@@ -1045,6 +1066,14 @@ export async function POST(request) {
           slotKey: INTRO_GUESS_CONFIRM_SLOT_KEY,
           answers
         });
+      }
+      // Intention de projet sans contenu exploitable ("créer mon chantier")
+      // — distinct d'un message vide de sens : question de clarification
+      // ciblee plutot que le message fixe generique (4 oct, demande
+      // d'Amira). Reste sur le meme slotKey : le prochain message repasse
+      // par ce meme bloc, comme pour le message generique.
+      if (guess.hasIntent) {
+        return ok({ type: "intro_clarify", message: guess.clarifyingQuestion, options: null, inputType: "text", slotKey: INTRO_CLARIFY_SLOT_KEY, answers });
       }
       return ok({ type: "intro_clarify", message: INTRO_CLARIFY_MESSAGE, options: null, inputType: "text", slotKey: INTRO_CLARIFY_SLOT_KEY, answers });
     }
