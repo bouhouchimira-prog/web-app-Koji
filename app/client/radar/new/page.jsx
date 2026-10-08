@@ -121,6 +121,14 @@ export default function NewRadarOffrePage() {
   // photos a chaque tour. Un ref plutot qu'un state : jamais besoin de
   // redeclencher un rendu, seulement lu/mis a jour dans sendTurn.
   const photosAnalyzedCountRef = useRef(0);
+  // Combien de photos (sur `photos`) sont deja rattachees a un message du
+  // chat (8 oct, demande d'Amira : les photos jointes via le trombone
+  // doivent apparaitre DANS la bulle du message envoye, pas dans une liste
+  // qui traine en bas de la conversation) — meme principe de curseur que
+  // photosAnalyzedCountRef ci-dessus, mais pour l'affichage plutot que
+  // l'analyse IA. Les photos pas encore rattachees (au-dela de ce curseur)
+  // restent affichees dans la zone de piece jointe en attente d'envoi.
+  const photosRenderedCountRef = useRef(0);
   const [description, setDescription] = useState("");
   const [surface, setSurface] = useState("");
   const [address, setAddress] = useState({ address: "", city: "", postalCode: "", lat: null, lon: null });
@@ -466,6 +474,20 @@ export default function NewRadarOffrePage() {
     setPendingFirstQuestion(null);
     setAwaitingPhotoStep(false);
     setSending(true);
+
+    // Photos ajoutees via la zone de depot de cet ecran, sans note texte
+    // (bouton "Continuer" direct) — rattachees a un tour utilisateur sans
+    // texte, meme principe que answerText/submitPhotoNote (8 oct), pour
+    // qu'elles apparaissent dans la conversation au lieu de disparaitre
+    // silencieusement une fois envoyees.
+    let baseTurns = turns;
+    const newPhotos = photos.slice(photosRenderedCountRef.current);
+    if (newPhotos.length > 0) {
+      photosRenderedCountRef.current = photos.length;
+      baseTurns = [...turns, { role: "user", text: "", photos: newPhotos, time: nowTime() }];
+      setTurns(baseTurns);
+    }
+
     const photoResult = await analyzeNewPhotos(expertiseAnswers.metier, expertiseAnswers.intro);
     setSending(false);
     const pending = { data, stepMessage: data.message, isIntroStep: false, isPhotoInterstitial: false };
@@ -474,7 +496,7 @@ export default function NewRadarOffrePage() {
         ? [{ role: "assistant", text: photoResult.description, time: nowTime() }]
         : [];
       extraTurns.push({ role: "assistant", text: "Voici ce que je propose pour cette photo :", time: nowTime() });
-      const finalTurns = [...turns, ...extraTurns];
+      const finalTurns = [...baseTurns, ...extraTurns];
       setTurns(finalTurns);
       logConversation(finalTurns, expertiseAnswers.metier);
       setPendingPhotoStep(pending);
@@ -484,13 +506,13 @@ export default function NewRadarOffrePage() {
       return;
     }
     if (photoResult.description) {
-      const finalTurns = [...turns, { role: "assistant", text: photoResult.description, time: nowTime() }];
+      const finalTurns = [...baseTurns, { role: "assistant", text: photoResult.description, time: nowTime() }];
       setTurns(finalTurns);
       logConversation(finalTurns, expertiseAnswers.metier);
       revealPendingStep(pending, finalTurns);
       return;
     }
-    revealPendingStep(pending, turns);
+    revealPendingStep(pending, baseTurns);
   }
 
   // Permet de repondre par texte a l'ecran "Visuels et photos" (ex: "je n'ai
@@ -503,9 +525,15 @@ export default function NewRadarOffrePage() {
     const text = draft.trim();
     if (!text) return;
     setDraft("");
+    const userTurn = { role: "user", text, time: nowTime() };
+    const newPhotos = photos.slice(photosRenderedCountRef.current);
+    if (newPhotos.length > 0) {
+      userTurn.photos = newPhotos;
+      photosRenderedCountRef.current = photos.length;
+    }
     setTurns((current) => [
       ...current,
-      { role: "user", text, time: nowTime() },
+      userTurn,
       { role: "assistant", text: "Pas de problème, on continue !", time: nowTime() }
     ]);
     setExpertiseAnswers((current) => ({ ...current, photoNote: text }));
@@ -518,7 +546,13 @@ export default function NewRadarOffrePage() {
       handlePhotoPropositionsSubmit(text.trim());
       return;
     }
-    const nextTurns = [...turns, { role: "user", text: text.trim(), time: nowTime() }];
+    const userTurn = { role: "user", text: text.trim(), time: nowTime() };
+    const newPhotos = photos.slice(photosRenderedCountRef.current);
+    if (newPhotos.length > 0) {
+      userTurn.photos = newPhotos;
+      photosRenderedCountRef.current = photos.length;
+    }
+    const nextTurns = [...turns, userTurn];
     setTurns(nextTurns);
     setDraft("");
     sendTurn(nextTurns);
@@ -894,7 +928,14 @@ export default function NewRadarOffrePage() {
                   {t.role === "assistant" ? <span className="radar-chat-avatar"><img src="/koji-logo.svg" alt="" /></span> : null}
                   <div className="radar-chat-bubble-wrap">
                     <div className={`radar-chat-bubble ${t.role === "user" ? "user" : "assistant"}`}>
-                      <p>{t.text}</p>
+                      {t.photos && t.photos.length > 0 ? (
+                        <div className="radar-chat-bubble-photos">
+                          {t.photos.map((photo, photoIndex) => (
+                            <img key={photoIndex} src={photo} alt={`Photo ${photoIndex + 1}`} />
+                          ))}
+                        </div>
+                      ) : null}
+                      {t.text ? <p>{t.text}</p> : null}
                     </div>
                     <span className="radar-chat-meta">
                       {t.time}
@@ -918,14 +959,17 @@ export default function NewRadarOffrePage() {
 
             {error ? <p className="profile-message error">{error}</p> : null}
 
-            {photos.length > 0 ? (
+            {photos.length > photosRenderedCountRef.current ? (
               <div className="radar-photo-grid">
-                {photos.map((photo, index) => (
-                  <div className="radar-photo-thumb" key={index}>
-                    <img src={photo} alt={`Photo ${index + 1}`} />
-                    <button type="button" onClick={() => removePhoto(index)} aria-label="Retirer la photo">×</button>
-                  </div>
-                ))}
+                {photos.slice(photosRenderedCountRef.current).map((photo, i) => {
+                  const actualIndex = photosRenderedCountRef.current + i;
+                  return (
+                    <div className="radar-photo-thumb" key={actualIndex}>
+                      <img src={photo} alt={`Photo ${actualIndex + 1}`} />
+                      <button type="button" onClick={() => removePhoto(actualIndex)} aria-label="Retirer la photo">×</button>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 

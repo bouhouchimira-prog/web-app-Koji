@@ -13788,6 +13788,27 @@ body :where(
   color: var(--text);
 }
 
+/* Photos jointes a un message (8 oct) : affichees DANS la bulle qui les a
+   envoyees, au lieu de rester dans une zone separee en bas de la
+   conversation une fois le message parti — meme principe que les pieces
+   jointes d'un chat classique. */
+.radar-chat-bubble-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.radar-chat-bubble-photos:has(+ p) {
+  margin-bottom: 8px;
+}
+
+.radar-chat-bubble-photos img {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
 .radar-chat-bubble small {
   display: block;
   margin-top: 3px;
