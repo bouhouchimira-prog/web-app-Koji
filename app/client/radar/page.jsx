@@ -28,20 +28,20 @@ export default function ClientRadarPage() {
       <ClientTopbar showBack backHref="/client" />
 
       <div className="ct-welcome">
-        <strong>Créer une offre</strong>
+        <strong>Publier un chantier</strong>
         <small>Publiez vos travaux, les entreprises du BTP vous contactent. Gratuit et illimité.</small>
       </div>
 
       <section className="ct-section">
         <Link href="/client/radar/new" className="client-publish-cta">
           <span className="new-chantier-icon">+</span>
-          Créer une offre
+          Publier un chantier
         </Link>
       </section>
 
       <section className="ct-section">
         <div className="ct-section-title-row">
-          <h2 className="ct-section-title">Mes offres</h2>
+          <h2 className="ct-section-title">Mes demandes</h2>
         </div>
         {loading ? <div className="client-empty">Chargement…</div> : null}
         {!loading && offres.length === 0 ? <div className="client-empty">Aucune offre publiée pour l'instant.</div> : null}

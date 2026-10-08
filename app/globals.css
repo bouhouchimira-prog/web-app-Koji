@@ -1637,6 +1637,95 @@
   color: rgba(255, 255, 255, 0.65);
 }
 
+/* ── Accueil particulier, bandeau sobre (6 oct, reference design) ──────────
+   Variante de .client-radar-hero sans degrade/orbe/texture — juste un
+   aplat navy, plus proche de la capture de reference qu'Amira a transmise. */
+.client-radar-hero-plain {
+  background: var(--navy);
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  padding: 24px 22px;
+}
+.client-radar-hero-plain::before,
+.client-radar-hero-plain::after {
+  content: none;
+}
+
+.client-radar-hero-greeting {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.client-radar-hero-trust-line {
+  margin: 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Bouton d'or (reference) reserve a l'accueil — la version navy de
+   .client-radar-hero-cta reste utilisee ailleurs (ecran "Publier un
+   chantier"), inchangee. */
+.client-radar-hero-plain .client-radar-hero-cta {
+  background: var(--gold);
+  border: none;
+  color: var(--navy);
+  font-weight: 800;
+}
+.client-radar-hero-plain .client-radar-hero-cta:hover {
+  background: #f0e4d3;
+}
+
+/* ── "Mes demandes" (accueil + liste), badge metier + statut (6 oct) ──── */
+.ct-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ct-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.ct-section-see-all {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.ct-offer-metier-badge {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-right: 12px;
+}
+/* Avec la pastille metier en plus (3 enfants au lieu de 2), .ct-offer-card-info
+   doit occuper l'espace restant plutot que de compter sur justify-content:
+   space-between — cible seulement les cartes qui ont la pastille, pour ne
+   rien changer a la liste "Mes demandes" complete (app/client/radar/page.jsx)
+   qui n'a que 2 enfants et reste inchangee. */
+.ct-offer-card:has(.ct-offer-metier-badge) .ct-offer-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.radar-status-badge.contacted {
+  background: #fbf0df;
+  color: #a8681a;
+}
+
 /* ── "Creer une offre" : onglets IA/Saisie libre + bandeau (23 sept v2) ── */
 
 .radar-mode-tabs {

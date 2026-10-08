@@ -830,8 +830,8 @@ export default function NewRadarOffrePage() {
       <ClientTopbar showBack backHref="/client/radar" />
 
       <div className="ct-welcome">
-        <strong>Créer une offre</strong>
-        <small>Saisie manuelle ou assistée par IA.</small>
+        <strong>Publier un chantier</strong>
+        <small>Avec l'assistant Koji, ou en remplissant vous-même.</small>
       </div>
 
       {phase === "form" || phase === "hero" ? (
@@ -840,7 +840,7 @@ export default function NewRadarOffrePage() {
             {mode === "ia" ? <span className="radar-mode-tab-check"><CheckIcon /></span> : null}
             <span className="radar-mode-tab-icon ia"><SparkleIcon /></span>
             <div>
-              <strong>Offre IA</strong>
+              <strong>Avec l'assistant Koji</strong>
               <small>Description + photos, puis quelques questions</small>
             </div>
           </button>
@@ -848,8 +848,8 @@ export default function NewRadarOffrePage() {
             {mode === "manuel" ? <span className="radar-mode-tab-check"><CheckIcon /></span> : null}
             <span className="radar-mode-tab-icon manuel"><PencilIcon /></span>
             <div>
-              <strong>Saisie libre</strong>
-              <small>Tous les champs vous-même</small>
+              <strong>Je remplis moi-même</strong>
+              <small>Un formulaire à remplir vous-même</small>
             </div>
           </button>
         </section>

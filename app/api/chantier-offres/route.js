@@ -22,8 +22,8 @@ import { fixObjectText, fixText } from "../../../lib/text";
 // par le client.
 const PRICE_RANGE_SPREAD = 0.15;
 
-function publicOffer(offer) {
-  return fixObjectText(offer);
+function publicOffer(offer, hasArtisanReply) {
+  return { ...fixObjectText(offer), hasArtisanReply };
 }
 
 export async function GET(request) {
@@ -35,7 +35,16 @@ export async function GET(request) {
     .filter((offre) => offre.userId === userId)
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
 
-  return ok({ offres: mine.map(publicOffer) });
+  // "Un artisan vous a écrit" (6 oct, badge de la liste "Mes demandes") : au
+  // moins un message d'une entreprise sur cette offre — calcule ici plutot
+  // que cote client pour eviter un appel /messages par offre.
+  const repliedOfferIds = new Set(
+    (db.chantierOffreMessages || [])
+      .filter((m) => m.senderType === "entreprise")
+      .map((m) => m.offerId)
+  );
+
+  return ok({ offres: mine.map((offre) => publicOffer(offre, repliedOfferIds.has(offre.id))) });
 }
 
 export async function POST(request) {

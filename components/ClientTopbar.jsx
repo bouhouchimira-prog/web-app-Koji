@@ -94,7 +94,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
 
   const navItems = [
     { href: "/client", label: L.clientSpace.home, icon: "home" },
-    { href: "/client/radar", label: "Mes offres", icon: "radar" },
+    { href: "/client/radar", label: "Mes demandes", icon: "radar" },
   ];
 
   function logout() {
