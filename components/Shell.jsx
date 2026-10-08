@@ -380,7 +380,20 @@ export function Shell({ children }) {
     // Sur la page devis, l'assistant peut ajouter des ouvrages/fournitures/
     // lots directement dans la page ouverte (20 septembre) — voir l'ecoute
     // de "koji-devis-page-action" dans app/devis/DevisEditor.jsx.
-    const pageContext = pathname?.startsWith("/devis") ? { page: "devis" } : undefined;
+    // Sur la fiche d'un chantier (8 oct), une depense/tache/alerte/visite
+    // creee sans chantier nomme explicitement se rattache directement a CE
+    // chantier (voir handleCreate dans app/api/koji-assistant/route.js) — le
+    // selecteur de chantier de app/chantiers/page.jsx vit en dehors du
+    // routeur Next (window.history.replaceState, pas de re-render ici), donc
+    // on relit directement l'URL au moment de l'envoi plutot que via un hook.
+    const chantierIdInUrl = pathname === "/chantiers" && typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("project")
+      : "";
+    const pageContext = pathname?.startsWith("/devis")
+      ? { page: "devis" }
+      : chantierIdInUrl
+        ? { page: "chantier", chantierId: chantierIdInUrl }
+        : undefined;
     const payload = kojiAssistantClarification
       ? { message: value, conversationId: activeConversationId, conversation: { question: kojiAssistantClarification.question, originalMessage: kojiAssistantClarification.originalMessage, state: kojiAssistantClarification.state }, pageContext }
       : { message: value, conversationId: activeConversationId, photos: kojiAssistantPhotos, pageContext };
