@@ -867,19 +867,14 @@ export default function NewRadarOffrePage() {
         {phase === "hero" && mode === "ia" ? (
           <div className="radar-hero-screen">
             <span className="radar-hero-screen-badge" aria-hidden="true"><SparkleIcon /></span>
-            <p className="radar-hero-screen-eyebrow">MARKETPLACE BTP</p>
             <h1>Votre projet, <em>simplement.</em></h1>
             <p className="radar-hero-screen-sub">
-              Décrivez votre projet à l'assistant koji, ajoutez des photos, répondez à quelques questions — votre offre est ensuite publiée aux entreprises du BTP près de chez vous.
+              Décrivez vos travaux, l'assistant Koji vous pose quelques questions, puis votre demande part aux artisans près de chez vous.
             </p>
             <button type="button" className="radar-hero-screen-btn" onClick={openChat}>
               Démarrer mon projet <span aria-hidden="true">→</span>
             </button>
-            <div className="radar-hero-screen-trust">
-              <span>✓ 100% gratuit</span>
-              <span>✓ Sans engagement</span>
-              <span>✓ Entreprises du BTP vérifiées</span>
-            </div>
+            <p className="radar-hero-screen-trust">C'est gratuit, et c'est vous qui choisissez votre artisan.</p>
           </div>
         ) : null}
 
