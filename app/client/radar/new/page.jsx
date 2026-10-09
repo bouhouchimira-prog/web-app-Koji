@@ -286,10 +286,24 @@ export default function NewRadarOffrePage() {
         body: JSON.stringify({ metier, intro, photos: unanalyzed })
       });
       const body = await response.json().catch(() => ({}));
-      return {
+      const result = {
         description: body.description || "",
         elements: Array.isArray(body.elements) ? body.elements : []
       };
+      // Persiste ce que la photo a deja montre (8 oct, demande d'Amira) pour
+      // que les prochaines questions de cadrage n'y repassent pas — jusque
+      // la, description/elements n'etaient utilises que pour les bulles de
+      // chat puis perdus. Accumule au fil des photos, jamais ecrase.
+      if (result.description || result.elements.length > 0) {
+        setExpertiseAnswers((current) => ({
+          ...current,
+          _photoFacts: {
+            descriptions: [...(current._photoFacts?.descriptions || []), result.description].filter(Boolean).slice(-6),
+            elements: [...new Set([...(current._photoFacts?.elements || []), ...result.elements.map((e) => e.element)])].slice(0, 20)
+          }
+        }));
+      }
+      return result;
     } catch {
       return empty;
     }

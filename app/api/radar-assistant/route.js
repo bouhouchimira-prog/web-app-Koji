@@ -4,7 +4,8 @@ import { readDb, writeDb, makeToken } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixText } from "../../../lib/text";
-import { RENOVATION_METIERS, matchMetierFromVocabulaire, matchAllMetiersFromVocabulaire, matchesBtpGeneralVocabulaire } from "../../../lib/renovation-question-bank";
+import { RENOVATION_METIERS, matchMetierFromVocabulaire, matchAllMetiersFromVocabulaire, matchesBtpGeneralVocabulaire, matchTypeLogement } from "../../../lib/renovation-question-bank";
+import { analyzePhotosForRadar } from "../../../lib/radar-photo-analysis";
 
 // Assistant IA conversationnel, cote particulier — suit le message
 // d'introduction libre (photos + texte) du parcours de creation d'offre
@@ -301,6 +302,10 @@ const INTRO_GUESS_CONFIRM_SLOT_KEY = "intro:guess:confirm";
 const COMPLEMENT_FOLLOWUP_SLOT_KEY = "complement:followup";
 const METIER_CHOICE_SLOT_KEY = "metier:choice";
 const METIER_AUTRE_OPTION = "Autre, précisez";
+// Confirmation d'un decoupage standard devine depuis un code F/T du type
+// "F3"/"T4" dans le texte d'intro (8 oct, voir lib/renovation-question-
+// bank.js, matchTypeLogement) — jamais applique sans ce Oui/Non explicite.
+const LOGEMENT_TYPE_CONFIRM_SLOT_KEY = "logement:type:confirm";
 
 // Garde-fou du 27 septembre (remonte par Amira : "offre" tape comme tout
 // premier message etait accepte tel quel comme description du projet, sans
@@ -471,12 +476,27 @@ const MAX_ROOM_CADRAGE_QUESTIONS = 5;
 // pour que le devis reste explicable.
 const CADRAGE_AUTRE_OPTION = "Autre, précisez";
 
-async function analyzeCadrage({ metier, intro, history }) {
+// Contexte deja visible sur des photos envoyees par le client (8 oct,
+// demande d'Amira) — jamais melange a historyText/cadragePrecisions, qui
+// restent strictement "ce que le client a repondu lui-meme" (le recapitulatif
+// cote client ne doit jamais laisser croire qu'il a dit une phrase qu'il n'a
+// pas dite). Alimente par answers._photoFacts (voir app/client/radar/new/
+// page.jsx, analyzeNewPhotos), jamais invente ici.
+function photoFactsBlock(photoFacts) {
+  const descriptions = Array.isArray(photoFacts?.descriptions) ? photoFacts.descriptions.filter(Boolean) : [];
+  const elements = Array.isArray(photoFacts?.elements) ? photoFacts.elements.filter(Boolean) : [];
+  if (descriptions.length === 0 && elements.length === 0) return "";
+  const elementsText = elements.length ? `Éléments identifiés : ${elements.join(", ")}.` : "";
+  return `\nÉléments déjà visibles sur des photos envoyées par le client (ne repose JAMAIS une question dont la réponse figure déjà ici) :\n${descriptions.join(" ")}\n${elementsText}\n`;
+}
+
+async function analyzeCadrage({ metier, intro, history, photoFacts }) {
   const fallback = { besoinPrecision: false, question: "", options: [], concerneUnEspace: true };
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
   const historyText = history.length
     ? history.map((h) => `- ${h.question} → ${h.reponse}`).join("\n")
     : "(aucune pour l'instant)";
+  const photoBlock = photoFactsBlock(photoFacts);
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
@@ -493,7 +513,7 @@ Important — toutes les interventions ne concernent pas une piece ou un espace 
 
 Precisions deja obtenues :
 ${historyText}
-
+${photoBlock}
 Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
 {"besoin_precision":true|false,"question":"string","options":["..."],"concerne_un_espace":true|false}
 
@@ -671,13 +691,14 @@ function roomTypeFromLabel(label) {
   return entry ? entry[0] : "autre";
 }
 
-async function analyzeRoomCadrage({ roomType, roomLabel, metier, history }) {
+async function analyzeRoomCadrage({ roomType, roomLabel, metier, history, photoFacts }) {
   const fallback = { besoinPrecision: false, question: "", options: [] };
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
   const historyText = history.length
     ? history.map((h) => `- ${h.question} → ${h.reponse}`).join("\n")
     : "(aucune pour l'instant)";
   const guidance = ROOM_TYPE_GUIDANCE[roomType] || "";
+  const photoBlock = photoFactsBlock(photoFacts);
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
@@ -692,7 +713,7 @@ Priorite aux QUANTITES chiffrees des que la piece comporte des elements qui se c
 
 Precisions deja obtenues sur cette piece :
 ${historyText}
-
+${photoBlock}
 Reponds UNIQUEMENT avec un objet JSON strict, sans texte ni balise markdown autour :
 {"besoin_precision":true|false,"question":"string","options":["..."]}
 
@@ -811,10 +832,34 @@ function proposeExtractionConfirmation(answers, extraction) {
   });
 }
 
+// Initialise answers.rooms a partir d'une liste {type,label}[] deja connue —
+// que ce soit par le texte d'intro (chemin d'origine), par la confirmation
+// d'un code F/T (8 oct, matchTypeLogement) ou par une devinee avec confiance
+// depuis une photo (8 oct, analyzePhotosForRadar) : les 3 chemins convergent
+// ici pour ne jamais dupliquer la logique d'extraction/demarrage du cadrage
+// par piece.
+async function initRoomsFromList(answers, roomsList, { metier, introText, portalUserId }) {
+  answers.rooms = roomsList.map((r, index) => ({
+    id: `r${index + 1}`,
+    type: r.type,
+    label: r.label,
+    _cadrageHistory: [],
+    done: false
+  }));
+  const extraction = await extractCadrageFacts({ metier, introText, rooms: answers.rooms });
+  if (extraction.faitsGlobaux.length > 0 || extraction.faitsPieces.length > 0) {
+    const db = await readDb();
+    logIncident(db, { portalUserId, slotKey: "extraction", category: "extraction_riche", userMessage: introText, aiReply: JSON.stringify(extraction).slice(0, 1000) });
+    await writeDb(db);
+    return proposeExtractionConfirmation(answers, extraction);
+  }
+  return startOrContinueRoomCadrage(answers, answers.rooms[0]);
+}
+
 async function startOrContinueRoomCadrage(answers, room) {
   const history = Array.isArray(room._cadrageHistory) ? room._cadrageHistory : [];
   if (history.length >= MAX_ROOM_CADRAGE_QUESTIONS) return finishRoomCadrage(answers, room);
-  const result = await analyzeRoomCadrage({ roomType: room.type, roomLabel: room.label, metier: answers.metier, history });
+  const result = await analyzeRoomCadrage({ roomType: room.type, roomLabel: room.label, metier: answers.metier, history, photoFacts: answers._photoFacts });
   if (!result.besoinPrecision) return finishRoomCadrage(answers, room);
   room._cadrageLastQuestion = result.question;
   const round = history.length + 1;
@@ -907,7 +952,7 @@ export async function POST(request) {
   async function startOrContinueCadrage() {
     const history = Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : [];
     if (history.length >= MAX_CADRAGE_QUESTIONS) return finishCadrage();
-    const result = await analyzeCadrage({ metier: answers.metier, intro: answers.intro, history });
+    const result = await analyzeCadrage({ metier: answers.metier, intro: answers.intro, history, photoFacts: answers._photoFacts });
     // Equipement precis (pompe a chaleur, chaudiere, tableau electrique...)
     // plutot qu'une piece a renover (2 oct, remonte par Amira) : les SLOTS
     // de surface/forme de piece (cotes/configuration/disposition/etat) n'ont
@@ -981,6 +1026,28 @@ export async function POST(request) {
     const list = Array.isArray(answers.complements) ? answers.complements : [];
     if (list.length > 0) list[list.length - 1].precision = fixText(userMessage).trim();
     return ok({ ...questionPayload(slotByKey("complement")), answers });
+  }
+
+  // Confirmation du decoupage standard propose depuis un code F/T (8 oct,
+  // voir matchTypeLogement) — jamais applique sans ce Oui/Non explicite.
+  // "Non, je precise" (ou toute autre reponse) retombe exactement sur le
+  // flux habituel "quelle est la premiere piece ?", sans aucun pre-
+  // remplissage : aucune regression possible par rapport a avant.
+  if (rawSlotKeyEarly === LOGEMENT_TYPE_CONFIRM_SLOT_KEY) {
+    const pendingRooms = Array.isArray(answers._pendingLogementType) ? answers._pendingLogementType : [];
+    delete answers._pendingLogementType;
+    const needle = fixText(userMessage).trim().toLowerCase();
+    if (needle === "oui, c'est ça" && pendingRooms.length > 0) {
+      return initRoomsFromList(answers, pendingRooms, { metier: answers.metier, introText: answers.intro, portalUserId });
+    }
+    return ok({
+      type: "cadrage",
+      message: "Quelle est la première pièce à détailler ?",
+      options: ROOM_ADD_OPTIONS_FIRST,
+      inputType: "text",
+      slotKey: ROOM_ADD_SLOT_KEY,
+      answers
+    });
   }
 
   // Reponse a "quelle est la [premiere/prochaine] piece a detailler ?" (1er
@@ -1103,23 +1170,54 @@ export async function POST(request) {
     // nature des travaux" a un niveau plus fin que le cadrage global, donc
     // jamais les deux a la fois pour un meme projet.
     if (analysis.needsRoomBreakdown) {
-      answers.rooms = analysis.rooms.map((r, index) => ({
-        id: `r${index + 1}`,
-        type: r.type,
-        label: r.label,
-        _cadrageHistory: [],
-        done: false
-      }));
-      if (answers.rooms.length > 0) {
-        const extraction = await extractCadrageFacts({ metier: answers.metier, introText, rooms: answers.rooms });
-        if (extraction.faitsGlobaux.length > 0 || extraction.faitsPieces.length > 0) {
-          const db = await readDb();
-          logIncident(db, { portalUserId, slotKey: "extraction", category: "extraction_riche", userMessage: introText, aiReply: JSON.stringify(extraction).slice(0, 1000) });
-          await writeDb(db);
-          return proposeExtractionConfirmation(answers, extraction);
-        }
-        return startOrContinueRoomCadrage(answers, answers.rooms[0]);
+      if (analysis.rooms.length > 0) {
+        return initRoomsFromList(answers, analysis.rooms, { metier: answers.metier, introText, portalUserId });
       }
+
+      // Aucune piece nommee explicitement dans le texte — avant de demander
+      // "quelle est la premiere piece ?", deux raccourcis deterministes/
+      // visuels (8 oct, demande d'Amira), dans cet ordre de priorite :
+
+      // 1) Code F/T explicite ("F3", "T4"...) : purement algorithmique, 0
+      // appel IA — mais jamais applique sans confirmation explicite (voir
+      // lib/renovation-question-bank.js, matchTypeLogement).
+      const typeLogement = matchTypeLogement(introText);
+      if (typeLogement) {
+        answers._pendingLogementType = typeLogement.rooms;
+        const roomLabels = typeLogement.rooms.map((r) => r.label).join(", ");
+        return ok({
+          type: "cadrage_confirm",
+          message: `Un logement de type ${typeLogement.n} pièces correspond généralement à : ${roomLabels} — c'est bien la configuration ici ?`,
+          options: ["Oui, c'est ça", "Non, je précise"],
+          inputType: "text",
+          slotKey: LOGEMENT_TYPE_CONFIRM_SLOT_KEY,
+          answers
+        });
+      }
+
+      // 2) Photo jointe des le tout premier message : tente de deviner le
+      // type de la piece montree — jamais si le moindre doute (voir
+      // lib/radar-photo-analysis.js, roomTypeGuess), auquel cas une question
+      // honnete est posee plutot que la question generique habituelle.
+      const firstPhotos = Array.isArray(body.photos) ? body.photos : [];
+      if (firstPhotos.length > 0) {
+        const photoAnalysis = await analyzePhotosForRadar({ photos: firstPhotos, metier: answers.metier, intro: introText, guessRoomType: true });
+        if (photoAnalysis.roomTypeGuess) {
+          return initRoomsFromList(answers, [photoAnalysis.roomTypeGuess], { metier: answers.metier, introText, portalUserId });
+        }
+        if (photoAnalysis.elements.length > 0 || photoAnalysis.description) {
+          return ok({
+            type: "cadrage",
+            message: "Je vois une pièce sur votre photo, mais je n'arrive pas à déterminer précisément son type — de laquelle s'agit-il ?",
+            options: ROOM_ADD_OPTIONS_FIRST,
+            inputType: "text",
+            slotKey: ROOM_ADD_SLOT_KEY,
+            answers
+          });
+        }
+      }
+
+      // 3) Comportement habituel, inchangé.
       return ok({
         type: "cadrage",
         message: "Quelle est la première pièce à détailler ?",
