@@ -13491,6 +13491,24 @@ body :where(
   background: #1d74ff;
 }
 
+/* Composer "+ Autre chose à ajouter" (8 oct) — ecran des propositions de
+   travaux issues d'une photo, app/client/radar/new/page.jsx. */
+.radar-custom-element {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfbfd;
+}
+
+.radar-custom-element-props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .koji-assistant-quick-other {
   border-style: dashed;
   color: var(--muted);

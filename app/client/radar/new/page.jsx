@@ -86,6 +86,23 @@ const MULTI_SELECT_SEPARATOR = " • ";
 // deja existant (isCadrageMultiStep ci-dessous), jamais transmis tel quel.
 const PHOTO_PROPOSITIONS_SLOT_KEY = "cadrage:photos:propositions";
 const PHOTO_PROPOSITIONS_NONE = "Aucune modification pour l'instant";
+// Carte "+ Autre chose à ajouter" (8 oct, demande d'Amira) : ouvre un petit
+// formulaire (nom de l'élément + propositions) pour couvrir un élément que
+// la photo n'a pas identifié — jamais envoyée au serveur telle quelle, meme
+// principe que "Autre, précisez" plus bas.
+const PHOTO_ADD_ELEMENT_OPTION = "+ Autre chose à ajouter";
+// Doit rester synchronisee avec PROPOSITIONS_POSSIBLES (lib/radar-photo-
+// analysis.js, cote serveur) — dupliquee ici car ce fichier est "use client"
+// et ne peut pas importer un module qui charge le SDK Anthropic.
+const PHOTO_PROPOSITIONS_POSSIBLES = [
+  "Déposer l'élément existant",
+  "Conserver l'élément existant",
+  "Remplacer par un élément neuf",
+  "Réparer",
+  "Repeindre",
+  "Modifier",
+  "Ajouter un nouvel élément"
+];
 
 // Marge de la fourchette de prix (1er oct) — doit rester identique a
 // PRICE_RANGE_SPREAD cote serveur (lib/ai-devis-shape.js), utilisee ici
@@ -202,6 +219,13 @@ export default function NewRadarOffrePage() {
   // valider.
   const [showMultiSelectOther, setShowMultiSelectOther] = useState(false);
   const [multiSelectOtherText, setMultiSelectOtherText] = useState("");
+  // Composer "+ Autre chose à ajouter" (8 oct), ecran des propositions de
+  // travaux issues d'une photo uniquement — nom libre + propositions cochees
+  // parmi PHOTO_PROPOSITIONS_POSSIBLES, ajoutees comme nouvelles cartes
+  // "<nom> — <proposition>" au moment de valider, sans appel serveur.
+  const [customElementOpen, setCustomElementOpen] = useState(false);
+  const [customElementName, setCustomElementName] = useState("");
+  const [customElementProps, setCustomElementProps] = useState(new Set());
   const isCadrageMultiStep = Boolean(slotKey) && slotKey.startsWith("cadrage:") && !slotKey.endsWith(":confirm");
   const messagesEndRef = useRef(null);
 
@@ -209,7 +233,32 @@ export default function NewRadarOffrePage() {
     setMultiSelectChoices(new Set());
     setShowMultiSelectOther(false);
     setMultiSelectOtherText("");
+    setCustomElementOpen(false);
+    setCustomElementName("");
+    setCustomElementProps(new Set());
   }, [slotKey]);
+
+  function toggleCustomElementProp(proposition) {
+    setCustomElementProps((current) => {
+      const next = new Set(current);
+      if (next.has(proposition)) next.delete(proposition); else next.add(proposition);
+      return next;
+    });
+  }
+
+  function addCustomElementCards() {
+    const name = customElementName.trim();
+    if (!name || customElementProps.size === 0) return;
+    const newCards = PHOTO_PROPOSITIONS_POSSIBLES.filter((p) => customElementProps.has(p)).map((p) => `${name} — ${p}`);
+    setCurrentOptions((current) => {
+      const base = (current || []).filter((o) => o !== PHOTO_PROPOSITIONS_NONE && o !== PHOTO_ADD_ELEMENT_OPTION);
+      return [...base, ...newCards, PHOTO_ADD_ELEMENT_OPTION, PHOTO_PROPOSITIONS_NONE];
+    });
+    setMultiSelectChoices((current) => new Set([...current, ...newCards]));
+    setCustomElementName("");
+    setCustomElementProps(new Set());
+    setCustomElementOpen(false);
+  }
 
   function toggleMultiSelectChoice(option) {
     setMultiSelectChoices((current) => {
@@ -311,12 +360,14 @@ export default function NewRadarOffrePage() {
 
   // Construit les cartes a cocher "<Élément> — <proposition>" a partir des
   // elements renvoyes par analyzeNewPhotos (6 oct, demande d'Amira) — une
-  // carte par combinaison, plus une carte pour ne rien choisir.
+  // carte par combinaison, plus une carte pour ajouter un element non
+  // detecte (8 oct) et une carte pour ne rien choisir.
   function photoPropositionCards(elements) {
     const cards = [];
     for (const e of elements) {
       for (const p of e.propositions) cards.push(`${e.element} — ${p}`);
     }
+    cards.push(PHOTO_ADD_ELEMENT_OPTION);
     cards.push(PHOTO_PROPOSITIONS_NONE);
     return cards;
   }
@@ -370,7 +421,7 @@ export default function NewRadarOffrePage() {
     setTurns(afterTurns);
     setDraft("");
 
-    const selected = text.split(MULTI_SELECT_SEPARATOR).map((s) => s.trim()).filter((s) => s && s !== PHOTO_PROPOSITIONS_NONE);
+    const selected = text.split(MULTI_SELECT_SEPARATOR).map((s) => s.trim()).filter((s) => s && s !== PHOTO_PROPOSITIONS_NONE && s !== PHOTO_ADD_ELEMENT_OPTION);
     if (selected.length > 0) {
       setExpertiseAnswers((current) => ({
         ...current,
@@ -1029,21 +1080,26 @@ export default function NewRadarOffrePage() {
             ) : currentOptions && currentOptions.length > 0 && isCadrageMultiStep ? (
               <>
                 <div className="radar-choice-grid">
-                  {currentOptions.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`radar-choice-card ${(option === "Autre, précisez" ? showMultiSelectOther : multiSelectChoices.has(option)) ? "selected" : ""}`}
-                      disabled={sending}
-                      // "Autre, précisez" : jamais une vraie reponse, garde
-                      // les cases deja cochees — revele juste une ligne de
-                      // texte libre en plus, combinee au moment de valider.
-                      onClick={() => (option === "Autre, précisez" ? setShowMultiSelectOther(true) : toggleMultiSelectChoice(option))}
-                    >
-                      {(option === "Autre, précisez" ? showMultiSelectOther : multiSelectChoices.has(option)) ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                      <span className="radar-choice-card-label">{option}</span>
-                    </button>
-                  ))}
+                  {currentOptions.map((option) => {
+                    const isOther = option === "Autre, précisez";
+                    const isAddElement = option === PHOTO_ADD_ELEMENT_OPTION;
+                    const isActive = isOther ? showMultiSelectOther : isAddElement ? customElementOpen : multiSelectChoices.has(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`radar-choice-card ${isActive ? "selected" : ""}`}
+                        disabled={sending}
+                        // "Autre, précisez" et "+ Autre chose à ajouter" : jamais
+                        // une vraie reponse, revelent juste un champ de saisie en
+                        // plus, combine au moment de valider.
+                        onClick={() => (isOther ? setShowMultiSelectOther(true) : isAddElement ? setCustomElementOpen(true) : toggleMultiSelectChoice(option))}
+                      >
+                        {isActive ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
+                        <span className="radar-choice-card-label">{option}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 {showMultiSelectOther ? (
                   <label className="radar-field">
@@ -1056,6 +1112,41 @@ export default function NewRadarOffrePage() {
                       disabled={sending}
                     />
                   </label>
+                ) : null}
+                {customElementOpen ? (
+                  <div className="radar-custom-element">
+                    <label className="radar-field">
+                      <span className="radar-field-label">Quel élément ?</span>
+                      <input
+                        type="text"
+                        value={customElementName}
+                        onChange={(e) => setCustomElementName(e.target.value)}
+                        placeholder="Ex: Fenêtre, radiateur, meuble…"
+                        disabled={sending}
+                      />
+                    </label>
+                    <div className="radar-custom-element-props">
+                      {PHOTO_PROPOSITIONS_POSSIBLES.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          className={`radar-quick-option-btn ${customElementProps.has(p) ? "active" : ""}`}
+                          disabled={sending}
+                          onClick={() => toggleCustomElementProp(p)}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      onClick={addCustomElementCards}
+                      disabled={sending || !customElementName.trim() || customElementProps.size === 0}
+                    >
+                      Ajouter cet élément
+                    </button>
+                  </div>
                 ) : null}
                 <button
                   type="button"
