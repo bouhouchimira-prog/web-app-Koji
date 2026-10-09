@@ -129,6 +129,16 @@ export default function NewRadarOffrePage() {
   // l'analyse IA. Les photos pas encore rattachees (au-dela de ce curseur)
   // restent affichees dans la zone de piece jointe en attente d'envoi.
   const photosRenderedCountRef = useRef(0);
+  // Agrandissement d'une photo au clic (8 oct, demande d'Amira) — une seule
+  // photo a la fois, affichee en grand dans une carte ouvrable par-dessus la
+  // conversation ; null = fermee.
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  useEffect(() => {
+    if (!lightboxPhoto) return;
+    const onKeyDown = (e) => { if (e.key === "Escape") setLightboxPhoto(null); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxPhoto]);
   const [description, setDescription] = useState("");
   const [surface, setSurface] = useState("");
   const [address, setAddress] = useState({ address: "", city: "", postalCode: "", lat: null, lon: null });
@@ -931,7 +941,7 @@ export default function NewRadarOffrePage() {
                       {t.photos && t.photos.length > 0 ? (
                         <div className="radar-chat-bubble-photos">
                           {t.photos.map((photo, photoIndex) => (
-                            <img key={photoIndex} src={photo} alt={`Photo ${photoIndex + 1}`} />
+                            <img key={photoIndex} src={photo} alt={`Photo ${photoIndex + 1}`} onClick={() => setLightboxPhoto(photo)} />
                           ))}
                         </div>
                       ) : null}
@@ -965,7 +975,7 @@ export default function NewRadarOffrePage() {
                   const actualIndex = photosRenderedCountRef.current + i;
                   return (
                     <div className="radar-photo-thumb" key={actualIndex}>
-                      <img src={photo} alt={`Photo ${actualIndex + 1}`} />
+                      <img src={photo} alt={`Photo ${actualIndex + 1}`} onClick={() => setLightboxPhoto(photo)} />
                       <button type="button" onClick={() => removePhoto(actualIndex)} aria-label="Retirer la photo">×</button>
                     </div>
                   );
@@ -1455,7 +1465,7 @@ export default function NewRadarOffrePage() {
               <div className="radar-photo-grid">
                 {photos.map((photo, index) => (
                   <div className="radar-photo-thumb" key={index}>
-                    <img src={photo} alt={`Photo ${index + 1}`} />
+                    <img src={photo} alt={`Photo ${index + 1}`} onClick={() => setLightboxPhoto(photo)} />
                     <button type="button" onClick={() => removePhoto(index)}>×</button>
                   </div>
                 ))}
@@ -1619,6 +1629,13 @@ export default function NewRadarOffrePage() {
           </div>
         ) : null}
       </section>
+
+      {lightboxPhoto ? (
+        <div className="modal-overlay photo-lightbox-overlay" role="dialog" aria-modal="true" onClick={() => setLightboxPhoto(null)}>
+          <button type="button" className="photo-lightbox-close" onClick={() => setLightboxPhoto(null)} aria-label="Fermer">×</button>
+          <img className="photo-lightbox-img" src={lightboxPhoto} alt="Photo agrandie" onClick={(e) => e.stopPropagation()} />
+        </div>
+      ) : null}
     </main>
   );
 }

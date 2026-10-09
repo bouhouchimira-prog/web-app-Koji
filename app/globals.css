@@ -12952,6 +12952,7 @@ body :where(
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: pointer;
 }
 
 .radar-photo-thumb button {
@@ -13807,6 +13808,46 @@ body :where(
   height: 76px;
   object-fit: cover;
   border-radius: 10px;
+  cursor: pointer;
+}
+
+/* Carte ouvrable au clic sur une photo (8 oct, demande d'Amira) — reutilise
+   .modal-overlay (deja utilise ailleurs dans l'app pour les fenetres
+   modales) plutot qu'un nouveau composant d'overlay. */
+.photo-lightbox-overlay {
+  z-index: 400;
+  background: rgba(0, 11, 40, 0.85);
+  cursor: zoom-out;
+}
+
+.photo-lightbox-img {
+  max-width: min(92vw, 720px);
+  max-height: 86vh;
+  object-fit: contain;
+  border-radius: 12px;
+  cursor: default;
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.photo-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .radar-chat-bubble small {
