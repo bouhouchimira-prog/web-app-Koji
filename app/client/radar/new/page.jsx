@@ -468,7 +468,15 @@ export default function NewRadarOffrePage() {
       // choix de metier, decoupage par piece...).
       const photoResult = await analyzeNewPhotos(data.answers?.metier || expertiseAnswers.metier, data.answers?.intro || expertiseAnswers.intro);
       const isIntroStep = data.type === "intro_clarify" || data.type === "cadrage" || data.type === "cadrage_confirm" || data.type === "metier_choice";
-      const isPhotoInterstitial = !isIntroStep && !introConfirmed && data.type !== "ready_for_expertise";
+      // Ne jamais redemander des photos deja envoyees (8 oct, demande
+      // d'Amira) — si au moins une photo a deja ete jointe a ce stade (ex:
+      // des le tout premier message), l'ecran "Visuels et photos" n'a plus
+      // lieu d'etre : on marque l'intro comme confirmee tout de suite et on
+      // enchaine directement sur la vraie question suivante, exactement
+      // comme si l'interstitiel avait deja ete passe.
+      const hasPhotosAlready = photos.length > 0;
+      if (!isIntroStep && !introConfirmed && hasPhotosAlready) setIntroConfirmed(true);
+      const isPhotoInterstitial = !isIntroStep && !introConfirmed && !hasPhotosAlready && data.type !== "ready_for_expertise";
       const stepMessage = isPhotoInterstitial
         ? "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable."
         : data.message;
