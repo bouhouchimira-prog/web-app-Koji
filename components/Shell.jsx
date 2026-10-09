@@ -742,6 +742,11 @@ export function Shell({ children }) {
             🗂️ Conversations enregistrées
           </Link>
         )}
+        {isAdmin && (
+          <Link href="/admin/algo-stats" className="drawer-nav-section" style={{ display: "block", textDecoration: "none" }} onClick={() => setDrawerOpen(false)}>
+            📊 Algorithme vs IA
+          </Link>
+        )}
 
         {profileType !== "particulier" ? (
           <Link href="/marketplace" className="drawer-hero-cta">

@@ -15,6 +15,7 @@ import { advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
 import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
 import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 import { algorithmicClassify, buildSearchHintFromMessage } from "../../../lib/koji-assistant-keywords";
+import { logAlgoStat } from "../../../lib/assistant-algo-stats";
 
 // Assistant koji v2 (15 septembre) : pipeline a deux phases.
 // Phase 1 (IA, 1 appel) : classe le message parmi les 13 outils de
@@ -437,7 +438,7 @@ async function handleDevisPageAction({ ctx, parsed }) {
 // (qui a pu ecrire sa propre version fraiche du blob) — jamais reutiliser le
 // `db` lu en debut de requete pour ecrire ici, sous peine d'ecraser ce que la
 // route cible vient d'enregistrer (tout writeDb() remplace le blob entier).
-async function logTurn(userId, userMessage, result, conversationId) {
+async function logTurn(userId, userMessage, result, conversationId, resolvedBy) {
   const db = await readDb();
   const now = new Date().toISOString();
   db.kojiAssistantMessages.push({
@@ -446,6 +447,9 @@ async function logTurn(userId, userMessage, result, conversationId) {
   db.kojiAssistantMessages.push({
     id: `kojimsg-${Date.now()}-a`, userId, conversationId, role: "assistant", message: describeOutcome(result), outcome: result.outcome, meta: result, createdAt: now
   });
+  // Mesure "algorithme vs IA" (9 oct, demande d'Amira) — voir
+  // lib/assistant-algo-stats.js, consultable sur /admin/algo-stats.
+  if (resolvedBy) logAlgoStat(db, { assistant: "koji", step: result.outcome || "autre", category: resolvedBy });
   await writeDb(db);
 }
 
@@ -511,7 +515,7 @@ export async function POST(request) {
   // reclassifier via l'IA — garde les tours suivants rapides et gratuits.
   if (body.conversation?.state?.flow === "devisVisite") {
     const result = await advanceDevisFlow(ctx, body.conversation.state, message, body.conversation.originalMessage || message);
-    after(() => logTurn(auth.userId, message, result, conversationId));
+    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
     return ok({ ...result, conversationId });
   }
 
@@ -527,7 +531,7 @@ export async function POST(request) {
     const result = tool
       ? await advanceConfirmTypeFlow(ctx, state, message, body.conversation.originalMessage || message, tool, handleCreate, contextChantierId)
       : { outcome: "failed", message: "Une erreur est survenue." };
-    after(() => logTurn(auth.userId, message, result, conversationId));
+    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
     return ok({ ...result, conversationId });
   }
 
@@ -547,7 +551,7 @@ export async function POST(request) {
 
   if (algo?.action === "navigate") {
     const result = handleNavigate({ fields: { page: algo.pageKey } });
-    after(() => logTurn(auth.userId, message, result, conversationId));
+    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
     return ok({ ...result, conversationId });
   }
 
@@ -557,14 +561,14 @@ export async function POST(request) {
       message: "Je n'ai pas ce service. Je peux par exemple créer ou supprimer un RDV, un devis, une facture, une dépense, une tâche, un contact, un chantier, ou ouvrir une page (\"ouvre le calendrier\")...",
       quickReplies: ["Créer un devis", "Créer une facture", "Ajouter un RDV", "Ajouter une dépense"]
     };
-    after(() => logTurn(auth.userId, message, result, conversationId));
+    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
     return ok({ ...result, conversationId });
   }
 
   if (algo?.action === "delete" && TOOLS[algo.type]) {
     const searchHint = buildSearchHintFromMessage(message, algo.type);
     const result = await handleDelete({ ctx, tool: TOOLS[algo.type], type: algo.type, parsed: { fields: { searchHint } }, isSecondRound: false, message });
-    after(() => logTurn(auth.userId, message, result, conversationId));
+    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
     return ok({ ...result, conversationId });
   }
 
@@ -707,7 +711,7 @@ export async function POST(request) {
     result = await handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos: body.photos, contextChantierId });
   }
 
-  after(() => logTurn(auth.userId, message, result, conversationId));
+  after(() => logTurn(auth.userId, message, result, conversationId, useTypePrompt ? "ia_resserree" : "ia"));
 
   return ok({ ...result, conversationId });
 }

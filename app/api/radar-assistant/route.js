@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 import { badRequest, ok } from "../../../lib/http";
 import { readDb, writeDb, makeToken } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
@@ -6,6 +7,24 @@ import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixText } from "../../../lib/text";
 import { RENOVATION_METIERS, matchMetierFromVocabulaire, matchAllMetiersFromVocabulaire, matchesBtpGeneralVocabulaire, matchTypeLogement } from "../../../lib/renovation-question-bank";
 import { analyzePhotosForRadar } from "../../../lib/radar-photo-analysis";
+import { logAlgoStat } from "../../../lib/assistant-algo-stats";
+
+// Mesure "algorithme vs IA" (9 oct, demande d'Amira) — ce parcours ne
+// persiste normalement rien cote serveur a chaque tour (l'etat voyage dans
+// `answers`, renvoye par le client) ; enregistrer cette mesure imposerait
+// donc un aller-retour base en plus sur CHAQUE tour si on le faisait de
+// facon bloquante. Differe apres l'envoi de la reponse (after(), comme
+// app/api/koji-assistant/route.js) pour ne jamais ralentir la conversation
+// elle-meme. Consultable sur /admin/algo-stats.
+function recordAlgoStat(step, category) {
+  after(async () => {
+    try {
+      const db = await readDb();
+      logAlgoStat(db, { assistant: "radar", step, category });
+      await writeDb(db);
+    } catch { /* jamais bloquant, jamais critique */ }
+  });
+}
 
 // Assistant IA conversationnel, cote particulier — suit le message
 // d'introduction libre (photos + texte) du parcours de creation d'offre
@@ -1109,6 +1128,13 @@ export async function POST(request) {
     // cadrage juste apres se charge de preciser quels travaux exactement.
     const vocabularyMatches = matchAllMetiersFromVocabulaire(introText);
     const vocabularyMetier = vocabularyMatches.length === 1 ? vocabularyMatches[0] : null;
+    // Toujours un appel IA ici, meme quand un metier precis ressort du
+    // dictionnaire de vocabulaire juste au-dessus — ce dictionnaire ne sert
+    // qu'a affiner le METIER, jamais a sauter ce jugement "ce message
+    // decrit-il un vrai projet ?" lui-meme. Enregistre tel quel (toujours
+    // "ia") pour que ce soit visible sur /admin/algo-stats plutot que
+    // suppose.
+    recordAlgoStat("intro", "ia");
     const analysis = await analyzeIntro(introText);
     // Vocabulaire general du batiment (2 oct, remonte par Amira : "MURS" ou
     // "SALLE DE BAIN" tapes seuls se faisaient rejeter — aucun metier precis
@@ -1162,6 +1188,7 @@ export async function POST(request) {
       });
     }
 
+    recordAlgoStat("metier", vocabularyMetier ? "algorithme" : "ia");
     answers.metier = vocabularyMetier || await classifyMetierEarly(introText);
 
     // Decoupage piece par piece (1er oct, cahier des charges d'Amira) :
@@ -1183,6 +1210,7 @@ export async function POST(request) {
       // lib/renovation-question-bank.js, matchTypeLogement).
       const typeLogement = matchTypeLogement(introText);
       if (typeLogement) {
+        recordAlgoStat("pieces-detection", "algorithme");
         answers._pendingLogementType = typeLogement.rooms;
         const roomLabels = typeLogement.rooms.map((r) => r.label).join(", ");
         return ok({
@@ -1201,6 +1229,7 @@ export async function POST(request) {
       // honnete est posee plutot que la question generique habituelle.
       const firstPhotos = Array.isArray(body.photos) ? body.photos : [];
       if (firstPhotos.length > 0) {
+        recordAlgoStat("pieces-detection", "ia");
         const photoAnalysis = await analyzePhotosForRadar({ photos: firstPhotos, metier: answers.metier, intro: introText, guessRoomType: true });
         if (photoAnalysis.roomTypeGuess) {
           return initRoomsFromList(answers, [photoAnalysis.roomTypeGuess], { metier: answers.metier, introText, portalUserId });
@@ -1218,6 +1247,7 @@ export async function POST(request) {
       }
 
       // 3) Comportement habituel, inchangé.
+      recordAlgoStat("pieces-detection", "algorithme");
       return ok({
         type: "cadrage",
         message: "Quelle est la première pièce à détailler ?",
@@ -1283,6 +1313,7 @@ export async function POST(request) {
       const question = room._cadrageLastQuestion || "";
       const roomOptions = Array.isArray(room._cadrageLastOptions) ? room._cadrageLastOptions : null;
       if (allOptionsMatch(roomOptions, userMessage)) {
+        recordAlgoStat("cadrage-reponse", "algorithme");
         room._cadrageHistory = [...(Array.isArray(room._cadrageHistory) ? room._cadrageHistory : []), { question, reponse: fixText(userMessage).trim() }];
         return startOrContinueRoomCadrage(answers, room);
       }
@@ -1290,6 +1321,7 @@ export async function POST(request) {
       if (!process.env.ANTHROPIC_API_KEY) {
         return badRequest("L'assistant IA n'est pas configuré (clé API manquante).", 500);
       }
+      recordAlgoStat("cadrage-reponse", "ia");
       let roomOutcome;
       try {
         roomOutcome = await classifyReply({ slot: { question }, userMessage, recentTurns: turns.slice(0, -1) });
@@ -1364,6 +1396,7 @@ export async function POST(request) {
     // des que chaque partie correspond exactement a une option proposee.
     const cadrageOptions = Array.isArray(answers._cadrageLastOptions) ? answers._cadrageLastOptions : null;
     if (allOptionsMatch(cadrageOptions, userMessage)) {
+      recordAlgoStat("cadrage-reponse", "algorithme");
       answers._cadrageHistory = [...(Array.isArray(answers._cadrageHistory) ? answers._cadrageHistory : []), { question, reponse: fixText(userMessage).trim() }];
       return startOrContinueCadrage();
     }
@@ -1371,6 +1404,7 @@ export async function POST(request) {
     if (!process.env.ANTHROPIC_API_KEY) {
       return badRequest("L'assistant IA n'est pas configuré (clé API manquante).", 500);
     }
+    recordAlgoStat("cadrage-reponse", "ia");
     let outcome;
     try {
       outcome = await classifyReply({ slot: { question }, userMessage, recentTurns: turns.slice(0, -1) });
@@ -1506,6 +1540,7 @@ export async function POST(request) {
   if (isConfirmStep && slot.standardAssumption) {
     const needle = fixText(userMessage).trim().toLowerCase();
     if (needle === slot.standardAssumption.acceptLabel.toLowerCase()) {
+      recordAlgoStat("slots-reponse", "algorithme");
       return advanceWith(slot.standardAssumption.value);
     }
     if (needle === slot.standardAssumption.refineLabel.toLowerCase()) {
@@ -1518,6 +1553,7 @@ export async function POST(request) {
   } else if (optionMatches(slot.options, userMessage)) {
     // Reponse via bouton de choix rapide standard : correspondance exacte et
     // deterministe, aucun appel IA necessaire (et donc aucun risque).
+    recordAlgoStat("slots-reponse", "algorithme");
     const needle = fixText(userMessage).trim().toLowerCase();
     if (slot.unknownDefault && needle === slot.unknownDefault.matchLabel.toLowerCase()) {
       return advanceWith(slot.unknownDefault.value, slot.unknownDefault.ackMessage);
@@ -1529,6 +1565,7 @@ export async function POST(request) {
     return badRequest("L'assistant IA n'est pas configuré (clé API manquante).", 500);
   }
 
+  recordAlgoStat("slots-reponse", "ia");
   let outcome;
   try {
     outcome = await classifyReply({ slot, userMessage, recentTurns: turns.slice(0, -1) });
