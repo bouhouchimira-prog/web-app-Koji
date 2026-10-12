@@ -14,7 +14,6 @@ import { TOOLS, PAGES, TOPIC_SUGGESTIONS, resolveByHint, resolveOuvrageForLabel,
 import { advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
 import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
 import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
-import { algorithmicClassify, buildSearchHintFromMessage } from "../../../lib/koji-assistant-keywords";
 import { logAlgoStat } from "../../../lib/assistant-algo-stats";
 
 // Assistant koji v2 (15 septembre) : pipeline a deux phases.
@@ -45,12 +44,8 @@ async function callInternal(handler, path, body, token, method = "POST") {
   return { ok: response.status >= 200 && response.status < 300, data };
 }
 
-// Description des champs a extraire par type, partagee entre le prompt de
-// classification complet (14 types, utilise quand l'algorithme de
-// lib/koji-assistant-keywords.js n'a pas pu trancher) et le prompt resserre
-// sur un seul type (utilise quand l'algorithme a deja identifie le type avec
-// certitude, voir buildTypePrompt plus bas) — un seul texte source, jamais
-// deux versions a maintenir en parallele.
+// Description des champs a extraire par type, utilisee par le prompt de
+// classification complet (14 types) — un seul texte source par type.
 const TYPE_FIELD_SPECS = {
   rdv: `"rdv" : rendez-vous/évènement futur daté. Champs : title, eventType, clientName, address, startAt (ISO 8601, résous les dates relatives comme "jeudi"/"mardi matin" par rapport à la date du jour), endAt, notes.`,
   visite: `"visite" : COMPTE-RENDU d'une visite déjà effectuée/en cours (constat/état des lieux, PAS un rendez-vous futur). Champs : client, site, date (YYYY-MM-DD), constat, analyse, preconisations, chantierHint (nom/adresse du chantier si mentionné).`,
@@ -120,53 +115,6 @@ Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
 }
 
 Si une information essentielle manque pour CRÉER (ex: pas de date pour un RDV, chantier non identifiable pour une dépense/alerte, nom manquant), ou si tu ne peux pas identifier clairement CE QUI doit être supprimé ou modifié, mets needsClarification à true et pose UNE seule question claire — ne devine jamais une valeur essentielle.`;
-}
-
-// Prompt resserre sur un seul type (8 oct) — utilise uniquement quand
-// l'algorithme de lib/koji-assistant-keywords.js a deja identifie action+type
-// avec certitude par mots-cles (ex: "crée un rdv jeudi 14h chez Dupont"). Le
-// modele n'a alors plus qu'un seul travail : extraire les champs de CE type,
-// jamais re-choisir le type ou l'action lui-meme (verrouille cote code apres
-// la reponse, voir route POST plus bas) — meme principe que l'assistant Radar
-// des Chantiers, qui ne laisse jamais l'IA reinventer le metier deja detecte
-// par le dictionnaire de vocabulaire. Prompt nettement plus court que
-// buildPrompt (pas besoin de lister les 13 autres types ni les regles de
-// navigation/ambiguite, deja tranchees par l'algorithme) : reponse plus
-// rapide et moins de risque de confusion entre types proches.
-function buildTypePrompt({ type, action, today, message, isSecondRound, previousQuestion, previousMessage, hasPhotos, onDevisPage }) {
-  const conversationBlock = isSecondRound
-    ? `\nTu as déjà posé cette question à l'utilisatrice : "${previousQuestion}" (à propos du message original : "${previousMessage}"). Voici sa réponse : "${message}". Combine le message original et cette réponse pour finaliser. Tu NE PEUX PLUS reposer de question : needsClarification doit être false, complète avec les meilleures valeurs disponibles.`
-    : "";
-  const photoBlock = hasPhotos ? `\nUne ou plusieurs photos sont jointes au message — regarde-les avant d'extraire les champs.` : "";
-  const devisPageBlock = onDevisPage
-    ? `\nL'utilisatrice est actuellement sur la page de création d'un devis — ne pose JAMAIS de question de clarification pour cette création (needsClarification reste false, complète avec le mieux disponible).`
-    : "";
-  const updateBlock = action === "update"
-    ? `\nMets fields.searchHint (les mots-clés qui identifient l'entrée à modifier — nom, lieu, sujet) et fields.changes (objet des champs à modifier, avec les MÊMES noms de champs que listés ci-dessous, plus "status" quand pertinent).`
-    : "";
-
-  return `Tu es l'assistant koji du dashboard d'une entreprise du BTP. Le type d'entrée et l'action ont déjà été identifiés avec certitude par le code : action = "${action}" (${action === "create" ? "créer une nouvelle entrée" : "modifier une entrée EXISTANTE"}), type = "${type}". Ne change JAMAIS ce type ni cette action — ton seul travail est d'extraire les champs suivants depuis le message.${updateBlock}
-
-Champ à extraire pour ce type :
-- ${TYPE_FIELD_SPECS[type]}
-
-Date du jour : ${today}
-${conversationBlock}${photoBlock}${devisPageBlock}
-
-Message de l'utilisatrice : "${message}"
-
-Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
-{
-  "action": "${action}",
-  "type": "${type}",
-  "fields": { ... },
-  "detectedFromPhoto": boolean,
-  "needsClarification": boolean,
-  "clarifyingQuestion": string | null,
-  "quickReplies": string[]
-}
-
-Si une information essentielle manque pour ${action === "create" ? "CRÉER" : "identifier clairement ce qui doit être modifié ou quel champ changer"}, mets needsClarification à true et pose UNE seule question claire — ne devine jamais une valeur essentielle.`;
 }
 
 export async function handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos, contextChantierId }) {
@@ -539,68 +487,19 @@ export async function POST(request) {
   const photos = Array.isArray(body.photos) ? body.photos.slice(0, 8) : [];
   const onDevisPage = body.pageContext?.page === "devis";
 
-  // Phase 1 "algorithme" (8 oct, meme principe que l'assistant Radar des
-  // Chantiers — app/api/radar-assistant/route.js) : avant tout appel IA, un
-  // dictionnaire de mots-cles (lib/koji-assistant-keywords.js) tente de
-  // reconnaitre l'action et le type demandes. Desactive en 2e tour d'une
-  // clarification deja en cours (reponse libre, pas une nouvelle commande) et
-  // des qu'une photo est jointe (seule l'IA peut regarder une image). En cas
-  // de doute (plusieurs types/actions possibles, ou aucun), algo vaut null et
-  // tout retombe sur la classification IA complete existante, inchangee.
-  const algo = !isSecondRound && photos.length === 0 ? algorithmicClassify(message) : null;
-
-  if (algo?.action === "navigate") {
-    const result = handleNavigate({ fields: { page: algo.pageKey } });
-    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
-    return ok({ ...result, conversationId });
-  }
-
-  if (algo?.action === "ambiguous") {
-    const result = handleAmbiguous({ fields: { topic: algo.type } }) || {
-      outcome: "unsupported",
-      message: "Je n'ai pas ce service. Je peux par exemple créer ou supprimer un RDV, un devis, une facture, une dépense, une tâche, un contact, un chantier, ou ouvrir une page (\"ouvre le calendrier\")...",
-      quickReplies: ["Créer un devis", "Créer une facture", "Ajouter un RDV", "Ajouter une dépense"]
-    };
-    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
-    return ok({ ...result, conversationId });
-  }
-
-  if (algo?.action === "delete" && TOOLS[algo.type]) {
-    const searchHint = buildSearchHintFromMessage(message, algo.type);
-    const result = await handleDelete({ ctx, tool: TOOLS[algo.type], type: algo.type, parsed: { fields: { searchHint } }, isSecondRound: false, message });
-    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
-    return ok({ ...result, conversationId });
-  }
-
-  // create/update avec type deja determine par l'algorithme : prompt
-  // resserre sur ce seul type (buildTypePrompt), jamais utilise sur la page
-  // devis (son traitement "devisPageAction"/redirection vers le devis ouvert
-  // depend de la classification complete, voir plus bas) ni pour un type que
-  // l'algorithme reconnait mais que TOOLS n'expose pas (securite silencieuse,
-  // ne devrait jamais arriver vu TYPE_KEYWORDS).
-  const useTypePrompt = (algo?.action === "create" || algo?.action === "update") && !onDevisPage && Boolean(TOOLS[algo.type]);
-
-  const promptText = useTypePrompt
-    ? buildTypePrompt({
-        type: algo.type,
-        action: algo.action,
-        today: new Date().toISOString().slice(0, 10),
-        message,
-        isSecondRound,
-        previousQuestion: body.conversation?.question || "",
-        previousMessage: body.conversation?.originalMessage || "",
-        hasPhotos: photos.length > 0,
-        onDevisPage
-      })
-    : buildPrompt({
-        today: new Date().toISOString().slice(0, 10),
-        message,
-        isSecondRound,
-        previousQuestion: body.conversation?.question || "",
-        previousMessage: body.conversation?.originalMessage || "",
-        hasPhotos: photos.length > 0,
-        onDevisPage
-      });
+  // Retour au 100% IA (9 oct, demande d'Amira) : le dictionnaire de mots-cles
+  // (lib/koji-assistant-keywords.js) et le prompt resserre associe, ajoutes
+  // le 8 oct, sont retires — un seul appel IA, classification complete,
+  // a chaque message, comme avant cette experimentation.
+  const promptText = buildPrompt({
+    today: new Date().toISOString().slice(0, 10),
+    message,
+    isSecondRound,
+    previousQuestion: body.conversation?.question || "",
+    previousMessage: body.conversation?.originalMessage || "",
+    hasPhotos: photos.length > 0,
+    onDevisPage
+  });
 
   const content = [];
   for (const dataUrl of photos) {
@@ -635,15 +534,6 @@ export async function POST(request) {
     parsed = parseAiJson(aiText);
   } catch {
     return badRequest("Réponse de l'assistant illisible. Réessayez.", 502);
-  }
-
-  // L'algorithme a deja tranche le type/l'action avec certitude (prompt
-  // resserre ci-dessus) — l'IA ne doit jamais pouvoir les changer, seulement
-  // remplir les champs. Meme garde-fou que l'assistant Radar des Chantiers,
-  // qui ne laisse jamais l'IA reinventer un metier deja detecte par mots-cles.
-  if (useTypePrompt) {
-    parsed.action = algo.action;
-    parsed.type = algo.type;
   }
 
   const action = ["delete", "create", "update", "navigate", "ambiguous", "devisPageAction"].includes(parsed.action) ? parsed.action : "autre";
@@ -711,7 +601,7 @@ export async function POST(request) {
     result = await handleCreate({ ctx, tool, type, parsed, isSecondRound, message, rawPhotos: body.photos, contextChantierId });
   }
 
-  after(() => logTurn(auth.userId, message, result, conversationId, useTypePrompt ? "ia_resserree" : "ia"));
+  after(() => logTurn(auth.userId, message, result, conversationId, "ia"));
 
   return ok({ ...result, conversationId });
 }
