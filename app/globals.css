@@ -18919,3 +18919,103 @@ body :where(
     animation: none !important;
   }
 }
+
+/* ── ChoiceList (10 oct) — presentation standard des questions a choix du
+   nouveau chat Radar des Chantiers (components/ChoiceList.jsx), liste
+   verticale a selection multiple, specification precise d'Amira. Bleu
+   marine du logo (#16233F) distinct de --navy (#000b28) deja utilise
+   ailleurs dans l'app — defini ici uniquement, jamais en dur ailleurs. ── */
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.choice-list-question {
+  margin: 0 0 2px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.choice-list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.choice-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #DADDE6;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.choice-list-row.selected {
+  border-color: #16233F;
+  background: #EDEFFB;
+}
+
+.choice-list-checkbox {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid #B9BECC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.choice-list-row.selected .choice-list-checkbox {
+  background: #16233F;
+  border-color: #16233F;
+}
+
+.choice-list-label {
+  font-size: 13.5px;
+  color: #16233F;
+  font-weight: 600;
+}
+
+.choice-list-other-input {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #DADDE6;
+  font-size: 13.5px;
+}
+
+.choice-list-validate {
+  height: 60px;
+  border-radius: 14px;
+  border: 0;
+  background: #16233F;
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.choice-list-validate:disabled {
+  background: #AEB4C4;
+  cursor: default;
+}
+
+.choice-list-restart {
+  height: 46px;
+  border-radius: 14px;
+  background: white;
+  border: 1px solid #E3E5EB;
+  color: #16233F;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}

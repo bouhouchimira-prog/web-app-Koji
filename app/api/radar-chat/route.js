@@ -36,6 +36,14 @@ const MAX_TOOL_ROUNDS = 6;
 // justifie de rappeler Claude.
 const NON_REACTIVE_TOOLS = new Set(["update_offer_draft"]);
 
+// Outil d'affichage (10 oct, demande d'Amira : liste de choix cochable
+// standardisee plutot que des options ecrites en texte libre) — des que
+// Claude l'appelle, on arrete TOUJOURS la boucle ici (jamais de rappel a
+// Claude dans le meme tour, meme s'il a aussi appele update_offer_draft a
+// cote) : l'interface doit afficher ces choix et attendre la reponse du
+// client, pas continuer a generer du texte.
+const CHOICE_TOOL = "proposer_choix";
+
 function toAnthropicMessages(turns, photos) {
   const messages = (Array.isArray(turns) ? turns : [])
     .filter((t) => t && (t.role === "user" || t.role === "assistant") && typeof t.text === "string")
@@ -140,6 +148,7 @@ export async function POST(request) {
           if (toolUseBlocks.length === 0) break;
 
           const allNonReactive = toolUseBlocks.every((b) => NON_REACTIVE_TOOLS.has(b.name));
+          const choiceBlock = toolUseBlocks.find((b) => b.name === CHOICE_TOOL);
 
           messages.push({ role: "assistant", content: response.content });
           const toolResults = [];
@@ -154,6 +163,17 @@ export async function POST(request) {
           // continue) voie bien les champs qui viennent d'etre enregistres,
           // jamais un etat perime.
           draft = await getDraft(draft.id);
+
+          if (choiceBlock) {
+            send("choice", {
+              question: fixText(choiceBlock.input?.question || ""),
+              options: Array.isArray(choiceBlock.input?.options) ? choiceBlock.input.options.map((o) => fixText(o)) : [],
+              multiple: Boolean(choiceBlock.input?.multiple),
+              allowUnknown: choiceBlock.input?.allowUnknown !== false,
+              allowOther: choiceBlock.input?.allowOther !== false
+            });
+            break;
+          }
 
           if (finished) break;
           // Deja une reponse pour le client ET rien de nouveau a apprendre

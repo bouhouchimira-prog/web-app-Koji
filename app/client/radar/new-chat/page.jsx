@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
+import ChoiceList from "../../../../components/ChoiceList";
 
 // Nouveau parcours 100% conversationnel (9-10 oct, refonte demandee par
 // Amira) — remplace a terme app/client/radar/new/page.jsx (onglet "Offre
@@ -71,6 +72,11 @@ export default function RadarNewChatPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [photos, setPhotos] = useState([]);
+  // Question a choix en attente de reponse (10 oct, outil proposer_choix) —
+  // affichee via <ChoiceList />, EN PLUS du champ de texte libre habituel
+  // (le client garde toujours la possibilite de repondre en texte, voir
+  // specification d'Amira), jamais a sa place.
+  const [pendingChoice, setPendingChoice] = useState(null);
   const conversationIdRef = useRef(`radarchat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const draftIdRef = useRef("");
   const messagesEndRef = useRef(null);
@@ -117,6 +123,7 @@ export default function RadarNewChatPage() {
       const decoder = new TextDecoder();
       let buffer = "";
       let liveText = "";
+      let choiceHandled = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -135,10 +142,35 @@ export default function RadarNewChatPage() {
           if (eventType === "delta") {
             liveText += data.text;
             setStreamingText(liveText);
+          } else if (eventType === "choice") {
+            // Tout texte deja diffuse en direct (ex: un court accuse de
+            // reception avant la question) devient sa propre bulle D'ABORD,
+            // SAUF s'il ressemble lui-meme a une question (finit par "?") —
+            // malgre la consigne du prompt, Claude reformule parfois la
+            // question en texte en plus d'appeler l'outil ; mieux vaut
+            // perdre un accuse de reception legitime de temps en temps que
+            // montrer deux fois la meme question. La question de l'outil
+            // devient ensuite sa propre bulle ; les options s'affichent a
+            // part, sous le formulaire habituel. liveText est purge pour ne
+            // pas le reafficher au "done" qui suit toujours cet evenement.
+            const ack = liveText.trim();
+            const ackLooksLikeAQuestion = ack.endsWith("?");
+            setTurns((current) => {
+              const withAck = ack && !ackLooksLikeAQuestion ? [...current, { role: "assistant", text: ack, time: nowTime() }] : current;
+              return data.question ? [...withAck, { role: "assistant", text: data.question, time: nowTime() }] : withAck;
+            });
+            liveText = "";
+            choiceHandled = true;
+            setStreamingText("");
+            setPendingChoice(data);
           } else if (eventType === "done") {
             draftIdRef.current = data.draftId;
-            const finalMessage = data.message || liveText || "D'accord.";
-            setTurns((current) => [...current, { role: "assistant", text: finalMessage, time: nowTime() }]);
+            // Rien a rajouter si un choix vient deja d'etre affiche dans ce
+            // meme tour — "done" porte alors le MEME texte deja montre
+            // (le serveur s'arrete toujours juste apres "choice"), jamais
+            // de contenu supplementaire.
+            const finalMessage = choiceHandled ? "" : (data.message || liveText || "").trim();
+            if (finalMessage) setTurns((current) => [...current, { role: "assistant", text: finalMessage, time: nowTime() }]);
             setStreamingText("");
             if (data.finished) {
               router.push(`/client/radar/new?draftId=${encodeURIComponent(data.draftId)}`);
@@ -161,6 +193,7 @@ export default function RadarNewChatPage() {
     const nextTurns = [...turns, { role: "user", text: trimmed || "(photos jointes)", time: nowTime() }];
     setTurns(nextTurns);
     setDraft("");
+    setPendingChoice(null);
     const photosForThisTurn = photos;
     setPhotos([]);
     sendToEngine(nextTurns, photosForThisTurn);
@@ -169,6 +202,16 @@ export default function RadarNewChatPage() {
   function handleSubmit(event) {
     event.preventDefault();
     answerText(draft);
+  }
+
+  function restart() {
+    conversationIdRef.current = `radarchat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    draftIdRef.current = "";
+    setPendingChoice(null);
+    setPhotos([]);
+    setError("");
+    setStreamingText("");
+    setTurns([{ role: "assistant", text: "Bonjour ! 👋 Je suis koji, votre conseiller rénovation. Dites-moi, quel est votre projet ?", time: nowTime() }]);
   }
 
   return (
@@ -233,6 +276,18 @@ export default function RadarNewChatPage() {
                 </div>
               ))}
             </div>
+          ) : null}
+
+          {pendingChoice ? (
+            <ChoiceList
+              options={pendingChoice.options}
+              multiple={pendingChoice.multiple}
+              allowUnknown={pendingChoice.allowUnknown}
+              allowOther={pendingChoice.allowOther}
+              onSubmit={answerText}
+              onRestart={restart}
+              disabled={sending}
+            />
           ) : null}
 
           <form className="radar-chat-form" onSubmit={handleSubmit}>
