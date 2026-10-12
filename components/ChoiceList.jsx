@@ -32,7 +32,12 @@ function Row({ label, selected, onClick }) {
 
 // `onSubmit` recoit le texte final a envoyer dans le chat, exactement
 // comme une reponse tapee par le client (ex: "Électricité, Peinture").
-export default function ChoiceList({ question, options, multiple, allowUnknown = true, allowOther = true, onSubmit, onRestart, disabled }) {
+// `separator` : jointure des libelles selectionnes en choix multiple —
+// ", " par defaut (nouveau chat), mais l'ancien parcours
+// (app/client/radar/new/page.jsx) a besoin de " • " pour rester compatible
+// avec le court-circuit sans IA cote serveur (MULTI_SELECT_SEPARATOR,
+// app/api/radar-assistant/route.js) qui attend EXACTEMENT ce separateur.
+export default function ChoiceList({ question, options, multiple, allowUnknown = true, allowOther = true, separator = ", ", onSubmit, onRestart, disabled }) {
   const [selected, setSelected] = useState(new Set());
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherText, setOtherText] = useState("");
@@ -40,7 +45,7 @@ export default function ChoiceList({ question, options, multiple, allowUnknown =
   const allOptions = [...options, ...(allowUnknown ? [UNKNOWN_OPTION] : []), ...(allowOther ? [OTHER_OPTION] : [])];
 
   function submitWith(labels) {
-    const text = labels.join(", ");
+    const text = labels.join(separator);
     if (!text.trim()) return;
     onSubmit(text);
   }
@@ -96,15 +101,16 @@ export default function ChoiceList({ question, options, multiple, allowUnknown =
           className="choice-list-other-input"
           value={otherText}
           onChange={(e) => setOtherText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validate(); } }}
           placeholder="Précisez…"
           disabled={disabled}
           autoFocus
         />
       ) : null}
 
-      {multiple ? (
+      {multiple || otherOpen ? (
         <button type="button" className="choice-list-validate" onClick={validate} disabled={disabled || count === 0}>
-          Valider ma sélection {count > 0 ? `(${count})` : ""} <span aria-hidden="true">→</span>
+          Valider ma sélection {multiple && count > 0 ? `(${count})` : ""} <span aria-hidden="true">→</span>
         </button>
       ) : null}
 

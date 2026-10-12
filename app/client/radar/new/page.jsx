@@ -1137,7 +1137,7 @@ export default function NewRadarOffrePage() {
               <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
             ) : currentOptions && currentOptions.length > 0 && isCadrageMultiStep ? (
               <>
-                <div className="radar-choice-grid">
+                <div className="choice-list-rows">
                   {currentOptions.map((option) => {
                     const isOther = option === "Autre, précisez";
                     const isAddElement = option === PHOTO_ADD_ELEMENT_OPTION;
@@ -1146,15 +1146,15 @@ export default function NewRadarOffrePage() {
                       <button
                         key={option}
                         type="button"
-                        className={`radar-choice-card ${isActive ? "selected" : ""}`}
+                        className={`choice-list-row ${isActive ? "selected" : ""}`}
                         disabled={sending}
                         // "Autre, précisez" et "+ Autre chose à ajouter" : jamais
                         // une vraie reponse, revelent juste un champ de saisie en
                         // plus, combine au moment de valider.
                         onClick={() => (isOther ? setShowMultiSelectOther(true) : isAddElement ? setCustomElementOpen(true) : toggleMultiSelectChoice(option))}
                       >
-                        {isActive ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                        <span className="radar-choice-card-label">{option}</span>
+                        <span className="choice-list-checkbox" aria-hidden="true">{isActive ? <CheckIcon /> : null}</span>
+                        <span className="choice-list-label">{option}</span>
                       </button>
                     );
                   })}
@@ -1208,26 +1208,27 @@ export default function NewRadarOffrePage() {
                 ) : null}
                 <button
                   type="button"
-                  className="radar-generate-btn"
+                  className="choice-list-validate"
                   onClick={submitMultiSelectChoices}
                   disabled={sending || (multiSelectChoices.size === 0 && !multiSelectOtherText.trim())}
                 >
-                  Valider ma sélection <span aria-hidden="true">→</span>
+                  Valider ma sélection {multiSelectChoices.size > 0 ? `(${multiSelectChoices.size})` : ""} <span aria-hidden="true">→</span>
                 </button>
               </>
             ) : currentOptions && currentOptions.length > 0 ? (
-              <div className="radar-choice-grid">
+              <div className="choice-list-rows">
                 {currentOptions.map((option) => (
                   <button
                     key={option}
                     type="button"
-                    className="radar-choice-card"
+                    className="choice-list-row"
                     disabled={sending}
                     // "Autre, précisez" (cadrage métier) : jamais envoyée telle
                     // quelle au serveur, révèle juste le champ de saisie libre.
                     onClick={() => (option === "Autre, précisez" ? setCurrentOptions(null) : answerText(option))}
                   >
-                    <span className="radar-choice-card-label">{option}</span>
+                    <span className="choice-list-checkbox" aria-hidden="true" />
+                    <span className="choice-list-label">{option}</span>
                   </button>
                 ))}
               </div>
