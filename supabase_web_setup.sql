@@ -51,3 +51,30 @@ CREATE TABLE IF NOT EXISTS particulier_users_state (
 ALTER TABLE particulier_users_state ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON particulier_users_state FROM anon, authenticated;
+
+-- ── radar_offer_drafts (9 octobre) ───────────────────────────────────────
+-- Refonte du parcours de creation d'offre (Radar des Chantiers) en un seul
+-- chat pilote par l'IA avec tool use (lib/radar-offer-draft.js,
+-- app/api/radar-chat/route.js) : l'etat de l'offre en cours de collecte
+-- doit pouvoir etre ecrit plusieurs fois par message (un appel d'outil =
+-- une ecriture), donc PAS dans koji_web_state (1,27 Mo, reecrit en entier a
+-- chaque sauvegarde) — une ligne par brouillon d'offre, ecrite directement,
+-- jamais le gros blob partage. Meme posture de securite que les tables
+-- ci-dessus : service_role uniquement, jamais d'acces direct anon/authenticated
+-- (les comptes particuliers ne sont pas des comptes Supabase Auth).
+CREATE TABLE IF NOT EXISTS radar_offer_drafts (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  conversation_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'en_cours',
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS radar_offer_drafts_user_id_idx ON radar_offer_drafts(user_id);
+CREATE INDEX IF NOT EXISTS radar_offer_drafts_conversation_id_idx ON radar_offer_drafts(conversation_id);
+
+ALTER TABLE radar_offer_drafts ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON radar_offer_drafts FROM anon, authenticated;
