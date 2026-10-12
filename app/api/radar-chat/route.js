@@ -3,26 +3,32 @@ import { badRequest, ok } from "../../../lib/http";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { parsePhoto } from "../../../lib/ai-photo";
 import { fixText } from "../../../lib/text";
-import { createDraft, getDraft } from "../../../lib/radar-offer-draft";
+import { createDraft, getDraft, updateDraftData } from "../../../lib/radar-offer-draft";
 import { RADAR_TOOLS, executeRadarTool } from "../../../lib/radar-assistant-tools";
 import { buildRadarSystemPrompt } from "../../../lib/radar-chat-prompt";
 
-// Nouveau moteur conversationnel Radar des Chantiers (9 oct) — PAS ENCORE
-// branche a l'ecran client (app/client/radar/new/page.jsx), qui continue
-// d'utiliser /api/radar-assistant pour l'instant. Construit et teste ici en
-// isolation, comme convenu avec Amira, avant de toucher a l'UI existante.
+// Nouveau moteur conversationnel Radar des Chantiers (9-10 oct) — PAS
+// ENCORE branche a l'ecran client en production (app/client/radar/new/
+// page.jsx continue d'utiliser /api/radar-assistant), mais la nouvelle
+// page de test (app/client/radar/new-chat/page.jsx) s'en sert deja pour
+// valider le parcours complet avant bascule definitive.
 //
 // Contrairement a /api/radar-assistant (SLOTS fixes + un appel IA etroit
 // par etape), ce moteur tient toute la conversation : un seul system prompt
 // (lib/radar-chat-prompt.js) decrit le role, les regles, et l'etat deja
 // connu du projet ; Claude pose lui-meme la question suivante et appelle
-// ses outils (lib/radar-assistant-tools.js) au fil de l'eau. Sans streaming
-// pour l'instant (etape suivante du plan) — un appel complet par tour, avec
-// une boucle d'outils cote serveur, invisible pour le client.
+// ses outils (lib/radar-assistant-tools.js) au fil de l'eau.
+//
+// Streaming SSE (premier usage dans ce repo) : chaque bout de texte genere
+// par Claude est renvoye des qu'il est pret (evenement "delta"), les appels
+// d'outils restent invisibles pour le client (executes et boucles cote
+// serveur) — seul l'evenement final "done" porte conversationId/draftId/
+// finished, utilise par le client pour rediriger vers le recap une fois
+// terminer_collecte appelee.
 const MAX_TOOL_ROUNDS = 6;
 
-// Outils "ecriture seule" (9 oct) : leur resultat n'apporte rien de nouveau
-// que Claude doive lire avant de repondre (juste une confirmation
+// Outils "ecriture seule" : leur resultat n'apporte rien de nouveau que
+// Claude doive lire avant de repondre (juste une confirmation
 // d'enregistrement) — rappeler Claude apres coup, alors qu'il a deja donne
 // sa reponse au client dans le meme tour, le poussait a redire/reformuler
 // la meme question (observe en test, aucune vraie valeur ajoutee). Seul un
@@ -51,6 +57,10 @@ function toAnthropicMessages(turns, photos) {
   return messages;
 }
 
+function sseFrame(event, data) {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const portalUserId = getVerifiedPortalUserId(request, body);
@@ -73,75 +83,101 @@ export async function POST(request) {
   }
 
   if (draft.status === "termine") {
-    return ok({ message: "Cette demande est déjà complète — direction le récapitulatif.", conversationId, draftId: draft.id, finished: true });
+    return new Response(
+      sseFrame("delta", { text: "Cette demande est déjà complète — direction le récapitulatif." }) +
+      sseFrame("done", { conversationId, draftId: draft.id, finished: true }),
+      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } }
+    );
   }
 
   const prenom = fixText(body.prenom || "").trim();
-  const messages = toAnthropicMessages(turns, body.photos);
-
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  let finished = false;
-  let finalText = "";
-
-  try {
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-      const system = buildRadarSystemPrompt({ draft, prenom });
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-5",
-        max_tokens: 1024,
-        thinking: { type: "disabled" },
-        system,
-        tools: RADAR_TOOLS,
-        messages
-      });
-
-      const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");
-      const textBlocks = response.content.filter((b) => b.type === "text");
-      // Accumule le texte de CHAQUE aller-retour (6 oct : ne garder que le
-      // dernier faisait parfois perdre la vraie question posee avant un
-      // appel d'outil, Claude melangeant texte et outil dans la meme
-      // reponse) — jamais de message perdu, quitte a etre un peu redondant.
-      const roundText = textBlocks.map((b) => b.text).join("\n").trim();
-      if (roundText) finalText = finalText ? `${finalText}\n\n${roundText}` : roundText;
-
-      if (toolUseBlocks.length === 0) break;
-
-      const allNonReactive = toolUseBlocks.every((b) => NON_REACTIVE_TOOLS.has(b.name));
-
-      messages.push({ role: "assistant", content: response.content });
-      const toolResults = [];
-      for (const block of toolUseBlocks) {
-        const { content, finished: didFinish } = await executeRadarTool(block.name, block.input, { draftId: draft.id });
-        if (didFinish) finished = true;
-        toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
-      }
-      messages.push({ role: "user", content: toolResults });
-
-      // Relit le brouillon pour que le prochain tour (si la boucle continue)
-      // voie bien les champs qui viennent d'etre enregistres, jamais un etat
-      // perime.
-      draft = await getDraft(draft.id);
-
-      if (finished) break;
-      // Deja une reponse pour le client ET rien de nouveau a apprendre d'un
-      // outil ecriture-seule : inutile (et contre-productif) de rappeler
-      // Claude pour ce tour.
-      if (roundText && allNonReactive) break;
-      if (response.stop_reason !== "tool_use") break;
+  const newPhotos = Array.isArray(body.photos) ? body.photos : [];
+  // Les photos sont un simple attachement, jamais une decision de l'IA —
+  // enregistrees automatiquement des qu'elles arrivent (pas via un outil),
+  // accumulees avec celles deja connues du brouillon.
+  if (newPhotos.length > 0) {
+    const existingPhotos = Array.isArray(draft.data?.photos) ? draft.data.photos : [];
+    const merged = [...existingPhotos, ...newPhotos].slice(0, 8);
+    if (merged.length !== existingPhotos.length) {
+      draft = await updateDraftData(draft.id, { photos: merged });
     }
-  } catch (error) {
-    const message = error?.status === 401
-      ? "Clé API Claude invalide."
-      : error?.status === 429 || /credit/i.test(String(error?.message || ""))
-        ? "Crédits API Claude épuisés."
-        : "L'assistant n'a pas pu répondre. Réessayez dans quelques instants.";
-    return badRequest(message, 502);
   }
+  const messages = toAnthropicMessages(turns, body.photos);
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  return ok({
-    message: finalText || "D'accord.",
-    conversationId,
-    draftId: draft.id,
-    finished
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event, data) => controller.enqueue(encoder.encode(sseFrame(event, data)));
+      let finished = false;
+      let finalText = "";
+
+      try {
+        for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+          const system = buildRadarSystemPrompt({ draft, prenom });
+          const claudeStream = anthropic.messages.stream({
+            model: "claude-sonnet-5",
+            max_tokens: 1024,
+            thinking: { type: "disabled" },
+            system,
+            tools: RADAR_TOOLS,
+            messages
+          });
+
+          claudeStream.on("text", (delta) => send("delta", { text: delta }));
+
+          const response = await claudeStream.finalMessage();
+
+          const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");
+          const textBlocks = response.content.filter((b) => b.type === "text");
+          // Accumule le texte de CHAQUE aller-retour (ne garder que le
+          // dernier faisait parfois perdre la vraie question posee avant un
+          // appel d'outil, Claude melangeant texte et outil dans la meme
+          // reponse) — jamais de message perdu, quitte a etre un peu redondant.
+          const roundText = textBlocks.map((b) => b.text).join("\n").trim();
+          if (roundText) finalText = finalText ? `${finalText}\n\n${roundText}` : roundText;
+
+          if (toolUseBlocks.length === 0) break;
+
+          const allNonReactive = toolUseBlocks.every((b) => NON_REACTIVE_TOOLS.has(b.name));
+
+          messages.push({ role: "assistant", content: response.content });
+          const toolResults = [];
+          for (const block of toolUseBlocks) {
+            const { content, finished: didFinish } = await executeRadarTool(block.name, block.input, { draftId: draft.id });
+            if (didFinish) finished = true;
+            toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
+          }
+          messages.push({ role: "user", content: toolResults });
+
+          // Relit le brouillon pour que le prochain tour (si la boucle
+          // continue) voie bien les champs qui viennent d'etre enregistres,
+          // jamais un etat perime.
+          draft = await getDraft(draft.id);
+
+          if (finished) break;
+          // Deja une reponse pour le client ET rien de nouveau a apprendre
+          // d'un outil ecriture-seule : inutile (et contre-productif) de
+          // rappeler Claude pour ce tour.
+          if (roundText && allNonReactive) break;
+          if (response.stop_reason !== "tool_use") break;
+        }
+
+        send("done", { conversationId, draftId: draft.id, finished, message: finalText || "D'accord." });
+      } catch (error) {
+        const message = error?.status === 401
+          ? "Clé API Claude invalide."
+          : error?.status === 429 || /credit/i.test(String(error?.message || ""))
+            ? "Crédits API Claude épuisés."
+            : "L'assistant n'a pas pu répondre. Réessayez dans quelques instants.";
+        send("error", { message });
+      } finally {
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" }
   });
 }

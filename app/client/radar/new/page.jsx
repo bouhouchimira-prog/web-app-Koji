@@ -278,6 +278,32 @@ export default function NewRadarOffrePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, sending]);
 
+  // Pont avec le nouveau chat 100% IA (9-10 oct, app/client/radar/new-chat/
+  // page.jsx) : une fois terminer_collecte appelee la-bas, il redirige ici
+  // avec ?draftId=... — charge l'etat structure depuis radar_offer_drafts
+  // (pas le state accumule localement) et saute directement au recap,
+  // reutilisant tel quel l'ecran existant (aucun doublon de code).
+  const [loadingDraft, setLoadingDraft] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const draftId = new URLSearchParams(window.location.search).get("draftId");
+    if (!draftId) return;
+    setLoadingDraft(true);
+    fetch(`/api/radar-chat/draft/${encodeURIComponent(draftId)}`)
+      .then((r) => r.json())
+      .then((res) => {
+        const data = res.draft?.data || {};
+        setMetier(data.metier || "Tout corps d'état");
+        setMode("ia");
+        setExpertiseAnswers({ ...data, _needsRoomBreakdown: Array.isArray(data.rooms) && data.rooms.length > 0, _freeformSummary: true });
+        if (Array.isArray(data.photos)) setPhotos(data.photos);
+        setPhase("recap");
+      })
+      .catch(() => setError("Impossible de charger votre projet. Réessayez depuis le chat."))
+      .finally(() => setLoadingDraft(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function switchMode(next) {
     if (phase !== "form" && phase !== "hero") return;
     setMode(next);
@@ -785,6 +811,19 @@ export default function NewRadarOffrePage() {
   // launchExpertise plutot que de compter sur expertiseAnswers (setState
   // est asynchrone, la valeur en state ne serait pas encore a jour).
   function confirmRecap() {
+    const normes = normesFor(metier);
+    // Projet venu du nouveau chat 100% IA (9-10 oct) : equipements/style/
+    // etatGeneral/travauxDetail/travauxPrecisions sont deja du texte libre
+    // directement dans expertiseAnswers (edite via les champs texte du
+    // recap, voir _freeformSummary) — ne jamais les ecraser avec les cases
+    // a cocher de l'ancien parcours, qui n'ont jamais ete remplies ici et
+    // effaceraient ce que l'IA a collecte.
+    if (expertiseAnswers._freeformSummary) {
+      const enriched = { ...expertiseAnswers, metier, normes };
+      setExpertiseAnswers(enriched);
+      launchExpertise(enriched);
+      return;
+    }
     const bank = questionBankFor(metier);
     const equipements = bank.equipements.filter((e) => selectedEquipements.has(e.id)).map((e) => e.label).join(", ");
     const style = bank.styles.find((s) => s.id === selectedStyle)?.label || "";
@@ -794,7 +833,6 @@ export default function NewRadarOffrePage() {
       .filter((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim())
       .map((t) => `${t.label} : ${travauxDetailAnswers[t.detail.key].trim()}`)
       .join(", ");
-    const normes = normesFor(metier);
     const enriched = { ...expertiseAnswers, metier, equipements, style, etatGeneral, travauxDetail, travauxPrecisions, normes };
     setExpertiseAnswers(enriched);
     launchExpertise(enriched);
@@ -941,6 +979,18 @@ export default function NewRadarOffrePage() {
   const range = phase === "result" ? adjustedRange() : null;
   const bank = metier ? questionBankFor(metier) : null;
   const iaStepIndex = IA_PHASES.indexOf(phase);
+
+  if (loadingDraft) {
+    return (
+      <main className="client-space">
+        <ClientTopbar showBack backHref="/client/radar" />
+        <div className="radar-expertise-loading">
+          <div className="radar-expertise-spinner" />
+          <strong>Chargement de votre projet…</strong>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="client-space">
@@ -1472,6 +1522,34 @@ export default function NewRadarOffrePage() {
                     />
                   </div>
                 ))}
+              </div>
+            ) : expertiseAnswers._freeformSummary ? (
+              // Projet venu du nouveau chat 100% IA (9-10 oct) — l'IA decrit
+              // ces champs en texte libre, pas via une selection de cartes
+              // parmi questionBankFor(metier) comme l'ancien parcours : des
+              // champs texte simples, modifiables, plutot que des cases a
+              // cocher qui ne correspondraient a rien de coche.
+              <div className="radar-recap-card">
+                <label className="radar-field">
+                  <span className="radar-field-label">🏠 État actuel</span>
+                  <textarea rows={2} value={expertiseAnswers.etatGeneral || ""} onChange={(e) => setAnswerField("etatGeneral", e.target.value)} />
+                </label>
+                <label className="radar-field">
+                  <span className="radar-field-label">🛁 Équipements souhaités</span>
+                  <textarea rows={2} value={expertiseAnswers.equipements || ""} onChange={(e) => setAnswerField("equipements", e.target.value)} />
+                </label>
+                <label className="radar-field">
+                  <span className="radar-field-label">🎨 Style / gamme</span>
+                  <input type="text" value={expertiseAnswers.style || ""} onChange={(e) => setAnswerField("style", e.target.value)} />
+                </label>
+                <label className="radar-field">
+                  <span className="radar-field-label">🔨 Travaux</span>
+                  <textarea rows={3} value={expertiseAnswers.travauxDetail || ""} onChange={(e) => setAnswerField("travauxDetail", e.target.value)} />
+                </label>
+                <label className="radar-field">
+                  <span className="radar-field-label">📏 Précisions chiffrées</span>
+                  <textarea rows={2} value={expertiseAnswers.travauxPrecisions || ""} onChange={(e) => setAnswerField("travauxPrecisions", e.target.value)} />
+                </label>
               </div>
             ) : (
               <>
