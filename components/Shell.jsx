@@ -741,12 +741,6 @@ export function Shell({ children }) {
           </div>
         </div>
         {isAdmin && (
-          <div className="admin-badge">
-            <span>{L.shell.admin}</span>
-            <small>{L.shell.adminHint}</small>
-          </div>
-        )}
-        {isAdmin && (
           <Link href="/admin/clients" className="drawer-nav-section" style={{ display: "block", textDecoration: "none" }} onClick={() => setDrawerOpen(false)}>
             🗂️ Conversations enregistrées
           </Link>
@@ -810,6 +804,13 @@ export function Shell({ children }) {
         </nav>
 
         <div className="drawer-divider" />
+
+        {isAdmin && (
+          <div className="admin-badge">
+            <span>{L.shell.admin}</span>
+            <small>{L.shell.adminHint}</small>
+          </div>
+        )}
 
         <button
           type="button"
