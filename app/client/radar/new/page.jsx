@@ -4,24 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { RadarAddressAutocomplete } from "../../../../components/RadarAddressAutocomplete";
-import { questionBankFor, ETAT_GENERAL_OPTIONS, normesFor } from "../../../../lib/renovation-question-bank";
+import { normesFor } from "../../../../lib/renovation-question-bank";
+import ChoiceList from "../../../../components/ChoiceList";
 
-// Creer une offre — refonte du 23 septembre (v3) : une seule page avec deux
-// onglets ("Offre IA" / "Saisie libre") — habillage inspire d'une maquette
-// fournie par Amira (bandeau navy, carte blanche, bouton degrade), sans les
-// fonctionnalites qui n'existent nulle part ailleurs dans Koji (dictee
-// vocale, compteurs de quota, chargement de modele — hors perimetre).
+// Creer une offre — deux onglets ("Offre IA" / "Saisie libre").
 //
-// v3 (meme jour) : l'onglet "Offre IA" ne saute plus directement de
-// description+photos au prix — Amira a demande qu'on pose d'abord les
-// questions necessaires (adresse, surface, fournitures, etage/ascenseur,
-// stationnement, nettoyage, etat de la piece) avant de chiffrer, comme le
-// parcours "Saisie libre" recueille deja tout ca via son formulaire direct.
-// Reutilise tel quel /api/radar-assistant (liste de questions fixe et
-// garde-fou, desormais etendue avec etage/stationnement/nettoyage) puis
-// /api/expertise-koji pour la fourchette de prix, /api/chantier-offres pour
-// la publication — jamais de budget demande au client, jamais de devis
-// interne montre, jamais d'estimation avant que le client ne la demande.
+// v4 (12 oct) : l'onglet "Offre IA" ne passe plus par un parcours en etapes
+// (questions fixes puis 6 ecrans de formulaire separes — equipements, style,
+// etat general, travaux, precisions, recap). Le chat (app/api/radar-chat,
+// moteur 100% IA avec tool use, meme moteur que app/client/radar/new-chat/
+// page.jsx) pose lui-meme toutes les questions necessaires — y compris
+// celles que les anciens ecrans posaient — puis enchaine DIRECTEMENT sur le
+// recapitulatif existant, inchange, une fois terminer_collecte appelee.
+// Toujours /api/expertise-koji pour la fourchette de prix, /api/chantier-
+// offres pour la publication — jamais de budget demande au client, jamais de
+// devis interne montre, jamais d'estimation avant que le client ne la demande.
 
 function SparkleIcon() {
   return (
@@ -69,40 +66,27 @@ function PaperclipIcon() {
     </svg>
   );
 }
+function CameraIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8a2 2 0 012-2h1l1.5-2h7L17 6h1a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+function GalleryIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="9" cy="10" r="2" />
+      <path d="M21 16l-5.5-5.5L5 21" />
+    </svg>
+  );
+}
 
 function nowTime() {
   return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
-
-// Separateur de selection multiple sur les cartes du cadrage (30 sept) —
-// doit rester identique cote serveur (app/api/radar-assistant/route.js,
-// MULTI_SELECT_SEPARATOR) pour que le court-circuit sans IA fonctionne.
-const MULTI_SELECT_SEPARATOR = " • ";
-
-// Selection des propositions de travaux apres analyse d'une photo (6 oct,
-// demande d'Amira) — purement cote client, jamais envoyee au serveur (voir
-// answerText) : /api/radar-assistant ne connait pas cette etape. Prefixe
-// "cadrage:" repris uniquement pour activer l'affichage en cartes cochables
-// deja existant (isCadrageMultiStep ci-dessous), jamais transmis tel quel.
-const PHOTO_PROPOSITIONS_SLOT_KEY = "cadrage:photos:propositions";
-const PHOTO_PROPOSITIONS_NONE = "Aucune modification pour l'instant";
-// Carte "+ Autre chose à ajouter" (8 oct, demande d'Amira) : ouvre un petit
-// formulaire (nom de l'élément + propositions) pour couvrir un élément que
-// la photo n'a pas identifié — jamais envoyée au serveur telle quelle, meme
-// principe que "Autre, précisez" plus bas.
-const PHOTO_ADD_ELEMENT_OPTION = "+ Autre chose à ajouter";
-// Doit rester synchronisee avec PROPOSITIONS_POSSIBLES (lib/radar-photo-
-// analysis.js, cote serveur) — dupliquee ici car ce fichier est "use client"
-// et ne peut pas importer un module qui charge le SDK Anthropic.
-const PHOTO_PROPOSITIONS_POSSIBLES = [
-  "Déposer l'élément existant",
-  "Conserver l'élément existant",
-  "Remplacer par un élément neuf",
-  "Réparer",
-  "Repeindre",
-  "Modifier",
-  "Ajouter un nouvel élément"
-];
 
 // Marge de la fourchette de prix (1er oct) — doit rester identique a
 // PRICE_RANGE_SPREAD cote serveur (lib/ai-devis-shape.js), utilisee ici
@@ -120,32 +104,19 @@ function readAsDataUrl(file) {
 
 // Ordre des phases de l'onglet "Offre IA", pour l'indicateur de
 // progression (points) — la maquette d'Amira numerote chaque etape.
-const IA_PHASES = ["hero", "chat", "equipements", "styles", "etat-general", "travaux", "travaux-detail", "recap", "result"];
+const IA_PHASES = ["hero", "chat", "recap", "result"];
+
+function getStoredUser() {
+  if (typeof window === "undefined") return null;
+  try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
+}
 
 export default function NewRadarOffrePage() {
   const router = useRouter();
   const [mode, setMode] = useState("ia"); // ia | manuel
-  const [phase, setPhase] = useState("hero"); // hero | chat | metier-loading | equipements | styles | etat-general | travaux | recap | loading | result
+  const [phase, setPhase] = useState("hero"); // hero | chat | recap | loading | result
   const [metier, setMetier] = useState("");
-  const [selectedEquipements, setSelectedEquipements] = useState(new Set());
-  const [selectedStyle, setSelectedStyle] = useState("");
-  const [selectedEtatGeneral, setSelectedEtatGeneral] = useState("");
-  const [travauxToggles, setTravauxToggles] = useState({});
-  const [travauxDetailAnswers, setTravauxDetailAnswers] = useState({});
   const [photos, setPhotos] = useState([]);
-  // Combien de photos (sur `photos`) ont deja ete envoyees a l'analyse (4
-  // oct, demande d'Amira) — evite de reanalyser/recommenter les memes
-  // photos a chaque tour. Un ref plutot qu'un state : jamais besoin de
-  // redeclencher un rendu, seulement lu/mis a jour dans sendTurn.
-  const photosAnalyzedCountRef = useRef(0);
-  // Combien de photos (sur `photos`) sont deja rattachees a un message du
-  // chat (8 oct, demande d'Amira : les photos jointes via le trombone
-  // doivent apparaitre DANS la bulle du message envoye, pas dans une liste
-  // qui traine en bas de la conversation) — meme principe de curseur que
-  // photosAnalyzedCountRef ci-dessus, mais pour l'affichage plutot que
-  // l'analyse IA. Les photos pas encore rattachees (au-dela de ce curseur)
-  // restent affichees dans la zone de piece jointe en attente d'envoi.
-  const photosRenderedCountRef = useRef(0);
   // Agrandissement d'une photo au clic (8 oct, demande d'Amira) — une seule
   // photo a la fois, affichee en grand dans une carte ouvrable par-dessus la
   // conversation ; null = fermee.
@@ -156,6 +127,19 @@ export default function NewRadarOffrePage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [lightboxPhoto]);
+  // Menu "prendre une photo / depuis la galerie" du trombone (12 oct,
+  // demande d'Amira) — ferme au clic en dehors, meme principe que la
+  // lightbox ci-dessus.
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef(null);
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const onClickOutside = (e) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) setAttachMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [attachMenuOpen]);
   const [description, setDescription] = useState("");
   const [surface, setSurface] = useState("");
   const [address, setAddress] = useState({ address: "", city: "", postalCode: "", lat: null, lon: null });
@@ -173,10 +157,11 @@ export default function NewRadarOffrePage() {
   // soit cliquable et detaille, le total de chaque metier").
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  // Etat du chat de questions (onglet "Offre IA" uniquement) — meme
-  // mecanique que /api/radar-assistant utilisait deja dans le precedent
-  // parcours en etapes : liste fixe, une question a la fois, jamais
-  // d'improvisation IA sur le contenu des questions.
+  // Etat du nouveau chat 100% IA (12 oct, meme moteur que app/client/radar/
+  // new-chat/page.jsx — voir sendToEngine plus bas) — plus de liste de
+  // questions fixe cote client, Claude pilote la conversation lui-meme via
+  // ses outils (lib/radar-assistant-tools.js) et le brouillon structure
+  // (radar_offer_drafts) cote serveur.
   const [turns, setTurns] = useState([]);
   // Identifiant stable pour toute la conversation (2 oct, demande d'Amira :
   // enregistrer la conversation "en cas ou on rencontre un probleme",
@@ -185,120 +170,44 @@ export default function NewRadarOffrePage() {
   const [conversationId, setConversationId] = useState(() => `radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [currentOptions, setCurrentOptions] = useState(null);
-  const [currentInputType, setCurrentInputType] = useState("text");
-  const [readyMessage, setReadyMessage] = useState("");
-  const [slotKey, setSlotKey] = useState(null);
+  const [streamingText, setStreamingText] = useState("");
   const [expertiseAnswers, setExpertiseAnswers] = useState({});
-  // Ecran "Visuels et photos" de la maquette : juste apres l'intro, avant la
-  // toute premiere vraie question du garde-fou — purement cote client, la
-  // vraie question (pendingFirstQuestion) est simplement mise en attente
-  // puis revelee via continueAfterPhotos(), sans toucher a /api/radar-assistant.
-  const [awaitingPhotoStep, setAwaitingPhotoStep] = useState(false);
-  const [pendingFirstQuestion, setPendingFirstQuestion] = useState(null);
-  // Suite de la conversation mise en attente le temps de la selection des
-  // propositions de travaux issues d'une photo (4 oct, etendu 6 oct) — meme
-  // principe que pendingFirstQuestion, mais generalise a n'importe quelle
-  // etape (cadrage, choix de metier, ecran photos, question fixe...),
-  // puisque le commentaire de photo peut survenir a n'importe quel moment
-  // de la conversation.
-  const [pendingPhotoStep, setPendingPhotoStep] = useState(null);
-  // Vrai une fois que le tout premier message decrit reellement un projet
-  // (jamais juste apres l'ouverture du chat) — distinct de `slotKey` car le
-  // garde-fou "intro:clarify" peut redemander plusieurs fois avant d'y
-  // arriver ; l'ecran "Visuels et photos" ne doit s'intercaler qu'une seule
-  // fois, juste apres cette confirmation, jamais avant.
-  const [introConfirmed, setIntroConfirmed] = useState(false);
-  // Selection multiple sur les cartes du cadrage (30 sept, demande d'Amira) :
-  // seule etape ou plusieurs reponses a la fois ont du sens (ex: "type de
-  // travaux") — les 11 questions fixes restent un clic = reponse immediate.
-  const [multiSelectChoices, setMultiSelectChoices] = useState(new Set());
-  // "Autre, précisez" en selection multiple (30 sept, demande d'Amira) :
-  // n'efface plus les cartes ni les cases deja cochees — ajoute juste une
-  // ligne de texte libre en bas, combinee aux choix coches au moment de
-  // valider.
-  const [showMultiSelectOther, setShowMultiSelectOther] = useState(false);
-  const [multiSelectOtherText, setMultiSelectOtherText] = useState("");
-  // Composer "+ Autre chose à ajouter" (8 oct), ecran des propositions de
-  // travaux issues d'une photo uniquement — nom libre + propositions cochees
-  // parmi PHOTO_PROPOSITIONS_POSSIBLES, ajoutees comme nouvelles cartes
-  // "<nom> — <proposition>" au moment de valider, sans appel serveur.
-  const [customElementOpen, setCustomElementOpen] = useState(false);
-  const [customElementName, setCustomElementName] = useState("");
-  const [customElementProps, setCustomElementProps] = useState(new Set());
-  const isCadrageMultiStep = Boolean(slotKey) && slotKey.startsWith("cadrage:") && !slotKey.endsWith(":confirm");
+  // Question a choix en attente de reponse (10 oct, outil proposer_choix) —
+  // affichee via <ChoiceList />, EN PLUS du champ de texte libre habituel,
+  // jamais a sa place (le client garde toujours la possibilite de repondre
+  // en texte).
+  const [pendingChoice, setPendingChoice] = useState(null);
+  // Demande de photo en attente (10 oct, outil demander_photo) — simple
+  // bandeau au-dessus du formulaire, le trombone reste le seul moyen
+  // d'envoyer une photo.
+  const [pendingPhotoRequest, setPendingPhotoRequest] = useState(null);
+  const draftIdRef = useRef("");
   const messagesEndRef = useRef(null);
+  const bottomAnchorRef = useRef(null);
 
-  useEffect(() => {
-    setMultiSelectChoices(new Set());
-    setShowMultiSelectOther(false);
-    setMultiSelectOtherText("");
-    setCustomElementOpen(false);
-    setCustomElementName("");
-    setCustomElementProps(new Set());
-  }, [slotKey]);
-
-  function toggleCustomElementProp(proposition) {
-    setCustomElementProps((current) => {
-      const next = new Set(current);
-      if (next.has(proposition)) next.delete(proposition); else next.add(proposition);
-      return next;
-    });
-  }
-
-  function addCustomElementCards() {
-    const name = customElementName.trim();
-    if (!name || customElementProps.size === 0) return;
-    const newCards = PHOTO_PROPOSITIONS_POSSIBLES.filter((p) => customElementProps.has(p)).map((p) => `${name} — ${p}`);
-    setCurrentOptions((current) => {
-      const base = (current || []).filter((o) => o !== PHOTO_PROPOSITIONS_NONE && o !== PHOTO_ADD_ELEMENT_OPTION);
-      return [...base, ...newCards, PHOTO_ADD_ELEMENT_OPTION, PHOTO_PROPOSITIONS_NONE];
-    });
-    setMultiSelectChoices((current) => new Set([...current, ...newCards]));
-    setCustomElementName("");
-    setCustomElementProps(new Set());
-    setCustomElementOpen(false);
-  }
-
-  function toggleMultiSelectChoice(option) {
-    setMultiSelectChoices((current) => {
-      const next = new Set(current);
-      if (next.has(option)) next.delete(option); else next.add(option);
-      return next;
-    });
-  }
-
-  function submitMultiSelectChoices() {
-    const parts = [...multiSelectChoices, multiSelectOtherText.trim()].filter(Boolean);
-    if (parts.length === 0) return;
-    answerText(parts.join(MULTI_SELECT_SEPARATOR));
-  }
-
+  // Scrolle vers le bas a chaque reponse — pas seulement la liste de bulles
+  // (messagesEndRef, a l'interieur du conteneur a hauteur fixe), mais aussi
+  // la page entiere jusqu'au bas du bloc interactif (bottomAnchorRef, APRES
+  // la nouvelle question a choix / le composeur) (12 oct, bug remonte par
+  // Amira : sans ca, la nouvelle question + ses options apparaissaient sous
+  // la ligne de flottaison et la page semblait "remonter" a chaque reponse).
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, sending]);
+    bottomAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [turns, sending, pendingChoice, pendingPhotoRequest, streamingText]);
 
-  // Pont avec le nouveau chat 100% IA (9-10 oct, app/client/radar/new-chat/
-  // page.jsx) : une fois terminer_collecte appelee la-bas, il redirige ici
-  // avec ?draftId=... — charge l'etat structure depuis radar_offer_drafts
-  // (pas le state accumule localement) et saute directement au recap,
-  // reutilisant tel quel l'ecran existant (aucun doublon de code).
+  // Pont avec un lien ?draftId= direct (ex: reprise d'une conversation) —
+  // charge l'etat structure depuis radar_offer_drafts et saute directement
+  // au recap. Meme chargeur que la fin de la conversation normale (voir
+  // loadDraftIntoRecap plus bas, defini apres sendToEngine mais accessible
+  // ici par hoisting de la declaration de fonction).
   const [loadingDraft, setLoadingDraft] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const draftId = new URLSearchParams(window.location.search).get("draftId");
     if (!draftId) return;
     setLoadingDraft(true);
-    fetch(`/api/radar-chat/draft/${encodeURIComponent(draftId)}`)
-      .then((r) => r.json())
-      .then((res) => {
-        const data = res.draft?.data || {};
-        setMetier(data.metier || "Tout corps d'état");
-        setMode("ia");
-        setExpertiseAnswers({ ...data, _needsRoomBreakdown: Array.isArray(data.rooms) && data.rooms.length > 0, _freeformSummary: true });
-        if (Array.isArray(data.photos)) setPhotos(data.photos);
-        setPhase("recap");
-      })
+    loadDraftIntoRecap(draftId)
       .catch(() => setError("Impossible de charger votre projet. Réessayez depuis le chat."))
       .finally(() => setLoadingDraft(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,333 +247,154 @@ export default function NewRadarOffrePage() {
     }).catch(() => {});
   }
 
-  // Commente les photos pas encore analysees (4 oct, demande d'Amira) —
-  // appelee a la fois depuis sendTurn() (photos deja jointes au moment ou
-  // l'intro/le metier sont connus, ex. attachees des le tout premier
-  // message) et depuis continueAfterPhotos() (photos ajoutees sur l'ecran
-  // dedie "Visuels et photos"), pour ne jamais dependre d'un seul point
-  // d'entree — les photos peuvent etre attachees a tout moment via le
-  // trombone. `photosAnalyzedCountRef` evite de reanalyser deux fois les
-  // memes photos. Ne fait rien tant que l'intro n'est pas encore connue
-  // (pas de contexte projet a donner a l'IA) ; jamais bloquant, toujours
-  // silencieuse en cas d'echec.
-  async function analyzeNewPhotos(metier, intro) {
-    const empty = { description: "", elements: [] };
-    if (!intro) return empty;
-    const unanalyzed = photos.slice(photosAnalyzedCountRef.current);
-    if (unanalyzed.length === 0) return empty;
-    photosAnalyzedCountRef.current = photos.length;
-    try {
-      const response = await fetch("/api/radar-assistant/analyze-photos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metier, intro, photos: unanalyzed })
-      });
-      const body = await response.json().catch(() => ({}));
-      const result = {
-        description: body.description || "",
-        elements: Array.isArray(body.elements) ? body.elements : []
-      };
-      // Persiste ce que la photo a deja montre (8 oct, demande d'Amira) pour
-      // que les prochaines questions de cadrage n'y repassent pas — jusque
-      // la, description/elements n'etaient utilises que pour les bulles de
-      // chat puis perdus. Accumule au fil des photos, jamais ecrase.
-      if (result.description || result.elements.length > 0) {
-        setExpertiseAnswers((current) => ({
-          ...current,
-          _photoFacts: {
-            descriptions: [...(current._photoFacts?.descriptions || []), result.description].filter(Boolean).slice(-6),
-            elements: [...new Set([...(current._photoFacts?.elements || []), ...result.elements.map((e) => e.element)])].slice(0, 20)
-          }
-        }));
-      }
-      return result;
-    } catch {
-      return empty;
-    }
+  // Ouvre directement la discussion : l'assistant koji ouvre lui-meme la
+  // conversation (accueil personnalise par prenom, voir isFirstMessage dans
+  // lib/radar-chat-prompt.js), via un message "Bonjour" synthetique jamais
+  // affiche cote client — seule la reponse de l'IA apparait. Les photos
+  // restent attachables a tout moment via le trombone de la barre de saisie.
+  function openChat() {
+    setError("");
+    setPhotos([]);
+    setConversationId(`radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    draftIdRef.current = "";
+    setExpertiseAnswers({});
+    setPendingChoice(null);
+    setPendingPhotoRequest(null);
+    setPhase("chat");
+    setTurns([]);
+    sendToEngine([{ role: "user", text: "Bonjour" }], []);
   }
 
-  // Construit les cartes a cocher "<Élément> — <proposition>" a partir des
-  // elements renvoyes par analyzeNewPhotos (6 oct, demande d'Amira) — une
-  // carte par combinaison, plus une carte pour ajouter un element non
-  // detecte (8 oct) et une carte pour ne rien choisir.
-  function photoPropositionCards(elements) {
-    const cards = [];
-    for (const e of elements) {
-      for (const p of e.propositions) cards.push(`${e.element} — ${p}`);
-    }
-    cards.push(PHOTO_ADD_ELEMENT_OPTION);
-    cards.push(PHOTO_PROPOSITIONS_NONE);
-    return cards;
+  // Charge un brouillon termine (radar_offer_drafts) et saute directement au
+  // recap — reutilise a la fois par le pont ?draftId= (lien direct) et par
+  // la fin normale de la conversation (sendToEngine, evenement "done" avec
+  // finished=true une fois terminer_collecte appelee cote serveur).
+  async function loadDraftIntoRecap(id) {
+    const response = await fetch(`/api/radar-chat/draft/${encodeURIComponent(id)}`);
+    const body = await response.json();
+    const data = body.draft?.data || {};
+    setMetier(data.metier || "Tout corps d'état");
+    setMode("ia");
+    setExpertiseAnswers({ ...data, _needsRoomBreakdown: Array.isArray(data.rooms) && data.rooms.length > 0, _freeformSummary: true });
+    if (Array.isArray(data.photos)) setPhotos(data.photos);
+    setPhase("recap");
   }
 
-  // Revele une etape mise en attente (cadrage, choix de metier, ecran
-  // photos, question fixe, ou fin du parcours) — factorise car la meme
-  // logique doit s'executer, que l'etape ait ete revelee tout de suite ou
-  // apres la selection des propositions de travaux issues d'une photo (4
-  // oct, etendu 6 oct).
-  function revealPendingStep(pending, baseTurns) {
-    const { data, stepMessage, isIntroStep, isPhotoInterstitial } = pending;
-    const finalTurns = [...baseTurns, { role: "assistant", text: stepMessage, time: nowTime() }];
-    setTurns(finalTurns);
-    logConversation(finalTurns, data.answers?.metier);
-    if (isIntroStep) {
-      setReadyMessage("");
-      setCurrentOptions(data.options || null);
-      setCurrentInputType("text");
-      setSlotKey(data.slotKey || null);
-    } else if (isPhotoInterstitial) {
-      setIntroConfirmed(true);
-      setPendingFirstQuestion(data);
-      setAwaitingPhotoStep(true);
-      setReadyMessage("");
-      setCurrentOptions(null);
-      setCurrentInputType("text");
-    } else if (data.type === "ready_for_expertise") {
-      setReadyMessage(data.message);
-      setCurrentOptions(null);
-      setCurrentInputType("text");
-      setSlotKey(null);
-    } else {
-      setReadyMessage("");
-      setCurrentOptions(data.options || null);
-      setCurrentInputType(data.inputType || "text");
-      setSlotKey(data.slotKey || null);
-    }
-  }
-
-  // Reponse a la selection des propositions de travaux issues d'une photo
-  // (6 oct, demande d'Amira — remplace l'ancienne confirmation "proposition
-  // visuelle" Replicate) — purement cote client, n'appelle jamais
-  // /api/radar-assistant. Les choix sont enregistres dans
-  // expertiseAnswers.photoPropositions, repris par le chiffrage final
-  // (app/api/expertise-koji/route.js), puis la conversation reprend
-  // normalement.
-  function handlePhotoPropositionsSubmit(text) {
-    const pending = pendingPhotoStep;
-    setPendingPhotoStep(null);
-    const afterTurns = [...turns, { role: "user", text, time: nowTime() }];
-    setTurns(afterTurns);
-    setDraft("");
-
-    const selected = text.split(MULTI_SELECT_SEPARATOR).map((s) => s.trim()).filter((s) => s && s !== PHOTO_PROPOSITIONS_NONE && s !== PHOTO_ADD_ELEMENT_OPTION);
-    if (selected.length > 0) {
-      setExpertiseAnswers((current) => ({
-        ...current,
-        photoPropositions: [current.photoPropositions, selected.join(" ; ")].filter(Boolean).join(" ; ")
-      }));
-    }
-    if (pending) revealPendingStep(pending, afterTurns);
-  }
-
-  async function sendTurn(nextTurns) {
+  // Un tour de conversation avec le nouveau moteur 100% IA (app/api/radar-
+  // chat — streaming SSE + tool use cote serveur, meme moteur que app/client/
+  // radar/new-chat/page.jsx). Claude pose lui-meme la question suivante et
+  // appelle ses outils (enregistrer_info/proposer_choix/demander_photo/
+  // consulter_bibliotheque_prix/terminer_collecte) au fil de l'eau — plus
+  // aucune liste de questions fixe ni garde-fou cote code ici.
+  async function sendToEngine(nextTurns, photosForThisTurn) {
     setSending(true);
     setError("");
-    setCurrentOptions(null);
+    setStreamingText("");
+    setPendingPhotoRequest(null);
+    const user = getStoredUser();
+    const prenom = (user?.name || "").trim().split(/\s+/)[0] || "";
+
     try {
-      const response = await fetch("/api/radar-assistant", {
+      const response = await fetch("/api/radar-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           turns: nextTurns.map(({ role, text }) => ({ role, text })),
-          photos: nextTurns.filter((t) => t.role === "user").length === 1 ? photos : undefined,
-          currentSlotKey: slotKey,
-          answers: expertiseAnswers
+          conversationId,
+          draftId: draftIdRef.current || undefined,
+          photos: photosForThisTurn,
+          prenom
         })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Erreur de l'assistant.");
-      if (data.answers) setExpertiseAnswers(data.answers);
-      // Adresse validee et geocodee cote serveur (meme si tapee a la main
-      // sans cliquer de suggestion) — aligne l'etat `address` (utilise plus
-      // tard pour publier l'offre) sur ce que le chat vient d'accepter.
-      if (data.geocode) {
-        setAddress({
-          address: data.geocode.label,
-          city: data.geocode.city,
-          postalCode: data.geocode.postalCode,
-          lat: data.geocode.lat,
-          lon: data.geocode.lon
-        });
+      if (!response.ok || !response.body) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "L'assistant n'a pas pu répondre.");
       }
-      // Commente les photos des qu'un intro/metier est connu, meme si elles
-      // ont ete jointes des le tout premier message (4 oct, demande
-      // d'Amira) — jamais a l'ecran "Visuels et photos" uniquement, puisque
-      // ce dernier est saute pour la plupart des projets reels (cadrage,
-      // choix de metier, decoupage par piece...).
-      const photoResult = await analyzeNewPhotos(data.answers?.metier || expertiseAnswers.metier, data.answers?.intro || expertiseAnswers.intro);
-      const isIntroStep = data.type === "intro_clarify" || data.type === "cadrage" || data.type === "cadrage_confirm" || data.type === "metier_choice";
-      // Ne jamais redemander des photos deja envoyees (8 oct, demande
-      // d'Amira) — si au moins une photo a deja ete jointe a ce stade (ex:
-      // des le tout premier message), l'ecran "Visuels et photos" n'a plus
-      // lieu d'etre : on marque l'intro comme confirmee tout de suite et on
-      // enchaine directement sur la vraie question suivante, exactement
-      // comme si l'interstitiel avait deja ete passe.
-      const hasPhotosAlready = photos.length > 0;
-      if (!isIntroStep && !introConfirmed && hasPhotosAlready) setIntroConfirmed(true);
-      const isPhotoInterstitial = !isIntroStep && !introConfirmed && !hasPhotosAlready && data.type !== "ready_for_expertise";
-      const stepMessage = isPhotoInterstitial
-        ? "Parfait ! Pouvez-vous m'envoyer quelques photos ? Cela m'aide à mieux comprendre l'existant et à vous proposer une estimation plus fiable."
-        : data.message;
-      const pending = { data, stepMessage, isIntroStep, isPhotoInterstitial };
-      if (photoResult.elements.length > 0) {
-        // De vrais elements viennent d'etre identifies sur une photo (6
-        // oct, demande d'Amira) : propose les travaux possibles a cocher
-        // avant d'enchainer sur la suite, mise en attente le temps de la
-        // selection (meme principe que pendingFirstQuestion pour l'ecran
-        // "Visuels et photos").
-        const extraTurns = photoResult.description
-          ? [{ role: "assistant", text: photoResult.description, time: nowTime() }]
-          : [];
-        extraTurns.push({ role: "assistant", text: "Voici ce que je propose pour cette photo :", time: nowTime() });
-        const finalTurns = [...nextTurns, ...extraTurns];
-        setTurns(finalTurns);
-        logConversation(finalTurns, data.answers?.metier);
-        setPendingPhotoStep(pending);
-        setReadyMessage("");
-        setCurrentOptions(photoPropositionCards(photoResult.elements));
-        setCurrentInputType("text");
-        setSlotKey(PHOTO_PROPOSITIONS_SLOT_KEY);
-        return;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let liveText = "";
+      let uiHandled = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() || "";
+        for (const frame of frames) {
+          const eventMatch = /event: (\w+)/.exec(frame);
+          const dataMatch = /data: (.+)/.exec(frame);
+          if (!eventMatch || !dataMatch) continue;
+          const eventType = eventMatch[1];
+          let data;
+          try { data = JSON.parse(dataMatch[1]); } catch { continue; }
+
+          if (eventType === "delta") {
+            liveText += data.text;
+            setStreamingText(liveText);
+          } else if (eventType === "choice") {
+            // Accuse de reception deja diffuse (s'il ne ressemble pas lui-
+            // meme a une question) devient sa propre bulle D'ABORD, puis la
+            // question de l'outil devient la sienne ; les options s'affichent
+            // a part sous le composeur habituel. Purge liveText pour ne pas
+            // le reafficher au "done" qui suit toujours cet evenement.
+            const ack = liveText.trim();
+            const ackLooksLikeAQuestion = ack.endsWith("?");
+            setTurns((current) => {
+              const withAck = ack && !ackLooksLikeAQuestion ? [...current, { role: "assistant", text: ack, time: nowTime() }] : current;
+              return data.question ? [...withAck, { role: "assistant", text: data.question, time: nowTime() }] : withAck;
+            });
+            liveText = "";
+            uiHandled = true;
+            setStreamingText("");
+            setPendingChoice(data);
+          } else if (eventType === "photo-request") {
+            const ack = liveText.trim();
+            if (ack && !ack.endsWith("?")) {
+              setTurns((current) => [...current, { role: "assistant", text: ack, time: nowTime() }]);
+            }
+            liveText = "";
+            uiHandled = true;
+            setStreamingText("");
+            setPendingPhotoRequest(data);
+          } else if (eventType === "done") {
+            draftIdRef.current = data.draftId;
+            const finalMessage = uiHandled ? "" : (data.message || liveText || "").trim();
+            const finalTurns = finalMessage ? [...nextTurns, { role: "assistant", text: finalMessage, time: nowTime() }] : nextTurns;
+            if (finalMessage) setTurns(finalTurns);
+            setStreamingText("");
+            logConversation(finalTurns, expertiseAnswers.metier);
+            if (data.finished) {
+              loadDraftIntoRecap(data.draftId).catch(() => setError("Impossible de charger le récapitulatif. Réessayez."));
+            }
+          } else if (eventType === "error") {
+            setError(data.message || "L'assistant n'a pas pu répondre.");
+          }
+        }
       }
-      if (photoResult.description) {
-        const finalTurns = [...nextTurns, { role: "assistant", text: photoResult.description, time: nowTime() }];
-        setTurns(finalTurns);
-        logConversation(finalTurns, data.answers?.metier);
-        revealPendingStep(pending, finalTurns);
-        return;
-      }
-      revealPendingStep(pending, nextTurns);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "L'assistant n'a pas pu répondre. Réessayez.");
     } finally {
       setSending(false);
     }
   }
 
-  // Ouvre directement la discussion (maquette d'Amira, ecran "Discussion
-  // naturelle") : plus de formulaire description+photos intermediaire —
-  // l'assistant koji ouvre la conversation, et la description du projet
-  // devient le tout premier message du client, comme un vrai chat. Les
-  // photos restent attachables a tout moment via le trombone de la barre
-  // de saisie (etat `photos` deja lu telle quelle par /api/expertise-koji
-  // et /api/chantier-offres, peu importe quand elles ont ete ajoutees).
-  function openChat() {
-    setError("");
-    setPhotos([]);
-    setConversationId(`radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setPhase("chat");
-    setTurns([{
-      role: "assistant",
-      text: "Bonjour ! 👋 Je suis koji, votre conseiller rénovation. Dites-moi, quel est votre projet ?",
-      time: nowTime()
-    }]);
-    setCurrentOptions(null);
-    setCurrentInputType("text");
-    setReadyMessage("");
-    setSlotKey(null);
-    setExpertiseAnswers({});
-    setAwaitingPhotoStep(false);
-    setPendingFirstQuestion(null);
-    setIntroConfirmed(false);
-  }
-
-  // Revele la vraie premiere question du garde-fou, mise en attente par
-  // sendTurn() le temps de l'ecran "Visuels et photos" — les photos deja
-  // ajoutees (ou non) restent dans `photos`, lues telles quelles plus tard.
-  // S'il y a des photos (4 oct, demande d'Amira), koji les commente d'abord
-  // dans la conversation avant d'enchainer sur la question suivante — jamais
-  // bloquant : un echec de l'analyse (reseau, cle API...) n'empeche jamais
-  // de continuer, voir /api/radar-assistant/analyze-photos qui renvoie
-  // toujours un message vide plutot qu'une erreur.
-  async function continueAfterPhotos() {
-    if (!pendingFirstQuestion) return;
-    const data = pendingFirstQuestion;
-    setPendingFirstQuestion(null);
-    setAwaitingPhotoStep(false);
-    setSending(true);
-
-    // Photos ajoutees via la zone de depot de cet ecran, sans note texte
-    // (bouton "Continuer" direct) — rattachees a un tour utilisateur sans
-    // texte, meme principe que answerText/submitPhotoNote (8 oct), pour
-    // qu'elles apparaissent dans la conversation au lieu de disparaitre
-    // silencieusement une fois envoyees.
-    let baseTurns = turns;
-    const newPhotos = photos.slice(photosRenderedCountRef.current);
-    if (newPhotos.length > 0) {
-      photosRenderedCountRef.current = photos.length;
-      baseTurns = [...turns, { role: "user", text: "", photos: newPhotos, time: nowTime() }];
-      setTurns(baseTurns);
-    }
-
-    const photoResult = await analyzeNewPhotos(expertiseAnswers.metier, expertiseAnswers.intro);
-    setSending(false);
-    const pending = { data, stepMessage: data.message, isIntroStep: false, isPhotoInterstitial: false };
-    if (photoResult.elements.length > 0) {
-      const extraTurns = photoResult.description
-        ? [{ role: "assistant", text: photoResult.description, time: nowTime() }]
-        : [];
-      extraTurns.push({ role: "assistant", text: "Voici ce que je propose pour cette photo :", time: nowTime() });
-      const finalTurns = [...baseTurns, ...extraTurns];
-      setTurns(finalTurns);
-      logConversation(finalTurns, expertiseAnswers.metier);
-      setPendingPhotoStep(pending);
-      setCurrentOptions(photoPropositionCards(photoResult.elements));
-      setCurrentInputType("text");
-      setSlotKey(PHOTO_PROPOSITIONS_SLOT_KEY);
-      return;
-    }
-    if (photoResult.description) {
-      const finalTurns = [...baseTurns, { role: "assistant", text: photoResult.description, time: nowTime() }];
-      setTurns(finalTurns);
-      logConversation(finalTurns, expertiseAnswers.metier);
-      revealPendingStep(pending, finalTurns);
-      return;
-    }
-    revealPendingStep(pending, baseTurns);
-  }
-
-  // Permet de repondre par texte a l'ecran "Visuels et photos" (ex: "je n'ai
-  // pas de photos") au lieu d'y rester bloque avec seulement un depot de
-  // fichiers — accuse reception puis enchaine sur la vraie question mise en
-  // attente, comme un tour de chat normal. La note est gardee (photoNote)
-  // et transmise a l'expertise, au cas ou elle contienne une precision utile.
-  function submitPhotoNote(event) {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text) return;
-    setDraft("");
-    const userTurn = { role: "user", text, time: nowTime() };
-    const newPhotos = photos.slice(photosRenderedCountRef.current);
-    if (newPhotos.length > 0) {
-      userTurn.photos = newPhotos;
-      photosRenderedCountRef.current = photos.length;
-    }
-    setTurns((current) => [
-      ...current,
-      userTurn,
-      { role: "assistant", text: "Pas de problème, on continue !", time: nowTime() }
-    ]);
-    setExpertiseAnswers((current) => ({ ...current, photoNote: text }));
-    continueAfterPhotos();
-  }
-
   function answerText(text) {
-    if (!text.trim() || sending || readyMessage) return;
-    if (slotKey === PHOTO_PROPOSITIONS_SLOT_KEY) {
-      handlePhotoPropositionsSubmit(text.trim());
-      return;
-    }
-    const userTurn = { role: "user", text: text.trim(), time: nowTime() };
-    const newPhotos = photos.slice(photosRenderedCountRef.current);
-    if (newPhotos.length > 0) {
-      userTurn.photos = newPhotos;
-      photosRenderedCountRef.current = photos.length;
-    }
+    const trimmed = text.trim();
+    if ((!trimmed && photos.length === 0) || sending) return;
+    // Les photos jointes partent DANS la bulle du message envoye (8 oct,
+    // demande d'Amira), jamais dans une liste a part.
+    const userTurn = { role: "user", text: trimmed, time: nowTime() };
+    if (photos.length > 0) userTurn.photos = photos;
     const nextTurns = [...turns, userTurn];
     setTurns(nextTurns);
     setDraft("");
-    sendTurn(nextTurns);
+    setPendingChoice(null);
+    const photosForThisTurn = photos;
+    setPhotos([]);
+    sendToEngine(nextTurns, photosForThisTurn);
   }
 
   function handleChatSubmit(event) {
@@ -682,76 +412,39 @@ export default function NewRadarOffrePage() {
       lat, lon
     });
     setAddressDraft("");
-    if (phase === "chat") answerText(label);
   }
 
   function submitManualAddress(text) {
     setAddress({ address: text, city: "", postalCode: "", lat: null, lon: null });
     setAddressDraft("");
-    if (phase === "chat") answerText(text);
   }
 
-  // Une fois la conversation /api/radar-assistant terminee (onglet "Offre
-  // IA"), determine le metier principal (petite classification dediee,
-  // /api/classify-metier — jamais utilisee pour inventer un prix, juste
-  // pour choisir le bon jeu de cartes equipements/styles/travaux) puis
-  // enchaine sur les nouvelles etapes visuelles avant l'estimation.
-  async function startEnrichment() {
-    setPhase("metier-loading");
-    setError("");
-    // Le metier est deja determine cote serveur, tot dans la conversation
-    // (pour piloter le cadrage specifique — voir /api/radar-assistant),
-    // et renvoye dans expertiseAnswers.metier : pas besoin de reclassifier.
-    // Le second appel n'est qu'un filet de securite si jamais il manquait.
-    let detectedMetier = expertiseAnswers.metier;
-    if (!detectedMetier) {
-      try {
-        const response = await fetch("/api/classify-metier", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: expertiseAnswers.intro || description })
-        });
-        const data = await response.json();
-        detectedMetier = data.metier || "Tout corps d'état";
-      } catch {
-        detectedMetier = "Tout corps d'état";
-      }
+  // Geocode une adresse en texte libre (BAN, meme API que
+  // RadarAddressAutocomplete) — le nouveau moteur de chat n'ayant plus de
+  // garde-fou cote serveur dedie a l'adresse, c'est ici qu'on retrouve
+  // ville/code postal/latitude-longitude, necessaires au matching
+  // geographique des entreprises (/api/chantier-offres). Meme repli que la
+  // saisie manuelle si rien ne correspond : l'adresse texte seule suffit a
+  // continuer, juste sans coordonnees precises.
+  async function geocodeAddressText(text) {
+    const query = text.trim();
+    const fallback = { address: text, city: "", postalCode: "", lat: null, lon: null };
+    if (!query) return fallback;
+    try {
+      const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=1`);
+      const data = await response.json();
+      const feature = data.features?.[0];
+      if (!feature) return fallback;
+      const [lon, lat] = feature.geometry.coordinates;
+      return {
+        address: feature.properties.label,
+        city: feature.properties.city || "",
+        postalCode: feature.properties.postcode || "",
+        lat, lon
+      };
+    } catch {
+      return fallback;
     }
-    setMetier(detectedMetier);
-    // Decoupage par piece (1er oct, cahier des charges d'Amira) : le
-    // mini-cadrage par piece (app/api/radar-assistant) a deja couvert
-    // equipements/style/etat/travaux au niveau de chaque piece — reposer les
-    // memes questions globalement ici serait redondant (meme principe que
-    // le retrait de l'ecran "Gamme" plus tot ce soir), donc pas la peine de
-    // pre-remplir ces listes dans ce mode. Va direct au recapitulatif, qui
-    // affiche la liste des pieces a la place.
-    if (expertiseAnswers._needsRoomBreakdown) {
-      setPhase("recap");
-      return;
-    }
-    const bank = questionBankFor(detectedMetier);
-    setTravauxToggles(Object.fromEntries(bank.travaux.map((t) => [t.id, true])));
-    setSelectedEquipements(new Set());
-    setSelectedStyle("");
-    setSelectedEtatGeneral("");
-    setTravauxDetailAnswers({});
-    setPhase("equipements");
-  }
-
-  function toggleEquipement(id) {
-    setSelectedEquipements((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleTravail(id) {
-    setTravauxToggles((current) => ({ ...current, [id]: !current[id] }));
-  }
-
-  function setTravauxDetail(key, value) {
-    setTravauxDetailAnswers((current) => ({ ...current, [key]: value }));
   }
 
   // Edition directement sur l'ecran recapitulatif (30 sept, demande d'Amira :
@@ -797,44 +490,17 @@ export default function NewRadarOffrePage() {
     });
   }
 
-  // Apres la liste des travaux : s'il n'y a aucune sous-question a poser
-  // (aucun travail coche parmi ceux qui portent un `detail`), on saute
-  // directement au recapitulatif plutot que d'afficher un ecran vide.
-  function goAfterTravaux() {
-    const bank = questionBankFor(metier);
-    const hasDetail = bank.travaux.some((t) => travauxToggles[t.id] && t.detail);
-    setPhase(hasDetail ? "travaux-detail" : "recap");
-  }
-
-  // Valide le recapitulatif : fusionne equipements/style/travaux dans les
-  // reponses avant de lancer l'expertise — passe l'objet directement a
+  // Valide le recapitulatif : geocode l'adresse texte (ville/code postal/
+  // lat/lon necessaires au matching geographique des entreprises, voir
+  // geocodeAddressText) puis lance l'expertise — passe l'objet directement a
   // launchExpertise plutot que de compter sur expertiseAnswers (setState
   // est asynchrone, la valeur en state ne serait pas encore a jour).
-  function confirmRecap() {
+  async function confirmRecap() {
     const normes = normesFor(metier);
-    // Projet venu du nouveau chat 100% IA (9-10 oct) : equipements/style/
-    // etatGeneral/travauxDetail/travauxPrecisions sont deja du texte libre
-    // directement dans expertiseAnswers (edite via les champs texte du
-    // recap, voir _freeformSummary) — ne jamais les ecraser avec les cases
-    // a cocher de l'ancien parcours, qui n'ont jamais ete remplies ici et
-    // effaceraient ce que l'IA a collecte.
-    if (expertiseAnswers._freeformSummary) {
-      const enriched = { ...expertiseAnswers, metier, normes };
-      setExpertiseAnswers(enriched);
-      launchExpertise(enriched);
-      return;
-    }
-    const bank = questionBankFor(metier);
-    const equipements = bank.equipements.filter((e) => selectedEquipements.has(e.id)).map((e) => e.label).join(", ");
-    const style = bank.styles.find((s) => s.id === selectedStyle)?.label || "";
-    const etatGeneral = ETAT_GENERAL_OPTIONS.find((e) => e.id === selectedEtatGeneral)?.label || "";
-    const travauxDetail = bank.travaux.filter((t) => travauxToggles[t.id]).map((t) => t.label).join(", ");
-    const travauxPrecisions = bank.travaux
-      .filter((t) => travauxToggles[t.id] && t.detail && travauxDetailAnswers[t.detail.key]?.trim())
-      .map((t) => `${t.label} : ${travauxDetailAnswers[t.detail.key].trim()}`)
-      .join(", ");
-    const enriched = { ...expertiseAnswers, metier, equipements, style, etatGeneral, travauxDetail, travauxPrecisions, normes };
+    const enriched = { ...expertiseAnswers, metier, normes };
     setExpertiseAnswers(enriched);
+    const geocoded = await geocodeAddressText(enriched.adresse || "");
+    setAddress(geocoded);
     launchExpertise(enriched);
   }
 
@@ -960,24 +626,16 @@ export default function NewRadarOffrePage() {
     setError("");
     setTurns([]);
     setConversationId(`radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setReadyMessage("");
-    setCurrentOptions(null);
-    setSlotKey(null);
+    draftIdRef.current = "";
+    setPendingChoice(null);
+    setPendingPhotoRequest(null);
+    setStreamingText("");
     setExpertiseAnswers({});
     setMetier("");
-    setSelectedEquipements(new Set());
-    setSelectedStyle("");
-    setSelectedEtatGeneral("");
-    setTravauxToggles({});
-    setTravauxDetailAnswers({});
     setPhotos([]);
-    setAwaitingPhotoStep(false);
-    setPendingFirstQuestion(null);
-    setIntroConfirmed(false);
   }
 
   const range = phase === "result" ? adjustedRange() : null;
-  const bank = metier ? questionBankFor(metier) : null;
   const iaStepIndex = IA_PHASES.indexOf(phase);
 
   if (loadingDraft) {
@@ -1053,6 +711,9 @@ export default function NewRadarOffrePage() {
                 <strong>Assistant koji</strong>
                 <small>Répondez à ses questions pour préparer l'estimation</small>
               </div>
+              <button type="button" className="radar-chat-restart-top" onClick={restart} disabled={sending}>
+                Recommencer
+              </button>
             </div>
 
             <div className="radar-chat-messages">
@@ -1081,8 +742,12 @@ export default function NewRadarOffrePage() {
                 <div className="radar-chat-row assistant">
                   <span className="radar-chat-avatar"><img src="/koji-logo.svg" alt="" /></span>
                   <div className="radar-chat-bubble-wrap">
-                    <div className="radar-chat-bubble assistant radar-chat-typing">
-                      <span className="radar-chat-dot" /><span className="radar-chat-dot" /><span className="radar-chat-dot" />
+                    <div className="radar-chat-bubble assistant">
+                      {streamingText ? <p>{streamingText}</p> : (
+                        <div className="radar-chat-typing">
+                          <span className="radar-chat-dot" /><span className="radar-chat-dot" /><span className="radar-chat-dot" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1092,330 +757,73 @@ export default function NewRadarOffrePage() {
 
             {error ? <p className="profile-message error">{error}</p> : null}
 
-            {photos.length > photosRenderedCountRef.current ? (
+            {pendingPhotoRequest && photos.length === 0 ? (
+              <>
+                <p className="radar-hint-callout">
+                  📷 Une photo aiderait : {pendingPhotoRequest.sujet || "l'état actuel"} — utilisez le trombone ci-dessous, ou répondez en texte si vous n'en avez pas.
+                </p>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={sending}
+                  onClick={() => answerText("Je n'ai pas de photo pour l'instant, continuons.")}
+                >
+                  Continuer <span aria-hidden="true">→</span>
+                </button>
+              </>
+            ) : null}
+
+            {photos.length > 0 ? (
               <div className="radar-photo-grid">
-                {photos.slice(photosRenderedCountRef.current).map((photo, i) => {
-                  const actualIndex = photosRenderedCountRef.current + i;
-                  return (
-                    <div className="radar-photo-thumb" key={actualIndex}>
-                      <img src={photo} alt={`Photo ${actualIndex + 1}`} onClick={() => setLightboxPhoto(photo)} />
-                      <button type="button" onClick={() => removePhoto(actualIndex)} aria-label="Retirer la photo">×</button>
-                    </div>
-                  );
-                })}
+                {photos.map((photo, index) => (
+                  <div className="radar-photo-thumb" key={index}>
+                    <img src={photo} alt={`Photo ${index + 1}`} onClick={() => setLightboxPhoto(photo)} />
+                    <button type="button" onClick={() => removePhoto(index)} aria-label="Retirer la photo">×</button>
+                  </div>
+                ))}
               </div>
             ) : null}
 
-            {readyMessage ? (
-              <button type="button" className="radar-generate-btn" onClick={startEnrichment}>
-                <SparkleIcon />
-                Continuer
-              </button>
-            ) : awaitingPhotoStep ? (
-              <div className="radar-photo-step">
-                <label className="radar-dropzone radar-dropzone-compact">
-                  <input type="file" accept="image/*" multiple onChange={onPhotosChange} hidden />
-                  <UploadIcon />
-                  <strong>Ajouter des photos</strong>
-                  <span>Optionnel — jusqu'à 8 photos, ça aide à affiner l'estimation</span>
-                </label>
-                <form className="radar-chat-form" onSubmit={submitPhotoNote}>
-                  <label className="radar-chat-attach" title="Ajouter une photo">
-                    <input type="file" accept="image/*" multiple onChange={onPhotosChange} hidden />
-                    <PaperclipIcon />
-                  </label>
-                  <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Pas de photo ? Dites-le-moi, ou ajoutez une note…" />
-                  <button type="submit" className="radar-chat-send" disabled={!draft.trim()} aria-label="Envoyer">
-                    <SendIcon />
-                  </button>
-                </form>
-                <button type="button" className="button secondary" onClick={continueAfterPhotos} disabled={sending}>
-                  Continuer sans note <span aria-hidden="true">→</span>
+            {pendingChoice ? (
+              <ChoiceList
+                options={pendingChoice.options}
+                multiple={pendingChoice.multiple}
+                allowUnknown={pendingChoice.allowUnknown}
+                allowOther={pendingChoice.allowOther}
+                onSubmit={answerText}
+                onRestart={restart}
+                disabled={sending}
+              />
+            ) : null}
+
+            <form className="radar-chat-form" onSubmit={handleChatSubmit}>
+              <div className="radar-attach-wrap" ref={attachMenuRef}>
+                <button type="button" className="radar-chat-attach" title="Ajouter une photo" onClick={() => setAttachMenuOpen((o) => !o)}>
+                  <PaperclipIcon />
                 </button>
-              </div>
-            ) : currentInputType === "address" ? (
-              <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
-            ) : currentOptions && currentOptions.length > 0 && isCadrageMultiStep ? (
-              <>
-                <div className="choice-list-rows">
-                  {currentOptions.map((option) => {
-                    const isOther = option === "Autre, précisez";
-                    const isAddElement = option === PHOTO_ADD_ELEMENT_OPTION;
-                    const isActive = isOther ? showMultiSelectOther : isAddElement ? customElementOpen : multiSelectChoices.has(option);
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`choice-list-row ${isActive ? "selected" : ""}`}
-                        disabled={sending}
-                        // "Autre, précisez" et "+ Autre chose à ajouter" : jamais
-                        // une vraie reponse, revelent juste un champ de saisie en
-                        // plus, combine au moment de valider.
-                        onClick={() => (isOther ? setShowMultiSelectOther(true) : isAddElement ? setCustomElementOpen(true) : toggleMultiSelectChoice(option))}
-                      >
-                        <span className="choice-list-checkbox" aria-hidden="true">{isActive ? <CheckIcon /> : null}</span>
-                        <span className="choice-list-label">{option}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {showMultiSelectOther ? (
-                  <label className="radar-field">
-                    <span className="radar-field-label">Précisez</span>
-                    <input
-                      type="text"
-                      value={multiSelectOtherText}
-                      onChange={(e) => setMultiSelectOtherText(e.target.value)}
-                      placeholder="Ajoutez ce qui manque…"
-                      disabled={sending}
-                    />
-                  </label>
-                ) : null}
-                {customElementOpen ? (
-                  <div className="radar-custom-element">
-                    <label className="radar-field">
-                      <span className="radar-field-label">Quel élément ?</span>
-                      <input
-                        type="text"
-                        value={customElementName}
-                        onChange={(e) => setCustomElementName(e.target.value)}
-                        placeholder="Ex: Fenêtre, radiateur, meuble…"
-                        disabled={sending}
-                      />
+                {attachMenuOpen ? (
+                  <div className="radar-attach-menu">
+                    <label className="radar-attach-menu-item">
+                      <input type="file" accept="image/*" capture="environment" onChange={(e) => { onPhotosChange(e); setAttachMenuOpen(false); }} hidden />
+                      <CameraIcon /> Prendre une photo
                     </label>
-                    <div className="radar-custom-element-props">
-                      {PHOTO_PROPOSITIONS_POSSIBLES.map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          className={`radar-quick-option-btn ${customElementProps.has(p) ? "active" : ""}`}
-                          disabled={sending}
-                          onClick={() => toggleCustomElementProp(p)}
-                        >
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      onClick={addCustomElementCards}
-                      disabled={sending || !customElementName.trim() || customElementProps.size === 0}
-                    >
-                      Ajouter cet élément
-                    </button>
+                    <label className="radar-attach-menu-item">
+                      <input type="file" accept="image/*" multiple onChange={(e) => { onPhotosChange(e); setAttachMenuOpen(false); }} hidden />
+                      <GalleryIcon /> Depuis la galerie
+                    </label>
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  className="choice-list-validate"
-                  onClick={submitMultiSelectChoices}
-                  disabled={sending || (multiSelectChoices.size === 0 && !multiSelectOtherText.trim())}
-                >
-                  Valider ma sélection {multiSelectChoices.size > 0 ? `(${multiSelectChoices.size})` : ""} <span aria-hidden="true">→</span>
-                </button>
-              </>
-            ) : currentOptions && currentOptions.length > 0 ? (
-              <div className="choice-list-rows">
-                {currentOptions.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className="choice-list-row"
-                    disabled={sending}
-                    // "Autre, précisez" (cadrage métier) : jamais envoyée telle
-                    // quelle au serveur, révèle juste le champ de saisie libre.
-                    onClick={() => (option === "Autre, précisez" ? setCurrentOptions(null) : answerText(option))}
-                  >
-                    <span className="choice-list-checkbox" aria-hidden="true" />
-                    <span className="choice-list-label">{option}</span>
-                  </button>
-                ))}
               </div>
-            ) : (
-              <form className="radar-chat-form" onSubmit={handleChatSubmit}>
-                <label className="radar-chat-attach" title="Ajouter une photo">
-                  <input type="file" accept="image/*" multiple onChange={onPhotosChange} hidden />
-                  <PaperclipIcon />
-                </label>
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrivez votre réponse…" disabled={sending} />
-                <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
-                  <SendIcon />
-                </button>
-              </form>
-            )}
-
-            <button type="button" className="button secondary" onClick={restart} disabled={sending}>
-              Recommencer
-            </button>
-          </div>
-        ) : null}
-
-        {phase === "metier-loading" ? (
-          <div className="radar-expertise-loading">
-            <div className="radar-expertise-spinner" />
-            <strong>Identification du métier concerné…</strong>
-            <p>Pour vous proposer les bons choix d'équipements et de finitions.</p>
-          </div>
-        ) : null}
-
-        {phase === "equipements" && bank ? (
-          <div className="radar-field radar-form-card-pad">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Quels équipements souhaitez-vous ?</h3>
-                <p>Plusieurs choix possibles — {metier}.</p>
-              </div>
-            </div>
-            <div className="radar-choice-grid">
-              {bank.equipements.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`radar-choice-card ${selectedEquipements.has(item.id) ? "selected" : ""}`}
-                  onClick={() => toggleEquipement(item.id)}
-                >
-                  {selectedEquipements.has(item.id) ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                  <span className="radar-choice-card-icon">{item.icon}</span>
-                  <span className="radar-choice-card-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-            <button type="button" className="radar-generate-btn" onClick={() => setPhase("styles")}>
-              Continuer <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        ) : null}
-
-        {phase === "styles" && bank ? (
-          <div className="radar-field radar-form-card-pad">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Quel style vous plaît le plus ?</h3>
-                <p>Un seul choix — {metier}.</p>
-              </div>
-            </div>
-            <div className="radar-choice-grid">
-              {bank.styles.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`radar-choice-card ${selectedStyle === item.id ? "selected" : ""}`}
-                  onClick={() => setSelectedStyle(item.id)}
-                >
-                  {selectedStyle === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                  <span className="radar-choice-card-icon">{item.icon}</span>
-                  <span className="radar-choice-card-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("equipements")}>Retour</button>
-              <button type="button" className="radar-generate-btn" onClick={() => setPhase("etat-general")}>
-                Continuer <span aria-hidden="true">→</span>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrivez votre réponse…" disabled={sending} />
+              <button type="submit" className="radar-chat-send" disabled={sending || (!draft.trim() && photos.length === 0)} aria-label="Envoyer">
+                <SendIcon />
               </button>
-            </div>
+            </form>
+            <div ref={bottomAnchorRef} />
           </div>
         ) : null}
 
-        {phase === "etat-general" ? (
-          <div className="radar-field radar-form-card-pad">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Quel est l'état actuel de la pièce ?</h3>
-                <p>Cela détermine l'ampleur des travaux à prévoir.</p>
-              </div>
-            </div>
-            <div className="radar-choice-grid">
-              {ETAT_GENERAL_OPTIONS.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`radar-choice-card ${selectedEtatGeneral === item.id ? "selected" : ""}`}
-                  onClick={() => setSelectedEtatGeneral(item.id)}
-                >
-                  {selectedEtatGeneral === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                  <span className="radar-choice-card-icon">{item.icon}</span>
-                  <span className="radar-choice-card-label">{item.label}</span>
-                  <span className="radar-choice-card-hint">{item.hint}</span>
-                </button>
-              ))}
-            </div>
-            <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("styles")}>Retour</button>
-              <button type="button" className="radar-generate-btn" onClick={() => setPhase("travaux")}>
-                Continuer <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {phase === "travaux" && bank ? (
-          <div className="radar-field radar-form-card-pad">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Quels travaux souhaitez-vous réaliser ?</h3>
-                <p>Décochez ce qui ne s'applique pas à votre projet.</p>
-              </div>
-            </div>
-            <div className="radar-toggle-list">
-              {bank.travaux.map((item) => (
-                <label key={item.id} className="radar-toggle-row">
-                  <span>{item.label}</span>
-                  <input type="checkbox" checked={Boolean(travauxToggles[item.id])} onChange={() => toggleTravail(item.id)} className="radar-toggle-switch" />
-                </label>
-              ))}
-            </div>
-            <p className="radar-hint-callout radar-normes-callout">
-              🛡️ Normes applicables (information) — {normesFor(metier)}
-            </p>
-            <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("etat-general")}>Retour</button>
-              <button type="button" className="radar-generate-btn" onClick={goAfterTravaux}>
-                Continuer <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {phase === "travaux-detail" && bank ? (
-          <div className="radar-field radar-form-card-pad">
-            <div className="radar-step-header">
-              <span className="radar-step-icon"><SparkleIcon /></span>
-              <div>
-                <h3>Quelques précisions sur les travaux</h3>
-                <p>Surfaces et quantités approximatives — ça affine l'estimation.</p>
-              </div>
-            </div>
-            <div className="radar-detail-list">
-              {bank.travaux
-                .filter((item) => travauxToggles[item.id] && item.detail)
-                .map((item) => (
-                  <label key={item.id} className="radar-field">
-                    <span className="radar-field-label">{item.detail.question}</span>
-                    <input
-                      type="text"
-                      value={travauxDetailAnswers[item.detail.key] || ""}
-                      onChange={(e) => setTravauxDetail(item.detail.key, e.target.value)}
-                      placeholder={item.detail.placeholder}
-                    />
-                  </label>
-                ))}
-            </div>
-            <div className="radar-wizard-nav">
-              <button type="button" className="button secondary" onClick={() => setPhase("travaux")}>Retour</button>
-              <button type="button" className="radar-generate-btn" onClick={() => setPhase("recap")}>
-                Continuer <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {phase === "recap" && bank ? (
+        {phase === "recap" ? (
           <div className="radar-field radar-form-card-pad">
             <div className="radar-step-header">
               <span className="radar-step-icon"><SparkleIcon /></span>
@@ -1446,10 +854,6 @@ export default function NewRadarOffrePage() {
               <label className="radar-field">
                 <span className="radar-field-label">📐 Surface</span>
                 <input type="text" value={expertiseAnswers.cotes || ""} onChange={(e) => setAnswerField("cotes", e.target.value)} />
-              </label>
-              <label className="radar-field">
-                <span className="radar-field-label">🔷 Configuration</span>
-                <input type="text" value={expertiseAnswers.configuration || ""} onChange={(e) => setAnswerField("configuration", e.target.value)} />
               </label>
               <label className="radar-field">
                 <span className="radar-field-label">🔀 Disposition</span>
@@ -1525,11 +929,9 @@ export default function NewRadarOffrePage() {
                 ))}
               </div>
             ) : expertiseAnswers._freeformSummary ? (
-              // Projet venu du nouveau chat 100% IA (9-10 oct) — l'IA decrit
-              // ces champs en texte libre, pas via une selection de cartes
-              // parmi questionBankFor(metier) comme l'ancien parcours : des
-              // champs texte simples, modifiables, plutot que des cases a
-              // cocher qui ne correspondraient a rien de coche.
+              // L'IA decrit ces champs en texte libre au fil de la
+              // conversation — champs texte simples, modifiables, plutot que
+              // des cases a cocher.
               <div className="radar-recap-card">
                 <label className="radar-field">
                   <span className="radar-field-label">🏠 État actuel</span>
@@ -1552,85 +954,7 @@ export default function NewRadarOffrePage() {
                   <textarea rows={2} value={expertiseAnswers.travauxPrecisions || ""} onChange={(e) => setAnswerField("travauxPrecisions", e.target.value)} />
                 </label>
               </div>
-            ) : (
-              <>
-                <span className="radar-field-label">🏠 État actuel</span>
-                <div className="radar-choice-grid">
-                  {ETAT_GENERAL_OPTIONS.map((item) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      className={`radar-choice-card ${selectedEtatGeneral === item.id ? "selected" : ""}`}
-                      onClick={() => setSelectedEtatGeneral(item.id)}
-                    >
-                      {selectedEtatGeneral === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                      <span className="radar-choice-card-icon">{item.icon}</span>
-                      <span className="radar-choice-card-label">{item.label}</span>
-                      <span className="radar-choice-card-hint">{item.hint}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <span className="radar-field-label">🛁 Équipements</span>
-                <div className="radar-choice-grid">
-                  {bank.equipements.map((item) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      className={`radar-choice-card ${selectedEquipements.has(item.id) ? "selected" : ""}`}
-                      onClick={() => toggleEquipement(item.id)}
-                    >
-                      {selectedEquipements.has(item.id) ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                      <span className="radar-choice-card-icon">{item.icon}</span>
-                      <span className="radar-choice-card-label">{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <span className="radar-field-label">🎨 Style</span>
-                <div className="radar-choice-grid">
-                  {bank.styles.map((item) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      className={`radar-choice-card ${selectedStyle === item.id ? "selected" : ""}`}
-                      onClick={() => setSelectedStyle(item.id)}
-                    >
-                      {selectedStyle === item.id ? <span className="radar-choice-card-check"><CheckIcon /></span> : null}
-                      <span className="radar-choice-card-icon">{item.icon}</span>
-                      <span className="radar-choice-card-label">{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <span className="radar-field-label">🔨 Travaux</span>
-                <div className="radar-toggle-list">
-                  {bank.travaux.map((item) => (
-                    <label key={item.id} className="radar-toggle-row">
-                      <span>{item.label}</span>
-                      <input type="checkbox" checked={Boolean(travauxToggles[item.id])} onChange={() => toggleTravail(item.id)} className="radar-toggle-switch" />
-                    </label>
-                  ))}
-                </div>
-                {bank.travaux.some((t) => travauxToggles[t.id] && t.detail) ? (
-                  <div className="radar-detail-list">
-                    {bank.travaux
-                      .filter((item) => travauxToggles[item.id] && item.detail)
-                      .map((item) => (
-                        <label key={item.id} className="radar-field">
-                          <span className="radar-field-label">{item.detail.question}</span>
-                          <input
-                            type="text"
-                            value={travauxDetailAnswers[item.detail.key] || ""}
-                            onChange={(e) => setTravauxDetail(item.detail.key, e.target.value)}
-                            placeholder={item.detail.placeholder}
-                          />
-                        </label>
-                      ))}
-                  </div>
-                ) : null}
-              </>
-            )}
+            ) : null}
 
             <div className="radar-recap-card">
               <div className="radar-recap-row"><span>📷 Photos</span><strong>{photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? "s" : ""} ajoutée${photos.length > 1 ? "s" : ""}` : "Aucune"}</strong></div>

@@ -34,15 +34,15 @@ const MAX_TOOL_ROUNDS = 6;
 // la meme question (observe en test, aucune vraie valeur ajoutee). Seul un
 // outil dont le RESULTAT compte pour la suite (consulter_bibliotheque_prix)
 // justifie de rappeler Claude.
-const NON_REACTIVE_TOOLS = new Set(["update_offer_draft"]);
+const NON_REACTIVE_TOOLS = new Set(["enregistrer_info"]);
 
-// Outil d'affichage (10 oct, demande d'Amira : liste de choix cochable
-// standardisee plutot que des options ecrites en texte libre) — des que
-// Claude l'appelle, on arrete TOUJOURS la boucle ici (jamais de rappel a
-// Claude dans le meme tour, meme s'il a aussi appele update_offer_draft a
-// cote) : l'interface doit afficher ces choix et attendre la reponse du
-// client, pas continuer a generer du texte.
+// Outils d'affichage (10 oct, demande d'Amira) — des que Claude en appelle
+// un, on arrete TOUJOURS la boucle ici (jamais de rappel a Claude dans le
+// meme tour, meme s'il a aussi appele enregistrer_info a cote) : l'interface
+// doit afficher la liste de choix ou la demande de photo et attendre la
+// reponse du client, pas continuer a generer du texte.
 const CHOICE_TOOL = "proposer_choix";
+const PHOTO_REQUEST_TOOL = "demander_photo";
 
 function toAnthropicMessages(turns, photos) {
   const messages = (Array.isArray(turns) ? turns : [])
@@ -149,6 +149,7 @@ export async function POST(request) {
 
           const allNonReactive = toolUseBlocks.every((b) => NON_REACTIVE_TOOLS.has(b.name));
           const choiceBlock = toolUseBlocks.find((b) => b.name === CHOICE_TOOL);
+          const photoRequestBlock = toolUseBlocks.find((b) => b.name === PHOTO_REQUEST_TOOL);
 
           messages.push({ role: "assistant", content: response.content });
           const toolResults = [];
@@ -172,6 +173,11 @@ export async function POST(request) {
               allowUnknown: choiceBlock.input?.allowUnknown !== false,
               allowOther: choiceBlock.input?.allowOther !== false
             });
+            break;
+          }
+
+          if (photoRequestBlock) {
+            send("photo-request", { sujet: fixText(photoRequestBlock.input?.sujet || "") });
             break;
           }
 

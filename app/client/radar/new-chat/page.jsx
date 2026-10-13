@@ -64,9 +64,11 @@ function getStoredUser() {
 
 export default function RadarNewChatPage() {
   const router = useRouter();
-  const [turns, setTurns] = useState([
-    { role: "assistant", text: "Bonjour ! 👋 Je suis koji, votre conseiller rénovation. Dites-moi, quel est votre projet ?", time: nowTime() }
-  ]);
+  // Vide au depart (10 oct, demande d'Amira : le tout premier message doit
+  // etre genere par l'IA elle-meme, qui salue le client par son prenom et
+  // enchaine directement sur le projet — plus de texte fige en dur). Voir
+  // le useEffect de demarrage plus bas (kickoff()).
+  const [turns, setTurns] = useState([]);
   const [draft, setDraft] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [sending, setSending] = useState(false);
@@ -77,6 +79,10 @@ export default function RadarNewChatPage() {
   // (le client garde toujours la possibilite de repondre en texte, voir
   // specification d'Amira), jamais a sa place.
   const [pendingChoice, setPendingChoice] = useState(null);
+  // Demande de photo en attente (10 oct, outil demander_photo) — simple
+  // bandeau au-dessus du formulaire, le trombone reste le seul moyen
+  // d'envoyer une photo (pas de zone de depot dediee sur cet ecran).
+  const [pendingPhotoRequest, setPendingPhotoRequest] = useState(null);
   const conversationIdRef = useRef(`radarchat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const draftIdRef = useRef("");
   const messagesEndRef = useRef(null);
@@ -84,6 +90,21 @@ export default function RadarNewChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, streamingText]);
+
+  // Demarrage automatique (10 oct) : un message "Bonjour" synthetique,
+  // jamais affiche cote client, declenche la toute premiere reponse de
+  // l'IA — qui sait, via buildRadarSystemPrompt (isFirstMessage), qu'elle
+  // doit saluer le client par son prenom et enchainer sur son projet.
+  const kickedOffRef = useRef(false);
+  useEffect(() => {
+    if (kickedOffRef.current) return;
+    kickedOffRef.current = true;
+    // Jamais pousse dans `turns` (etat visible) — seules les reponses de
+    // l'IA (choice/done) y ajoutent quelque chose, via setTurns(current =>
+    // [...current, ...]) qui part d'un tableau encore vide ici.
+    sendToEngine([{ role: "user", text: "Bonjour" }], []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onPhotosChange(event) {
     const files = Array.from(event.target.files || []).slice(0, 8 - photos.length);
@@ -99,6 +120,7 @@ export default function RadarNewChatPage() {
     setSending(true);
     setError("");
     setStreamingText("");
+    setPendingPhotoRequest(null);
     const user = getStoredUser();
     const prenom = (user?.name || "").trim().split(/\s+/)[0] || "";
 
@@ -123,7 +145,7 @@ export default function RadarNewChatPage() {
       const decoder = new TextDecoder();
       let buffer = "";
       let liveText = "";
-      let choiceHandled = false;
+      let uiHandled = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -160,16 +182,28 @@ export default function RadarNewChatPage() {
               return data.question ? [...withAck, { role: "assistant", text: data.question, time: nowTime() }] : withAck;
             });
             liveText = "";
-            choiceHandled = true;
+            uiHandled = true;
             setStreamingText("");
             setPendingChoice(data);
+          } else if (eventType === "photo-request") {
+            // Meme principe que "choice" juste au-dessus : l'accuse de
+            // reception deja diffuse devient sa bulle, purge pour ne pas
+            // reapparaitre au "done".
+            const ack = liveText.trim();
+            if (ack && !ack.endsWith("?")) {
+              setTurns((current) => [...current, { role: "assistant", text: ack, time: nowTime() }]);
+            }
+            liveText = "";
+            uiHandled = true;
+            setStreamingText("");
+            setPendingPhotoRequest(data);
           } else if (eventType === "done") {
             draftIdRef.current = data.draftId;
-            // Rien a rajouter si un choix vient deja d'etre affiche dans ce
-            // meme tour — "done" porte alors le MEME texte deja montre
-            // (le serveur s'arrete toujours juste apres "choice"), jamais
-            // de contenu supplementaire.
-            const finalMessage = choiceHandled ? "" : (data.message || liveText || "").trim();
+            // Rien a rajouter si un choix/une demande de photo vient deja
+            // d'etre affiche dans ce meme tour — "done" porte alors le MEME
+            // texte deja montre (le serveur s'arrete toujours juste apres),
+            // jamais de contenu supplementaire.
+            const finalMessage = uiHandled ? "" : (data.message || liveText || "").trim();
             if (finalMessage) setTurns((current) => [...current, { role: "assistant", text: finalMessage, time: nowTime() }]);
             setStreamingText("");
             if (data.finished) {
@@ -208,10 +242,12 @@ export default function RadarNewChatPage() {
     conversationIdRef.current = `radarchat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     draftIdRef.current = "";
     setPendingChoice(null);
+    setPendingPhotoRequest(null);
     setPhotos([]);
     setError("");
     setStreamingText("");
-    setTurns([{ role: "assistant", text: "Bonjour ! 👋 Je suis koji, votre conseiller rénovation. Dites-moi, quel est votre projet ?", time: nowTime() }]);
+    setTurns([]);
+    sendToEngine([{ role: "user", text: "Bonjour" }], []);
   }
 
   return (
@@ -266,6 +302,12 @@ export default function RadarNewChatPage() {
           </div>
 
           {error ? <p className="profile-message error">{error}</p> : null}
+
+          {pendingPhotoRequest && photos.length === 0 ? (
+            <p className="radar-hint-callout">
+              📷 Une photo aiderait : {pendingPhotoRequest.sujet || "l'état actuel"} — utilisez le trombone ci-dessous, ou répondez en texte si vous n'en avez pas.
+            </p>
+          ) : null}
 
           {photos.length > 0 ? (
             <div className="radar-photo-grid">

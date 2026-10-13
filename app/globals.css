@@ -13827,6 +13827,28 @@ body :where(
   justify-content: center;
 }
 
+.radar-chat-restart-top {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #1d74ff;
+  border-radius: 4px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1d74ff;
+  cursor: pointer;
+}
+
+.radar-chat-restart-top:hover:not(:disabled) {
+  background: #eaf2ff;
+}
+
+.radar-chat-restart-top:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .radar-chat-messages {
   display: flex;
   flex-direction: column;
@@ -14126,11 +14148,51 @@ body :where(
   color: var(--muted);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .radar-chat-attach:hover {
   background: #eaeae4;
   color: var(--navy);
+}
+
+.radar-attach-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.radar-attach-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 190px;
+  z-index: 20;
+}
+
+.radar-attach-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--navy);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.radar-attach-menu-item:hover {
+  background: #f4f5f8;
 }
 
 .radar-rdv-toggle {
