@@ -25,8 +25,8 @@ function getNavItems(L) {
     { href: "/",                      label: L.nav.home,        icon: "home",    group: "principal", color: "#1d74ff" },
     { href: "/chantiers",             label: L.nav.projects,    icon: "tools",   group: "principal", color: "#e6398b" },
     { href: "/devis",                 label: L.nav.quotes,      icon: "file",    group: "principal", color: "#f2994a" },
-    { href: "/avenant",               label: "Avenant",         icon: "pen",     group: "principal", color: "#9333ea" },
 
+    { href: "/avenant",               label: "Avenant",         icon: "pen",     group: "premium", color: "#9333ea" },
     { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice",  group: "premium", color: "#17ad5b" },
     { href: "/fournitures",           label: L.nav.supplies,    icon: "box",      group: "premium", color: "#b08542" },
     { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book",     group: "premium", color: "#7c4dff" },
@@ -44,7 +44,7 @@ function getNavItems(L) {
 // "/bibliotheque-ouvrages" y entrent a l'inverse, devenues premium.
 // "/comptabilite" et "/corbeille" (nouvelles pages) suivent la meme regle
 // que le reste du groupe premium.
-const PREMIUM_PATHS = ["/calendrier", "/planning", "/archives", "/bibliotheque-ouvrages", "/comptabilite", "/corbeille", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions"];
+const PREMIUM_PATHS = ["/calendrier", "/planning", "/archives", "/bibliotheque-ouvrages", "/comptabilite", "/corbeille", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions", "/avenant"];
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
