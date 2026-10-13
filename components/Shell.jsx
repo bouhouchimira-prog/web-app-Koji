@@ -12,29 +12,39 @@ import "./shell-layout.css";
 // toujours accessible, "premium" verrouille sauf abonnement Koji Premium
 // (ou compte admin) — Devis reste en principal, necessaire pour creer un
 // devis a partir d'une offre publiee sur le Marketplace, lui-meme gratuit.
+// Reorganisation complete (12 oct, demande d'Amira) :
+// - Principal : Accueil, Chantiers (plus premium), Devis, Avenant (nouveau).
+// - Koji Premium : Factures, Fournitures, Bibliotheque koji (renommee),
+//   Comptabilites (nouveau, a construire), Contacts, Calendrier, Archives
+//   (devient premium), Corbeille (nouveau, a construire), Interventions.
+// - "Clients"/"Equipe" restent hors de cette liste (voir app/contacts/page.jsx
+//   : accessibles via deux boutons sur la page Contacts, pas des entrees de
+//   nav separees — meme logique deja en place depuis le round precedent).
 function getNavItems(L) {
   return [
     { href: "/",                      label: L.nav.home,        icon: "home",    group: "principal", color: "#1d74ff" },
-    { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book",    group: "principal", color: "#7c4dff" },
-    // "/marketplace" retiree d'ici (12 oct, demande d'Amira) — redondante
-    // avec le bouton "Marketplace" (drawer-hero-cta ci-dessous, meme lien).
-    { href: "/archives",              label: L.nav.archives,    icon: "archive", group: "principal", color: "#6b7280" },
+    { href: "/chantiers",             label: L.nav.projects,    icon: "tools",   group: "principal", color: "#e6398b" },
     { href: "/devis",                 label: L.nav.quotes,      icon: "file",    group: "principal", color: "#f2994a" },
-    { href: "/chantiers",             label: L.nav.projects,    icon: "tools",    group: "premium", color: "#e6398b" },
-    { href: "/interventions",         label: L.nav.interventions, icon: "wrench", group: "premium", color: "#ff8a3d" },
-    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
-    // "Clients" et "Equipe" retirees d'ici (12 oct, demande d'Amira : "pas 3
-    // outils affiches, juste un seul qui est contacts") — restent de vraies
-    // pages a part entiere (app/clients, app/equipe), avec exactement les
-    // memes fonctionnalites qu'avant, mais atteintes depuis des boutons sur
-    // la page Contacts elle-meme plutot que comme entrees de nav separees.
-    { href: "/contacts",              label: L.nav.contacts,    icon: "user",     group: "premium", color: "#2fa1e8" },
+    { href: "/avenant",               label: "Avenant",         icon: "pen",     group: "principal", color: "#9333ea" },
+
     { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice",  group: "premium", color: "#17ad5b" },
     { href: "/fournitures",           label: L.nav.supplies,    icon: "box",      group: "premium", color: "#b08542" },
+    { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book",     group: "premium", color: "#7c4dff" },
+    { href: "/comptabilite",          label: "Comptabilités",   icon: "file",     group: "premium", color: "#0ea5a0" },
+    { href: "/contacts",              label: L.nav.contacts,    icon: "user",     group: "premium", color: "#2fa1e8" },
+    { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
+    { href: "/archives",              label: L.nav.archives,    icon: "archive",  group: "premium", color: "#6b7280" },
+    { href: "/corbeille",             label: "Corbeille",       icon: "archive",  group: "premium", color: "#94a3b8" },
+    { href: "/interventions",         label: L.nav.interventions, icon: "wrench", group: "premium", color: "#ff8a3d" },
   ];
 }
 
-const PREMIUM_PATHS = ["/calendrier", "/planning", "/chantiers", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions"];
+// "/chantiers" retiree d'ici : passe dans "Principal", plus derriere
+// l'abonnement Koji Premium (demande d'Amira). "/archives" et
+// "/bibliotheque-ouvrages" y entrent a l'inverse, devenues premium.
+// "/comptabilite" et "/corbeille" (nouvelles pages) suivent la meme regle
+// que le reste du groupe premium.
+const PREMIUM_PATHS = ["/calendrier", "/planning", "/archives", "/bibliotheque-ouvrages", "/comptabilite", "/corbeille", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions"];
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
