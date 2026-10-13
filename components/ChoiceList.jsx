@@ -53,8 +53,15 @@ export default function ChoiceList({ question, options, multiple, allowUnknown =
   function toggle(option) {
     if (disabled) return;
     if (option === OTHER_OPTION) {
-      setOtherOpen(true);
-      setSelected(new Set());
+      // Un second clic sur "Autre, précisez" referme le champ de saisie
+      // (12 oct, bug remonte par Amira : impossible de se deselectionner).
+      if (otherOpen) {
+        setOtherOpen(false);
+        setOtherText("");
+      } else {
+        setOtherOpen(true);
+        setSelected(new Set());
+      }
       return;
     }
     if (!multiple) {

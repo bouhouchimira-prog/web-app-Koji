@@ -88,6 +88,31 @@ function nowTime() {
   return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
+// Avant un evenement "choice"/"photo-request", le texte deja diffuse en
+// direct (liveText) peut soit redire la meme question (redondant, a
+// supprimer), soit etre un vrai accuse de reception/une vraie proposition de
+// l'IA (ex: "je vous propose du grès cérame") — a GARDER dans la discussion.
+// Remplace l'ancienne regle "supprime tout ce qui finit par un ?" (12 oct,
+// bug remonte par Amira : une vraie proposition finissant par une question
+// disparaissait completement) par une comparaison de mots partages avec la
+// question/le sujet de l'outil — ne supprime que si c'est vraiment la meme
+// chose reformulee.
+function looksRedundantWithPrompt(ack, prompt) {
+  if (!ack || !prompt) return false;
+  const words = (s) => s
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 3);
+  const ackWords = new Set(words(ack));
+  const promptWords = new Set(words(prompt));
+  if (ackWords.size === 0 || promptWords.size === 0) return false;
+  let shared = 0;
+  for (const w of ackWords) if (promptWords.has(w)) shared += 1;
+  return shared / Math.min(ackWords.size, promptWords.size) >= 0.6;
+}
+
 // Marge de la fourchette de prix (1er oct) — doit rester identique a
 // PRICE_RANGE_SPREAD cote serveur (lib/ai-devis-shape.js), utilisee ici
 // uniquement pour recalculer la fourchette par lot (expertise.breakdown
@@ -335,15 +360,17 @@ export default function NewRadarOffrePage() {
             liveText += data.text;
             setStreamingText(liveText);
           } else if (eventType === "choice") {
-            // Accuse de reception deja diffuse (s'il ne ressemble pas lui-
-            // meme a une question) devient sa propre bulle D'ABORD, puis la
-            // question de l'outil devient la sienne ; les options s'affichent
-            // a part sous le composeur habituel. Purge liveText pour ne pas
-            // le reafficher au "done" qui suit toujours cet evenement.
+            // Accuse de reception deja diffuse (s'il n'est pas une pure
+            // redite de la question de l'outil) devient sa propre bulle
+            // D'ABORD — jamais supprime pour la seule raison qu'il finit par
+            // un "?" (bug remonte par Amira : une vraie proposition de l'IA
+            // disparaissait) — puis la question de l'outil devient la
+            // sienne ; les options s'affichent a part sous le composeur
+            // habituel. Purge liveText pour ne pas le reafficher au "done".
             const ack = liveText.trim();
-            const ackLooksLikeAQuestion = ack.endsWith("?");
+            const redundant = looksRedundantWithPrompt(ack, data.question || "");
             setTurns((current) => {
-              const withAck = ack && !ackLooksLikeAQuestion ? [...current, { role: "assistant", text: ack, time: nowTime() }] : current;
+              const withAck = ack && !redundant ? [...current, { role: "assistant", text: ack, time: nowTime() }] : current;
               return data.question ? [...withAck, { role: "assistant", text: data.question, time: nowTime() }] : withAck;
             });
             liveText = "";
@@ -352,7 +379,7 @@ export default function NewRadarOffrePage() {
             setPendingChoice(data);
           } else if (eventType === "photo-request") {
             const ack = liveText.trim();
-            if (ack && !ack.endsWith("?")) {
+            if (ack && !looksRedundantWithPrompt(ack, data.sujet || "")) {
               setTurns((current) => [...current, { role: "assistant", text: ack, time: nowTime() }]);
             }
             liveText = "";
