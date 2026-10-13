@@ -795,13 +795,6 @@ export function Shell({ children }) {
 
         <div className="drawer-divider" />
 
-        {isAdmin && (
-          <div className="admin-badge">
-            <span>{L.shell.admin}</span>
-            <small>{L.shell.adminHint}</small>
-          </div>
-        )}
-
         <button
           type="button"
           className="drawer-nav-section drawer-nav-section-premium drawer-gestion-toggle"
