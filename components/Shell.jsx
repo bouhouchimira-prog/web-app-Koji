@@ -508,6 +508,10 @@ export function Shell({ children }) {
   // Groupe "Gestion" (outils Koji Premium) repliable (29 septembre) :
   // ouvert par defaut des qu'on est deja sur une de ces pages, sinon replie.
   const [gestionOpen, setGestionOpen] = useState(() => PREMIUM_PATHS.some((p) => pathname.startsWith(p)));
+  // Carte Profil/Configuration repliable (12 oct, demande d'Amira) — meme
+  // principe que le toggle "gestionOpen" ci-dessus, pour laisser plus de
+  // place aux autres outils par defaut.
+  const [accountOpen, setAccountOpen] = useState(() => pathname.startsWith("/profil") || pathname.startsWith("/aide") || pathname.startsWith("/parametres"));
   const { data: notifications, setData: setNotifications } = useApi("/api/notifications", "notifications");
   const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
   // Point rouge sur "Marketplace" / "Trouvez un chantier" (26 septembre,
@@ -807,13 +811,24 @@ export function Shell({ children }) {
 
         <div className="drawer-divider" />
 
-        <div className="drawer-footer">
-          <Link href="/profil"><Icon name="user" className="svg-icon" />{L.nav.profile}</Link>
-          <span className="drawer-nav-section">{L.nav.sectionConfiguration}</span>
-          <Link href="/aide"><Icon name="help" className="svg-icon" />{L.nav.help}</Link>
-          <Link href="/parametres"><Icon name="settings" className="svg-icon" />{L.nav.settings}</Link>
-          <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />{L.nav.logout}</button>
-        </div>
+        <button
+          type="button"
+          className="drawer-nav-section drawer-nav-section-premium drawer-gestion-toggle"
+          onClick={() => setAccountOpen((open) => !open)}
+          aria-expanded={accountOpen}
+        >
+          <Icon name="user" className="svg-icon" />
+          {L.nav.profile} / {L.nav.sectionConfiguration}
+          <Icon name="chevron-down" className={`svg-icon drawer-gestion-chevron${accountOpen ? " open" : ""}`} />
+        </button>
+        {accountOpen ? (
+          <div className="drawer-footer">
+            <Link href="/profil"><Icon name="user" className="svg-icon" />{L.nav.profile}</Link>
+            <Link href="/aide"><Icon name="help" className="svg-icon" />{L.nav.help}</Link>
+            <Link href="/parametres"><Icon name="settings" className="svg-icon" />{L.nav.settings}</Link>
+            <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />{L.nav.logout}</button>
+          </div>
+        ) : null}
       </aside>
 
       {!trial.subscribed && !trial.expired && trial.daysLeft !== Infinity && (
