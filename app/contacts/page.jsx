@@ -385,9 +385,18 @@ export default function ContactsPage() {
           <span />
         </header>
 
-        <a href="/clients" className="button secondary" style={{ display: "inline-block", width: "fit-content" }}>
-          → Voir les Clients
-        </a>
+        {/* "Clients" et "Equipe" restent de vraies pages a part (acces au
+            portail particulier/ouvrier, planning, pointages...) mais ne sont
+            plus des outils separes dans le menu (12 oct, demande d'Amira) —
+            accessibles d'ici, bien visibles, sous le titre "Contacts". */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <a href="/clients" className="button secondary" style={{ flex: 1, textAlign: "center" }}>
+            👤 Clients
+          </a>
+          <a href="/equipe" className="button secondary" style={{ flex: 1, textAlign: "center" }}>
+            👷 Équipe (Ouvriers / Sous-traitants)
+          </a>
+        </div>
 
         <div className="search-pill">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.contacts.search} />

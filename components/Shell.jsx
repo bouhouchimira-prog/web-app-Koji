@@ -23,13 +23,12 @@ function getNavItems(L) {
     { href: "/chantiers",             label: L.nav.projects,    icon: "tools",    group: "premium", color: "#e6398b" },
     { href: "/interventions",         label: L.nav.interventions, icon: "wrench", group: "premium", color: "#ff8a3d" },
     { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
+    // "Clients" et "Equipe" retirees d'ici (12 oct, demande d'Amira : "pas 3
+    // outils affiches, juste un seul qui est contacts") — restent de vraies
+    // pages a part entiere (app/clients, app/equipe), avec exactement les
+    // memes fonctionnalites qu'avant, mais atteintes depuis des boutons sur
+    // la page Contacts elle-meme plutot que comme entrees de nav separees.
     { href: "/contacts",              label: L.nav.contacts,    icon: "user",     group: "premium", color: "#2fa1e8" },
-    // "Clients" (12 oct, demande d'Amira) — page dediee avec generation
-    // d'acces au portail particulier, sortie du role "client" de Contacts.
-    // Texte en dur (pas encore passe par L.nav.*), meme logique que
-    // app/clients/page.jsx — voir son commentaire d'en-tete.
-    { href: "/clients",               label: "Clients",         icon: "user",     group: "premium", color: "#f59e0b" },
-    { href: "/equipe",                label: L.nav.team,        icon: "users",    group: "premium", color: "#8a5cf6" },
     { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice",  group: "premium", color: "#17ad5b" },
     { href: "/fournitures",           label: L.nav.supplies,    icon: "box",      group: "premium", color: "#b08542" },
   ];
