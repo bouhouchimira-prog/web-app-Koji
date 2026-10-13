@@ -3,6 +3,7 @@ import { readDb } from "../../../../lib/db";
 import { resolveEntreprise, loadEntrepriseProfile } from "../../../../lib/entreprise-auth";
 import { distanceKm } from "../../../../lib/geo";
 import { fixText } from "../../../../lib/text";
+import { maskedCityPostal } from "../../../../lib/offer-privacy";
 
 // Cote entreprise (Koji Pro) de Radar des Chantiers : liste des offres
 // publiees par des particuliers. Diffusion par zone/metier (cahier des
@@ -12,15 +13,18 @@ import { fixText } from "../../../../lib/text";
 // siens lui sont proposees. Sans zone renseignee (ou offre sans
 // coordonnees), comportement inchange : l'offre reste visible — on prefere
 // sur-inclure plutot que cacher un chantier legitime sur un detail
-// technique. Les coordonnees du particulier (nom/email/telephone) ne sont
-// pas exposees ici : voir positionnement + RDV (5.4).
+// technique. Les coordonnees du particulier (nom/email/telephone/adresse
+// exacte) ne sont pas exposees ici, meme principe que le detail (voir
+// app/api/marketplace/offres/[id]/route.js) : seule ville + code postal,
+// jusqu'au RDV confirme (12 oct, bug remonte par Amira — l'adresse complete
+// fuyait ici malgre le commentaire d'origine qui pretendait le contraire).
 function publicMarketplaceOffer(offer) {
   return {
     id: offer.id,
     photosCount: Array.isArray(offer.photos) ? offer.photos.length : 0,
     description: fixText(offer.description || ""),
     metier: fixText(offer.metier || ""),
-    address: fixText(offer.address || ""),
+    address: maskedCityPostal(offer),
     priceRangeMin: Number(offer.priceRangeMin || 0) || null,
     priceRangeMax: Number(offer.priceRangeMax || 0) || null,
     delaiEstimeJours: offer.delaiEstimeJours || null,

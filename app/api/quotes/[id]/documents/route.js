@@ -13,6 +13,7 @@ import {
 import { fixObjectText } from "../../../../../lib/text";
 import { checkTrialGenerateLimit, checkTrialEditLimit, persistTrialPatch } from "../../../../../lib/plan";
 import { buildWebUser } from "../../../../../lib/user-profile";
+import { isRdvUnlockedForOffer, maskedCityPostal } from "../../../../../lib/offer-privacy";
 
 function responseFor(bufferOrText, filename, contentType, inline = false) {
   return new NextResponse(bufferOrText, {
@@ -44,6 +45,27 @@ export async function GET(request, context) {
   const quote = fixObjectText(mapQuote(row));
 
   const db = await readDb();
+
+  // Masque les coordonnees du client dans le PDF/Word tant que le RDV n'est
+  // pas confirme sur l'offre Radar des Chantiers d'origine (12 oct, demande
+  // d'Amira) — ce devis peut avoir ete genere des sa creation, bien avant
+  // tout RDV (voir app/api/estimer-devis/route.js, qui copie l'adresse/le
+  // nom/l'email/le telephone reels des le depart) : le document genere ne
+  // doit jamais les exposer avant cette etape.
+  let docQuote = quote;
+  if (quote.chantierOffreId && !isRdvUnlockedForOffer(db, quote.chantierOffreId, auth.userId)) {
+    const offre = (db.chantierOffres || []).find((o) => o.id === quote.chantierOffreId);
+    docQuote = {
+      ...quote,
+      client: "Particulier",
+      clientFirstName: "",
+      clientLastName: "",
+      clientCompanyName: "",
+      clientEmail: "",
+      clientPhone: "",
+      chantierAddress: maskedCityPostal(offre)
+    };
+  }
 
   // Trial gate : seul le premier devis (ou celui deja "reclame") peut etre
   // genere/apercu. Corrige le 30 sept : la requete "user_id" plus haut
@@ -101,16 +123,16 @@ export async function GET(request, context) {
   const filename = quoteDocumentFilename(quote, type, format);
 
   if (type === "supplies" && format === "word") {
-    return responseFor(buildSuppliesWordHtml({ quote, db }), filename, "application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=utf-8", inline);
+    return responseFor(buildSuppliesWordHtml({ quote: docQuote, db }), filename, "application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=utf-8", inline);
   }
 
   if (type === "supplies") {
-    return responseFor(buildSuppliesPdf({ quote, db }), filename, "application/pdf", inline);
+    return responseFor(buildSuppliesPdf({ quote: docQuote, db }), filename, "application/pdf", inline);
   }
 
   if (format === "word") {
-    return responseFor(buildQuoteWordHtml({ quote, project, db }), filename, "application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=utf-8", inline);
+    return responseFor(buildQuoteWordHtml({ quote: docQuote, project, db }), filename, "application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=utf-8", inline);
   }
 
-  return responseFor(buildQuotePdf({ quote, project, db, documentType: type === "facture" ? "facture" : "devis" }), filename, "application/pdf", inline);
+  return responseFor(buildQuotePdf({ quote: docQuote, project, db, documentType: type === "facture" ? "facture" : "devis" }), filename, "application/pdf", inline);
 }

@@ -5,6 +5,7 @@ import { hasConfirmedRdv } from "../../../../../lib/rdv";
 import { hasPhotoAccess } from "../../../../../lib/photo-access";
 import { fixText } from "../../../../../lib/text";
 import { syncOfferPriceRange } from "../../../../../lib/chantier-offre-sync";
+import { maskedCityPostal } from "../../../../../lib/offer-privacy";
 
 // Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers.
 // Regle unique (decisions du 4 septembre) : aucune coordonnee visible
@@ -41,8 +42,11 @@ function detailOffer(offer, rdvUnlocked, photosUnlocked) {
 
   return {
     ...base,
-    address: [fixText(offer.postalCode || ""), fixText(offer.city || "")].filter(Boolean).join(" "),
-    clientName: fixText(offer.clientName || "Particulier"),
+    address: maskedCityPostal(offer),
+    // Le nom du client fuyait ici meme sans RDV confirme (12 oct, bug
+    // remonte par Amira) — reste generique tant que le RDV n'est pas
+    // confirme, meme regle que l'adresse/email/telephone ci-dessus.
+    clientName: "Particulier",
     clientEmail: "",
     clientPhone: ""
   };
