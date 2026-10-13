@@ -16,7 +16,8 @@ function getNavItems(L) {
   return [
     { href: "/",                      label: L.nav.home,        icon: "home",    group: "principal", color: "#1d74ff" },
     { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book",    group: "principal", color: "#7c4dff" },
-    { href: "/marketplace",           label: L.nav.marketplace, icon: "market",  group: "principal", color: "#12b3a8" },
+    // "/marketplace" retiree d'ici (12 oct, demande d'Amira) — redondante
+    // avec le bouton "Marketplace" (drawer-hero-cta ci-dessous, meme lien).
     { href: "/archives",              label: L.nav.archives,    icon: "archive", group: "principal", color: "#6b7280" },
     { href: "/devis",                 label: L.nav.quotes,      icon: "file",    group: "principal", color: "#f2994a" },
     { href: "/chantiers",             label: L.nav.projects,    icon: "tools",    group: "premium", color: "#e6398b" },
@@ -740,17 +741,6 @@ export function Shell({ children }) {
             <small>{profileType === "particulier" ? L.shell.spacePersonal : L.shell.spaceCompany}</small>
           </div>
         </div>
-        {isAdmin && (
-          <Link href="/admin/clients" className="drawer-nav-section" style={{ display: "block", textDecoration: "none" }} onClick={() => setDrawerOpen(false)}>
-            🗂️ Conversations enregistrées
-          </Link>
-        )}
-        {isAdmin && (
-          <Link href="/admin/algo-stats" className="drawer-nav-section" style={{ display: "block", textDecoration: "none" }} onClick={() => setDrawerOpen(false)}>
-            📊 Algorithme vs IA
-          </Link>
-        )}
-
         {profileType !== "particulier" ? (
           <Link href="/marketplace" className="drawer-hero-cta">
             <Icon name="market" className="svg-icon" />
