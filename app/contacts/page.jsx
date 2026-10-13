@@ -385,6 +385,10 @@ export default function ContactsPage() {
           <span />
         </header>
 
+        <a href="/clients" className="button secondary" style={{ display: "inline-block", width: "fit-content" }}>
+          → Voir les Clients
+        </a>
+
         <div className="search-pill">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.contacts.search} />
         </div>
