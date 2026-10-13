@@ -60,9 +60,11 @@ export default function ContactsPage() {
   const [historyOpen, setHistoryOpen] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // "client" n'est plus un role selectionnable ici — les clients ont leur
+  // propre page dediee (/clients, 12 oct, demande d'Amira), avec generation
+  // d'acces au portail particulier directement integree.
   const FILTER_ROLES = [
     { id: "", label: L.contacts.roleAll },
-    { id: "client", label: L.contacts.roleClient },
     { id: "prospect", label: L.contacts.roleProspect },
     { id: "equipe", label: L.contacts.roleEquipe },
     { id: "sous_traitant", label: L.contacts.roleSousTraitant },
@@ -79,6 +81,11 @@ export default function ContactsPage() {
   const filteredContacts = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return contacts.filter((contact) => {
+      // Les clients ont leur propre page (/clients, 12 oct, demande
+      // d'Amira) — jamais affiches ici, meme s'ils ont aussi un autre role.
+      // Filtre cote page (pas dans /api/contacts) : DevisEditor.jsx lit la
+      // meme API sans ce filtre pour son selecteur de contact.
+      if ((contact.roles || []).includes("client")) return false;
       if (roleFilter && !(contact.roles || []).includes(roleFilter)) return false;
       if (!needle) return true;
       const haystack = [contactDisplayName(contact), contact.companyName, contact.phone, contact.email, contact.address, contact.city, contact.postalCode].filter(Boolean).join(" ").toLowerCase();

@@ -4,6 +4,7 @@ import { fixObjectText, fixText } from "../../../lib/text";
 import { CONTACT_ROLES, contactDisplayName, findSimilarContacts } from "../../../lib/contacts";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
+import { createOrResetClientPortalAccount } from "../../../lib/client-portal-access";
 
 function normalizeContact(item) {
   return fixObjectText(item);
@@ -27,6 +28,11 @@ export async function GET(request) {
   let items = scopedItems(db.contacts, userId);
   if (!includeArchived) items = items.filter((contact) => !contact.archived);
   if (role) items = items.filter((contact) => Array.isArray(contact.roles) && contact.roles.includes(role));
+  // Note : les contacts de role "client" restent renvoyes ici sans filtre
+  // explicite — necessaire pour DevisEditor.jsx (selecteur de contact a la
+  // creation d'un devis, qui lit /api/contacts sans parametre). C'est
+  // app/contacts/page.jsx qui les masque de SA liste (12 oct, demande
+  // d'Amira : les clients ont leur propre page /clients), pas l'API.
 
   items = items.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), "fr"));
   return ok({ contacts: items.map(normalizeContact) });
@@ -96,6 +102,23 @@ export async function PATCH(request) {
 
   const contact = db.contacts[index];
   const action = body.action || "update";
+
+  if (action === "createAccess" || action === "resetCredentials") {
+    const access = await createOrResetClientPortalAccount(db, contact, request);
+    if (!access) return badRequest("Un email ou un téléphone est nécessaire pour créer l'accès.", 400);
+    contact.linkedUserId = access.userId;
+    contact.updatedAt = new Date().toISOString();
+    db.contacts[index] = contact;
+    addHistory(db, {
+      userId: contact.userId || userId,
+      type: action === "createAccess" ? "contact.access_created" : "contact.access_reset",
+      label: `Accès client ${action === "createAccess" ? "créé" : "régénéré"}: ${contactDisplayName(contact)}`,
+      entityId: contact.id,
+      entityType: "contact"
+    });
+    await writeDb(db);
+    return ok({ contact: normalizeContact(contact), access });
+  }
 
   if (action === "delete") {
     const quotes = await readQuotesForUser(contact.userId || userId);
