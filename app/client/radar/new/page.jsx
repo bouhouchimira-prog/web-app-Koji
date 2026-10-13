@@ -362,10 +362,15 @@ export default function NewRadarOffrePage() {
           } else if (eventType === "done") {
             draftIdRef.current = data.draftId;
             const finalMessage = uiHandled ? "" : (data.message || liveText || "").trim();
-            const finalTurns = finalMessage ? [...nextTurns, { role: "assistant", text: finalMessage, time: nowTime() }] : nextTurns;
-            if (finalMessage) setTurns(finalTurns);
+            // setTurns part d'un update FONCTIONNEL (current), jamais de
+            // nextTurns ici — nextTurns contient le "Bonjour" synthetique du
+            // demarrage automatique (jamais pousse dans l'etat visible par
+            // openChat), le reintroduire via nextTurns l'aurait fait
+            // apparaitre comme une vraie bulle (bug remonte par Amira,
+            // visible uniquement sur le tout premier message).
+            if (finalMessage) setTurns((current) => [...current, { role: "assistant", text: finalMessage, time: nowTime() }]);
             setStreamingText("");
-            logConversation(finalTurns, expertiseAnswers.metier);
+            logConversation([...nextTurns, ...(finalMessage ? [{ role: "assistant", text: finalMessage }] : [])], expertiseAnswers.metier);
             if (data.finished) {
               loadDraftIntoRecap(data.draftId).catch(() => setError("Impossible de charger le récapitulatif. Réessayez."));
             }
