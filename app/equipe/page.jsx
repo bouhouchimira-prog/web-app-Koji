@@ -80,6 +80,7 @@ export default function TeamPage() {
   const [message, setMessage] = useState("");
   const [revealedPassword, setRevealedPassword] = useState("");
   const [infoOpen, setInfoOpen] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
   const photoInputRef = useRef(null);
   const [returnTo, setReturnTo] = useState(null);
@@ -351,6 +352,20 @@ export default function TeamPage() {
     if (credentials) setRevealedPassword(credentials.temporaryPassword);
     setForm((current) => ({ ...current, loginId: updated.loginId }));
     setAccessOpen(true);
+  }
+
+  // Bouton rapide en haut de liste (12 oct, demande d'Amira) — meme lien que
+  // dans la fiche d'un ouvrier (L.equipe.credentialsLoginUrl), mais
+  // accessible sans ouvrir un profil precis, pour l'envoyer rapidement.
+  async function copyLoginLink() {
+    const loginUrl = `${window.location.origin}/login?type=ouvrier`;
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      setMessage("Impossible de copier le lien — copiez-le manuellement : " + loginUrl);
+    }
   }
 
   async function setWorkerActive(active) {
@@ -723,6 +738,10 @@ export default function TeamPage() {
           <button type="button" className={activeTab === "Ouvrier" ? "active" : ""} onClick={() => setActiveTab("Ouvrier")}>{L.equipe.workers}</button>
           <button type="button" className={activeTab === "Sous-traitant" ? "active" : ""} onClick={() => setActiveTab("Sous-traitant")}>{L.equipe.subcontractors}</button>
         </div>
+
+        <button type="button" className="button secondary" onClick={copyLoginLink}>
+          {linkCopied ? "Lien copié !" : "Copier le lien de connexion équipe"}
+        </button>
 
         {message ? <p className="tool-message">{message}</p> : null}
 

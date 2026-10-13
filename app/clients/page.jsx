@@ -53,6 +53,7 @@ export default function ClientsPage() {
   const [revealedPassword, setRevealedPassword] = useState("");
   const [portalIdentifier, setPortalIdentifier] = useState("");
   const [busy, setBusy] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const filteredClients = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -161,6 +162,19 @@ export default function ClientsPage() {
   }
 
   const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login?type=particulier` : "/login?type=particulier";
+
+  // Bouton rapide en haut de liste (12 oct, demande d'Amira) — meme lien que
+  // dans la fiche d'un client, mais accessible sans ouvrir un profil precis,
+  // pour l'envoyer rapidement a n'importe quel client.
+  async function copyLoginLink() {
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      setError("Impossible de copier le lien — copiez-le manuellement : " + loginUrl);
+    }
+  }
 
   if (formOpen) {
     const isSociete = form.type === "societe";
@@ -299,6 +313,10 @@ export default function ClientsPage() {
         <div className="search-pill">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un client…" />
         </div>
+
+        <button type="button" className="button secondary" onClick={copyLoginLink}>
+          {linkCopied ? "Lien copié !" : "Copier le lien de connexion client"}
+        </button>
 
         {message ? <p className="tool-message">{message}</p> : null}
 
