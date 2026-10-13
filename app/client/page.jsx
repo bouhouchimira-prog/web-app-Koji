@@ -68,17 +68,27 @@ export default function ClientHomePage() {
   const { L } = useLocale();
   const [user, setUser] = useState(null);
   const [offres, setOffres] = useState([]);
+  const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const stored = getStoredUser();
     setUser(stored);
     if (!stored?.email) { setLoading(false); return; }
-    fetch("/api/chantier-offres")
-      .then((r) => r.json())
-      .then((data) => setOffres(data.offres || []))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/chantier-offres").then((r) => r.json()).catch(() => ({ offres: [] })),
+      // Un client ajoute directement par l'artisan (page Clients cote koji
+      // pro, devis signe sans passer par Radar des Chantiers) n'a aucune
+      // offre Radar — sans cette liste, la page d'accueil ne montrait rien
+      // de pertinent pour lui (12 oct, bug remonte par Amira).
+      fetch("/api/client/quotes").then((r) => r.json()).catch(() => ({ quotes: [] }))
+    ]).then(([offresData, quotesData]) => {
+      setOffres(offresData.offres || []);
+      setQuotes(quotesData.quotes || []);
+    }).finally(() => setLoading(false));
   }, []);
+
+  const signedQuotes = quotes.filter((q) => q.status === "Signe" || q.signatureStatus === "Signe");
 
   if (!user?.email) {
     return (
@@ -114,6 +124,24 @@ export default function ClientHomePage() {
           <p className="client-radar-hero-trust-line">C'est gratuit, et c'est vous qui choisissez votre artisan.</p>
         </div>
       </section>
+
+      {signedQuotes.length > 0 ? (
+        <section className="ct-section">
+          <div className="ct-section-title-row">
+            <h2 className="ct-section-title">Mes chantiers<span className="ct-count">{signedQuotes.length}</span></h2>
+            <Link href="/client/chantiers" className="ct-section-see-all">Tout voir</Link>
+          </div>
+          {signedQuotes.slice(0, 5).map((quote) => (
+            <ChantierCard
+              key={quote.id}
+              quote={quote}
+              signedLabel={L.clientSpace.signedLabel}
+              inProgressLabel={L.clientSpace.taskStepInProgress}
+              waitingLabel={L.clientSpace.waiting}
+            />
+          ))}
+        </section>
+      ) : null}
 
       <section className="ct-section">
         <div className="ct-section-title-row">

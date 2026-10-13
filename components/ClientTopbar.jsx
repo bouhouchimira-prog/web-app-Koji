@@ -94,6 +94,14 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
 
   const navItems = [
     { href: "/client", label: L.clientSpace.home, icon: "home" },
+    // "Mes chantiers" (12 oct, demande d'Amira) — jusque-la, seules les
+    // demandes Radar des Chantiers etaient accessibles depuis le menu ; un
+    // client ajoute directement par l'artisan (page Clients cote koji pro,
+    // devis signe sans passer par le marketplace) n'avait aucun moyen de
+    // retrouver son suivi de chantier. Page deja existante et generique
+    // (app/client/chantiers/page.jsx, lit /api/client/quotes), juste
+    // jamais reliee dans la navigation jusqu'ici.
+    { href: "/client/chantiers", label: "Mes chantiers", icon: "tools" },
     { href: "/client/radar", label: "Mes demandes", icon: "radar" },
   ];
 
