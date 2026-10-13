@@ -3267,7 +3267,11 @@ p {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.22s ease;
-  z-index: 19;
+  /* Au-dessus des boutons flottants de page (ex: .team-fab, z-index 500) —
+     sans ca, le "+" de Contacts/Clients/Equipe restait visible par-dessus
+     le menu ouvert (12 oct, bug remonte par Amira). Reste sous les vraies
+     modales/toasts (900 et plus). */
+  z-index: 599;
 }
 
 .drawer-backdrop.open {
@@ -3283,7 +3287,7 @@ p {
   height: 100vh;
   height: 100dvh;
   background: white;
-  z-index: 20;
+  z-index: 600;
   transform: translateX(-102%);
   transition: transform 0.24s ease;
   padding: 0 14px 14px;
