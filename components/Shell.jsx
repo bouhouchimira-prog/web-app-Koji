@@ -131,6 +131,13 @@ function Icon({ name, className = "" }) {
           <path {...base} d="M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10" />
         </svg>
       );
+    case "search":
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <circle {...base} cx="11" cy="11" r="7" />
+          <path {...base} d="M21 21l-4.3-4.3" />
+        </svg>
+      );
     case "bell":
       return (
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
@@ -624,55 +631,61 @@ export function Shell({ children }) {
         <button type="button" className="icon-round menu-toggle-btn" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
           <Icon name="menu" className="svg-icon" />
         </button>
-        <Link href="/" className="topbar-logo" aria-label={L.shell.spaceCompany}>
-          <img src="/koji-logo.svg" alt="Koji" />
-        </Link>
-        <div className="topbar-right">
-          <div className="topbar-notif" ref={notifRef}>
-            <button
-              type="button"
-              className="icon-round notif-bell-link"
-              aria-label={L.shell.notifications}
-              aria-haspopup="true"
-              aria-expanded={notifOpen}
-              onClick={() => setNotifOpen((open) => !open)}
-            >
-              <Icon name="bell" className="svg-icon" />
-              {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
-            </button>
-            {notifOpen ? (
-              <div className="notif-dropdown">
-                <div className="notif-dropdown-head">{L.shell.notifications}</div>
-                {recentNotifications.length === 0 ? (
-                  <p className="notif-dropdown-empty">{L.notifications.noResults}</p>
-                ) : (
-                  <ul className="notif-dropdown-list">
-                    {recentNotifications.map((notif) => (
-                      <li key={notif.id} className={notif.read ? "" : "unread"}>
-                        <Link
-                          href={`/notifications/${notif.id}`}
-                          onClick={() => { markNotifRead(notif); setNotifOpen(false); }}
-                        >
-                          <span className="notif-dropdown-icon" aria-hidden="true">{NOTIF_TYPE_ICONS[notif.type] || "🔔"}</span>
-                          <span className="notif-dropdown-body">
-                            <span className="notif-dropdown-row-top">
-                              <strong>{notif.title}</strong>
-                              <time>{formatRelativeTime(notif.createdAt)}</time>
-                            </span>
-                            <span className="notif-dropdown-message">{notif.message}</span>
+        {/* Notification deplacee devant le logo, logo plus affiche au
+            centre (remplace par une barre de recherche) — demande d'Amira,
+            12 oct. */}
+        <div className="topbar-notif" ref={notifRef}>
+          <button
+            type="button"
+            className="icon-round notif-bell-link"
+            aria-label={L.shell.notifications}
+            aria-haspopup="true"
+            aria-expanded={notifOpen}
+            onClick={() => setNotifOpen((open) => !open)}
+          >
+            <Icon name="bell" className="svg-icon" />
+            {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+          </button>
+          {notifOpen ? (
+            <div className="notif-dropdown">
+              <div className="notif-dropdown-head">{L.shell.notifications}</div>
+              {recentNotifications.length === 0 ? (
+                <p className="notif-dropdown-empty">{L.notifications.noResults}</p>
+              ) : (
+                <ul className="notif-dropdown-list">
+                  {recentNotifications.map((notif) => (
+                    <li key={notif.id} className={notif.read ? "" : "unread"}>
+                      <Link
+                        href={`/notifications/${notif.id}`}
+                        onClick={() => { markNotifRead(notif); setNotifOpen(false); }}
+                      >
+                        <span className="notif-dropdown-icon" aria-hidden="true">{NOTIF_TYPE_ICONS[notif.type] || "🔔"}</span>
+                        <span className="notif-dropdown-body">
+                          <span className="notif-dropdown-row-top">
+                            <strong>{notif.title}</strong>
+                            <time>{formatRelativeTime(notif.createdAt)}</time>
                           </span>
-                          {!notif.read ? <span className="notif-dropdown-dot" aria-hidden="true" /> : null}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Link href="/notifications" className="notif-dropdown-footer" onClick={() => setNotifOpen(false)}>
-                  {L.shell.seeAllNotifications}
-                </Link>
-              </div>
-            ) : null}
-          </div>
+                          <span className="notif-dropdown-message">{notif.message}</span>
+                        </span>
+                        {!notif.read ? <span className="notif-dropdown-dot" aria-hidden="true" /> : null}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link href="/notifications" className="notif-dropdown-footer" onClick={() => setNotifOpen(false)}>
+                {L.shell.seeAllNotifications}
+              </Link>
+            </div>
+          ) : null}
+        </div>
+
+        <label className="topbar-search">
+          <Icon name="search" className="svg-icon" />
+          <input type="text" placeholder="Rechercher un chantier, un devis, un contact…" disabled title="Recherche bientôt disponible" />
+        </label>
+
+        <div className="topbar-right">
           <div className="topbar-avatar" ref={avatarMenuRef}>
             <button
               type="button"
@@ -747,7 +760,6 @@ export function Shell({ children }) {
           <img src="/koji-logo.svg" alt="Koji" />
           <div>
             <strong>Koji</strong>
-            <small>{profileType === "particulier" ? L.shell.spacePersonal : L.shell.spaceCompany}</small>
           </div>
         </div>
         {profileType !== "particulier" ? (
