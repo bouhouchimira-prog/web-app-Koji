@@ -52,6 +52,27 @@ const CATALOGUE_SUBTITLES = {
   divers: "Achats occasionnels : bazars, petits magasins, grandes surfaces."
 };
 
+const STAT_MODAL_TITLES = {
+  mois: "Dépenses du mois",
+  chantier: "Achats rattachés à un chantier",
+  ticket: "Achats avec ticket joint"
+};
+
+function groupByDate(items) {
+  const groups = {};
+  items.forEach((item) => {
+    const key = item.createdAt ? item.createdAt.slice(0, 10) : "sans-date";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  });
+  return Object.entries(groups)
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([key, groupItems]) => ({
+      label: key === "sans-date" ? "Date inconnue" : shortDate(groupItems[0].createdAt),
+      items: groupItems
+    }));
+}
+
 export default function SuppliesCataloguePage() {
   const { L } = useLocale();
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
@@ -70,6 +91,7 @@ export default function SuppliesCataloguePage() {
   const [diversDialog, setDiversDialog] = useState(false);
   const [diversForm, setDiversForm] = useState(initialDivers);
   const [editingDivers, setEditingDivers] = useState(null);
+  const [statModal, setStatModal] = useState(null);
   const [fromDevis, setFromDevis] = useState(false);
   const [devisTargetRoom, setDevisTargetRoom] = useState("Services");
 
@@ -128,17 +150,26 @@ export default function SuppliesCataloguePage() {
       const date = new Date(item.createdAt);
       return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
     });
+    const chantierItems = diversItems.filter((item) => item.projectId);
+    const ticketItems = diversItems.filter((item) => item.ticketPhoto);
     const depensesMois = thisMonth.reduce((sum, item) => sum + (Number(item.amountTtc) || 0), 0);
-    const rattachees = diversItems.filter((item) => item.projectId).length;
-    const avecTicket = diversItems.filter((item) => item.ticketPhoto).length;
     return {
       depensesMois,
       depensesCount: thisMonth.length,
-      rattachees,
+      moisItems: thisMonth,
+      rattachees: chantierItems.length,
+      chantierItems,
       total: diversItems.length,
-      avecTicket
+      avecTicket: ticketItems.length,
+      ticketItems
     };
   }, [diversItems]);
+
+  const statModalGroups = useMemo(() => {
+    if (!statModal) return [];
+    const source = statModal === "mois" ? diversStats.moisItems : statModal === "chantier" ? diversStats.chantierItems : diversStats.ticketItems;
+    return groupByDate(source || []);
+  }, [statModal, diversStats]);
 
   const uniqueSuppliers = useMemo(() => {
     const seen = new Set();
@@ -972,30 +1003,42 @@ export default function SuppliesCataloguePage() {
               </div>
 
               <div className="supplier-stat-grid">
-                <div className="fournitures-kpi-card">
+                <button
+                  type="button"
+                  className="fournitures-kpi-card clickable"
+                  onClick={() => setStatModal("mois")}
+                >
                   <div className="fournitures-kpi-card-head">
                     <span className="fournitures-kpi-icon fournitures-kpi-icon-green">💶</span>
                     <span className="title-chip">Dépenses du mois</span>
                   </div>
                   <strong>{euro(diversStats.depensesMois)}</strong>
                   <small>{diversStats.depensesCount} achat{diversStats.depensesCount > 1 ? "s" : ""}</small>
-                </div>
-                <div className="fournitures-kpi-card">
+                </button>
+                <button
+                  type="button"
+                  className="fournitures-kpi-card clickable"
+                  onClick={() => setStatModal("chantier")}
+                >
                   <div className="fournitures-kpi-card-head">
                     <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">🏗️</span>
                     <span className="title-chip">Rattachées à un chantier</span>
                   </div>
                   <strong>{diversStats.rattachees}</strong>
                   <small>sur {diversStats.total} achat{diversStats.total > 1 ? "s" : ""}</small>
-                </div>
-                <div className="fournitures-kpi-card">
+                </button>
+                <button
+                  type="button"
+                  className="fournitures-kpi-card clickable"
+                  onClick={() => setStatModal("ticket")}
+                >
                   <div className="fournitures-kpi-card-head">
                     <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🧾</span>
                     <span className="title-chip">Tickets joints</span>
                   </div>
                   <strong>{diversStats.avecTicket}/{diversStats.total}</strong>
                   <small>{diversStats.total - diversStats.avecTicket > 0 ? `${diversStats.total - diversStats.avecTicket} ticket${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""} manquant${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""}` : "tout est à jour"}</small>
-                </div>
+                </button>
               </div>
 
               <div className="catalogue-search-row">
@@ -1176,6 +1219,48 @@ export default function SuppliesCataloguePage() {
                 <button type="submit" className="button blue">{editingCategory ? L.common.save : L.common.create}</button>
               </div>
             </form>
+          </div>
+        ) : null}
+
+        {statModal ? (
+          <div className="modal-overlay" onClick={() => setStatModal(null)}>
+            <div className="mini-modal stat-detail-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="stat-detail-head">
+                <h2>{STAT_MODAL_TITLES[statModal]}</h2>
+                <button type="button" className="mini-button" onClick={() => setStatModal(null)}>✕</button>
+              </div>
+              {statModalGroups.length === 0 ? (
+                <div className="tool-empty">Aucun achat pour le moment.</div>
+              ) : (
+                <div className="stat-detail-body">
+                  {statModalGroups.map((group) => (
+                    <div className="stat-detail-group" key={group.label}>
+                      <strong className="stat-detail-date">{group.label}</strong>
+                      <div className="supplier-articles-list">
+                        {group.items.map((item) => (
+                          <div
+                            className="divers-purchase-row"
+                            key={item.id}
+                            onClick={() => { setStatModal(null); openEditDivers(item); }}
+                          >
+                            <span className="supplier-list-avatar">{storeInitials(item.storeName)}</span>
+                            <div className="divers-purchase-main">
+                              <strong>{item.name}</strong>
+                              <small>{item.storeName || "Sans magasin"}</small>
+                            </div>
+                            <div className="divers-purchase-tags">
+                              {item.projectTitle ? <span className="divers-tag divers-tag-project">{item.projectTitle}</span> : <span className="divers-tag">Sans chantier</span>}
+                              {item.ticketPhoto ? <span className="divers-tag divers-tag-ticket">📎 Ticket</span> : <span className="divers-tag divers-tag-warning">Sans ticket</span>}
+                            </div>
+                            <span className="supplier-article-price">{euro(item.amountTtc)} <small>TTC</small></span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
       </section>

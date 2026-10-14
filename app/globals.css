@@ -16280,6 +16280,87 @@ body :where(
   color: #b45309;
 }
 
+/* ".mini-modal div" (regle generique plus haut dans le fichier) impose
+   display:flex/justify-content:flex-end/gap:12px/margin-top:6px a TOUS les
+   divs descendants d'un .mini-modal — on neutralise ici explicitement pour
+   chaque div reutilisee dans cette modale, avec une specificite superieure
+   (deux classes) pour etre sur de gagner. */
+.stat-detail-modal {
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-detail-modal .stat-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.stat-detail-modal .stat-detail-head h2 {
+  margin: 0;
+}
+
+.stat-detail-modal .stat-detail-body {
+  display: block;
+  overflow-y: auto;
+  margin-top: 0;
+}
+
+.stat-detail-modal .stat-detail-group {
+  display: block;
+  margin-top: 0;
+}
+
+.stat-detail-modal .stat-detail-group + .stat-detail-group {
+  margin-top: 14px;
+}
+
+.stat-detail-modal .stat-detail-date {
+  display: block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.stat-detail-modal .supplier-articles-list {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 2px;
+  margin-top: 0;
+}
+
+.stat-detail-modal .divers-purchase-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.stat-detail-modal .divers-purchase-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 160px;
+  margin-top: 0;
+}
+
+.stat-detail-modal .divers-purchase-tags {
+  display: flex;
+  justify-content: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
 .divers-ticket-preview {
   margin-top: 8px;
   max-width: 100%;
@@ -19611,6 +19692,23 @@ body :where(
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+button.fournitures-kpi-card {
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.fournitures-kpi-card.clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.fournitures-kpi-card.clickable:hover,
+.fournitures-kpi-card.clickable:focus-visible {
+  box-shadow: 0 10px 24px rgba(0, 11, 40, 0.08);
+  transform: translateY(-1px);
 }
 
 /* Icone + titre sur la meme ligne, en haut de carte (comme la maquette) —
