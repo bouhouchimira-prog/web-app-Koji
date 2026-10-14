@@ -19287,8 +19287,19 @@ body :where(
   margin-bottom: 16px;
 }
 
-.fournitures-main-card-head strong {
-  font-size: 15px;
+.fournitures-main-card-head strong,
+.fournitures-sidebar-card > strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+}
+
+.fournitures-sidebar-card > strong {
+  display: block;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
 
 /* Classe dediee plutot que .segmented (grille fixee a 3 colonnes ailleurs
