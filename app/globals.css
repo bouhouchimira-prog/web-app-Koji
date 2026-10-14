@@ -15886,6 +15886,206 @@ body :where(
   min-height: 200px;
 }
 
+/* ── Catalogue "Par fournisseur" : fiche maitre-detail (14 oct) ─────────── */
+
+.supplier-master-detail {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .supplier-master-detail { grid-template-columns: 1fr; }
+}
+
+.supplier-list-panel,
+.supplier-detail-panel {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.supplier-search-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  margin: 10px 0;
+  box-sizing: border-box;
+}
+
+.supplier-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.supplier-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.supplier-list-item:hover {
+  background: #f6f7fb;
+}
+
+.supplier-list-item.active {
+  background: var(--navy);
+  color: white;
+}
+
+.supplier-list-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f6ecd9;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.supplier-list-item.active .supplier-list-avatar {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.supplier-list-name {
+  flex: 1;
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supplier-list-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: #f1efe9;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.supplier-list-item.active .supplier-list-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.supplier-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.supplier-detail-avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #f6ecd9;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.supplier-detail-identity {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.supplier-detail-identity strong {
+  font-size: 1.05rem;
+  color: var(--navy);
+}
+
+.supplier-detail-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.supplier-detail-link {
+  cursor: pointer;
+  color: var(--blue);
+}
+
+.supplier-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.supplier-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.supplier-articles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.supplier-article-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.supplier-article-row:last-child {
+  border-bottom: 0;
+}
+
+.supplier-article-row:hover {
+  background: #f6f7fb;
+}
+
+.supplier-article-name {
+  flex: 1;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.supplier-article-price {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
 /* Category modal field label */
 .category-modal-field {
   display: grid;

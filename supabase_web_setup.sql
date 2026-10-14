@@ -110,3 +110,16 @@ REVOKE ALL ON commandes FROM anon, authenticated;
 -- qu'une quantite, jamais de seuil a partir duquel la "recommander").
 -- 0 = jamais signale (article pas encore configure).
 ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS seuil_alerte NUMERIC NOT NULL DEFAULT 0;
+
+-- ── fournisseurs : champs de contact (14 octobre) ──────────────────────────
+-- Le formulaire "Fournisseur" (email/telephone/adresse/site/notes) existait
+-- deja cote UI mais n'etait jamais persiste cote serveur (voir
+-- app/api/suppliers/route.js) : la table ne stockait que name + logo_url.
+-- Necessaire pour la nouvelle vue "Par fournisseur" (fiche fournisseur avec
+-- coordonnees + statistiques).
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS address TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS website TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();

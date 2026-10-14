@@ -2,22 +2,23 @@ import { badRequest, ok } from "../../../lib/http";
 import { getAuth } from "../../../lib/server-auth";
 
 // Suppliers live in the shared `fournisseurs` table used by the koji-main
-// Flutter app. The table only stores name + logo; the web-only contact fields
-// are returned empty for backward compatibility with the UI.
+// Flutter app. Contact fields (email/phone/address/website/notes) were
+// added via ALTER TABLE for the web-only "Par fournisseur" detail view —
+// see supabase_web_setup.sql.
 
 function mapFournisseur(row) {
   return {
     id: row.id,
     userId: row.user_id,
     name: row.name || "Fournisseur",
-    email: "",
-    phone: "",
-    address: "",
-    website: "",
-    notes: "",
+    email: row.email || "",
+    phone: row.phone || "",
+    address: row.address || "",
+    website: row.website || "",
+    notes: row.notes || "",
     logoUrl: row.logo_url || "",
     createdAt: row.created_at || "",
-    updatedAt: row.created_at || ""
+    updatedAt: row.updated_at || row.created_at || ""
   };
 }
 
@@ -43,7 +44,12 @@ export async function POST(request) {
     .insert({
       user_id: auth.userId,
       name: body.name || "Nouveau fournisseur",
-      logo_url: body.logoUrl || body.imageUrl || null
+      logo_url: body.logoUrl || body.imageUrl || null,
+      email: body.email || "",
+      phone: body.phone || "",
+      address: body.address || "",
+      website: body.website || "",
+      notes: body.notes || ""
     })
     .select()
     .single();
@@ -69,10 +75,15 @@ export async function PATCH(request) {
     return ok({ supplier: { ...mapFournisseur(data), deleted: true } });
   }
 
-  const updates = {};
+  const updates = { updated_at: new Date().toISOString() };
   if (Object.prototype.hasOwnProperty.call(body, "name")) updates.name = body.name;
   if (Object.prototype.hasOwnProperty.call(body, "logoUrl")) updates.logo_url = body.logoUrl || null;
-  if (Object.keys(updates).length === 0) return badRequest("Aucune modification fournie.");
+  if (Object.prototype.hasOwnProperty.call(body, "email")) updates.email = body.email || "";
+  if (Object.prototype.hasOwnProperty.call(body, "phone")) updates.phone = body.phone || "";
+  if (Object.prototype.hasOwnProperty.call(body, "address")) updates.address = body.address || "";
+  if (Object.prototype.hasOwnProperty.call(body, "website")) updates.website = body.website || "";
+  if (Object.prototype.hasOwnProperty.call(body, "notes")) updates.notes = body.notes || "";
+  if (Object.keys(updates).length === 1) return badRequest("Aucune modification fournie.");
 
   const { data, error } = await auth.supabase
     .from("fournisseurs")

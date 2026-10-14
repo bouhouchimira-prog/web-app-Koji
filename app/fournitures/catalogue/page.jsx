@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../../components/Shell";
 import { apiGet, apiSend } from "../../../lib/client-api";
 import { useLocale } from "../../../lib/i18n";
-import { euro } from "../../../lib/pricing";
+import { euro, shortDate } from "../../../lib/pricing";
 import { useApi } from "../../../lib/use-api";
 
 const units = ["Unite", "Piece", "m2", "ml", "kg", "L", "Cartouche", "Pot 10 L"];
@@ -41,9 +41,12 @@ export default function SuppliesCataloguePage() {
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: suppliers, setData: setSuppliers } = useApi("/api/suppliers", "suppliers");
   const { data: categories, setData: setCategories } = useApi("/api/categories", "categories");
+  const { data: commandes } = useApi("/api/commandes", "commandes");
 
   const [activeTab, setActiveTab] = useState("categories");
   const [activeCategory, setActiveCategory] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
   const [fromDevis, setFromDevis] = useState(false);
   const [devisTargetRoom, setDevisTargetRoom] = useState("Services");
 
@@ -84,6 +87,55 @@ export default function SuppliesCataloguePage() {
       return true;
     });
   }, [suppliers]);
+
+  const supplierArticleCount = useMemo(() => {
+    const counts = {};
+    supplies.forEach((item) => {
+      if (!item.supplierId) return;
+      counts[item.supplierId] = (counts[item.supplierId] || 0) + 1;
+    });
+    return counts;
+  }, [supplies]);
+
+  const filteredSupplierList = useMemo(() => {
+    const needle = supplierSearch.trim().toLowerCase();
+    if (!needle) return uniqueSuppliers;
+    return uniqueSuppliers.filter((supplier) => (supplier.name || "").toLowerCase().includes(needle));
+  }, [uniqueSuppliers, supplierSearch]);
+
+  const selectedSupplier = useMemo(
+    () => uniqueSuppliers.find((supplier) => supplier.id === selectedSupplierId) || null,
+    [uniqueSuppliers, selectedSupplierId]
+  );
+
+  const selectedSupplierArticles = useMemo(
+    () => (selectedSupplier ? supplies.filter((item) => item.supplierId === selectedSupplier.id) : []),
+    [supplies, selectedSupplier]
+  );
+
+  const selectedSupplierStats = useMemo(() => {
+    if (!selectedSupplier) return null;
+    const supplierCommandes = commandes.filter((c) => c.supplierId === selectedSupplier.id);
+    const enCours = supplierCommandes.filter((c) => c.status !== "livree").length;
+    const now = new Date();
+    const depensesMois = supplierCommandes
+      .filter((c) => {
+        const date = new Date(c.createdAt);
+        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+      })
+      .reduce((sum, c) => sum + (Number(c.montantHt) || 0), 0);
+    const delais = supplierCommandes
+      .filter((c) => c.status === "livree" && c.deliveryDate && c.createdAt)
+      .map((c) => Math.max(0, Math.round((new Date(c.deliveryDate) - new Date(c.createdAt)) / 86400000)));
+    const delaiMoyen = delais.length ? Math.round(delais.reduce((a, b) => a + b, 0) / delais.length) : null;
+    return { enCours, depensesMois, delaiMoyen };
+  }, [selectedSupplier, commandes]);
+
+  useEffect(() => {
+    if (activeTab !== "fournisseurs") return;
+    if (selectedSupplierId && uniqueSuppliers.some((s) => s.id === selectedSupplierId)) return;
+    if (uniqueSuppliers.length > 0) setSelectedSupplierId(uniqueSuppliers[0].id);
+  }, [activeTab, uniqueSuppliers, selectedSupplierId]);
 
   function setField(field, value) {
     setForm((current) => {
@@ -296,6 +348,7 @@ export default function SuppliesCataloguePage() {
     setEditingSupplier(null);
     setSupplierDialog(false);
     setActiveTab("fournisseurs");
+    setSelectedSupplierId(supplier.id);
     setMessage(editingSupplier ? `Fournisseur mis à jour : ${supplier.name}` : `Fournisseur ajouté : ${supplier.name}`);
   }
 
@@ -306,7 +359,10 @@ export default function SuppliesCataloguePage() {
 
   async function deleteSupplier(item) {
     const { supplier } = await apiSend("/api/suppliers", { id: item.id, action: "delete" }, "PATCH");
-    if (supplier?.deleted) setSuppliers(suppliers.filter((candidate) => candidate.id !== item.id));
+    if (supplier?.deleted) {
+      setSuppliers(suppliers.filter((candidate) => candidate.id !== item.id));
+      if (selectedSupplierId === item.id) setSelectedSupplierId("");
+    }
   }
 
   function openEditSupply(item) {
@@ -589,34 +645,128 @@ export default function SuppliesCataloguePage() {
             </div>
           </div>
         ) : activeTab === "fournisseurs" ? (
-          <div className="tool-list">
-            <div className="panel-header">
-              <strong>{L.fournitures.bySupplier}</strong>
-              <button type="button" className="mini-button primary" onClick={() => { setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>+ {L.common.add}</button>
+          <div className="supplier-master-detail">
+            <div className="supplier-list-panel">
+              <div className="panel-header">
+                <strong className="title-chip">{L.fournitures.bySupplier}</strong>
+                <button type="button" className="mini-button primary" onClick={() => { setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>+ {L.common.add}</button>
+              </div>
+              <input
+                className="supplier-search-input"
+                value={supplierSearch}
+                onChange={(event) => setSupplierSearch(event.target.value)}
+                placeholder="Rechercher un fournisseur..."
+              />
+              {filteredSupplierList.length === 0 ? <div className="tool-empty">{L.fournitures.noSuppliers}</div> : null}
+              <div className="supplier-list-items">
+                {filteredSupplierList.map((supplier) => (
+                  <button
+                    type="button"
+                    key={supplier.id}
+                    className={`supplier-list-item ${supplier.id === selectedSupplierId ? "active" : ""}`}
+                    onClick={() => setSelectedSupplierId(supplier.id)}
+                  >
+                    <span className="supplier-list-avatar">{(supplier.name || "FS").slice(0, 2).toUpperCase()}</span>
+                    <span className="supplier-list-name">{supplier.name}</span>
+                    <span className="supplier-list-count">{supplierArticleCount[supplier.id] || 0}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            {uniqueSuppliers.length === 0 ? <div className="tool-empty">{L.fournitures.noSuppliers}</div> : null}
-            {uniqueSuppliers.map((supplier) => {
-              const supplierUrl = supplier.website || officialSupplierUrl(supplier.name);
-              return (
-                <article
-                  className="supply-row clickable"
-                  key={supplier.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openEditSupplier(supplier)}
-                  onKeyDown={(event) => handleRowKey(event, () => openEditSupplier(supplier))}
-                >
-                  <div className="supply-icon">FS</div>
-                  <div>
-                    <strong>{supplier.name}</strong>
-                    <small>{[supplier.email, supplier.phone, supplier.address].filter(Boolean).join(" - ") || L.fournitures.supplier}</small>
+
+            <div className="supplier-detail-panel">
+              {!selectedSupplier ? (
+                <div className="tool-empty">{L.fournitures.noSuppliers}</div>
+              ) : (
+                <>
+                  <div className="supplier-detail-header">
+                    <span className="supplier-detail-avatar">{(selectedSupplier.name || "FS").slice(0, 2).toUpperCase()}</span>
+                    <div className="supplier-detail-identity">
+                      <strong>{selectedSupplier.name}</strong>
+                      <div className="supplier-detail-contacts">
+                        {selectedSupplier.phone ? <span>📞 {selectedSupplier.phone}</span> : null}
+                        {selectedSupplier.email ? <span>✉️ {selectedSupplier.email}</span> : null}
+                        {(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name)) ? (
+                          <span
+                            className="supplier-detail-link"
+                            onClick={(event) => openExternal(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name), event)}
+                          >
+                            🌐 {selectedSupplier.website || officialSupplierUrl(selectedSupplier.name)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="supplier-detail-actions">
+                      <button type="button" className="mini-button" onClick={() => openEditSupplier(selectedSupplier)}>{L.common.edit}</button>
+                      <button type="button" className="mini-danger" onClick={() => deleteSupplier(selectedSupplier)}>{L.common.delete}</button>
+                    </div>
                   </div>
-                  {supplierUrl ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplierUrl, event)}>{L.fournitures.site}</button> : null}
-                  <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupplier(supplier); }}>{L.common.edit}</button>
-                  <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupplier(supplier); }}>{L.common.delete}</button>
-                </article>
-              );
-            })}
+
+                  <div className="supplier-stat-grid">
+                    <div className="fournitures-kpi-card">
+                      <div className="fournitures-kpi-card-head">
+                        <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
+                        <span className="title-chip">Articles</span>
+                      </div>
+                      <strong>{selectedSupplierArticles.length}</strong>
+                      <small>au catalogue</small>
+                    </div>
+                    <div className="fournitures-kpi-card">
+                      <div className="fournitures-kpi-card-head">
+                        <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🛒</span>
+                        <span className="title-chip">Commandes en cours</span>
+                      </div>
+                      <strong>{selectedSupplierStats.enCours}</strong>
+                      <small>non livrées</small>
+                    </div>
+                    <div className="fournitures-kpi-card">
+                      <div className="fournitures-kpi-card-head">
+                        <span className="fournitures-kpi-icon fournitures-kpi-icon-green">💶</span>
+                        <span className="title-chip">Dépenses du mois</span>
+                      </div>
+                      <strong>{euro(selectedSupplierStats.depensesMois)}</strong>
+                      <small>HT, ce mois-ci</small>
+                    </div>
+                    <div className="fournitures-kpi-card">
+                      <div className="fournitures-kpi-card-head">
+                        <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">⏱</span>
+                        <span className="title-chip">Délai moyen</span>
+                      </div>
+                      <strong>{selectedSupplierStats.delaiMoyen === null ? "—" : `${selectedSupplierStats.delaiMoyen} j`}</strong>
+                      <small>de livraison</small>
+                    </div>
+                  </div>
+
+                  <div className="supplier-articles-section">
+                    <div className="panel-header">
+                      <strong className="title-chip">Articles de ce fournisseur</strong>
+                      <button
+                        type="button"
+                        className="mini-button primary"
+                        onClick={() => { setForm({ ...initialSupply, supplierId: selectedSupplier.id }); setEditingSupply(null); setFormOpen(true); }}
+                      >
+                        + {L.common.add}
+                      </button>
+                    </div>
+                    {selectedSupplierArticles.length === 0 ? (
+                      <div className="tool-empty">{L.fournitures.noSupplies}</div>
+                    ) : (
+                      <div className="supplier-articles-list">
+                        {selectedSupplierArticles.map((item) => (
+                          <div className="supplier-article-row" key={item.id} onClick={() => openEditSupply(item)}>
+                            <span className="supplier-article-name">{item.name}</span>
+                            <span className="supplier-article-price">{euro(item.salePriceHt ?? item.priceHt)}</span>
+                            {item.sourceUrl ? (
+                              <button type="button" className="mini-button" onClick={(event) => openExternal(item.sourceUrl, event)}>Lien</button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         ) : (
           <div className="tool-list">
