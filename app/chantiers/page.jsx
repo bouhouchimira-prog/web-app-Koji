@@ -1474,7 +1474,7 @@ export default function ProjectsTrackingPage() {
           <section className="follow-section">
             <div className="follow-section-head">
               <h2>{L.chantiers.supplies}</h2>
-              <Link href="/fournitures">{L.chantiers.manageSupplies}</Link>
+              <Link href="/fournitures/catalogue">{L.chantiers.manageSupplies}</Link>
             </div>
             {supplyNeeds.length === 0 ? (
               <div className="tool-empty">{L.chantiers.noSupplies}</div>

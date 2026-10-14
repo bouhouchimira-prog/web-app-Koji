@@ -29,6 +29,9 @@ function mapFourniture(row) {
     packaging: row.conditionnement || "",
     supplierId: row.fournisseur_id || "",
     supplierName: row.fournisseurs?.name || "",
+    // Seuil de stock bas (12 oct, page tableau de bord Fournitures) — 0 =
+    // jamais signale (article pas encore configure).
+    reorderThreshold: toNumber(row.seuil_alerte),
     barcode: row.barcode || "",
     imageUrl: row.image_url || "",
     sourceUrl: row.source_url || "",
@@ -68,6 +71,7 @@ export async function POST(request) {
       prix_vente_ht: salePriceHt,
       conditionnement: body.packaging || imported.packaging || null,
       quantite: toNumber(body.quantity || body.stock || imported.quantity || 0),
+      seuil_alerte: toNumber(body.reorderThreshold || 0),
       unite: body.unit || imported.unit || "unite",
       barcode: body.barcode || null,
       image_url: body.imageUrl || imported.imageUrl || null,
@@ -108,6 +112,7 @@ export async function PATCH(request) {
   }
   if (Object.prototype.hasOwnProperty.call(body, "stock")) updates.quantite = toNumber(body.stock);
   if (Object.prototype.hasOwnProperty.call(body, "quantity")) updates.quantite = toNumber(body.quantity);
+  if (Object.prototype.hasOwnProperty.call(body, "reorderThreshold")) updates.seuil_alerte = toNumber(body.reorderThreshold);
   if (Object.prototype.hasOwnProperty.call(body, "packaging")) updates.conditionnement = body.packaging || null;
   if (Object.prototype.hasOwnProperty.call(body, "supplierId")) {
     updates.fournisseur_id = isUuid(body.supplierId) ? body.supplierId : null;

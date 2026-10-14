@@ -2875,7 +2875,7 @@ export default function DevisEditor() {
                   {!filteredSupplyItems.length ? <p className="empty-state">{L.bibliotheque.noFound}</p> : null}
                 </div>
                 <div className="quote-picker-footer">
-                  <Link className="quote-picker-full-link" href="/fournitures">{L.nav.supplies} →</Link>
+                  <Link className="quote-picker-full-link" href="/fournitures/catalogue">{L.nav.supplies} →</Link>
                 </div>
               </section>
             ) : null}
@@ -3306,7 +3306,7 @@ export default function DevisEditor() {
               {selectedSupply.sourceUrl ? <a className="supply-source-link" href={selectedSupply.sourceUrl} target="_blank" rel="noreferrer">{L.devis.sourceLink}</a> : null}
               <div className="supply-modal-actions">
                 <button type="button" onClick={() => setSelectedSupply(null)}>{L.devis.closeBtn}</button>
-                <Link className="button secondary" href={`/fournitures?supply=${selectedSupply.id}`}>{L.devis.openInSupply}</Link>
+                <Link className="button secondary" href={`/fournitures/catalogue?supply=${selectedSupply.id}`}>{L.devis.openInSupply}</Link>
                 <button type="button" className="button blue" onClick={() => { applySupplyToLine(selectedSupply.lineId, selectedSupply, selectedSupply.materialIndex); setSelectedSupply(null); }}>{L.devis.useBtn}</button>
               </div>
             </div>

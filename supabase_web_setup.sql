@@ -78,3 +78,35 @@ CREATE INDEX IF NOT EXISTS radar_offer_drafts_conversation_id_idx ON radar_offer
 ALTER TABLE radar_offer_drafts ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON radar_offer_drafts FROM anon, authenticated;
+
+-- ── commandes (12 octobre) ───────────────────────────────────────────────
+-- Nouvelle page d'accueil de l'outil Fournitures (tableau de bord) : une
+-- commande passee aupres d'un fournisseur, pour un chantier, avec un
+-- statut (a_commander / confirmee / expediee / livree / en_retard) et une
+-- date de livraison. Table liee aux tables deja partagees avec l'app
+-- Flutter (fournisseurs, chantiers) — meme posture de securite : service_role
+-- uniquement.
+CREATE TABLE IF NOT EXISTS commandes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  fournisseur_id UUID REFERENCES fournisseurs(id),
+  chantier_id UUID REFERENCES chantiers(id),
+  items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  montant_ht NUMERIC NOT NULL DEFAULT 0,
+  date_livraison DATE,
+  statut TEXT NOT NULL DEFAULT 'a_commander',
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS commandes_user_id_idx ON commandes(user_id);
+
+ALTER TABLE commandes ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON commandes FROM anon, authenticated;
+
+-- Seuil d'alerte de stock bas, par article (fournitures n'avait jusque-la
+-- qu'une quantite, jamais de seuil a partir duquel la "recommander").
+-- 0 = jamais signale (article pas encore configure).
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS seuil_alerte NUMERIC NOT NULL DEFAULT 0;
