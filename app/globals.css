@@ -19219,9 +19219,38 @@ body :where(
   margin-bottom: 10px;
 }
 
-.fournitures-kpi-card-head > span:last-child {
+/* Titres mis en valeur dans une petite carte beige clair (12 oct, demande
+   d'Amira) — page, cartes KPI, "Commandes"/"Stock bas"/"Prochaines
+   livraisons". Remplace l'ancien style simple (couleur grise) de
+   .fournitures-kpi-card-head > span:last-child. */
+.title-chip {
+  display: inline-block;
+  background: #f6ecd9;
+  color: var(--navy);
   font-size: 13px;
-  color: var(--muted);
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.fournitures-dashboard-head h1 {
+  display: inline-block;
+}
+
+.fournitures-dashboard-head h1 .title-chip {
+  font-size: 20px;
+  padding: 6px 14px;
+}
+
+.fournitures-main-card-head strong.title-chip,
+.fournitures-sidebar-card > strong.title-chip {
+  font-size: 15px;
+}
+
+.fournitures-sidebar-card > strong.title-chip {
+  display: block;
+  width: fit-content;
+  margin-bottom: 12px;
 }
 
 .fournitures-kpi-icon {
@@ -19287,20 +19316,6 @@ body :where(
   margin-bottom: 16px;
 }
 
-.fournitures-main-card-head strong,
-.fournitures-sidebar-card > strong {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--navy);
-  letter-spacing: -0.01em;
-}
-
-.fournitures-sidebar-card > strong {
-  display: block;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line);
-}
 
 /* Classe dediee plutot que .segmented (grille fixee a 3 colonnes ailleurs
    dans l'app — cassait avec les 4 onglets ici, un 4e passait seul a la

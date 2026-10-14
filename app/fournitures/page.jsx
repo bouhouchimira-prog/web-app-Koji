@@ -157,7 +157,7 @@ export default function FournituresDashboardPage() {
       <section className="fournitures-dashboard">
         <div className="fournitures-dashboard-head">
           <div>
-            <h1>Fournitures</h1>
+            <h1><span className="title-chip">Fournitures</span></h1>
             <p>Commandes, livraisons et stock rattachés à vos chantiers.</p>
           </div>
           <div className="fournitures-dashboard-head-actions">
@@ -172,7 +172,7 @@ export default function FournituresDashboardPage() {
           <div className="fournitures-kpi-card">
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
-              <span>Commandes en cours</span>
+              <span className="title-chip">Commandes en cours</span>
             </div>
             <strong>{kpis.enCours}</strong>
             <small>{kpis.enCoursSuppliers} fournisseur{kpis.enCoursSuppliers > 1 ? "s" : ""}</small>
@@ -180,7 +180,7 @@ export default function FournituresDashboardPage() {
           <div className="fournitures-kpi-card">
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🚚</span>
-              <span>À livrer cette semaine</span>
+              <span className="title-chip">À livrer cette semaine</span>
             </div>
             <strong>{kpis.aLivrer}</strong>
             <small className="positive">{kpis.demain ? `dont ${kpis.demain} demain` : "—"}</small>
@@ -188,7 +188,7 @@ export default function FournituresDashboardPage() {
           <div className="fournitures-kpi-card">
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
-              <span>Stock bas</span>
+              <span className="title-chip">Stock bas</span>
             </div>
             <strong>{kpis.stockBas.length}</strong>
             <small className="warning">{kpis.stockBas.length ? "articles à recommander" : "—"}</small>
@@ -196,7 +196,7 @@ export default function FournituresDashboardPage() {
           <div className="fournitures-kpi-card">
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
-              <span>Dépenses du mois</span>
+              <span className="title-chip">Dépenses du mois</span>
             </div>
             <strong>{euro(kpis.depensesMois)}</strong>
             <small>HT</small>
@@ -206,7 +206,7 @@ export default function FournituresDashboardPage() {
         <div className="fournitures-dashboard-body">
           <div className="fournitures-main-card">
             <div className="fournitures-main-card-head">
-              <strong>Commandes</strong>
+              <strong className="title-chip">Commandes</strong>
               <div className="fournitures-filter-tabs">
                 {FILTER_TABS.map((tab) => (
                   <button type="button" key={tab.id} className={filterTab === tab.id ? "active" : ""} onClick={() => setFilterTab(tab.id)}>
@@ -264,7 +264,7 @@ export default function FournituresDashboardPage() {
 
           <div className="fournitures-sidebar">
             <div className="fournitures-sidebar-card">
-              <strong>Stock bas</strong>
+              <strong className="title-chip">Stock bas</strong>
               {kpis.stockBas.length === 0 ? <p className="tool-muted">Rien à signaler.</p> : null}
               {kpis.stockBas.map((item) => (
                 <div className="fournitures-stock-row" key={item.id}>
@@ -280,7 +280,7 @@ export default function FournituresDashboardPage() {
             </div>
 
             <div className="fournitures-sidebar-card">
-              <strong>Prochaines livraisons</strong>
+              <strong className="title-chip">Prochaines livraisons</strong>
               {prochainesLivraisons.length === 0 ? <p className="tool-muted">Rien de prévu.</p> : null}
               {prochainesLivraisons.map((commande) => (
                 <div className="fournitures-delivery-row" key={commande.id}>
