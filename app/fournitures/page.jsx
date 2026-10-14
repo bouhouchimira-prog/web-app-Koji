@@ -170,25 +170,25 @@ export default function FournituresDashboardPage() {
 
         <div className="fournitures-kpi-row">
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon">📦</span>
+            <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
             <strong>{kpis.enCours}</strong>
             <span>Commandes en cours</span>
             <small>{kpis.enCoursSuppliers} fournisseur{kpis.enCoursSuppliers > 1 ? "s" : ""}</small>
           </div>
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon">🚚</span>
+            <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🚚</span>
             <strong>{kpis.aLivrer}</strong>
             <span>À livrer cette semaine</span>
             <small className="positive">{kpis.demain ? `dont ${kpis.demain} demain` : "—"}</small>
           </div>
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon">⚠️</span>
+            <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
             <strong>{kpis.stockBas.length}</strong>
             <span>Stock bas</span>
             <small className="warning">{kpis.stockBas.length ? "articles à recommander" : "—"}</small>
           </div>
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon">📊</span>
+            <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
             <strong>{euro(kpis.depensesMois)}</strong>
             <span>Dépenses du mois</span>
             <small>HT</small>
@@ -199,7 +199,7 @@ export default function FournituresDashboardPage() {
           <div className="fournitures-main-card">
             <div className="fournitures-main-card-head">
               <strong>Commandes</strong>
-              <div className="segmented">
+              <div className="fournitures-filter-tabs">
                 {FILTER_TABS.map((tab) => (
                   <button type="button" key={tab.id} className={filterTab === tab.id ? "active" : ""} onClick={() => setFilterTab(tab.id)}>
                     {tab.label}

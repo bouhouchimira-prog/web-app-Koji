@@ -19164,9 +19164,20 @@ body :where(
 }
 
 .fournitures-kpi-icon {
-  font-size: 18px;
-  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 16px;
+  margin-bottom: 8px;
 }
+
+.fournitures-kpi-icon-blue { background: #dbeafe; }
+.fournitures-kpi-icon-green { background: #dcfce7; }
+.fournitures-kpi-icon-amber { background: #fef3c7; }
+.fournitures-kpi-icon-purple { background: #ede9fe; }
 
 .fournitures-kpi-card strong {
   font-size: 22px;
@@ -19216,7 +19227,40 @@ body :where(
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.fournitures-main-card-head strong {
+  font-size: 15px;
+}
+
+/* Classe dediee plutot que .segmented (grille fixee a 3 colonnes ailleurs
+   dans l'app — cassait avec les 4 onglets ici, un 4e passait seul a la
+   ligne). Largeur libre par bouton, jamais de retour a la ligne force. */
+.fournitures-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f1efe9;
+}
+
+.fournitures-filter-tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fournitures-filter-tabs button.active {
+  background: var(--navy);
+  color: white;
 }
 
 .fournitures-table {
