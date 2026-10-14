@@ -258,6 +258,13 @@ const CHANTIER_STATUS_META = {
   termine: { label: "Terminé", color: "#15803d", bg: "#dcfce7" }
 };
 
+const CHANTIER_STAT_MODAL_TITLES = {
+  en_cours: "Chantiers en cours",
+  a_planifier: "Chantiers à planifier",
+  retard: "Chantiers en retard",
+  ca: "Chiffre d'affaires en cours"
+};
+
 const CHANTIER_FILTER_TABS = [
   { id: "tous", label: "Tous" },
   { id: "en_cours", label: "En cours" },
@@ -345,6 +352,7 @@ export default function ProjectsTrackingPage() {
   const [collapsedCards, setCollapsedCards] = useState(() => new Set(["agenda", "budget", "rdv", "documents", "archive"]));
   const [openLineKey, setOpenLineKey] = useState(null);
   const [chantierFilterTab, setChantierFilterTab] = useState("tous");
+  const [chantierStatModal, setChantierStatModal] = useState(null);
   const [clientPortalAccess, setClientPortalAccess] = useState(null);
   const [clientAccessForm, setClientAccessForm] = useState({ email: "", phone: "" });
   const [clientAccessCreating, setClientAccessCreating] = useState(false);
@@ -493,6 +501,13 @@ export default function ProjectsTrackingPage() {
     if (chantierFilterTab === "retard") return chantiersDashboard.filter((p) => p.status === "retard");
     return chantiersDashboard.filter((p) => p.status === "en_cours" || p.status === "finitions");
   }, [chantiersDashboard, chantierFilterTab]);
+
+  const chantierStatModalItems = useMemo(() => {
+    if (!chantierStatModal) return [];
+    if (chantierStatModal === "en_cours" || chantierStatModal === "ca") return chantiersDashboard.filter((p) => p.status !== "termine");
+    if (chantierStatModal === "a_planifier") return chantiersDashboard.filter((p) => p.status === "a_planifier");
+    return chantierKpis.enRetardItems;
+  }, [chantierStatModal, chantiersDashboard, chantierKpis]);
 
   const upcomingEvents = useMemo(() => {
     const now = new Date();
@@ -1654,7 +1669,7 @@ export default function ProjectsTrackingPage() {
         ) : null}
 
         <div className="fournitures-kpi-row">
-          <div className="fournitures-kpi-card">
+          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("en_cours")}>
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🏗️</span>
               <span className="title-chip">Chantiers en cours</span>
@@ -1663,30 +1678,30 @@ export default function ProjectsTrackingPage() {
             <small className={chantierKpis.nouveauxCeMois > 0 ? "positive" : ""}>
               {chantierKpis.nouveauxCeMois > 0 ? `+${chantierKpis.nouveauxCeMois} ce mois-ci` : "ce mois-ci"}
             </small>
-          </div>
-          <div className="fournitures-kpi-card">
+          </button>
+          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("a_planifier")}>
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📅</span>
               <span className="title-chip">À planifier</span>
             </div>
             <strong>{chantierKpis.aPlanifier}</strong>
             <small>cette semaine</small>
-          </div>
-          <div className="fournitures-kpi-card">
+          </button>
+          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("retard")}>
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏰</span>
               <span className="title-chip">En retard</span>
             </div>
             <strong>{chantierKpis.enRetard}</strong>
             <small className={chantierKpis.enRetard > 0 ? "warning" : ""}>à traiter</small>
-          </div>
-          <div className="fournitures-kpi-card">
+          </button>
+          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("ca")}>
             <div className="fournitures-kpi-card-head">
               <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
               <span className="title-chip">Chiffre d'affaires en cours</span>
             </div>
             <strong>{euro(chantierKpis.chiffreAffaires)} <small style={{ display: "inline", marginTop: 0 }}>HT</small></strong>
-          </div>
+          </button>
         </div>
 
         <div className="fournitures-dashboard-body">
@@ -1791,6 +1806,44 @@ export default function ProjectsTrackingPage() {
             </div>
           </div>
         </div>
+
+        {chantierStatModal ? (
+          <div className="modal-overlay" onClick={() => setChantierStatModal(null)}>
+            <div className="mini-modal stat-detail-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="stat-detail-head">
+                <h2>{CHANTIER_STAT_MODAL_TITLES[chantierStatModal]}</h2>
+                <button type="button" className="mini-button" onClick={() => setChantierStatModal(null)}>✕</button>
+              </div>
+              {chantierStatModalItems.length === 0 ? (
+                <div className="tool-empty">Aucun chantier pour le moment.</div>
+              ) : (
+                <div className="stat-detail-body">
+                  <div className="supplier-articles-list">
+                    {chantierStatModalItems.map((project) => {
+                      const meta = CHANTIER_STATUS_META[project.status];
+                      return (
+                        <div
+                          className="divers-purchase-row"
+                          key={project.id}
+                          onClick={() => { setChantierStatModal(null); selectProject(project.id); }}
+                        >
+                          <div className="divers-purchase-main">
+                            <strong>{project.title}</strong>
+                            <small>{project.client || "Client"} · {project.dueDate ? shortDate(project.dueDate) : "Pas de date de fin"}</small>
+                          </div>
+                          <span className="status-pill" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
+                          <span className="supplier-article-price">
+                            {chantierStatModal === "ca" ? euro(project.budgetHt) : `${project.progress}%`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
       </section>
     </Shell>
   );
