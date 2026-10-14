@@ -246,6 +246,45 @@ function formatDate(value) {
   }
 }
 
+// Tableau de bord "Chantiers" (15 oct, maquette fournie par Amira) — le
+// statut du chantier n'est pas un champ stocke, il est derive a la volee a
+// partir de signaux deja existants (quote signee, progression des taches,
+// date de fin prevue vs aujourd'hui), pas de nouvelle colonne necessaire.
+const CHANTIER_STATUS_META = {
+  a_planifier: { label: "À planifier", color: "#64748b", bg: "#f1f5f9" },
+  en_cours: { label: "En cours", color: "#1d4ed8", bg: "#dbeafe" },
+  finitions: { label: "Finitions", color: "#15803d", bg: "#dcfce7" },
+  retard: { label: "En retard", color: "#b91c1c", bg: "#fee2e2" },
+  termine: { label: "Terminé", color: "#15803d", bg: "#dcfce7" }
+};
+
+const CHANTIER_FILTER_TABS = [
+  { id: "tous", label: "Tous" },
+  { id: "en_cours", label: "En cours" },
+  { id: "retard", label: "En retard" },
+  { id: "termine", label: "Terminés" }
+];
+
+const WEEKDAY_SHORT = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
+
+function dayBadge(dateStr) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return { dow: "", day: "" };
+  return { dow: WEEKDAY_SHORT[d.getDay()], day: String(d.getDate()) };
+}
+
+function computeChantierStatus(progress, signed, dueDate) {
+  if (progress >= 100) return "termine";
+  if (!signed) return "a_planifier";
+  if (dueDate) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = new Date(`${dueDate}T00:00:00`);
+    if (!Number.isNaN(due.getTime()) && due < today) return "retard";
+  }
+  if (progress >= 85) return "finitions";
+  return "en_cours";
+}
+
 const emptyPlan = {
   startDate: "",
   endDate: "",
@@ -305,6 +344,7 @@ export default function ProjectsTrackingPage() {
   const [message, setMessage] = useState("");
   const [collapsedCards, setCollapsedCards] = useState(() => new Set(["agenda", "budget", "rdv", "documents", "archive"]));
   const [openLineKey, setOpenLineKey] = useState(null);
+  const [chantierFilterTab, setChantierFilterTab] = useState("tous");
   const [clientPortalAccess, setClientPortalAccess] = useState(null);
   const [clientAccessForm, setClientAccessForm] = useState({ email: "", phone: "" });
   const [clientAccessCreating, setClientAccessCreating] = useState(false);
@@ -405,6 +445,66 @@ export default function ProjectsTrackingPage() {
       return linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe";
     });
   }, [nonArchivedProjects, quotes]);
+
+  // Tableau de bord (15 oct) — chaque chantier non archive, avec sa
+  // progression (meme calcul que la fiche de suivi : taches terminees /
+  // total, ou le champ progress stocke s'il n'y a pas encore de taches) et
+  // son statut derive (voir computeChantierStatus plus haut).
+  const chantiersDashboard = useMemo(() => {
+    return nonArchivedProjects.map((project) => {
+      const linkedQuote = quotes.find((q) => q.projectId === project.id);
+      const signed = linkedQuote ? (linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe") : false;
+      const projectTasks = tasks.filter((t) => t.projectId === project.id);
+      const doneCount = projectTasks.filter((t) => t.done).length;
+      const progress = projectTasks.length === 0 ? Number(project.progress || 0) : Math.round((doneCount / projectTasks.length) * 100);
+      // project.endDate/dueDate ne sont jamais persistes cote serveur (voir
+      // app/api/projects/route.js PATCH) — on recalcule la fin prevue a la
+      // volee depuis les taches, comme le fait deja la fiche de suivi.
+      const taskDueDates = projectTasks.map((t) => t.endDate || t.dueDate).filter(Boolean).sort();
+      const dueDate = taskDueDates.at(-1) || project.endDate || project.dueDate || "";
+      const status = computeChantierStatus(progress, signed, dueDate);
+      return { ...project, progress, status, dueDate, linkedQuote };
+    });
+  }, [nonArchivedProjects, quotes, tasks]);
+
+  const chantierKpis = useMemo(() => {
+    const now = new Date();
+    const active = chantiersDashboard.filter((p) => p.status !== "termine");
+    const nouveauxCeMois = active.filter((p) => {
+      const d = new Date(p.createdAt || "");
+      return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+    const aPlanifier = chantiersDashboard.filter((p) => p.status === "a_planifier");
+    const enRetard = chantiersDashboard.filter((p) => p.status === "retard");
+    const chiffreAffaires = active.reduce((sum, p) => sum + Number(p.budgetHt || 0), 0);
+    return {
+      enCours: active.length,
+      nouveauxCeMois,
+      aPlanifier: aPlanifier.length,
+      enRetard: enRetard.length,
+      enRetardItems: enRetard,
+      chiffreAffaires
+    };
+  }, [chantiersDashboard]);
+
+  const filteredChantiers = useMemo(() => {
+    if (chantierFilterTab === "tous") return chantiersDashboard;
+    if (chantierFilterTab === "termine") return chantiersDashboard.filter((p) => p.status === "termine");
+    if (chantierFilterTab === "retard") return chantiersDashboard.filter((p) => p.status === "retard");
+    return chantiersDashboard.filter((p) => p.status === "en_cours" || p.status === "finitions");
+  }, [chantiersDashboard, chantierFilterTab]);
+
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    const in7Days = new Date(now); in7Days.setDate(in7Days.getDate() + 7);
+    return calendarEvents
+      .filter((e) => {
+        const d = new Date(e.startAt || "");
+        return !Number.isNaN(d.getTime()) && d >= now && d <= in7Days;
+      })
+      .sort((a, b) => String(a.startAt).localeCompare(String(b.startAt)))
+      .slice(0, 5);
+  }, [calendarEvents]);
   // Most recently touched not-yet-sent devis: lets the user resume a
   // chantier/devis they started and left mid-way (app closed, interrupted...).
   const draftQuote = useMemo(() => {
@@ -1532,17 +1632,16 @@ export default function ProjectsTrackingPage() {
 
   return (
     <Shell>
-      <div className="mobile-tool chantier-follow">
-        <header className="tool-topline compact">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>{L.chantiers.title}</h1>
-          <span />
+      <section className="fournitures-dashboard">
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">Chantiers</span></h1>
+            <p>Suivez l'avancement de vos chantiers et anticipez la semaine.</p>
+          </div>
+          <div className="fournitures-dashboard-head-actions">
+            <Link href="/chantier/new" className="button blue">+ Nouveau chantier</Link>
+          </div>
         </header>
-
-        <Link href="/chantier/new" className="new-chantier-bar">
-          <span className="new-chantier-icon">+</span>
-          {L.chantiers.newProject}
-        </Link>
 
         {draftQuote ? (
           <Link href={`/devis?id=${draftQuote.id}`} className="resume-draft-card">
@@ -1554,33 +1653,145 @@ export default function ProjectsTrackingPage() {
           </Link>
         ) : null}
 
-        <section className="follow-section">
-          <div className="follow-section-head">
-            <h2>{L.chantiers.tracking}</h2>
-            <span>{activeProjects.length}</span>
-          </div>
-          {activeProjects.length === 0 ? (
-            <div className="tool-empty">{L.chantiers.noSigned}</div>
-          ) : (
-            <div className="project-track-list">
-              {activeProjects.map((project) => {
-                const quote = quotes.find((item) => item.projectId === project.id);
-                return (
-                  <button type="button" className="project-track-row" key={project.id} onClick={() => selectProject(project.id)}>
-                    <span className="home-list-icon">X</span>
-                    <div>
-                      <strong>{project.title}</strong>
-                      <small>{project.client || "Client"} - {project.reference}</small>
-                    </div>
-                    <em>{project.status}</em>
-                    <b>{euro(quote?.totalTtc || project.budgetHt || 0)}</b>
-                  </button>
-                );
-              })}
+        <div className="fournitures-kpi-row">
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🏗️</span>
+              <span className="title-chip">Chantiers en cours</span>
             </div>
-          )}
-        </section>
-      </div>
+            <strong>{chantierKpis.enCours}</strong>
+            <small className={chantierKpis.nouveauxCeMois > 0 ? "positive" : ""}>
+              {chantierKpis.nouveauxCeMois > 0 ? `+${chantierKpis.nouveauxCeMois} ce mois-ci` : "ce mois-ci"}
+            </small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📅</span>
+              <span className="title-chip">À planifier</span>
+            </div>
+            <strong>{chantierKpis.aPlanifier}</strong>
+            <small>cette semaine</small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏰</span>
+              <span className="title-chip">En retard</span>
+            </div>
+            <strong>{chantierKpis.enRetard}</strong>
+            <small className={chantierKpis.enRetard > 0 ? "warning" : ""}>à traiter</small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
+              <span className="title-chip">Chiffre d'affaires en cours</span>
+            </div>
+            <strong>{euro(chantierKpis.chiffreAffaires)} <small style={{ display: "inline", marginTop: 0 }}>HT</small></strong>
+          </div>
+        </div>
+
+        <div className="fournitures-dashboard-body">
+          <div className="fournitures-main-card">
+            <div className="fournitures-main-card-head">
+              <strong className="title-chip">Chantiers en cours</strong>
+              <div className="fournitures-filter-tabs">
+                {CHANTIER_FILTER_TABS.map((tab) => (
+                  <button
+                    type="button"
+                    key={tab.id}
+                    className={chantierFilterTab === tab.id ? "active" : ""}
+                    onClick={() => setChantierFilterTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredChantiers.length === 0 ? (
+              <div className="tool-empty">{L.chantiers.noSigned}</div>
+            ) : (
+              <div className="fournitures-table chantiers-table">
+                <div className="fournitures-table-head-row chantiers-table-row">
+                  <div>CHANTIER</div>
+                  <div>AVANCEMENT</div>
+                  <div>STATUT</div>
+                  <div>FIN PRÉVUE</div>
+                </div>
+                {filteredChantiers.map((project) => {
+                  const meta = CHANTIER_STATUS_META[project.status];
+                  return (
+                    <div className="fournitures-table-row-wrap" key={project.id}>
+                      <button type="button" className="fournitures-table-row chantiers-table-row" onClick={() => selectProject(project.id)}>
+                        <div className="fournitures-table-cell">
+                          <strong>{project.title}</strong>
+                          <small>{project.client || "Client"} · {project.reference}</small>
+                        </div>
+                        <div className="chantiers-progress-cell">
+                          <div className="ct-progress-bar"><div style={{ width: `${project.progress}%` }} /></div>
+                          <small>{project.progress}%</small>
+                        </div>
+                        <div>
+                          <span className="status-pill" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
+                        </div>
+                        <div className="fournitures-table-cell">{project.dueDate ? shortDate(project.dueDate) : "—"}</div>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="fournitures-sidebar-card">
+              <strong className="title-chip">Cette semaine</strong>
+              {upcomingEvents.length === 0 ? (
+                <div className="tool-empty">Rien de prévu cette semaine.</div>
+              ) : (
+                upcomingEvents.map((event) => {
+                  const badge = dayBadge(event.startAt);
+                  return (
+                    <button
+                      type="button"
+                      className="chantiers-week-row"
+                      key={event.id}
+                      onClick={() => event.projectId ? selectProject(event.projectId) : router.push("/calendrier")}
+                    >
+                      <span className="chantiers-week-badge"><small>{badge.dow}</small><strong>{badge.day}</strong></span>
+                      <span className="chantiers-week-main">
+                        <strong>{event.title}</strong>
+                        <small>{[event.address, event.clientName].filter(Boolean).join(" · ")}</small>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="fournitures-sidebar-card">
+              <strong className="title-chip">À surveiller</strong>
+              {chantierKpis.enRetardItems.length === 0 ? (
+                <div className="tool-empty">Rien à signaler.</div>
+              ) : (
+                chantierKpis.enRetardItems.map((project) => {
+                  const today = new Date(); today.setHours(0, 0, 0, 0);
+                  const due = new Date(`${project.dueDate}T00:00:00`);
+                  const lateDays = Math.round((today - due) / 86400000);
+                  return (
+                    <button type="button" className="chantiers-alert-row chantiers-alert-late" key={project.id} onClick={() => selectProject(project.id)}>
+                      <span>⚠️</span>
+                      <span className="chantiers-alert-main">
+                        <strong>{project.title} — {project.client || "Client"}</strong>
+                        <small>Retard de {lateDays} jour{lateDays > 1 ? "s" : ""} sur la date de fin prévue.</small>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
     </Shell>
   );
 }
