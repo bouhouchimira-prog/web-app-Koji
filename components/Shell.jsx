@@ -282,7 +282,8 @@ export function Shell({ children }) {
   // Recherche globale de la barre du haut (12 oct, demande d'Amira) —
   // chantiers/devis/contacts, debounce 300ms, /api/search.
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState({ chantiers: [], devis: [], contacts: [] });
+  const EMPTY_SEARCH_RESULTS = { tools: [], chantiers: [], devis: [], fournitures: [], fournisseurs: [], contacts: [], equipe: [], factures: [] };
+  const [searchResults, setSearchResults] = useState(EMPTY_SEARCH_RESULTS);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -522,12 +523,21 @@ export function Shell({ children }) {
     clearTimeout(searchDebounceRef.current);
     const query = searchQuery.trim();
     if (query.length < 2) {
-      setSearchResults({ chantiers: [], devis: [], contacts: [] });
+      setSearchResults(EMPTY_SEARCH_RESULTS);
       return;
     }
     searchDebounceRef.current = setTimeout(() => {
       apiGet(`/api/search?q=${encodeURIComponent(query)}`)
-        .then((data) => setSearchResults({ chantiers: data.chantiers || [], devis: data.devis || [], contacts: data.contacts || [] }))
+        .then((data) => setSearchResults({
+          tools: data.tools || [],
+          chantiers: data.chantiers || [],
+          devis: data.devis || [],
+          fournitures: data.fournitures || [],
+          fournisseurs: data.fournisseurs || [],
+          contacts: data.contacts || [],
+          equipe: data.equipe || [],
+          factures: data.factures || []
+        }))
         .catch(() => {});
     }, 300);
     return () => clearTimeout(searchDebounceRef.current);
@@ -670,27 +680,30 @@ export function Shell({ children }) {
           </label>
           {searchOpen && searchQuery.trim().length >= 2 ? (
             <div className="search-dropdown">
-              {searchResults.chantiers.length === 0 && searchResults.devis.length === 0 && searchResults.contacts.length === 0 ? (
-                <p className="notif-dropdown-empty">Aucun résultat</p>
-              ) : (
-                <>
-                  {[
-                    { key: "chantiers", label: "Chantiers", items: searchResults.chantiers },
-                    { key: "devis", label: "Devis", items: searchResults.devis },
-                    { key: "contacts", label: "Contacts", items: searchResults.contacts }
-                  ].filter((group) => group.items.length > 0).map((group) => (
-                    <div className="search-dropdown-group" key={group.key}>
-                      <small>{group.label}</small>
-                      {group.items.map((item) => (
-                        <Link key={item.id} href={item.href} onClick={() => { setSearchOpen(false); setSearchQuery(""); }}>
-                          <strong>{item.title}</strong>
-                          {item.sub ? <span>{item.sub}</span> : null}
-                        </Link>
-                      ))}
-                    </div>
-                  ))}
-                </>
-              )}
+              {(() => {
+                const groups = [
+                  { key: "tools", label: "Outils", items: searchResults.tools },
+                  { key: "chantiers", label: "Chantiers", items: searchResults.chantiers },
+                  { key: "devis", label: "Devis", items: searchResults.devis },
+                  { key: "fournitures", label: "Fournitures", items: searchResults.fournitures },
+                  { key: "fournisseurs", label: "Fournisseurs", items: searchResults.fournisseurs },
+                  { key: "contacts", label: "Contacts", items: searchResults.contacts },
+                  { key: "equipe", label: "Équipe", items: searchResults.equipe },
+                  { key: "factures", label: "Factures", items: searchResults.factures }
+                ].filter((group) => group.items.length > 0);
+                if (groups.length === 0) return <p className="notif-dropdown-empty">Aucun résultat</p>;
+                return groups.map((group) => (
+                  <div className="search-dropdown-group" key={group.key}>
+                    <small>{group.label}</small>
+                    {group.items.map((item) => (
+                      <Link key={item.id || item.href} href={item.href} onClick={() => { setSearchOpen(false); setSearchQuery(""); }}>
+                        <strong>{item.title}</strong>
+                        {item.sub ? <span>{item.sub}</span> : null}
+                      </Link>
+                    ))}
+                  </div>
+                ));
+              })()}
             </div>
           ) : null}
         </div>
