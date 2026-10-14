@@ -6,6 +6,7 @@ import { apiGet, apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import catalog from "../../data/catalog-ouvrages.json";
+import { VISITE_METIERS } from "../../lib/visite-tree";
 
 const emptyForm = {
   id: "",
@@ -87,6 +88,51 @@ function parseImportLine(line) {
   };
 }
 
+// Tableau de bord (15 oct, maquette fournie par Amira) — "metier couvert"
+// n'est pas un champ stocke : on rapproche chaque famille d'ouvrage
+// (ouvrages.family, texte libre) d'un des 10 metiers de la visite guidee
+// (lib/visite-tree.js, meme taxonomie que le Radar des Chantiers) par mots-
+// cles, pour savoir quels metiers ont deja une bibliotheque de prix.
+const METIER_KEYWORDS = {
+  Plombier: ["plomberie", "plombier", "sanitaire"],
+  Electricien: ["electricite", "electricien"],
+  Carreleur: ["carrelage", "carreleur"],
+  Menuisier: ["menuiserie", "menuisier"],
+  Peintre: ["peinture", "peintre"],
+  "Maçon": ["maconnerie", "gros oeuvre", "macon"],
+  Chauffagiste: ["chauffage", "chauffagiste"],
+  Climaticien: ["climatisation", "ventilation", "vmc"],
+  Plaquiste: ["cloison", "plafond", "platrerie", "isolation", "plaquiste"],
+  Couvreur: ["toiture", "couverture", "couvreur", "charpente", "zinguerie"]
+};
+
+const METIER_ICONS = {
+  Electricien: "⚡", Peintre: "🖌️", Carreleur: "▦", Plaquiste: "🧱",
+  Menuisier: "🪚", Plombier: "🔧", "Maçon": "🧱", Chauffagiste: "🔥",
+  Climaticien: "❄️", Couvreur: "🏠"
+};
+
+// Note manuelle : le catalogue "Isolation" ne couvre aujourd'hui que les
+// combles, pas toute l'Isolation/Platrerie du metier Plaquiste.
+const FAMILY_SUBTITLE_OVERRIDES = { "Isolation": "Combles uniquement" };
+
+const METIER_SANS_OUVRAGE_DESC = {
+  Plombier: "Fuite, WC, chauffe-eau, robinetterie",
+  "Maçon": "Murs, dalles, fondations",
+  Chauffagiste: "Chaudière, radiateurs, pompe à chaleur",
+  Climaticien: "Climatisation, VMC",
+  Couvreur: "Toiture, charpente, zinguerie"
+};
+
+function stripAccents(value) {
+  return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function matchMetier(familyName) {
+  const normalized = stripAccents(familyName).toLowerCase();
+  return VISITE_METIERS.find((m) => (METIER_KEYWORDS[m.key] || []).some((kw) => normalized.includes(kw))) || null;
+}
+
 function nextSubCode(parentCode, siblings) {
   const numbers = siblings
     .map((item) => item.code?.replace(`${parentCode}-`, ""))
@@ -103,6 +149,7 @@ export default function OuvragesLibraryPage() {
   // Plus d'onglet "Toutes" (demande du 19 septembre) — un metier est
   // toujours selectionne, jamais une liste complete non filtree.
   const [family, setFamily] = useState("");
+  const [showDashboard, setShowDashboard] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState("");
   const [formMode, setFormMode] = useState("list");
@@ -134,6 +181,32 @@ export default function OuvragesLibraryPage() {
   const families = useMemo(() => {
     return Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort();
   }, [ouvrages]);
+
+  const familyStats = useMemo(() => {
+    const counts = {};
+    ouvrages.forEach((item) => {
+      const name = item.family || "Autre";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => {
+        const metier = matchMetier(name);
+        return {
+          name,
+          count,
+          metier,
+          subtitle: FAMILY_SUBTITLE_OVERRIDES[name] || metier?.key || "Générique",
+          icon: (metier && METIER_ICONS[metier.key]) || "🛠️"
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+  }, [ouvrages]);
+
+  const metierCoverage = useMemo(() => {
+    const covered = new Set(familyStats.map((f) => f.metier?.key).filter(Boolean));
+    const missing = VISITE_METIERS.filter((m) => !covered.has(m.key));
+    return { coveredCount: covered.size, total: VISITE_METIERS.length, missing };
+  }, [familyStats]);
 
   // Sous-familles proposees dans le formulaire : celles deja utilisees pour
   // la famille en cours de saisie (ex: GEN/DEP/TAB/CHE/PT/LUM/EQU pour
@@ -221,12 +294,12 @@ export default function OuvragesLibraryPage() {
     setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
-  function startCreate(parent = null) {
+  function startCreate(parent = null, defaultFamily = "") {
     const siblings = parent ? ouvrages.filter((item) => item.parentCode === parent.code) : [];
     setForm({
       ...emptyForm,
       hourlyRate: companyHourlyRate,
-      family: parent?.family || family || "Carrelage",
+      family: parent?.family || defaultFamily || family || "Carrelage",
       category: parent?.category || "General",
       unit: parent?.unit || "m²",
       parentCode: parent?.code || "",
@@ -314,14 +387,6 @@ export default function OuvragesLibraryPage() {
     const nextIds = Array.from(new Set(selectedItems.map((item) => item.id).filter(Boolean)));
     window.localStorage.setItem("koji-devis-ouvrages", JSON.stringify(nextIds));
     window.location.href = "/devis?selection=ouvrages";
-  }
-
-  function goBack() {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    window.location.assign("/");
   }
 
   function renderOuvrageCard(item, { child = false } = {}) {
@@ -413,11 +478,133 @@ export default function OuvragesLibraryPage() {
     );
   }
 
+  if (showDashboard) {
+    return (
+      <Shell>
+        <section className="fournitures-dashboard">
+          <header className="fournitures-dashboard-head">
+            <div>
+              <h1><span className="title-chip">Bibliothèque koji</span></h1>
+              <p>Vos ouvrages chiffrés : le temps vient de la bibliothèque, le prix de votre taux horaire.</p>
+            </div>
+            <div className="fournitures-dashboard-head-actions">
+              <button type="button" className="button secondary" onClick={() => { setImportOpen(true); setShowDashboard(false); }}>Importer</button>
+              <button type="button" className="button blue" onClick={() => startCreate()}>+ Nouvel ouvrage</button>
+            </div>
+          </header>
+
+          <div className="fournitures-kpi-row">
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📖</span>
+                <span className="title-chip">Ouvrages</span>
+              </div>
+              <strong>{ouvrages.length}</strong>
+              <small>de base</small>
+            </div>
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-green">▦</span>
+                <span className="title-chip">Familles</span>
+              </div>
+              <strong>{families.length}</strong>
+              <small>actives</small>
+            </div>
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
+                <span className="title-chip">Métiers couverts</span>
+              </div>
+              <strong>{metierCoverage.coveredCount} / {metierCoverage.total}</strong>
+              <small className={metierCoverage.missing.length > 0 ? "warning" : ""}>
+                {metierCoverage.missing.length > 0 ? `${metierCoverage.missing.length} métiers à compléter` : "tous couverts"}
+              </small>
+            </div>
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">🕐</span>
+                <span className="title-chip">Mon taux horaire</span>
+              </div>
+              <strong>{Math.round(companyHourlyRate)} <small style={{ display: "inline", marginTop: 0 }}>€/h</small></strong>
+              <small>modifiable dans <a href="/profil">Profil</a></small>
+            </div>
+          </div>
+
+          <div className="fournitures-dashboard-body">
+            <div className="fournitures-main-card">
+              <div className="fournitures-main-card-head">
+                <strong className="title-chip">Familles d'ouvrages</strong>
+                <input
+                  className="supplier-search-input"
+                  style={{ maxWidth: 260 }}
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    if (event.target.value.trim()) { setFamily(""); setShowDashboard(false); }
+                  }}
+                  placeholder="Rechercher un ouvrage..."
+                />
+              </div>
+              <div className="library-family-grid">
+                {familyStats.map((fam) => (
+                  <button
+                    type="button"
+                    key={fam.name}
+                    className="library-family-card"
+                    onClick={() => { setFamily(fam.name); setQuery(""); setShowDashboard(false); }}
+                  >
+                    <div className="library-family-card-head">
+                      <span className="library-family-icon">{fam.icon}</span>
+                      <strong>{fam.count}</strong>
+                    </div>
+                    <strong className="library-family-name">{fam.name}</strong>
+                    <small className="library-family-metier">{fam.subtitle}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="fournitures-sidebar-card">
+                <div className="library-sidebar-head">
+                  <strong className="title-chip">Métiers sans ouvrage</strong>
+                  {metierCoverage.missing.length > 0 ? <span className="library-missing-badge">{metierCoverage.missing.length}</span> : null}
+                </div>
+                {metierCoverage.missing.length === 0 ? (
+                  <div className="tool-empty">Tous les métiers ont au moins un ouvrage.</div>
+                ) : (
+                  <>
+                    <p className="library-missing-hint">Sans ouvrage, un devis généré sur ces métiers reste « à chiffrer manuellement ».</p>
+                    {metierCoverage.missing.map((metier) => (
+                      <div className="library-missing-row" key={metier.key}>
+                        <div>
+                          <strong>{metier.label}</strong>
+                          <small>{METIER_SANS_OUVRAGE_DESC[metier.key] || ""}</small>
+                        </div>
+                        <button type="button" className="mini-button" onClick={() => startCreate(null, metier.label)}>Compléter</button>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+
+              <div className="library-price-info-card">
+                <strong>COMMENT SE CALCULE UN PRIX</strong>
+                <p>Temps normatif × votre taux horaire</p>
+                <small>Exemple : pose carrelage sol 40×40 = 1,3 h/m², soit {formatMoney(1.3 * (companyHourlyRate || 55))}/m² à {formatMoney(companyHourlyRate || 55)}/h.</small>
+              </div>
+            </div>
+          </div>
+        </section>
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
       <main className="library-page">
         <header className="library-top">
-          <button type="button" onClick={goBack} aria-label="Retour">{"<"}</button>
+          <button type="button" onClick={() => setShowDashboard(true)} aria-label="Retour">{"<"}</button>
           <h1>{L.bibliotheque.chooseItem}</h1>
           <button type="button" className="library-add" onClick={() => startCreate()} aria-label="Nouvel ouvrage">+</button>
         </header>
