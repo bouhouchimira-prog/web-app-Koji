@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
 import { euro, shortDate } from "../../lib/pricing";
@@ -65,6 +65,11 @@ export default function FournituresDashboardPage() {
   const [busy, setBusy] = useState(false);
 
   const now = useMemo(() => new Date(), []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("newOrder") === "1") setFormOpen(true);
+  }, []);
 
   const kpis = useMemo(() => {
     const enCours = commandes.filter((c) => c.status !== "livree");

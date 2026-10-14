@@ -5,7 +5,7 @@ import { importSupplyFromUrl } from "../../../lib/supply-import";
 // Supplies live in the shared `fournitures` table used by the koji-main
 // Flutter app (joined with `fournisseurs` for the supplier name).
 
-const SUPPLY_SELECT = "*, fournisseurs(name)";
+const SUPPLY_SELECT = "*, fournisseurs(name), chantiers(reference)";
 
 function toNumber(value) {
   const number = Number(value || 0);
@@ -35,6 +35,15 @@ function mapFourniture(row) {
     barcode: row.barcode || "",
     imageUrl: row.image_url || "",
     sourceUrl: row.source_url || "",
+    // Achats "Divers" (14 oct, onglet Divers du catalogue) — magasin/achat
+    // ponctuel sans fournisseur au catalogue, rattache optionnellement a un
+    // chantier, avec un montant TTC (vs prix HT du catalogue) et une photo
+    // de ticket (stockee en data URL, pas de stockage fichier dans l'app).
+    storeName: row.magasin || "",
+    projectId: row.chantier_id || "",
+    projectTitle: row.chantiers?.reference || "",
+    amountTtc: toNumber(row.montant_ttc),
+    ticketPhoto: row.ticket_photo || "",
     createdAt: row.created_at || ""
   };
 }
@@ -75,7 +84,11 @@ export async function POST(request) {
       unite: body.unit || imported.unit || "unite",
       barcode: body.barcode || null,
       image_url: body.imageUrl || imported.imageUrl || null,
-      source_url: body.sourceUrl || body.importUrl || imported.sourceUrl || null
+      source_url: body.sourceUrl || body.importUrl || imported.sourceUrl || null,
+      magasin: body.storeName || null,
+      chantier_id: isUuid(body.projectId) ? body.projectId : null,
+      montant_ttc: toNumber(body.amountTtc || 0),
+      ticket_photo: body.ticketPhoto || null
     })
     .select(SUPPLY_SELECT)
     .single();
@@ -120,6 +133,10 @@ export async function PATCH(request) {
   if (Object.prototype.hasOwnProperty.call(body, "barcode")) updates.barcode = body.barcode || null;
   if (Object.prototype.hasOwnProperty.call(body, "imageUrl")) updates.image_url = body.imageUrl || null;
   if (Object.prototype.hasOwnProperty.call(body, "sourceUrl")) updates.source_url = body.sourceUrl || null;
+  if (Object.prototype.hasOwnProperty.call(body, "storeName")) updates.magasin = body.storeName || null;
+  if (Object.prototype.hasOwnProperty.call(body, "projectId")) updates.chantier_id = isUuid(body.projectId) ? body.projectId : null;
+  if (Object.prototype.hasOwnProperty.call(body, "amountTtc")) updates.montant_ttc = toNumber(body.amountTtc);
+  if (Object.prototype.hasOwnProperty.call(body, "ticketPhoto")) updates.ticket_photo = body.ticketPhoto || null;
   if (Object.keys(updates).length === 0) return badRequest("Aucune modification fournie.");
 
   const { data, error } = await auth.supabase

@@ -36,17 +36,40 @@ const initialSupplier = {
 
 const initialCategoryForm = { name: "" };
 
+const initialDivers = {
+  name: "",
+  storeName: "",
+  amountTtc: "",
+  projectId: "",
+  ticketPhoto: ""
+};
+
+const SUGGESTED_CATEGORIES = ["Matériaux", "Plomberie", "Électricité", "Peinture", "Carrelage", "Cloisons"];
+
+const CATALOGUE_SUBTITLES = {
+  categories: "Votre catalogue de matériaux, classé par catégorie.",
+  fournisseurs: "Vos fournisseurs et leurs coordonnées.",
+  divers: "Achats occasionnels : bazars, petits magasins, grandes surfaces."
+};
+
 export default function SuppliesCataloguePage() {
   const { L } = useLocale();
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: suppliers, setData: setSuppliers } = useApi("/api/suppliers", "suppliers");
   const { data: categories, setData: setCategories } = useApi("/api/categories", "categories");
   const { data: commandes } = useApi("/api/commandes", "commandes");
+  const { data: projects } = useApi("/api/projects", "projects");
 
   const [activeTab, setActiveTab] = useState("categories");
   const [activeCategory, setActiveCategory] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [selectedStore, setSelectedStore] = useState("");
+  const [diversSearch, setDiversSearch] = useState("");
+  const [diversDialog, setDiversDialog] = useState(false);
+  const [diversForm, setDiversForm] = useState(initialDivers);
+  const [editingDivers, setEditingDivers] = useState(null);
   const [fromDevis, setFromDevis] = useState(false);
   const [devisTargetRoom, setDevisTargetRoom] = useState("Services");
 
@@ -70,13 +93,52 @@ export default function SuppliesCataloguePage() {
   const [pendingQty, setPendingQty] = useState(1);
 
   const visibleSupplies = useMemo(() => {
-    if (activeTab === "divers") return supplies.filter((item) => !item.supplierId);
-    if (activeTab === "categories") {
-      if (activeCategory) return supplies.filter((item) => item.category === activeCategory);
-      return supplies;
+    let list = activeCategory ? supplies.filter((item) => item.category === activeCategory) : supplies;
+    const needle = categorySearch.trim().toLowerCase();
+    if (needle) list = list.filter((item) => (item.name || "").toLowerCase().includes(needle));
+    return list;
+  }, [activeCategory, categorySearch, supplies]);
+
+  const diversItems = useMemo(() => supplies.filter((item) => !item.supplierId), [supplies]);
+
+  const storeList = useMemo(() => {
+    const counts = {};
+    diversItems.forEach((item) => {
+      const name = item.storeName || "Sans magasin";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [diversItems]);
+
+  const filteredDiversItems = useMemo(() => {
+    let list = diversItems;
+    if (selectedStore) list = list.filter((item) => (item.storeName || "Sans magasin") === selectedStore);
+    const needle = diversSearch.trim().toLowerCase();
+    if (needle) {
+      list = list.filter((item) => (item.name || "").toLowerCase().includes(needle) || (item.storeName || "").toLowerCase().includes(needle));
     }
-    return supplies;
-  }, [activeTab, activeCategory, supplies]);
+    return list;
+  }, [diversItems, selectedStore, diversSearch]);
+
+  const diversStats = useMemo(() => {
+    const now = new Date();
+    const thisMonth = diversItems.filter((item) => {
+      const date = new Date(item.createdAt);
+      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    });
+    const depensesMois = thisMonth.reduce((sum, item) => sum + (Number(item.amountTtc) || 0), 0);
+    const rattachees = diversItems.filter((item) => item.projectId).length;
+    const avecTicket = diversItems.filter((item) => item.ticketPhoto).length;
+    return {
+      depensesMois,
+      depensesCount: thisMonth.length,
+      rattachees,
+      total: diversItems.length,
+      avecTicket
+    };
+  }, [diversItems]);
 
   const uniqueSuppliers = useMemo(() => {
     const seen = new Set();
@@ -300,6 +362,12 @@ export default function SuppliesCataloguePage() {
     closeCategoryDialog();
   }
 
+  async function quickAddCategory(name) {
+    const { category } = await apiSend("/api/categories", { name });
+    setCategories((current) => [...current, category]);
+    setActiveCategory(category.name);
+  }
+
   async function deleteCategory(cat) {
     const { category } = await apiSend("/api/categories", { id: cat.id, action: "delete" }, "PATCH");
     if (category?.deleted) {
@@ -403,6 +471,65 @@ export default function SuppliesCataloguePage() {
     setSupplierDialog(false);
     setEditingSupplier(null);
     setSupplierForm(initialSupplier);
+  }
+
+  // ── Achats "Divers" ─────────────────────────────────────────────────────────
+
+  function openAddDivers() {
+    setEditingDivers(null);
+    setDiversForm({ ...initialDivers, storeName: selectedStore && selectedStore !== "Sans magasin" ? selectedStore : "" });
+    setDiversDialog(true);
+  }
+
+  function openEditDivers(item) {
+    setEditingDivers(item);
+    setDiversForm({
+      name: item.name || "",
+      storeName: item.storeName || "",
+      amountTtc: String(item.amountTtc ?? ""),
+      projectId: item.projectId || "",
+      ticketPhoto: item.ticketPhoto || ""
+    });
+    setDiversDialog(true);
+  }
+
+  function closeDiversDialog() {
+    setDiversDialog(false);
+    setEditingDivers(null);
+    setDiversForm(initialDivers);
+  }
+
+  function handleTicketFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setDiversForm((current) => ({ ...current, ticketPhoto: String(reader.result || "") }));
+    reader.readAsDataURL(file);
+  }
+
+  async function submitDiversForm(event) {
+    event.preventDefault();
+    const payload = {
+      name: diversForm.name.trim(),
+      storeName: diversForm.storeName.trim(),
+      amountTtc: Number(diversForm.amountTtc || 0),
+      projectId: diversForm.projectId || "",
+      ticketPhoto: diversForm.ticketPhoto || "",
+      category: "Divers",
+      quantity: 1,
+      purchasePriceHt: 0,
+      salePriceHt: 0
+    };
+    const { supply } = editingDivers
+      ? await apiSend("/api/supplies", { id: editingDivers.id, ...payload }, "PATCH")
+      : await apiSend("/api/supplies", payload);
+    setSupplies(editingDivers ? supplies.map((item) => item.id === supply.id ? supply : item) : [supply, ...supplies]);
+    closeDiversDialog();
+    setMessage(editingDivers ? `Achat mis à jour : ${supply.name}` : `Achat ajouté : ${supply.name}`);
+  }
+
+  function storeInitials(name = "") {
+    return (name || "?").slice(0, 2).toUpperCase();
   }
 
   // ── Supply row ──────────────────────────────────────────────────────────────
@@ -572,10 +699,13 @@ export default function SuppliesCataloguePage() {
   return (
     <Shell>
       <section className="mobile-tool">
-        <header className="tool-topline">
+        <header className="catalogue-topline">
           <button type="button" className="plain-back" onClick={() => fromDevis ? window.location.assign("/devis?new=1") : (window.history.length > 1 ? window.history.back() : window.location.assign("/fournitures"))}>{"<"}</button>
-          <h1>{L.fournitures.title}</h1>
-          <span />
+          <div className="catalogue-topline-title">
+            <h1>Fournitures</h1>
+            <p>{CATALOGUE_SUBTITLES[activeTab] || CATALOGUE_SUBTITLES.categories}</p>
+          </div>
+          {!fromDevis ? <a href="/fournitures?newOrder=1" className="button blue">+ Nouvelle commande</a> : <span />}
         </header>
 
         {fromDevis ? (
@@ -628,20 +758,55 @@ export default function SuppliesCataloguePage() {
 
             {/* Right: supply list */}
             <div className="cat-supply-panel">
-              <div className="panel-header">
-                <strong>{activeCategory || L.fournitures.allSupplies}</strong>
+              <div className="catalogue-search-row">
+                <input
+                  className="supplier-search-input"
+                  value={categorySearch}
+                  onChange={(event) => setCategorySearch(event.target.value)}
+                  placeholder="Rechercher une fourniture..."
+                />
                 <button
                   type="button"
-                  className="mini-button primary"
+                  className="button blue"
                   onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setFormOpen(true); }}
                 >
-                  + {L.common.add}
+                  + Ajouter une fourniture
                 </button>
               </div>
+
               {visibleSupplies.length === 0 ? (
-                <div className="tool-empty">{L.fournitures.noSupplies}</div>
-              ) : null}
-              {visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)}
+                <>
+                  <div className="catalogue-empty-card">
+                    <span className="catalogue-empty-icon">📦</span>
+                    <strong>Votre catalogue est vide</strong>
+                    <p>Ajoutez les matériaux que vous utilisez le plus souvent. Ils seront proposés en un clic dans vos devis et vos commandes.</p>
+                    <div className="catalogue-empty-actions">
+                      <button
+                        type="button"
+                        className="button blue"
+                        onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setFormOpen(true); }}
+                      >
+                        + Ajouter une fourniture
+                      </button>
+                      <button type="button" className="button secondary" onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setViaUrl(true); setFormOpen(true); }}>
+                        Importer un fichier
+                      </button>
+                    </div>
+                  </div>
+                  {categories.length === 0 ? (
+                    <div className="catalogue-suggestions-card">
+                      <strong>Commencer par une catégorie</strong>
+                      <div className="catalogue-suggestions-row">
+                        {SUGGESTED_CATEGORIES.map((name) => (
+                          <button type="button" key={name} className="catalogue-suggestion-pill" onClick={() => quickAddCategory(name)}>+ {name}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)
+              )}
             </div>
           </div>
         ) : activeTab === "fournisseurs" ? (
@@ -769,13 +934,102 @@ export default function SuppliesCataloguePage() {
             </div>
           </div>
         ) : (
-          <div className="tool-list">
-            <div className="panel-header">
-              <strong>{L.fournitures.various}</strong>
-              <button type="button" className="mini-button primary" onClick={() => { setForm({ ...initialSupply, supplierId: "" }); setEditingSupply(null); setFormOpen(true); }}>+ {L.common.add}</button>
+          <div className="supplier-master-detail">
+            <div className="supplier-list-panel">
+              <div className="panel-header">
+                <strong className="title-chip">Tous les magasins</strong>
+                <span className="supplier-list-count">{diversItems.length}</span>
+              </div>
+              <div className="supplier-list-items">
+                <button
+                  type="button"
+                  className={`supplier-list-item ${!selectedStore ? "active" : ""}`}
+                  onClick={() => setSelectedStore("")}
+                >
+                  <span className="supplier-list-name">Tous les magasins</span>
+                  <span className="supplier-list-count">{diversItems.length}</span>
+                </button>
+                {storeList.map((store) => (
+                  <button
+                    type="button"
+                    key={store.name}
+                    className={`supplier-list-item ${selectedStore === store.name ? "active" : ""}`}
+                    onClick={() => setSelectedStore(store.name)}
+                  >
+                    <span className="supplier-list-name">{store.name}</span>
+                    <span className="supplier-list-count">{store.count}</span>
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="cat-tree-add" onClick={openAddDivers}>
+                + Ajouter un magasin
+              </button>
             </div>
-            {visibleSupplies.length === 0 ? <div className="tool-empty">{L.fournitures.noDivers}</div> : null}
-            {visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)}
+
+            <div className="supplier-detail-panel">
+              <div className="catalogue-info-banner">
+                ℹ️ Pour les petits achats sans fournisseur : prenez le ticket en photo et rattachez l'achat à un chantier pour suivre vos dépenses.
+              </div>
+
+              <div className="supplier-stat-grid">
+                <div className="fournitures-kpi-card">
+                  <div className="fournitures-kpi-card-head">
+                    <span className="fournitures-kpi-icon fournitures-kpi-icon-green">💶</span>
+                    <span className="title-chip">Dépenses du mois</span>
+                  </div>
+                  <strong>{euro(diversStats.depensesMois)}</strong>
+                  <small>{diversStats.depensesCount} achat{diversStats.depensesCount > 1 ? "s" : ""}</small>
+                </div>
+                <div className="fournitures-kpi-card">
+                  <div className="fournitures-kpi-card-head">
+                    <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">🏗️</span>
+                    <span className="title-chip">Rattachées à un chantier</span>
+                  </div>
+                  <strong>{diversStats.rattachees}</strong>
+                  <small>sur {diversStats.total} achat{diversStats.total > 1 ? "s" : ""}</small>
+                </div>
+                <div className="fournitures-kpi-card">
+                  <div className="fournitures-kpi-card-head">
+                    <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🧾</span>
+                    <span className="title-chip">Tickets joints</span>
+                  </div>
+                  <strong>{diversStats.avecTicket}/{diversStats.total}</strong>
+                  <small>{diversStats.total - diversStats.avecTicket > 0 ? `${diversStats.total - diversStats.avecTicket} ticket${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""} manquant${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""}` : "tout est à jour"}</small>
+                </div>
+              </div>
+
+              <div className="catalogue-search-row">
+                <input
+                  className="supplier-search-input"
+                  value={diversSearch}
+                  onChange={(event) => setDiversSearch(event.target.value)}
+                  placeholder="Rechercher un achat ou un magasin..."
+                />
+                <button type="button" className="button blue" onClick={openAddDivers}>+ Ajouter un achat</button>
+              </div>
+
+              {filteredDiversItems.length === 0 ? (
+                <div className="tool-empty">{L.fournitures.noDivers}</div>
+              ) : (
+                <div className="supplier-articles-list">
+                  {filteredDiversItems.map((item) => (
+                    <div className="divers-purchase-row" key={item.id} onClick={() => openEditDivers(item)}>
+                      <span className="supplier-list-avatar">{storeInitials(item.storeName)}</span>
+                      <div className="divers-purchase-main">
+                        <strong>{item.name}</strong>
+                        <small>{item.storeName || "Sans magasin"} · {shortDate(item.createdAt)}</small>
+                      </div>
+                      <div className="divers-purchase-tags">
+                        {item.projectTitle ? <span className="divers-tag divers-tag-project">{item.projectTitle}</span> : <span className="divers-tag">Sans chantier</span>}
+                        {item.ticketPhoto ? <span className="divers-tag divers-tag-ticket">📎 Ticket</span> : <span className="divers-tag divers-tag-warning">Sans ticket</span>}
+                      </div>
+                      <span className="supplier-article-price">{euro(item.amountTtc)} <small>TTC</small></span>
+                      <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditDivers(item); }}>{L.common.edit}</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -838,6 +1092,61 @@ export default function SuppliesCataloguePage() {
                 ) : null}
                 <button type="button" onClick={closeSupplierDialog}>{L.common.cancel}</button>
                 <button type="submit" className="button blue">{editingSupplier ? L.common.save : L.common.create}</button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+
+        {diversDialog ? (
+          <div className="modal-overlay" onClick={closeDiversDialog}>
+            <form className="mini-modal category-modal" onSubmit={submitDiversForm} onClick={(event) => event.stopPropagation()}>
+              <h2>{editingDivers ? "Modifier l'achat" : "Nouvel achat"}</h2>
+              <label className="category-modal-field">
+                <span>Description</span>
+                <input
+                  value={diversForm.name}
+                  onChange={(event) => setDiversForm((current) => ({ ...current, name: event.target.value }))}
+                  placeholder="Ex : Rallonge électrique 10 m, adaptateur"
+                  autoFocus
+                  required
+                />
+              </label>
+              <label className="category-modal-field">
+                <span>Magasin</span>
+                <input
+                  value={diversForm.storeName}
+                  onChange={(event) => setDiversForm((current) => ({ ...current, storeName: event.target.value }))}
+                  placeholder="Ex : Lidl, Action, Bazar du coin..."
+                />
+              </label>
+              <label className="category-modal-field">
+                <span>Montant (TTC)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={diversForm.amountTtc}
+                  onChange={(event) => setDiversForm((current) => ({ ...current, amountTtc: event.target.value }))}
+                  placeholder="0,00"
+                />
+              </label>
+              <label className="category-modal-field">
+                <span>Chantier</span>
+                <select value={diversForm.projectId} onChange={(event) => setDiversForm((current) => ({ ...current, projectId: event.target.value }))}>
+                  <option value="">Sans chantier</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </label>
+              <label className="category-modal-field">
+                <span>Photo du ticket</span>
+                <input type="file" accept="image/*" onChange={handleTicketFile} />
+                {diversForm.ticketPhoto ? <img src={diversForm.ticketPhoto} alt="Ticket" className="divers-ticket-preview" /> : null}
+              </label>
+              <div className="category-modal-actions">
+                {editingDivers ? (
+                  <button type="button" className="button danger small" onClick={() => { closeDiversDialog(); deleteSupply(editingDivers); }}>{L.common.delete}</button>
+                ) : null}
+                <button type="button" onClick={closeDiversDialog}>{L.common.cancel}</button>
+                <button type="submit" className="button blue">{editingDivers ? L.common.save : L.common.create}</button>
               </div>
             </form>
           </div>

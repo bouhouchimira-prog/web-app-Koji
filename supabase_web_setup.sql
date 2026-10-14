@@ -123,3 +123,14 @@ ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS address TEXT DEFAULT '';
 ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS website TEXT DEFAULT '';
 ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
 ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- ── fournitures : achats "Divers" (14 octobre) ─────────────────────────────
+-- Onglet "Divers" du catalogue : petits achats ponctuels (bazars, grandes
+-- surfaces) sans fournisseur au catalogue, optionnellement rattaches a un
+-- chantier, avec un montant TTC (distinct du prix HT du catalogue) et une
+-- photo de ticket (stockee en data URL — l'app n'a pas de stockage fichier
+-- dedie aujourd'hui).
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS magasin TEXT DEFAULT '';
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS chantier_id UUID REFERENCES chantiers(id);
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS montant_ttc NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS ticket_photo TEXT DEFAULT '';

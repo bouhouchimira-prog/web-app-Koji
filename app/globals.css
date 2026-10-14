@@ -16086,6 +16086,209 @@ body :where(
   color: var(--navy);
 }
 
+/* ── Catalogue : en-tete + onglets "Categories"/"Divers" (14 oct) ───────── */
+
+.catalogue-topline {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.catalogue-topline-title h1 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.catalogue-topline-title p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.catalogue-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.catalogue-search-row .supplier-search-input {
+  flex: 1;
+  margin: 0;
+}
+
+.catalogue-search-row button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.catalogue-empty-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.catalogue-empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #eef1fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.catalogue-empty-card strong {
+  font-size: 1.05rem;
+  color: var(--navy);
+}
+
+.catalogue-empty-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  max-width: 440px;
+}
+
+.catalogue-empty-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.catalogue-suggestions-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.catalogue-suggestions-card strong {
+  color: var(--navy);
+  font-size: 0.9rem;
+}
+
+.catalogue-suggestions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.catalogue-suggestion-pill {
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.catalogue-suggestion-pill:hover {
+  background: #f6f7fb;
+}
+
+.catalogue-info-banner {
+  background: #eef1fa;
+  color: var(--navy);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  margin-bottom: 16px;
+}
+
+.divers-purchase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.divers-purchase-row:last-child {
+  border-bottom: 0;
+}
+
+.divers-purchase-row:hover {
+  background: #f6f7fb;
+}
+
+.divers-purchase-main {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+}
+
+.divers-purchase-main strong {
+  font-size: 0.86rem;
+  color: var(--navy);
+}
+
+.divers-purchase-main small {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.divers-purchase-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.divers-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f1efe9;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.divers-tag-project {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.divers-tag-ticket {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.divers-tag-warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.divers-ticket-preview {
+  margin-top: 8px;
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  object-fit: contain;
+}
+
 /* Category modal field label */
 .category-modal-field {
   display: grid;
