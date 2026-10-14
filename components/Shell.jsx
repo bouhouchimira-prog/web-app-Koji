@@ -279,6 +279,13 @@ export function Shell({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  // Recherche globale de la barre du haut (12 oct, demande d'Amira) —
+  // chantiers/devis/contacts, debounce 300ms, /api/search.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState({ chantiers: [], devis: [], contacts: [] });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef(null);
+  const searchDebounceRef = useRef(null);
   // Menu deroulant sur l'avatar (30 sept, demande d'Amira) : Profil /
   // Parametres / Deconnexion accessibles directement au clic sur l'avatar,
   // sans dependre du bouton menu du panneau lateral (.side-rail) — ce
@@ -505,10 +512,26 @@ export function Shell({ children }) {
     function handleClick(e) {
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
       if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target)) setAvatarMenuOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    clearTimeout(searchDebounceRef.current);
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults({ chantiers: [], devis: [], contacts: [] });
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      apiGet(`/api/search?q=${encodeURIComponent(query)}`)
+        .then((data) => setSearchResults({ chantiers: data.chantiers || [], devis: data.devis || [], contacts: data.contacts || [] }))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(searchDebounceRef.current);
+  }, [searchQuery]);
   const [profileType, setProfileType] = useState("entreprise");
   const [kojiUserName, setKojiUserName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -634,10 +657,43 @@ export function Shell({ children }) {
         {/* Logo centre remplace par une barre de recherche (demande
             d'Amira, 12 oct) — la cloche de notification est revenue a sa
             place d'origine, a droite avec l'avatar (12 oct, meme jour). */}
-        <label className="topbar-search">
-          <Icon name="search" className="svg-icon" />
-          <input type="text" placeholder="Rechercher un chantier, un devis, un contact…" disabled title="Recherche bientôt disponible" />
-        </label>
+        <div className="topbar-search-wrap" ref={searchRef}>
+          <label className="topbar-search">
+            <Icon name="search" className="svg-icon" />
+            <input
+              type="text"
+              placeholder="Rechercher un chantier, un devis, un contact…"
+              value={searchQuery}
+              onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true); }}
+              onFocus={() => setSearchOpen(true)}
+            />
+          </label>
+          {searchOpen && searchQuery.trim().length >= 2 ? (
+            <div className="search-dropdown">
+              {searchResults.chantiers.length === 0 && searchResults.devis.length === 0 && searchResults.contacts.length === 0 ? (
+                <p className="notif-dropdown-empty">Aucun résultat</p>
+              ) : (
+                <>
+                  {[
+                    { key: "chantiers", label: "Chantiers", items: searchResults.chantiers },
+                    { key: "devis", label: "Devis", items: searchResults.devis },
+                    { key: "contacts", label: "Contacts", items: searchResults.contacts }
+                  ].filter((group) => group.items.length > 0).map((group) => (
+                    <div className="search-dropdown-group" key={group.key}>
+                      <small>{group.label}</small>
+                      {group.items.map((item) => (
+                        <Link key={item.id} href={item.href} onClick={() => { setSearchOpen(false); setSearchQuery(""); }}>
+                          <strong>{item.title}</strong>
+                          {item.sub ? <span>{item.sub}</span> : null}
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
 
         <div className="topbar-right">
           <div className="topbar-notif" ref={notifRef}>

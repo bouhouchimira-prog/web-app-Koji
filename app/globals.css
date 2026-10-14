@@ -3201,19 +3201,66 @@ p {
 }
 
 /* Barre de recherche a la place du logo centre (12 oct, demande d'Amira) —
-   non fonctionnelle pour l'instant (input disabled), juste le
-   positionnement/l'affichage. */
+   chantiers/devis/contacts, voir app/api/search/route.js. */
+.topbar-search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+  margin: 0 8px;
+}
+
 .topbar-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  max-width: 420px;
-  margin: 0 8px;
+  width: 100%;
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 8px 14px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 11, 40, .13);
+  max-height: 60vh;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+.search-dropdown-group small {
+  display: block;
+  padding: 6px 16px 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.search-dropdown-group a {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 16px;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.search-dropdown-group a:hover {
+  background: var(--soft);
+}
+
+.search-dropdown-group a span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .topbar-search .svg-icon {
