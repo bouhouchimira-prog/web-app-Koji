@@ -1863,6 +1863,22 @@ export default function DevisEditor() {
     }
   }
 
+  async function handleMarkRefused() {
+    if (!window.confirm("Marquer ce devis comme refusé par le client ?")) {
+      notify("Action annulée.", "info");
+      return;
+    }
+    try {
+      const quote = await persistQuote();
+      const { quote: refused } = await apiSend("/api/quotes", { id: quote.id, action: "refuse" }, "PATCH");
+      setGeneratedQuote(refused);
+      setQuotes((current) => current.map((item) => item.id === refused.id ? refused : item));
+      notify("Devis marqué comme refusé.", "success");
+    } catch (error) {
+      notifyError(error, "Impossible de marquer ce devis comme refusé.");
+    }
+  }
+
   async function handlePreview(type = "quote") {
     if (!requireLines()) return;
     try {
@@ -1954,6 +1970,38 @@ export default function DevisEditor() {
       notify("Devis annulé.", "success");
     } catch (error) {
       notify(error.message || "Impossible d'annuler le devis.", "error");
+    }
+  }
+
+  async function handleArchiveQuote() {
+    if (!generatedQuote?.id) return;
+    if (!window.confirm("Archiver ce devis ?")) {
+      notify("Action annulée.", "info");
+      return;
+    }
+    try {
+      const { quote } = await apiSend("/api/quotes", { id: generatedQuote.id, action: "archive" }, "PATCH");
+      setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+      notify("Devis archivé.", "success");
+      router.push("/devis");
+    } catch (error) {
+      notify(error.message || "Impossible d'archiver le devis.", "error");
+    }
+  }
+
+  async function handleDeleteQuote() {
+    if (!generatedQuote?.id) return;
+    if (!window.confirm("Supprimer définitivement ce devis ? Cette action est irréversible.")) {
+      notify("Action annulée.", "info");
+      return;
+    }
+    try {
+      await apiSend("/api/quotes", { id: generatedQuote.id, action: "delete" }, "PATCH");
+      setQuotes((current) => current.filter((item) => item.id !== generatedQuote.id));
+      notify("Devis supprimé.", "success");
+      router.push("/devis");
+    } catch (error) {
+      notify(error.message || "Impossible de supprimer le devis.", "error");
     }
   }
 
@@ -3181,6 +3229,15 @@ export default function DevisEditor() {
               <button type="button" onClick={() => { setMoreActionsOpen(false); handleConfirm(); }}>{L.devis.confirm}</button>
               {generatedQuote?.signatureStatus !== "Signe" ? (
                 <button type="button" onClick={() => { setMoreActionsOpen(false); openAcceptComposer(); }}>{L.devis.acceptManually}</button>
+              ) : null}
+              {generatedQuote?.id && generatedQuote?.signatureStatus !== "Signe" && generatedQuote?.status !== "Refuse" ? (
+                <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleMarkRefused(); }}>Marquer comme refusé</button>
+              ) : null}
+              {generatedQuote?.id ? (
+                <button type="button" onClick={() => { setMoreActionsOpen(false); handleArchiveQuote(); }}>Archiver</button>
+              ) : null}
+              {generatedQuote?.id ? (
+                <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleDeleteQuote(); }}>{L.common.delete}</button>
               ) : null}
               {generatedQuote?.signatureStatus === "Signe" && generatedQuote?.projectId ? (
                 <button type="button" onClick={() => { setMoreActionsOpen(false); router.push(`/chantiers?project=${generatedQuote.projectId}`); }}>

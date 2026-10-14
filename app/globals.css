@@ -20238,6 +20238,82 @@ button.chantiers-table-row {
   color: var(--muted);
 }
 
+/* ── Devis : tableau de bord (15 oct) ───────────────────────────────────── */
+
+.devis-table-row {
+  grid-template-columns: 0.7fr 2fr 1fr 1fr;
+}
+
+.devis-pipeline-row + .devis-pipeline-row {
+  margin-top: 12px;
+}
+
+.devis-pipeline-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+
+.devis-pipeline-bar {
+  height: 6px;
+  background: #f1efe9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.devis-pipeline-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s;
+}
+
+.devis-relance-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.devis-relance-row:last-child {
+  border-bottom: none;
+}
+
+.devis-relance-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.devis-relance-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.devis-relance-main strong {
+  font-size: 13px;
+  color: var(--navy);
+}
+
+.devis-relance-main small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
 .status-pill {
   display: inline-block;
   padding: 4px 10px;

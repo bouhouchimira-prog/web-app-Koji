@@ -26,6 +26,7 @@ const QUOTE_HISTORY_LABEL = {
   ready: (q) => `Devis prêt à envoyer : ${q.quoteNumber}`,
   send: (q) => `Lien de signature cree: ${q.quoteNumber}`,
   "accept-manually": (q) => `Devis accepte manuellement: ${q.quoteNumber}`,
+  refuse: (q) => `Devis marque refuse: ${q.quoteNumber}`,
   archive: (q) => `Devis archive: ${q.quoteNumber}`,
   cancel: (q) => `Devis annule: ${q.quoteNumber}`,
   restore: (q) => `Devis restaure: ${q.quoteNumber}`
@@ -467,6 +468,15 @@ export async function PATCH(request) {
         meta: { clientUserId: manualAccess.userId, email: manualAccess.email, phone: manualAccess.phone }
       });
     }
+  }
+
+  // Marque explicitement un devis comme refuse par le client (15 oct,
+  // tableau de bord Devis d'Amira) — distinct de "cancel"/"Annule", qui
+  // sert a l'entreprise a reinitialiser un devis (voir DevisEditor.jsx).
+  if (action === "refuse" && quote.signatureStatus !== "Signe") {
+    quote.status = "Refuse";
+    quote.refusedAt = now;
+    quote.refusalReason = fixText(body.refusalReason || "");
   }
 
   if (action === "archive") {
