@@ -170,27 +170,35 @@ export default function FournituresDashboardPage() {
 
         <div className="fournitures-kpi-row">
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
+              <span>Commandes en cours</span>
+            </div>
             <strong>{kpis.enCours}</strong>
-            <span>Commandes en cours</span>
             <small>{kpis.enCoursSuppliers} fournisseur{kpis.enCoursSuppliers > 1 ? "s" : ""}</small>
           </div>
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🚚</span>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🚚</span>
+              <span>À livrer cette semaine</span>
+            </div>
             <strong>{kpis.aLivrer}</strong>
-            <span>À livrer cette semaine</span>
             <small className="positive">{kpis.demain ? `dont ${kpis.demain} demain` : "—"}</small>
           </div>
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
+              <span>Stock bas</span>
+            </div>
             <strong>{kpis.stockBas.length}</strong>
-            <span>Stock bas</span>
             <small className="warning">{kpis.stockBas.length ? "articles à recommander" : "—"}</small>
           </div>
           <div className="fournitures-kpi-card">
-            <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
+              <span>Dépenses du mois</span>
+            </div>
             <strong>{euro(kpis.depensesMois)}</strong>
-            <span>Dépenses du mois</span>
             <small>HT</small>
           </div>
         </div>

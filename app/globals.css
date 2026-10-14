@@ -19163,15 +19163,29 @@ body :where(
   gap: 2px;
 }
 
+/* Icone + titre sur la meme ligne, en haut de carte (comme la maquette) —
+   le nombre et le sous-texte suivent en dessous. */
+.fournitures-kpi-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fournitures-kpi-card-head > span:last-child {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .fournitures-kpi-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  font-size: 16px;
-  margin-bottom: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .fournitures-kpi-icon-blue { background: #dbeafe; }
@@ -19180,16 +19194,12 @@ body :where(
 .fournitures-kpi-icon-purple { background: #ede9fe; }
 
 .fournitures-kpi-card strong {
-  font-size: 22px;
+  font-size: 24px;
   color: var(--navy);
 }
 
-.fournitures-kpi-card > span {
-  font-size: 13px;
-  color: var(--muted);
-}
-
 .fournitures-kpi-card small {
+  display: block;
   font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
