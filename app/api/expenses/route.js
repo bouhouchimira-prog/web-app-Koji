@@ -38,10 +38,12 @@ export async function POST(request) {
   const now = new Date().toISOString();
   const amount = toAmount(body.amount);
 
-  if (!body.projectId) return badRequest("Chantier obligatoire.", 400);
   if (amount <= 0) return badRequest("Le montant doit être supérieur à zéro.", 400);
 
-  const project = db.projects.find((item) => item.id === body.projectId);
+  // projectId optionnel (15 oct, tableau de bord Comptabilite) — une charge
+  // d'entreprise generale (assurance decennale, salaires...) n'est pas
+  // forcement rattachee a un chantier precis.
+  const project = body.projectId ? db.projects.find((item) => item.id === body.projectId) : null;
   const expense = {
     id: `exp-${Date.now()}`,
     userId,

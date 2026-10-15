@@ -20314,6 +20314,180 @@ button.chantiers-table-row {
   font-size: 11.5px;
 }
 
+/* ── Comptabilite : tableau de bord (15 oct) ────────────────────────────── */
+
+.compta-month-select {
+  border: 1px solid var(--line);
+  background: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compta-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.compta-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compta-legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.compta-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  height: 220px;
+  padding-top: 10px;
+}
+
+.compta-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.compta-chart-bars {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+}
+
+.compta-chart-bar {
+  width: 18px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+}
+
+.compta-chart-bar-ca {
+  background: #0b1f44;
+}
+
+.compta-chart-bar-charges {
+  background: #f0ad4e;
+}
+
+.compta-chart-col small {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.compta-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.compta-donut {
+  flex-shrink: 0;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compta-donut-center {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.compta-donut-center strong {
+  font-size: 13px;
+  color: var(--navy);
+}
+
+.compta-donut-center small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.compta-donut-legend {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compta-donut-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--navy);
+}
+
+.compta-donut-legend-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.compta-ecriture-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.compta-ecriture-row:last-child {
+  border-bottom: none;
+}
+
+.compta-ecriture-row strong {
+  display: block;
+  font-size: 12.5px;
+  color: var(--navy);
+}
+
+.compta-ecriture-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.compta-amount-positive {
+  color: #15803d;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.compta-amount-negative {
+  color: #b91c1c;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .status-pill {
   display: inline-block;
   padding: 4px 10px;
