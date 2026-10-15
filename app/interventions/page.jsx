@@ -125,6 +125,7 @@ export default function InterventionsPage() {
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: invoices } = useApi("/api/invoices", "invoices");
   const [mode, setMode] = useState("list"); // list | form | preview | detail
+  const [statusFilter, setStatusFilter] = useState("toutes");
   const [form, setForm] = useState(emptyForm);
   const [company, setCompany] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -530,41 +531,115 @@ export default function InterventionsPage() {
     );
   }
 
+  const withWorkStatus = interventions.map((item) => ({ ...item, workStatus: item.status === "facturee" || item.status === "archivee" ? item.status : interventionWorkStatus(item) }));
+  const dashboardStats = {
+    total: interventions.length,
+    aFaire: withWorkStatus.filter((i) => i.workStatus === "a_faire").length,
+    enCours: withWorkStatus.filter((i) => i.workStatus === "en_cours").length,
+    facturees: withWorkStatus.filter((i) => i.status === "facturee").length
+  };
+  const filteredInterventions = statusFilter === "toutes" ? withWorkStatus : withWorkStatus.filter((i) => i.workStatus === statusFilter);
+  const nonFacturees = withWorkStatus
+    .filter((i) => i.status !== "facturee" && i.status !== "archivee")
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
+    .slice(0, 6);
+
   return (
     <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>{L.interventions.title}</h1>
-          <span />
+      <section className="fournitures-dashboard">
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">{L.interventions.title}</span></h1>
+            <p>Vos rapports d'intervention, du constat à la facturation.</p>
+          </div>
+          <div className="fournitures-dashboard-head-actions">
+            <button type="button" className="button blue" onClick={openCreate}>+ {L.interventions.newTitle}</button>
+          </div>
         </header>
 
         {message ? <p className="tool-message">{message}</p> : null}
 
-        <div className="people-list">
-          {interventions.length === 0 ? <div className="tool-empty">{L.interventions.empty}</div> : null}
-          {interventions.map((item) => {
-            const status = displayStatus(item, L);
-            return (
-              <article
-                className="person-row clickable"
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => openDetail(item)}
-                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetail(item); } }}
-              >
-                <div>
-                  <strong>{item.client}</strong>
-                  <small>{[item.site, formatDate(item.date)].filter(Boolean).join(" — ")}</small>
-                </div>
-                <span className={`intervention-status-badge ${status.className}`}>{status.label}</span>
-              </article>
-            );
-          })}
+        <div className="fournitures-kpi-row">
+          <button type="button" className={`fournitures-kpi-card clickable ${statusFilter === "toutes" ? "kpi-active" : ""}`} onClick={() => setStatusFilter("toutes")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">🛠️</span>
+              <span className="title-chip">Interventions</span>
+            </div>
+            <strong>{dashboardStats.total}</strong>
+            <small>au total</small>
+          </button>
+          <button type="button" className={`fournitures-kpi-card clickable ${statusFilter === "a_faire" ? "kpi-active" : ""}`} onClick={() => setStatusFilter("a_faire")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏳</span>
+              <span className="title-chip">À faire</span>
+            </div>
+            <strong>{dashboardStats.aFaire}</strong>
+            <small>à planifier</small>
+          </button>
+          <button type="button" className={`fournitures-kpi-card clickable ${statusFilter === "en_cours" ? "kpi-active" : ""}`} onClick={() => setStatusFilter("en_cours")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">🔧</span>
+              <span className="title-chip">En cours</span>
+            </div>
+            <strong>{dashboardStats.enCours}</strong>
+            <small>en traitement</small>
+          </button>
+          <button type="button" className={`fournitures-kpi-card clickable ${statusFilter === "facturee" ? "kpi-active" : ""}`} onClick={() => setStatusFilter("facturee")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">✅</span>
+              <span className="title-chip">Facturées</span>
+            </div>
+            <strong>{dashboardStats.facturees}</strong>
+            <small>clôturées</small>
+          </button>
         </div>
 
-        <button type="button" className="mobile-primary sticky-bottom" onClick={openCreate}>{L.interventions.newTitle}</button>
+        <div className="fournitures-dashboard-body">
+          <div className="fournitures-main-card">
+            <div className="fournitures-main-card-head">
+              <strong className="title-chip">Interventions</strong>
+              {statusFilter !== "toutes" ? <button type="button" className="mini-button" onClick={() => setStatusFilter("toutes")}>Réinitialiser le filtre</button> : null}
+            </div>
+            <div className="people-list">
+              {filteredInterventions.length === 0 ? <div className="tool-empty">{L.interventions.empty}</div> : null}
+              {filteredInterventions.map((item) => {
+                const status = displayStatus(item, L);
+                return (
+                  <article
+                    className="person-row clickable"
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openDetail(item)}
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetail(item); } }}
+                  >
+                    <div>
+                      <strong>{item.client}</strong>
+                      <small>{[item.site, formatDate(item.date)].filter(Boolean).join(" — ")}</small>
+                    </div>
+                    <span className={`intervention-status-badge ${status.className}`}>{status.label}</span>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="fournitures-sidebar-card">
+            <strong className="title-chip">Non facturées</strong>
+            {nonFacturees.length === 0 ? (
+              <div className="tool-empty">Rien en attente de facturation.</div>
+            ) : (
+              nonFacturees.map((item) => (
+                <div className="divers-purchase-row" key={item.id} onClick={() => openDetail(item)}>
+                  <div className="divers-purchase-main">
+                    <strong>{item.client}</strong>
+                    <small>{[item.site, formatDate(item.date)].filter(Boolean).join(" · ")}</small>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </section>
     </Shell>
   );
