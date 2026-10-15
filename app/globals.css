@@ -18766,10 +18766,6 @@ body :where(
 
 /* ── Avenants ─────────────────────────────────────────────────────────── */
 
-.avenant-page .quote-col-right {
-  align-self: flex-start;
-}
-
 .avenant-status-badge {
   display: inline-flex;
   align-items: center;
@@ -18850,6 +18846,287 @@ body :where(
   margin-bottom: 10px;
 }
 
+/* ── Avenant : editeur (15 oct, maquette fournie par Amira) ─────────────── */
+
+.avenant-page-v2 {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.avenant-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avenant-back-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #EDEDF3;
+  background: white;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.avenant-topbar-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.avenant-topbar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avenant-topbar-title h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+}
+
+.avenant-topbar-title p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6B7280;
+}
+
+.avenant-status-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 12px;
+  background: #F0F1F5;
+  color: #6B7280;
+}
+
+.avenant-status-pill-Envoye {
+  background: #fff7e6;
+  color: #b98a3e;
+}
+
+.avenant-status-pill-Signe {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.avenant-status-pill-Refuse {
+  background: #fff5f5;
+  color: #d94444;
+}
+
+.avenant-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.avenant-link-btn {
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.avenant-link-btn.danger {
+  color: #C4452D;
+}
+
+.avenant-body {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.avenant-col-left {
+  flex: 1.5 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.avenant-col-right {
+  flex: 1 1 0;
+  min-width: 0;
+  position: sticky;
+  top: 16px;
+  background: white;
+  border: 1px solid #EDEDF3;
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .avenant-body {
+    flex-direction: column;
+  }
+
+  .avenant-col-right {
+    position: static;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+.avenant-card {
+  background: white;
+  border: 1px solid #EDEDF3;
+  border-radius: 18px;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.avenant-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.avenant-card-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.avenant-rattachement-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .avenant-rattachement-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.avenant-rattachement-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.avenant-rattachement-field > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6B7280;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.avenant-rattachement-box {
+  min-height: 58px;
+  border-radius: 12px;
+  border: 1px solid #E5E5EC;
+  background: #FBFBFD;
+  padding: 8px 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+a.avenant-rattachement-box:hover {
+  border-color: #DADDE6;
+}
+
+.avenant-rattachement-main {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E2430;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avenant-rattachement-main.muted {
+  color: #9C9FB0;
+  font-weight: 600;
+}
+
+.avenant-rattachement-sub {
+  font-size: 12px;
+  color: #6B7280;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avenant-facturation-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.avenant-facturation-row > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.avenant-pill-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.avenant-pill {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 18px;
+  border: 1.5px solid #E5E5EC;
+  background: white;
+  color: #6B7280;
+}
+
+.avenant-pill.active {
+  border-color: var(--navy);
+  background: #EDEFFB;
+  color: var(--navy);
+}
+
+.avenant-motif-textarea {
+  min-height: 60px;
+  border-radius: 12px;
+  border: 1px solid #E5E5EC;
+  background: #FBFBFD;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--navy);
+  resize: vertical;
+}
+
 .avenant-ligne-add-actions {
   display: flex;
   align-items: center;
@@ -18857,10 +19134,33 @@ body :where(
 }
 
 .avenant-ligne-add-actions select {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 0.8rem;
+  height: 36px;
+  border: 1px solid #DADDE6;
+  border-radius: 10px;
+  padding: 0 8px;
+  font-size: 13px;
+  background: white;
+  color: var(--navy);
+}
+
+.avenant-mini-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #DADDE6;
+  background: white;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.avenant-ligne-empty-hint {
+  border: 1.5px dashed #DADDE6;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #6B7280;
 }
 
 .avenant-ligne-list {
@@ -18869,96 +19169,251 @@ body :where(
   gap: 8px;
 }
 
+.avenant-ligne-block {
+  border-radius: 12px;
+  background: #F6F7FB;
+  overflow: hidden;
+}
+
 .avenant-ligne-row {
-  display: grid;
-  grid-template-columns: 116px 1.6fr 1fr 70px 64px 100px 90px 28px;
-  gap: 6px;
+  display: flex;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px;
-  background: #fbfcfe;
-}
-
-.avenant-ligne-row select,
-.avenant-ligne-row input {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 0.78rem;
-  width: 100%;
-}
-
-.avenant-ligne-total {
-  text-align: right;
-  font-size: 0.82rem;
-  color: var(--navy);
-  white-space: nowrap;
-}
-
-.avenant-type-suppression .avenant-ligne-total {
-  color: #d94444;
-}
-
-.avenant-ligne-remove {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.1rem;
+  gap: 14px;
+  padding: 10px 14px;
   cursor: pointer;
 }
 
-.avenant-totals-card {
+.avenant-ligne-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 17px;
+  font-weight: 800;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.avenant-ligne-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.avenant-ligne-main strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E2430;
+}
+
+.avenant-ligne-main small {
+  display: block;
+  font-size: 12.5px;
+  color: #6B7280;
+  margin-top: 2px;
+}
+
+.avenant-ligne-amount {
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.avenant-ligne-delete {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #EDEDF3;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.avenant-ligne-edit {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+
+.avenant-ligne-edit select,
+.avenant-ligne-edit input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 0.8rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: white;
+}
+
+@media (max-width: 640px) {
+  .avenant-ligne-edit {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.avenant-totals-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 26px;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px 28px;
 }
 
-.avenant-totals-card > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.avenant-total-item {
   text-align: right;
-  font-size: 0.78rem;
-  color: var(--muted);
 }
 
-.avenant-totals-card > div strong {
-  font-size: 0.94rem;
+.avenant-total-item.flex {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.avenant-total-item span {
+  display: block;
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.avenant-total-item strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1E2430;
+  margin-top: 2px;
+}
+
+.avenant-total-item.final {
+  padding-left: 26px;
+  border-left: 1px solid #EDEDF3;
+}
+
+.avenant-total-item.final strong {
+  font-size: 20px;
+  font-weight: 800;
   color: var(--navy);
 }
 
-.avenant-totals-card .total strong {
-  color: var(--blue-strong);
+.avenant-total-green {
+  color: #1E8E5A !important;
+  font-size: 16px !important;
 }
 
-.avenant-market-total {
-  flex-basis: 100%;
-  padding-top: 8px;
-  border-top: 1px dashed var(--line);
+.avenant-total-item.final span {
+  font-size: 12px;
 }
 
-.avenant-market-total strong {
-  color: #9a5a16 !important;
-}
-
-.avenant-actions-bar {
+.avenant-right-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 16px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #F1F2F6;
+  gap: 4px;
 }
 
-@media (max-width: 860px) {
-  .avenant-ligne-row {
-    grid-template-columns: 1fr 1fr;
-  }
+.avenant-right-tabs button {
+  flex: 1 1 0;
+  text-align: center;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+}
 
-  .avenant-ligne-total {
-    text-align: left;
-  }
+.avenant-right-tabs button.active {
+  background: white;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.avenant-picker-search {
+  position: relative;
+  display: block;
+}
+
+.avenant-picker-search svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.avenant-picker-search input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #E5E5EC;
+  background: white;
+  padding-left: 38px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #1E2430;
+}
+
+.avenant-picker-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.avenant-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #EDEDF3;
+  border-radius: 12px;
+}
+
+.avenant-picker-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.avenant-picker-row-main strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1E2430;
+}
+
+.avenant-picker-row-code {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #B7791F;
+}
+
+.avenant-picker-row-price {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--navy);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.avenant-picker-add-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--navy);
+  background: white;
+  color: var(--navy);
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* ── Page publique "/" (visiteur non connecte, 23 septembre) ───────────── */

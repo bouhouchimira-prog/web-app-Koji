@@ -61,6 +61,10 @@ export async function POST(request) {
     numero,
     status: "Brouillon",
     motif: fixText(body.motif || ""),
+    // Categorisation du motif + mode de facturation (15 oct, maquette
+    // fournie par Amira) — purement informatifs, n'influencent aucun calcul.
+    motifCategory: ["demande_client", "imprevu_chantier", "modification_technique"].includes(body.motifCategory) ? body.motifCategory : "demande_client",
+    facturationMode: body.facturationMode === "solde" ? "solde" : "separee",
     client: quote.client || "",
     clientEmail: quote.clientEmail || "",
     chantierAddress: quote.chantierAddress || "",
@@ -109,6 +113,12 @@ export async function PATCH(request) {
   } else if (action === "update") {
     if (avenant.status !== "Brouillon") return badRequest("Seul un avenant en brouillon peut être modifié.");
     if (Object.prototype.hasOwnProperty.call(body, "motif")) avenant.motif = fixText(body.motif || "");
+    if (Object.prototype.hasOwnProperty.call(body, "motifCategory") && ["demande_client", "imprevu_chantier", "modification_technique"].includes(body.motifCategory)) {
+      avenant.motifCategory = body.motifCategory;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "facturationMode")) {
+      avenant.facturationMode = body.facturationMode === "solde" ? "solde" : "separee";
+    }
     if (Object.prototype.hasOwnProperty.call(body, "lignes")) {
       avenant.lignes = normalizeLignes(body.lignes || []);
       const totals = computeAvenantTotals(avenant.lignes, avenant.vatRate);
