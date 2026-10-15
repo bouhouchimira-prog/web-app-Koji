@@ -93,24 +93,67 @@ export default function ArchivesPage() {
     if (deleted?.deleted) setQuotes(quotes.filter((item) => item.id !== quote.id));
   }
 
+  // Tableau de bord (15 oct) — valeur archivee = devis archives + anciens
+  // chantiers ajoutes manuellement (les seuls a porter un budget ici).
+  const archivedValue = archivedQuotes.reduce((sum, q) => sum + Number(q.totalTtc || 0), 0)
+    + otherProjects.reduce((sum, p) => sum + Number(p.budgetHt || 0), 0);
+
   return (
     <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>{L.archives.title}</h1>
-          <button
-            type="button"
-            className="round-dark"
-            onClick={() => {
-              setCreating((current) => !current);
-              setActiveTab("other");
-            }}
-            title="Ajouter un ancien chantier"
-          >
-            +
-          </button>
+      <section className="fournitures-dashboard">
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">{L.archives.title}</span></h1>
+            <p>Vos chantiers et devis archivés, consultables et restaurables à tout moment.</p>
+          </div>
+          <div className="fournitures-dashboard-head-actions">
+            <button
+              type="button"
+              className="button blue"
+              onClick={() => {
+                setCreating((current) => !current);
+                setActiveTab("other");
+              }}
+            >
+              + Ancien chantier
+            </button>
+          </div>
         </header>
+
+        <div className="fournitures-kpi-row">
+          <button type="button" className={`fournitures-kpi-card clickable ${activeTab === "projects" ? "kpi-active" : ""}`} onClick={() => setActiveTab("projects")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">🏗️</span>
+              <span className="title-chip">Chantiers archivés</span>
+            </div>
+            <strong>{archivedProjects.length}</strong>
+            <small>terminés</small>
+          </button>
+          <button type="button" className={`fournitures-kpi-card clickable ${activeTab === "quotes" ? "kpi-active" : ""}`} onClick={() => setActiveTab("quotes")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">📄</span>
+              <span className="title-chip">Devis archivés</span>
+            </div>
+            <strong>{archivedQuotes.length}</strong>
+            <small>classés</small>
+          </button>
+          <button type="button" className={`fournitures-kpi-card clickable ${activeTab === "other" ? "kpi-active" : ""}`} onClick={() => setActiveTab("other")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">📁</span>
+              <span className="title-chip">Anciens chantiers</span>
+            </div>
+            <strong>{otherProjects.length}</strong>
+            <small>ajoutés manuellement</small>
+          </button>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
+              <span className="title-chip">Valeur archivée</span>
+            </div>
+            <strong>{euro(archivedValue)}</strong>
+            <small>devis + anciens chantiers</small>
+          </div>
+        </div>
 
         {creating ? (
           <form className="archive-create-form" onSubmit={createPastProject}>
@@ -152,47 +195,52 @@ export default function ArchivesPage() {
           </form>
         ) : null}
 
-        <div className="segmented">
-          <button type="button" className={activeTab === "projects" ? "active" : ""} onClick={() => setActiveTab("projects")}>{L.nav.projects}</button>
-          <button type="button" className={activeTab === "quotes" ? "active" : ""} onClick={() => setActiveTab("quotes")}>{L.nav.quotes}</button>
-          <button type="button" className={activeTab === "other" ? "active" : ""} onClick={() => setActiveTab("other")}>{L.archives.manual}</button>
-        </div>
+        <div className="fournitures-main-card">
+          <div className="fournitures-main-card-head">
+            <strong className="title-chip">{activeTab === "projects" ? "Chantiers archivés" : activeTab === "quotes" ? "Devis archivés" : "Anciens chantiers"}</strong>
+            <div className="fournitures-filter-tabs">
+              <button type="button" className={activeTab === "projects" ? "active" : ""} onClick={() => setActiveTab("projects")}>{L.nav.projects}</button>
+              <button type="button" className={activeTab === "quotes" ? "active" : ""} onClick={() => setActiveTab("quotes")}>{L.nav.quotes}</button>
+              <button type="button" className={activeTab === "other" ? "active" : ""} onClick={() => setActiveTab("other")}>{L.archives.manual}</button>
+            </div>
+          </div>
 
-        <div className="archive-list">
-          {activeTab === "projects" && archivedProjects.length === 0 ? <div className="tool-empty">{L.archives.noProjects}</div> : null}
-          {activeTab === "quotes" && archivedQuotes.length === 0 ? <div className="tool-empty">{L.archives.noQuotes}</div> : null}
-          {activeTab === "other" && otherProjects.length === 0 ? <div className="tool-empty">{L.archives.noProjects}</div> : null}
+          <div className="archive-list">
+            {activeTab === "projects" && archivedProjects.length === 0 ? <div className="tool-empty">{L.archives.noProjects}</div> : null}
+            {activeTab === "quotes" && archivedQuotes.length === 0 ? <div className="tool-empty">{L.archives.noQuotes}</div> : null}
+            {activeTab === "other" && otherProjects.length === 0 ? <div className="tool-empty">{L.archives.noProjects}</div> : null}
 
-          {(activeTab === "projects" ? archivedProjects : activeTab === "other" ? otherProjects : []).map((project) => (
-            <article className="archive-row" key={project.id}>
-              <span className="archive-icon">CH</span>
-              <div>
-                <strong>{project.title}</strong>
-                <small>{project.client || project.reference}</small>
-                <small className="archive-row-dates">
-                  {project.reference || "-"} · {formatDate(project.startDate)} · {formatDate(project.endDate)}
-                </small>
-              </div>
-              <div className="archive-row-actions">
-                <button type="button" onClick={() => router.push(`/archives/${project.id}`)}>{L.archives.view}</button>
-                <button type="button" onClick={() => restoreProject(project)}>{L.archives.restore}</button>
-                <button type="button" className="danger" onClick={() => deleteProject(project)}>{L.archives.delete}</button>
-              </div>
-            </article>
-          ))}
+            {(activeTab === "projects" ? archivedProjects : activeTab === "other" ? otherProjects : []).map((project) => (
+              <article className="archive-row" key={project.id}>
+                <span className="archive-icon">CH</span>
+                <div>
+                  <strong>{project.title}</strong>
+                  <small>{project.client || project.reference}</small>
+                  <small className="archive-row-dates">
+                    {project.reference || "-"} · {formatDate(project.startDate)} · {formatDate(project.endDate)}
+                  </small>
+                </div>
+                <div className="archive-row-actions">
+                  <button type="button" onClick={() => router.push(`/archives/${project.id}`)}>{L.archives.view}</button>
+                  <button type="button" onClick={() => restoreProject(project)}>{L.archives.restore}</button>
+                  <button type="button" className="danger" onClick={() => deleteProject(project)}>{L.archives.delete}</button>
+                </div>
+              </article>
+            ))}
 
-          {activeTab === "quotes" ? archivedQuotes.map((quote) => (
-            <article className="archive-row" key={quote.id}>
-              <span className="archive-icon">DV</span>
-              <div>
-                <strong>{quote.quoteNumber}</strong>
-                <small>{quote.client} - {euro(quote.totalTtc)}</small>
-              </div>
-              <a className="mini-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a>
-              <button type="button" onClick={() => restoreQuote(quote)}>{L.archives.restore}</button>
-              <button type="button" className="danger" onClick={() => deleteQuote(quote)}>{L.archives.delete}</button>
-            </article>
-          )) : null}
+            {activeTab === "quotes" ? archivedQuotes.map((quote) => (
+              <article className="archive-row" key={quote.id}>
+                <span className="archive-icon">DV</span>
+                <div>
+                  <strong>{quote.quoteNumber}</strong>
+                  <small>{quote.client} - {euro(quote.totalTtc)}</small>
+                </div>
+                <a className="mini-button" href={`/api/quotes/${quote.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a>
+                <button type="button" onClick={() => restoreQuote(quote)}>{L.archives.restore}</button>
+                <button type="button" className="danger" onClick={() => deleteQuote(quote)}>{L.archives.delete}</button>
+              </article>
+            )) : null}
+          </div>
         </div>
       </section>
     </Shell>
