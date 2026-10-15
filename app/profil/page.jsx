@@ -119,6 +119,26 @@ function Field({ label, iconName, value, onChange, placeholder = "", type = "tex
   );
 }
 
+// Champ simple (sans icone, fond plein) — carte "Informations de
+// l'entreprise" / "Tarification" du tableau de bord Profil (15 oct,
+// maquette fournie par Amira), distinct du composant Field ci-dessus
+// (garde ses icones ailleurs sur la page, pas demande sur cette partie).
+function PlainField({ label, value, onChange, placeholder = "", type = "text", disabled = false }) {
+  return (
+    <label className="profile-plain-field">
+      <span>{label}</span>
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled} />
+    </label>
+  );
+}
+
+function initials(name = "") {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "KO";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 export default function ProfilPage() {
   const { L } = useLocale();
   const fileRef = useRef(null);
@@ -500,11 +520,8 @@ export default function ProfilPage() {
         <div className="fournitures-dashboard-body">
           <div className="fournitures-main-card">
             <div className="profile-card-identity">
-              <div className="logo-ring">
-                <img src={logoSrc} alt="Logo entreprise" />
-                <button type="button" className="logo-upload" onClick={() => fileRef.current?.click()} aria-label="Changer le logo">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("camera")} /></svg>
-                </button>
+              <div className="logo-ring logo-ring-plain">
+                {business.logoDataUrl ? <img src={business.logoDataUrl} alt="Logo entreprise" /> : <strong>{initials(business.raisonSociale || user?.name)}</strong>}
               </div>
               <div className="profile-card-identity-main">
                 <strong>{business.raisonSociale || user?.name || "Votre entreprise"}</strong>
@@ -514,44 +531,21 @@ export default function ProfilPage() {
             </div>
 
             <h2 className="profile-section-title">{L.parametres.company}</h2>
-            <div className="profile-grid">
-              <Field label={L.parametres.raisonSociale} iconName="building" value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
-              <Field label={L.parametres.siret} iconName="id" value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
+            <div className="profile-grid cols-2">
+              <PlainField label={L.parametres.raisonSociale} value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
+              <PlainField label={L.parametres.siret} value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
             </div>
-            <AddressFields
-              value={{
-                address: business.addressLine1,
-                city: business.city,
-                postalCode: business.postalCode,
-                floor: business.floor,
-                accessCode: business.accessCode,
-                complement: business.addressLine2,
-                accessInstructions: business.accessInstructions
-              }}
-              onChange={(next) => setBusiness((current) => ({
-                ...current,
-                addressLine1: next.address,
-                city: next.city,
-                postalCode: next.postalCode,
-                floor: next.floor,
-                accessCode: next.accessCode,
-                addressLine2: next.complement,
-                accessInstructions: next.accessInstructions
-              }))}
-            />
-            <div className="profile-grid">
-              <label className="profile-field radar-address-field">
+            <div className="profile-grid cols-2">
+              <PlainField label="Adresse" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder="Rue, ville..." />
+              <label className="profile-plain-field">
                 <span>Zone d'intervention</span>
-                <div className="profile-input">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("pin")} /></svg>
-                  <input
-                    type="text"
-                    value={business.zoneAddress || ""}
-                    onChange={(event) => onZoneAddressChange(event.target.value)}
-                    placeholder="Adresse, ville..."
-                    autoComplete="off"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={business.zoneAddress || ""}
+                  onChange={(event) => onZoneAddressChange(event.target.value)}
+                  placeholder="Adresse, ville..."
+                  autoComplete="off"
+                />
                 {zoneSuggestions.length > 0 ? (
                   <ul className="radar-address-suggestions">
                     {zoneSuggestions.map((feature) => (
@@ -561,21 +555,18 @@ export default function ProfilPage() {
                     ))}
                   </ul>
                 ) : null}
-                <small className="muted">Rayon : {business.zoneRadiusKm ?? 20} km</small>
               </label>
-              <Field label="Rayon d'intervention (km)" iconName="pin" type="number" value={String(business.zoneRadiusKm ?? 20)} onChange={(event) => setField("zoneRadiusKm", event.target.value)} />
             </div>
-            <div className="profile-grid">
-              <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
-              <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
+            <div className="profile-grid cols-2">
+              <PlainField label={L.parametres.emailPro} type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
+              <PlainField label={L.parametres.phone} value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
             </div>
 
             <h2 className="profile-section-title">{L.parametres.pricing}</h2>
-            <div className="profile-grid cols-2">
-              <Field label="Taux horaire" iconName="clock" type="number" value={hourlyCost.toFixed(2)} disabled hint="Calculé depuis le taux journalier ÷ heures/jour" />
-              <Field label={L.parametres.dailyRate} iconName="money" type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
-              <Field label={L.parametres.hoursPerDay} iconName="clock" type="number" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
-              <Field label="TVA par défaut (%)" iconName="tag" type="number" value={String(business.defaultVatRate ?? 20)} onChange={(event) => setField("defaultVatRate", event.target.value)} placeholder="20" hint="Proposée par défaut sur vos nouveaux devis" />
+            <div className="profile-grid cols-3">
+              <PlainField label="Taux horaire" type="number" value={hourlyCost.toFixed(2)} disabled />
+              <PlainField label={L.parametres.dailyRate} type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
+              <PlainField label="TVA par défaut (%)" type="number" value={String(business.defaultVatRate ?? 20)} onChange={(event) => setField("defaultVatRate", event.target.value)} placeholder="20" />
             </div>
           </div>
 
@@ -648,6 +639,8 @@ export default function ProfilPage() {
             <Field label={L.parametres.accountEmail} iconName="mail" type="email" value={user?.email || ""} disabled hint={L.parametres.accountEmailSub} />
             <Field label={L.parametres.website} iconName="tag" value={business.website || ""} onChange={(event) => setField("website", event.target.value)} placeholder="www.entreprise.fr" />
             <Field label={L.parametres.tva} iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
+            <Field label={L.parametres.hoursPerDay} iconName="clock" type="number" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
+            <Field label="Rayon d'intervention (km)" iconName="pin" type="number" value={String(business.zoneRadiusKm ?? 20)} onChange={(event) => setField("zoneRadiusKm", event.target.value)} />
             <label className="profile-field wide">
               <span>{L.parametres.qrCode}</span>
               <div className="qr-upload-row">
@@ -663,6 +656,28 @@ export default function ProfilPage() {
               <input ref={qrFileRef} type="file" accept="image/png,image/jpeg" onChange={onQrCodeChange} style={{ display: "none" }} />
             </label>
           </div>
+          <p className="muted" style={{ marginTop: 14 }}>Détails de l'adresse (étage, digicode, complément...)</p>
+          <AddressFields
+            value={{
+              address: business.addressLine1,
+              city: business.city,
+              postalCode: business.postalCode,
+              floor: business.floor,
+              accessCode: business.accessCode,
+              complement: business.addressLine2,
+              accessInstructions: business.accessInstructions
+            }}
+            onChange={(next) => setBusiness((current) => ({
+              ...current,
+              addressLine1: next.address,
+              city: next.city,
+              postalCode: next.postalCode,
+              floor: next.floor,
+              accessCode: next.accessCode,
+              addressLine2: next.complement,
+              accessInstructions: next.accessInstructions
+            }))}
+          />
         </section>
 
         <section className="profile-block">
