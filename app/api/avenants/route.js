@@ -143,6 +143,10 @@ export async function PATCH(request) {
     avenant.refusalReason = fixText(body.refusalReason || "");
   } else if (action === "archive") {
     avenant.status = "Archive";
+  } else if (action === "restore") {
+    // Corbeille (15 oct) — remet un avenant archive au statut qu'il avait
+    // avant archivage ; Brouillon par defaut si ce statut n'est pas connu.
+    avenant.status = avenant.signedAt ? "Signe" : avenant.sentAt ? "Envoye" : "Brouillon";
   }
 
   avenant.updatedAt = now;

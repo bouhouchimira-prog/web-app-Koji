@@ -20467,6 +20467,11 @@ button.fournitures-kpi-card {
   width: 100%;
 }
 
+a.fournitures-kpi-card {
+  text-decoration: none;
+  color: inherit;
+}
+
 .fournitures-kpi-card.clickable {
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
