@@ -400,6 +400,13 @@ export default function DevisEditor() {
       .then((payload) => {
         if (quoteCompanyAppliedRef.current) return;
         setCompany(profileCompany(payload.user));
+        // TVA par defaut (15 oct, Profil) : ne s'applique qu'a un devis tout
+        // neuf, jamais touche a la main ni deja charge depuis un id existant
+        // — ne doit jamais ecraser le taux d'un devis en cours d'edition.
+        const defaultVat = Number(payload.user?.business?.defaultVatRate);
+        if (!editQuoteIdFromUrl() && !vatManual && Number.isFinite(defaultVat) && defaultVat > 0) {
+          setQuoteVatRate(defaultVat);
+        }
       })
       .catch(() => {
         if (!quoteCompanyAppliedRef.current) setCompany(profileCompany(null));

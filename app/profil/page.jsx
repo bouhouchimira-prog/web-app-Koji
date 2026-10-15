@@ -26,6 +26,7 @@ const initialBusiness = {
   accessCode: "",
   accessInstructions: "",
   tva: "",
+  defaultVatRate: 20,
   dailyRate: 0,
   hoursPerDay: 7,
   logoDataUrl: "",
@@ -36,7 +37,22 @@ const initialBusiness = {
   zoneAddress: "",
   zoneLat: null,
   zoneLon: null,
-  zoneRadiusKm: 20
+  zoneRadiusKm: 20,
+  // Documents d'entreprise (15 oct, tableau de bord Profil) — stockes dans
+  // le meme objet business_info libre que le reste (voir
+  // app/api/auth/profile/route.js, Object.assign sans whitelist), aucune
+  // nouvelle colonne necessaire.
+  documents: {
+    decennale: { fileDataUrl: "", expiryDate: "" },
+    urssaf: { fileDataUrl: "", updatedDate: "" },
+    kbis: { fileDataUrl: "" }
+  }
+};
+
+const DOCUMENT_META = {
+  decennale: { label: "Assurance décennale" },
+  urssaf: { label: "Attestation URSSAF" },
+  kbis: { label: "Extrait Kbis" }
 };
 
 function readLocalUser() {
@@ -290,12 +306,69 @@ export default function ProfilPage() {
     reader.readAsDataURL(file);
   }
 
+  function setDocumentField(docKey, field, value) {
+    setBusiness((current) => ({
+      ...current,
+      documents: { ...current.documents, [docKey]: { ...current.documents?.[docKey], [field]: value } }
+    }));
+  }
+
+  function onDocumentFileChange(docKey, event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setDocumentField(docKey, "fileDataUrl", String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
+  function documentStatus(docKey) {
+    const doc = business.documents?.[docKey] || {};
+    if (!doc.fileDataUrl) return { label: "À ajouter", tone: "warning" };
+    if (docKey === "decennale") {
+      if (!doc.expiryDate) return { label: "Valide", tone: "ok" };
+      const expiry = new Date(`${doc.expiryDate}T00:00:00`);
+      if (expiry < new Date()) return { label: "Expirée", tone: "danger" };
+      return { label: "Valide", tone: "ok" };
+    }
+    return { label: "Valide", tone: "ok" };
+  }
+
   const hourlyCost = useMemo(() => {
     const rate = Number(business.dailyRate || 0);
     const hours = Number(business.hoursPerDay || 0);
     if (!hours) return 0;
     return rate / hours;
   }, [business.dailyRate, business.hoursPerDay]);
+
+  // Completude (15 oct) : part des champs/documents cles reellement remplis
+  // — rien d'invente, chaque item compte pour 1/N et le premier manquant
+  // devient le message "Ajoutez votre X pour atteindre 100%".
+  const completude = useMemo(() => {
+    const items = [
+      { key: "raisonSociale", label: "votre raison sociale", done: Boolean(business.raisonSociale) },
+      { key: "siret", label: "votre SIRET", done: Boolean(business.siret) },
+      { key: "addressLine1", label: "votre adresse", done: Boolean(business.addressLine1) },
+      { key: "emailPro", label: "votre e-mail professionnel", done: Boolean(business.emailPro) },
+      { key: "phone", label: "votre téléphone", done: Boolean(business.phone) },
+      { key: "logo", label: "votre logo", done: Boolean(business.logoDataUrl) },
+      { key: "metiers", label: "au moins un métier", done: professions.length > 0 },
+      { key: "decennale", label: "votre assurance décennale", done: Boolean(business.documents?.decennale?.fileDataUrl) },
+      { key: "urssaf", label: "votre attestation URSSAF", done: Boolean(business.documents?.urssaf?.fileDataUrl) },
+      { key: "kbis", label: "votre Kbis", done: Boolean(business.documents?.kbis?.fileDataUrl) }
+    ];
+    const doneCount = items.filter((item) => item.done).length;
+    const pct = Math.round((doneCount / items.length) * 100);
+    const missing = items.find((item) => !item.done);
+    return { pct, missing };
+  }, [business, professions]);
+
+  const memberSince = useMemo(() => {
+    if (!user?.createdAt) return "";
+    const date = new Date(user.createdAt);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  }, [user]);
 
   async function openBusinessCard(mode) {
     setCardLoading(true);
@@ -372,20 +445,191 @@ export default function ProfilPage() {
   return (
     <Shell>
       <form className="profile-layout" onSubmit={onSave}>
-        <header className="profile-header">
-          <h1>{accountLabel}</h1>
+        <input ref={fileRef} type="file" accept="image/*" onChange={onLogoChange} style={{ display: "none" }} />
+
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">{accountLabel}</span></h1>
+            <p>Les informations de votre entreprise, reprises sur vos devis et factures.</p>
+          </div>
+          <div className="fournitures-dashboard-head-actions">
+            <button type="button" className="button secondary" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>Aperçu client</button>
+            <button className="button blue" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button>
+          </div>
         </header>
 
-        <section className="profile-logo">
-          <div className="logo-ring">
-            <img src={logoSrc} alt="Logo entreprise" />
-            <button type="button" className="logo-upload" onClick={() => fileRef.current?.click()} aria-label="Changer le logo">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("camera")} /></svg>
-            </button>
+        <div className="fournitures-kpi-row">
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">✅</span>
+              <span className="title-chip">Complétude</span>
+            </div>
+            <strong>{completude.pct} %</strong>
+            <small className={completude.pct < 100 ? "warning" : "positive"}>
+              {completude.missing ? `${completude.missing.label} manquant` : "profil complet"}
+            </small>
           </div>
-          <p>{L.parametres.changeLogo}</p>
-          <input ref={fileRef} type="file" accept="image/*" onChange={onLogoChange} style={{ display: "none" }} />
-        </section>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">🕐</span>
+              <span className="title-chip">Taux horaire</span>
+            </div>
+            <strong>{hourlyCost.toFixed(0)} <small style={{ display: "inline", marginTop: 0 }}>€/h</small></strong>
+            <small>utilisé pour vos prix</small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🛡️</span>
+              <span className="title-chip">Décennale</span>
+            </div>
+            <strong>{documentStatus("decennale").label}</strong>
+            <small className={documentStatus("decennale").tone === "danger" ? "warning" : ""}>
+              {business.documents?.decennale?.expiryDate ? `jusqu'au ${new Date(business.documents.decennale.expiryDate).toLocaleDateString("fr-FR")}` : "aucune date renseignée"}
+            </small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">⭐</span>
+              <span className="title-chip">Membre koji</span>
+            </div>
+            <strong>{memberSince || "—"}</strong>
+            <small>date d'inscription</small>
+          </div>
+        </div>
+
+        <div className="fournitures-dashboard-body">
+          <div className="fournitures-main-card">
+            <div className="profile-card-identity">
+              <div className="logo-ring">
+                <img src={logoSrc} alt="Logo entreprise" />
+                <button type="button" className="logo-upload" onClick={() => fileRef.current?.click()} aria-label="Changer le logo">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("camera")} /></svg>
+                </button>
+              </div>
+              <div className="profile-card-identity-main">
+                <strong>{business.raisonSociale || user?.name || "Votre entreprise"}</strong>
+                <small>{professions.join(" · ") || "Aucun métier renseigné"}</small>
+              </div>
+              <button type="button" className="button secondary" onClick={() => fileRef.current?.click()}>{L.parametres.changeLogo}</button>
+            </div>
+
+            <h2 className="profile-section-title">{L.parametres.company}</h2>
+            <div className="profile-grid">
+              <Field label={L.parametres.raisonSociale} iconName="building" value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
+              <Field label={L.parametres.siret} iconName="id" value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
+            </div>
+            <AddressFields
+              value={{
+                address: business.addressLine1,
+                city: business.city,
+                postalCode: business.postalCode,
+                floor: business.floor,
+                accessCode: business.accessCode,
+                complement: business.addressLine2,
+                accessInstructions: business.accessInstructions
+              }}
+              onChange={(next) => setBusiness((current) => ({
+                ...current,
+                addressLine1: next.address,
+                city: next.city,
+                postalCode: next.postalCode,
+                floor: next.floor,
+                accessCode: next.accessCode,
+                addressLine2: next.complement,
+                accessInstructions: next.accessInstructions
+              }))}
+            />
+            <div className="profile-grid">
+              <label className="profile-field radar-address-field">
+                <span>Zone d'intervention</span>
+                <div className="profile-input">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("pin")} /></svg>
+                  <input
+                    type="text"
+                    value={business.zoneAddress || ""}
+                    onChange={(event) => onZoneAddressChange(event.target.value)}
+                    placeholder="Adresse, ville..."
+                    autoComplete="off"
+                  />
+                </div>
+                {zoneSuggestions.length > 0 ? (
+                  <ul className="radar-address-suggestions">
+                    {zoneSuggestions.map((feature) => (
+                      <li key={feature.properties.id}>
+                        <button type="button" onClick={() => selectZoneAddress(feature)}>{feature.properties.label}</button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <small className="muted">Rayon : {business.zoneRadiusKm ?? 20} km</small>
+              </label>
+              <Field label="Rayon d'intervention (km)" iconName="pin" type="number" value={String(business.zoneRadiusKm ?? 20)} onChange={(event) => setField("zoneRadiusKm", event.target.value)} />
+            </div>
+            <div className="profile-grid">
+              <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
+              <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
+            </div>
+
+            <h2 className="profile-section-title">{L.parametres.pricing}</h2>
+            <div className="profile-grid cols-2">
+              <Field label="Taux horaire" iconName="clock" type="number" value={hourlyCost.toFixed(2)} disabled hint="Calculé depuis le taux journalier ÷ heures/jour" />
+              <Field label={L.parametres.dailyRate} iconName="money" type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
+              <Field label={L.parametres.hoursPerDay} iconName="clock" type="number" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
+              <Field label="TVA par défaut (%)" iconName="tag" type="number" value={String(business.defaultVatRate ?? 20)} onChange={(event) => setField("defaultVatRate", event.target.value)} placeholder="20" hint="Proposée par défaut sur vos nouveaux devis" />
+            </div>
+          </div>
+
+          <div>
+            <div className="fournitures-sidebar-card">
+              <strong className="title-chip">Profil complété</strong>
+              <div className="profile-completion-row">
+                <div className="ct-progress-bar" style={{ width: "100%" }}><div style={{ width: `${completude.pct}%` }} /></div>
+                <b>{completude.pct} %</b>
+              </div>
+              {completude.missing ? <small className="muted">Ajoutez {completude.missing.label} pour atteindre 100 %.</small> : <small className="muted">Votre profil est complet.</small>}
+            </div>
+
+            <div className="fournitures-sidebar-card">
+              <strong className="title-chip">Mes métiers</strong>
+              <div className="metiers-list">
+                {professionsList.map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    className={`metier-chip ${professions.includes(item) ? "active" : ""}`}
+                    onClick={() => toggleProfession(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="fournitures-sidebar-card">
+              <strong className="title-chip">Documents</strong>
+              {Object.entries(DOCUMENT_META).map(([key, meta]) => {
+                const status = documentStatus(key);
+                const doc = business.documents?.[key] || {};
+                return (
+                  <div className="profile-document-row" key={key}>
+                    <div>
+                      <strong>{meta.label}</strong>
+                      {key === "decennale" ? (
+                        <input type="date" className="profile-document-date" value={doc.expiryDate || ""} onChange={(event) => setDocumentField("decennale", "expiryDate", event.target.value)} />
+                      ) : (
+                        <small>{doc.fileDataUrl ? "Document ajouté" : "Non fourni"}</small>
+                      )}
+                    </div>
+                    <label className={`profile-document-badge tone-${status.tone}`}>
+                      {status.label}
+                      <input type="file" accept="image/*,application/pdf" onChange={(event) => onDocumentFileChange(key, event)} style={{ display: "none" }} />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
         <section className="profile-block">
           <h2>{L.parametres.signatures}</h2>
@@ -394,6 +638,56 @@ export default function ProfilPage() {
             <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("pen")} /></svg>
             {L.parametres.openSignatures}
           </Link>
+        </section>
+
+        <section className="profile-block">
+          <h2>Informations complémentaires</h2>
+          <div className="profile-grid">
+            <Field label={L.parametres.formeJuridique} iconName="gavel" value={business.formeJuridique} onChange={(event) => setField("formeJuridique", event.target.value)} placeholder="SARL, SAS..." />
+            <Field label={L.parametres.siren} iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
+            <Field label={L.parametres.accountEmail} iconName="mail" type="email" value={user?.email || ""} disabled hint={L.parametres.accountEmailSub} />
+            <Field label={L.parametres.website} iconName="tag" value={business.website || ""} onChange={(event) => setField("website", event.target.value)} placeholder="www.entreprise.fr" />
+            <Field label={L.parametres.tva} iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
+            <label className="profile-field wide">
+              <span>{L.parametres.qrCode}</span>
+              <div className="qr-upload-row">
+                {business.qrCodeDataUrl ? <img src={business.qrCodeDataUrl} alt="QR code" className="qr-upload-preview" /> : null}
+                <button type="button" className="button secondary" onClick={() => qrFileRef.current?.click()}>
+                  {business.qrCodeDataUrl ? L.parametres.changeQrCode : L.parametres.addQrCode}
+                </button>
+                {business.qrCodeDataUrl ? (
+                  <button type="button" className="button danger" onClick={() => setField("qrCodeDataUrl", "")}>{L.common.delete}</button>
+                ) : null}
+              </div>
+              <small className="muted">{L.parametres.qrCodeSub}</small>
+              <input ref={qrFileRef} type="file" accept="image/png,image/jpeg" onChange={onQrCodeChange} style={{ display: "none" }} />
+            </label>
+          </div>
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.parametres.bank}</h2>
+          <p className="muted">{L.parametres.bankSub}</p>
+          <div className="profile-grid">
+            <Field label={L.parametres.iban} iconName="bank" value={business.iban || ""} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
+            <Field label={L.parametres.bic} iconName="bank" value={business.bic || ""} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
+            <Field label={L.parametres.bankHolder} iconName="id" value={business.bankHolder || ""} onChange={(event) => setField("bankHolder", event.target.value)} placeholder={L.parametres.bankHolder} />
+          </div>
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.parametres.paymentTerms}</h2>
+          <p className="muted">{L.parametres.paymentTermsSub}</p>
+          <label className="profile-field wide">
+            <span>{L.parametres.paymentTermsLabel}</span>
+            <textarea
+              className="profile-textarea"
+              value={business.paymentTerms || ""}
+              onChange={(event) => setField("paymentTerms", event.target.value)}
+              placeholder={L.parametres.paymentTermsLabel}
+              rows={4}
+            />
+          </label>
         </section>
 
         <section className="profile-block">
@@ -510,140 +804,6 @@ export default function ProfilPage() {
               </div>
             </div>
           )}
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.company}</h2>
-          <div className="profile-grid">
-            <Field label={L.parametres.raisonSociale} iconName="building" value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
-            <Field label={L.parametres.formeJuridique} iconName="gavel" value={business.formeJuridique} onChange={(event) => setField("formeJuridique", event.target.value)} placeholder="SARL, SAS..." />
-            <Field label={L.parametres.siret} iconName="id" value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
-            <Field label={L.parametres.siren} iconName="id" value={business.siren} onChange={(event) => setField("siren", event.target.value)} placeholder="123456789" />
-            <Field label={L.parametres.accountEmail} iconName="mail" type="email" value={user?.email || ""} disabled hint={L.parametres.accountEmailSub} />
-            <Field label={L.parametres.emailPro} iconName="mail" type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" hint={L.parametres.emailProSub} />
-            <Field label={L.parametres.phone} iconName="phone" value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
-            <Field label={L.parametres.website} iconName="tag" value={business.website || ""} onChange={(event) => setField("website", event.target.value)} placeholder="www.entreprise.fr" />
-            <label className="profile-field wide">
-              <span>{L.parametres.qrCode}</span>
-              <div className="qr-upload-row">
-                {business.qrCodeDataUrl ? <img src={business.qrCodeDataUrl} alt="QR code" className="qr-upload-preview" /> : null}
-                <button type="button" className="button secondary" onClick={() => qrFileRef.current?.click()}>
-                  {business.qrCodeDataUrl ? L.parametres.changeQrCode : L.parametres.addQrCode}
-                </button>
-                {business.qrCodeDataUrl ? (
-                  <button type="button" className="button danger" onClick={() => setField("qrCodeDataUrl", "")}>{L.common.delete}</button>
-                ) : null}
-              </div>
-              <small className="muted">{L.parametres.qrCodeSub}</small>
-              <input ref={qrFileRef} type="file" accept="image/png,image/jpeg" onChange={onQrCodeChange} style={{ display: "none" }} />
-            </label>
-            <Field label={L.parametres.tva} iconName="tag" value={business.tva} onChange={(event) => setField("tva", event.target.value)} placeholder="FR..." />
-          </div>
-          <AddressFields
-            value={{
-              address: business.addressLine1,
-              city: business.city,
-              postalCode: business.postalCode,
-              floor: business.floor,
-              accessCode: business.accessCode,
-              complement: business.addressLine2,
-              accessInstructions: business.accessInstructions
-            }}
-            onChange={(next) => setBusiness((current) => ({
-              ...current,
-              addressLine1: next.address,
-              city: next.city,
-              postalCode: next.postalCode,
-              floor: next.floor,
-              accessCode: next.accessCode,
-              addressLine2: next.complement,
-              accessInstructions: next.accessInstructions
-            }))}
-          />
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.pricing}</h2>
-          <div className="profile-grid cols-2">
-            <Field label={L.parametres.dailyRate} iconName="money" type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
-            <Field label={L.parametres.hoursPerDay} iconName="clock" type="number" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
-          </div>
-          <div className="hourly-box">
-            <span>{L.parametres.hourlyCost}</span>
-            <strong>{hourlyCost.toFixed(2)} EUR / h</strong>
-          </div>
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.trades}</h2>
-          <p className="muted">{L.parametres.tradesSub}</p>
-          <div className="metiers-list">
-            {professionsList.map((item) => (
-              <button
-                type="button"
-                key={item}
-                className={`metier-chip ${professions.includes(item) ? "active" : ""}`}
-                onClick={() => toggleProfession(item)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="profile-block">
-          <h2>Zone de travail (Radar des Chantiers)</h2>
-          <p className="muted">Les chantiers publiés par les particuliers ne vous seront proposés que s'ils sont dans cette zone et correspondent à l'un de vos métiers.</p>
-          <div className="profile-grid">
-            <label className="profile-field radar-address-field">
-              <span>Adresse de référence</span>
-              <div className="profile-input">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("pin")} /></svg>
-                <input
-                  type="text"
-                  value={business.zoneAddress || ""}
-                  onChange={(event) => onZoneAddressChange(event.target.value)}
-                  placeholder="Adresse, ville..."
-                  autoComplete="off"
-                />
-              </div>
-              {zoneSuggestions.length > 0 ? (
-                <ul className="radar-address-suggestions">
-                  {zoneSuggestions.map((feature) => (
-                    <li key={feature.properties.id}>
-                      <button type="button" onClick={() => selectZoneAddress(feature)}>{feature.properties.label}</button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </label>
-            <Field label="Rayon d'intervention (km)" iconName="pin" type="number" value={String(business.zoneRadiusKm ?? 20)} onChange={(event) => setField("zoneRadiusKm", event.target.value)} />
-          </div>
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.bank}</h2>
-          <p className="muted">{L.parametres.bankSub}</p>
-          <div className="profile-grid">
-            <Field label={L.parametres.iban} iconName="bank" value={business.iban || ""} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
-            <Field label={L.parametres.bic} iconName="bank" value={business.bic || ""} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
-            <Field label={L.parametres.bankHolder} iconName="id" value={business.bankHolder || ""} onChange={(event) => setField("bankHolder", event.target.value)} placeholder={L.parametres.bankHolder} />
-          </div>
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.paymentTerms}</h2>
-          <p className="muted">{L.parametres.paymentTermsSub}</p>
-          <label className="profile-field wide">
-            <span>{L.parametres.paymentTermsLabel}</span>
-            <textarea
-              className="profile-textarea"
-              value={business.paymentTerms || ""}
-              onChange={(event) => setField("paymentTerms", event.target.value)}
-              placeholder={L.parametres.paymentTermsLabel}
-              rows={4}
-            />
-          </label>
         </section>
 
         {message ? <p className="profile-message">{message}</p> : null}
