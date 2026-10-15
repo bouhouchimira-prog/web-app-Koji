@@ -20734,6 +20734,29 @@ button.chantiers-table-row {
   font-size: 13px;
 }
 
+/* ── Factures : tableau de bord (15 oct) ────────────────────────────────── */
+
+.facture-table-row {
+  grid-template-columns: 0.7fr 1.6fr 0.9fr 1fr 0.9fr;
+}
+
+.facture-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.facture-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.facture-chart-bar-paye {
+  background: #cbd5e1;
+}
+
 .status-pill {
   display: inline-block;
   padding: 4px 10px;

@@ -19,6 +19,49 @@ function activeInvoice(invoice) {
   return invoice.status !== "Annulee" && !invoice.deleted;
 }
 
+// Tableau de bord (15 oct, maquette fournie par Amira) — le statut "En
+// retard" n'est pas stocke : une facture Emise dont l'echeance est passee
+// est consideree en retard a la volee, meme principe que le statut derive
+// des chantiers.
+const INVOICE_STATUS_META = {
+  Brouillon: { label: "Brouillon", color: "#64748b", bg: "#f1f5f9" },
+  Emise: { label: "Envoyée", color: "#1d4ed8", bg: "#dbeafe" },
+  Payee: { label: "Payée", color: "#15803d", bg: "#dcfce7" },
+  Retard: { label: "En retard", color: "#b91c1c", bg: "#fee2e2" },
+  Annulee: { label: "Annulée", color: "#64748b", bg: "#f1f5f9" }
+};
+
+const INVOICE_FILTER_TABS = [
+  { id: "toutes", label: "Toutes" },
+  { id: "attente", label: "En attente" },
+  { id: "payees", label: "Payées" },
+  { id: "retard", label: "En retard" }
+];
+
+function invoiceBucket(invoice) {
+  if (invoice.status === "Emise") {
+    const due = invoice.dueDate ? new Date(`${invoice.dueDate}T00:00:00`) : null;
+    if (due && due < new Date(new Date().toDateString())) return "Retard";
+  }
+  return invoice.status;
+}
+
+function monthKeyOf(dateStr) {
+  return String(dateStr || "").slice(0, 7);
+}
+
+function shiftMonth(key, offset) {
+  const [y, m] = String(key || "").split("-").map(Number);
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shortMonthFr(key) {
+  const [y, m] = String(key || "").split("-").map(Number);
+  const label = new Date(y, m - 1, 1).toLocaleDateString("fr-FR", { month: "short" });
+  return label.replace(".", "").replace(/^./, (c) => c.toUpperCase());
+}
+
 function toAmount(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
@@ -51,6 +94,9 @@ function FacturationContent() {
   const { data: invoices, setData: setInvoices } = useApi("/api/invoices", "invoices");
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [message, setMessage] = useState("");
+  const [showDashboard, setShowDashboard] = useState(!quoteIdParam);
+  const [filterTab, setFilterTab] = useState("toutes");
+  const [expandedId, setExpandedId] = useState("");
   const [form, setForm] = useState({
     type: "Acompte initial",
     amountMode: "deposit",
@@ -60,6 +106,88 @@ function FacturationContent() {
     dueDate: new Date().toISOString().slice(0, 10),
     notes: ""
   });
+
+  const activeInvoices = useMemo(() => invoices.filter(activeInvoice), [invoices]);
+
+  const invoicesWithBucket = useMemo(
+    () => activeInvoices.map((invoice) => ({ ...invoice, bucket: invoiceBucket(invoice) })),
+    [activeInvoices]
+  );
+
+  const dashboardStats = useMemo(() => {
+    const now = new Date();
+    const facturees = invoicesWithBucket.filter((inv) => inv.status !== "Brouillon");
+    const thisMonth = facturees.filter((inv) => monthKeyOf(inv.issuedAt || inv.createdAt) === monthKeyOf(now.toISOString()));
+    const lastMonthKey = shiftMonth(monthKeyOf(now.toISOString()), -1);
+    const lastMonth = facturees.filter((inv) => monthKeyOf(inv.issuedAt || inv.createdAt) === lastMonthKey);
+    const factureCeMois = thisMonth.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+    const factureMoisDernier = lastMonth.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+    const trend = factureMoisDernier > 0 ? Math.round(((factureCeMois - factureMoisDernier) / factureMoisDernier) * 100) : null;
+
+    const payees = facturees.filter((inv) => inv.status === "Payee");
+    const encaisse = payees.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+    const totalFacture = facturees.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+    const encaissePct = totalFacture > 0 ? Math.round((encaisse / totalFacture) * 100) : 0;
+
+    const enAttente = facturees.filter((inv) => inv.bucket === "Emise");
+    const enRetard = facturees.filter((inv) => inv.bucket === "Retard");
+
+    return {
+      factureCeMois,
+      trend,
+      encaisse,
+      encaissePct,
+      enAttenteTotal: enAttente.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0),
+      enAttenteCount: enAttente.length,
+      enRetardTotal: enRetard.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0),
+      enRetardCount: enRetard.length,
+      enRetardItems: enRetard
+    };
+  }, [invoicesWithBucket]);
+
+  const chartMonths = useMemo(() => {
+    const nowKey = monthKeyOf(new Date().toISOString());
+    const keys = [5, 4, 3, 2, 1, 0].map((i) => shiftMonth(nowKey, -i));
+    const facturees = invoicesWithBucket.filter((inv) => inv.status !== "Brouillon");
+    const maxVal = Math.max(1, ...keys.map((key) => {
+      const facture = facturees.filter((inv) => monthKeyOf(inv.issuedAt || inv.createdAt) === key).reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+      return facture;
+    }));
+    return keys.map((key) => {
+      const facture = facturees.filter((inv) => monthKeyOf(inv.issuedAt || inv.createdAt) === key).reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+      const paye = facturees.filter((inv) => inv.status === "Payee" && monthKeyOf(inv.paidAt) === key).reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0);
+      return { key, label: shortMonthFr(key), facture, paye, facturePct: Math.round((facture / maxVal) * 100), payePct: Math.round((paye / maxVal) * 100) };
+    });
+  }, [invoicesWithBucket]);
+
+  const filteredInvoices = useMemo(() => {
+    const sorted = [...invoicesWithBucket].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    if (filterTab === "toutes") return sorted;
+    if (filterTab === "attente") return sorted.filter((inv) => inv.bucket === "Emise");
+    if (filterTab === "payees") return sorted.filter((inv) => inv.bucket === "Payee");
+    if (filterTab === "retard") return sorted.filter((inv) => inv.bucket === "Retard");
+    return sorted;
+  }, [invoicesWithBucket, filterTab]);
+
+  function exportInvoicesCsv() {
+    const header = "Numero;Client;Echeance;Montant TTC (EUR);Statut\n";
+    const rows = filteredInvoices
+      .map((inv) => `${inv.invoiceNumber};"${(inv.client || "").replace(/"/g, "'")}";${inv.dueDate || ""};${Number(inv.amountTtc || 0).toFixed(2).replace(".", ",")};${INVOICE_STATUS_META[inv.bucket]?.label || inv.status}`)
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "factures.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function daysLate(dueDate) {
+    if (!dueDate) return 0;
+    const diff = new Date(new Date().toDateString()) - new Date(`${dueDate}T00:00:00`);
+    return Math.max(0, Math.round(diff / 86400000));
+  }
 
   const eligibleQuotes = useMemo(() => {
     const transformedQuoteIds = new Set(invoices.filter((invoice) => invoice.sourceType === "quote-transform").map((invoice) => invoice.quoteId));
@@ -150,11 +278,169 @@ function FacturationContent() {
     setMessage(action === "issue" ? L.facturation.issue : action === "pay" ? L.facturation.markPaid : L.common.cancel);
   }
 
+  if (showDashboard) {
+    return (
+      <Shell>
+        <section className="fournitures-dashboard">
+          <header className="fournitures-dashboard-head">
+            <div>
+              <h1><span className="title-chip">Factures</span></h1>
+              <p>Facturez vos chantiers et suivez les paiements en temps réel.</p>
+            </div>
+            <div className="fournitures-dashboard-head-actions">
+              <button type="button" className="button secondary" onClick={exportInvoicesCsv}>Exporter</button>
+              <button type="button" className="button blue" onClick={() => setShowDashboard(false)}>+ Nouvelle facture</button>
+            </div>
+          </header>
+
+          <div className="fournitures-kpi-row">
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📄</span>
+                <span className="title-chip">Facturé ce mois</span>
+              </div>
+              <strong>{euro(dashboardStats.factureCeMois)}</strong>
+              <small className={dashboardStats.trend === null ? "" : dashboardStats.trend >= 0 ? "positive" : "warning"}>
+                {dashboardStats.trend === null ? "pas de comparaison" : `${dashboardStats.trend >= 0 ? "+" : ""}${dashboardStats.trend} %`}
+              </small>
+            </div>
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-green">✅</span>
+                <span className="title-chip">Encaissé</span>
+              </div>
+              <strong>{euro(dashboardStats.encaisse)}</strong>
+              <small className="positive">{dashboardStats.encaissePct} % du facturé</small>
+            </div>
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏰</span>
+                <span className="title-chip">En attente</span>
+              </div>
+              <strong>{euro(dashboardStats.enAttenteTotal)}</strong>
+              <small>{dashboardStats.enAttenteCount} facture{dashboardStats.enAttenteCount > 1 ? "s" : ""}</small>
+            </div>
+            <div className="fournitures-kpi-card">
+              <div className="fournitures-kpi-card-head">
+                <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">⚠️</span>
+                <span className="title-chip">En retard</span>
+              </div>
+              <strong>{euro(dashboardStats.enRetardTotal)}</strong>
+              <small className={dashboardStats.enRetardCount > 0 ? "warning" : ""}>{dashboardStats.enRetardCount} facture{dashboardStats.enRetardCount > 1 ? "s" : ""}</small>
+            </div>
+          </div>
+
+          <div className="fournitures-dashboard-body">
+            <div className="fournitures-main-card">
+              <div className="fournitures-main-card-head">
+                <strong className="title-chip">Dernières factures</strong>
+                <div className="fournitures-filter-tabs">
+                  {INVOICE_FILTER_TABS.map((tab) => (
+                    <button type="button" key={tab.id} className={filterTab === tab.id ? "active" : ""} onClick={() => setFilterTab(tab.id)}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filteredInvoices.length === 0 ? (
+                <div className="tool-empty">{L.facturation.noInvoices}</div>
+              ) : (
+                <div className="fournitures-table devis-table">
+                  <div className="fournitures-table-head-row devis-table-row">
+                    <div>N°</div>
+                    <div>CLIENT</div>
+                    <div>ÉCHÉANCE</div>
+                    <div>MONTANT TTC</div>
+                    <div>STATUT</div>
+                  </div>
+                  {filteredInvoices.map((invoice) => {
+                    const meta = INVOICE_STATUS_META[invoice.bucket] || INVOICE_STATUS_META.Brouillon;
+                    const expanded = expandedId === invoice.id;
+                    return (
+                      <div className="fournitures-table-row-wrap" key={invoice.id}>
+                        <button
+                          type="button"
+                          className="fournitures-table-row facture-table-row"
+                          onClick={() => setExpandedId(expanded ? "" : invoice.id)}
+                        >
+                          <div className="fournitures-table-cell"><strong>{invoice.invoiceNumber}</strong></div>
+                          <div className="fournitures-table-cell">
+                            <strong>{fixText(invoice.client || "Client")}</strong>
+                            <small>{fixText(invoice.type || "")} — {fixText(invoice.projectTitle || "")}</small>
+                          </div>
+                          <div className="fournitures-table-cell">{invoice.dueDate ? shortDate(invoice.dueDate) : "—"}</div>
+                          <div className="fournitures-table-cell fournitures-table-amount">{euro(invoice.amountTtc)}</div>
+                          <div><span className="status-pill" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span></div>
+                        </button>
+                        {expanded ? (
+                          <div className="fournitures-table-detail">
+                            <div className="facture-detail-actions">
+                              <button type="button" className="mini-button" onClick={() => downloadInvoicePdf(invoice)}>{L.facturation.downloadPdf}</button>
+                              {invoice.status === "Brouillon" ? <button type="button" className="mini-button" onClick={() => updateInvoice(invoice.id, "issue")}>{L.facturation.issue}</button> : null}
+                              {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" className="mini-button primary" onClick={() => updateInvoice(invoice.id, "pay")}>{L.facturation.markPaid}</button> : null}
+                              {invoice.status !== "Annulee" ? <button type="button" className="mini-danger" onClick={() => updateInvoice(invoice.id, "cancel")}>{L.common.cancel}</button> : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="fournitures-sidebar-card">
+                <div className="facture-chart-head">
+                  <strong className="title-chip">Facturé et encaissé</strong>
+                  <small className="muted">6 derniers mois</small>
+                </div>
+                <div className="compta-legend" style={{ marginBottom: 8 }}>
+                  <span><i className="compta-legend-dot" style={{ background: "#0b1f44" }} /> Facturé</span>
+                  <span><i className="compta-legend-dot" style={{ background: "#cbd5e1" }} /> Encaissé</span>
+                </div>
+                <div className="compta-chart" style={{ height: 150 }}>
+                  {chartMonths.map((m) => (
+                    <div className="compta-chart-col" key={m.key}>
+                      <div className="compta-chart-bars">
+                        <div className="compta-chart-bar compta-chart-bar-ca" style={{ height: `${m.facturePct}%` }} title={euro(m.facture)} />
+                        <div className="compta-chart-bar facture-chart-bar-paye" style={{ height: `${m.payePct}%` }} title={euro(m.paye)} />
+                      </div>
+                      <small>{m.label}</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="fournitures-sidebar-card">
+                <strong className="title-chip">Factures en retard</strong>
+                {dashboardStats.enRetardItems.length === 0 ? (
+                  <div className="tool-empty">Rien à signaler.</div>
+                ) : (
+                  dashboardStats.enRetardItems.map((invoice) => (
+                    <div className="chantiers-alert-row chantiers-alert-late facture-relance-row" key={invoice.id}>
+                      <div className="chantiers-alert-main">
+                        <strong>{fixText(invoice.client || "Client")} · {invoice.invoiceNumber}</strong>
+                        <small>{daysLate(invoice.dueDate)} jours de retard · {euro(invoice.amountTtc)}</small>
+                      </div>
+                      <button type="button" className="mini-button primary" onClick={() => setExpandedId(invoice.id)}>Relancer</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
       <div className="mobile-tool invoice-tool">
         <div className="tool-topline">
-          <button className="plain-back" type="button" onClick={() => history.back()}>{"<"}</button>
+          <button className="plain-back" type="button" onClick={() => setShowDashboard(true)}>{"<"}</button>
           <h1>{L.facturation.title}</h1>
           <span />
         </div>
