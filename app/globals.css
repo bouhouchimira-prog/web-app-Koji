@@ -20478,6 +20478,11 @@ button.fournitures-kpi-card {
   transform: translateY(-1px);
 }
 
+.fournitures-kpi-card.kpi-active {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 2px rgba(11, 31, 68, 0.12);
+}
+
 /* Icone + titre sur la meme ligne, en haut de carte (comme la maquette) —
    le nombre et le sous-texte suivent en dessous. */
 .fournitures-kpi-card-head {

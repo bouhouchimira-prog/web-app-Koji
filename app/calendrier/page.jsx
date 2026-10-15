@@ -33,6 +33,14 @@ function datetimeLocal(value) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
+const WEEKDAY_SHORT = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
+
+function dayBadge(dateStr) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return { dow: "", day: "" };
+  return { dow: WEEKDAY_SHORT[d.getDay()], day: String(d.getDate()) };
+}
+
 function formatEventDate(value) {
   if (!value) return "-";
   try {
@@ -208,6 +216,19 @@ export default function CalendrierPage() {
     return { today, upcoming, past };
   }, [filteredTimeline, todayKey]);
 
+  // Tableau de bord (15 oct) — "Cette semaine" en colonne laterale, meme
+  // calcul/presentation que la carte equivalente de Chantiers.
+  const weekEvents = useMemo(() => {
+    const now = new Date();
+    const in7Days = new Date(now); in7Days.setDate(in7Days.getDate() + 7);
+    return timeline
+      .filter((event) => {
+        const d = new Date(event.startAt || "");
+        return !Number.isNaN(d.getTime()) && d >= now && d <= in7Days;
+      })
+      .slice(0, 6);
+  }, [timeline]);
+
   function renderEventRow(event, variant) {
     const isTask = String(event.id || "").startsWith("task-");
     return (
@@ -343,74 +364,112 @@ export default function CalendrierPage() {
 
   return (
     <Shell>
-      <section className="mobile-tool calendar-tool">
-        <header className="tool-topline compact">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>{L.calendrier.title}</h1>
-          <button type="button" className="round-dark" onClick={openCreateEvent}>+</button>
+      <section className="fournitures-dashboard">
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">{L.calendrier.title}</span></h1>
+            <p>Vos rendez-vous, visites et tâches planifiées, en un coup d'œil.</p>
+          </div>
+          <div className="fournitures-dashboard-head-actions">
+            <button type="button" className="button blue" onClick={openCreateEvent}>+ Nouvel événement</button>
+          </div>
         </header>
 
         {message ? <p className="tool-message">{message}</p> : null}
 
-        <section className="calendar-summary">
-          <div
-            className={filter === "today" ? "active" : ""}
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleFilter("today")}
-            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleFilter("today"); } }}
-          >
-            <span>{L.agenda.today}</span><strong>{timeline.filter((event) => String(event.startAt || "").slice(0, 10) === todayKey).length}</strong>
+        <div className="fournitures-kpi-row">
+          <button type="button" className={`fournitures-kpi-card clickable ${filter === "today" ? "kpi-active" : ""}`} onClick={() => toggleFilter("today")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📅</span>
+              <span className="title-chip">{L.agenda.today}</span>
+            </div>
+            <strong>{timeline.filter((event) => String(event.startAt || "").slice(0, 10) === todayKey).length}</strong>
+            <small>événements</small>
+          </button>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🗓️</span>
+              <span className="title-chip">Cette semaine</span>
+            </div>
+            <strong>{weekEvents.length}</strong>
+            <small>à venir</small>
           </div>
-          <div
-            className={filter === "chantier" ? "active" : ""}
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleFilter("chantier")}
-            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleFilter("chantier"); } }}
-          >
-            <span>{L.nav.projects}</span><strong>{timeline.filter((event) => event.eventType === "Chantier").length}</strong>
+          <button type="button" className={`fournitures-kpi-card clickable ${filter === "chantier" ? "kpi-active" : ""}`} onClick={() => toggleFilter("chantier")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🏗️</span>
+              <span className="title-chip">{L.nav.projects}</span>
+            </div>
+            <strong>{timeline.filter((event) => event.eventType === "Chantier").length}</strong>
+            <small>rendez-vous</small>
+          </button>
+          <button type="button" className={`fournitures-kpi-card clickable ${filter === "planning" ? "kpi-active" : ""}`} onClick={() => toggleFilter("planning")}>
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">✅</span>
+              <span className="title-chip">{L.planning.title}</span>
+            </div>
+            <strong>{plannedTasks.length}</strong>
+            <small>tâches planifiées</small>
+          </button>
+        </div>
+
+        <div className="fournitures-dashboard-body">
+          <div className="fournitures-main-card">
+            <div className="fournitures-main-card-head">
+              <strong className="title-chip">Agenda</strong>
+              {filter !== "all" ? <button type="button" className="mini-button" onClick={() => setFilter("all")}>Réinitialiser le filtre</button> : null}
+            </div>
+
+            <div className="calendar-list">
+              {filteredTimeline.length === 0 ? <div className="tool-empty">{L.calendrier.noEvents}</div> : null}
+
+              {eventGroups.today.length > 0 ? (
+                <section className="calendar-group calendar-group-today">
+                  <h2 className="calendar-group-title">Aujourd'hui</h2>
+                  <div className="calendar-list-inner">
+                    {eventGroups.today.map((event) => renderEventRow(event, "today"))}
+                  </div>
+                </section>
+              ) : null}
+
+              {eventGroups.upcoming.length > 0 ? (
+                <section className="calendar-group calendar-group-upcoming">
+                  <h2 className="calendar-group-title">À venir</h2>
+                  <div className="calendar-card-grid">
+                    {eventGroups.upcoming.map((event) => renderEventRow(event, "upcoming"))}
+                  </div>
+                </section>
+              ) : null}
+
+              {eventGroups.past.length > 0 ? (
+                <section className="calendar-group calendar-group-past">
+                  <h2 className="calendar-group-title">Passé</h2>
+                  <div className="calendar-list-inner">
+                    {eventGroups.past.map((event) => renderEventRow(event, "past"))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
           </div>
-          <div
-            className={filter === "planning" ? "active" : ""}
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleFilter("planning")}
-            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleFilter("planning"); } }}
-          >
-            <span>{L.planning.title}</span><strong>{plannedTasks.length}</strong>
+
+          <div className="fournitures-sidebar-card">
+            <strong className="title-chip">Cette semaine</strong>
+            {weekEvents.length === 0 ? (
+              <div className="tool-empty">Rien de prévu cette semaine.</div>
+            ) : (
+              weekEvents.map((event) => {
+                const badge = dayBadge(event.startAt);
+                return (
+                  <button type="button" className="chantiers-week-row" key={event.id} onClick={() => openRow(event)}>
+                    <span className="chantiers-week-badge"><small>{badge.dow}</small><strong>{badge.day}</strong></span>
+                    <span className="chantiers-week-main">
+                      <strong>{fixText(event.title)}</strong>
+                      <small>{fixText(event.projectTitle || event.clientName || "Sans chantier")}</small>
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </div>
-        </section>
-
-        <div className="calendar-list">
-          {filteredTimeline.length === 0 ? <div className="tool-empty">{L.calendrier.noEvents}</div> : null}
-
-          {eventGroups.today.length > 0 ? (
-            <section className="calendar-group calendar-group-today">
-              <h2 className="calendar-group-title">Aujourd'hui</h2>
-              <div className="calendar-list-inner">
-                {eventGroups.today.map((event) => renderEventRow(event, "today"))}
-              </div>
-            </section>
-          ) : null}
-
-          {eventGroups.upcoming.length > 0 ? (
-            <section className="calendar-group calendar-group-upcoming">
-              <h2 className="calendar-group-title">À venir</h2>
-              <div className="calendar-card-grid">
-                {eventGroups.upcoming.map((event) => renderEventRow(event, "upcoming"))}
-              </div>
-            </section>
-          ) : null}
-
-          {eventGroups.past.length > 0 ? (
-            <section className="calendar-group calendar-group-past">
-              <h2 className="calendar-group-title">Passé</h2>
-              <div className="calendar-list-inner">
-                {eventGroups.past.map((event) => renderEventRow(event, "past"))}
-              </div>
-            </section>
-          ) : null}
         </div>
       </section>
     </Shell>
