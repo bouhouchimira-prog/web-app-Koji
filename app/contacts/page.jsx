@@ -190,6 +190,33 @@ export default function ContactsPage() {
 
   const totalHistoryCount = history.quotes.length + history.chantiers.length + history.invoices.length + history.interventions.length;
 
+  // Tableau de bord (15 oct) — compteurs reels, pas de chiffres inventes :
+  // actifs = tous les contacts hors clients (deja exclus de `contacts`),
+  // repartis par role deja existant sur chaque fiche.
+  const activeContacts = useMemo(() => contacts.filter((c) => !(c.roles || []).includes("client")), [contacts]);
+  const dashboardStats = useMemo(() => {
+    const now = new Date();
+    const nouveauxCeMois = activeContacts.filter((c) => {
+      const d = new Date(c.createdAt || "");
+      return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+    const hasRole = (role) => (c) => (c.roles || []).includes(role);
+    return {
+      total: activeContacts.length,
+      nouveauxCeMois,
+      prospects: activeContacts.filter(hasRole("prospect")).length,
+      equipe: activeContacts.filter((c) => hasRole("equipe")(c) || hasRole("sous_traitant")(c)).length,
+      fournisseurs: activeContacts.filter(hasRole("fournisseur")).length
+    };
+  }, [activeContacts]);
+
+  const recentContacts = useMemo(
+    () => [...activeContacts].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 6),
+    [activeContacts]
+  );
+
+  const ROLE_LABELS = { client: L.contacts.roleClient, prospect: L.contacts.roleProspect, equipe: L.contacts.roleEquipe, sous_traitant: L.contacts.roleSousTraitant, architecte: L.contacts.roleArchitecte, fournisseur: L.contacts.roleFournisseur, donneur_ordre: L.contacts.roleDonneurOrdre, autre: L.contacts.roleAutre };
+
   if (formOpen) {
     const isSociete = form.type === "societe";
     return (
@@ -378,74 +405,124 @@ export default function ContactsPage() {
 
   return (
     <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>{L.contacts.title}</h1>
-          <span />
+      <section className="fournitures-dashboard">
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">{L.contacts.title}</span></h1>
+            <p>Vos prospects, votre équipe et vos partenaires, au même endroit.</p>
+          </div>
+          <div className="fournitures-dashboard-head-actions">
+            <a href="/clients" className="button secondary">👤 Clients</a>
+            <a href="/equipe" className="button secondary">👷 Équipe</a>
+            <button type="button" className="button blue" onClick={openCreate}>+ Nouveau contact</button>
+          </div>
         </header>
 
-        {/* "Clients" et "Equipe" restent de vraies pages a part (acces au
-            portail particulier/ouvrier, planning, pointages...) mais ne sont
-            plus des outils separes dans le menu (12 oct, demande d'Amira) —
-            accessibles d'ici, bien visibles, sous le titre "Contacts". */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <a href="/clients" className="button secondary" style={{ flex: 1, textAlign: "center" }}>
-            👤 Clients
-          </a>
-          <a href="/equipe" className="button secondary" style={{ flex: 1, textAlign: "center" }}>
-            👷 Équipe (Ouvriers / Sous-traitants)
-          </a>
-        </div>
-
-        <div className="search-pill">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.contacts.search} />
-        </div>
-
-        <div className="contact-role-pills">
-          {FILTER_ROLES.map((role) => (
-            <button type="button" key={role.id || "all"} className={roleFilter === role.id ? "active" : ""} onClick={() => setRoleFilter(role.id)}>
-              {role.label}
-            </button>
-          ))}
-        </div>
-
-        {message ? <p className="tool-message">{message}</p> : null}
-
-        <div className="people-list">
-          {filteredContacts.length === 0 ? (
-            <div className="tool-empty">
-              <strong>{L.contacts.noContacts}</strong>
-              <span>{L.contacts.noContactsSub}</span>
+        <div className="fournitures-kpi-row">
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">👤</span>
+              <span className="title-chip">Contacts</span>
             </div>
-          ) : null}
-          {filteredContacts.map((contact) => (
-            <article
-              className="person-row clickable"
-              key={contact.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openEdit(contact)}
-              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openEdit(contact); } }}
-            >
-              <div className="avatar">{initials(contact)}</div>
-              <div>
-                <strong>{contactDisplayName(contact)}{contact.archived ? ` (${L.contacts.archived})` : ""}</strong>
-                <small>{(contact.roles || []).map((r) => ({ client: L.contacts.roleClient, prospect: L.contacts.roleProspect, equipe: L.contacts.roleEquipe, sous_traitant: L.contacts.roleSousTraitant, architecte: L.contacts.roleArchitecte, fournisseur: L.contacts.roleFournisseur, donneur_ordre: L.contacts.roleDonneurOrdre, autre: L.contacts.roleAutre }[r] || r)).join(", ")}</small>
-                {contact.phone || contact.email ? <small>{[contact.phone, contact.email].filter(Boolean).join(" · ")}</small> : null}
-              </div>
-            </article>
-          ))}
+            <strong>{dashboardStats.total}</strong>
+            <small className={dashboardStats.nouveauxCeMois > 0 ? "positive" : ""}>
+              {dashboardStats.nouveauxCeMois > 0 ? `+${dashboardStats.nouveauxCeMois} ce mois-ci` : "actifs"}
+            </small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🎯</span>
+              <span className="title-chip">Prospects</span>
+            </div>
+            <strong>{dashboardStats.prospects}</strong>
+            <small>à convertir</small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">👷</span>
+              <span className="title-chip">Équipe &amp; sous-traitants</span>
+            </div>
+            <strong>{dashboardStats.equipe}</strong>
+            <small>intervenants</small>
+          </div>
+          <div className="fournitures-kpi-card">
+            <div className="fournitures-kpi-card-head">
+              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📦</span>
+              <span className="title-chip">Fournisseurs</span>
+            </div>
+            <strong>{dashboardStats.fournisseurs}</strong>
+            <small>référencés</small>
+          </div>
         </div>
 
-        <label className="recap-check-label">
-          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
-          {L.contacts.showArchived}
-        </label>
+        <div className="fournitures-dashboard-body">
+          <div className="fournitures-main-card">
+            <div className="fournitures-main-card-head">
+              <strong className="title-chip">Tous les contacts</strong>
+              <div className="fournitures-filter-tabs">
+                {FILTER_ROLES.map((role) => (
+                  <button type="button" key={role.id || "all"} className={roleFilter === role.id ? "active" : ""} onClick={() => setRoleFilter(role.id)}>
+                    {role.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <button type="button" className="team-fab" onClick={openCreate} aria-label={L.contacts.newContact}>
-          <span>+</span>
-        </button>
+            <input
+              className="supplier-search-input"
+              style={{ marginBottom: 12 }}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={L.contacts.search}
+            />
+
+            {message ? <p className="tool-message">{message}</p> : null}
+
+            {filteredContacts.length === 0 ? (
+              <div className="tool-empty">
+                <strong>{L.contacts.noContacts}</strong>
+                <span>{L.contacts.noContactsSub}</span>
+              </div>
+            ) : (
+              <div className="supplier-articles-list">
+                {filteredContacts.map((contact) => (
+                  <div className="divers-purchase-row" key={contact.id} onClick={() => openEdit(contact)}>
+                    <span className="supplier-list-avatar">{initials(contact)}</span>
+                    <div className="divers-purchase-main">
+                      <strong>{contactDisplayName(contact)}{contact.archived ? ` (${L.contacts.archived})` : ""}</strong>
+                      <small>{[contact.phone, contact.email].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <div className="divers-purchase-tags">
+                      {(contact.roles || []).map((r) => <span className="divers-tag" key={r}>{ROLE_LABELS[r] || r}</span>)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <label className="recap-check-label" style={{ marginTop: 14 }}>
+              <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+              {L.contacts.showArchived}
+            </label>
+          </div>
+
+          <div className="fournitures-sidebar-card">
+            <strong className="title-chip">Ajoutés récemment</strong>
+            {recentContacts.length === 0 ? (
+              <div className="tool-empty">Aucun contact pour le moment.</div>
+            ) : (
+              recentContacts.map((contact) => (
+                <div className="divers-purchase-row" key={contact.id} onClick={() => openEdit(contact)}>
+                  <span className="supplier-list-avatar">{initials(contact)}</span>
+                  <div className="divers-purchase-main">
+                    <strong>{contactDisplayName(contact)}</strong>
+                    <small>{(contact.roles || []).map((r) => ROLE_LABELS[r] || r).join(", ")}</small>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </section>
     </Shell>
   );
