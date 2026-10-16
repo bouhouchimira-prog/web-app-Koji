@@ -13,7 +13,7 @@ export default function LegalPage() {
         <span />
       </header>
 
-      <div className="static-draft-banner">{L.legal.draftBanner}</div>
+      {L.legal.draftBanner ? <div className="static-draft-banner">{L.legal.draftBanner}</div> : null}
 
       {L.legal.sections.map((section, index) => (
         <section key={index} className="static-page-card">
