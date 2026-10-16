@@ -3,6 +3,9 @@ import { nowIso } from "../../../../lib/auth";
 import { getSupabase, getSupabaseForToken } from "../../../../lib/supabase";
 import { buildWebUser } from "../../../../lib/user-profile";
 import { setSessionCookie } from "../../../../lib/session-cookies";
+import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt } from "../../../../lib/rate-limit";
+
+const RATE_SCOPE = "entreprise-login";
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -19,6 +22,12 @@ export async function POST(request) {
 
   if (!email || !password) return badRequest("Email et mot de passe obligatoires");
 
+  // Protection brute-force (16 oct) — ce login Supabase Auth n'avait, lui,
+  // aucune limite contrairement aux autres connexions de l'app (ouvrier,
+  // particulier, signature) deja protegees par lib/rate-limit.js.
+  const limit = await checkRateLimit(RATE_SCOPE, email);
+  if (!limit.allowed) return badRequest(rateLimitMessage(limit.retryAfterSeconds), 429);
+
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -28,10 +37,13 @@ export async function POST(request) {
       return badRequest("Compte non active. Verifiez votre e-mail d'activation.", 403);
     }
     if (/invalid login credentials/i.test(message)) {
+      await recordFailedAttempt(RATE_SCOPE, email);
       return badRequest("Email ou mot de passe incorrect", 401);
     }
     return badRequest(message || "Connexion impossible", 401);
   }
+
+  await clearRateLimit(RATE_SCOPE, email);
 
   const session = data.session;
   const authUser = data.user;

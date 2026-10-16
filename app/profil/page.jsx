@@ -149,6 +149,11 @@ export default function ProfilPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
   const [cardLoading, setCardLoading] = useState(false);
   const [cardMessage, setCardMessage] = useState("");
   const [site, setSite] = useState(null);
@@ -451,6 +456,24 @@ export default function ProfilPage() {
     }
   }
 
+  async function changePassword() {
+    setPasswordMessage("");
+    if (newPassword.length < 8) { setPasswordMessage("Le nouveau mot de passe doit contenir au moins 8 caractères."); return; }
+    if (newPassword !== confirmNewPassword) { setPasswordMessage("Les deux mots de passe ne correspondent pas."); return; }
+    setPasswordSaving(true);
+    try {
+      await apiSend("/api/auth/change-password", { currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setPasswordMessage("Mot de passe modifié avec succès.");
+    } catch (error) {
+      setPasswordMessage(error.message || "Impossible de changer le mot de passe.");
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
   const accountLabel = user?.accountType === "particulier" ? L.auth.profilePersonal : L.auth.profileCompany;
   const logoSrc = business.logoDataUrl || "/koji-logo.svg";
 
@@ -678,6 +701,20 @@ export default function ProfilPage() {
               accessInstructions: next.accessInstructions
             }))}
           />
+        </section>
+
+        <section className="profile-block">
+          <h2>Sécurité</h2>
+          <p className="muted">Changez votre mot de passe de connexion.</p>
+          <div className="profile-grid">
+            <Field label="Mot de passe actuel" iconName="text" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+            <Field label="Nouveau mot de passe" iconName="text" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} hint="8 caractères minimum" />
+            <Field label="Confirmer le nouveau mot de passe" iconName="text" type="password" value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} />
+          </div>
+          {passwordMessage ? <p className="profile-message">{passwordMessage}</p> : null}
+          <button type="button" className="button secondary" onClick={changePassword} disabled={passwordSaving || !currentPassword || !newPassword}>
+            {passwordSaving ? "Modification…" : "Changer le mot de passe"}
+          </button>
         </section>
 
         <section className="profile-block">

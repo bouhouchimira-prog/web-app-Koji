@@ -2,8 +2,10 @@ import { badRequest, ok } from "../../../../lib/http";
 import { getSupabase, getSupabaseAdmin } from "../../../../lib/supabase";
 import { makeToken } from "../../../../lib/db";
 import { sendEntrepriseVerificationEmail } from "../../../../lib/mailer";
+import { checkRateLimit, recordFailedAttempt, rateLimitMessage } from "../../../../lib/rate-limit";
 
 const ACTIVATION_TTL_MS = 48 * 60 * 60 * 1000; // 48h, same convention as particulier-signup
+const RATE_SCOPE = "entreprise-signup";
 
 // Creates the account in Supabase Auth — shared with the koji-main Flutter app
 // and koji-admin. The handle_new_user DB trigger creates the `users` profile
@@ -27,6 +29,12 @@ export async function POST(request) {
 
   if (!email || !password) return badRequest("Email et mot de passe obligatoires");
   if (password.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caractères");
+
+  // Protection contre le spam d'inscriptions repetees sur la meme adresse
+  // (16 oct) — meme systeme que le reste de l'app (lib/rate-limit.js).
+  const limit = await checkRateLimit(RATE_SCOPE, email);
+  if (!limit.allowed) return badRequest(rateLimitMessage(limit.retryAfterSeconds), 429);
+  await recordFailedAttempt(RATE_SCOPE, email);
 
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.signUp({

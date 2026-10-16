@@ -2,8 +2,10 @@ import { badRequest, ok } from "../../../../lib/http";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { makeToken } from "../../../../lib/db";
 import { sendEntrepriseVerificationEmail } from "../../../../lib/mailer";
+import { checkRateLimit, recordFailedAttempt } from "../../../../lib/rate-limit";
 
 const ACTIVATION_TTL_MS = 48 * 60 * 60 * 1000;
+const RATE_SCOPE = "resend-activation";
 
 // Renvoie l'email d'activation d'un compte entreprise (16 oct) — pour le cas
 // ou le premier email n'est jamais arrive (SMTP, filtre anti-spam...).
@@ -15,6 +17,12 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const email = String(body.email || "").trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest("Adresse e-mail invalide.");
+
+  // Meme protection anti-spam que forgot-password (16 oct) — reponse
+  // identique quel que soit le resultat.
+  const limit = await checkRateLimit(RATE_SCOPE, email);
+  if (!limit.allowed) return ok({ message: GENERIC_MESSAGE });
+  await recordFailedAttempt(RATE_SCOPE, email);
 
   try {
     const admin = getSupabaseAdmin();

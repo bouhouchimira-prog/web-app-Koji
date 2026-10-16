@@ -38,6 +38,7 @@ export default function ClientProfilePage() {
   const [saved, setSaved] = useState(false);
   const [company, setCompany] = useState(null);
   const [newPassword, setNewPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,7 +61,7 @@ export default function ClientProfilePage() {
     const response = await fetch("/api/client/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personal, password: newPassword.trim() || undefined }),
+      body: JSON.stringify({ personal, password: newPassword.trim() || undefined, currentPassword: currentPassword.trim() || undefined }),
     });
     const data = await response.json();
     if (!response.ok) {
@@ -71,6 +72,7 @@ export default function ClientProfilePage() {
       localStorage.setItem("koji-user", JSON.stringify(data.user));
       setUser(data.user);
       setNewPassword("");
+      setCurrentPassword("");
       setShowPassword(false);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
@@ -114,6 +116,20 @@ export default function ClientProfilePage() {
             </label>
           ))}
         </div>
+
+        <label>
+          Mot de passe actuel
+          <div className="auth-input-wrap">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={currentPassword}
+              onChange={(e) => { setCurrentPassword(e.target.value); setError(""); }}
+              autoComplete="current-password"
+              placeholder="••••••••"
+            />
+          </div>
+          <small className="ct-profil-field-hint">Nécessaire uniquement pour changer de mot de passe.</small>
+        </label>
 
         <label>
           {L.clientSpace.newPasswordLabel}

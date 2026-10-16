@@ -3,8 +3,10 @@ import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { makeToken } from "../../../../lib/db";
 import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 import { sendPasswordResetEmail } from "../../../../lib/mailer";
+import { checkRateLimit, recordFailedAttempt } from "../../../../lib/rate-limit";
 
 const RESET_TTL_MS = 2 * 60 * 60 * 1000; // 2h — plus court qu'une activation de compte
+const RATE_SCOPE = "forgot-password";
 
 // Reinitialisation de mot de passe (16 oct, meme correctif que le signup :
 // supabase.auth.resetPasswordForEmail() depend du meme service email
@@ -29,6 +31,13 @@ export async function POST(request) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
 
   if (!email) return ok({ message: GENERIC_MESSAGE });
+
+  // Protection contre le bombardement de boite mail (16 oct) — la reponse
+  // reste volontairement identique (meme en cas de limite atteinte), pour ne
+  // jamais laisser deviner si une adresse est inscrite ou juste spammee.
+  const limit = await checkRateLimit(RATE_SCOPE, email);
+  if (!limit.allowed) return ok({ message: GENERIC_MESSAGE });
+  await recordFailedAttempt(RATE_SCOPE, email);
 
   try {
     if (accountType === "entreprise") {
