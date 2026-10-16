@@ -46,7 +46,8 @@ function ActivateInner() {
       setMessage("Lien d'activation invalide ou manquant.");
       return;
     }
-    fetch(`/api/auth/activate?token=${encodeURIComponent(token)}`)
+    const typeParam = params.get("type") === "particulier" ? "particulier" : params.get("type") === "entreprise" ? "entreprise" : "";
+    fetch(`/api/auth/activate?token=${encodeURIComponent(token)}${typeParam ? `&type=${typeParam}` : ""}`)
       .then(async (response) => {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "Activation impossible.");

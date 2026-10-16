@@ -45,6 +45,14 @@ export async function POST(request) {
     // Profile row is optional — the account itself is what matters.
   }
 
+  // Email non confirme (16 oct) : gate propre a ce site, independant du
+  // toggle "Confirm email" de Supabase (voir app/api/auth/signup/route.js).
+  // N'affecte que l'emission du cookie de session web — un compte cree ici
+  // reste utilisable immediatement depuis l'app mobile Flutter.
+  if (accountType === "entreprise" && profile?.email_verified === false) {
+    return badRequest("Compte non activé. Vérifiez votre boîte mail pour activer votre compte, ou demandez un nouvel e-mail d'activation.", 403);
+  }
+
   const user = {
     ...buildWebUser({
       id: authUser.id,

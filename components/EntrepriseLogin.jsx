@@ -49,10 +49,22 @@ export function EntrepriseLogin({ L }) {
   const [knownEmails, setKnownEmails] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState("idle"); // idle | sending | sent
 
   useEffect(() => {
     setKnownEmails(readKnownEmails());
   }, []);
+
+  const needsActivation = /non activ/i.test(error);
+
+  async function resendActivation() {
+    setResendStatus("sending");
+    try {
+      await apiSend("/api/auth/resend-activation", { email: email.trim().toLowerCase() });
+    } finally {
+      setResendStatus("sent");
+    }
+  }
 
   function handleEmailStep(event) {
     event.preventDefault();
@@ -166,6 +178,15 @@ export function EntrepriseLogin({ L }) {
             </div>
           </div>
           {error ? <p className="auth-error">{error}</p> : null}
+          {needsActivation ? (
+            resendStatus === "sent" ? (
+              <p className="auth-subtitle" style={{ fontSize: "0.82rem" }}>Email renvoyé, si besoin vérifiez vos spams.</p>
+            ) : (
+              <button type="button" className="auth-text-btn" onClick={resendActivation} disabled={resendStatus === "sending"}>
+                {resendStatus === "sending" ? "Envoi…" : "Renvoyer l'email d'activation"}
+              </button>
+            )
+          ) : null}
           <button type="submit" className="auth-btn-primary" disabled={loading}>
             {loading ? L.auth.loggingIn : L.auth.loginBtn}
           </button>

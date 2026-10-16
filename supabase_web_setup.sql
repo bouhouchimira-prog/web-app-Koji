@@ -134,3 +134,19 @@ ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS magasin TEXT DEFAULT '';
 ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS chantier_id UUID REFERENCES chantiers(id);
 ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS montant_ttc NUMERIC NOT NULL DEFAULT 0;
 ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS ticket_photo TEXT DEFAULT '';
+
+-- ── users : verification d'email pour les comptes entreprise (16 octobre) ──
+-- Bug signale par Amira : un compte entreprise cree depuis /signup s'active
+-- immediatement (le toggle "Confirm email" de ce projet Supabase est
+-- desactive) et affichait quand meme un faux message "verifiez vos mails"
+-- (aucun email n'etait envoye). Plutot que de dependre de ce toggle Supabase
+-- (qui s'applique aussi a l'app mobile Flutter, partagee), on gere notre
+-- propre verification, cote site web uniquement : email_verified par
+-- defaut TRUE (aucun compte existant n'est affecte), mis a FALSE
+-- explicitement par app/api/auth/signup/route.js a la creation d'un compte
+-- entreprise, verifie par app/api/auth/login/route.js avant d'emettre le
+-- cookie de session de ce site — l'app mobile, qui parle a Supabase Auth
+-- directement, n'est pas concernee par ce champ.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires_at TIMESTAMPTZ;
