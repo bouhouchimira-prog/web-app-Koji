@@ -26,6 +26,17 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// `Date.now()` seul collisionne quand plusieurs lignes sont creees dans la
+// meme milliseconde (ex: le chat "Avec l'IA" qui ajoute plusieurs ouvrages
+// d'affilee dans le meme tour) — React remonte alors "two children with
+// the same key" et des lignes se dupliquent/disparaissent. Suffixe
+// aleatoire pour garantir l'unicite meme sur deux appels synchrones.
+let localIdCounter = 0;
+function uniqueLocalId(prefix) {
+  localIdCounter += 1;
+  return `${prefix}-${Date.now()}-${localIdCounter}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // Acompte/Solde (16 oct, maquette Artifact DevisConditions) — reutilise le
 // mecanisme paymentMilestones deja existant (jusque-la reserve aux devis
 // Radar des Chantiers), toujours exactement 2 entrees : le pourcentage de
@@ -1484,7 +1495,7 @@ export default function DevisEditor() {
   // Ligne "a chiffrer manuellement" (aucune correspondance catalogue) —
   // meme schema que submitOuvrageComposer, avec un prix a 0€ jamais invente.
   function addUnmatchedOuvrageToRoom(label, room, quantity, unit) {
-    const id = `koji-${Date.now()}`;
+    const id = uniqueLocalId("koji");
     setCustomSources((current) => [...current, {
       id,
       code: "PERSO",
@@ -1536,7 +1547,7 @@ export default function DevisEditor() {
   // prix devine : uniquement transcrit tel quel depuis ce qu'elle a
   // elle-meme communique, jamais calcule/estime par l'assistant.
   function addForfaitLineToRoom(label, room, amountHt) {
-    const id = `koji-${Date.now()}`;
+    const id = uniqueLocalId("koji");
     setCustomSources((current) => [...current, {
       id,
       code: "PERSO",
