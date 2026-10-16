@@ -2846,13 +2846,6 @@ export default function DevisEditor() {
                   </div>
                 </div>
                 <div className="lot-list">
-                  <div
-                    className={`lot-list-row lot-list-row-pinned ${targetRoom === "Services" ? "active" : ""}`}
-                    data-room-row="Services"
-                  >
-                    <span className="lot-list-drag-handle lot-list-drag-handle-fixed" aria-hidden="true" />
-                    <button type="button" className="lot-list-label" onClick={() => setTargetRoom("Services")}>{L.devis.generalWorks}</button>
-                  </div>
                   {roomGroups.filter((room) => room !== "Services").map((room) => (
                     <div
                       key={room}
