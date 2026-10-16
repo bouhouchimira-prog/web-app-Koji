@@ -298,6 +298,9 @@ export default function DevisEditor() {
   const [expandedLotIds, setExpandedLotIds] = useState(() => new Set(["Services"]));
   const [lotsInitialized, setLotsInitialized] = useState(false);
   const [targetRoom, setTargetRoom] = useState("Services");
+  // Bascule Manuel/Avec l'IA (16 oct, maquette Artifact) — purement
+  // d'affichage pour l'instant, le mode "ia" est branche separement.
+  const [mode, setMode] = useState("manuel");
   const [rightPanelTab, setRightPanelTab] = useState("client");
   const [clientEditing, setClientEditing] = useState(false);
   // Avenants du devis signé (18 septembre) : chargés dès qu'un devis signé
@@ -2477,16 +2480,22 @@ export default function DevisEditor() {
 
   return (
     <Shell>
-      <header className="page-header quote-final-header quote-final-header-centered">
+      <header className="page-header quote-final-header quote-final-header-v2">
+        <button type="button" className="avenant-back-btn" aria-label="Retour" onClick={() => router.push("/devis")}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
         <div className="quote-final-header-title">
-          <p className="eyebrow">{L.devis.title}</p>
-          <h1>{L.devis.generate}</h1>
+          <p className="eyebrow">{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</p>
+          <h1>{L.devis.newQuote}</h1>
+        </div>
+        <div className="quote-mode-toggle segmented large">
+          <button type="button" className={mode === "manuel" ? "active" : ""} onClick={() => setMode("manuel")}>{L.devis.modeManual}</button>
+          <button type="button" className={mode === "ia" ? "active" : ""} onClick={() => setMode("ia")}>{L.devis.modeAi}</button>
         </div>
         <div className="quote-final-actions">
           <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
           <button type="button" className="button secondary" onClick={handleGenerate}>{L.devis.save}</button>
           <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
-          <Link className="button secondary" href="/signature">{L.devis.mySignature}</Link>
         </div>
       </header>
 

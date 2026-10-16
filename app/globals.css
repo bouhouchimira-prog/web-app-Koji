@@ -8593,6 +8593,27 @@ body :where(
   align-items: center;
 }
 
+/* En-tete v2 (16 oct, maquette Artifact DevisCreer) : bouton retour + titre
+   a gauche, bascule Manuel/Avec l'IA centree, actions a droite — remplace
+   le positionnement en "titre centre en absolu" de quote-final-header-centered
+   (toujours utilise par d'autres pages, laisse intact). */
+.quote-final-header-v2 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.quote-final-header-v2 .quote-final-header-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quote-mode-toggle.segmented {
+  flex: 0 0 auto;
+  width: 250px;
+  margin-bottom: 0;
+}
+
 .quote-final-header-centered {
   position: relative;
   justify-content: flex-end;
