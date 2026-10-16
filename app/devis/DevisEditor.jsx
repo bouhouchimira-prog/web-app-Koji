@@ -327,6 +327,9 @@ export default function DevisEditor() {
   // Bascule Manuel/Avec l'IA (16 oct, maquette Artifact) — purement
   // d'affichage pour l'instant, le mode "ia" est branche separement.
   const [mode, setMode] = useState("manuel");
+  // Derniere ligne ajoutee par le chat sans correspondance catalogue (16
+  // oct) — cible de proposer_prix, voir addAiOuvrageToRoom/applyAiManualPrice.
+  const lastUnmatchedAiLineIdRef = useRef("");
   const [rightPanelTab, setRightPanelTab] = useState("client");
   const [clientEditing, setClientEditing] = useState(false);
   // Avenants du devis signé (18 septembre) : chargés dès qu'un devis signé
@@ -1527,6 +1530,28 @@ export default function DevisEditor() {
       ...current,
       [id]: { ...(current[id] || {}), aiAdded: true, priceSource: resolved.matched ? "catalogue" : "manquant" }
     }));
+    // Une ligne sans correspondance catalogue devient la cible de
+    // proposer_prix si l'entreprise donne un montant juste apres (16 oct,
+    // demande d'Amira) — jamais pour une ligne deja chiffree par le
+    // catalogue, remis a vide dans ce cas pour ne jamais ecraser le mauvais
+    // prix si l'entreprise en donne un plus tard sans lien avec cette ligne.
+    lastUnmatchedAiLineIdRef.current = resolved.matched ? "" : id;
+  }
+
+  // Prix donne directement par l'entreprise dans le chat pour la derniere
+  // ligne ajoutee sans correspondance catalogue (16 oct) — jamais calcule/
+  // estime par l'IA, transcrit tel quel (meme principe que
+  // addForfaitLineToRoom plus bas). priceSource passe de "manquant" a
+  // "entreprise" : le badge rouge "prix manquant" disparait, le badge ambre
+  // "IA · à vérifier" reste (ligne toujours ajoutee par le chat).
+  function applyAiManualPrice(amountHt) {
+    const id = lastUnmatchedAiLineIdRef.current;
+    if (!id || !(Number(amountHt) > 0)) return;
+    setLineSettings((current) => ({
+      ...current,
+      [id]: { ...(current[id] || {}), billingMode: "fixed", fixedAmountInput: String(amountHt), fixedAmountMode: "ht", priceSource: "entreprise" }
+    }));
+    lastUnmatchedAiLineIdRef.current = "";
   }
 
   // Informations client posees par le chat "Avec l'IA" (16 oct) — meme
@@ -2722,6 +2747,7 @@ export default function DevisEditor() {
                 quoteSnapshot={devisChatSnapshot}
                 onAddLot={addCustomRoomAndFocus}
                 onAddOuvrage={addAiOuvrageToRoom}
+                onSetPrice={applyAiManualPrice}
                 onSetClient={applyChatClientInfo}
                 onFinish={() => setMode("manuel")}
               />
