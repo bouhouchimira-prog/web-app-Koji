@@ -1913,6 +1913,7 @@ export default function DevisEditor() {
   }
 
   async function handleTransformToInvoice() {
+    if (!requireLines()) return;
     try {
       const quote = await persistQuote();
       await apiSend("/api/invoices", { transformQuote: true, quoteId: quote.id });
@@ -2679,30 +2680,35 @@ export default function DevisEditor() {
         <div className="quote-final-actions">
           <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
           <button type="button" className="button secondary" onClick={handleGenerate}>{L.devis.save}</button>
+          <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
           <button type="button" className="button blue" onClick={openSendModal}>{L.devis.send}</button>
-        </div>
-      </header>
-
-      <form className="quote-final-page" onSubmit={(event) => event.preventDefault()}>
-        <div className="quote-meta-bar">
-          <div className="quote-meta-number">
-            <span>{L.devis.quoteNum} : {previewQuoteNumber}</span>
-            <span className="quote-meta-version">{L.devis.versionNum} : {previewVersionNumber}</span>
-            {avenants.some((item) => item.status === "Signe") ? (
-              <span className="quote-meta-version">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</span>
-            ) : null}
-          </div>
-          {form.client || form.chantierAddress ? (
-            <div className="quote-meta-client">
-              {form.client ? <strong>{form.client}</strong> : null}
-              {form.chantierAddress ? <span>{form.chantierAddress}</span> : null}
-            </div>
-          ) : null}
           <button type="button" className="quote-tools-drawer-trigger" onClick={() => setToolsDrawerOpen(true)}>
             <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a4 4 0 0 1-5.4 5.4L6 20 4 18l8.4-9.4a4 4 0 0 1 5.4-5.4l-3.1 3.1Z" /></svg>
             {L.devis.tabTools}
           </button>
         </div>
+      </header>
+
+      <form className="quote-final-page" onSubmit={(event) => event.preventDefault()}>
+        {/* Numero/version deja dans l'eyebrow de l'en-tete (16 oct) — cette
+            barre ne s'affiche plus que si elle a quelque chose de reellement
+            utile a montrer (client, ou total de marche mis a jour par un
+            avenant signe), pour ne pas laisser une carte vide/redondante. */}
+        {form.client || form.chantierAddress || avenants.some((item) => item.status === "Signe") ? (
+          <div className="quote-meta-bar">
+            {avenants.some((item) => item.status === "Signe") ? (
+              <div className="quote-meta-number">
+                <span className="quote-meta-version">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</span>
+              </div>
+            ) : null}
+            {form.client || form.chantierAddress ? (
+              <div className="quote-meta-client">
+                {form.client ? <strong>{form.client}</strong> : null}
+                {form.chantierAddress ? <span>{form.chantierAddress}</span> : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div
           className={`quote-tools-drawer-backdrop ${toolsDrawerOpen ? "open" : ""}`}
@@ -3449,7 +3455,6 @@ export default function DevisEditor() {
                   {L.devis.startSite}
                 </button>
               ) : null}
-              <button type="button" onClick={() => { setMoreActionsOpen(false); handleTransformToInvoice(); }}>{L.devis.transformToInvoice}</button>
             </div>
           ) : null}
         </div>
