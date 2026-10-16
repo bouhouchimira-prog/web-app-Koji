@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getChantierDraft } from "../../lib/chantier-draft";
 import DevisEditor from "./DevisEditor";
@@ -12,14 +12,22 @@ function DevisRouter() {
   const isEditingExisting = Boolean(params.get("id") || params.get("selection"));
   const isNew = Boolean(params.get("new"));
   const hasMode = Boolean(params.get("mode"));
-  const hasDraft = useMemo(() => Boolean(getChantierDraft()), []);
 
-  // "+ Nouveau devis" (17 oct, demande d'Amira) : passe desormais par cet
-  // ecran de choix Manuel/Avec l'IA avant d'ouvrir l'editeur, plutot que
-  // d'ouvrir directement en mode Manuel — jamais pour une edition d'un
-  // devis existant (id/selection) ni pour un brouillon chantier deja en
-  // cours, qui vont toujours droit a l'editeur.
-  if (isNew && !hasMode && !isEditingExisting && !hasDraft) {
+  // Brouillon chantier (lib/chantier-draft.js, parcours app/chantier/new)
+  // — verifie uniquement pour une arrivee "nue" sur /devis, JAMAIS quand
+  // l'URL demande explicitement un nouveau devis (?new=1, "+ Nouveau
+  // devis") : ce clic doit toujours montrer l'ecran de choix, meme si un
+  // vieux brouillon oublie traine encore dans le navigateur (bug remonte
+  // par Amira — le brouillon prenait le dessus sur le clic explicite).
+  // Lu dans un useEffect, jamais dans le rendu initial : localStorage est
+  // absent cote serveur, le lire directement dans un useMemo desynchronise
+  // le rendu serveur/client (erreur d'hydratation).
+  const [hasDraft, setHasDraft] = useState(false);
+  useEffect(() => {
+    if (!isNew && !isEditingExisting) setHasDraft(Boolean(getChantierDraft()));
+  }, [isNew, isEditingExisting]);
+
+  if (isNew && !hasMode && !isEditingExisting) {
     return <DevisModeChoice />;
   }
 
