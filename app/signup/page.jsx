@@ -88,12 +88,34 @@ function SignupScreen() {
         accountType
       });
       if (data.directActivationUrl) setDevUrl(data.directActivationUrl);
-      setStep("confirm");
+      // La confirmation par e-mail de Supabase Auth est desactivee sur ce
+      // projet (voir app/api/auth/signup/route.js) — le compte est deja
+      // actif, inutile d'afficher un ecran "verifiez vos mails" qui ne
+      // correspond a rien de reel (aucun e-mail n'est envoye dans ce cas).
+      setStep(data.activationRequired ? "confirm" : "ready");
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  if (step === "ready") {
+    return (
+      <main className="auth-screen-v2">
+        <AuthBrandPanel />
+        <section className="auth-panel-v2">
+          <div className="auth-confirm-card">
+            <div className="auth-confirm-icon"><MailIcon /></div>
+            <h2>Compte créé</h2>
+            <p className="auth-confirm-sub">Votre compte est prêt, vous pouvez vous connecter dès maintenant.</p>
+            <Link className="auth-btn-primary" style={{ display: "block", textAlign: "center", textDecoration: "none" }} href="/login?type=entreprise">
+              {L.auth.signIn}
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   if (step === "confirm") {
