@@ -12,6 +12,7 @@ import { recordEstimationAccuracy } from "../../../lib/estimation-accuracy";
 import { recordIaDevisOutcome } from "../../../lib/ia-devis-outcomes";
 import { checkTrialSendLimit, checkTrialEditLimit, persistTrialPatch } from "../../../lib/plan";
 import { buildWebUser } from "../../../lib/user-profile";
+import { sendQuoteToClientEmail } from "../../../lib/mailer";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -382,6 +383,7 @@ export async function PATCH(request) {
   }
 
   let signatureAccess = null;
+  let emailSendResult = null;
   const sideDb = await readDb();
 
   if (action === "send" && quote.signatureStatus === "Signe" && !body.confirmReopenSigned) {
@@ -405,6 +407,62 @@ export async function PATCH(request) {
     quote.sentAt = now;
     if (quote.projectId) {
       await auth.supabase.from("chantiers").update({ status: "En attente signature" }).eq("id", quote.projectId);
+    }
+
+    // Envoi reel au client (16 oct, fenetre "Envoyer le devis") — opt-in
+    // explicite (body.sendEmail === true) pour ne jamais faire partir un
+    // email depuis les appels existants (Regenerer les acces, etc.) qui ne
+    // demandent que de nouveaux identifiants a copier-coller. Ne doit
+    // jamais faire echouer l'envoi lui-meme : la reponse reste exploitable
+    // (lien a partager a la main) meme si l'email echoue.
+    if (body.sendEmail === true && signatureAccess.email) {
+      let pdfBuffer = null;
+      if (body.includePdf !== false) {
+        try {
+          const origin = new URL(request.url).origin;
+          const pdfRes = await fetch(`${origin}/api/quotes/${quote.id}/documents?type=quote&format=pdf`, {
+            headers: { authorization: `Bearer ${auth.token}` }
+          });
+          if (pdfRes.ok) pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+        } catch {
+          // PJ manquante != envoi bloque — l'email part quand meme sans PDF.
+        }
+      }
+      const mailResult = await sendQuoteToClientEmail({
+        to: signatureAccess.email,
+        subject: fixText(body.emailSubject || `Votre devis ${quote.quoteNumber}`),
+        message: fixText(body.emailMessage || ""),
+        quoteNumber: quote.quoteNumber,
+        pdfBuffer,
+        pdfFilename: `devis-${quote.quoteNumber}.pdf`,
+        signatureUrl: signatureAccess.loginUrl,
+        identifier: signatureAccess.identifier,
+        password: signatureAccess.password,
+        includePdf: body.includePdf !== false && Boolean(pdfBuffer),
+        includeSignatureLink: body.includeSignatureLink !== false,
+        includeCredentials: body.includeCredentials !== false
+      }).catch((err) => ({ ok: false, error: err.message }));
+      emailSendResult = mailResult;
+
+      if (body.sendCopyToSelf === true) {
+        const { data: ownerProfile2 } = await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle();
+        if (ownerProfile2?.email) {
+          await sendQuoteToClientEmail({
+            to: ownerProfile2.email,
+            subject: `[Copie] ${fixText(body.emailSubject || `Votre devis ${quote.quoteNumber}`)}`,
+            message: fixText(body.emailMessage || ""),
+            quoteNumber: quote.quoteNumber,
+            pdfBuffer,
+            pdfFilename: `devis-${quote.quoteNumber}.pdf`,
+            signatureUrl: signatureAccess.loginUrl,
+            identifier: signatureAccess.identifier,
+            password: signatureAccess.password,
+            includePdf: body.includePdf !== false && Boolean(pdfBuffer),
+            includeSignatureLink: body.includeSignatureLink !== false,
+            includeCredentials: body.includeCredentials !== false
+          }).catch(() => {});
+        }
+      }
     }
   }
 
@@ -572,5 +630,5 @@ export async function PATCH(request) {
   if (action === "send" && signatureAccess?.password) {
     responseQuote.signatureClientAccess = { ...responseQuote.signatureClientAccess, password: signatureAccess.password };
   }
-  return ok({ quote: responseQuote });
+  return ok({ quote: responseQuote, emailSent: emailSendResult?.ok ?? null, emailError: emailSendResult?.ok === false ? emailSendResult.error : null });
 }

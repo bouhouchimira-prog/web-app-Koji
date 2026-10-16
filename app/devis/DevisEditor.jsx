@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { AddressFields } from "../../components/AddressFields";
+import { SendQuoteModal } from "../../components/SendQuoteModal";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
@@ -329,6 +330,8 @@ export default function DevisEditor() {
   const [paymentCardOpen, setPaymentCardOpen] = useState(false);
   const [totalsDetailOpen, setTotalsDetailOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  // Fenetre "Envoyer le devis" (16 oct, maquette Artifact DevisEnvoi).
+  const [sendModalOpen, setSendModalOpen] = useState(false);
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
   // Panneau "outils" (Client/Lots/Bibliotheque/Fournitures) en tiroir sur
@@ -1947,19 +1950,32 @@ export default function DevisEditor() {
     }
   }
 
-  async function handleSend() {
+  // Bouton "Envoyer" de l'en-tete (16 oct) : ouvre desormais la fenetre
+  // dediee (SendQuoteModal) plutot que d'envoyer directement. Ne prepare
+  // PAS de nouveaux acces ici expres : le mot de passe n'est jamais stocke
+  // en clair (voir buildSignatureAccess cote serveur) et chaque appel
+  // action:"send" en regenere un nouveau - generer une fois ici puis une
+  // seconde fois au clic sur "Envoyer au client" afficherait un mot de
+  // passe different de celui reellement envoye par email. La fenetre se
+  // charge elle-meme de generer les acces (via "Regenerer" ou directement
+  // au clic sur "Envoyer au client").
+  async function openSendModal() {
     if (!requireLines()) return;
     if (!requireValidMilestones()) return;
-    if (!window.confirm("Envoyer ce devis au client ? Un lien Koji Signature sera généré.")) {
-      notify("Envoi annulé.", "info");
-      return;
-    }
     try {
-      const quote = await persistQuote();
-      await sendQuoteToSignature(quote.id);
-      notify("Devis envoyé au client. Lien de signature généré.", "success");
+      await persistQuote();
+      setSendModalOpen(true);
     } catch (error) {
-      notifyError(error, "Impossible d'envoyer le devis au client.");
+      notifyError(error, "Impossible de préparer l'envoi du devis.");
+    }
+  }
+
+  function handleQuoteSent(quote, { silent } = {}) {
+    setGeneratedQuote(quote);
+    setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+    if (!silent) {
+      setSendModalOpen(false);
+      notify("Devis envoyé au client par e-mail.", "success");
     }
   }
 
@@ -2518,7 +2534,7 @@ export default function DevisEditor() {
         <div className="quote-final-actions">
           <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
           <button type="button" className="button secondary" onClick={handleGenerate}>{L.devis.save}</button>
-          <button type="button" className="button blue" onClick={handleSend}>{L.devis.send}</button>
+          <button type="button" className="button blue" onClick={openSendModal}>{L.devis.send}</button>
         </div>
       </header>
 
@@ -3538,6 +3554,18 @@ export default function DevisEditor() {
               </div>
             </div>
           </div>
+        ) : null}
+
+        {sendModalOpen && generatedQuote ? (
+          <SendQuoteModal
+            quote={generatedQuote}
+            quoteNumber={previewQuoteNumber}
+            lotsCount={roomGroups.length}
+            linesCount={quoteLines.length}
+            totalTtc={summaryTotals.totalTtc}
+            onClose={() => setSendModalOpen(false)}
+            onSent={handleQuoteSent}
+          />
         ) : null}
       </form>
     </Shell>
