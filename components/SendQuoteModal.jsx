@@ -106,7 +106,10 @@ export function SendQuoteModal({ quote, quoteNumber, lotsCount, linesCount, tota
           <button type="button" className="mini-button" onClick={onClose} aria-label="Fermer" disabled={sending}>✕</button>
         </div>
 
-        <form onSubmit={submitSend} className="send-quote-form">
+        {/* <div>, pas <form> : cette fenetre est rendue a l'interieur du
+            grand <form> de DevisEditor.jsx — un <form> imbrique est
+            invalide en HTML. */}
+        <div className="send-quote-form">
           <label className="payment-field">
             <span>Destinataire</span>
             <input type="email" value={destinataire} onChange={(e) => setDestinataire(e.target.value)} placeholder="client@email.fr" required />
@@ -159,9 +162,9 @@ export function SendQuoteModal({ quote, quoteNumber, lotsCount, linesCount, tota
 
           <div className="send-quote-footer">
             <button type="button" onClick={onClose} disabled={sending}>Annuler</button>
-            <button type="submit" disabled={sending}>{sending ? "Envoi…" : "Envoyer au client"}</button>
+            <button type="button" onClick={submitSend} disabled={sending}>{sending ? "Envoi…" : "Envoyer au client"}</button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

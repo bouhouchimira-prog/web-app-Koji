@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { AddressFields } from "../../components/AddressFields";
 import { SendQuoteModal } from "../../components/SendQuoteModal";
+import { DevisChatPanel } from "../../components/DevisChatPanel";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
@@ -708,7 +709,13 @@ export default function DevisEditor() {
         showMaterialsToClient: task.showMaterialsToClient,
         adjustmentReason: task.adjustmentReason,
         fixedDuration: settings.fixedDuration != null ? Number(settings.fixedDuration) : null,
-        fixedDurationUnit: settings.fixedDurationUnit || "h"
+        fixedDurationUnit: settings.fixedDurationUnit || "h",
+        // Badge "IA · à vérifier" (16 oct) — recalculateLine spread "line"
+        // tel quel, mais cet objet est construit champ par champ : sans ces
+        // 2 lignes, aiAdded/priceSource poses par addAiOuvrageToRoom
+        // disparaitraient silencieusement a chaque rendu.
+        aiAdded: Boolean(settings.aiAdded),
+        priceSource: settings.priceSource || ""
       }, settings, quoteVatRate);
 
       const rawSubItems = Array.isArray(settings.subItems) ? settings.subItems : [];
@@ -835,6 +842,14 @@ export default function DevisEditor() {
   const selectedProject = useMemo(() => {
     return projects.find((project) => project.id === form.projectId) || projects.find((project) => project.title === form.project) || null;
   }, [form.project, form.projectId, projects]);
+
+  // Etat du devis transmis au chat "Avec l'IA" (16 oct) a chaque message —
+  // lui permet de savoir ce qui existe deja sans jamais redemander (voir
+  // lib/devis-chat-prompt.js).
+  const devisChatSnapshot = useMemo(() => ({
+    lots: roomGroups.map((room) => ({ nom: room === "Services" ? L.devis.generalWorks : room, lignes: (linesByRoom[room] || []).length })),
+    client: { nom: form.client, telephone: form.clientPhone, email: form.clientEmail, chantier: form.chantierAddress }
+  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks]);
 
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1484,6 +1499,36 @@ export default function DevisEditor() {
     }));
     setExpandedLotIds((current) => new Set(current).add(room));
     setGeneratedQuote(null);
+    return id;
+  }
+
+  // Ajout depuis le chat "Avec l'IA" (16 oct) : mêmes fonctions que les
+  // onglets Bibliothèque/Fournitures ci-dessus (jamais de prix réimplémenté
+  // — resolved vient toujours de /api/devis-chat, qui résout via la même
+  // logique catalogue-only que koji-assistant), avec en plus le marquage
+  // aiAdded qui alimente le badge "IA · à vérifier" (voir quoteLines plus
+  // bas et recalculateLine, qui doit lire explicitement ces 2 champs).
+  function addAiOuvrageToRoom(resolved, room, quantity) {
+    const id = resolved.matched
+      ? (addOuvrageToRoom(resolved, room, quantity), resolved.id)
+      : addUnmatchedOuvrageToRoom(resolved.label, room, quantity, resolved.unit);
+    setLineSettings((current) => ({
+      ...current,
+      [id]: { ...(current[id] || {}), aiAdded: true, priceSource: resolved.matched ? "catalogue" : "manquant" }
+    }));
+  }
+
+  // Informations client posees par le chat "Avec l'IA" (16 oct) — meme
+  // mapping que l'ancien pont "koji-devis-page-action" (setClientInfo).
+  function applyChatClientInfo(client) {
+    if (!client) return;
+    setForm((current) => ({
+      ...current,
+      client: client.nom || current.client,
+      clientPhone: client.telephone || current.clientPhone,
+      clientEmail: client.email || current.clientEmail,
+      chantierAddress: client.chantier || current.chantierAddress
+    }));
   }
 
   // Ligne au forfait a partir d'un montant HT explicitement donne par
@@ -2198,7 +2243,14 @@ export default function DevisEditor() {
           <div className="quote-line-collapsed-row-wrap" ref={lineMenuOpenId === line.id ? lineMenuRef : null}>
             <button type="button" className="quote-line-collapsed-row" onClick={() => reopenLine(line.id)}>
               <span className="quote-line-collapsed-index">{lineNumber}</span>
-              <span className="quote-line-collapsed-label">{settings.label ?? line.label ?? L.devis.designation}</span>
+              <span className="quote-line-collapsed-label">
+                {settings.label ?? line.label ?? L.devis.designation}
+                {line.aiAdded ? (
+                  <span className={`status-pill status-pill-ia${line.priceSource === "manquant" ? " status-pill-ia-missing" : ""}`}>
+                    {line.priceSource === "manquant" ? "IA · prix manquant" : "IA · à vérifier"}
+                  </span>
+                ) : null}
+              </span>
               <span className="quote-line-collapsed-qty">{qty > 0 ? qty : "—"}</span>
               <span className="quote-line-collapsed-unit">{(settings.unit ?? line.unit ?? "u").toUpperCase()}</span>
               <span className="quote-line-collapsed-unitprice">{money(unitPriceHt)}</span>
@@ -2247,6 +2299,11 @@ export default function DevisEditor() {
       <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
         <header>
           <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
+          {line.aiAdded ? (
+            <span className={`status-pill status-pill-ia${line.priceSource === "manquant" ? " status-pill-ia-missing" : ""}`}>
+              {line.priceSource === "manquant" ? "IA · prix manquant" : "IA · à vérifier"}
+            </span>
+          ) : null}
           <div className="quote-line-menu-wrap" ref={lineMenuOpenId === line.id ? lineMenuRef : null}>
             <button
               type="button"
@@ -2517,6 +2574,83 @@ export default function DevisEditor() {
     );
   }
 
+  // Panneau "Devis en préparation" du mode Avec l'IA (16 oct, maquette
+  // Artifact DevisCreerIA) — lecture seule et volontairement plus simple
+  // que les cartes de lot du mode Manuel (pas de menu avancé, pas de
+  // glisser-déposer) : reprend juste roomGroups/linesByRoom/summaryTotals
+  // déjà calculés, avec le badge "IA · à vérifier" sur les lignes ajoutées
+  // par le chat (line.aiAdded, voir quoteLines plus haut).
+  function renderAiPreviewCard() {
+    return (
+      <section className="quote-final-card quote-ia-preview-card">
+        <div className="quote-section-title">
+          <div>
+            <span>Devis en préparation</span>
+            <h2>Se remplit au fil de la conversation</h2>
+          </div>
+        </div>
+        <p className="quote-ia-preview-banner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+          Prix issus de la bibliothèque koji : temps normatif × taux horaire. L'IA n'invente aucun prix.
+        </p>
+
+        {roomGroups.every((room) => (linesByRoom[room] || []).length === 0) ? (
+          <div className="empty-state">Les lots et lignes ajoutés par l'assistant apparaîtront ici.</div>
+        ) : (
+          roomGroups.map((room) => {
+            const roomLines = linesByRoom[room] || [];
+            if (!roomLines.length) return null;
+            const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+            return (
+              <div className="quote-ia-preview-lot" key={room}>
+                <div className="quote-ia-preview-lot-head">
+                  <strong>{room === "Services" ? L.devis.generalWorks : room}</strong>
+                  <span>{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""}</span>
+                  <strong>{money(roomTotalHt)}</strong>
+                </div>
+                {roomLines.map((line) => {
+                  const qty = Number(line.quantity || 0);
+                  const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
+                  return (
+                    <div className="quote-ia-preview-line" key={line.id}>
+                      <div className="quote-ia-preview-line-label">
+                        {line.code ? <small>{line.code}</small> : null}
+                        <span>
+                          {line.label}
+                          {line.aiAdded ? (
+                            <span className={`status-pill status-pill-ia${line.priceSource === "manquant" ? " status-pill-ia-missing" : ""}`}>
+                              {line.priceSource === "manquant" ? "IA · prix manquant" : "IA · à vérifier"}
+                            </span>
+                          ) : null}
+                        </span>
+                      </div>
+                      <span>{qty || "—"}</span>
+                      <span>{line.unit}</span>
+                      <span>{money(unitPriceHt)}</span>
+                      <strong>{money(line.totalHt)}</strong>
+                      <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer">×</button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
+
+        <div className="quote-lots-footer-right quote-ia-preview-totals">
+          <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
+          <div><span>TVA</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
+          <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
+        </div>
+
+        <div className="quote-ia-preview-actions">
+          <button type="button" className="button secondary" onClick={() => setMode("manuel")}>Passer en édition manuelle</button>
+          <button type="button" className="button blue" onClick={() => setMode("manuel")}>Valider et ajuster</button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <Shell>
       <header className="page-header quote-final-header quote-final-header-v2">
@@ -2566,6 +2700,16 @@ export default function DevisEditor() {
 
         <div className="quote-two-col">
           <div className="quote-col-left">
+            {mode === "ia" ? (
+              <DevisChatPanel
+                quoteSnapshot={devisChatSnapshot}
+                onAddLot={addCustomRoomAndFocus}
+                onAddOuvrage={addAiOuvrageToRoom}
+                onSetClient={applyChatClientInfo}
+                onFinish={() => setMode("manuel")}
+              />
+            ) : null}
+            <div style={mode === "ia" ? { display: "none" } : undefined}>
             <section className="quote-final-card">
               <div className="quote-section-title">
                 <div>
@@ -2700,9 +2844,12 @@ export default function DevisEditor() {
                 <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
               </div>
             </section>
+            </div>
           </div>
 
           <div className={`quote-col-right ${toolsDrawerOpen ? "open" : ""}`}>
+            {mode === "ia" ? renderAiPreviewCard() : null}
+            <div style={mode === "ia" ? { display: "none" } : undefined}>
             <button type="button" className="quote-tools-drawer-close" onClick={() => setToolsDrawerOpen(false)} aria-label={L.common.cancel}>×</button>
             <div className="quote-right-tabs">
               <button type="button" className={rightPanelTab === "client" ? "active" : ""} onClick={() => setRightPanelTab("client")}>{L.devis.tabClient}</button>
@@ -3007,6 +3154,7 @@ export default function DevisEditor() {
                 </button>
               </section>
             ) : null}
+            </div>
           </div>
         </div>
 
