@@ -8838,6 +8838,13 @@ body :where(
   align-items: start;
 }
 
+/* Mode Avec l'IA (16 oct, demande d'Amira) : la colonne chat n'a pas besoin
+   d'etre plus large que l'aperçu du devis, au contraire — inverse le ratio
+   du mode Manuel pour laisser plus de place aux ouvrages. */
+.quote-two-col-ia {
+  grid-template-columns: 1fr 1.25fr;
+}
+
 .quote-col-left,
 .quote-col-right {
   display: flex;
@@ -9662,7 +9669,7 @@ body :where(
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: min(720px, 80vh);
+  height: min(560px, 68vh);
 }
 
 .devis-chat-head {

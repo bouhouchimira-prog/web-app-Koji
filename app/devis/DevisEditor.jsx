@@ -2715,7 +2715,7 @@ export default function DevisEditor() {
           onClick={() => setToolsDrawerOpen(false)}
         />
 
-        <div className="quote-two-col">
+        <div className={`quote-two-col${mode === "ia" ? " quote-two-col-ia" : ""}`}>
           <div className="quote-col-left">
             {mode === "ia" ? (
               <DevisChatPanel
