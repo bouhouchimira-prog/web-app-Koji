@@ -2,6 +2,9 @@ import { badRequest, ok } from "../../../../lib/http";
 import { nowIso } from "../../../../lib/auth";
 import { publicUser, readDb, writeDb } from "../../../../lib/db";
 import { hashPassword } from "../../../../lib/worker-auth";
+import { hashPassword as hashParticulierPassword } from "../../../../lib/password-hash";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
+import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 
 // Supabase recovery links land on /set-password with session tokens in the URL
 // hash; the page forwards them as accessToken and the password is updated via
@@ -44,11 +47,48 @@ export async function POST(request) {
     }
   }
 
-  // ── Legacy file-based token flow ───────────────────────────────────────────
   const token = String(body.token || "").trim();
   const mode = body.mode === "reset" ? "reset" : "activation";
+  const accountType = body.accountType === "particulier" ? "particulier" : body.accountType === "entreprise" ? "entreprise" : "";
   if (!token) return badRequest("Token manquant");
 
+  // ── Reinitialisation compte entreprise (16 oct) — compte Supabase Auth,
+  // token maison verifie sur la table `users` (voir forgot-password/route.js
+  // pour pourquoi : resetPasswordForEmail() etait le meme mecanisme peu
+  // fiable que l'ancien email d'activation). Le mot de passe est change via
+  // la cle service_role, pas via un flux de session Supabase classique.
+  if (mode === "reset" && accountType === "entreprise") {
+    const admin = getSupabaseAdmin();
+    const { data: row } = await admin.from("users").select("id, email, password_reset_expires_at").eq("password_reset_token", token).maybeSingle();
+    if (!row) return badRequest("Lien de réinitialisation invalide", 404);
+    if (row.password_reset_expires_at && new Date(row.password_reset_expires_at).getTime() < Date.now()) {
+      return badRequest("Lien de réinitialisation expiré", 410);
+    }
+    const { error: updateError } = await admin.auth.admin.updateUserById(row.id, { password });
+    if (updateError) return badRequest(updateError.message || "Réinitialisation impossible", 400);
+    await admin.from("users").update({ password_reset_token: null, password_reset_expires_at: null }).eq("id", row.id);
+    return ok({ message: "Mot de passe réinitialisé avec succès.", email: row.email || "" });
+  }
+
+  // ── Reinitialisation compte particulier (16 oct) — meme store que
+  // particulier-signup/activate (lib/particulier-users.js).
+  if (mode === "reset" && accountType === "particulier") {
+    const users = await readUsers();
+    const user = users.find((candidate) => candidate.resetToken === token);
+    if (!user) return badRequest("Lien de réinitialisation invalide", 404);
+    if (user.resetExpiresAt && new Date(user.resetExpiresAt).getTime() < Date.now()) {
+      return badRequest("Lien de réinitialisation expiré", 410);
+    }
+    const { salt, hash } = hashParticulierPassword(password);
+    user.passwordHash = hash;
+    user.passwordSalt = salt;
+    user.resetToken = null;
+    user.resetExpiresAt = null;
+    await writeUsers(users);
+    return ok({ message: "Mot de passe réinitialisé avec succès.", email: user.email || "" });
+  }
+
+  // ── Legacy file-based token flow (comptes ouvriers/portail) ────────────────
   const db = await readDb();
   const tokenField = mode === "reset" ? "resetPasswordToken" : "activationToken";
   const expiresField = mode === "reset" ? "resetPasswordExpiresAt" : "activationExpiresAt";

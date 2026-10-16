@@ -150,3 +150,11 @@ ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS ticket_photo TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires_at TIMESTAMPTZ;
+
+-- ── users : mot de passe oublie, comptes entreprise (16 octobre) ───────────
+-- Meme constat que email_verified ci-dessus : app/api/auth/forgot-password
+-- appelait supabase.auth.resetPasswordForEmail(), le meme service email
+-- Supabase peu fiable. Token maison, verifie et consomme cote serveur
+-- (service_role) dans app/api/auth/set-password/route.js.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;

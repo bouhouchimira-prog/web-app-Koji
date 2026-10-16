@@ -40,7 +40,7 @@ function SetPasswordScreen() {
     setError("");
     setInfo("");
     try {
-      const data = await apiSend("/api/auth/set-password", { token, mode, password, accessToken });
+      const data = await apiSend("/api/auth/set-password", { token, mode, password, accessToken, accountType });
       if (data?.user) {
         window.localStorage.setItem("koji-user", JSON.stringify(data.user));
       }
