@@ -24,6 +24,19 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Acompte/Solde (16 oct, maquette Artifact DevisConditions) — reutilise le
+// mecanisme paymentMilestones deja existant (jusque-la reserve aux devis
+// Radar des Chantiers), toujours exactement 2 entrees : le pourcentage de
+// l'une pilote le complement de l'autre dans updateAcomptePercent. Ne jamais
+// appeler cette fonction pour ecraser un devis qui a deja des echeances
+// (voir les deux appels de setPaymentMilestones plus bas).
+function defaultPaymentMilestones() {
+  return [
+    { id: `pm-acompte-${Date.now()}`, label: "Acompte à la signature", percent: 30 },
+    { id: `pm-solde-${Date.now() + 1}`, label: "Solde — à la réception des travaux", percent: 70 }
+  ];
+}
+
 function editQuoteIdFromUrl() {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("id") || "";
@@ -331,11 +344,11 @@ export default function DevisEditor() {
     { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "client" },
     { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client", calculationBase: "chiffrage_cumule" }
   ]);
-  // Etapes de paiement definies par l'entreprise (decisions du 4 septembre,
-  // module paiement Radar des Chantiers) — visible uniquement quand ce devis
-  // est lie a une offre Radar (generatedQuote.chantierOffreId), jamais sur un
-  // devis classique. [{ id, label, percent }], somme des percent = 100.
-  const [paymentMilestones, setPaymentMilestones] = useState([]);
+  // Acompte/Solde (decisions du 4 septembre pour le module Radar des
+  // Chantiers, ouvert a tous les devis le 16 octobre — maquette
+  // DevisConditions) : [{ id, label, percent }], toujours exactement 2
+  // entrees, somme des percent = 100.
+  const [paymentMilestones, setPaymentMilestones] = useState(() => defaultPaymentMilestones());
   const [quoteVatRate, setQuoteVatRate] = useState(20);
   const [vatManual, setVatManual] = useState(false);
   const [draftQuoteNumber, setDraftQuoteNumber] = useState(null);
@@ -583,7 +596,7 @@ export default function DevisEditor() {
     setRooms(Array.isArray(quote.rooms) ? quote.rooms : []);
     setRoomNotes(Array.isArray(quote.notes) ? quote.notes : []);
     if (Array.isArray(quote.surcharges)) setSurcharges(quote.surcharges);
-    setPaymentMilestones(Array.isArray(quote.paymentMilestones) ? quote.paymentMilestones : []);
+    setPaymentMilestones(Array.isArray(quote.paymentMilestones) && quote.paymentMilestones.length > 0 ? quote.paymentMilestones : defaultPaymentMilestones());
     if (quote.vatRate != null) setQuoteVatRate(Number(quote.vatRate));
     setVatManual(true);
     setDraftQuoteNumber(quote.quoteNumber || null);
@@ -1536,16 +1549,25 @@ export default function DevisEditor() {
     setSurcharges((current) => current.filter((s) => s.id !== id));
   }
 
-  function addMilestone() {
-    setPaymentMilestones((current) => [...current, { id: `pm-${Date.now()}`, label: "", percent: 0 }]);
+  // Acompte/Solde simplifie (16 oct) : un seul champ pilote le pourcentage
+  // des 2 entrees a la fois, la somme a 100% est garantie par construction
+  // plutot que seulement validee apres coup (voir requireValidMilestones).
+  function updateAcomptePercent(value) {
+    const acompte = Math.max(0, Math.min(100, Number(value) || 0));
+    setPaymentMilestones((current) => {
+      const next = current.length >= 2 ? current : defaultPaymentMilestones();
+      return [
+        { ...next[0], percent: acompte },
+        { ...next[1], percent: round2(100 - acompte) }
+      ];
+    });
   }
 
-  function updateMilestone(id, field, value) {
-    setPaymentMilestones((current) => current.map((m) => m.id === id ? { ...m, [field]: value } : m));
-  }
-
-  function removeMilestone(id) {
-    setPaymentMilestones((current) => current.filter((m) => m.id !== id));
+  function updateSoldeLabel(value) {
+    setPaymentMilestones((current) => {
+      const next = current.length >= 2 ? current : defaultPaymentMilestones();
+      return [next[0], { ...next[1], label: value }];
+    });
   }
 
   function cycleSurchargeMode(id, current) {
@@ -1591,7 +1613,7 @@ export default function DevisEditor() {
   // Sans etape definie, le fallback (une seule echeance a 100 %) s'applique
   // silencieusement, donc aucun blocage dans ce cas.
   function requireValidMilestones() {
-    if (!generatedQuote?.chantierOffreId || paymentMilestones.length === 0) return true;
+    if (paymentMilestones.length === 0) return true;
     const sum = paymentMilestones.reduce((s, m) => s + Number(m.percent || 0), 0);
     if (sum === 100) return true;
     notify("Les étapes de paiement doivent totaliser 100 % avant d'envoyer ou d'accepter ce devis.", "error");
@@ -1737,7 +1759,7 @@ export default function DevisEditor() {
       vatRate: quoteVatRate,
       totalHt: summaryTotals.totalHt,
       totalTtc: summaryTotals.totalTtc,
-      ...(generatedQuote?.chantierOffreId ? { paymentMilestones } : {})
+      paymentMilestones
     };
 
     const isUpdate = Boolean(generatedQuote?.id);
@@ -1954,6 +1976,7 @@ export default function DevisEditor() {
       { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "excluded" },
       { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "excluded", calculationBase: "chiffrage_cumule" }
     ]);
+    setPaymentMilestones(defaultPaymentMilestones());
     setQuoteVatRate(20);
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
@@ -3014,22 +3037,29 @@ export default function DevisEditor() {
             return (
               <div className={`recap-row recap-surcharge-row recap-surcharge-mode-${s.mode ?? "excluded"}`} key={s.id}>
                 <div className="recap-surcharge-checks">
-                  <label className="recap-check-label">
-                    <input
-                      type="checkbox"
-                      checked={(s.mode ?? "excluded") !== "excluded"}
-                      onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "internal" : "excluded")}
-                    />
-                    {L.devis.counted}
-                  </label>
-                  <label className="recap-check-label">
-                    <input
-                      type="checkbox"
-                      checked={s.mode === "client"}
-                      onChange={(e) => updateSurcharge(s.id, "mode", e.target.checked ? "client" : "internal")}
-                    />
-                    {L.devis.shown}
-                  </label>
+                  <div className="surcharge-mode-pill">
+                    <button
+                      type="button"
+                      className={(s.mode ?? "excluded") === "excluded" ? "active" : ""}
+                      onClick={() => updateSurcharge(s.id, "mode", "excluded")}
+                    >
+                      {L.devis.notCounted}
+                    </button>
+                    <button
+                      type="button"
+                      className={s.mode === "internal" ? "active" : ""}
+                      onClick={() => updateSurcharge(s.id, "mode", "internal")}
+                    >
+                      {L.devis.includedHidden}
+                    </button>
+                    <button
+                      type="button"
+                      className={s.mode === "client" ? "active" : ""}
+                      onClick={() => updateSurcharge(s.id, "mode", "client")}
+                    >
+                      {L.devis.visibleClient}
+                    </button>
+                  </div>
                   <label className="recap-check-label recap-surcharge-base" title={L.devis.calculationBaseHint}>
                     {L.devis.calculationBase}
                     <select
@@ -3158,6 +3188,41 @@ export default function DevisEditor() {
                   </label>
                 </div>
 
+                <div className="payment-fields-grid payment-acompte-row">
+                  <label className="payment-field">
+                    <span>{L.devis.depositLabel}</span>
+                    <div className="payment-field-suffix">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={paymentMilestones[0]?.percent ?? 30}
+                        onChange={(e) => updateAcomptePercent(e.target.value)}
+                      />
+                      <span>%</span>
+                    </div>
+                  </label>
+                  <label className="payment-field">
+                    <span>{L.devis.soldeLabel}</span>
+                    <input
+                      value={(paymentMilestones[1]?.label || "").replace(/^Solde( —\s*)?/, "")}
+                      onChange={(e) => updateSoldeLabel(e.target.value ? `Solde — ${e.target.value}` : "Solde")}
+                      placeholder="À la réception des travaux"
+                    />
+                  </label>
+                  <label className="payment-field">
+                    <span>{L.devis.validityLabel}</span>
+                    <select value={form.validityDays || 30} onChange={(e) => setField("validityDays", Number(e.target.value))}>
+                      <option value="15">15 {L.devis.days}</option>
+                      <option value="30">30 {L.devis.days}</option>
+                      <option value="45">45 {L.devis.days}</option>
+                      <option value="60">60 {L.devis.days}</option>
+                      <option value="90">90 {L.devis.days}</option>
+                    </select>
+                  </label>
+                </div>
+
                 <label className="payment-field payment-field-wide">
                   <span>{L.devis.paymentCond}</span>
                   <textarea
@@ -3168,6 +3233,11 @@ export default function DevisEditor() {
                     rows={3}
                   />
                 </label>
+
+                <div className="payment-acompte-summary-bar">
+                  <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30}%)</span>
+                  <strong>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</strong>
+                </div>
               </section>
             ) : null}
 
@@ -3182,55 +3252,6 @@ export default function DevisEditor() {
             <p className="recap-title-hint">
               Ce devis doit rester entre <strong>{Math.round(generatedQuote.offrePriceRangeMin).toLocaleString("fr-FR")} €</strong> et <strong>{Math.round(generatedQuote.offrePriceRangeMax).toLocaleString("fr-FR")} €</strong> — la fourchette déjà annoncée au particulier sur cette offre. Confirmer ou envoyer ce devis est bloqué si le total en sort ; si le prix réel doit vraiment être différent, expliquez-le au client via la messagerie de l'offre avant d'insister.
             </p>
-          </section>
-        ) : null}
-
-        {generatedQuote?.chantierOffreId ? (
-          <section className="quote-final-card quote-payment-card">
-            <div className="quote-section-title">
-              <div>
-                <span>Radar des Chantiers</span>
-                <h2>Étapes de paiement</h2>
-              </div>
-            </div>
-            <p className="recap-title-hint">
-              Définissez vos propres étapes (ex : 30/30/30/10, 50/50…) — elles remplacent la répartition fixe et deviennent l'échéancier de paiement à l'acceptation du devis. La somme doit faire 100 %.
-            </p>
-
-            {paymentMilestones.map((m) => (
-              <div className="recap-row" key={m.id}>
-                <input
-                  className="recap-surcharge-label"
-                  value={m.label}
-                  onChange={(e) => updateMilestone(m.id, "label", e.target.value)}
-                  placeholder="Libellé (ex : Acompte)"
-                />
-                <input
-                  type="number"
-                  className="recap-surcharge-pct"
-                  value={m.percent}
-                  min="0"
-                  max="100"
-                  step="1"
-                  onChange={(e) => updateMilestone(m.id, "percent", Math.max(0, Number(e.target.value) || 0))}
-                />
-                <span className="recap-pct-sym">%</span>
-                <button type="button" className="recap-remove-btn" onClick={() => removeMilestone(m.id)} aria-label="Supprimer">×</button>
-              </div>
-            ))}
-
-            <button type="button" className="recap-add-surcharge" onClick={addMilestone}>{L.devis.addLine}</button>
-
-            {paymentMilestones.length > 0 ? (() => {
-              const sum = paymentMilestones.reduce((s, m) => s + Number(m.percent || 0), 0);
-              return (
-                <p className={`payment-milestone-sum ${sum === 100 ? "ok" : "warn"}`}>
-                  Total : {sum} % {sum === 100 ? "✓" : "— doit faire 100 % avant envoi"}
-                </p>
-              );
-            })() : (
-              <p className="recap-title-hint" style={{ margin: "4px 0 0" }}>Sans étape définie, le client paiera en une seule fois à la fin du chantier.</p>
-            )}
           </section>
         ) : null}
 

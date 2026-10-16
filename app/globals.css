@@ -10649,7 +10649,8 @@ body :where(
   text-transform: uppercase;
 }
 
-.payment-field input {
+.payment-field input,
+.payment-field select {
   border: 1px solid #d6dfec;
   border-radius: 8px;
   padding: 8px 12px;
@@ -10657,9 +10658,11 @@ body :where(
   color: var(--navy);
   background: #f8fafc;
   min-height: 38px;
+  font-family: inherit;
 }
 
-.payment-field input:focus {
+.payment-field input:focus,
+.payment-field select:focus {
   outline: none;
   border-color: var(--blue);
   background: white;
@@ -10667,6 +10670,83 @@ body :where(
 
 .payment-field-wide {
   margin-top: 4px;
+}
+
+/* Acompte/Solde/Validite (16 oct, maquette DevisConditions) */
+.payment-acompte-row {
+  margin-top: 4px;
+}
+
+.payment-field-suffix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.payment-field-suffix input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.payment-field-suffix span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.payment-acompte-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #EDEFFB;
+  margin-top: 4px;
+}
+
+.payment-acompte-summary-bar span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.payment-acompte-summary-bar strong {
+  font-size: 1.1rem;
+  color: var(--navy);
+}
+
+/* Pastille 3 etats du conditionnement (reskin des 2 cases a cocher) */
+.surcharge-mode-pill {
+  display: flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: #F1F2F6;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.surcharge-mode-pill button {
+  border: 0;
+  background: transparent;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9C9FB0;
+  white-space: nowrap;
+}
+
+.surcharge-mode-pill button.active {
+  background: white;
+  box-shadow: 0 1px 2px rgba(22, 35, 63, 0.1);
+  color: #9C9FB0;
+}
+
+.surcharge-mode-pill button:nth-child(2).active {
+  color: #3B5BDB;
+}
+
+.surcharge-mode-pill button:nth-child(3).active {
+  color: #1E8E5A;
 }
 
 .payment-terms-textarea {
