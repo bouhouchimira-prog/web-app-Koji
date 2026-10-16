@@ -3513,6 +3513,21 @@ p {
   color: var(--navy);
 }
 
+.drawer-nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #dc2626;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .drawer-nav-section {
   display: flex;
   align-items: center;
@@ -13017,6 +13032,137 @@ body :where(
   color: var(--muted);
   margin-top: 2px;
 }
+/* Profil particulier : refonte tableau de bord (16 oct, maquette Artifact) —
+   bascule Particulier/Professionnel, checklist de completion, mini-stats et
+   carte de suppression de compte, aucun equivalent existant a reutiliser. */
+.account-kind-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.account-kind-option {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.account-kind-option.active {
+  border-color: var(--navy);
+  background: #eaf1ff;
+}
+
+.account-kind-option strong {
+  display: block;
+  font-size: 14px;
+  color: var(--navy);
+}
+
+.account-kind-option small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.account-kind-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #d9d4ca;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-kind-option.active .account-kind-dot {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: white;
+}
+
+.profile-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--navy);
+  padding: 6px 0;
+}
+
+.profile-checklist-row.pending { color: var(--muted); }
+
+.profile-checklist-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #d9d4ca;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-checklist-row:not(.pending) .profile-checklist-dot {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: white;
+}
+
+.mini-stat-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.mini-stat-box {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f6f4f0;
+}
+
+.mini-stat-box small {
+  display: block;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.mini-stat-box strong {
+  display: block;
+  font-size: 19px;
+  color: var(--navy);
+  margin-top: 2px;
+}
+
+.danger-card {
+  background: white;
+  border: 1px solid #f3cfc7;
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.danger-card strong {
+  color: #c4452d;
+  font-size: 14px;
+}
+
+.danger-card p {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 6px 0 10px;
+}
+
 .ct-profil-section-label {
   font-size: 11px;
   text-transform: uppercase;

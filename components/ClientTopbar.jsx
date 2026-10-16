@@ -86,6 +86,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
   const router = useRouter();
   const pathname = usePathname();
   const [unread, setUnread] = useState(0);
+  const [messagesUnread, setMessagesUnread] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -103,6 +104,12 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
     // jamais reliee dans la navigation jusqu'ici.
     { href: "/client/chantiers", label: "Mes chantiers", icon: "tools" },
     { href: "/client/radar", label: "Mes demandes", icon: "radar" },
+    { href: "/client/devis", label: "Devis reçus", icon: "file" },
+    // "Messages" (16 oct, maquette Artifact) — boite de reception unifiee,
+    // regroupe les fils par offre deja existants (voir
+    // app/api/client/messages/route.js) ; badge = notifications
+    // "radar.message" non lues, meme source que le compteur de la cloche.
+    { href: "/client/messages", label: "Messages", icon: "chat", badge: messagesUnread },
   ];
 
   function logout() {
@@ -118,8 +125,9 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
       .then((r) => r.json())
       .then((data) => {
         const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message", "radar.positionnement"]);
-      const count = (data.notifications || []).filter((n) => !n.read && !n.archived && CLIENT_TYPES.has(n.type)).length;
-        setUnread(count);
+        const notifications = data.notifications || [];
+        setUnread(notifications.filter((n) => !n.read && !n.archived && CLIENT_TYPES.has(n.type)).length);
+        setMessagesUnread(notifications.filter((n) => !n.read && !n.archived && n.type === "radar.message").length);
       })
       .catch(() => {});
   }, []);
@@ -178,6 +186,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
               <Link href={item.href} className={active ? "active" : ""} key={item.href}>
                 <span><DrawerIcon name={item.icon} /></span>
                 {item.label}
+                {item.badge > 0 ? <span className="drawer-nav-badge">{item.badge > 9 ? "9+" : item.badge}</span> : null}
               </Link>
             );
           })}
@@ -188,6 +197,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false }) {
         <div className="drawer-footer">
           <Link href="/client/profil"><DrawerIcon name="user" />{L.nav.profile}</Link>
           <Link href="/client/parametres"><DrawerIcon name="settings" />{L.nav.settings}</Link>
+          <Link href="/client/aide"><DrawerIcon name="file" />Aide</Link>
           <button type="button" onClick={logout}><DrawerIcon name="logout" />{L.nav.logout}</button>
         </div>
       </aside>

@@ -53,6 +53,10 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
   // hidden rather than pointed at the (irrelevant) entreprise plan picker.
   const subscriptionHref = accountType === "entreprise" ? "/parametres/abonnement" : "/abonnement";
   const showSubscription = accountType !== "particulier";
+  // Chaque profil a sa propre page Aide (16 oct) — avant ça, le lien
+  // pointait toujours vers /aide (contenu entreprise), y compris depuis le
+  // profil particulier.
+  const helpHref = accountType === "particulier" ? "/client/aide" : "/aide";
 
   useEffect(() => {
     setTheme(getStoredTheme());
@@ -234,7 +238,7 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
           <h2>{L.settings.security}</h2>
           <div className="profile-card-actions profile-card-actions-column">
             <button type="button" className="button secondary profile-link-button" onClick={openReport}>{L.settings.reportProblem}</button>
-            <Link href="/aide" className="button secondary profile-link-button">{L.settings.help}</Link>
+            <Link href={helpHref} className="button secondary profile-link-button">{L.settings.help}</Link>
             <Link href="/legal" className="button secondary profile-link-button">{L.settings.legal}</Link>
             <button type="button" className="button secondary profile-link-button" onClick={exportData} disabled={exporting}>{L.settings.exportData}</button>
             <button type="button" className="button secondary profile-link-button" onClick={openDelete}>{L.settings.deleteAccount}</button>
@@ -284,7 +288,7 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
         <strong>{L.settings.reportProblem}</strong>
         <span className="settings-row-chevron">›</span>
       </button>
-      <Link className="settings-row settings-row-link" href="/aide">
+      <Link className="settings-row settings-row-link" href={helpHref}>
         <strong>{L.settings.help}</strong>
         <span className="settings-row-chevron">›</span>
       </Link>

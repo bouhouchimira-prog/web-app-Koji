@@ -30,6 +30,16 @@ export async function PATCH(request) {
   const fullName = [user.personal.firstName, user.personal.lastName].filter(Boolean).join(" ").trim();
   if (fullName) user.name = fullName;
 
+  // Bascule Particulier/Professionnel (16 oct, maquette Artifact) — champ
+  // informatif pour l'instant (adapte l'affichage du profil), ne change ni
+  // la facturation ni les droits du compte.
+  if (body.profileKind === "particulier" || body.profileKind === "professionnel") {
+    user.profileKind = body.profileKind;
+  }
+  if (body.pro && typeof body.pro === "object") {
+    user.pro = { ...user.pro, ...body.pro };
+  }
+
   const newPassword = String(body.password || "").trim();
   if (newPassword) {
     if (newPassword.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caracteres.", 400);
