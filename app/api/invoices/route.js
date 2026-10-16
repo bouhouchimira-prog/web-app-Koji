@@ -78,7 +78,10 @@ function amountFromMode(body, summary) {
 export async function GET(request) {
   const db = await readDb();
   const userId = await getUserScope(request, db);
-  return ok({ invoices: scopedItems(db.invoices, userId).map(normalizeInvoice) });
+  const includeArchived = new URL(request.url).searchParams.get("includeArchived") === "1";
+  let items = scopedItems(db.invoices, userId);
+  if (!includeArchived) items = items.filter((invoice) => !invoice.archived);
+  return ok({ invoices: items.map(normalizeInvoice) });
 }
 
 export async function POST(request) {
@@ -279,7 +282,20 @@ export async function PATCH(request) {
   const invoice = db.invoices[index];
   const action = body.action || "update";
 
+  // Corbeille (16 oct) : "delete" archivait deja la facture avant (statut
+  // "Annulee" la plupart du temps) mais la supprimait instantanement et
+  // definitivement, sans aucun moyen de la recuperer — contrairement aux
+  // devis/chantiers/contacts qui passaient par une vraie corbeille. Devient
+  // donc une suppression douce (30 jours de grace, comme les autres),
+  // "purge" assure la suppression definitive depuis la Corbeille.
   if (action === "delete") {
+    invoice.archived = true;
+    invoice.archivedAt = now;
+  } else if (action === "restore") {
+    invoice.archived = false;
+    invoice.archivedAt = "";
+  } else if (action === "purge") {
+    if (!invoice.archived) return badRequest("Seule une facture déjà dans la corbeille peut être supprimée définitivement.", 400);
     db.invoices.splice(index, 1);
   } else if (action === "issue") {
     invoice.status = "Emise";
@@ -297,7 +313,7 @@ export async function PATCH(request) {
   }
 
   invoice.updatedAt = now;
-  if (action !== "delete") db.invoices[index] = invoice;
+  if (action !== "purge") db.invoices[index] = invoice;
 
   const supabase = getSupabaseAdmin();
   const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", invoice.quoteId).maybeSingle();
@@ -308,12 +324,12 @@ export async function PATCH(request) {
 
   addHistory(db, {
     userId: invoice.userId || userId,
-    type: action === "delete" ? "invoice.deleted" : `invoice.${action}`,
-    label: action === "delete" ? `Facture supprimee: ${invoice.invoiceNumber}` : `Facture mise a jour: ${invoice.invoiceNumber}`,
+    type: action === "purge" ? "invoice.deleted" : `invoice.${action}`,
+    label: action === "purge" ? `Facture supprimee: ${invoice.invoiceNumber}` : `Facture mise a jour: ${invoice.invoiceNumber}`,
     entityId: invoice.id,
     entityType: "invoice"
   });
 
   await writeDb(db);
-  return ok({ invoice: normalizeInvoice({ ...invoice, deleted: action === "delete" }), summary });
+  return ok({ invoice: normalizeInvoice({ ...invoice, deleted: action === "purge" }), summary });
 }

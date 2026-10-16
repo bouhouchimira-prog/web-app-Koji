@@ -58,6 +58,10 @@ export function mapChantier(row) {
     dueDate: "",
     startDate: "",
     endDate: "",
+    // Corbeille (16 oct) : date d'archivage, posee par l'action "archive"
+    // ci-dessous, effacee par "restore" — permet un vrai compte a rebours
+    // avant suppression definitive (voir supabase_web_setup.sql).
+    archivedAt: row.archived_at || "",
     createdAt,
     createdDate: String(createdAt).slice(0, 10),
     createdTime: String(createdAt).slice(11, 16)
@@ -126,9 +130,9 @@ export async function PATCH(request) {
   }
 
   const updates = {};
-  if (action === "archive") updates.status = "Archive";
+  if (action === "archive") { updates.status = "Archive"; updates.archived_at = new Date().toISOString(); }
   else if (action === "finish") updates.status = "Termine";
-  else if (action === "restore") updates.status = fixText(body.status || "A planifier");
+  else if (action === "restore") { updates.status = fixText(body.status || "A planifier"); updates.archived_at = null; }
   else {
     if (Object.prototype.hasOwnProperty.call(body, "title")) updates.reference = fixText(body.title);
     if (Object.prototype.hasOwnProperty.call(body, "address")) updates.street = fixText(body.address);

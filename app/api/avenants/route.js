@@ -110,6 +110,11 @@ export async function PATCH(request) {
   if (action === "delete") {
     if (avenant.status !== "Brouillon") return badRequest("Seul un avenant en brouillon peut être supprimé.");
     db.avenants.splice(index, 1);
+  } else if (action === "purge") {
+    // Corbeille (16 oct) : suppression definitive d'un avenant deja
+    // archive (contrairement a "delete" ci-dessus, reserve aux brouillons).
+    if (avenant.status !== "Archive") return badRequest("Seul un avenant déjà dans la corbeille peut être supprimé définitivement.", 400);
+    db.avenants.splice(index, 1);
   } else if (action === "update") {
     if (avenant.status !== "Brouillon") return badRequest("Seul un avenant en brouillon peut être modifié.");
     if (Object.prototype.hasOwnProperty.call(body, "motif")) avenant.motif = fixText(body.motif || "");
@@ -143,23 +148,26 @@ export async function PATCH(request) {
     avenant.refusalReason = fixText(body.refusalReason || "");
   } else if (action === "archive") {
     avenant.status = "Archive";
+    avenant.archivedAt = now;
   } else if (action === "restore") {
     // Corbeille (15 oct) — remet un avenant archive au statut qu'il avait
     // avant archivage ; Brouillon par defaut si ce statut n'est pas connu.
     avenant.status = avenant.signedAt ? "Signe" : avenant.sentAt ? "Envoye" : "Brouillon";
+    avenant.archivedAt = "";
   }
 
   avenant.updatedAt = now;
-  if (action !== "delete") db.avenants[index] = avenant;
+  if (action !== "delete" && action !== "purge") db.avenants[index] = avenant;
 
+  const isDeletion = action === "delete" || action === "purge";
   addHistory(db, {
     userId: avenant.userId || userId,
-    type: action === "delete" ? "avenant.deleted" : `avenant.${action}`,
-    label: action === "delete" ? `Avenant supprimé : ${avenant.numero}` : `Avenant mis à jour : ${avenant.numero}`,
+    type: isDeletion ? "avenant.deleted" : `avenant.${action}`,
+    label: isDeletion ? `Avenant supprimé : ${avenant.numero}` : `Avenant mis à jour : ${avenant.numero}`,
     entityId: avenant.id,
     entityType: "avenant"
   });
 
   await writeDb(db);
-  return ok({ avenant: normalizeAvenant({ ...avenant, deleted: action === "delete" }) });
+  return ok({ avenant: normalizeAvenant({ ...avenant, deleted: isDeletion }) });
 }

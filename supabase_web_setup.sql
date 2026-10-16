@@ -158,3 +158,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires_at TIMESTAMPTZ;
 -- (service_role) dans app/api/auth/set-password/route.js.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;
+
+-- ── chantiers : date d'archivage (16 octobre, refonte Corbeille) ───────────
+-- Un chantier archive (statut "Archive") n'avait jamais de date enregistree
+-- -> impossible de calculer un vrai delai "suppression dans X jours" dans
+-- la Corbeille. archived_at est pose par app/api/projects/route.js a
+-- l'archivage, efface a la restauration.
+ALTER TABLE chantiers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
