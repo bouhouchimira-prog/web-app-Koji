@@ -77,7 +77,12 @@ function ParticulierLogin({ L, onSignup }) {
           />
         </div>
         <div className="auth-field">
-          <label>{L.auth.password}</label>
+          <div className="auth-field-label-row">
+            <label>{L.auth.password}</label>
+            <Link className="auth-link" href="/forgot-password?type=particulier" style={{ fontSize: "0.82rem" }}>
+              {L.auth.forgotPassword}
+            </Link>
+          </div>
           <div className="auth-input-wrap">
             <input
               className="auth-input-v2"
