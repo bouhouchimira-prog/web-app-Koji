@@ -8845,6 +8845,96 @@ body :where(
   grid-template-columns: 1fr 1.25fr;
 }
 
+/* Ecran de choix Manuel/Avec l'IA avant creation (17 oct, DevisModeChoice) */
+.devis-mode-choice-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+@media (max-width: 760px) {
+  .devis-mode-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.devis-mode-choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: white;
+  text-decoration: none;
+  color: inherit;
+}
+
+.devis-mode-choice-ia {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: white;
+}
+
+.devis-mode-choice-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+}
+
+.devis-mode-choice-manuel .devis-mode-choice-icon {
+  background: #EDEFFB;
+  color: var(--navy);
+}
+
+.devis-mode-choice-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.devis-mode-choice-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.devis-mode-choice-card strong {
+  font-size: 1.02rem;
+}
+
+.devis-mode-choice-manuel strong {
+  color: var(--navy);
+}
+
+.devis-mode-choice-card p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+.devis-mode-choice-badge {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-size: 10px;
+}
+
+.devis-mode-choice-cta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+}
+
 .quote-col-left,
 .quote-col-right {
   display: flex;

@@ -55,6 +55,14 @@ function editQuoteIdFromUrl() {
   return new URLSearchParams(window.location.search).get("id") || "";
 }
 
+// Mode choisi sur l'ecran precedent (17 oct, DevisModeChoice.jsx) — lu une
+// seule fois au montage, l'etat "mode" prend le relais ensuite (la bascule
+// manuelle dans l'en-tete reste toujours disponible une fois dans l'editeur).
+function modeFromUrl() {
+  if (typeof window === "undefined") return "manuel";
+  return new URLSearchParams(window.location.search).get("mode") === "ia" ? "ia" : "manuel";
+}
+
 function nextQuoteNumberFromList(quotes) {
   const year = new Date().getFullYear();
   const maxSeq = (quotes || []).reduce((max, q) => {
@@ -326,7 +334,15 @@ export default function DevisEditor() {
   const [targetRoom, setTargetRoom] = useState("Services");
   // Bascule Manuel/Avec l'IA (16 oct, maquette Artifact) — purement
   // d'affichage pour l'instant, le mode "ia" est branche separement.
+  // "manuel" par defaut cote serveur (modeFromUrl() lit window, absent au
+  // rendu serveur) — jamais dans l'initialiseur de useState, qui tournerait
+  // aussi pendant l'hydratation client et desynchroniserait le rendu du
+  // serveur (meme principe que editQuoteIdFromUrl, toujours lu dans un
+  // useEffect plus bas, jamais dans un useState).
   const [mode, setMode] = useState("manuel");
+  useEffect(() => {
+    if (modeFromUrl() === "ia") setMode("ia");
+  }, []);
   // Derniere ligne ajoutee par le chat sans correspondance catalogue (16
   // oct) — cible de proposer_prix, voir addAiOuvrageToRoom/applyAiManualPrice.
   const lastUnmatchedAiLineIdRef = useRef("");
