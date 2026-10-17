@@ -67,7 +67,15 @@ async function detectAdminInstruction(message) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+      // 300 -> 4096 (17 oct, bug remonte par Amira) : la reponse doit
+      // reprendre le texte COMPLET de la consigne quand isInstructionUpdate
+      // est vrai — avec 300 tokens, une consigne un peu longue (plusieurs
+      // paragraphes) coupait la reponse en plein JSON, parseAiJson levait
+      // une erreur, le catch ci-dessous renvoyait silencieusement false, et
+      // le message tombait a tort dans la classification normale a 14
+      // types (d'ou le "Je n'ai pas ce service" en test). setAssistantInstruction
+      // plafonne de toute facon la consigne enregistree a 4000 caracteres.
+      max_tokens: 4096,
       thinking: { type: "disabled" },
       system: "Tu determines si un message d'un administrateur demande de changer DURABLEMENT le comportement/les regles d'un assistant IA (ex: \"a partir de maintenant, fais...\", \"retiens que...\", \"ne demande plus jamais...\", \"nouvelle regle : ...\") — par opposition a une tache normale (creer un devis, un RDV, une depense, naviguer vers une page...). Reponds UNIQUEMENT en JSON strict : {\"isInstructionUpdate\": boolean, \"instruction\": string (le texte complet de la nouvelle consigne si isInstructionUpdate est true, sinon chaine vide)}.",
       messages: [{ role: "user", content: message }]
