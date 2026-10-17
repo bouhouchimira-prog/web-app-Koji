@@ -1540,9 +1540,16 @@ export default function DevisEditor() {
   // aiAdded qui alimente le badge "IA · à vérifier" (voir quoteLines plus
   // bas et recalculateLine, qui doit lire explicitement ces 2 champs).
   function addAiOuvrageToRoom(resolved, room, quantity) {
+    // resolveOuvrageForLabel (lib/koji-assistant-tools.js) prefixe le libelle
+    // non trouve par "À chiffrer manuellement — " pour les endroits qui
+    // n'ont aucun autre indicateur visuel ; ici le badge "IA · prix
+    // manquant" dit deja la meme chose, le prefixe ne fait plus que
+    // forcer l'entreprise a le retirer a la main a chaque fois (signale
+    // par Amira).
+    const cleanLabel = resolved.label.replace(/^À chiffrer manuellement\s*—\s*/, "");
     const id = resolved.matched
       ? (addOuvrageToRoom(resolved, room, quantity), resolved.id)
-      : addUnmatchedOuvrageToRoom(resolved.label, room, quantity, resolved.unit);
+      : addUnmatchedOuvrageToRoom(cleanLabel, room, quantity, resolved.unit);
     setLineSettings((current) => ({
       ...current,
       [id]: { ...(current[id] || {}), aiAdded: true, priceSource: resolved.matched ? "catalogue" : "manquant" }
