@@ -4,6 +4,7 @@ import { getAuth } from "../../../lib/server-auth";
 import { readDb } from "../../../lib/db";
 import { buildDevisChatPrompt } from "../../../lib/devis-chat-prompt";
 import { DEVIS_CHAT_TOOLS, executeDevisChatTool } from "../../../lib/devis-chat-tools";
+import { ADMIN_INSTRUCTION_TOOL, requesterIsAdmin } from "../../../lib/ai-assistant-instructions";
 
 // Mode "Avec l'IA" cote devis entreprise (16 oct, maquette Artifact
 // DevisCreerIA) — moteur SSE conversationnel calque sur
@@ -45,6 +46,15 @@ export async function POST(request) {
   const messages = toAnthropicMessages(turns);
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  // Consignes admin (17 oct) : seuls bouhouchimira@gmail.com et
+  // ablexpertrenov@gmail.com (lib/auth.js::isAdminEmail) peuvent donner une
+  // consigne permanente a cet assistant, verifie cote serveur a partir du
+  // token authentifie — jamais d'une valeur envoyee par le client. L'outil
+  // n'est meme pas propose a Claude pour un compte non-admin.
+  const { data: ownerProfile } = await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle();
+  const isAdmin = requesterIsAdmin(ownerProfile?.email);
+  const tools = isAdmin ? [...DEVIS_CHAT_TOOLS, ADMIN_INSTRUCTION_TOOL] : DEVIS_CHAT_TOOLS;
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -54,13 +64,13 @@ export async function POST(request) {
 
       try {
         for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-          const system = buildDevisChatPrompt({ quoteSnapshot });
+          const system = buildDevisChatPrompt({ quoteSnapshot, db, isAdmin });
           const claudeStream = anthropic.messages.stream({
             model: "claude-sonnet-5",
             max_tokens: 1024,
             thinking: { type: "disabled" },
             system,
-            tools: DEVIS_CHAT_TOOLS,
+            tools,
             messages
           });
 

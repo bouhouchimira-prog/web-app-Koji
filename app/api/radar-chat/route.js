@@ -6,6 +6,8 @@ import { fixText } from "../../../lib/text";
 import { createDraft, getDraft, updateDraftData } from "../../../lib/radar-offer-draft";
 import { RADAR_TOOLS, executeRadarTool } from "../../../lib/radar-assistant-tools";
 import { buildRadarSystemPrompt } from "../../../lib/radar-chat-prompt";
+import { readDb } from "../../../lib/db";
+import { ADMIN_INSTRUCTION_TOOL, requesterIsAdmin } from "../../../lib/ai-assistant-instructions";
 
 // Nouveau moteur conversationnel Radar des Chantiers (9-10 oct) — PAS
 // ENCORE branche a l'ecran client en production (app/client/radar/new/
@@ -113,6 +115,16 @@ export async function POST(request) {
   const messages = toAnthropicMessages(turns, body.photos);
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  // Consignes admin (17 oct) : seuls bouhouchimira@gmail.com et
+  // ablexpertrenov@gmail.com (lib/auth.js::isAdminEmail) peuvent donner une
+  // consigne permanente a cet assistant — verifie cote serveur a partir du
+  // compte particulier reellement authentifie (portalUserId, jamais une
+  // valeur envoyee par le client).
+  const db = await readDb();
+  const requester = db.users.find((entry) => entry.id === portalUserId);
+  const isAdmin = requesterIsAdmin(requester?.email);
+  const tools = isAdmin ? [...RADAR_TOOLS, ADMIN_INSTRUCTION_TOOL] : RADAR_TOOLS;
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -122,13 +134,13 @@ export async function POST(request) {
 
       try {
         for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-          const system = buildRadarSystemPrompt({ draft, prenom });
+          const system = buildRadarSystemPrompt({ draft, prenom, db, isAdmin });
           const claudeStream = anthropic.messages.stream({
             model: "claude-sonnet-5",
             max_tokens: 1024,
             thinking: { type: "disabled" },
             system,
-            tools: RADAR_TOOLS,
+            tools,
             messages
           });
 
@@ -154,7 +166,7 @@ export async function POST(request) {
           messages.push({ role: "assistant", content: response.content });
           const toolResults = [];
           for (const block of toolUseBlocks) {
-            const { content, finished: didFinish } = await executeRadarTool(block.name, block.input, { draftId: draft.id });
+            const { content, finished: didFinish } = await executeRadarTool(block.name, block.input, { draftId: draft.id, db });
             if (didFinish) finished = true;
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
           }

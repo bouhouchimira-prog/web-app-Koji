@@ -15,6 +15,7 @@ import { advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
 import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
 import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 import { logAlgoStat } from "../../../lib/assistant-algo-stats";
+import { adminInstructionBlock, requesterIsAdmin, setAssistantInstruction } from "../../../lib/ai-assistant-instructions";
 
 // Assistant koji v2 (15 septembre) : pipeline a deux phases.
 // Phase 1 (IA, 1 appel) : classe le message parmi les 13 outils de
@@ -63,7 +64,34 @@ const TYPE_FIELD_SPECS = {
   avenant: `"avenant" : créer un AVENANT (modification/complément) sur un devis déjà SIGNÉ — reconnais aussi le mot seul "avenant" comme cette intention (toujours "create", jamais "ambiguous" pour ce mot). Champs : quoteHint (nom du client ou numéro de devis mentionné, SEULEMENT s'il est donné dans le message — sinon laisse vide, on demandera lequel).`
 };
 
-function buildPrompt({ today, message, isSecondRound, previousQuestion, previousMessage, hasPhotos, onDevisPage }) {
+// Pre-controle isole pour les comptes admin (17 oct) — un petit appel IA a
+// part, totalement separe du pipeline de classification a 14 types
+// ci-dessous : jamais touche a ce pipeline deja finement regle, jamais de
+// cout/latence pour un compte non-admin (jamais appele dans ce cas).
+async function detectAdminInstruction(message) {
+  try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      thinking: { type: "disabled" },
+      system: "Tu determines si un message d'un administrateur demande de changer DURABLEMENT le comportement/les regles d'un assistant IA (ex: \"a partir de maintenant, fais...\", \"retiens que...\", \"ne demande plus jamais...\", \"nouvelle regle : ...\") — par opposition a une tache normale (creer un devis, un RDV, une depense, naviguer vers une page...). Reponds UNIQUEMENT en JSON strict : {\"isInstructionUpdate\": boolean, \"instruction\": string (le texte complet de la nouvelle consigne si isInstructionUpdate est true, sinon chaine vide)}.",
+      messages: [{ role: "user", content: message }]
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    const parsed = parseAiJson(textBlock?.text || "{}");
+    return {
+      isInstructionUpdate: Boolean(parsed?.isInstructionUpdate),
+      instruction: String(parsed?.instruction || "").trim()
+    };
+  } catch {
+    // Jamais bloquant : un echec de ce pre-controle isole laisse
+    // simplement passer le message au pipeline normal, comme avant.
+    return { isInstructionUpdate: false, instruction: "" };
+  }
+}
+
+function buildPrompt({ today, message, isSecondRound, previousQuestion, previousMessage, hasPhotos, onDevisPage, db }) {
   const conversationBlock = isSecondRound
     ? `\nTu as déjà posé cette question à l'utilisatrice : "${previousQuestion}" (à propos du message original : "${previousMessage}"). Voici sa réponse : "${message}". Combine le message original et cette réponse pour finaliser. Tu NE PEUX PLUS reposer de question : needsClarification doit être false, complète avec les meilleures valeurs disponibles.`
     : "";
@@ -100,10 +128,11 @@ ${Object.values(TYPE_FIELD_SPECS).map((spec) => `- ${spec}`).join("\n")}
 
 Pour une SUPPRESSION (action "delete"), quel que soit le type identifié ci-dessus, n'extrais que : searchHint (les mots-clés qui identifient l'entrée à supprimer — nom, lieu, sujet) et, si une date est mentionnée et pertinente pour ce type (rdv/tache/visite), dateHint (date ISO résolue). Ne mets aucun autre champ pour une suppression.
 ${conversationBlock}${photoBlock}
+${db ? adminInstructionBlock(db, "kojiAssistant") : ""}
 
 Message de l'utilisatrice : "${message}"
 
-Réponds uniquement avec ce JSON strict, sans texte ni balise markdown autour :
+Quelle que soit la consigne administrateur ci-dessus (s'il y en a une), réponds TOUJOURS uniquement avec ce JSON strict, sans texte ni balise markdown autour — ce format n'est jamais négociable :
 {
   "action": "create" | "update" | "delete" | "navigate" | "ambiguous" | "devisPageAction" | "autre",
   "type": "rdv" | "visite" | "depense" | "facture" | "fourniture" | "alerte" | "devis" | "tache" | "equipe" | "contact" | "chantier" | "fournisseur" | "ouvrage" | "avenant" | "autre",
@@ -487,6 +516,36 @@ export async function POST(request) {
   const photos = Array.isArray(body.photos) ? body.photos.slice(0, 8) : [];
   const onDevisPage = body.pageContext?.page === "devis";
 
+  // Consignes admin (17 oct) : seuls bouhouchimira@gmail.com et
+  // ablexpertrenov@gmail.com (lib/auth.js::isAdminEmail) peuvent donner une
+  // consigne permanente a cet assistant. Contrairement aux 2 autres chats
+  // (tour d'outils Claude), celui-ci classe le message en UN SEUL appel
+  // IA qui doit rester strictement JSON (voir plus bas) — on ne touche
+  // donc jamais ce pipeline de classification a 14 types, deja finement
+  // regle : la detection d'une consigne admin est un pre-controle isole,
+  // avec son propre petit appel IA, qui s'arrete AVANT le pipeline normal
+  // si (et seulement si) il reconnait une demande de changement durable de
+  // comportement — jamais sur une poursuite de conversation en cours
+  // (isSecondRound), pour ne jamais interrompre un flow deja entame.
+  let requesterEmail = "";
+  const { data: ownerProfile } = await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle();
+  requesterEmail = ownerProfile?.email || "";
+  const isAdmin = requesterIsAdmin(requesterEmail);
+
+  if (isAdmin && !isSecondRound) {
+    const adminCheck = await detectAdminInstruction(message);
+    if (adminCheck?.isInstructionUpdate && adminCheck.instruction) {
+      setAssistantInstruction(db, "kojiAssistant", adminCheck.instruction);
+      await writeDb(db);
+      const result = {
+        outcome: "success",
+        message: "Consigne enregistrée et appliquée immédiatement à tous les utilisateurs de l'assistant koji."
+      };
+      after(() => logTurn(auth.userId, message, result, conversationId, "admin-consigne"));
+      return ok({ ...result, conversationId });
+    }
+  }
+
   // Retour au 100% IA (9 oct, demande d'Amira) : le dictionnaire de mots-cles
   // (lib/koji-assistant-keywords.js) et le prompt resserre associe, ajoutes
   // le 8 oct, sont retires — un seul appel IA, classification complete,
@@ -498,7 +557,8 @@ export async function POST(request) {
     previousQuestion: body.conversation?.question || "",
     previousMessage: body.conversation?.originalMessage || "",
     hasPhotos: photos.length > 0,
-    onDevisPage
+    onDevisPage,
+    db
   });
 
   const content = [];
