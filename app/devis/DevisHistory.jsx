@@ -117,9 +117,6 @@ export default function DevisHistory() {
             <h1><span className="title-chip">Devis</span></h1>
             <p>Créez, envoyez et suivez vos devis jusqu'à la signature.</p>
           </div>
-          <div className="fournitures-dashboard-head-actions">
-            <Link href="/bibliotheque-ouvrages" className="button secondary">Bibliothèque koji</Link>
-          </div>
         </header>
 
         <div className="devis-mode-choice-grid">
