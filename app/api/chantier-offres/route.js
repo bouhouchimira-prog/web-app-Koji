@@ -15,12 +15,12 @@ import { fixObjectText, fixText } from "../../../lib/text";
 //
 // Decisions du 4 septembre : plus de budget saisi par le client — la
 // publication se fait a partir d'une expertise IA deja generee
-// (app/api/expertise-koji/route.js), qui fixe une fourchette de prix
-// (+/-15%). Cette route ne fait plus QUE relayer/enregistrer cette
-// fourchette : elle la RECALCULE elle-meme a partir du devis interne et des
-// conseils selectionnes, sans jamais faire confiance a un chiffre envoye
-// par le client.
-const PRICE_RANGE_SPREAD = 0.15;
+// (app/api/expertise-koji/route.js), qui produit la liste des travaux/
+// ouvrages prevus (ouvrages ci-dessous). La fourchette de prix qu'elle
+// calculait aussi n'est plus utilisee depuis le 17 octobre (demande
+// d'Amira) : chaque entreprise a son propre taux journalier, une
+// fourchette calculee depuis la bibliotheque de prix n'a plus de sens a
+// annoncer au client ni aux entreprises.
 
 function publicOffer(offer, hasArtisanReply) {
   return { ...fixObjectText(offer), hasArtisanReply };
@@ -84,12 +84,15 @@ export async function POST(request) {
 
   const selectedIds = new Set(Array.isArray(body.conseilsSelectionnes) ? body.conseilsSelectionnes.map(String) : []);
   const allConseils = expertise.expertiseConseils || [];
-  const appliedDiscount = allConseils
-    .filter((c) => selectedIds.has(c.id))
-    .reduce((sum, c) => sum + Number(c.discountPercent || 0), 0);
-  const adjustedTotal = Math.max(0, expertise.totalTtc * (1 - appliedDiscount / 100));
-  const priceRangeMin = Math.round(adjustedTotal * (1 - PRICE_RANGE_SPREAD));
-  const priceRangeMax = Math.round(adjustedTotal * (1 + PRICE_RANGE_SPREAD));
+  // Fourchette de prix retiree (17 oct, demande d'Amira) : chaque
+  // entreprise a son propre taux journalier (50€ a 600€), une fourchette
+  // calculee depuis la bibliotheque de prix n'a plus de sens a annoncer.
+  // Les artisans proposent desormais leur propre prix via leur devis,
+  // aucune fourchette n'est plus ni calculee ni affichee ni utilisee comme
+  // garde-fou (voir app/api/quotes/route.js, qui degrade deja
+  // automatiquement des que priceRangeMin/Max sont absents).
+  const priceRangeMin = null;
+  const priceRangeMax = null;
 
   const now = new Date().toISOString();
   const offer = {
@@ -149,7 +152,7 @@ export async function POST(request) {
       accountType: "entreprise",
       type: "radar.expertise_publiee",
       title: "Nouvelle expertise Radar des Chantiers publiée",
-      message: `${offer.description.slice(0, 100)} — ${priceRangeMin}€ à ${priceRangeMax}€`,
+      message: offer.description.slice(0, 100),
       offerId: offer.id,
       quoteId: expertiseId,
       read: false,
@@ -172,8 +175,6 @@ export async function POST(request) {
     to: PRIMARY_ADMIN_EMAIL,
     offreId: offer.id,
     expertiseId,
-    priceRangeMin,
-    priceRangeMax,
     description: offer.description,
     devisUrl: `${appUrl}/devis?id=${expertiseId}`
   }).catch(() => {});
@@ -191,8 +192,6 @@ export async function POST(request) {
         emails,
         metier: offer.metier,
         description: offer.description,
-        priceRangeMin,
-        priceRangeMax,
         offreId: offer.id,
         marketplaceUrl: `${appUrl}/marketplace/${offer.id}`
       });

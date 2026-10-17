@@ -3,7 +3,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { readDb } from "../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { mergedOuvrages } from "../../../lib/ouvrages";
-import { validateAiQuote, buildItemsFromAiQuote, PRICE_RANGE_SPREAD } from "../../../lib/ai-devis-shape";
+import { validateAiQuote, buildItemsFromAiQuote } from "../../../lib/ai-devis-shape";
 import { quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { parsePhoto } from "../../../lib/ai-photo";
@@ -13,15 +13,18 @@ import { fixText } from "../../../lib/text";
 import { parseAiJson } from "../../../lib/ai-json";
 
 // "Expertise koji" — decisions du 4 septembre : plus de budget demande au
-// client, c'est koji qui fixe le prix. L'IA chiffre a partir de la
-// conversation avec l'assistant (app/api/radar-assistant) + la bibliotheque
-// de prix interne, publie une fourchette large (+/-15%, garde-fou beta —
-// jamais decidee par l'IA elle-meme) et cree un devis INTERNE, jamais
-// montre au particulier ni a une entreprise (voir lib/quote-mapping.js
+// client, c'est koji qui chiffre. L'IA chiffre a partir de la conversation
+// avec l'assistant (app/api/radar-assistant) + la bibliotheque de prix
+// interne et cree un devis INTERNE, jamais montre au particulier ni a une
+// entreprise (voir lib/quote-mapping.js
 // `internalOnly`). Ce devis n'a pas encore d'entreprise associee : il
 // appartient administrativement au compte admin (resolveAdminUserId),
 // jusqu'a ce qu'une entreprise se positionne et en recoive une copie
-// (app/api/estimer-devis/route.js).
+// (app/api/estimer-devis/route.js). Ne publie plus de fourchette de prix au
+// client depuis le 17 oct (decision d'Amira : chaque entreprise a son
+// propre taux journalier, aucun prix ne peut etre annonce a l'avance) —
+// seul le detail des pieces/ouvrages proposes (buildBreakdown, conseils)
+// reste utilise par l'ecran client.
 // Fake auth wrapper: no entreprise Supabase Auth token exists for a
 // particulier session, so this route writes to `quotes` via the
 // service-role client rather than a per-user RLS-scoped one — the row's
@@ -198,11 +201,8 @@ export async function POST(request) {
   // catalogue : il est averti explicitement ("on n'a pas ce prix dans notre
   // base") et peut en proposer un lui-meme sur l'ecran de resultat, sinon le
   // poste reste a 0€. Change le comportement precedent (repli IA automatique,
-  // garde encore cote entreprise/devis-ia pour un motif different) — la
-  // fourchette de prix peut donc etre incomplete pour les metiers non encore
-  // couverts par la bibliotheque (voir lib/ouvrages.js).
+  // garde encore cote entreprise/devis-ia pour un motif different).
   const { rooms, items } = buildItemsFromAiQuote(parsed, catalog, { trustAiPriceForUnmatched: false });
-  const total = Math.max(0, Number(parsed.prix_total_estime) || 0);
   const conseils = parsed.conseils.map((c, index) => ({
     id: `conseil-${index}`,
     label: fixText(c.label),
@@ -255,13 +255,8 @@ export async function POST(request) {
   const row = quoteToRow(computed, adminUserId);
   // L'IA fournit un total indicatif ; le vrai total facturable vient du
   // calcul des lignes (applyQuoteTotals) — coherent avec le reste de l'app.
-  const finalTotal = computed.totalTtc || total;
-
   const { data: inserted, error } = await supabaseAdmin.from("quotes").insert(row).select().single();
   if (error) return badRequest(`Création de l'expertise impossible: ${error.message}`, 500);
-
-  const priceRangeMin = Math.round(finalTotal * (1 - PRICE_RANGE_SPREAD));
-  const priceRangeMax = Math.round(finalTotal * (1 + PRICE_RANGE_SPREAD));
 
   const missingPriceItems = computed.items
     .filter((it) => it.needsPrice)
@@ -271,8 +266,6 @@ export async function POST(request) {
     expertiseId: inserted.id,
     metier: fixText(parsed.metier || ""),
     description: fixText(parsed.description || ""),
-    priceRangeMin,
-    priceRangeMax,
     breakdown: buildBreakdown(computed.calculatedItems),
     delaiEstimeJours: Math.max(1, Math.round(Number(parsed.delaiEstimeJours) || 7)),
     conseils,

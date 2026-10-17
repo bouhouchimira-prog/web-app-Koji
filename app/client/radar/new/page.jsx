@@ -113,12 +113,6 @@ function looksRedundantWithPrompt(ack, prompt) {
   return shared / Math.min(ackWords.size, promptWords.size) >= 0.6;
 }
 
-// Marge de la fourchette de prix (1er oct) — doit rester identique a
-// PRICE_RANGE_SPREAD cote serveur (lib/ai-devis-shape.js), utilisee ici
-// uniquement pour recalculer la fourchette par lot (expertise.breakdown
-// ne renvoie qu'un total par lot, pas deja une fourchette).
-const PRICE_RANGE_SPREAD_CLIENT = 0.15;
-
 function readAsDataUrl(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -573,23 +567,6 @@ export default function NewRadarOffrePage() {
     });
   }
 
-  function conseilsDiscountFactor() {
-    if (!expertise) return 1;
-    const discount = (expertise.conseils || [])
-      .filter((c) => selectedConseils.has(c.id))
-      .reduce((sum, c) => sum + Number(c.discountPercent || 0), 0);
-    return Math.max(0, 1 - discount / 100);
-  }
-
-  function adjustedRange() {
-    if (!expertise) return { min: 0, max: 0 };
-    const factor = conseilsDiscountFactor();
-    return {
-      min: Math.round(expertise.priceRangeMin * factor),
-      max: Math.round(expertise.priceRangeMax * factor)
-    };
-  }
-
   async function submitMissingPrices() {
     const prices = Object.entries(missingPriceDrafts)
       .filter(([, v]) => v !== "" && Number.isFinite(Number(v)))
@@ -607,8 +584,6 @@ export default function NewRadarOffrePage() {
       if (!response.ok) throw new Error(data.error || "Mise à jour impossible.");
       setExpertise((current) => ({
         ...current,
-        priceRangeMin: data.priceRangeMin,
-        priceRangeMax: data.priceRangeMax,
         missingPriceItems: data.missingPriceItems
       }));
       setMissingPriceDrafts({});
@@ -667,7 +642,6 @@ export default function NewRadarOffrePage() {
     setPhotos([]);
   }
 
-  const range = phase === "result" ? adjustedRange() : null;
   const iaStepIndex = IA_PHASES.indexOf(phase);
 
   if (loadingDraft) {
@@ -1066,27 +1040,23 @@ export default function NewRadarOffrePage() {
               onClick={() => expertise.breakdown?.length > 0 && setShowBreakdown((v) => !v)}
             >
               <span className="radar-price-range-label">
-                Fourchette de prix estimée
+                Travaux proposés
                 {expertise.breakdown && expertise.breakdown.length > 0 ? (showBreakdown ? " ▲" : " ▼ (voir le détail)") : ""}
               </span>
-              <span className="radar-price-range-value">{range.min.toLocaleString("fr-FR")} € – {range.max.toLocaleString("fr-FR")} €</span>
+              <span className="radar-price-range-value" style={{ fontSize: "0.95rem" }}>
+                Chaque artisan intéressé proposera son prix selon son propre taux journalier.
+              </span>
               {expertise.delaiEstimeJours ? <span className="radar-delay-badge">Délai estimé : {expertise.delaiEstimeJours} jour{expertise.delaiEstimeJours > 1 ? "s" : ""}</span> : null}
             </button>
 
             {showBreakdown && expertise.breakdown && expertise.breakdown.length > 0 ? (
               <div className="radar-recap-card">
                 <span className="radar-field-label">Détail par lot</span>
-                {expertise.breakdown.map((lot) => {
-                  const factor = conseilsDiscountFactor();
-                  const adjustedMin = Math.round(lot.totalTtc * (1 - PRICE_RANGE_SPREAD_CLIENT) * factor);
-                  const adjustedMax = Math.round(lot.totalTtc * (1 + PRICE_RANGE_SPREAD_CLIENT) * factor);
-                  return (
-                    <div key={lot.room} className="radar-recap-row">
-                      <span>{lot.room}</span>
-                      <strong>{adjustedMin.toLocaleString("fr-FR")} € – {adjustedMax.toLocaleString("fr-FR")} €</strong>
-                    </div>
-                  );
-                })}
+                {expertise.breakdown.map((lot) => (
+                  <div key={lot.room} className="radar-recap-row">
+                    <span>{lot.room}</span>
+                  </div>
+                ))}
               </div>
             ) : null}
 
@@ -1094,7 +1064,7 @@ export default function NewRadarOffrePage() {
               <div className="radar-recap-card">
                 <span className="radar-field-label">⚠️ Prix manquants dans notre base</span>
                 <p className="radar-recap-note" style={{ margin: "4px 0 10px" }}>
-                  Nous n'avons pas encore ces prix dans la base de Koji — la fourchette ci-dessus ne les inclut pas. Vous pouvez en proposer un, sinon ils resteront à 0€.
+                  Nous n'avons pas encore ces prix dans la base de Koji. Vous pouvez en proposer un, sinon ils resteront à 0€.
                 </p>
                 {expertise.missingPriceItems.map((item) => (
                   <div key={item.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>

@@ -599,12 +599,6 @@ function OffreCard({ offre, etat, onPositionner }) {
             ? <span className="kd-new">Nouveau</span>
             : <span className="kd-when">{publieLe(offre.createdAt)}</span>}
         </span>
-        {offre.priceRangeMin ? (
-          <span className="kd-offre-price">
-            {euro(offre.priceRangeMin)}
-            <small>à {euro(offre.priceRangeMax)}</small>
-          </span>
-        ) : null}
       </Link>
       <div className="kd-offre-actions">
         {etat?.positionnee ? (

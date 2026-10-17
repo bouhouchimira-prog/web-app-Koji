@@ -4,7 +4,6 @@ import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { resolveAdminUserId } from "../../../../lib/admin-account";
 import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../../lib/quote-calculations";
-import { PRICE_RANGE_SPREAD } from "../../../../lib/ai-devis-shape";
 import { buildBreakdown } from "../route";
 
 // Completer un ou plusieurs prix manquants sur une expertise deja creee (1er
@@ -43,14 +42,11 @@ export async function PATCH(request, context) {
   const { error: updateError } = await supabaseAdmin.from("quotes").update(updatedRow).eq("id", id);
   if (updateError) return badRequest(`Mise à jour de l'expertise impossible: ${updateError.message}`, 500);
 
-  const finalTotal = computed.totalTtc || 0;
   const missingPriceItems = computed.items
     .filter((it) => it.needsPrice)
     .map((it) => ({ id: it.id, room: it.room, label: it.label, quantity: it.quantity, unit: it.unit }));
 
   return ok({
-    priceRangeMin: Math.round(finalTotal * (1 - PRICE_RANGE_SPREAD)),
-    priceRangeMax: Math.round(finalTotal * (1 + PRICE_RANGE_SPREAD)),
     breakdown: buildBreakdown(computed.calculatedItems),
     missingPriceItems
   });

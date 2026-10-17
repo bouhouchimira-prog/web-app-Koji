@@ -5,7 +5,7 @@ import { buildWebUser } from "../../../lib/user-profile";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
-import { buildMissingPriceNotes, clearUnverifiedAiPrices, PRICE_RANGE_SPREAD } from "../../../lib/ai-devis-shape";
+import { buildMissingPriceNotes, clearUnverifiedAiPrices } from "../../../lib/ai-devis-shape";
 import { fixText } from "../../../lib/text";
 
 // Devis pre-rempli par koji (decisions du 4 septembre) — une entreprise
@@ -104,24 +104,6 @@ export async function POST(request) {
   };
 
   const computed = applyQuoteTotals(draft);
-
-  // Fourchette TOUJOURS recalculee a partir du total REEL de ce devis (30
-  // sept, remonte par Amira : un devis affichait 27 354,80€ alors que
-  // l'offre montrait encore "17 248€ - 23 336€", une fourchette figee au
-  // moment de la publication et jamais mise a jour depuis, meme quand
-  // l'expertise interne a change entre-temps — ex: l'expertise a ete
-  // corrigee apres publication). On ne fait plus jamais confiance a
-  // offre.priceRangeMin/Max tels quels : ils sont reecrits ici avec le vrai
-  // total de CE devis, qui vient justement de cette meme expertise — garantit
-  // que la fourchette et le devis restent toujours coherents entre eux, et
-  // que le garde-fou de app/api/quotes/route.js ne se declenche plus jamais
-  // a tort sur un devis fraichement cree.
-  const freshPriceRangeMin = Math.round(computed.totalTtc * (1 - PRICE_RANGE_SPREAD));
-  const freshPriceRangeMax = Math.round(computed.totalTtc * (1 + PRICE_RANGE_SPREAD));
-  computed.offrePriceRangeMin = freshPriceRangeMin;
-  computed.offrePriceRangeMax = freshPriceRangeMax;
-  offre.priceRangeMin = freshPriceRangeMin;
-  offre.priceRangeMax = freshPriceRangeMax;
 
   const row = quoteToRow(computed, auth.userId);
 

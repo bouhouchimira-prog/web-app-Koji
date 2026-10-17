@@ -3465,20 +3465,6 @@ export default function DevisEditor() {
               </section>
             ) : null}
 
-        {generatedQuote?.chantierOffreId && generatedQuote?.offrePriceRangeMin && generatedQuote?.offrePriceRangeMax ? (
-          <section className="quote-final-card quote-range-banner">
-            <div className="quote-section-title">
-              <div>
-                <span>Radar des Chantiers</span>
-                <h2>Fourchette annoncée au client</h2>
-              </div>
-            </div>
-            <p className="recap-title-hint">
-              Ce devis doit rester entre <strong>{Math.round(generatedQuote.offrePriceRangeMin).toLocaleString("fr-FR")} €</strong> et <strong>{Math.round(generatedQuote.offrePriceRangeMax).toLocaleString("fr-FR")} €</strong> — la fourchette déjà annoncée au particulier sur cette offre. Confirmer ou envoyer ce devis est bloqué si le total en sort ; si le prix réel doit vraiment être différent, expliquez-le au client via la messagerie de l'offre avant d'insister.
-            </p>
-          </section>
-        ) : null}
-
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 
         <div className="quote-more-actions" ref={moreActionsRef}>

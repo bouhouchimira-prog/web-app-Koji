@@ -260,7 +260,6 @@ export default function RadarOffreDetailPage() {
               <div className="radar-recap-row"><span>Description</span><strong>{offre.description || "—"}</strong></div>
               <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
               <div className="radar-recap-row"><span>Adresse</span><strong>{offre.address || "—"}</strong></div>
-              <div className="radar-recap-row"><span>Fourchette publiée</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non précisée"}</strong></div>
               {offre.delaiEstimeJours ? <div className="radar-recap-row"><span>Délai estimé</span><strong>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</strong></div> : null}
             </div>
 

@@ -276,7 +276,7 @@ export default function MarketplaceOffreDetailPage() {
             <div className="radar-recap radar-recap-card">
               <div className="radar-recap-row"><span>Métier</span><strong>{offre.metier || "Non précisé"}</strong></div>
               <div className="radar-recap-row"><span>Zone</span><strong>{offre.address || "Non précisé"}{!offre.rdvConfirmed ? " (secteur uniquement)" : ""}</strong></div>
-              <div className="radar-recap-row"><span>Prix proposé</span><strong>{offre.priceRangeMin ? `${euro(offre.priceRangeMin)} – ${euro(offre.priceRangeMax)}` : "Non communiqué"}</strong></div>
+              <div className="radar-recap-row"><span>Prix</span><strong>À proposer selon votre taux journalier</strong></div>
               {offre.delaiEstimeJours ? <div className="radar-recap-row"><span>Délai estimé</span><strong>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</strong></div> : null}
               <div className="radar-recap-row"><span>Publiée le</span><strong>{shortDate(offre.createdAt)}</strong></div>
             </div>

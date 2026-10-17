@@ -4,7 +4,6 @@ import { getVerifiedUserId } from "../../../../../lib/server-auth";
 import { hasConfirmedRdv } from "../../../../../lib/rdv";
 import { hasPhotoAccess } from "../../../../../lib/photo-access";
 import { fixText } from "../../../../../lib/text";
-import { syncOfferPriceRange } from "../../../../../lib/chantier-offre-sync";
 import { maskedCityPostal } from "../../../../../lib/offer-privacy";
 
 // Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers.
@@ -22,8 +21,6 @@ function detailOffer(offer, rdvUnlocked, photosUnlocked) {
     description: fixText(offer.description || ""),
     ouvrages: Array.isArray(offer.ouvrages) ? offer.ouvrages : [],
     metier: fixText(offer.metier || ""),
-    priceRangeMin: Number(offer.priceRangeMin || 0) || null,
-    priceRangeMax: Number(offer.priceRangeMax || 0) || null,
     delaiEstimeJours: offer.delaiEstimeJours || null,
     status: offer.status,
     createdAt: offer.createdAt,
@@ -61,7 +58,6 @@ export async function GET(request, context) {
   const offre = (db.chantierOffres || []).find((entry) => entry.id === id);
   if (!offre) return badRequest("Offre introuvable.", 404);
 
-  await syncOfferPriceRange(db, offre);
   const rdvUnlocked = hasConfirmedRdv(db.chantierOffreMessages, id, userId);
   const photosUnlocked = hasPhotoAccess(db.chantierOffreMessages, id, userId);
   return ok({ offre: detailOffer(offre, rdvUnlocked, photosUnlocked) });

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ClientTopbar } from "../../../components/ClientTopbar";
-import { euro, shortDate } from "../../../lib/pricing";
+import { shortDate } from "../../../lib/pricing";
 
 const STATUS_LABEL = {
   Publiee: "Publiée",
@@ -53,9 +53,6 @@ export default function ClientRadarPage() {
                 <small>{offre.address} · {shortDate(offre.createdAt)}</small>
               </div>
               <div className="ct-devis-row-right">
-                {offre.priceRangeMin ? (
-                  <span className="client-amount">{euro(offre.priceRangeMin)}–{euro(offre.priceRangeMax)}</span>
-                ) : null}
                 <span className="radar-status-badge">{STATUS_LABEL[offre.status] || offre.status}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
               </div>

@@ -350,31 +350,6 @@ export async function PATCH(request) {
       ...(editGate.claim || editGate.nextCount > 0 ? { _trialQuoteId: quote.id, _trialSaveCount: editGate.nextCount } : {}),
       ...(sendGate.claim ? { _trialQuoteId: quote.id } : {})
     });
-
-    // Garde-fou fourchette Radar des Chantiers (30 sept, demande d'Amira) :
-    // un devis ne provient d'une offre publiee (quote.chantierOffreId) que
-    // via app/api/estimer-devis — son total doit rester entre le prix min et
-    // le prix max deja annonces au particulier sur cette offre, jamais au-
-    // dessus ni en dessous. Verifie uniquement sur les actions explicites
-    // "Confirmer"/"Envoyer" (pas sur l'enregistrement automatique en continu,
-    // qui laisserait l'entreprise coincee en plein ajustement d'un devis) —
-    // meme principe que les garde-fous d'essai juste au-dessus. Le blocage
-    // reste possible a tout moment via la messagerie interne (section
-    // "Communication" de l'app) si le prix reel doit vraiment differer.
-    if (quote.chantierOffreId) {
-      const rangeDb = await readDb();
-      const offre = (rangeDb.chantierOffres || []).find((o) => o.id === quote.chantierOffreId);
-      if (offre && offre.priceRangeMin && offre.priceRangeMax) {
-        const projectedTotal = applyQuoteTotals(quote).totalTtc;
-        if (projectedTotal < offre.priceRangeMin || projectedTotal > offre.priceRangeMax) {
-          const fmt = (n) => `${Math.round(n).toLocaleString("fr-FR")} €`;
-          return badRequest(
-            `Ce devis (${fmt(projectedTotal)}) sort de la fourchette annoncée au client (${fmt(offre.priceRangeMin)} – ${fmt(offre.priceRangeMax)}). Ajustez le devis pour rester dans cette fourchette, ou contactez le client via la messagerie si le prix réel doit vraiment être différent.`,
-            409
-          );
-        }
-      }
-    }
   }
 
   if (action === "ready") {

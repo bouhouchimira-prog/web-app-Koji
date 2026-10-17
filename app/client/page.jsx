@@ -165,9 +165,6 @@ export default function ClientHomePage() {
                   <small>{offre.metier} · {offre.address} · {shortDate(offre.createdAt)}</small>
                 </div>
                 <div className="ct-devis-row-right">
-                  {offre.priceRangeMin ? (
-                    <span className="client-amount">{euro(offre.priceRangeMin)}–{euro(offre.priceRangeMax)}</span>
-                  ) : null}
                   <span className={`radar-status-badge${offre.hasArtisanReply ? " contacted" : ""}`}>
                     {offre.hasArtisanReply ? "Un artisan vous a écrit" : (STATUS_LABEL[offre.status] || offre.status)}
                   </span>

@@ -25,8 +25,6 @@ function publicMarketplaceOffer(offer) {
     description: fixText(offer.description || ""),
     metier: fixText(offer.metier || ""),
     address: maskedCityPostal(offer),
-    priceRangeMin: Number(offer.priceRangeMin || 0) || null,
-    priceRangeMax: Number(offer.priceRangeMax || 0) || null,
     delaiEstimeJours: offer.delaiEstimeJours || null,
     status: offer.status,
     createdAt: offer.createdAt

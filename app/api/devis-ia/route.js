@@ -22,11 +22,11 @@ import { fixText } from "../../../lib/text";
 // envoi par l'entreprise comme n'importe quel autre devis — aucune
 // modification du chemin manuel ni de DevisEditor.jsx.
 // Niveau de main d'oeuvre choisi par l'entreprise pour CHAQUE lot (question
-// posee cote client avant la generation, jamais deduit par l'IA elle-meme —
-// meme principe que PRICE_RANGE_SPREAD dans expertise-koji : un coefficient
-// de prix reste une decision du code, applique de facon deterministe apres
-// generation (voir applyLaborLevelCoefficients), jamais laisse au jugement
-// libre de l'IA. Valeurs de depart a ajuster avec Amira si besoin.
+// posee cote client avant la generation, jamais deduit par l'IA elle-meme) —
+// un coefficient de prix reste une decision du code, applique de facon
+// deterministe apres generation (voir applyLaborLevelCoefficients), jamais
+// laisse au jugement libre de l'IA. Valeurs de depart a ajuster avec Amira
+// si besoin.
 const LABOR_LEVEL_COEFFICIENTS = { "Standard": 1, "Qualifié": 1.15, "Expert": 1.3 };
 
 function buildLotDetailsText(lotDetails) {

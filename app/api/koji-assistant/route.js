@@ -6,12 +6,6 @@ import { readDb, scopedItems, writeDb } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
 import { TOOLS, PAGES, TOPIC_SUGGESTIONS, resolveByHint, resolveOuvrageForLabel, resolveSupplyForLabel } from "../../../lib/koji-assistant-tools";
-// "Creer un devis" avec assez d'informations (client + description) genere
-// desormais un vrai devis chiffre via l'IA (voir plus bas, branche
-// type === "devis") — seul advanceDevisFlow reste importe pour ne pas casser
-// une discussion deja en cours dans l'ancien questionnaire au moment du
-// deploiement. lib/koji-assistant-devis-flow.js n'est pas supprime.
-import { advanceDevisFlow } from "../../../lib/koji-assistant-devis-flow";
 import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-assistant-photo-confirm";
 import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 import { logAlgoStat } from "../../../lib/assistant-algo-stats";
@@ -480,21 +474,20 @@ export async function POST(request) {
   const conversationId = String(body.conversationId || "") || `koji-conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // Contexte du chantier actuellement ouvert (8 oct, voir handleCreate plus
-  // haut) — calcule une seule fois ici car utilise aussi bien par les
-  // poursuites de flow (devisVisite/confirmType, ci-dessous) que par le
-  // premier tour d'un message. components/Shell.jsx le transmet des que
-  // l'utilisatrice est sur la fiche d'un chantier (app/chantiers/page.jsx).
+  // haut) — calcule une seule fois ici car utilise aussi bien par la
+  // poursuite de flow (confirmType, ci-dessous) que par le premier tour
+  // d'un message. components/Shell.jsx le transmet des que l'utilisatrice
+  // est sur la fiche d'un chantier (app/chantiers/page.jsx).
   const contextChantierId = body.pageContext?.page === "chantier" ? String(body.pageContext.chantierId || "").trim() : "";
 
-  // Poursuite d'un questionnaire devis deja en cours (voir
-  // lib/koji-assistant-devis-flow.js) : la reponse est un clic sur un bouton
-  // ou un texte libre attendu pour l'etape en cours, pas la peine de
-  // reclassifier via l'IA — garde les tours suivants rapides et gratuits.
-  if (body.conversation?.state?.flow === "devisVisite") {
-    const result = await advanceDevisFlow(ctx, body.conversation.state, message, body.conversation.originalMessage || message);
-    after(() => logTurn(auth.userId, message, result, conversationId, "algorithme"));
-    return ok({ ...result, conversationId });
-  }
+  // L'ancien questionnaire devis pas-a-pas (lib/koji-assistant-devis-flow.js,
+  // "devisVisite") est retire (17 oct, demande d'Amira : "100% IA", plus de
+  // questions d'un algorithme deterministe) — deja orpheline avant ce
+  // changement (startDevisFlow n'etait plus appele nulle part, seule la
+  // poursuite d'une conversation DEJA en cours restait geree). Un message
+  // qui porterait encore cet etat (session tres ancienne) tombe desormais
+  // simplement dans la classification IA normale ci-dessous, comme un
+  // message neuf.
 
   // Poursuite d'une confirmation "detectee depuis une photo" deja en cours
   // (voir lib/koji-assistant-photo-confirm.js) — meme principe que
