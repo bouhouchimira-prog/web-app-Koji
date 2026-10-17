@@ -119,9 +119,39 @@ export default function DevisHistory() {
           </div>
           <div className="fournitures-dashboard-head-actions">
             <Link href="/bibliotheque-ouvrages" className="button secondary">Bibliothèque koji</Link>
-            <Link href="/devis?new=1" className="button blue">+ Nouveau devis</Link>
           </div>
         </header>
+
+        <div className="devis-mode-choice-grid">
+          <Link href="/devis?new=1&mode=ia" className="devis-mode-choice-card devis-mode-choice-ia">
+            <span className="devis-mode-choice-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></svg>
+            </span>
+            <div className="devis-mode-choice-body">
+              <div className="devis-mode-choice-title-row">
+                <strong>Devis avec l'IA</strong>
+                <span className="status-pill devis-mode-choice-badge">RECOMMANDÉ</span>
+              </div>
+              <p>Décrivez le chantier, l'assistant prépare le devis à partir de la bibliothèque koji.</p>
+            </div>
+            <span className="button white devis-mode-choice-cta">Démarrer
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </Link>
+
+          <Link href="/devis?new=1&mode=manuel" className="devis-mode-choice-card devis-mode-choice-manuel">
+            <span className="devis-mode-choice-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+            </span>
+            <div className="devis-mode-choice-body">
+              <strong>Devis manuel</strong>
+              <p>Construisez-le ligne par ligne avec vos lots, la bibliothèque et vos fournitures.</p>
+            </div>
+            <span className="button secondary devis-mode-choice-cta">Créer
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </Link>
+        </div>
 
         <div className="fournitures-kpi-row">
           <div className="fournitures-kpi-card">

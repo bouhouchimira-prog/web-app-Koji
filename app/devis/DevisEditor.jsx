@@ -55,9 +55,10 @@ function editQuoteIdFromUrl() {
   return new URLSearchParams(window.location.search).get("id") || "";
 }
 
-// Mode choisi sur l'ecran precedent (17 oct, DevisModeChoice.jsx) — lu une
-// seule fois au montage, l'etat "mode" prend le relais ensuite (la bascule
-// manuelle dans l'en-tete reste toujours disponible une fois dans l'editeur).
+// Mode choisi depuis les 2 cartes du tableau de bord Devis (17 oct, voir
+// DevisHistory.jsx) — lu une seule fois au montage, l'etat "mode" prend le
+// relais ensuite (la bascule manuelle dans l'en-tete reste toujours
+// disponible une fois dans l'editeur).
 function modeFromUrl() {
   if (typeof window === "undefined") return "manuel";
   return new URLSearchParams(window.location.search).get("mode") === "ia" ? "ia" : "manuel";

@@ -8850,7 +8850,7 @@ body :where(
   display: grid;
   grid-template-columns: 1.3fr 1fr;
   gap: 16px;
-  margin-top: 8px;
+  margin-bottom: 18px;
 }
 
 @media (max-width: 760px) {
