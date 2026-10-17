@@ -458,6 +458,15 @@ export function Shell({ children }) {
         setKojiAssistantNotice(`✓ Ajouté sur le devis : ${data.label}`);
         setKojiAssistantClarification(null);
         setKojiAssistantLive(null);
+      } else if (data.outcome === "success") {
+        // Consigne admin permanente enregistree (17 oct, voir
+        // app/api/koji-assistant/route.js::detectAdminInstruction) — seul
+        // outcome qui n'etait pas encore gere ici, tombait a tort dans le
+        // "Je n'ai pas compris votre demande" generique ci-dessous alors
+        // que la consigne avait bien ete appliquee.
+        setKojiAssistantNotice(data.message || "Consigne enregistrée.");
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
       } else {
         setKojiAssistantNotice("Je n'ai pas compris votre demande.");
         setKojiAssistantClarification(null);
