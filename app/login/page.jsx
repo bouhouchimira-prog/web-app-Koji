@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { EntrepriseLogin } from "../../components/EntrepriseLogin";
 import { LangSwitcher } from "../../components/LangSwitcher";
@@ -348,62 +348,44 @@ function SsoOptions({ profile, L }) {
   );
 }
 
-function ProfileChooser({ onChoose }) {
-  return (
-    <div className="auth-profile-chooser">
-      <h2 className="auth-title">Bienvenue sur koji</h2>
-      <p className="auth-subtitle">Choisissez votre profil pour continuer.</p>
-      <button type="button" className="auth-profile-card" onClick={() => onChoose("particulier")}>
-        <span className="auth-profile-card-icon particulier">🏠</span>
-        <span className="auth-profile-card-text">
-          <strong>Koji</strong>
-          <small>Publiez vos offres</small>
-        </span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
-      </button>
-      <button type="button" className="auth-profile-card" onClick={() => onChoose("entreprise")}>
-        <span className="auth-profile-card-icon entreprise">🛠️</span>
-        <span className="auth-profile-card-text">
-          <strong>Koji Pro</strong>
-          <small>Trouvez des offres et gérez vos travaux</small>
-        </span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
-      </button>
-    </div>
-  );
-}
-
 function LoginScreen() {
   const { L } = useLocale();
+  const router = useRouter();
   const params = useSearchParams();
   const typeParam = params.get("type");
   const [profile, setProfile] = useState(
     typeParam === "entreprise" ? "entreprise" : typeParam === "particulier" ? "particulier" : null
   );
 
-  const sso = profile ? <SsoOptions profile={profile} L={L} /> : null;
+  // L'ecran de choix de profil ("Bienvenue sur koji") est retire (18 oct,
+  // demande d'Amira) : desormais / et /entreprise (components/PublicLanding,
+  // components/EntrepriseLanding) jouent deja ce role, chacun de leurs CTA
+  // pointant vers /login avec un ?type= deja connu. Un /login sans type
+  // (lien historique ou saisi a la main) renvoie donc vers l'accueil
+  // plutot que de reafficher ce choix en double.
+  useEffect(() => {
+    if (!profile) router.replace("/");
+  }, [profile, router]);
+
+  if (!profile) return null;
+
+  const sso = <SsoOptions profile={profile} L={L} />;
 
   return (
     <main className="auth-screen-v2">
       <AuthBrandPanel profile={profile} />
-      <section className={profile ? "auth-panel-v2 auth-panel-flat" : "auth-panel-v2"}>
-        <div className={profile ? "auth-card auth-card-flat" : "auth-card"}>
+      <section className="auth-panel-v2 auth-panel-flat">
+        <div className="auth-card auth-card-flat">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          {!profile ? (
-            <ProfileChooser onChoose={setProfile} />
+          <Link href="/" className="auth-back-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+            Changer de profil
+          </Link>
+          {profile === "particulier" ? (
+            <KojiPanel L={L} sso={sso} onSwitchProfile={() => setProfile("entreprise")} />
           ) : (
-            <>
-              <button type="button" className="auth-back-btn" onClick={() => setProfile(null)}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-                Changer de profil
-              </button>
-              {profile === "particulier" ? (
-                <KojiPanel L={L} sso={sso} onSwitchProfile={() => setProfile("entreprise")} />
-              ) : (
-                <EntrepriseLogin L={L} sso={sso} onSwitchProfile={() => setProfile("particulier")} />
-              )}
-            </>
+            <EntrepriseLogin L={L} sso={sso} onSwitchProfile={() => setProfile("particulier")} />
           )}
 
           <p className="auth-help-footer">
