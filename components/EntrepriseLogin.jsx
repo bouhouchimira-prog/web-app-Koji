@@ -38,9 +38,25 @@ function EyeIcon({ open }) {
   );
 }
 
+function SwitchArrowIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
 // Extrait de app/login/page.jsx pour etre reutilisable independamment —
-// utilise par la carte "Koji Pro" repliable sur /login (KojiProCard).
-export function EntrepriseLogin({ L }) {
+// rendu par LoginScreen une fois le profil "entreprise" choisi sur /login
+// (voir app/login/page.jsx::ProfileChooser). `sso` (18 oct, nouveau) est
+// l'element SsoOptions deja construit par LoginScreen, insere ici entre le
+// sous-titre et le formulaire pour coller au nouvel ordre du design
+// (badge -> titre -> sous-titre -> Google/Apple -> champs). `onSwitchProfile`
+// (18 oct) affiche la carte de bascule vers l'espace particulier en bas du
+// panneau, a cote du bouton "Changer de profil" deja existant au-dessus
+// (celui-ci revient a l'ecran de choix neutre, la carte bascule directement
+// dans l'autre profil sans repasser par cet ecran).
+export function EntrepriseLogin({ L, sso, onSwitchProfile }) {
   const router = useRouter();
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
@@ -100,11 +116,14 @@ export function EntrepriseLogin({ L }) {
 
   return (
     <>
-      <h2 className="auth-title">{L.auth.tabCompany}</h2>
-      <p className="auth-subtitle-strong">{L.auth.loginCompany}</p>
-      <p className="auth-subtitle">
-        {step === "email" ? L.auth.subtitleEmail : L.auth.subtitlePassword}
-      </p>
+      <span className="auth-eyebrow-badge entreprise">{L.auth.espaceEntreprise}</span>
+      <div className="auth-mode-tabs">
+        <span className="auth-mode-tab active">{L.auth.connexionTitle}</span>
+        <Link href="/signup?type=entreprise" className="auth-mode-tab">{L.auth.createAccountTab}</Link>
+      </div>
+      <h2 className="auth-title">{L.auth.connexionTitle}</h2>
+      <p className="auth-subtitle">{L.auth.heroSubtitleEntreprise}</p>
+      {sso}
 
       {step === "email" && (
         <form className="auth-form-v2" onSubmit={handleEmailStep}>
@@ -140,10 +159,6 @@ export function EntrepriseLogin({ L }) {
           </div>
           {error ? <p className="auth-error">{error}</p> : null}
           <button type="submit" className="auth-btn-primary">{L.auth.continueBtn}</button>
-          <p className="auth-alt-link">
-            {L.auth.noAccount}{" "}
-            <Link className="auth-link" href="/signup?type=entreprise">{L.auth.register}</Link>
-          </p>
         </form>
       )}
 
@@ -190,12 +205,15 @@ export function EntrepriseLogin({ L }) {
           <button type="submit" className="auth-btn-primary" disabled={loading}>
             {loading ? L.auth.loggingIn : L.auth.loginBtn}
           </button>
-          <p className="auth-alt-link">
-            {L.auth.noAccount}{" "}
-            <Link className="auth-link" href="/signup?type=entreprise">{L.auth.register}</Link>
-          </p>
         </form>
       )}
+
+      {onSwitchProfile ? (
+        <button type="button" className="auth-switch-card" onClick={onSwitchProfile}>
+          <span className="auth-switch-card-label">{L.auth.switchToParticulierLabel}</span>
+          <span className="auth-switch-card-cta">{L.auth.switchToParticulierCta}<SwitchArrowIcon /></span>
+        </button>
+      ) : null}
     </>
   );
 }

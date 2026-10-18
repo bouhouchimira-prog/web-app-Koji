@@ -24,7 +24,24 @@ function EyeIcon({ open }) {
   );
 }
 
-function ParticulierLogin({ L, onSignup }) {
+function SwitchArrowIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function SwitchProfileCard({ label, cta, onClick }) {
+  return (
+    <button type="button" className="auth-switch-card" onClick={onClick}>
+      <span className="auth-switch-card-label">{label}</span>
+      <span className="auth-switch-card-cta">{cta}<SwitchArrowIcon /></span>
+    </button>
+  );
+}
+
+function ParticulierLogin({ L, sso }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -61,8 +78,9 @@ function ParticulierLogin({ L, onSignup }) {
 
   return (
     <>
-      <h2 className="auth-title">{L.auth.loginParticulier}</h2>
-      <p className="auth-subtitle">{L.auth.subtitleParticulier}</p>
+      <h2 className="auth-title">{L.auth.connexionTitle}</h2>
+      <p className="auth-subtitle">{L.auth.heroSubtitleParticulier}</p>
+      {sso}
       <form className="auth-form-v2" onSubmit={handleSubmit}>
         <div className="auth-field">
           <label>{L.auth.email}</label>
@@ -105,14 +123,6 @@ function ParticulierLogin({ L, onSignup }) {
         >
           {loading ? L.auth.verifying : L.auth.accessBtn}
         </button>
-        <p className="auth-alt-link">
-          {L.auth.noAccount}{" "}
-          {onSignup ? (
-            <button type="button" className="auth-link auth-link-btn" onClick={onSignup}>{L.auth.register}</button>
-          ) : (
-            <Link className="auth-link" href="/signup?type=particulier">{L.auth.register}</Link>
-          )}
-        </p>
       </form>
     </>
   );
@@ -122,7 +132,7 @@ function ParticulierLogin({ L, onSignup }) {
 // plus de page /signup separee pour ce profil (reservee a Koji Pro
 // desormais). Meme validation par e-mail que /api/auth/particulier-signup
 // prevoit deja (compte inactif jusqu'au clic sur le lien recu).
-function ParticulierSignup({ L, onBack }) {
+function ParticulierSignup({ L, onBack, sso }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -173,6 +183,7 @@ function ParticulierSignup({ L, onBack }) {
     <>
       <h2 className="auth-title">{L.auth.createAccount}</h2>
       <p className="auth-subtitle">{L.auth.subtitleSignup2}</p>
+      {sso}
       <form className="auth-form-v2" onSubmit={handleSubmit}>
         <div className="auth-field">
           <label>{L.auth.fullName}</label>
@@ -227,22 +238,34 @@ function ParticulierSignup({ L, onBack }) {
         <button type="submit" className="auth-btn-primary" disabled={loading}>
           {loading ? L.auth.creating : L.auth.createBtn}
         </button>
-        <p className="auth-alt-link">
-          {L.auth.alreadyAccount}{" "}
-          <button type="button" className="auth-link auth-link-btn" onClick={onBack}>{L.auth.signIn}</button>
-        </p>
       </form>
     </>
   );
 }
 
 // Panneau "Koji" (particulier) complet : bascule entre connexion et
-// inscription sur place, sans jamais quitter /login.
-function KojiPanel({ L }) {
+// inscription sur place, sans jamais quitter /login. Porte lui-meme les
+// onglets Connexion/Creer un compte et le badge "Espace particulier" (18
+// oct, nouveau design) puisque c'est lui qui possede l'etat `mode`.
+function KojiPanel({ L, onSwitchProfile, sso }) {
   const [mode, setMode] = useState("login");
-  return mode === "login"
-    ? <ParticulierLogin L={L} onSignup={() => setMode("signup")} />
-    : <ParticulierSignup L={L} onBack={() => setMode("login")} />;
+  return (
+    <>
+      <span className="auth-eyebrow-badge particulier">{L.auth.espaceParticulier}</span>
+      <div className="auth-mode-tabs">
+        <button type="button" className={`auth-mode-tab${mode === "login" ? " active" : ""}`} onClick={() => setMode("login")}>
+          {L.auth.connexionTitle}
+        </button>
+        <button type="button" className={`auth-mode-tab${mode === "signup" ? " active" : ""}`} onClick={() => setMode("signup")}>
+          {L.auth.createAccountTab}
+        </button>
+      </div>
+      {mode === "login" ? <ParticulierLogin L={L} sso={sso} /> : <ParticulierSignup L={L} onBack={() => setMode("login")} sso={sso} />}
+      {onSwitchProfile ? (
+        <SwitchProfileCard label={L.auth.switchToEntrepriseLabel} cta={L.auth.switchToEntrepriseCta} onClick={onSwitchProfile} />
+      ) : null}
+    </>
+  );
 }
 
 function GoogleIcon() {
@@ -274,7 +297,7 @@ function AppleIcon() {
 // db.users et pose un jeton de portail (voir app/auth/google/callback pour
 // le branchement des deux, via ?profile=... dans redirectTo). Apple reste
 // "Bientot disponible" (pas d'app Sign in with Apple enregistree).
-function SsoOptions({ profile }) {
+function SsoOptions({ profile, L }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -306,19 +329,21 @@ function SsoOptions({ profile }) {
 
   return (
     <div className="auth-sso-group">
-      <button
-        type="button"
-        className="auth-sso-btn"
-        disabled={loading}
-        onClick={handleGoogle}
-      >
-        <GoogleIcon /> {loading ? "Redirection…" : "Continuer avec Google"}
-      </button>
-      <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
-        <AppleIcon /> Continuer avec Apple <span className="auth-sso-soon">Bientôt</span>
-      </button>
+      <div className="auth-sso-row">
+        <button
+          type="button"
+          className="auth-sso-btn"
+          disabled={loading}
+          onClick={handleGoogle}
+        >
+          <GoogleIcon /> {loading ? "Redirection…" : "Google"}
+        </button>
+        <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
+          <AppleIcon /> Apple <span className="auth-sso-soon">Bientôt</span>
+        </button>
+      </div>
       {error ? <p className="auth-error">{error}</p> : null}
-      <div className="auth-sso-divider"><span>ou</span></div>
+      <div className="auth-sso-divider"><span>{L.auth.orWithEmail}</span></div>
     </div>
   );
 }
@@ -356,11 +381,13 @@ function LoginScreen() {
     typeParam === "entreprise" ? "entreprise" : typeParam === "particulier" ? "particulier" : null
   );
 
+  const sso = profile ? <SsoOptions profile={profile} L={L} /> : null;
+
   return (
     <main className="auth-screen-v2">
-      <AuthBrandPanel />
-      <section className="auth-panel-v2">
-        <div className="auth-card">
+      <AuthBrandPanel profile={profile} />
+      <section className={profile ? "auth-panel-v2 auth-panel-flat" : "auth-panel-v2"}>
+        <div className={profile ? "auth-card auth-card-flat" : "auth-card"}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
           {!profile ? (
@@ -371,8 +398,11 @@ function LoginScreen() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 Changer de profil
               </button>
-              <SsoOptions profile={profile} />
-              {profile === "particulier" ? <KojiPanel L={L} /> : <EntrepriseLogin L={L} />}
+              {profile === "particulier" ? (
+                <KojiPanel L={L} sso={sso} onSwitchProfile={() => setProfile("entreprise")} />
+              ) : (
+                <EntrepriseLogin L={L} sso={sso} onSwitchProfile={() => setProfile("particulier")} />
+              )}
             </>
           )}
 
