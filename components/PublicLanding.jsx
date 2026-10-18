@@ -438,7 +438,7 @@ export function PublicLanding() {
             </div>
           </div>
           <div className="ld-pro-banner-cta">
-            <Link href="/signup?type=entreprise" className="ld-btn-primary">
+            <Link href="/entreprise" className="ld-btn-primary">
               Découvrir koji Pro<ArrowRightIcon />
             </Link>
             <span>Essai gratuit</span>
