@@ -5,6 +5,7 @@ import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
+import { randomChars, makeTemporaryPassword } from "../../../lib/secure-random";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
 import { createPaiementEcheancesForQuote } from "../../../lib/chantier-paiements";
@@ -54,15 +55,8 @@ function normalizePhone(value = "") {
   return String(value || "").replace(/\D/g, "");
 }
 
-function makeTemporaryPassword() {
-  const left = Math.random().toString(36).slice(2, 6).toUpperCase();
-  const right = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `Koji-${left}-${right}`;
-}
-
 function makeSignatureIdentifier() {
-  const chars = "ABCDEFGHIJKLMNPQRSTUVWXYZ0123456789";
-  return "Koji-" + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return "Koji-" + randomChars(6, "ABCDEFGHIJKLMNPQRSTUVWXYZ0123456789");
 }
 
 function buildSignatureAccess(db, quote, body, request, now) {
