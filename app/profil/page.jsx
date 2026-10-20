@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddressFields } from "../../components/AddressFields";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend, fetchWithAuthRetry } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 
 const professionsList = ["Electricien", "Plombier", "Carreleur", "Menuisier", "Peintre", "Tout corps d'etat"];
@@ -67,6 +67,8 @@ function readLocalUser() {
 
 // Gratuit pour les admins, sinon reserve a l'option payante "Site web Koji"
 // — meme condition que hasWebsiteAccess cote serveur (app/api/site/route.js).
+// Utilise seulement pour le libelle de la carte "Site web" ci-dessous (la
+// page /profil/site-web gere elle-meme le blocage reel cote donnees).
 function hasWebsiteAccess(user) {
   return Boolean(user?.addonWebsite || user?.isAdmin);
 }
@@ -154,14 +156,6 @@ export default function ProfilPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState("");
-  const [cardLoading, setCardLoading] = useState(false);
-  const [cardMessage, setCardMessage] = useState("");
-  const [site, setSite] = useState(null);
-  const [siteLoading, setSiteLoading] = useState(false);
-  const [siteSaving, setSiteSaving] = useState(false);
-  const [siteMessage, setSiteMessage] = useState("");
-  const [siteCopied, setSiteCopied] = useState(false);
-  const siteFileRef = useRef(null);
   const [zoneTouched, setZoneTouched] = useState(false);
   const [zoneSuggestions, setZoneSuggestions] = useState([]);
 
@@ -184,101 +178,23 @@ export default function ProfilPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Site web Koji (23 septembre) : ne charge le brouillon/enregistrement que
-  // pour les comptes ayant l'option payante OU les admins (gratuit pour eux,
-  // meme principe que la carte de visite a l'origine) — GET /api/site
-  // renverrait de toute facon 402 sinon (voir app/api/site/route.js).
   const websiteAccess = hasWebsiteAccess(user);
+
+  // Juste de quoi afficher la carte "Site web" (slug + statut publie) sur ce
+  // tableau de bord — l'editeur complet (photos, description...) vit sur
+  // /profil/site-web, qui refait son propre GET /api/site.
+  const [siteSummary, setSiteSummary] = useState(null);
   useEffect(() => {
     if (!websiteAccess) return;
     let alive = true;
-    setSiteLoading(true);
-    apiGet("/api/site")
-      .then((payload) => { if (alive) setSite(payload.site); })
-      .catch(() => {})
-      .finally(() => { if (alive) setSiteLoading(false); });
+    apiGet("/api/site").then((payload) => { if (alive) setSiteSummary(payload.site); }).catch(() => {});
     return () => { alive = false; };
   }, [websiteAccess]);
+  const sitePublished = Boolean(siteSummary?.published);
+  const siteUrlLabel = siteSummary?.slug && typeof window !== "undefined" ? `${window.location.host}/site/${siteSummary.slug}` : "";
 
   function setField(field, value) {
     setBusiness((current) => ({ ...current, [field]: value }));
-  }
-
-  // Redimensionne une photo cote navigateur avant de la stocker en data URL
-  // (meme principe que le logo, app/profil/page.jsx:onLogoChange, mais
-  // obligatoire ici puisque plusieurs photos rejoignent le meme blob JSON
-  // partage koji_web_state, qui n'a pas de stockage fichier dedie).
-  function compressImageFile(file, maxWidth = 1600) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
-      reader.onload = () => {
-        const img = new Image();
-        img.onerror = () => reject(new Error("Image invalide."));
-        img.onload = () => {
-          const scale = Math.min(1, maxWidth / img.width);
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.82));
-        };
-        img.src = String(reader.result || "");
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function onSitePhotoChange(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || !site) return;
-    try {
-      const dataUrl = await compressImageFile(file);
-      setSite((current) => ({ ...current, photos: [...(current.photos || []), dataUrl].slice(0, current.maxPhotos || 8) }));
-    } catch (error) {
-      setSiteMessage(error.message || "Impossible d'ajouter cette photo.");
-    }
-  }
-
-  function removeSitePhoto(index) {
-    setSite((current) => ({ ...current, photos: (current.photos || []).filter((_, i) => i !== index) }));
-  }
-
-  function setSiteField(field, value) {
-    setSite((current) => ({ ...current, [field]: value }));
-  }
-
-  async function saveSite(publish) {
-    if (!site) return;
-    setSiteSaving(true);
-    setSiteMessage("");
-    try {
-      const payload = {
-        slug: site.slug,
-        tagline: site.tagline,
-        description: site.description,
-        photos: site.photos,
-        published: publish === undefined ? site.published : publish
-      };
-      const { site: saved } = await apiSend("/api/site", payload, "PATCH");
-      setSite(saved);
-      setSiteMessage(saved.published ? "Site publié." : "Modifications enregistrées.");
-    } catch (error) {
-      setSiteMessage(error.message || "Erreur lors de l'enregistrement.");
-    } finally {
-      setSiteSaving(false);
-    }
-  }
-
-  function copySiteLink() {
-    if (!site?.slug || typeof window === "undefined") return;
-    const url = `${window.location.origin}/site/${site.slug}`;
-    navigator.clipboard?.writeText(url).then(() => {
-      setSiteCopied(true);
-      setTimeout(() => setSiteCopied(false), 2000);
-    }).catch(() => {});
   }
 
   // Autocompletion d'adresse pour la zone de travail (matching geographique
@@ -395,38 +311,6 @@ export default function ProfilPage() {
     return date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   }, [user]);
 
-  async function openBusinessCard(mode) {
-    setCardLoading(true);
-    setCardMessage("");
-    try {
-      const path = mode === "preview" ? "/api/business-card?preview=1" : "/api/business-card";
-      const response = await fetchWithAuthRetry(() => fetch(path, { cache: "no-store" }));
-      if (response.status === 402) {
-        setCardMessage(L.parametres.businessCardUpsell);
-        return;
-      }
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Erreur lors de la generation.");
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      if (mode === "preview") {
-        window.open(url, "_blank");
-      } else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "Carte_visite.pdf";
-        link.click();
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
-    } catch (error) {
-      setCardMessage(error.message || "Erreur lors de la generation.");
-    } finally {
-      setCardLoading(false);
-    }
-  }
-
   async function onSave(event) {
     event.preventDefault();
     setSaving(true);
@@ -496,7 +380,7 @@ export default function ProfilPage() {
             <p>Les informations de votre entreprise, reprises sur vos devis et factures.</p>
           </div>
           <div className="fournitures-dashboard-head-actions">
-            <button type="button" className="button secondary" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>Aperçu client</button>
+            <Link href="/profil/carte-de-visite" className="button secondary">Aperçu client</Link>
             <button className="button blue" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button>
           </div>
         </header>
@@ -541,55 +425,164 @@ export default function ProfilPage() {
         </div>
 
         <div className="fournitures-dashboard-body">
-          <div className="fournitures-main-card">
-            <div className="profile-card-identity">
-              <div className="logo-ring logo-ring-plain">
-                {business.logoDataUrl ? <img src={business.logoDataUrl} alt="Logo entreprise" /> : <strong>{initials(business.raisonSociale || user?.name)}</strong>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div className="fournitures-main-card">
+              <div className="profile-card-identity">
+                <div className="logo-ring logo-ring-plain">
+                  {business.logoDataUrl ? <img src={business.logoDataUrl} alt="Logo entreprise" /> : <strong>{initials(business.raisonSociale || user?.name)}</strong>}
+                </div>
+                <div className="profile-card-identity-main">
+                  <strong>{business.raisonSociale || user?.name || "Votre entreprise"}</strong>
+                  <small>{professions.join(" · ") || "Aucun métier renseigné"}</small>
+                </div>
+                <button type="button" className="button secondary" onClick={() => fileRef.current?.click()}>{L.parametres.changeLogo}</button>
               </div>
-              <div className="profile-card-identity-main">
-                <strong>{business.raisonSociale || user?.name || "Votre entreprise"}</strong>
-                <small>{professions.join(" · ") || "Aucun métier renseigné"}</small>
+
+              <h2 className="profile-section-title">{L.parametres.company}</h2>
+              <div className="profile-grid cols-2">
+                <PlainField label={L.parametres.raisonSociale} value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
+                <PlainField label={L.parametres.siret} value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
               </div>
-              <button type="button" className="button secondary" onClick={() => fileRef.current?.click()}>{L.parametres.changeLogo}</button>
+              <div className="profile-grid cols-2">
+                <PlainField label="Adresse" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder="Rue, ville..." />
+                <label className="profile-plain-field">
+                  <span>Zone d'intervention</span>
+                  <input
+                    type="text"
+                    value={business.zoneAddress || ""}
+                    onChange={(event) => onZoneAddressChange(event.target.value)}
+                    placeholder="Adresse, ville..."
+                    autoComplete="off"
+                  />
+                  {zoneSuggestions.length > 0 ? (
+                    <ul className="radar-address-suggestions">
+                      {zoneSuggestions.map((feature) => (
+                        <li key={feature.properties.id}>
+                          <button type="button" onClick={() => selectZoneAddress(feature)}>{feature.properties.label}</button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </label>
+              </div>
+              <div className="profile-grid cols-2">
+                <PlainField label={L.parametres.emailPro} type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
+                <PlainField label={L.parametres.phone} value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
+              </div>
+
+              <h2 className="profile-section-title">{L.parametres.pricing}</h2>
+              <div className="profile-grid cols-3">
+                <PlainField label="Taux horaire" type="number" value={hourlyCost.toFixed(2)} disabled />
+                <PlainField label={L.parametres.dailyRate} type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
+                <PlainField label="TVA par défaut (%)" type="number" value={String(business.defaultVatRate ?? 20)} onChange={(event) => setField("defaultVatRate", event.target.value)} placeholder="20" />
+              </div>
             </div>
 
-            <h2 className="profile-section-title">{L.parametres.company}</h2>
-            <div className="profile-grid cols-2">
-              <PlainField label={L.parametres.raisonSociale} value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
-              <PlainField label={L.parametres.siret} value={business.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="12345678901234" />
-            </div>
-            <div className="profile-grid cols-2">
-              <PlainField label="Adresse" value={business.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} placeholder="Rue, ville..." />
-              <label className="profile-plain-field">
-                <span>Zone d'intervention</span>
-                <input
-                  type="text"
-                  value={business.zoneAddress || ""}
-                  onChange={(event) => onZoneAddressChange(event.target.value)}
-                  placeholder="Adresse, ville..."
-                  autoComplete="off"
-                />
-                {zoneSuggestions.length > 0 ? (
-                  <ul className="radar-address-suggestions">
-                    {zoneSuggestions.map((feature) => (
-                      <li key={feature.properties.id}>
-                        <button type="button" onClick={() => selectZoneAddress(feature)}>{feature.properties.label}</button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </label>
-            </div>
-            <div className="profile-grid cols-2">
-              <PlainField label={L.parametres.emailPro} type="email" value={business.emailPro} onChange={(event) => setField("emailPro", event.target.value)} placeholder="pro@entreprise.fr" />
-              <PlainField label={L.parametres.phone} value={business.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="+33..." />
-            </div>
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <Link
+                href="/profil/carte-de-visite"
+                style={{
+                  flex: "1 1 0", minWidth: 260, background: "#FFFFFF", border: "1px solid #EDEFF3", borderRadius: 18,
+                  padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, textDecoration: "none", color: "inherit"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                  <div style={{ width: 128, height: 80 }}>
+                    <div style={{ transform: "scale(.82)", transformOrigin: "0 0" }}>
+                      <div style={{ position: "relative", width: 156, height: 98 }}>
+                        <div style={{
+                          position: "absolute", left: 8, top: 18, width: 104, height: 66, borderRadius: 9, background: "#FBF9F5",
+                          border: "1px solid #E6E1D6", transform: "rotate(-6deg)", boxShadow: "0 6px 14px rgba(22,35,63,.14)", overflow: "hidden"
+                        }}>
+                          <div style={{ height: 4, background: "linear-gradient(90deg,#E6B94F,#CB9A2E)" }} />
+                          <div style={{ position: "absolute", left: 8, top: 11, width: 16, height: 16, borderRadius: 5, border: "1px dashed #CFC7B6", background: "#F3EFE6" }} />
+                          <div style={{ position: "absolute", left: 8, top: 33, width: 50, height: 7, borderRadius: 2, background: "#16233F" }} />
+                          <div style={{ position: "absolute", left: 8, top: 44, width: 22, height: 2, background: "#CB9A2E" }} />
+                          <div style={{ position: "absolute", left: 8, top: 51, width: 36, height: 3, borderRadius: 2, background: "#C9CEDB" }} />
+                          <div style={{ position: "absolute", left: 8, top: 57, width: 44, height: 3, borderRadius: 2, background: "#C9CEDB" }} />
+                          <div style={{ position: "absolute", right: 7, bottom: 6, width: 20, height: 20, borderRadius: 3, background: "repeating-conic-gradient(#16233F 0 25%,#FFFFFF 0 50%) 0 0/6px 6px" }} />
+                        </div>
+                        <div style={{
+                          position: "absolute", left: 42, top: 10, width: 104, height: 66, borderRadius: 9,
+                          background: "radial-gradient(120% 90% at 50% 0%,#1D2F57,#0B1530 70%)", transform: "rotate(5deg)",
+                          boxShadow: "0 8px 18px rgba(22,35,63,.28)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4
+                        }}>
+                          <svg width="22" height="22" viewBox="0 0 57 57" aria-hidden="true"><path d="M55.5 2.8L54.7 2.2L42.3 2.2L41.4 2.6L36.8 2.5L35.5 2.8L34.2 4.1L33.3 5.4L31.3 7.3L30.8 8.2L24.4 14.6L23.8 15.5L22.1 17.2L21.2 18.6L19.3 20.3L18.8 21.2L11.2 28.9L10.4 29.2L9.8 28.4L9.8 3.2L9.2 2.5L2.5 2.6L2.0 3.6L2.0 49.5L2.2 49.8L2.7 49.9L5.6 46.5L7.6 44.6L8.1 43.8L15.5 36.3L16.1 35.4L18.7 32.8L19.6 31.5L21.6 29.6L22.1 28.8L28.5 22.3L29.1 21.4L31.7 18.8L32.6 17.5L34.6 15.6L35.1 14.8L38.8 11.1L40.5 10.3L46.3 10.3L47.1 11.1L47.6 12.5L47.6 39.4L46.9 41.9L45.9 43.8L43.5 45.8L41.0 46.8L38.7 47.1L36.7 46.7L34.7 45.8L33.3 44.4L32.5 43.9L24.6 35.1L24.0 35.2L20.3 39.3L19.6 40.4L19.5 41.2L21.3 43.6L23.8 46.1L24.2 46.8L26.8 49.4L27.4 50.3L29.3 51.8L30.2 52.2L31.5 53.3L32.2 53.3L34.5 54.3L35.8 54.4L36.9 54.8L40.3 54.9L42.4 54.7L43.4 54.1L45.0 53.9L49.3 51.5L52.7 48.1L53.0 47.0L54.8 43.9L55.4 41.1L55.3 39.5L55.7 38.6L55.7 3.2Z" fill="#E8DCCB" fillRule="evenodd" /></svg>
+                          <div style={{ width: 30, height: 3, borderRadius: 2, background: "rgba(255,255,255,.5)" }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{ flex: "0 0 auto", width: 36, height: 36, borderRadius: "50%", background: "#16233F", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#16233F" }}>{L.parametres.businessCard}</div>
+                  <div style={{ fontSize: 12.5, color: "#6B7280", lineHeight: 1.45 }}>{L.parametres.businessCardSub}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 10, background: "#E6F5EE", color: "#1E8E5A" }}>Prête à imprimer</span>
+                </div>
+              </Link>
 
-            <h2 className="profile-section-title">{L.parametres.pricing}</h2>
-            <div className="profile-grid cols-3">
-              <PlainField label="Taux horaire" type="number" value={hourlyCost.toFixed(2)} disabled />
-              <PlainField label={L.parametres.dailyRate} type="number" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
-              <PlainField label="TVA par défaut (%)" type="number" value={String(business.defaultVatRate ?? 20)} onChange={(event) => setField("defaultVatRate", event.target.value)} placeholder="20" />
+              <Link
+                href="/profil/site-web"
+                style={{
+                  flex: "1 1 0", minWidth: 260, background: "#FFFFFF", border: "1.5px solid #16233F",
+                  boxShadow: "0 12px 28px rgba(22,35,63,.10)", borderRadius: 18, padding: "18px 20px",
+                  display: "flex", flexDirection: "column", gap: 12, textDecoration: "none", color: "inherit"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                  <div style={{ width: 128, height: 80 }}>
+                    <div style={{ transform: "scale(.82)", transformOrigin: "0 0" }}>
+                      <div style={{
+                        position: "relative", width: 156, height: 98, borderRadius: 10, overflow: "hidden",
+                        background: "linear-gradient(180deg,#000B28,#00081F)", boxShadow: "0 8px 18px rgba(22,35,63,.25)"
+                      }}>
+                        <div style={{ height: 12, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", gap: 3, paddingLeft: 6 }}>
+                          <i style={{ width: 4, height: 4, borderRadius: "50%", background: "#E6B94F" }} />
+                          <i style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.4)" }} />
+                          <i style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.4)" }} />
+                        </div>
+                        <div style={{ padding: "8px 10px" }}>
+                          <div style={{ width: 84, height: 6, borderRadius: 2, background: "#FFFFFF" }} />
+                          <div style={{ width: 60, height: 6, borderRadius: 2, background: "#FFFFFF", marginTop: 4 }} />
+                          <div style={{ width: 48, height: 3, borderRadius: 2, background: "#E6B94F", marginTop: 6 }} />
+                          <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                            <div style={{ flex: 1, height: 14, borderRadius: 3, background: "#B3875E" }} />
+                            <div style={{ flex: 1, height: 14, borderRadius: 3, background: "#7FA9A5" }} />
+                            <div style={{ flex: 1, height: 14, borderRadius: 3, background: "#D8C7A8" }} />
+                          </div>
+                          <div style={{ width: 34, height: 10, borderRadius: 6, background: "linear-gradient(180deg,#E6B94F,#CB9A2E)", marginTop: 8 }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{ flex: "0 0 auto", width: 36, height: 36, borderRadius: "50%", background: "#16233F", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#16233F" }}>{L.parametres.siteWebKoji}</div>
+                  <div style={{ fontSize: 12.5, color: "#6B7280", lineHeight: 1.45 }}>
+                    {websiteAccess ? siteUrlLabel || L.parametres.websiteSub : L.parametres.websiteUpsell}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {websiteAccess ? (
+                    <>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 10, background: sitePublished ? "#E6F5EE" : "#F1F2F6", color: sitePublished ? "#1E8E5A" : "#8A8F9E" }}>
+                        {sitePublished ? "En ligne" : "Brouillon"}
+                      </span>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 10, background: "#FBF1DA", color: "#8F6A12" }}>Créé par koji</span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 10, background: "#FBF1DA", color: "#8F6A12" }}>Option payante</span>
+                  )}
+                </div>
+              </Link>
             </div>
           </div>
 
@@ -740,122 +733,6 @@ export default function ProfilPage() {
               rows={4}
             />
           </label>
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.businessCard}</h2>
-          <p className="muted">{L.parametres.businessCardSub}</p>
-          <div className="profile-card-actions">
-            <button type="button" className="button secondary profile-link-button" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("id")} /></svg>
-              {L.parametres.previewBusinessCard}
-            </button>
-            <button type="button" className="button secondary profile-link-button" onClick={() => openBusinessCard("download")} disabled={cardLoading}>
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("id")} /></svg>
-              {L.parametres.downloadBusinessCard}
-            </button>
-          </div>
-          {cardMessage ? <p className="profile-message">{cardMessage}</p> : null}
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.parametres.siteWebKoji}</h2>
-          <p className="muted">{L.parametres.websiteSub}</p>
-
-          {!websiteAccess ? (
-            <div className="profile-website-upsell">
-              <p>{L.parametres.websiteUpsell}</p>
-              <Link href="/parametres/abonnement" className="button secondary profile-link-button">
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("globe")} /></svg>
-                {L.parametres.websiteUpsellCta}
-              </Link>
-            </div>
-          ) : siteLoading || !site ? (
-            <p className="muted">{L.common.loading}</p>
-          ) : (
-            <div className="profile-website-editor">
-              <label className="profile-field">
-                <span>{L.parametres.websiteSlug}</span>
-                <div className="profile-input">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("globe")} /></svg>
-                  <input value={site.slug} onChange={(event) => setSiteField("slug", event.target.value)} />
-                </div>
-                <span className="profile-website-url-preview">
-                  {typeof window !== "undefined" ? window.location.origin : ""}/site/{site.slug || "…"}
-                </span>
-              </label>
-
-              <label className="profile-field">
-                <span>{L.parametres.websiteTagline}</span>
-                <div className="profile-input">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon("tag")} /></svg>
-                  <input value={site.tagline} onChange={(event) => setSiteField("tagline", event.target.value)} placeholder={L.parametres.websiteTaglinePh} />
-                </div>
-              </label>
-
-              <label className="profile-field profile-field-wide">
-                <span>{L.parametres.websiteDescription}</span>
-                <textarea
-                  className="profile-website-textarea"
-                  rows={4}
-                  value={site.description}
-                  onChange={(event) => setSiteField("description", event.target.value)}
-                  placeholder={L.parametres.websiteDescriptionPh}
-                />
-              </label>
-
-              <div className="profile-website-photos">
-                <div className="profile-website-photos-head">
-                  <span>{L.parametres.websitePhotos}</span>
-                  <span className={`profile-website-photos-count ${site.photos.length >= site.minPhotos ? "ok" : ""}`}>
-                    {L.parametres.websitePhotosHint(site.minPhotos, site.photos.length)}
-                  </span>
-                </div>
-                <div className="profile-website-photo-grid">
-                  {site.photos.map((photo, index) => (
-                    <div key={index} className="profile-website-photo-tile">
-                      <img src={photo} alt={`Photo ${index + 1}`} />
-                      <button type="button" onClick={() => removeSitePhoto(index)}>{L.parametres.websiteRemovePhoto}</button>
-                    </div>
-                  ))}
-                  {site.photos.length < (site.maxPhotos || 8) ? (
-                    <button type="button" className="profile-website-photo-add" onClick={() => siteFileRef.current?.click()}>
-                      {L.parametres.websiteAddPhoto}
-                    </button>
-                  ) : null}
-                </div>
-                <input ref={siteFileRef} type="file" accept="image/*" onChange={onSitePhotoChange} style={{ display: "none" }} />
-              </div>
-
-              {siteMessage ? <p className="profile-message">{siteMessage}</p> : null}
-
-              <div className="profile-website-actions">
-                <button type="button" className="button secondary" onClick={() => saveSite(site.published)} disabled={siteSaving}>
-                  {L.parametres.websiteSave}
-                </button>
-                {site.published ? (
-                  <button type="button" className="button secondary" onClick={() => saveSite(false)} disabled={siteSaving}>
-                    {L.parametres.websiteUnpublish}
-                  </button>
-                ) : (
-                  <button type="button" className="button" onClick={() => saveSite(true)} disabled={siteSaving || site.photos.length < site.minPhotos}>
-                    {L.parametres.websitePublish}
-                  </button>
-                )}
-              </div>
-
-              <div className={`profile-website-live ${site.published ? "" : "draft"}`}>
-                <span>{site.published ? L.parametres.websitePublished : L.parametres.websiteDraftHint}</span>
-                <a href={`/site/${site.slug}`} target="_blank" rel="noreferrer" className="button secondary profile-link-button">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-link-icon"><path d={icon("globe")} /></svg>
-                  {site.published ? L.parametres.websiteOpenLink : L.parametres.websitePreview}
-                </a>
-                {site.published ? (
-                  <button type="button" onClick={copySiteLink}>{siteCopied ? L.parametres.websiteLinkCopied : L.parametres.websiteCopyLink}</button>
-                ) : null}
-              </div>
-            </div>
-          )}
         </section>
 
         {message ? <p className="profile-message">{message}</p> : null}

@@ -29,7 +29,7 @@ export async function GET(request) {
   }
 
   const inline = Boolean(new URL(request.url).searchParams.get("preview"));
-  const pdfBuffer = await buildBusinessCardPdf({ company: user.business, professions: user.professions });
+  const pdfBuffer = await buildBusinessCardPdf({ company: user.business, professions: user.professions, cardOptions: user.business?.cardOptions || {} });
   const filename = businessCardFilename(user.business);
 
   return new NextResponse(pdfBuffer, {

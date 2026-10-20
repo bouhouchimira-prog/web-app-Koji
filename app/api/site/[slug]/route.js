@@ -2,7 +2,7 @@ import { badRequest, ok } from "../../../../lib/http";
 import { readDb } from "../../../../lib/db";
 import { getVerifiedUserId } from "../../../../lib/server-auth";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
-import { splitBusinessInfo } from "../../../../lib/user-profile";
+import { buildWebUser } from "../../../../lib/user-profile";
 import { publicSiteView } from "../../../../lib/company-sites";
 
 // Route PUBLIQUE (aucune session requise pour un site publié) — meme
@@ -31,8 +31,8 @@ export async function GET(request, context) {
   }
 
   const supabase = getSupabaseAdmin();
-  const { data: profile } = await supabase.from("users").select("business_info").eq("id", site.userId).maybeSingle();
-  const { business } = splitBusinessInfo(profile?.business_info);
+  const { data: profile } = await supabase.from("users").select("email, business_info").eq("id", site.userId).maybeSingle();
+  const webUser = buildWebUser({ id: site.userId, email: profile?.email || "", profile });
 
-  return ok({ site: { ...publicSiteView(site, business), published: site.published } });
+  return ok({ site: { ...publicSiteView(site, webUser.business, webUser.professions), published: site.published } });
 }

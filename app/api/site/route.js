@@ -1,17 +1,19 @@
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
-import { fixText } from "../../../lib/text";
 import { getAuth } from "../../../lib/server-auth";
 import { buildWebUser } from "../../../lib/user-profile";
-import { slugify, uniqueSlugFor, canPublish, normalizePhotos, SITE_LIMITS } from "../../../lib/company-sites";
+import {
+  slugify, uniqueSlugFor, canPublish, normalizeRealisations, migrateLegacyRealisations, totalPhotoCount,
+  sanitizeSiteContent, computeSiteCompletion, CTA_PRIMARY_DEFAULT, CTA_SECONDARY_DEFAULT, SITE_LIMITS
+} from "../../../lib/company-sites";
 
 // "Site web Koji" (option payante, addonWebsite) : un enregistrement par
 // entreprise dans le blob JSON (comme db.invoices/db.avenants — pas encore
 // partage avec l'app mobile). Les coordonnees affichees sur la page publique
 // (nom, logo, telephone, email, adresse) restent lues en direct depuis le
-// profil entreprise au moment de servir /api/site/[slug], jamais dupliquees
-// ici — seul le contenu propre au site (slug/accroche/description/photos)
-// vit dans ce blob.
+// profil entreprise au moment de servir /api/site/[slug], mais chaque champ
+// peut etre adapte pour le site (etape 4 "Contact" de l'editeur) — voir
+// sanitizeSiteContent/publicSiteView dans lib/company-sites.js.
 
 async function loadWebUser(request, body = null) {
   const auth = getAuth(request, body);
@@ -30,11 +32,24 @@ function hasWebsiteAccess(user) {
 }
 
 function normalizeSite(site) {
+  const realisations = migrateLegacyRealisations(site);
+  const full = { ...site, realisations };
   return {
-    ...site,
-    canPublish: canPublish(site),
+    ...full,
+    photoCount: totalPhotoCount(realisations),
+    canPublish: canPublish(full),
+    completion: computeSiteCompletion(full),
     minPhotos: SITE_LIMITS.MIN_PUBLISH_PHOTOS,
-    maxPhotos: SITE_LIMITS.MAX_PHOTOS
+    maxPhotosPerRealisation: SITE_LIMITS.MAX_PHOTOS_PER_REALISATION,
+    maxRealisations: SITE_LIMITS.MAX_REALISATIONS,
+    maxSpecialties: SITE_LIMITS.MAX_SPECIALTIES,
+    limits: {
+      title: SITE_LIMITS.MAX_TITLE,
+      tagline: SITE_LIMITS.MAX_TAGLINE,
+      presentationText: SITE_LIMITS.MAX_PRESENTATION_TEXT,
+      companyDescription: SITE_LIMITS.MAX_COMPANY_DESCRIPTION,
+      contactMessage: SITE_LIMITS.MAX_CONTACT_MESSAGE
+    }
   };
 }
 
@@ -50,15 +65,35 @@ export async function GET(request) {
   const existing = scopedItems(db.companySites, userId)[0] || null;
   if (existing) return ok({ site: normalizeSite(existing) });
 
+  const business = user.business || {};
+  const addressParts = [business.addressLine1, business.addressLine2, business.postalCode, business.city].filter(Boolean);
+
   return ok({
     site: normalizeSite({
       id: "",
       userId: "",
-      slug: uniqueSlugFor(db, user.business?.raisonSociale || ""),
+      slug: uniqueSlugFor(db, business.raisonSociale || ""),
       published: false,
+      mode: "koji",
+      customUrl: "",
+      title: "",
       tagline: "",
-      description: "",
-      photos: []
+      presentationText: "",
+      ctaPrimary: CTA_PRIMARY_DEFAULT,
+      ctaSecondary: CTA_SECONDARY_DEFAULT,
+      contactPhotoDataUrl: "",
+      contactName: "",
+      contactMessage: "",
+      companyDescription: "",
+      zoneIntervention: business.zoneAddress || "",
+      horaires: "",
+      specialties: Array.isArray(user.professions) ? user.professions.filter(Boolean) : [],
+      contactPhone: business.phone || "",
+      contactEmail: business.emailPro || "",
+      contactAddress: addressParts.join(", "),
+      contactZoneAffichee: business.zoneAddress || "",
+      showContactForm: true,
+      realisations: []
     })
   });
 }
@@ -81,15 +116,15 @@ export async function PATCH(request) {
 
   const requestedSlug = slugify(body.slug || previous?.slug || user.business?.raisonSociale || "");
   const slug = uniqueSlugFor(db, requestedSlug, previous?.id || "");
-  const photos = normalizePhotos(body.photos ?? previous?.photos ?? []);
+  const realisations = normalizeRealisations(body.realisations ?? migrateLegacyRealisations(previous) ?? []);
+  const content = sanitizeSiteContent(body, previous || {});
 
   const draft = {
     id: previous?.id || `site-${Date.now()}`,
     userId,
     slug,
-    tagline: fixText(body.tagline ?? previous?.tagline ?? ""),
-    description: fixText(body.description ?? previous?.description ?? ""),
-    photos,
+    ...content,
+    realisations,
     published: Boolean(body.published ?? previous?.published ?? false),
     createdAt: previous?.createdAt || now,
     updatedAt: now

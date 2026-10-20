@@ -33,6 +33,7 @@ const TYPE_META = {
   "worker.time_overrun":  { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
   "company.time_overrun": { label: "Temps dépassé",   bg: "#ffedd5", color: "#c2410c", icon: "⏱️" },
   "urgent.alert":         { label: "🚨 URGENT",       bg: "#fee2e2", color: "#991b1b", icon: "🚨" },
+  "site.lead":            { label: "Demande de devis", bg: "#e6f5ee", color: "#1e8e5a", icon: "🌐" },
 };
 
 function TypeBadge({ type }) {
