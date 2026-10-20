@@ -266,7 +266,7 @@ export default function OuvragesLibraryPage() {
     return selectedIds.map((id) => ouvrages.find((item) => item.id === id)).filter(Boolean);
   }, [ouvrages, selectedIds]);
 
-  const units = ["m²", "m³", "ml", "u", "h", "jour"];
+  const units = ["m²", "m³", "ml", "u", "h", "jour", "t"];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
