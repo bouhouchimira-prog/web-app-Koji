@@ -28,7 +28,7 @@ function SendIcon() {
 
 const FIRST_MESSAGE = "Bonjour, décrivez-moi le chantier du client en quelques mots. Je prépare le devis pendant que vous parlez.";
 
-export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onSetPrice, onSetClient, onFinish }) {
+export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish }) {
   const [turns, setTurns] = useState(() => [{ role: "assistant", text: FIRST_MESSAGE }]);
   const [draft, setDraft] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -46,6 +46,8 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onSetPri
     if (!action) return;
     if (action.subAction === "addLot") onAddLot?.(action.lotName);
     else if (action.subAction === "addOuvrage") onAddOuvrage?.(action.ouvrage, action.room, action.quantity);
+    else if (action.subAction === "updateOuvrage") onUpdateOuvrage?.(action.id, { quantite: action.quantite, prixUnitaireHt: action.prixUnitaireHt });
+    else if (action.subAction === "removeOuvrage") onRemoveOuvrage?.(action.id);
     else if (action.subAction === "setManualPrice") onSetPrice?.(action.amountHt);
     else if (action.subAction === "setClientInfo") onSetClient?.(action.client);
   }

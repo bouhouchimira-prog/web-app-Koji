@@ -874,11 +874,24 @@ export default function DevisEditor() {
     return projects.find((project) => project.id === form.projectId) || projects.find((project) => project.title === form.project) || null;
   }, [form.project, form.projectId, projects]);
 
-  // Etat du devis transmis au chat "Avec l'IA" (16 oct) a chaque message —
-  // lui permet de savoir ce qui existe deja sans jamais redemander (voir
-  // lib/devis-chat-prompt.js).
+  // Etat du devis transmis au chat "Avec l'IA" a chaque message — lui permet
+  // de savoir ce qui existe deja sans jamais redemander, ET (21 oct) de
+  // cibler une ligne precise par id pour la corriger/supprimer au lieu d'en
+  // ajouter une en double (voir lib/devis-chat-prompt.js, qui met ce detail
+  // en forme pour le modele).
   const devisChatSnapshot = useMemo(() => ({
-    lots: roomGroups.map((room) => ({ nom: room === "Services" ? L.devis.generalWorks : room, lignes: (linesByRoom[room] || []).length })),
+    lots: roomGroups.map((room) => ({
+      nom: room === "Services" ? L.devis.generalWorks : room,
+      lignes: (linesByRoom[room] || []).map((line) => ({
+        id: line.id,
+        designation: line.label,
+        quantite: line.quantity,
+        unite: line.unit,
+        prixUnitaireHt: line.quantity ? round2(line.totalHt / line.quantity) : 0,
+        totalHt: line.totalHt,
+        prixManquant: line.priceSource === "manquant"
+      }))
+    })),
     client: { nom: form.client, telephone: form.clientPhone, email: form.clientEmail, chantier: form.chantierAddress }
   }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks]);
 
@@ -1576,6 +1589,37 @@ export default function DevisEditor() {
       [id]: { ...(current[id] || {}), billingMode: "fixed", fixedAmountInput: String(amountHt), fixedAmountMode: "ht", priceSource: "entreprise" }
     }));
     lastUnmatchedAiLineIdRef.current = "";
+  }
+
+  // Correction d'une ligne deja ajoutee par le chat (21 oct, demande
+  // d'Amira : avant, une correction de prix/quantite rappelait
+  // ajouter_ouvrage et creait un doublon faute de pouvoir cibler la ligne
+  // existante). Reutilise EXACTEMENT les memes fonctions que l'edition
+  // manuelle — updateLine pour la quantite, updateLineUnitPrice pour le prix
+  // unitaire HT (qui recalcule Quantite x Prix unitaire = Total, comme
+  // partout ailleurs dans l'editeur) — aucune logique de prix specifique au
+  // chat, pour ne jamais diverger de ce que montre le mode Manuel juste a
+  // cote.
+  function updateAiOuvrageInRoom(id, { quantite, prixUnitaireHt } = {}) {
+    const line = quoteLines.find((item) => item.id === id);
+    if (!line) return;
+    if (quantite != null && Number(quantite) > 0) {
+      updateLine(id, "quantity", String(quantite));
+    }
+    if (prixUnitaireHt != null && Number(prixUnitaireHt) > 0) {
+      updateLineUnitPrice(id, line, lineSettings[id] || {}, prixUnitaireHt);
+      setLineSettings((current) => ({
+        ...current,
+        [id]: { ...(current[id] || {}), priceSource: "entreprise" }
+      }));
+    }
+  }
+
+  // Suppression d'une ligne par le chat (21 oct) — meme fonction que le
+  // bouton "Retirer" manuel, seule source de verite sur la suppression.
+  function removeAiOuvrageFromRoom(id) {
+    removeQuoteLine(id);
+    if (lastUnmatchedAiLineIdRef.current === id) lastUnmatchedAiLineIdRef.current = "";
   }
 
   // Informations client posees par le chat "Avec l'IA" (16 oct) — meme
@@ -2771,6 +2815,8 @@ export default function DevisEditor() {
                 quoteSnapshot={devisChatSnapshot}
                 onAddLot={addCustomRoomAndFocus}
                 onAddOuvrage={addAiOuvrageToRoom}
+                onUpdateOuvrage={updateAiOuvrageInRoom}
+                onRemoveOuvrage={removeAiOuvrageFromRoom}
                 onSetPrice={applyAiManualPrice}
                 onSetClient={applyChatClientInfo}
                 onFinish={() => setMode("manuel")}
