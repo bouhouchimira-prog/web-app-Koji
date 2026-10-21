@@ -28,12 +28,13 @@ function SendIcon() {
 
 const FIRST_MESSAGE = "Bonjour, décrivez-moi le chantier du client en quelques mots. Je prépare le devis pendant que vous parlez.";
 
-export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish }) {
+export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave }) {
   const [turns, setTurns] = useState(() => [{ role: "assistant", text: FIRST_MESSAGE }]);
   const [draft, setDraft] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const messagesEndRef = useRef(null);
   const snapshotRef = useRef(quoteSnapshot);
   snapshotRef.current = quoteSnapshot;
@@ -56,7 +57,9 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
     setSending(true);
     setError("");
     setStreamingText("");
+    setSaveNotice("");
     let liveText = "";
+    let changedThisTurn = false;
 
     try {
       const response = await fetch("/api/devis-chat", {
@@ -95,6 +98,7 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
             setStreamingText(liveText);
           } else if (eventType === "action") {
             applyAction(data);
+            changedThisTurn = true;
           } else if (eventType === "done") {
             const finalMessage = (data.message || liveText || "").trim();
             if (finalMessage) setTurns((current) => [...current, { role: "assistant", text: finalMessage }]);
@@ -103,6 +107,22 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
           } else if (eventType === "error") {
             setError(data.message || "L'assistant n'a pas pu répondre.");
           }
+        }
+      }
+
+      // Enregistre automatiquement des que l'assistant a modifie le devis
+      // (21 oct, demande d'Amira) — avant, une correction faite dans le chat
+      // ne vivait qu'en memoire React tant qu'on ne cliquait pas
+      // "Enregistrer" ailleurs dans la page : en quittant/rechargeant avant
+      // ca, le changement disparaissait silencieusement, ce qui donnait
+      // l'impression que l'IA "ne modifiait pas vraiment le devis" (a
+      // l'inverse d'une consigne admin, qui ecrit tout de suite en base).
+      if (changedThisTurn && onAutoSave) {
+        try {
+          await onAutoSave();
+          setSaveNotice("Devis enregistré.");
+        } catch {
+          setSaveNotice("Modifications appliquées, mais l'enregistrement automatique a échoué — pensez à cliquer sur Enregistrer.");
         }
       }
     } catch (err) {
@@ -148,6 +168,7 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       </div>
 
       {error ? <p className="auth-error">{error}</p> : null}
+      {!error && saveNotice ? <p className="devis-chat-save-notice">{saveNotice}</p> : null}
 
       {/* <div>, pas <form> : ce panneau est rendu a l'interieur du grand
           <form> de DevisEditor.jsx — un <form> imbrique est invalide en

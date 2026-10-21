@@ -9934,6 +9934,13 @@ body :where(
   color: #3B5BDB;
 }
 
+.devis-chat-save-notice {
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  color: #1E8E5A;
+}
+
 .devis-chat-thread {
   flex: 1 1 auto;
   min-height: 0;
@@ -10079,6 +10086,73 @@ body :where(
   color: var(--muted);
   font-size: 1.1rem;
   line-height: 1;
+}
+
+.quote-ia-preview-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 5px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  text-align: right;
+}
+
+.quote-ia-preview-input:hover {
+  border-color: var(--line);
+  background: white;
+}
+
+.quote-ia-preview-input:focus {
+  border-color: var(--blue-strong);
+  background: white;
+  outline: none;
+}
+
+.quote-ia-preview-surcharges {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: var(--soft);
+  border-radius: 10px;
+}
+
+.quote-ia-preview-surcharges-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.quote-ia-preview-surcharges-head strong {
+  color: var(--navy);
+  font-size: 0.85rem;
+}
+
+.quote-ia-preview-surcharges-head span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.quote-ia-preview-surcharge-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 90px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 0.82rem;
+}
+
+.quote-ia-preview-input-percent {
+  text-align: center;
+}
+
+.quote-ia-preview-surcharge-amount {
+  text-align: right;
+  color: var(--muted);
 }
 
 .quote-ia-preview-totals {

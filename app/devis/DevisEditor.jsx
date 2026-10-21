@@ -892,8 +892,18 @@ export default function DevisEditor() {
         prixManquant: line.priceSource === "manquant"
       }))
     })),
-    client: { nom: form.client, telephone: form.clientPhone, email: form.clientEmail, chantier: form.chantierAddress }
-  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks]);
+    client: { nom: form.client, telephone: form.clientPhone, email: form.clientEmail, chantier: form.chantierAddress },
+    // Majorations (coordination de chantier, aléas, assurance décennale...) —
+    // sans ça, le total HT affiché peut grimper bien au-dessus de la somme
+    // des lignes sans que le modèle ait aucun moyen de l'expliquer (il a
+    // déjà, à tort, blâmé la TVA faute de voir ces lignes, 21 oct).
+    totaux: {
+      sousTotalLignes: summaryTotals.baseHt,
+      majorations: summaryTotals.surchargeLines.map((s) => ({ label: s.label, pourcentage: s.percent, montant: s.amount })),
+      totalHt: summaryTotals.totalHt,
+      totalTtc: summaryTotals.totalTtc
+    }
+  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks, summaryTotals]);
 
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -2679,12 +2689,17 @@ export default function DevisEditor() {
     );
   }
 
-  // Panneau "Devis en préparation" du mode Avec l'IA (16 oct, maquette
-  // Artifact DevisCreerIA) — lecture seule et volontairement plus simple
-  // que les cartes de lot du mode Manuel (pas de menu avancé, pas de
-  // glisser-déposer) : reprend juste roomGroups/linesByRoom/summaryTotals
-  // déjà calculés, avec le badge "IA · à vérifier" sur les lignes ajoutées
-  // par le chat (line.aiAdded, voir quoteLines plus haut).
+  // Panneau "Devis en préparation" du mode Avec l'IA (16 oct, rendu
+  // modifiable le 21 oct — demande d'Amira : corriger une ligne directement
+  // ici, au meme endroit que l'IA travaille, plutot que de repasser par le
+  // chat a chaque erreur). Quantite/prix unitaire reutilisent EXACTEMENT
+  // updateLine/updateLineUnitPrice, les memes fonctions que le mode Manuel
+  // et que les outils du chat (modifier_ouvrage) — une seule source de
+  // verite, jamais de recalcul propre a cette vue. Les majorations
+  // (surcharges) sont maintenant affichees ici aussi : avant, le total HT
+  // affiche pouvait grimper bien au-dessus de la somme des lignes sans
+  // aucune explication visible dans ce mode (l'IA elle-meme ne les voyait
+  // pas et pouvait repondre a cote, cf. lib/devis-chat-prompt.js).
   function renderAiPreviewCard() {
     return (
       <section className="quote-final-card quote-ia-preview-card">
@@ -2729,9 +2744,23 @@ export default function DevisEditor() {
                           ) : null}
                         </span>
                       </div>
-                      <span>{qty || "—"}</span>
+                      <input
+                        type="number"
+                        className="quote-ia-preview-input"
+                        value={qty || ""}
+                        onChange={(event) => updateLine(line.id, "quantity", event.target.value)}
+                        min="0"
+                        step="any"
+                      />
                       <span>{line.unit}</span>
-                      <span>{money(unitPriceHt)}</span>
+                      <input
+                        type="number"
+                        className="quote-ia-preview-input"
+                        value={round2(unitPriceHt) || ""}
+                        onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)}
+                        min="0"
+                        step="any"
+                      />
                       <strong>{money(line.totalHt)}</strong>
                       <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer">×</button>
                     </div>
@@ -2742,7 +2771,33 @@ export default function DevisEditor() {
           })
         )}
 
+        {summaryTotals.surchargeLines.length ? (
+          <div className="quote-ia-preview-surcharges">
+            <div className="quote-ia-preview-surcharges-head">
+              <strong>Majorations</strong>
+              <span>appliquées sur le total des lignes ci-dessus</span>
+            </div>
+            {summaryTotals.surchargeLines.map((surcharge) => (
+              <div className="quote-ia-preview-surcharge-row" key={surcharge.id}>
+                <span>{surcharge.label}</span>
+                <input
+                  type="number"
+                  className="quote-ia-preview-input quote-ia-preview-input-percent"
+                  value={surcharge.percent}
+                  onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)}
+                  min="0"
+                  step="any"
+                />
+                <span className="quote-ia-preview-surcharge-amount">+{money(surcharge.amount)}</span>
+                <button type="button" className="quote-ia-preview-remove" onClick={() => removeSurcharge(surcharge.id)} aria-label="Retirer cette majoration">×</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className="quote-lots-footer-right quote-ia-preview-totals">
+          <div><span>Sous-total lignes</span><strong>{money(summaryTotals.baseHt)}</strong></div>
+          {summaryTotals.surchargeTotal ? <div><span>Majorations</span><strong>+{money(summaryTotals.surchargeTotal)}</strong></div> : null}
           <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
           <div><span>TVA</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
           <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
@@ -2819,6 +2874,7 @@ export default function DevisEditor() {
                 onRemoveOuvrage={removeAiOuvrageFromRoom}
                 onSetPrice={applyAiManualPrice}
                 onSetClient={applyChatClientInfo}
+                onAutoSave={() => persistQuote(false)}
                 onFinish={() => setMode("manuel")}
               />
             ) : null}
