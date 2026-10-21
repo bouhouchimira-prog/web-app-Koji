@@ -822,6 +822,354 @@
       "theme": "Radar des Chantiers",
       "title": "Une reponse trop vague a une question relance desormais une precision",
       "detail": "Sur les questions a choix (etage, acces, stationnement, etat de la piece...), une reponse tapee a la main mais trop approximative ('assez facile je pense') etait acceptee telle quelle. L'assistant redemande maintenant une precision, en reproposant les memes choix, plutot que d'avancer avec une information peu fiable."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Menu rapide sur l'avatar (profil, paramètres, déconnexion)",
+      "detail": "Un clic sur l'avatar en haut de l'écran ouvre désormais un petit menu avec les raccourcis Profil, Paramètres et Déconnexion, au lieu d'avoir à chercher ces liens dans le menu latéral."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Cadrage intelligent des besoins, pièce par pièce",
+      "detail": "L'assistant qui aide un particulier à décrire son projet découpe désormais la conversation pièce par pièce (chambre, salle de bain, cuisine...) et détecte automatiquement les métiers concernés par chaque pièce. Il reconnaît aussi directement les informations déjà données dans un message complet pour ne plus reposer une question déjà répondue, et distingue un projet qui concerne une pièce d'une simple installation d'équipement (pompe à chaleur, chaudière), qui n'a pas besoin des mêmes questions. Chaque conversation est désormais enregistrée."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "L'assistant n'invente plus de prix, chiffre poste par poste",
+      "detail": "Quand une prestation ne correspond à rien dans la bibliothèque de prix, l'IA ne l'estime plus elle-même : elle signale 'prix manquant' au particulier, qui peut proposer son propre montant. Une règle supplémentaire évite aussi qu'un poste soit rattaché par erreur à un prix de catalogue proche mais différent (ex. confondre une fourniture et sa pose)."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Admin : conversations consultables par client, alerte à chaque offre",
+      "detail": "Les conversations de Radar des Chantiers (particuliers) et de l'assistant koji (entreprises) sont désormais regroupées dans une vue admin, consultable client par client en cas de problème signalé. Chaque nouvelle offre publiée déclenche aussi un email à toutes les entreprises inscrites."
+    },
+    {
+      "category": "backend",
+      "theme": "Support",
+      "title": "Emails Koji envoyés depuis contact@kojibuild.com",
+      "detail": "Les emails automatiques de l'application partent désormais de contact@kojibuild.com, avec le lien kojibuild.com utilisé systématiquement, au lieu d'adresses provisoires."
+    },
+    {
+      "category": "database",
+      "theme": "Bibliothèque de prix",
+      "title": "21 ouvrages d'électricité ajoutés au catalogue",
+      "detail": "La bibliothèque de prix s'enrichit de 21 nouveaux ouvrages du métier électricité."
+    },
+    {
+      "category": "frontend",
+      "theme": "Maintenance technique",
+      "title": "Correction : le symbole m² disparaissait du texte",
+      "detail": "Une fonction de nettoyage de texte utilisée dans l'application supprimait par erreur le caractère m² partout où il apparaissait. Corrigé."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Le filet de sécurité de l'assistant refuse par défaut",
+      "detail": "Un garde-fou qui vérifie la cohérence des réponses de l'IA se comportait à l'envers en cas de doute : il acceptait par défaut au lieu de refuser. Corrigé pour que toute incertitude entraîne un refus par défaut, plus sûr."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Reconnaissance du vocabulaire général du bâtiment",
+      "detail": "L'assistant comprend désormais les termes généraux du bâtiment (pièces, murs, sols...) utilisés par les particuliers, en plus du vocabulaire métier précis."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Koji commente les photos envoyées pendant la conversation",
+      "detail": "Quand un particulier envoie une photo pendant la conversation, l'assistant la commente directement, et pas uniquement sur l'écran dédié à l'analyse de photos comme avant : le commentaire apparaît désormais à chaque tour où une photo est envoyée."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Génération d'image par IA testée, puis remplacée",
+      "detail": "Un essai de proposer une image générée par IA (Replicate) après l'analyse de photos a été mis en place, puis retiré quelques jours plus tard et remplacé par des propositions de travaux en texte, jugées plus utiles."
+    },
+    {
+      "category": "backend",
+      "theme": "Connexion",
+      "title": "Connexion Google : l'écran de choix de compte s'affiche à chaque fois",
+      "detail": "La connexion via Google force désormais l'affichage de l'écran de choix de compte à chaque connexion, pour éviter qu'un utilisateur se reconnecte sans le vouloir avec le mauvais compte Google."
+    },
+    {
+      "category": "database",
+      "theme": "Fondations",
+      "title": "Comptes particuliers sortis du gros bloc de données partagé",
+      "detail": "La connexion Google d'un particulier était lente car toutes les données de l'application (1,27 Mo) devaient être chargées pour une simple connexion, alors que les données du compte ne pesaient que 21 Ko. Les comptes particuliers ont désormais leur propre espace de stockage dédié, avec un filet de sécurité qui garde l'ancien fonctionnement tant que la bascule n'est pas terminée, pour ne jamais perdre de données."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Distingue une intention vague d'un message qui n'a pas de sens",
+      "detail": "Le tout premier message d'un particulier est mieux interprété : un message qui exprime une intention mais sans détail relance une demande de précision, différemment d'un message qui n'a tout simplement pas de sens (ex. 'test')."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Déconnexion automatique après inactivité, ajoutée puis retirée",
+      "detail": "Une déconnexion automatique après 15 minutes d'inactivité a été ajoutée, puis retirée cinq jours plus tard à la demande d'Amira."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Espace particulier aligné sur la maquette transmise",
+      "detail": "Le design de l'espace particulier a été repris pour correspondre exactement à la référence visuelle transmise par Amira."
+    },
+    {
+      "category": "frontend",
+      "theme": "Radar des Chantiers",
+      "title": "Carte 'Publier un chantier' alignée sur la maquette",
+      "detail": "Le style de la carte mise en avant pour publier un nouveau chantier (Radar des Chantiers) a été repris pour correspondre à la référence visuelle transmise."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Proposition de devis envoyée au client : lots à 3 niveaux + mode résumé",
+      "detail": "Dans la proposition de devis envoyée via Radar des Chantiers, chaque lot peut désormais basculer entre un affichage détaillé (ouvrages et sous-ouvrages, prix ligne par ligne) et un résumé (un seul texte et un prix global modifiables), sans perdre le détail sous-jacent en changeant d'affichage. Nouveau design en cartes, plus lisible que les champs de saisie en ligne utilisés avant."
+    },
+    {
+      "category": "backend",
+      "theme": "Assistant koji",
+      "title": "Assistant koji pro aligné sur le moteur de Radar des Chantiers",
+      "detail": "L'assistant utilisé par les entreprises (assistant koji) reprend désormais le même principe de fonctionnement en deux temps que Radar des Chantiers : un dictionnaire de mots-clés traite d'abord les demandes simples sans appel à l'IA, et l'IA n'intervient que pour les cas ambigus ou pour extraire les informations d'une action déjà identifiée. Il tient compte aussi du chantier actuellement ouvert pour éviter de redemander l'information."
+    },
+    {
+      "category": "frontend",
+      "theme": "Assistant koji",
+      "title": "Photos jointes rattachées au bon message + aperçu agrandi",
+      "detail": "Dans le chat de l'assistant koji, une photo envoyée est désormais rattachée au message qui l'accompagne (au lieu d'apparaître séparément), et cliquer sur une photo ouvre un aperçu agrandi."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "L'assistant ne repose plus de questions déjà répondues",
+      "detail": "Radar des Chantiers croise désormais le texte et les photos envoyés pour éviter de redemander une information déjà donnée, y compris pour des photos déjà envoyées plus tôt dans la conversation."
+    },
+    {
+      "category": "frontend",
+      "theme": "Radar des Chantiers",
+      "title": "Bouton '+ Autre chose à ajouter' sur l'écran des propositions de photo",
+      "detail": "Après l'analyse de photos, le particulier peut désormais ajouter un élément supplémentaire à sa demande directement depuis l'écran de propositions, sans repasser par le chat."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Mesure comparant l'approche par algorithme et l'IA, avec page admin",
+      "detail": "Nouvel outil de suivi qui enregistre, pour les deux assistants (koji pro et Radar des Chantiers), si chaque décision a été prise par un algorithme simple ou par l'IA. Une nouvelle page admin affiche la répartition sur 7/30/90 jours, utile pour évaluer où l'IA est réellement nécessaire."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Nouveau moteur conversationnel 100% IA",
+      "detail": "Radar des Chantiers bascule vers un nouveau moteur de conversation entièrement piloté par l'IA, avec affichage progressif des réponses comme un vrai chat, remplaçant l'approche précédente basée sur des règles et mots-clés. Les listes de choix (boutons de réponse) ont été standardisées et appliquées aussi à l'ancienne page, puis plusieurs problèmes remontés par Amira ont été corrigés (dont l'affichage du message de bienvenue) avant la bascule complète vers ce nouveau moteur."
+    },
+    {
+      "category": "backend",
+      "theme": "Assistant koji",
+      "title": "koji pro : retour à 100% IA, dictionnaire de mots-clés retiré",
+      "detail": "Après l'essai d'un dictionnaire de mots-clés pour accélérer les réponses simples (voir ci-dessus), l'assistant koji pro est repassé à un fonctionnement 100% IA, jugé plus fiable."
+    },
+    {
+      "category": "backend",
+      "theme": "Radar des Chantiers",
+      "title": "Coordonnées du client masquées avant confirmation du rendez-vous",
+      "detail": "Trois fuites ont été corrigées : le nom du client apparaissait parfois avant la confirmation du rendez-vous, la liste publique des offres renvoyait l'adresse complète au lieu de la ville et du code postal, et le PDF/Word d'un devis généré depuis une offre affichait encore les coordonnées réelles. La règle, déjà actée, est qu'aucune coordonnée du particulier ne doit être visible par une entreprise avant qu'un rendez-vous soit confirmé."
+    },
+    {
+      "category": "frontend",
+      "theme": "Mentions légales",
+      "title": "Raison sociale, SIRET, siège social et directeur de publication renseignés",
+      "detail": "Les pages légales affichaient des informations à compléter ; la raison sociale, le SIRET, le siège social et le directeur de la publication ont été renseignés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Mentions légales",
+      "title": "Réécriture complète des 5 documents légaux",
+      "detail": "Les Mentions légales, les CGU (19 articles), les CGV abonnement (15 articles), la Politique de confidentialité et une nouvelle Politique relative aux cookies ont été entièrement réécrites en version complète, remplaçant les versions provisoires. Le bandeau 'brouillon' et les numéros de téléphone ont été retirés une fois les textes finalisés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Contacts",
+      "title": "Nouvelle page Clients (accès portail particulier) + raccourcis",
+      "detail": "Une nouvelle page Clients donne accès à l'identifiant et au mot de passe du portail particulier auto-généré de chaque client. Un bouton 'Copier le lien de connexion' a été ajouté en haut des listes Clients et Équipe, et un bouton sur la page Contacts renvoie directement vers cette nouvelle page Clients."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Suivi de chantier rendu visible dans l'espace particulier",
+      "detail": "Le suivi générique d'un chantier est désormais bien visible depuis l'espace particulier, alors qu'il restait caché auparavant."
+    },
+    {
+      "category": "frontend",
+      "theme": "Navigation",
+      "title": "Refonte du menu latéral et de la barre supérieure",
+      "detail": "Le menu latéral a été réorganisé en deux blocs ('Principal' et 'Koji Premium'), les doublons et liens admin obsolètes ont été retirés (dont l'accès admin d'un compte qui n'en avait plus besoin), et Contacts/Clients/Équipe sont regroupés sous un seul outil 'Contacts'. Le bloc Profil/Configuration est devenu une carte repliable. Au passage : correction d'un bouton '+' flottant qui restait visible par-dessus le menu ouvert, et quelques allers-retours sur la position de la recherche et des notifications dans la barre supérieure."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Fournitures : nouvelle page d'accueil (commandes, stock bas, livraisons)",
+      "detail": "L'outil Fournitures a désormais une vraie page d'accueil tableau de bord (commandes en cours, stock bas, prochaines livraisons), avec titres et icônes mis en valeur selon la maquette."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Catalogue fournisseurs : fiche maître-détail + onglets refaits",
+      "detail": "La vue 'Par fournisseur' du catalogue a été repensée en fiche maître-détail (liste à gauche, détail à droite), et les onglets Catégories et Divers ont été refaits selon la maquette."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Divers (achats) : statistiques cliquables, détail par date",
+      "detail": "Les cartes de statistiques de la page Divers sont désormais cliquables et affichent le détail des achats groupés par date."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Chantiers : nouveau tableau de bord, 4 cartes KPI cliquables",
+      "detail": "La page d'accueil de l'outil Chantiers a été refaite selon la maquette, avec 4 cartes d'indicateurs cliquables qui ouvrent directement le détail correspondant."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Bibliothèque koji : nouveau tableau de bord selon la maquette",
+      "detail": "La page d'accueil de la bibliothèque de prix a été refaite selon la maquette transmise."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Devis : nouveau tableau de bord, cartes cliquables",
+      "detail": "La page d'accueil de l'outil Devis a été refaite selon la maquette, avec des cartes cliquables."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Comptabilité : vrai tableau de bord, remplace le stub",
+      "detail": "L'outil Comptabilité avait jusqu'ici un écran provisoire ('bientôt disponible'). Il a désormais un vrai tableau de bord selon la maquette."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Aide : tableau de bord avec du vrai contenu",
+      "detail": "La page Aide avait jusqu'ici un écran provisoire. Elle affiche désormais un vrai tableau de bord avec du contenu utile, selon la maquette."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Profil : nouveau tableau de bord + fiche entreprise/tarification",
+      "detail": "La page d'accueil de Profil a été refaite selon la maquette, de même que la fiche entreprise/tarification, reprise au design exact fourni."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Factures : nouveau tableau de bord, cartes cliquables",
+      "detail": "La page d'accueil de l'outil Factures a été refaite selon la maquette, avec des cartes cliquables."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Avenant : refonte complète selon la maquette d'Amira",
+      "detail": "L'outil Avenant a été entièrement repris selon une maquette fournie directement par Amira."
+    },
+    {
+      "category": "frontend",
+      "theme": "Tableaux de bord",
+      "title": "Contacts, Calendrier, Archives, Interventions : même système de tableau de bord",
+      "detail": "Ces quatre outils ont reçu le même type de tableau de bord que les autres (cartes, indicateurs), pour une présentation homogène dans toute l'application."
+    },
+    {
+      "category": "backend",
+      "theme": "Corbeille",
+      "title": "Corbeille : vraie fonctionnalité de suppression/restauration",
+      "detail": "Avant, la Corbeille ne gérait que Contacts et Avenants, Chantiers/Devis renvoyaient vers Archives, et supprimer une facture l'effaçait instantanément sans aucune récupération possible. Désormais, Devis, Factures, Chantiers, Contacts et Avenants ont tous une vraie date d'archivage, un compte à rebours de 30 jours (informatif, rien n'est purgé automatiquement), et une confirmation 'tapez SUPPRIMER' avant toute suppression définitive."
+    },
+    {
+      "category": "frontend",
+      "theme": "Recherche",
+      "title": "Barre de recherche globale fonctionnelle",
+      "detail": "La barre de recherche en haut de l'application fonctionne désormais réellement et a été étendue à tous les outils (chantiers, devis, contacts, et plus), plutôt que de n'être qu'un élément visuel."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Vraie vérification d'email avant activation d'un compte entreprise",
+      "detail": "Bug signalé par Amira : un compte créé depuis l'inscription s'activait immédiatement tout en affichant un faux message 'vérifiez vos mails', alors qu'aucun email n'était réellement envoyé. Le site gère désormais sa propre vérification d'email (indépendante d'un réglage Supabase partagé avec l'application mobile) : un vrai email est envoyé à l'inscription, et la connexion est refusée jusqu'à ce que l'email soit confirmé. Le même correctif s'applique à la réinitialisation de mot de passe oublié."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Authentification : 3 failles corrigées + changement de mot de passe",
+      "detail": "Suite à un audit de l'authentification : la déconnexion révoque désormais vraiment la session côté serveur (avant, une session volée restait valable jusqu'à son expiration naturelle) ; une faille réelle a été corrigée où changer son mot de passe ne redemandait pas l'ancien mot de passe, ce qui aurait permis à quiconque aurait accès à une session active de prendre le compte ; une protection anti-spam a été ajoutée sur 4 pages qui n'en avaient aucune (connexion entreprise, inscription, mot de passe oublié, renvoi d'email). Un particulier connecté peut désormais aussi changer son mot de passe depuis son compte."
+    },
+    {
+      "category": "frontend",
+      "theme": "Connexion",
+      "title": "Lien 'mot de passe oublié' manquant ajouté",
+      "detail": "Le lien pour réinitialiser son mot de passe, absent sur la page de connexion particulier, a été ajouté."
+    },
+    {
+      "category": "frontend",
+      "theme": "Signature & portails",
+      "title": "Espace client : refonte Mes chantiers/Messages/Aide/Profil",
+      "detail": "Les sections Mes chantiers, Messages, Aide et Profil de l'espace client ont été refaites, avec une navigation revue entre elles."
+    },
+    {
+      "category": "frontend",
+      "theme": "Devis",
+      "title": "Refonte de l'éditeur de devis : en-tête, acompte/solde, envoi réel",
+      "detail": "L'éditeur de devis a reçu un nouvel en-tête (bouton retour, bascule Manuel/Avec l'IA), une gestion du conditionnement et de l'acompte/solde, et une vraie fenêtre d'envoi avec un email réellement expédié, au lieu d'une simulation. Au passage : simplification de l'écran de choix avant la création d'un nouveau devis, fusionné dans le tableau de bord pour supprimer une étape, et correction d'un cas où un brouillon de chantier oublié court-circuitait cet écran."
+    },
+    {
+      "category": "backend",
+      "theme": "Devis",
+      "title": "Devis : nouveau mode 'Avec l'IA', un chat qui remplit le devis",
+      "detail": "Nouveau mode de création de devis où l'entreprise discute avec un assistant IA qui remplit le devis en direct (ajoute les lots, les ouvrages, le client), basé sur le même moteur que Radar des Chantiers. Aucun prix n'est inventé : si un poste ne correspond à rien dans la bibliothèque de prix, l'assistant demande désormais à l'entreprise le prix qu'elle veut appliquer plutôt que de le laisser à 0 euro sans recours."
+    },
+    {
+      "category": "backend",
+      "theme": "Assistants IA",
+      "title": "Consignes admin permanentes pour les 3 assistants IA de Koji",
+      "detail": "Un compte admin peut désormais, en discutant directement avec un des 3 assistants IA (Marketplace/Radar des Chantiers, Devis avec l'IA, assistant koji), lui donner une consigne permanente qui s'applique ensuite à tous les utilisateurs de cet assistant, immédiatement et sans déploiement. Chaque assistant garde sa propre consigne, jamais partagée avec les autres."
+    },
+    {
+      "category": "backend",
+      "theme": "Assistant koji",
+      "title": "Assistant koji 100% IA, fourchette de prix retirée de Radar",
+      "detail": "L'assistant koji repasse à un fonctionnement entièrement piloté par l'IA, et la fourchette de prix affichée dans Radar des Chantiers a été retirée."
+    },
+    {
+      "category": "frontend",
+      "theme": "Pages publiques",
+      "title": "Refonte des pages publiques (accueil + nouvelle page entreprise)",
+      "detail": "La page d'accueil publique a été entièrement refaite d'après le design d'Amira, et une nouvelle page publique /entreprise présente l'offre Koji Pro. Un second passage de design, plus compact, a suivi quelques jours après."
+    },
+    {
+      "category": "frontend",
+      "theme": "Connexion",
+      "title": "Connexion : panneaux de marque animés, écran de choix retiré",
+      "detail": "La page de connexion affiche désormais des panneaux de marque animés qui changent selon le profil (Koji / Koji Pro), et l'écran intermédiaire de choix de profil a été retiré."
+    },
+    {
+      "category": "database",
+      "theme": "Bibliothèque de prix",
+      "title": "Catalogue de prix remplacé par la v7 (360 ouvrages)",
+      "detail": "L'ancien catalogue (87 ouvrages) est remplacé par une nouvelle version sourcée CAPEB IDF / Batiprix / retour terrain ABL : 360 ouvrages répartis en 29 lots métier. Les taux horaires et prix moyens du fichier source ne sont volontairement pas importés : l'application continue de calculer le prix réel à partir du taux horaire propre à chaque entreprise, jamais d'un taux figé dans le catalogue."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Remplace Math.random() par un générateur cryptographique pour les secrets",
+      "detail": "Les identifiants et mots de passe temporaires générés par l'application (accès client, signature) utilisaient Math.random(), un générateur de nombres non conçu pour la sécurité et théoriquement prévisible. Remplacé par un générateur cryptographique (CSPRNG), sans changer le format affiché."
+    },
+    {
+      "category": "frontend",
+      "theme": "Profil",
+      "title": "Nouvelles pages 'Carte de visite' et 'Site web' + site public refait",
+      "detail": "La carte de visite et l'éditeur de site web, jusqu'ici dans le formulaire Profil, ont chacun leur propre page dédiée. La carte de visite propose désormais de vraies options pour choisir ce qui s'affiche (logo, QR code, téléphone, email, adresse, spécialité), répercutées à la fois sur l'aperçu et sur le PDF généré (au passage, un bug qui faisait planter la génération du PDF a été corrigé). L'éditeur de site web passe à 4 étapes avec les champs du gabarit, et la section 'Réalisations' présente maintenant des chantiers nommés plutôt qu'une simple galerie de photos. La page publique du site (/site/[slug]) a été refaite à l'identique de la maquette, avec un formulaire de demande de devis qui fonctionne réellement et notifie l'entreprise."
     }
   ]
 }
