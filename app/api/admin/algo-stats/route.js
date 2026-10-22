@@ -1,6 +1,6 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { getAuth } from "../../../../lib/server-auth";
-import { resolveAdminUserId } from "../../../../lib/admin-account";
+import { getVerifiedUserId } from "../../../../lib/server-auth";
+import { isVerifiedUserAdmin } from "../../../../lib/admin-account";
 import { readDb } from "../../../../lib/db";
 
 // Vue admin "algorithme vs IA" (9 oct, demande d'Amira) — agrege
@@ -45,10 +45,13 @@ function aggregate(entries) {
 }
 
 export async function GET(request) {
-  const auth = getAuth(request);
-  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
-  const adminUserId = await resolveAdminUserId();
-  if (!adminUserId || auth.userId !== adminUserId) return badRequest("Accès réservé à l'administrateur.", 403);
+  // getAuth()'s userId is only decoded, not signature-verified (a forged
+  // token can carry any sub claim) — the admin gate must use a verified id.
+  // isVerifiedUserAdmin also checks both real admin accounts (ADMIN_EMAILS),
+  // not just resolveAdminUserId()'s single fixed email.
+  const verifiedUserId = await getVerifiedUserId(request);
+  const isAdmin = await isVerifiedUserAdmin(verifiedUserId);
+  if (!isAdmin) return badRequest("Accès réservé à l'administrateur.", 403);
 
   const url = new URL(request.url);
   const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 30));

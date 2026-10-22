@@ -36,7 +36,10 @@ export async function GET(request) {
 
   let summary = null;
   if (workerId) {
-    const worker = (db.workers || []).find((item) => item.id === workerId);
+    // Scope par userId avant de lire le nom/les pointages reels — sans ca,
+    // n'importe quel compte authentifie pouvait lire le recap hebdo (nom,
+    // dates, heures) d'un travailleur d'une AUTRE entreprise en passant son id.
+    const worker = scopedItems(db.workers, userId).find((item) => item.id === workerId);
     if (worker) summary = weeklyAttendanceSummary(db, worker, week || undefined);
   }
 
@@ -47,9 +50,14 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const now = new Date().toISOString();
 
-  const worker = (db.workers || []).find((item) => item.id === body.workerId);
+  // Scope par userId avant de creer un pointage — sans ca, un pointage
+  // pouvait etre cree contre le vrai workerId d'une AUTRE entreprise, et
+  // comme weeklyAttendanceSummary ne filtre que par workerId (pas par
+  // proprietaire), il se retrouvait compte dans ses heures hebdo reelles.
+  const worker = (db.workers || []).find((item) => item.id === body.workerId && item.userId === userId);
   if (!worker) return badRequest("Ouvrier introuvable.", 404);
   if (!body.date) return badRequest("Date obligatoire.", 400);
 

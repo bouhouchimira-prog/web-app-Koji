@@ -98,8 +98,16 @@ export async function POST(request) {
 
 export async function GET(request) {
   const db = await readDb();
+  const userId = await getVerifiedUserId(request);
+  if (!userId) return badRequest("Session expiree. Reconnectez-vous.", 401);
+
   const url = new URL(request.url);
   const taskId = url.searchParams.get("taskId") || "";
-  const docs = (db.projectDocuments || []).filter((d) => d.source === "company" && !d.replyToId && (taskId ? d.taskId === taskId : false));
+  if (!taskId) return ok({ documents: [] });
+
+  const task = (db.tasks || []).find((t) => t.id === taskId);
+  if (!task || (task.userId && task.userId !== userId)) return badRequest("Tache introuvable.", 404);
+
+  const docs = (db.projectDocuments || []).filter((d) => d.source === "company" && !d.replyToId && d.taskId === taskId);
   return ok({ documents: fixObjectText(docs) });
 }

@@ -1,4 +1,4 @@
-import { ok } from "../../../lib/http";
+import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
@@ -28,8 +28,9 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const now = new Date().toISOString();
-  const project = body.projectId ? db.projects.find((item) => item.id === body.projectId) : null;
+  const project = body.projectId ? db.projects.find((item) => item.id === body.projectId && item.userId === userId) : null;
 
   const document = {
     id: `doc-${Date.now()}`,

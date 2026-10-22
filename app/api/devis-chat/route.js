@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { badRequest } from "../../../lib/http";
-import { getAuth } from "../../../lib/server-auth";
+import { getAuth, getVerifiedUserId } from "../../../lib/server-auth";
 import { readDb } from "../../../lib/db";
 import { buildDevisChatPrompt } from "../../../lib/devis-chat-prompt";
 import { DEVIS_CHAT_TOOLS, executeDevisChatTool } from "../../../lib/devis-chat-tools";
@@ -33,6 +33,14 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const auth = getAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  // auth.userId is only decoded, not signature-verified — ctx.auth.userId
+  // feeds resolveOuvrageForLabel -> mergedOuvrages directly against the
+  // local price-library JSON, so a forged token could read another
+  // company's private pricing. Verify before it's used for anything but
+  // RLS-backed auth.supabase calls.
+  const verifiedUserId = await getVerifiedUserId(request, body);
+  if (!verifiedUserId) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  auth.userId = verifiedUserId;
   if (!process.env.ANTHROPIC_API_KEY) return badRequest("L'assistant IA n'est pas configuré (clé API manquante).", 500);
 
   const turns = Array.isArray(body.turns) ? body.turns : [];

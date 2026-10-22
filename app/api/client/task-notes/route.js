@@ -134,9 +134,36 @@ export async function POST(request) {
 
 export async function GET(request) {
   const db = await readDb();
+  const userId = getVerifiedPortalUserId(request);
+  if (!userId) return badRequest("Session expiree. Reconnectez-vous.", 401);
+
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) return badRequest("Client introuvable.", 403);
+  const email = normalizeEmail(user.email);
+
   const url = new URL(request.url);
   const taskId = url.searchParams.get("taskId") || "";
   const projectId = url.searchParams.get("projectId") || "";
+  if (!taskId && !projectId) return ok({ documents: [] });
+
+  const task = taskId ? (db.tasks || []).find((t) => t.id === taskId) : null;
+  const resolvedProjectId = task?.projectId || projectId;
+
+  const supabase = getSupabaseAdmin();
+  const { data: quoteRows } = await supabase
+    .from("quotes")
+    .select("*")
+    .or(`id.eq.${task?.quoteId || "00000000-0000-0000-0000-000000000000"},chantier_id.eq.${resolvedProjectId || "00000000-0000-0000-0000-000000000000"}`);
+  let chantier = null;
+  if (resolvedProjectId) {
+    const { data: chantierRow } = await supabase.from("chantiers").select("*").eq("id", resolvedProjectId).maybeSingle();
+    if (chantierRow) chantier = { clientEmail: chantierRow.client_email || "", clientPhone: "" };
+  }
+  const linkedQuote = (quoteRows || [])
+    .map((row) => mapQuote(row))
+    .find((q) => quoteBelongsToClient(q, chantier, user, email));
+  if (!linkedQuote) return badRequest("Acces interdit.", 403);
+
   const docs = (db.projectDocuments || []).filter(
     (d) => d.source === "client" && (taskId ? d.taskId === taskId : d.projectId === projectId)
   );

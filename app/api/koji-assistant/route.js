@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { after } from "next/server";
 import { badRequest, ok } from "../../../lib/http";
-import { getAuth } from "../../../lib/server-auth";
+import { getAuth, getVerifiedUserId } from "../../../lib/server-auth";
 import { readDb, scopedItems, writeDb } from "../../../lib/db";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
@@ -456,6 +456,13 @@ export async function GET(request) {
   const db = await readDb();
   const auth = getAuth(request);
   if (!auth) return ok({ messages: [], conversations: [] });
+  // auth.userId is only decoded, not signature-verified (lib/server-auth.js) —
+  // safe for the auth.supabase/RLS calls below, but scopedItems reads the
+  // local JSON store directly, so it needs a verified id or a forged token
+  // could read another company's assistant history.
+  const verifiedUserId = await getVerifiedUserId(request);
+  if (!verifiedUserId) return ok({ messages: [], conversations: [] });
+  auth.userId = verifiedUserId;
   const messages = scopedItems(db.kojiAssistantMessages, auth.userId);
   const url = new URL(request.url);
   const conversationId = url.searchParams.get("conversationId") || "";
@@ -472,6 +479,12 @@ export async function POST(request) {
 
   const auth = getAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  // Same unverified-decode caveat as GET above — ctx.auth.userId feeds every
+  // scopedItems/mergedOuvrages call in lib/koji-assistant-tools.js directly
+  // against the local JSON store, so it must be a verified id.
+  const verifiedUserId = await getVerifiedUserId(request, body);
+  if (!verifiedUserId) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  auth.userId = verifiedUserId;
 
   const db = await readDb();
   const ctx = { auth, db };

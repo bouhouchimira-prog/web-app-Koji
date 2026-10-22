@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { getAuth } from "../../../../lib/server-auth";
-import { resolveAdminUserId } from "../../../../lib/admin-account";
+import { getVerifiedUserId } from "../../../../lib/server-auth";
+import { isVerifiedUserAdmin } from "../../../../lib/admin-account";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { readDb } from "../../../../lib/db";
 
 // Vue admin des conversations enregistrees (2 oct, demande d'Amira : garder
@@ -12,10 +13,13 @@ import { readDb } from "../../../../lib/db";
 // enregistre depuis le 15 septembre — aucun changement necessaire la,
 // juste une lecture groupee par client ici).
 export async function GET(request) {
-  const auth = getAuth(request);
-  if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
-  const adminUserId = await resolveAdminUserId();
-  if (!adminUserId || auth.userId !== adminUserId) return badRequest("Accès réservé à l'administrateur.", 403);
+  // getAuth()'s userId is only decoded, not signature-verified — the admin
+  // gate must use a verified id. isVerifiedUserAdmin also checks both real
+  // admin accounts (ADMIN_EMAILS), not just resolveAdminUserId()'s single
+  // fixed email.
+  const verifiedUserId = await getVerifiedUserId(request);
+  const isAdmin = await isVerifiedUserAdmin(verifiedUserId);
+  if (!isAdmin) return badRequest("Accès réservé à l'administrateur.", 403);
 
   const db = await readDb();
 
@@ -56,8 +60,12 @@ export async function GET(request) {
   const artisanUserIds = Array.from(artisanByUser.keys());
   let profilesByUserId = new Map();
   if (artisanUserIds.length > 0) {
-    const { data: profiles } = await auth.supabase.from("users").select("id, email, business_info").in("id", artisanUserIds);
-    profilesByUserId = new Map((profiles || []).map((p) => [p.id, p]));
+    // Service-role client: this reads other users' profile rows by design
+    // (an admin reporting view), which a caller-scoped RLS client wouldn't
+    // reliably allow — safe here only because isVerifiedUserAdmin above
+    // already confirmed the caller is a real admin.
+    const { data: profiles, error } = await getSupabaseAdmin().from("users").select("id, email, business_info").in("id", artisanUserIds);
+    if (!error) profilesByUserId = new Map((profiles || []).map((p) => [p.id, p]));
   }
   const artisanConversations = artisanUserIds.map((userId) => {
     const profile = profilesByUserId.get(userId);

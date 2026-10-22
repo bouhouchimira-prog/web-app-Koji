@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { ADMIN_SCOPE, addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
@@ -88,6 +88,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await resolveUserId(request, body, db);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const now = new Date().toISOString();
 
   // Invoices can also be created directly from an intervention report (no
@@ -156,6 +157,10 @@ export async function POST(request) {
     const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", body.quoteId).maybeSingle();
     if (!quoteRow) return badRequest("Devis introuvable.", 404);
     const quote = mapQuote(quoteRow);
+    // Lu via le client service-role (bypass RLS) — sans ce controle,
+    // n'importe quelle entreprise pouvait transformer le devis signe d'une
+    // AUTRE entreprise en facture juste en connaissant/devinant son id.
+    if (userId !== ADMIN_SCOPE && quote.userId !== userId) return badRequest("Devis introuvable.", 404);
     let project = null;
     if (quote.projectId) {
       const { data: projectRow } = await supabase.from("chantiers").select("*").eq("id", quote.projectId).maybeSingle();
@@ -163,7 +168,7 @@ export async function POST(request) {
     }
     const amountTtc = toAmount(quote.totalTtc || quote.totalHt || 0);
 
-    const existingIndex = db.invoices.findIndex((inv) => inv.quoteId === quote.id && inv.sourceType === "quote-transform");
+    const existingIndex = db.invoices.findIndex((inv) => inv.quoteId === quote.id && inv.sourceType === "quote-transform" && inv.userId === quote.userId);
     const previous = existingIndex === -1 ? null : db.invoices[existingIndex];
     const invoice = {
       id: previous?.id || `fac-${Date.now()}`,
@@ -217,6 +222,7 @@ export async function POST(request) {
 
   if (!quote) return badRequest("Devis signe introuvable.", 404);
   if (!project) return badRequest("Chantier introuvable.", 404);
+  if (userId !== ADMIN_SCOPE && quote.userId !== userId) return badRequest("Devis signe introuvable.", 404);
   if (quote.status !== "Signe" && quote.signatureStatus !== "Signe") {
     return badRequest("La facture doit partir d'un devis signe.");
   }

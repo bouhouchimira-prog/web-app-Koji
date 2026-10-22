@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
+import { ADMIN_SCOPE, addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
@@ -38,12 +38,17 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await resolveUserId(request, body, db);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   if (!body.quoteId) return badRequest("Devis parent manquant.");
 
   const supabase = getSupabaseAdmin();
   const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", body.quoteId).maybeSingle();
   if (!quoteRow) return badRequest("Devis introuvable.", 404);
   const quote = mapQuote(quoteRow);
+  // Le lu passe par le client service-role (bypass RLS) — sans ce controle,
+  // n'importe quelle entreprise authentifiee pouvait creer un avenant sur le
+  // devis signe d'une AUTRE entreprise juste en connaissant/devinant son id.
+  if (userId !== ADMIN_SCOPE && quote.userId !== userId) return badRequest("Devis introuvable.", 404);
   if (quote.status !== "Signe" && quote.signatureStatus !== "Signe") {
     return badRequest("Un avenant ne peut être créé que sur un devis déjà signé.");
   }

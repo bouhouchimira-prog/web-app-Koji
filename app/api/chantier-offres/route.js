@@ -70,6 +70,11 @@ export async function POST(request) {
   if (fetchError) return badRequest(`Lecture de l'expertise impossible: ${fetchError.message}`, 500);
   const expertise = expertiseRow ? mapQuote(expertiseRow) : null;
   if (!expertise || !expertise.internalOnly) return badRequest("Expertise introuvable.", 404);
+  // L'expertise appartient administrativement au compte admin (voir
+  // expertise-koji/route.js), donc le seul moyen de verifier qu'un
+  // particulier publie SA propre expertise — et pas celle d'un autre, en
+  // devinant/connaissant son id — est ce champ (pose a la creation).
+  if (expertise.clientPortalUserId !== userId) return badRequest("Expertise introuvable.", 404);
 
   // Detail lisible des travaux (24 sept) : le particulier voit desormais
   // les intitules de postes groupes par lot — jamais les prix ni quantites,

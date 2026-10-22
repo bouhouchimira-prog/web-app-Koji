@@ -1,4 +1,4 @@
-﻿import { ok } from "../../../lib/http";
+﻿import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixText } from "../../../lib/text";
@@ -134,6 +134,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const firstName = fixText(body.firstName || "");
   const lastName = fixText(body.lastName || "");
   const name = fixText(body.name || [firstName, lastName].filter(Boolean).join(" ") || "Nouvel ouvrier");

@@ -117,7 +117,6 @@ export async function POST(request) {
 
   return ok({
     user: publicUser(user),
-    token: `demo-token-${user.id}`,
     message: mode === "reset" ? "Mot de passe reinitialise avec succes." : "Compte active et mot de passe enregistre."
   });
 }

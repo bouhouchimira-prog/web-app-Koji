@@ -1,4 +1,4 @@
-﻿import { ok } from "../../../lib/http";
+﻿import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
@@ -36,6 +36,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const task = {
     id: `t-${Date.now()}`,
     userId,
@@ -66,7 +67,10 @@ export async function POST(request) {
     createdAt: new Date().toISOString()
   };
   db.tasks.unshift(task);
-  const assignedWorkers = db.workers.filter((worker) => task.workerIds.includes(worker.id));
+  // Scope par userId avant de matcher les ids fournis par le client — sans
+  // ca, une entreprise pouvait passer l'id d'un travailleur d'une AUTRE
+  // entreprise et le faire apparaitre affecte/notifie sur sa propre tache.
+  const assignedWorkers = db.workers.filter((worker) => worker.userId === userId && task.workerIds.includes(worker.id));
   if (assignedWorkers.length) {
     task.assignedTo = fixText(assignedWorkers.map((worker) => worker.name).join(", "));
     task.notifiedAt = new Date().toISOString();
@@ -119,7 +123,7 @@ export async function PATCH(request) {
     task.validatedBy = "patron";
   } else if (body.action === "assign") {
     const workerIds = Array.isArray(body.workerIds) ? body.workerIds : [];
-    const workers = db.workers.filter((worker) => workerIds.includes(worker.id));
+    const workers = db.workers.filter((worker) => worker.userId === userId && workerIds.includes(worker.id));
     const previousWorkerIds = new Set(Array.isArray(task.workerIds) ? task.workerIds : []);
     task.workerIds = workerIds;
     task.assignedTo = fixText(workers.map((worker) => worker.name).join(", ") || task.assignedTo || "Equipe");

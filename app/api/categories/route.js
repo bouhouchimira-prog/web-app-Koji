@@ -1,4 +1,4 @@
-import { ok } from "../../../lib/http";
+import { badRequest, ok } from "../../../lib/http";
 import { findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 
@@ -12,6 +12,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const now = new Date().toISOString();
   const category = {
     id: `cat-${Date.now()}`,

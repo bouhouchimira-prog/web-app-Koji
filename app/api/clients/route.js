@@ -20,6 +20,7 @@ export async function POST(request) {
   const body = await request.json();
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   if (!body.name || !String(body.name).trim()) return badRequest("Le nom du client est requis.");
 
   if (!Array.isArray(db.clients)) db.clients = [];

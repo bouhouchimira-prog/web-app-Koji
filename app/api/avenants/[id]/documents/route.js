@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { badRequest } from "../../../../../lib/http";
-import { readDb, scopedItems } from "../../../../../lib/db";
+import { readDb, scopedItems, getUserScope } from "../../../../../lib/db";
 import { getAuth } from "../../../../../lib/server-auth";
 import { mapQuote } from "../../../../../lib/quote-mapping";
 import { buildAvenantPdf, avenantDocumentFilename } from "../../../../../lib/document-generator";
@@ -15,7 +15,12 @@ export async function GET(request, context) {
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const db = await readDb();
-  const avenant = scopedItems(db.avenants, auth.userId).find((item) => item.id === id);
+  // auth.userId is only decoded, not signature-verified — scopedItems reads
+  // the local avenants JSON directly, so it needs a verified id here (the
+  // auth.supabase call below stays safe either way, since Supabase itself
+  // rejects an invalid-signature token).
+  const scope = await getUserScope(request, db);
+  const avenant = scopedItems(db.avenants, scope).find((item) => item.id === id);
   if (!avenant) return badRequest("Avenant introuvable.", 404);
 
   const { data: quoteRow } = await auth.supabase

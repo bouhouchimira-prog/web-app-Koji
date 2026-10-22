@@ -87,6 +87,11 @@ export async function POST(request) {
   let draft;
   try {
     draft = body.draftId ? await getDraft(body.draftId) : null;
+    // Un draftId d'un AUTRE particulier ne doit jamais etre repris ici — lu
+    // sans aucune verification jusque-la, il permettait de lire/modifier le
+    // brouillon de quelqu'un d'autre juste en connaissant/devinant son id
+    // (meme verification que app/api/radar-chat/draft/[id]/route.js).
+    if (draft && draft.user_id !== portalUserId) draft = null;
     if (!draft) draft = await createDraft({ userId: portalUserId, conversationId });
   } catch (err) {
     return badRequest(err.message, 500);

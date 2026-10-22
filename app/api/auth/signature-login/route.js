@@ -18,11 +18,16 @@ export async function POST(request) {
   const limit = await checkRateLimit(SCOPE, identifier);
   if (!limit.allowed) return ok({ error: rateLimitMessage(limit.retryAfterSeconds) }, 429);
 
+  // Echappe les metacaracteres ILIKE (% et _) dans l'identifiant saisi — sans
+  // ca, un identifiant contenant ces caracteres fait du filtrage par motif au
+  // lieu d'une comparaison exacte (insensible a la casse).
+  const escapedIdentifier = identifier.replace(/[%_]/g, (char) => `\\${char}`);
+
   const supabase = getSupabaseAdmin();
   const { data: row, error } = await supabase
     .from("quotes")
     .select("*")
-    .ilike("web_extras->>signatureAccessIdentifier", identifier)
+    .ilike("web_extras->>signatureAccessIdentifier", escapedIdentifier)
     .maybeSingle();
   if (error) return badRequest(`Lecture impossible: ${error.message}`, 500);
   if (!row) {

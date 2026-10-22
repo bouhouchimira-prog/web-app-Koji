@@ -31,6 +31,15 @@ export async function PATCH(request, context) {
 
   const quote = mapQuote(row);
   if (quote.userId !== adminUserId || !quote.internalOnly) return badRequest("Expertise introuvable.", 404);
+  // clientPortalUserId retient qui a demande cette expertise (pose depuis
+  // peu a sa creation, voir expertise-koji/route.js) — sans cette
+  // verification, n'importe quel particulier connecte pouvait completer un
+  // prix sur l'expertise d'un AUTRE particulier en devinant/connaissant son
+  // id. Les expertises creees avant ce champ (vide) restent ouvertes, le
+  // temps qu'elles se terminent naturellement.
+  if (quote.clientPortalUserId && quote.clientPortalUserId !== portalUserId) {
+    return badRequest("Expertise introuvable.", 404);
+  }
   const byId = new Map(prices.map((p) => [String(p.itemId || ""), Math.max(0, Number(p.amountHt) || 0)]));
   const items = (quote.items || []).map((item) => {
     if (!byId.has(String(item.id))) return item;
