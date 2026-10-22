@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
-import { getAuth } from "../../../lib/server-auth";
+import { getAuth, getVerifiedUserId } from "../../../lib/server-auth";
 import { buildWebUser } from "../../../lib/user-profile";
 import { mergedOuvrages } from "../../../lib/ouvrages";
 import { validateAiQuote, buildItemsFromAiQuote, buildMissingPriceNotes } from "../../../lib/ai-devis-shape";
@@ -146,6 +146,11 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const auth = getAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  // auth.userId is only decoded, not verified — mergedOuvrages below reads
+  // the local price-library JSON directly with it, so it needs a verified id.
+  const verifiedUserId = await getVerifiedUserId(request, body);
+  if (!verifiedUserId) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  auth.userId = verifiedUserId;
 
   const clientName = fixText(body.clientName || "");
   const description = fixText(body.description || "");
@@ -157,7 +162,7 @@ export async function POST(request) {
   }
 
   const db = await readDb();
-  const catalog = mergedOuvrages(db).map((o) => ({
+  const catalog = mergedOuvrages(db, auth.userId).map((o) => ({
     code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate, coefficient: o.coefficient
   }));
   const catalogText = catalog.length

@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../../../../lib/db";
-import { getAuth } from "../../../../../../lib/server-auth";
+import { getAuth, getVerifiedUserId } from "../../../../../../lib/server-auth";
+import { isRdvUnlockedForOffer, maskedCityPostal } from "../../../../../../lib/offer-privacy";
 import { buildWebUser } from "../../../../../../lib/user-profile";
 import { mergedOuvrages } from "../../../../../../lib/ouvrages";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../../../../lib/quote-mapping";
@@ -20,6 +21,13 @@ export async function POST(request, context) {
   const body = await request.json().catch(() => ({}));
   const auth = getAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  // auth.userId is only decoded, not signature-verified — the positionnement
+  // and worker checks below read the local JSON store directly with it, so
+  // it needs a verified id (the auth.supabase calls further down stay safe
+  // either way, since Supabase itself rejects an invalid-signature token).
+  const verifiedUserId = await getVerifiedUserId(request, body);
+  if (!verifiedUserId) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  auth.userId = verifiedUserId;
 
   const { id: offerId } = await context.params;
   const pieces = Array.isArray(body.pieces) ? body.pieces : [];
@@ -46,7 +54,7 @@ export async function POST(request, context) {
   const worker = (db.workers || []).find((entry) => entry.id === workerId && entry.userId === auth.userId);
   if (!worker) return badRequest("Sélectionnez la personne qui a réalisé la visite.");
 
-  const catalog = mergedOuvrages(db);
+  const catalog = mergedOuvrages(db, auth.userId);
 
   const acceptedSuggestionIds = new Set(Array.isArray(body.acceptedSuggestionIds) ? body.acceptedSuggestionIds : []);
   const allSuggestions = pieces.flatMap((piece) =>
@@ -79,17 +87,23 @@ export async function POST(request, context) {
 
   const quoteNumber = await nextQuoteNumberFor(auth);
 
+  // Meme regle de confidentialite que la fiche de l'offre (lib/offer-privacy.js)
+  // : une entreprise positionnee ne voit les coordonnees reelles du particulier
+  // qu'apres confirmation du RDV — sinon nom/email/telephone/adresse exacte
+  // restent masques, meme dans le devis genere depuis la visite.
+  const rdvUnlocked = isRdvUnlockedForOffer(db, offerId, auth.userId);
+
   const draft = {
     id: "",
     userId: auth.userId,
     quoteNumber,
     versionNumber: "001",
-    client: fixText(offre.clientName || "Particulier"),
-    clientEmail: offre.clientEmail || "",
-    clientPhone: fixText(offre.clientPhone || ""),
+    client: rdvUnlocked ? fixText(offre.clientName || "Particulier") : "Particulier",
+    clientEmail: rdvUnlocked ? (offre.clientEmail || "") : "",
+    clientPhone: rdvUnlocked ? fixText(offre.clientPhone || "") : "",
     project: fixText(offre.description || "Chantier").slice(0, 80),
     projectId: "",
-    chantierAddress: fixText(offre.address || ""),
+    chantierAddress: rdvUnlocked ? fixText(offre.address || "") : maskedCityPostal(offre),
     workDescription: fixText(offre.description || ""),
     validityDays: 30,
     company: webUser.business || {},

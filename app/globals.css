@@ -8485,6 +8485,25 @@ p {
   font-size: 11px;
 }
 
+.library-field-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 13px;
+  padding: 12px 14px;
+}
+
+.library-field-checkbox input {
+  width: 18px;
+  min-height: 0;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
 .library-submit {
   min-height: 46px;
   border: 0;

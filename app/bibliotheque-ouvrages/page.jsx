@@ -20,7 +20,8 @@ const emptyForm = {
   description: "",
   noteInterne: "",
   sourceInterne: "",
-  parentCode: ""
+  parentCode: "",
+  addToKojiCatalog: false
 };
 
 function formatHours(value) {
@@ -156,6 +157,12 @@ export default function OuvragesLibraryPage() {
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
   const [companyHourlyRate, setCompanyHourlyRate] = useState(0);
+  // 21 oct — seul un compte admin peut publier un ouvrage directement dans
+  // le socle commun Koji (visible de toutes les entreprises) ; tout le
+  // monde d'autre ne cree que des ouvrages propres a son compte. Verifie a
+  // nouveau cote serveur (app/api/ouvrages/route.js) — ce flag ne fait que
+  // choisir d'afficher la case a cocher correspondante.
+  const [isAdmin, setIsAdmin] = useState(false);
   // Import en masse (19 septembre) — colle un tableau code/designation/
   // famille/sous-famille/unite/temps/taux (separateurs tabulation, comme un
   // copier-coller depuis un tableur ou un PDF) et cree chaque ouvrage via le
@@ -174,6 +181,7 @@ export default function OuvragesLibraryPage() {
         const daily = Number(business.dailyRate || 0);
         const hpd = Number(business.hoursPerDay || 7);
         setCompanyHourlyRate(daily > 0 ? Math.round((daily / hpd) * 100) / 100 : 0);
+        setIsAdmin(Boolean(payload?.user?.isAdmin));
       })
       .catch(() => {});
   }, []);
@@ -471,6 +479,16 @@ export default function OuvragesLibraryPage() {
             <label className="library-field full">{L.devis.noteInterne} <span className="library-field-hint">({L.devis.noteInterneHint})</span><textarea value={form.noteInterne} onChange={(event) => setField("noteInterne", event.target.value)} placeholder={L.devis.noteInterne} /></label>
             <label className="library-field full">{L.devis.sourceInterne}<input value={form.sourceInterne} onChange={(event) => setField("sourceInterne", event.target.value)} placeholder={L.devis.sourceInterne} /></label>
             {form.parentCode ? <p className="library-note">{L.bibliotheque.subOf} {form.parentCode}</p> : null}
+            {isAdmin && formMode !== "edit" ? (
+              <label className="library-field full library-field-checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.addToKojiCatalog}
+                  onChange={(event) => setField("addToKojiCatalog", event.target.checked)}
+                />
+                Ajouter au catalogue koji (visible et fixe pour toutes les entreprises — modifiable/supprimable uniquement par un admin)
+              </label>
+            ) : null}
             <button className="library-submit">{buttonLabel}</button>
           </form>
         </main>

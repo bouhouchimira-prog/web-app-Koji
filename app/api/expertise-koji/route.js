@@ -137,7 +137,11 @@ export async function POST(request) {
   }
 
   const db = await readDb();
-  const catalog = mergedOuvrages(db).map((o) => ({
+  // Ce devis n'a pas encore d'entreprise associee (voir note en tete de
+  // fichier) — la bibliotheque utilisee est celle du compte admin
+  // proprietaire administratif, en plus du socle commun Koji.
+  const catalogOwnerId = await resolveAdminUserId();
+  const catalog = mergedOuvrages(db, catalogOwnerId || "").map((o) => ({
     code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate, coefficient: o.coefficient
   }));
   const catalogText = catalog.length
@@ -248,7 +252,15 @@ export async function POST(request) {
     updatedAt: now,
     internalOnly: true,
     expertiseConseils: conseils,
-    expertiseDelaiJours: Math.max(1, Math.round(Number(parsed.delaiEstimeJours) || 7))
+    expertiseDelaiJours: Math.max(1, Math.round(Number(parsed.delaiEstimeJours) || 7)),
+    // Le devis appartient administrativement a adminUserId (voir commentaire
+    // plus haut), donc rien ne distingue par defaut l'expertise d'UN
+    // particulier de celle d'un autre — reutilise ce champ existant (normalement
+    // pose plus tard, a l'envoi d'un devis par une entreprise) pour retenir
+    // qui l'a demandee, afin que chantier-offres/route.js et expertise-koji/
+    // [id]/route.js puissent verifier qu'un particulier n'agit que sur SA
+    // propre expertise.
+    clientPortalUserId: portalUserId
   };
 
   const computed = applyQuoteTotals(draft);
