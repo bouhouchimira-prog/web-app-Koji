@@ -14,3 +14,10 @@ data/particulier-users.json
 
 .vercel
 .env*
+
+# Tests e2e (Selenium + Mocha) — identifiants et captures d'ecran locales,
+# jamais versionnes. L'exemple (.env.e2e.example) n'a pas de secret et doit
+# rester versionne — sans ce "!", le ".env*" plus haut l'ignorerait aussi.
+tests/e2e/.env.e2e
+!tests/e2e/.env.e2e.example
+tests/e2e/reports/

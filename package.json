@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "mocha --config tests/e2e/.mocharc.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
@@ -25,6 +26,8 @@
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.3",
+    "mocha": "^12.0.3",
+    "selenium-webdriver": "^4.51.0",
     "typescript": "^5.7.2"
   }
 }
