@@ -3205,9 +3205,9 @@ export default function DevisEditor() {
                     const qty = Number(line.quantity || 0);
                     const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
                     return (
-                      <div className="quote-recap-line" key={line.id}>
+                      <div className="quote-ia-preview-line" key={line.id}>
                         <input
-                          className="quote-recap-line-label"
+                          className="quote-ia-preview-input quote-ia-preview-input-left"
                           value={line.label}
                           onChange={(e) => updateLineLabel(line.id, e.target.value)}
                         />
@@ -3220,7 +3220,7 @@ export default function DevisEditor() {
                           step="any"
                         />
                         <input
-                          className="quote-ia-preview-input quote-recap-line-unit"
+                          className="quote-ia-preview-input quote-ia-preview-input-left"
                           value={line.unit}
                           onChange={(e) => updateLine(line.id, "unit", e.target.value)}
                         />
@@ -3256,7 +3256,7 @@ export default function DevisEditor() {
         ) : (
           <section className="quote-final-card quote-recap-send-card">
             <div className="quote-section-title"><h2>{L.devis.recapSendTitle}</h2></div>
-            <div className="recap-send-options">
+            <div className="signature-channel-row">
               <button type="button" className="signature-channel" onClick={() => handleDownload("quote", "pdf")}>{L.devis.recapSendPdf}</button>
               <button type="button" className="signature-channel primary" onClick={() => setSendModalOpen(true)}>{L.devis.emailClient}</button>
               <a className="signature-channel" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>

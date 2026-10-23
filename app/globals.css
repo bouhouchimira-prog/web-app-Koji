@@ -10185,6 +10185,138 @@ body :where(
   padding-top: 10px;
 }
 
+/* Page Recapitulatif (23 oct) — etape de relecture avant enregistrement
+   final du devis, Manuel et Avec l'IA passent tous les deux par la.
+   Reutilise au maximum les classes quote-final-card, quote-ia-preview-xxx
+   et signature-channel-row deja existantes ; ce bloc ne couvre que ce qui
+   n'a pas d'equivalent ailleurs (champs identite/chantier editables,
+   carte de validation). */
+.quote-recap-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.recap-identity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.recap-identity-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recap-identity-col strong {
+  color: var(--navy);
+  font-size: 0.95rem;
+}
+
+.recap-identity-col > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.recap-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.recap-field span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.recap-field input,
+.recap-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #d6dfec;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--navy);
+  background: white;
+}
+
+.recap-field input:focus,
+.recap-field textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.recap-field textarea {
+  resize: vertical;
+}
+
+/* Variante alignee a gauche de .quote-ia-preview-input (deja centre a
+   droite pour les quantites/prix) — pour la designation et l'unite,
+   editables sur la page Recapitulatif. */
+.quote-ia-preview-input-left {
+  text-align: left;
+}
+
+.quote-recap-validate-card {
+  text-align: center;
+}
+
+.quote-recap-validate-card p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.quote-recap-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Picker "contact deja engage via la Marketplace" (components/
+   MarketplaceContactPicker.jsx) */
+.marketplace-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.marketplace-picker-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.marketplace-picker-row:hover {
+  border-color: var(--blue);
+  background: var(--soft);
+}
+
+.marketplace-picker-row strong {
+  color: var(--navy);
+  font-size: 0.9rem;
+}
+
+.marketplace-picker-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .room-add-bottom-card {
   background: white;
   border-radius: 14px;
@@ -12707,7 +12839,8 @@ body :where(
   .quote-total-panel,
   .quote-two-col,
   .quote-total-panel-compact,
-  .quote-documents-grid {
+  .quote-documents-grid,
+  .recap-identity-grid {
     grid-template-columns: 1fr;
   }
 
