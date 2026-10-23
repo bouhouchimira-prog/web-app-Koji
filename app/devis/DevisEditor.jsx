@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { AddressFields } from "../../components/AddressFields";
-import { SendQuoteModal } from "../../components/SendQuoteModal";
+import { SendQuoteFlow } from "../../components/SendQuoteFlow";
 import { DevisChatPanel } from "../../components/DevisChatPanel";
-import { MarketplaceContactPicker } from "../../components/MarketplaceContactPicker";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
@@ -344,12 +343,12 @@ export default function DevisEditor() {
   const [mode, setMode] = useState("manuel");
   // Page Recapitulatif (23 oct) : mode === "recap" est une 3e valeur, pas
   // un ecran separe — recapOrigin retient d'ou on vient ("manuel"/"ia")
-  // pour que "Modifier" y revienne ; quoteValidated distingue "en cours de
-  // relecture" (bouton Valider visible) de "deja enregistre" (options
-  // d'envoi visibles), sans ajouter un 4e mode.
+  // pour que "Modifier" y revienne.
   const [recapOrigin, setRecapOrigin] = useState("manuel");
-  const [quoteValidated, setQuoteValidated] = useState(false);
-  const [marketplacePickerOpen, setMarketplacePickerOpen] = useState(false);
+  // Toggle "Avec detail / Sans detail" par lot (maquette 24 oct) — simple
+  // preference d'affichage pendant la relecture, jamais persiste (les
+  // totaux de lot, deja calcules, restent visibles dans les deux etats).
+  const [collapsedLots, setCollapsedLots] = useState(() => new Set());
   useEffect(() => {
     if (modeFromUrl() === "ia") setMode("ia");
   }, []);
@@ -755,7 +754,16 @@ export default function DevisEditor() {
         // 2 lignes, aiAdded/priceSource poses par addAiOuvrageToRoom
         // disparaitraient silencieusement a chaque rendu.
         aiAdded: Boolean(settings.aiAdded),
-        priceSource: settings.priceSource || ""
+        priceSource: settings.priceSource || "",
+        // Badge source (koji/perso/libre, page Recapitulatif 24 oct) —
+        // derive de selectedSources (voir :705-708) : une ligne venant de
+        // `postes` (catalogue fusionne, selectedIds) est "koji" (socle
+        // commun) ou "perso" (source.userId rempli = ouvrage propre a
+        // l'entreprise) ; une ligne venant de `customSources` (jamais dans
+        // `postes` : composeur libre, IA sans correspondance, fourniture
+        // rapide...) est "libre". Meme precaution que aiAdded/priceSource
+        // ci-dessus : a ajouter explicitement, sinon disparait au rendu.
+        sourceKind: selectedIds.includes(source.id) ? (source.userId ? "perso" : "koji") : "libre"
       }, settings, quoteVatRate);
 
       const rawSubItems = Array.isArray(settings.subItems) ? settings.subItems : [];
@@ -765,7 +773,7 @@ export default function DevisEditor() {
       const subTotalTtc = round2(subItems.reduce((s, sub) => s + sub.totalTtc, 0));
       return { ...line, totalHt: subTotalHt, totalTtc: subTotalTtc, vatAmount: round2(subTotalTtc - subTotalHt), subItems };
     });
-  }, [lineSettings, selectedSources, supplies, company, quoteVatRate]);
+  }, [lineSettings, selectedSources, selectedIds, supplies, company, quoteVatRate]);
 
   const totals = useMemo(() => {
     const hoursPerDay = Number(company.hoursPerDay || 7);
@@ -2108,13 +2116,13 @@ export default function DevisEditor() {
 
   // "Enregistrer"/"Confirmer" ne persistent plus directement (23 oct,
   // demande d'Amira) — ils menent maintenant vers la page Recapitulatif
-  // (mode "recap"), qui est le seul endroit ou le devis est vraiment
-  // enregistre comme "Pret a envoyer" (voir validateQuote ci-dessous).
-  // L'autosave existant continue de sauvegarder le brouillon en arriere-
-  // plan, inchange — ces boutons ne font qu'ouvrir l'etape de relecture.
+  // (mode "recap"), ou "Enregistrer dans mes devis" (validateQuote,
+  // ci-dessous) et "Envoyer…" (openSendModal, deja existant) sont tous les
+  // deux disponibles directement (24 oct, maquette : plus d'etape de
+  // validation separee avant de pouvoir envoyer). L'autosave existant
+  // continue de sauvegarder le brouillon en arriere-plan, inchange.
   function enterRecap(fromMode) {
     setRecapOrigin(fromMode);
-    setQuoteValidated(false);
     setMode("recap");
   }
 
@@ -2126,11 +2134,10 @@ export default function DevisEditor() {
   const handleGenerate = goToRecap;
   const handleConfirm = goToRecap;
 
-  // Bouton "Valider ce devis" de la page Recapitulatif — c'est ICI que le
-  // devis est reellement enregistre (persistQuote) ET marque "Pret a
-  // envoyer" (action "ready", deja gere cote serveur par
-  // app/api/quotes/route.js). Revient a `goToRecap` si echec : la page
-  // reste affichee, rien n'est perdu (autosave continue de tourner).
+  // Bouton "Enregistrer dans mes devis" de la page Recapitulatif — c'est
+  // ICI que le devis est reellement enregistre (persistQuote) ET marque
+  // "Pret a envoyer" (action "ready", deja gere cote serveur par
+  // app/api/quotes/route.js).
   async function validateQuote() {
     if (!requireLines()) return;
     try {
@@ -2141,11 +2148,9 @@ export default function DevisEditor() {
       // Genere tout de suite le lien de consultation client
       // (signatureDelivery, via la meme action "send" deja utilisee par
       // "Regenerer" — n'envoie PAS d'email ici, juste l'acces) pour que les
-      // boutons WhatsApp/SMS/email de la section D soient utilisables
-      // immediatement, sans etape intermediaire.
+      // boutons WhatsApp/SMS/email restent utilisables immediatement.
       await sendQuoteToSignature(quote.id);
-      setQuoteValidated(true);
-      notify(`Devis ${quote.quoteNumber} enregistré. Vous pouvez maintenant l'envoyer.`, "success");
+      notify(`Devis ${quote.quoteNumber} enregistré.`, "success");
     } catch (error) {
       notifyError(error, "Impossible d'enregistrer le devis.");
     }
@@ -2155,12 +2160,11 @@ export default function DevisEditor() {
   // (Manuel ou Avec l'IA, selon d'ou on est arrive) — rien n'est perdu,
   // l'autosave a deja tout sauvegarde en brouillon pendant la relecture.
   function backToEditingFromRecap() {
-    setQuoteValidated(false);
     setMode(recapOrigin || "manuel");
   }
 
   // Bouton "Envoyer" de l'en-tete (16 oct) : ouvre desormais la fenetre
-  // dediee (SendQuoteModal) plutot que d'envoyer directement. Ne prepare
+  // dediee (SendQuoteFlow) plutot que d'envoyer directement. Ne prepare
   // PAS de nouveaux acces ici expres : le mot de passe n'est jamais stocke
   // en clair (voir buildSignatureAccess cote serveur) et chaque appel
   // action:"send" en regenere un nouveau - generer une fois ici puis une
@@ -3128,157 +3132,298 @@ export default function DevisEditor() {
   // updateLine, updateLineUnitPrice, removeQuoteLine) et le meme bloc
   // Conditionnement/Paiement (renderConditioningAndPaymentCards juste
   // au-dessus) — aucun nouveau moteur de calcul nulle part dans cette page.
+  // Page Recapitulatif (24 oct, refonte d'apres maquette Amira) — 2
+  // colonnes (gauche : contenu editable, droite : totaux/checklist/apercu),
+  // meme principe que les cartes deja stylees ailleurs
+  // (quote-final-card/quote-ia-preview-line/signature-channel-row).
+  function toggleLotDetail(room) {
+    setCollapsedLots((current) => {
+      const next = new Set(current);
+      if (next.has(room)) next.delete(room); else next.add(room);
+      return next;
+    });
+  }
+
+  function sourceBadgeMeta(line) {
+    const kind = line.sourceKind;
+    const label = kind === "koji" ? L.devis.recapSourceKoji : kind === "perso" ? L.devis.recapSourcePerso : L.devis.recapSourceLibre;
+    const caption = line.code === "FOURN"
+      ? `${L.devis.recapSupplyCaption} · ${line.code}`
+      : kind === "libre"
+        ? L.devis.recapFreeLineCaption
+        : `${L.devis.labor} · ${line.code}`;
+    return { kind, label, caption };
+  }
+
+  function renderRecapLine(line) {
+    const qty = Number(line.quantity || 0);
+    const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
+    const badge = sourceBadgeMeta(line);
+    const missingPrice = line.aiAdded && line.priceSource === "manquant";
+    return (
+      <div className="quote-recap-line-block" key={line.id}>
+        <div className="quote-ia-preview-line">
+          <input
+            className="quote-ia-preview-input quote-ia-preview-input-left"
+            value={line.label}
+            onChange={(e) => updateLineLabel(line.id, e.target.value)}
+          />
+          <input
+            type="number"
+            className="quote-ia-preview-input"
+            value={qty || ""}
+            onChange={(event) => updateLine(line.id, "quantity", event.target.value)}
+            min="0"
+            step="any"
+          />
+          <input
+            className="quote-ia-preview-input quote-ia-preview-input-left"
+            value={line.unit}
+            onChange={(e) => updateLine(line.id, "unit", e.target.value)}
+          />
+          <input
+            type="number"
+            className="quote-ia-preview-input"
+            value={round2(unitPriceHt) || ""}
+            onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)}
+            min="0"
+            step="any"
+          />
+          <strong>{money(line.totalHt)}</strong>
+          <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label={L.common.remove}>×</button>
+        </div>
+        <div className="quote-recap-line-tags">
+          <span className={`recap-source-badge recap-source-${badge.kind}`}>{badge.label}</span>
+          <span className="recap-source-caption">{badge.caption}</span>
+          {line.aiAdded ? (
+            <span className={`status-pill status-pill-ia${missingPrice ? " status-pill-ia-missing" : ""}`}>
+              {missingPrice ? "IA · prix manquant" : "IA · à vérifier"}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   function renderRecapView() {
+    const isIaRecap = recapOrigin === "ia";
+    const aiLines = quoteLines.filter((line) => line.aiAdded);
+    const hasLines = quoteLines.length > 0;
+
     return (
       <div className="quote-recap-page">
-        <section className="quote-final-card">
-          <div className="quote-section-title">
-            <div>
-              <span>{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</span>
-              <h2>{L.devis.recapTitle}</h2>
-            </div>
-          </div>
-
-          <div className="recap-identity-grid">
-            <div className="recap-identity-col">
-              <strong>{company.name}</strong>
-              {company.address ? <span>{company.address}</span> : null}
-              {company.email ? <span>{company.email}</span> : null}
-              {company.phone ? <span>{company.phone}</span> : null}
-            </div>
-            <div className="recap-identity-col">
-              <label className="recap-field">
-                <span>{L.devis.client}</span>
-                <input value={form.client} onChange={(e) => setField("client", e.target.value)} />
-              </label>
-              <label className="recap-field">
-                <span>{L.devis.clientPhone}</span>
-                <input value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} />
-              </label>
-              <label className="recap-field">
-                <span>{L.devis.clientEmail}</span>
-                <input value={form.clientEmail} onChange={(e) => setField("clientEmail", e.target.value)} />
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <section className="quote-final-card">
-          <div className="quote-section-title"><h2>{L.devis.siteAddressTitle}</h2></div>
-          <label className="recap-field recap-field-wide">
-            <span>{L.devis.clientAddress}</span>
-            <input value={form.chantierAddress} onChange={(e) => setField("chantierAddress", e.target.value)} />
-          </label>
-          <div className="recap-identity-grid">
-            <label className="recap-field">
-              <span>{L.devis.startDate}</span>
-              <input type="date" value={form.startDate || ""} onChange={(e) => setField("startDate", e.target.value)} />
-            </label>
-            <label className="recap-field">
-              <span>{L.devis.expectedDur}</span>
-              <input value={form.expectedDuration} onChange={(e) => setField("expectedDuration", e.target.value)} />
-            </label>
-          </div>
-          <label className="recap-field recap-field-wide">
-            <span>{L.devis.workDescTitle}</span>
-            <textarea rows={3} value={form.workDescription} onChange={(e) => setField("workDescription", e.target.value)} />
-          </label>
-        </section>
-
-        <section className="quote-final-card">
-          <div className="quote-section-title"><h2>{L.devis.recapLotsTitle}</h2></div>
-          {roomGroups.every((room) => (linesByRoom[room] || []).length === 0) ? (
-            <div className="empty-state">{L.devis.noLinesYet}</div>
-          ) : (
-            roomGroups.map((room) => {
-              const roomLines = linesByRoom[room] || [];
-              if (!roomLines.length) return null;
-              const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
-              return (
-                <div className="quote-ia-preview-lot" key={room}>
-                  <div className="quote-ia-preview-lot-head">
-                    <strong>{room === "Services" ? L.devis.generalWorks : room}</strong>
-                    <span>{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""}</span>
-                    <strong>{money(roomTotalHt)}</strong>
-                  </div>
-                  {roomLines.map((line) => {
-                    const qty = Number(line.quantity || 0);
-                    const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
-                    return (
-                      <div className="quote-ia-preview-line" key={line.id}>
-                        <input
-                          className="quote-ia-preview-input quote-ia-preview-input-left"
-                          value={line.label}
-                          onChange={(e) => updateLineLabel(line.id, e.target.value)}
-                        />
-                        <input
-                          type="number"
-                          className="quote-ia-preview-input"
-                          value={qty || ""}
-                          onChange={(event) => updateLine(line.id, "quantity", event.target.value)}
-                          min="0"
-                          step="any"
-                        />
-                        <input
-                          className="quote-ia-preview-input quote-ia-preview-input-left"
-                          value={line.unit}
-                          onChange={(e) => updateLine(line.id, "unit", e.target.value)}
-                        />
-                        <input
-                          type="number"
-                          className="quote-ia-preview-input"
-                          value={round2(unitPriceHt) || ""}
-                          onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)}
-                          min="0"
-                          step="any"
-                        />
-                        <strong>{money(line.totalHt)}</strong>
-                        <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label={L.common.remove}>×</button>
-                      </div>
-                    );
-                  })}
+        <div className="quote-recap-layout">
+          <div className="quote-recap-col-main">
+            {isIaRecap && aiLines.length ? (
+              <section className="quote-final-card quote-recap-ia-banner">
+                <div>
+                  <strong>{L.devis.recapIaBannerTitle}</strong>
+                  <p>{L.devis.recapIaBannerText}</p>
                 </div>
-              );
-            })
-          )}
+                <span className="status-pill status-pill-ia">{aiLines.length} {L.devis.recapToVerify}</span>
+              </section>
+            ) : null}
+
+            <section className="quote-final-card">
+              <div className="quote-section-title">
+                <div>
+                  <span>{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</span>
+                  <h2>{L.devis.recapTitle} <span className="status-pill">{L.devis.draft}</span></h2>
+                </div>
+              </div>
+
+              <div className="recap-identity-grid">
+                <div className="recap-identity-col">
+                  <strong>{company.name}</strong>
+                  {company.address ? <span>{company.address}</span> : null}
+                  {company.email ? <span>{company.email}</span> : null}
+                  {company.phone ? <span>{company.phone}</span> : null}
+                </div>
+                <div className="recap-identity-col">
+                  <label className="recap-field">
+                    <span>{L.devis.client}</span>
+                    <input value={form.client} onChange={(e) => setField("client", e.target.value)} />
+                  </label>
+                  <label className="recap-field">
+                    <span>{L.devis.clientPhone}</span>
+                    <input value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} />
+                  </label>
+                  <label className="recap-field">
+                    <span>{L.devis.clientEmail}</span>
+                    <input value={form.clientEmail} onChange={(e) => setField("clientEmail", e.target.value)} />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="quote-final-card">
+              <div className="quote-section-title"><h2>{L.devis.siteAddressTitle}</h2></div>
+              <label className="recap-field recap-field-wide">
+                <span>{L.devis.clientAddress}</span>
+                <input value={form.chantierAddress} onChange={(e) => setField("chantierAddress", e.target.value)} />
+              </label>
+              <div className="recap-identity-grid">
+                <label className="recap-field">
+                  <span>{L.devis.startDate}</span>
+                  <input type="date" value={form.startDate || ""} onChange={(e) => setField("startDate", e.target.value)} />
+                </label>
+                <label className="recap-field">
+                  <span>{L.devis.expectedDur}</span>
+                  <input value={form.expectedDuration} onChange={(e) => setField("expectedDuration", e.target.value)} />
+                </label>
+              </div>
+              <label className="recap-field recap-field-wide">
+                <span>{L.devis.workDescTitle}</span>
+                <textarea rows={3} value={form.workDescription} onChange={(e) => setField("workDescription", e.target.value)} />
+              </label>
+            </section>
+
+            <section className="quote-final-card">
+              <div className="quote-section-title">
+                <h2>{L.devis.recapLotsTitle}</h2>
+                <span>{roomGroups.filter((r) => (linesByRoom[r] || []).length).length} · {quoteLines.length}</span>
+              </div>
+              {!hasLines ? (
+                <div className="empty-state">{L.devis.noLinesYet}</div>
+              ) : (
+                roomGroups.map((room) => {
+                  const roomLines = linesByRoom[room] || [];
+                  if (!roomLines.length) return null;
+                  const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+                  const collapsed = collapsedLots.has(room);
+                  return (
+                    <div className="quote-recap-lot" key={room}>
+                      <div className="quote-recap-lot-head">
+                        {room === "Services" ? (
+                          <strong className="quote-recap-lot-name">{L.devis.generalWorks}</strong>
+                        ) : (
+                          <input
+                            key={room}
+                            className="quote-room-name-input quote-recap-lot-name-input"
+                            defaultValue={room}
+                            onBlur={(e) => renameRoom(room, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                          />
+                        )}
+                        <span>{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""}</span>
+                        <div className="segmented recap-lot-detail-toggle">
+                          <button type="button" className={!collapsed ? "active" : ""} onClick={() => collapsed && toggleLotDetail(room)}>{L.devis.recapWithDetail}</button>
+                          <button type="button" className={collapsed ? "active" : ""} onClick={() => !collapsed && toggleLotDetail(room)}>{L.devis.recapWithoutDetail}</button>
+                        </div>
+                        <strong className="quote-recap-lot-total">{money(roomTotalHt)}</strong>
+                      </div>
+                      {!collapsed ? (
+                        <>
+                          <div className="quote-recap-col-headers">
+                            <span>{L.devis.recapColDesignation}</span>
+                            <span>{L.devis.quantity}</span>
+                            <span>{L.devis.recapColUnit}</span>
+                            <span>{L.devis.recapColPriceHt}</span>
+                            <span>{L.devis.recapColTotalHt}</span>
+                            <span />
+                          </div>
+                          {roomLines.map((line) => renderRecapLine(line))}
+                        </>
+                      ) : null}
+                      <div className="quote-recap-lot-actions">
+                        <button type="button" className="link-button" onClick={() => openOuvrageComposer(room)}>{L.devis.addFreeLine}</button>
+                        <button type="button" className="link-button" onClick={() => { setTargetRoom(room); setRightPanelTab("bibliotheque"); backToEditingFromRecap(); }}>+ {L.bibliotheque.title}</button>
+                      </div>
+                      {ouvrageComposer.open && ouvrageComposer.room === room ? (
+                        <div className="quote-picker-inline-form">
+                          <label className="supply-composer-field full">
+                            <span>{L.devis.designation}</span>
+                            <input
+                              value={ouvrageComposer.label}
+                              onChange={(event) => setOuvrageComposerField("label", event.target.value)}
+                              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitOuvrageComposer(); } }}
+                              autoFocus
+                            />
+                          </label>
+                          <label className="supply-composer-field">
+                            <span>{L.devis.quantity}</span>
+                            <input type="number" min="0" step="any" value={ouvrageComposer.quantity} onChange={(event) => setOuvrageComposerField("quantity", event.target.value)} placeholder="1" />
+                          </label>
+                          <label className="supply-composer-field">
+                            <span>{L.bibliotheque.unit}</span>
+                            <select value={ouvrageComposer.unit} onChange={(event) => setOuvrageComposerField("unit", event.target.value)}>
+                              {CUSTOM_OUVRAGE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                            </select>
+                          </label>
+                          <label className="supply-composer-field">
+                            <span>{L.devis.priceHt}</span>
+                            <input type="number" min="0" step="0.01" value={ouvrageComposer.priceHt} onChange={(event) => setOuvrageComposerField("priceHt", event.target.value)} placeholder="0.00" />
+                          </label>
+                          {ouvrageComposer.error ? <p className="profile-message error">{ouvrageComposer.error}</p> : null}
+                          <div className="supply-modal-actions">
+                            <button type="button" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
+                            <button type="button" className="button blue" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+              <button type="button" className="quote-recap-add-lot" onClick={() => addCustomRoomAndFocus()}>+ {L.devis.recapAddLot}</button>
+            </section>
+
+            {renderConditioningAndPaymentCards()}
+          </div>
+
+          <div className="quote-recap-col-side">
+            <section className="quote-final-card">
+              <div className="quote-section-title">
+                <h2>{L.devis.recapTotalsTitle}</h2>
+                <span>{L.devis.recapLiveUpdate}</span>
+              </div>
+              <div className="quote-recap-totals-list">
+                <div><span>{L.devis.recapWorksTotal}</span><strong>{money(lotTotals.works)}</strong></div>
+                <div><span>{L.devis.recapSuppliesTotal}</span><strong>{money(lotTotals.supplies)}</strong></div>
+                <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
+                <div><span>{L.devis.vatLabel} {quoteVatRate}%</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
+                <div className="quote-recap-total-ttc"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
+                <div className="quote-recap-deposit-row">
+                  <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30}%)</span>
+                  <strong>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section className="quote-final-card">
+              <div className="quote-section-title"><h2>{L.devis.recapChecklistTitle}</h2></div>
+              <ul className="quote-recap-checklist">
+                <li className={form.client ? "done" : ""}>{L.devis.recapChecklistClient}</li>
+                <li className={form.chantierAddress ? "done" : ""}>{L.devis.recapChecklistAddress}</li>
+                <li className={hasLines ? "done" : ""}>{roomGroups.filter((r) => (linesByRoom[r] || []).length).length} {L.devis.recapChecklistLinesSuffix}</li>
+                <li className={paymentMilestones.length ? "done" : ""}>{L.devis.recapChecklistPayment}</li>
+                {isIaRecap && aiLines.length ? (
+                  <li className="warn">
+                    {aiLines.length} {L.devis.recapChecklistAiSuffix}
+                    <small>{L.devis.recapChecklistAiHint}</small>
+                  </li>
+                ) : null}
+              </ul>
+            </section>
+
+            <section className="quote-final-card">
+              <div className="quote-section-title">
+                <h2>{L.devis.recapPreviewTitle}</h2>
+                <span>{previewQuoteNumber ? `Devis_${previewQuoteNumber}.pdf` : ""}</span>
+              </div>
+              <button type="button" className="button secondary quote-recap-preview-btn" onClick={() => handleDownload("quote", "pdf")}>{L.devis.recapOpenPreview}</button>
+            </section>
+          </div>
+        </div>
+
+        <section className="quote-final-card quote-recap-footer-bar">
+          <div className="quote-recap-footer-text">
+            <strong>{L.devis.recapFooterTitle}</strong>
+            <p>{L.devis.recapFooterHint}</p>
+          </div>
+          <button type="button" className="button secondary" onClick={validateQuote}>{L.devis.recapSaveToQuotes}</button>
+          <button type="button" className="button blue" onClick={openSendModal}>{L.devis.send}…</button>
         </section>
-
-        {renderConditioningAndPaymentCards()}
-
-        {!quoteValidated ? (
-          <section className="quote-final-card quote-recap-validate-card">
-            <p>{L.devis.recapValidateHint}</p>
-            <div className="quote-recap-actions">
-              <button type="button" className="button secondary" onClick={backToEditingFromRecap}>{L.devis.recapEdit}</button>
-              <button type="button" className="button blue" onClick={validateQuote}>{L.devis.recapValidate}</button>
-            </div>
-          </section>
-        ) : (
-          <section className="quote-final-card quote-recap-send-card">
-            <div className="quote-section-title"><h2>{L.devis.recapSendTitle}</h2></div>
-            <div className="signature-channel-row">
-              <button type="button" className="signature-channel" onClick={() => handleDownload("quote", "pdf")}>{L.devis.recapSendPdf}</button>
-              <button type="button" className="signature-channel primary" onClick={() => setSendModalOpen(true)}>{L.devis.emailClient}</button>
-              <a className="signature-channel" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>
-              <a className="signature-channel" href={signatureSmsHref}>SMS</a>
-              <button type="button" className="signature-channel" onClick={() => setMarketplacePickerOpen(true)}>{L.devis.recapSendMarketplace}</button>
-            </div>
-            <button type="button" className="button secondary" onClick={backToEditingFromRecap}>{L.devis.recapEdit}</button>
-          </section>
-        )}
-
-        {marketplacePickerOpen ? (
-          <MarketplaceContactPicker
-            onClose={() => setMarketplacePickerOpen(false)}
-            onPick={(contact) => {
-              setField("client", contact.clientName || form.client);
-              setField("clientEmail", contact.clientEmail || form.clientEmail);
-              setField("clientPhone", contact.clientPhone || form.clientPhone);
-              setMarketplacePickerOpen(false);
-              notify("Coordonnées du contact appliquées au devis.", "success");
-            }}
-          />
-        ) : null}
       </div>
     );
   }
@@ -4091,12 +4236,13 @@ export default function DevisEditor() {
         ) : null}
 
         {sendModalOpen && generatedQuote ? (
-          <SendQuoteModal
+          <SendQuoteFlow
             quote={generatedQuote}
             quoteNumber={previewQuoteNumber}
             lotsCount={roomGroups.length}
             linesCount={quoteLines.length}
             totalTtc={summaryTotals.totalTtc}
+            contacts={contacts}
             onClose={() => setSendModalOpen(false)}
             onSent={handleQuoteSent}
           />

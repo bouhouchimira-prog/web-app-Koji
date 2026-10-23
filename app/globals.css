@@ -10317,6 +10317,398 @@ body :where(
   font-size: 0.78rem;
 }
 
+.marketplace-picker-row.selected {
+  border-color: var(--blue);
+  background: var(--soft);
+}
+
+/* Page Recapitulatif v2 (24 oct, maquette Amira) — remplace la mise en
+   page empilee du 23 oct par 2 colonnes (gauche/droite), reutilise au
+   maximum .quote-final-card/.quote-ia-preview-line/.status-pill-ia/
+   .marketplace-picker-row deja stylees ci-dessus. */
+.quote-recap-layout {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.quote-recap-col-main,
+.quote-recap-col-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.quote-recap-ia-banner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  background: var(--soft);
+}
+
+.quote-recap-ia-banner strong {
+  display: block;
+  color: var(--navy);
+  font-size: 0.95rem;
+}
+
+.quote-recap-ia-banner p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.quote-recap-lot {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #FCFCFE;
+  margin-bottom: 14px;
+}
+
+.quote-recap-lot-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 12px;
+}
+
+.quote-recap-lot-name {
+  color: var(--navy);
+  font-size: 0.92rem;
+}
+
+.quote-recap-lot-name-input {
+  width: 190px;
+  font-weight: 700;
+}
+
+.quote-recap-lot-head > span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.recap-lot-detail-toggle {
+  margin-left: auto;
+}
+
+.quote-recap-lot-total {
+  color: var(--navy);
+  font-size: 1rem;
+  width: 100px;
+  text-align: right;
+}
+
+.quote-recap-col-headers {
+  display: grid;
+  grid-template-columns: 4fr 0.7fr 0.6fr 1fr 1.1fr auto;
+  gap: 10px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+.quote-recap-col-headers span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.quote-recap-line-block {
+  padding: 10px 0 12px;
+  border-bottom: 1px solid #F4F4F8;
+}
+
+.quote-recap-line-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.recap-source-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.recap-source-koji {
+  background: #E8ECFD;
+  color: #3B5BDB;
+}
+
+.recap-source-perso {
+  background: #FDF3DC;
+  color: #B7791F;
+}
+
+.recap-source-libre {
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.recap-source-caption {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.quote-recap-lot-actions {
+  display: flex;
+  gap: 18px;
+  padding-top: 10px;
+}
+
+.quote-recap-add-lot {
+  height: 50px;
+  border-radius: 12px;
+  border: 1.5px dashed #CBD0E0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.quote-recap-totals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quote-recap-totals-list > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 0.86rem;
+}
+
+.quote-recap-totals-list > div > span {
+  color: var(--muted);
+}
+
+.quote-recap-totals-list > div > strong {
+  color: var(--navy);
+}
+
+.quote-recap-total-ttc {
+  background: var(--navy);
+  border-radius: 14px;
+  padding: 8px 16px;
+  margin-top: 6px;
+}
+
+.quote-recap-total-ttc span,
+.quote-recap-total-ttc strong {
+  color: white !important;
+}
+
+.quote-recap-total-ttc strong {
+  font-size: 1.2rem;
+}
+
+.quote-recap-deposit-row {
+  padding-top: 10px !important;
+}
+
+.quote-recap-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quote-recap-checklist li {
+  position: relative;
+  padding-left: 30px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.quote-recap-checklist li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--soft);
+}
+
+.quote-recap-checklist li.done {
+  color: var(--text);
+}
+
+.quote-recap-checklist li.done::before {
+  background: #E6F5EE;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231E8E5A' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px;
+}
+
+.quote-recap-checklist li.warn {
+  color: #B7791F;
+}
+
+.quote-recap-checklist li.warn::before {
+  background: #FDF3DC;
+}
+
+.quote-recap-checklist li small {
+  display: block;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.76rem;
+  margin-top: 2px;
+}
+
+.quote-recap-preview-btn {
+  width: 100%;
+}
+
+.quote-recap-footer-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 8px 24px rgba(0, 11, 40, 0.06);
+}
+
+.quote-recap-footer-text {
+  flex: 1 1 auto;
+}
+
+.quote-recap-footer-text strong {
+  display: block;
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.quote-recap-footer-text p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.quote-recap-footer-bar .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.link-button {
+  border: none;
+  background: transparent;
+  color: var(--blue);
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Page "Envoyer le devis" (components/SendQuoteFlow.jsx, 24 oct) —
+   complements .send-quote-* deja stylees (fenetre/form/checklist/footer). */
+.send-quote-dest-toggle {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.send-quote-dest-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.send-quote-dest-list {
+  margin-bottom: 14px;
+}
+
+.send-quote-channels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.send-quote-channel {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.send-quote-channel.checked {
+  border-color: var(--blue);
+  background: var(--soft);
+}
+
+.send-quote-channel strong {
+  display: block;
+  color: var(--navy);
+  font-size: 0.86rem;
+}
+
+.send-quote-channel small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  word-break: break-word;
+}
+
+.send-quote-preview {
+  background: var(--soft);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.send-quote-preview-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.send-quote-preview p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.send-quote-preview-pdf {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: var(--navy);
+}
+
 .room-add-bottom-card {
   background: white;
   border-radius: 14px;
@@ -12840,8 +13232,15 @@ body :where(
   .quote-two-col,
   .quote-total-panel-compact,
   .quote-documents-grid,
-  .recap-identity-grid {
+  .recap-identity-grid,
+  .quote-recap-layout,
+  .send-quote-channels {
     grid-template-columns: 1fr;
+  }
+
+  .quote-recap-footer-bar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .quote-tools-drawer-trigger {
