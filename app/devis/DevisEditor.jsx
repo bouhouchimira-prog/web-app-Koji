@@ -7,6 +7,7 @@ import { Shell } from "../../components/Shell";
 import { AddressFields } from "../../components/AddressFields";
 import { SendQuoteModal } from "../../components/SendQuoteModal";
 import { DevisChatPanel } from "../../components/DevisChatPanel";
+import { MarketplaceContactPicker } from "../../components/MarketplaceContactPicker";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
@@ -341,6 +342,14 @@ export default function DevisEditor() {
   // serveur (meme principe que editQuoteIdFromUrl, toujours lu dans un
   // useEffect plus bas, jamais dans un useState).
   const [mode, setMode] = useState("manuel");
+  // Page Recapitulatif (23 oct) : mode === "recap" est une 3e valeur, pas
+  // un ecran separe — recapOrigin retient d'ou on vient ("manuel"/"ia")
+  // pour que "Modifier" y revienne ; quoteValidated distingue "en cours de
+  // relecture" (bouton Valider visible) de "deja enregistre" (options
+  // d'envoi visibles), sans ajouter un 4e mode.
+  const [recapOrigin, setRecapOrigin] = useState("manuel");
+  const [quoteValidated, setQuoteValidated] = useState(false);
+  const [marketplacePickerOpen, setMarketplacePickerOpen] = useState(false);
   useEffect(() => {
     if (modeFromUrl() === "ia") setMode("ia");
   }, []);
@@ -2097,29 +2106,57 @@ export default function DevisEditor() {
     }
   }
 
-  async function handleGenerate() {
+  // "Enregistrer"/"Confirmer" ne persistent plus directement (23 oct,
+  // demande d'Amira) — ils menent maintenant vers la page Recapitulatif
+  // (mode "recap"), qui est le seul endroit ou le devis est vraiment
+  // enregistre comme "Pret a envoyer" (voir validateQuote ci-dessous).
+  // L'autosave existant continue de sauvegarder le brouillon en arriere-
+  // plan, inchange — ces boutons ne font qu'ouvrir l'etape de relecture.
+  function enterRecap(fromMode) {
+    setRecapOrigin(fromMode);
+    setQuoteValidated(false);
+    setMode("recap");
+  }
+
+  function goToRecap() {
+    if (!requireLines()) return;
+    enterRecap(mode === "recap" ? (recapOrigin || "manuel") : mode);
+  }
+
+  const handleGenerate = goToRecap;
+  const handleConfirm = goToRecap;
+
+  // Bouton "Valider ce devis" de la page Recapitulatif — c'est ICI que le
+  // devis est reellement enregistre (persistQuote) ET marque "Pret a
+  // envoyer" (action "ready", deja gere cote serveur par
+  // app/api/quotes/route.js). Revient a `goToRecap` si echec : la page
+  // reste affichee, rien n'est perdu (autosave continue de tourner).
+  async function validateQuote() {
     if (!requireLines()) return;
     try {
-      const quote = await persistQuote();
-      notify(`Devis ${quote.quoteNumber} généré. Les documents sont prêts.`, "success");
+      const saved = await persistQuote();
+      const { quote } = await apiSend("/api/quotes", { id: saved.id, action: "ready" }, "PATCH");
+      setGeneratedQuote(quote);
+      setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+      // Genere tout de suite le lien de consultation client
+      // (signatureDelivery, via la meme action "send" deja utilisee par
+      // "Regenerer" — n'envoie PAS d'email ici, juste l'acces) pour que les
+      // boutons WhatsApp/SMS/email de la section D soient utilisables
+      // immediatement, sans etape intermediaire.
+      await sendQuoteToSignature(quote.id);
+      setQuoteValidated(true);
+      notify(`Devis ${quote.quoteNumber} enregistré. Vous pouvez maintenant l'envoyer.`, "success");
     } catch (error) {
-      notifyError(error, "Impossible de générer le devis.");
+      notifyError(error, "Impossible d'enregistrer le devis.");
     }
   }
 
-  async function handleConfirm() {
-    if (!requireLines()) return;
-    if (!window.confirm("Confirmer ce devis ? Il sera enregistré et vous pourrez y revenir plus tard.")) {
-      notify("Confirmation annulée.", "info");
-      return;
-    }
-    try {
-      const quote = await persistQuote();
-      notify(`Devis ${quote.quoteNumber} confirmé et enregistré. Les documents sont prêts.`, "success");
-      window.location.assign("/");
-    } catch (error) {
-      notifyError(error, "Impossible de confirmer le devis.");
-    }
+  // "Modifier" sur la page Recapitulatif : revient au mode d'origine
+  // (Manuel ou Avec l'IA, selon d'ou on est arrive) — rien n'est perdu,
+  // l'autosave a deja tout sauvegarde en brouillon pendant la relecture.
+  function backToEditingFromRecap() {
+    setQuoteValidated(false);
+    setMode(recapOrigin || "manuel");
   }
 
   // Bouton "Envoyer" de l'en-tete (16 oct) : ouvre desormais la fenetre
@@ -2268,6 +2305,15 @@ export default function DevisEditor() {
   const signaturePhoneDigits = String(signaturePhone).replace(/[^\d]/g, "");
   const signatureMailHref = signatureDelivery
     ? `mailto:${encodeURIComponent(signatureEmail)}?subject=${encodeURIComponent(`Signature du devis ${generatedQuote?.quoteNumber || ""}`)}&body=${encodeURIComponent(signatureText)}`
+    : "#";
+  // Lien SMS manuel (23 oct, decision d'Amira : pas d'integration operateur
+  // payante pour l'instant) — meme principe que signatureWhatsAppHref
+  // ci-dessous : ouvre l'appli SMS du telephone avec le message pre-rempli,
+  // l'entreprise envoie elle-meme. "sms:" + "&body=" fonctionne sur la
+  // quasi-totalite des appareils (iOS/Android recents) ; un appareil plus
+  // ancien ignore simplement le parametre, le numero reste pre-rempli.
+  const signatureSmsHref = signatureDelivery
+    ? `sms:${signaturePhoneDigits || ""}?&body=${encodeURIComponent(signatureText)}`
     : "#";
   const signatureWhatsAppHref = signatureDelivery
     ? `https://wa.me/${signaturePhoneDigits || ""}?text=${encodeURIComponent(signatureText)}`
@@ -2817,9 +2863,423 @@ export default function DevisEditor() {
 
         <div className="quote-ia-preview-actions">
           <button type="button" className="button secondary" onClick={() => setMode("manuel")}>Passer en édition manuelle</button>
-          <button type="button" className="button blue" onClick={() => setMode("manuel")}>Valider et ajuster</button>
+          <button type="button" className="button blue" onClick={goToRecap}>Valider et ajuster</button>
         </div>
       </section>
+    );
+  }
+
+  // Section "Frais additionnels" + "Modalites de paiement" (23 oct) —
+  // extraite en fonction partagee pour etre affichee a la fois dans le
+  // panneau a onglets du mode Manuel (emplacement d'origine, inchange
+  // visuellement) et dans la nouvelle page Recapitulatif
+  // (renderRecapView ci-dessous) : memes etats (surcharges,
+  // conditioningOpen, paymentCardOpen...), aucune duplication de logique.
+  function renderConditioningAndPaymentCards() {
+    return (
+      <>
+        <section className="quote-final-card quote-conditioning-toggle-card">
+          <button type="button" className="quote-conditioning-toggle" onClick={() => setConditioningOpen((open) => !open)} aria-expanded={conditioningOpen}>
+            <span>{L.devis.conditioning}</span>
+            <svg className={`svg-icon ${conditioningOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </button>
+            </section>
+
+            {conditioningOpen ? (
+        <section className="quote-recap-card">
+          <div className="recap-title-row">
+            <div>
+              <p className="recap-title-hint">{L.devis.clickStatus}</p>
+            </div>
+            <div className="recap-mode-legend">
+              <span className="recap-legend-chip recap-legend-excluded">{L.devis.notCounted}</span>
+              <span className="recap-legend-chip recap-legend-internal">{L.devis.includedHidden}</span>
+              <span className="recap-legend-chip recap-legend-client">{L.devis.visibleClient}</span>
+            </div>
+          </div>
+
+          {roomGroups.map((room) => {
+            const roomHt = (linesByRoom[room] || []).reduce((s, l) => s + l.totalHt, 0);
+            if (roomHt === 0 && room === "Services") return null;
+            return (
+              <div className="recap-row recap-room-row" key={room}>
+                <span>{room === "Services" ? L.devis.generalWorks : room}</span>
+                <strong>{money(roomHt)}</strong>
+              </div>
+            );
+          })}
+
+          {surcharges.map((s) => {
+            const line = summaryTotals.surchargeLines.find((x) => x.id === s.id);
+            return (
+              <div className={`recap-row recap-surcharge-row recap-surcharge-mode-${s.mode ?? "excluded"}`} key={s.id}>
+                <div className="recap-surcharge-checks">
+                  <div className="surcharge-mode-pill">
+                    <button
+                      type="button"
+                      className={(s.mode ?? "excluded") === "excluded" ? "active" : ""}
+                      onClick={() => updateSurcharge(s.id, "mode", "excluded")}
+                    >
+                      {L.devis.notCounted}
+                    </button>
+                    <button
+                      type="button"
+                      className={s.mode === "internal" ? "active" : ""}
+                      onClick={() => updateSurcharge(s.id, "mode", "internal")}
+                    >
+                      {L.devis.includedHidden}
+                    </button>
+                    <button
+                      type="button"
+                      className={s.mode === "client" ? "active" : ""}
+                      onClick={() => updateSurcharge(s.id, "mode", "client")}
+                    >
+                      {L.devis.visibleClient}
+                    </button>
+                  </div>
+                  <label className="recap-check-label recap-surcharge-base" title={L.devis.calculationBaseHint}>
+                    {L.devis.calculationBase}
+                    <select
+                      value={s.calculationBase === "chiffrage_cumule" ? "chiffrage_cumule" : "total_lots"}
+                      onChange={(e) => updateSurcharge(s.id, "calculationBase", e.target.value)}
+                    >
+                      <option value="total_lots">{L.devis.calculationBaseLots}</option>
+                      <option value="chiffrage_cumule">{L.devis.calculationBaseCumulative}</option>
+                    </select>
+                  </label>
+                </div>
+                <input
+                  className="recap-surcharge-label"
+                  value={s.label}
+                  onChange={(e) => updateSurcharge(s.id, "label", e.target.value)}
+                  placeholder="Libellé (ex: Coordination...)"
+                />
+                <input
+                  type="number"
+                  className="recap-surcharge-pct"
+                  value={s.percent}
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
+                />
+                <span className="recap-pct-sym">%</span>
+                <strong className="recap-surcharge-amount">
+                  {s.mode === "excluded" ? <span className="recap-surcharge-dim">{money(line?.amount ?? 0)}</span> : money(line?.amount ?? 0)}
+                </strong>
+                <button type="button" className="recap-remove-btn" onClick={() => removeSurcharge(s.id)} aria-label="Supprimer">×</button>
+              </div>
+            );
+          })}
+
+          <button type="button" className="recap-add-surcharge" onClick={addSurcharge}>{L.devis.addLine}</button>
+
+          <div className="recap-divider" />
+
+          <div className="recap-row recap-total-ht">
+            <span>{L.devis.totalHtGen}</span>
+            <strong>{money(summaryTotals.totalHt)}</strong>
+          </div>
+
+          <div className="recap-row recap-tva-row">
+            <span>TVA</span>
+            <div className="recap-tva-controls">
+              {vatManual ? (
+                <>
+                  <input
+                    type="number"
+                    className="recap-tva-input"
+                    value={quoteVatRate}
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    onChange={(e) => setQuoteVatRate(Math.max(0, Number(e.target.value) || 0))}
+                  />
+                  <span className="recap-pct-sym">%</span>
+                  <button type="button" className="recap-tva-switch" onClick={() => setVatManual(false)}>{L.devis.choose}</button>
+                </>
+              ) : (
+                <>
+                  <select
+                    className="recap-tva-select"
+                    value={[5.5, 10, 20].includes(Number(quoteVatRate)) ? String(quoteVatRate) : "autre"}
+                    onChange={(e) => {
+                      if (e.target.value === "autre") {
+                        setVatManual(true);
+                      } else {
+                        setQuoteVatRate(Number(e.target.value));
+                      }
+                    }}
+                  >
+                    <option value="5.5">5,5 %</option>
+                    <option value="10">10 %</option>
+                    <option value="20">20 %</option>
+                    <option value="autre">{L.devis.vatOther}</option>
+                  </select>
+                </>
+              )}
+            </div>
+            <strong>{money(summaryTotals.vatAmount)}</strong>
+          </div>
+
+          <div className="recap-row recap-total-ttc">
+            <span>{L.devis.totalTtcGen}</span>
+            <strong>{money(summaryTotals.totalTtc)}</strong>
+          </div>
+        </section>
+            ) : null}
+
+            <section className="quote-final-card quote-conditioning-toggle-card">
+              <button type="button" className="quote-conditioning-toggle" onClick={() => setPaymentCardOpen((open) => !open)} aria-expanded={paymentCardOpen}>
+                <span>{L.devis.paymentTitle}</span>
+                <svg className={`svg-icon ${paymentCardOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+              </button>
+            </section>
+
+            {paymentCardOpen ? (
+              <section className="quote-final-card quote-payment-card">
+                <div className="payment-fields-grid">
+                  <label className="payment-field">
+                    <span>IBAN</span>
+                    <input
+                      value={company.iban || ""}
+                      onChange={(e) => setCompanyField("iban", e.target.value)}
+                      placeholder="FR76 3000 6000 0112 3456 7890 189"
+                    />
+                  </label>
+                  <label className="payment-field">
+                    <span>BIC / SWIFT</span>
+                    <input
+                      value={company.bic || ""}
+                      onChange={(e) => setCompanyField("bic", e.target.value)}
+                      placeholder="BNPAFRPP"
+                    />
+                  </label>
+                  <label className="payment-field">
+                    <span>{L.devis.accountHolder}</span>
+                    <input
+                      value={company.bankHolder || ""}
+                      onChange={(e) => setCompanyField("bankHolder", e.target.value)}
+                      placeholder="Nom du titulaire"
+                    />
+                  </label>
+                </div>
+
+                <div className="payment-fields-grid payment-acompte-row">
+                  <label className="payment-field">
+                    <span>{L.devis.depositLabel}</span>
+                    <div className="payment-field-suffix">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={paymentMilestones[0]?.percent ?? 30}
+                        onChange={(e) => updateAcomptePercent(e.target.value)}
+                      />
+                      <span>%</span>
+                    </div>
+                  </label>
+                  <label className="payment-field">
+                    <span>{L.devis.soldeLabel}</span>
+                    <input
+                      value={(paymentMilestones[1]?.label || "").replace(/^Solde( —\s*)?/, "")}
+                      onChange={(e) => updateSoldeLabel(e.target.value ? `Solde — ${e.target.value}` : "Solde")}
+                      placeholder="À la réception des travaux"
+                    />
+                  </label>
+                  <label className="payment-field">
+                    <span>{L.devis.validityLabel}</span>
+                    <select value={form.validityDays || 30} onChange={(e) => setField("validityDays", Number(e.target.value))}>
+                      <option value="15">15 {L.devis.days}</option>
+                      <option value="30">30 {L.devis.days}</option>
+                      <option value="45">45 {L.devis.days}</option>
+                      <option value="60">60 {L.devis.days}</option>
+                      <option value="90">90 {L.devis.days}</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="payment-field payment-field-wide">
+                  <span>{L.devis.paymentCond}</span>
+                  <textarea
+                    className="payment-terms-textarea"
+                    value={company.paymentTerms || ""}
+                    onChange={(e) => setCompanyField("paymentTerms", e.target.value)}
+                    placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
+                    rows={3}
+                  />
+                </label>
+
+                <div className="payment-acompte-summary-bar">
+                  <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30}%)</span>
+                  <strong>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</strong>
+                </div>
+              </section>
+            ) : null}
+      </>
+    );
+  }
+
+  // Page "Recapitulatif" (23 oct, demande d'Amira) — relecture finale,
+  // visuellement proche du PDF (lib/document-generator.js::buildQuotePdf),
+  // avant l'enregistrement "pour de vrai" du devis (validateQuote). Reutilise
+  // les memes fonctions d'edition que le mode Manuel (updateLineLabel,
+  // updateLine, updateLineUnitPrice, removeQuoteLine) et le meme bloc
+  // Conditionnement/Paiement (renderConditioningAndPaymentCards juste
+  // au-dessus) — aucun nouveau moteur de calcul nulle part dans cette page.
+  function renderRecapView() {
+    return (
+      <div className="quote-recap-page">
+        <section className="quote-final-card">
+          <div className="quote-section-title">
+            <div>
+              <span>{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</span>
+              <h2>{L.devis.recapTitle}</h2>
+            </div>
+          </div>
+
+          <div className="recap-identity-grid">
+            <div className="recap-identity-col">
+              <strong>{company.name}</strong>
+              {company.address ? <span>{company.address}</span> : null}
+              {company.email ? <span>{company.email}</span> : null}
+              {company.phone ? <span>{company.phone}</span> : null}
+            </div>
+            <div className="recap-identity-col">
+              <label className="recap-field">
+                <span>{L.devis.client}</span>
+                <input value={form.client} onChange={(e) => setField("client", e.target.value)} />
+              </label>
+              <label className="recap-field">
+                <span>{L.devis.clientPhone}</span>
+                <input value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} />
+              </label>
+              <label className="recap-field">
+                <span>{L.devis.clientEmail}</span>
+                <input value={form.clientEmail} onChange={(e) => setField("clientEmail", e.target.value)} />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section className="quote-final-card">
+          <div className="quote-section-title"><h2>{L.devis.siteAddressTitle}</h2></div>
+          <label className="recap-field recap-field-wide">
+            <span>{L.devis.clientAddress}</span>
+            <input value={form.chantierAddress} onChange={(e) => setField("chantierAddress", e.target.value)} />
+          </label>
+          <div className="recap-identity-grid">
+            <label className="recap-field">
+              <span>{L.devis.startDate}</span>
+              <input type="date" value={form.startDate || ""} onChange={(e) => setField("startDate", e.target.value)} />
+            </label>
+            <label className="recap-field">
+              <span>{L.devis.expectedDur}</span>
+              <input value={form.expectedDuration} onChange={(e) => setField("expectedDuration", e.target.value)} />
+            </label>
+          </div>
+          <label className="recap-field recap-field-wide">
+            <span>{L.devis.workDescTitle}</span>
+            <textarea rows={3} value={form.workDescription} onChange={(e) => setField("workDescription", e.target.value)} />
+          </label>
+        </section>
+
+        <section className="quote-final-card">
+          <div className="quote-section-title"><h2>{L.devis.recapLotsTitle}</h2></div>
+          {roomGroups.every((room) => (linesByRoom[room] || []).length === 0) ? (
+            <div className="empty-state">{L.devis.noLinesYet}</div>
+          ) : (
+            roomGroups.map((room) => {
+              const roomLines = linesByRoom[room] || [];
+              if (!roomLines.length) return null;
+              const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+              return (
+                <div className="quote-ia-preview-lot" key={room}>
+                  <div className="quote-ia-preview-lot-head">
+                    <strong>{room === "Services" ? L.devis.generalWorks : room}</strong>
+                    <span>{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""}</span>
+                    <strong>{money(roomTotalHt)}</strong>
+                  </div>
+                  {roomLines.map((line) => {
+                    const qty = Number(line.quantity || 0);
+                    const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
+                    return (
+                      <div className="quote-recap-line" key={line.id}>
+                        <input
+                          className="quote-recap-line-label"
+                          value={line.label}
+                          onChange={(e) => updateLineLabel(line.id, e.target.value)}
+                        />
+                        <input
+                          type="number"
+                          className="quote-ia-preview-input"
+                          value={qty || ""}
+                          onChange={(event) => updateLine(line.id, "quantity", event.target.value)}
+                          min="0"
+                          step="any"
+                        />
+                        <input
+                          className="quote-ia-preview-input quote-recap-line-unit"
+                          value={line.unit}
+                          onChange={(e) => updateLine(line.id, "unit", e.target.value)}
+                        />
+                        <input
+                          type="number"
+                          className="quote-ia-preview-input"
+                          value={round2(unitPriceHt) || ""}
+                          onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)}
+                          min="0"
+                          step="any"
+                        />
+                        <strong>{money(line.totalHt)}</strong>
+                        <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label={L.common.remove}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </section>
+
+        {renderConditioningAndPaymentCards()}
+
+        {!quoteValidated ? (
+          <section className="quote-final-card quote-recap-validate-card">
+            <p>{L.devis.recapValidateHint}</p>
+            <div className="quote-recap-actions">
+              <button type="button" className="button secondary" onClick={backToEditingFromRecap}>{L.devis.recapEdit}</button>
+              <button type="button" className="button blue" onClick={validateQuote}>{L.devis.recapValidate}</button>
+            </div>
+          </section>
+        ) : (
+          <section className="quote-final-card quote-recap-send-card">
+            <div className="quote-section-title"><h2>{L.devis.recapSendTitle}</h2></div>
+            <div className="recap-send-options">
+              <button type="button" className="signature-channel" onClick={() => handleDownload("quote", "pdf")}>{L.devis.recapSendPdf}</button>
+              <button type="button" className="signature-channel primary" onClick={() => setSendModalOpen(true)}>{L.devis.emailClient}</button>
+              <a className="signature-channel" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>
+              <a className="signature-channel" href={signatureSmsHref}>SMS</a>
+              <button type="button" className="signature-channel" onClick={() => setMarketplacePickerOpen(true)}>{L.devis.recapSendMarketplace}</button>
+            </div>
+            <button type="button" className="button secondary" onClick={backToEditingFromRecap}>{L.devis.recapEdit}</button>
+          </section>
+        )}
+
+        {marketplacePickerOpen ? (
+          <MarketplaceContactPicker
+            onClose={() => setMarketplacePickerOpen(false)}
+            onPick={(contact) => {
+              setField("client", contact.clientName || form.client);
+              setField("clientEmail", contact.clientEmail || form.clientEmail);
+              setField("clientPhone", contact.clientPhone || form.clientPhone);
+              setMarketplacePickerOpen(false);
+              notify("Coordonnées du contact appliquées au devis.", "success");
+            }}
+          />
+        ) : null}
+      </div>
     );
   }
 
@@ -2875,7 +3335,12 @@ export default function DevisEditor() {
           onClick={() => setToolsDrawerOpen(false)}
         />
 
-        <div className={`quote-two-col${mode === "ia" ? " quote-two-col-ia" : ""}`}>
+        {mode === "recap" ? renderRecapView() : null}
+
+        {/* Cache (pas demonte) plutot que conditionne, meme principe deja
+            utilise plus bas pour le corps Manuel en mode IA (:2918/:3062) —
+            l'etat du formulaire/chat reste vivant pendant la relecture. */}
+        <div className={`quote-two-col${mode === "ia" ? " quote-two-col-ia" : ""}`} style={mode === "recap" ? { display: "none" } : undefined}>
           <div className="quote-col-left">
             {mode === "ia" ? (
               <DevisChatPanel
@@ -2887,7 +3352,7 @@ export default function DevisEditor() {
                 onSetPrice={applyAiManualPrice}
                 onSetClient={applyChatClientInfo}
                 onAutoSave={() => persistQuote(false)}
-                onFinish={() => setMode("manuel")}
+                onFinish={() => enterRecap("ia")}
               />
             ) : null}
             <div style={mode === "ia" ? { display: "none" } : undefined}>
@@ -3339,245 +3804,7 @@ export default function DevisEditor() {
           </div>
         </div>
 
-        <section className="quote-final-card quote-conditioning-toggle-card">
-          <button type="button" className="quote-conditioning-toggle" onClick={() => setConditioningOpen((open) => !open)} aria-expanded={conditioningOpen}>
-            <span>{L.devis.conditioning}</span>
-            <svg className={`svg-icon ${conditioningOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </section>
-
-            {conditioningOpen ? (
-        <section className="quote-recap-card">
-          <div className="recap-title-row">
-            <div>
-              <p className="recap-title-hint">{L.devis.clickStatus}</p>
-            </div>
-            <div className="recap-mode-legend">
-              <span className="recap-legend-chip recap-legend-excluded">{L.devis.notCounted}</span>
-              <span className="recap-legend-chip recap-legend-internal">{L.devis.includedHidden}</span>
-              <span className="recap-legend-chip recap-legend-client">{L.devis.visibleClient}</span>
-            </div>
-          </div>
-
-          {roomGroups.map((room) => {
-            const roomHt = (linesByRoom[room] || []).reduce((s, l) => s + l.totalHt, 0);
-            if (roomHt === 0 && room === "Services") return null;
-            return (
-              <div className="recap-row recap-room-row" key={room}>
-                <span>{room === "Services" ? L.devis.generalWorks : room}</span>
-                <strong>{money(roomHt)}</strong>
-              </div>
-            );
-          })}
-
-          {surcharges.map((s) => {
-            const line = summaryTotals.surchargeLines.find((x) => x.id === s.id);
-            return (
-              <div className={`recap-row recap-surcharge-row recap-surcharge-mode-${s.mode ?? "excluded"}`} key={s.id}>
-                <div className="recap-surcharge-checks">
-                  <div className="surcharge-mode-pill">
-                    <button
-                      type="button"
-                      className={(s.mode ?? "excluded") === "excluded" ? "active" : ""}
-                      onClick={() => updateSurcharge(s.id, "mode", "excluded")}
-                    >
-                      {L.devis.notCounted}
-                    </button>
-                    <button
-                      type="button"
-                      className={s.mode === "internal" ? "active" : ""}
-                      onClick={() => updateSurcharge(s.id, "mode", "internal")}
-                    >
-                      {L.devis.includedHidden}
-                    </button>
-                    <button
-                      type="button"
-                      className={s.mode === "client" ? "active" : ""}
-                      onClick={() => updateSurcharge(s.id, "mode", "client")}
-                    >
-                      {L.devis.visibleClient}
-                    </button>
-                  </div>
-                  <label className="recap-check-label recap-surcharge-base" title={L.devis.calculationBaseHint}>
-                    {L.devis.calculationBase}
-                    <select
-                      value={s.calculationBase === "chiffrage_cumule" ? "chiffrage_cumule" : "total_lots"}
-                      onChange={(e) => updateSurcharge(s.id, "calculationBase", e.target.value)}
-                    >
-                      <option value="total_lots">{L.devis.calculationBaseLots}</option>
-                      <option value="chiffrage_cumule">{L.devis.calculationBaseCumulative}</option>
-                    </select>
-                  </label>
-                </div>
-                <input
-                  className="recap-surcharge-label"
-                  value={s.label}
-                  onChange={(e) => updateSurcharge(s.id, "label", e.target.value)}
-                  placeholder="Libellé (ex: Coordination...)"
-                />
-                <input
-                  type="number"
-                  className="recap-surcharge-pct"
-                  value={s.percent}
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
-                />
-                <span className="recap-pct-sym">%</span>
-                <strong className="recap-surcharge-amount">
-                  {s.mode === "excluded" ? <span className="recap-surcharge-dim">{money(line?.amount ?? 0)}</span> : money(line?.amount ?? 0)}
-                </strong>
-                <button type="button" className="recap-remove-btn" onClick={() => removeSurcharge(s.id)} aria-label="Supprimer">×</button>
-              </div>
-            );
-          })}
-
-          <button type="button" className="recap-add-surcharge" onClick={addSurcharge}>{L.devis.addLine}</button>
-
-          <div className="recap-divider" />
-
-          <div className="recap-row recap-total-ht">
-            <span>{L.devis.totalHtGen}</span>
-            <strong>{money(summaryTotals.totalHt)}</strong>
-          </div>
-
-          <div className="recap-row recap-tva-row">
-            <span>TVA</span>
-            <div className="recap-tva-controls">
-              {vatManual ? (
-                <>
-                  <input
-                    type="number"
-                    className="recap-tva-input"
-                    value={quoteVatRate}
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    onChange={(e) => setQuoteVatRate(Math.max(0, Number(e.target.value) || 0))}
-                  />
-                  <span className="recap-pct-sym">%</span>
-                  <button type="button" className="recap-tva-switch" onClick={() => setVatManual(false)}>{L.devis.choose}</button>
-                </>
-              ) : (
-                <>
-                  <select
-                    className="recap-tva-select"
-                    value={[5.5, 10, 20].includes(Number(quoteVatRate)) ? String(quoteVatRate) : "autre"}
-                    onChange={(e) => {
-                      if (e.target.value === "autre") {
-                        setVatManual(true);
-                      } else {
-                        setQuoteVatRate(Number(e.target.value));
-                      }
-                    }}
-                  >
-                    <option value="5.5">5,5 %</option>
-                    <option value="10">10 %</option>
-                    <option value="20">20 %</option>
-                    <option value="autre">{L.devis.vatOther}</option>
-                  </select>
-                </>
-              )}
-            </div>
-            <strong>{money(summaryTotals.vatAmount)}</strong>
-          </div>
-
-          <div className="recap-row recap-total-ttc">
-            <span>{L.devis.totalTtcGen}</span>
-            <strong>{money(summaryTotals.totalTtc)}</strong>
-          </div>
-        </section>
-            ) : null}
-
-            <section className="quote-final-card quote-conditioning-toggle-card">
-              <button type="button" className="quote-conditioning-toggle" onClick={() => setPaymentCardOpen((open) => !open)} aria-expanded={paymentCardOpen}>
-                <span>{L.devis.paymentTitle}</span>
-                <svg className={`svg-icon ${paymentCardOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </section>
-
-            {paymentCardOpen ? (
-              <section className="quote-final-card quote-payment-card">
-                <div className="payment-fields-grid">
-                  <label className="payment-field">
-                    <span>IBAN</span>
-                    <input
-                      value={company.iban || ""}
-                      onChange={(e) => setCompanyField("iban", e.target.value)}
-                      placeholder="FR76 3000 6000 0112 3456 7890 189"
-                    />
-                  </label>
-                  <label className="payment-field">
-                    <span>BIC / SWIFT</span>
-                    <input
-                      value={company.bic || ""}
-                      onChange={(e) => setCompanyField("bic", e.target.value)}
-                      placeholder="BNPAFRPP"
-                    />
-                  </label>
-                  <label className="payment-field">
-                    <span>{L.devis.accountHolder}</span>
-                    <input
-                      value={company.bankHolder || ""}
-                      onChange={(e) => setCompanyField("bankHolder", e.target.value)}
-                      placeholder="Nom du titulaire"
-                    />
-                  </label>
-                </div>
-
-                <div className="payment-fields-grid payment-acompte-row">
-                  <label className="payment-field">
-                    <span>{L.devis.depositLabel}</span>
-                    <div className="payment-field-suffix">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={paymentMilestones[0]?.percent ?? 30}
-                        onChange={(e) => updateAcomptePercent(e.target.value)}
-                      />
-                      <span>%</span>
-                    </div>
-                  </label>
-                  <label className="payment-field">
-                    <span>{L.devis.soldeLabel}</span>
-                    <input
-                      value={(paymentMilestones[1]?.label || "").replace(/^Solde( —\s*)?/, "")}
-                      onChange={(e) => updateSoldeLabel(e.target.value ? `Solde — ${e.target.value}` : "Solde")}
-                      placeholder="À la réception des travaux"
-                    />
-                  </label>
-                  <label className="payment-field">
-                    <span>{L.devis.validityLabel}</span>
-                    <select value={form.validityDays || 30} onChange={(e) => setField("validityDays", Number(e.target.value))}>
-                      <option value="15">15 {L.devis.days}</option>
-                      <option value="30">30 {L.devis.days}</option>
-                      <option value="45">45 {L.devis.days}</option>
-                      <option value="60">60 {L.devis.days}</option>
-                      <option value="90">90 {L.devis.days}</option>
-                    </select>
-                  </label>
-                </div>
-
-                <label className="payment-field payment-field-wide">
-                  <span>{L.devis.paymentCond}</span>
-                  <textarea
-                    className="payment-terms-textarea"
-                    value={company.paymentTerms || ""}
-                    onChange={(e) => setCompanyField("paymentTerms", e.target.value)}
-                    placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
-                    rows={3}
-                  />
-                </label>
-
-                <div className="payment-acompte-summary-bar">
-                  <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30}%)</span>
-                  <strong>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</strong>
-                </div>
-              </section>
-            ) : null}
+        {mode === "manuel" ? renderConditioningAndPaymentCards() : null}
 
         {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
 

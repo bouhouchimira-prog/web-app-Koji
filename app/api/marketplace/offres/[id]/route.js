@@ -4,7 +4,7 @@ import { getVerifiedUserId } from "../../../../../lib/server-auth";
 import { hasConfirmedRdv } from "../../../../../lib/rdv";
 import { hasPhotoAccess } from "../../../../../lib/photo-access";
 import { fixText } from "../../../../../lib/text";
-import { maskedCityPostal } from "../../../../../lib/offer-privacy";
+import { clientContactFields } from "../../../../../lib/offer-privacy";
 
 // Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers.
 // Regle unique (decisions du 4 septembre) : aucune coordonnee visible
@@ -12,8 +12,11 @@ import { maskedCityPostal } from "../../../../../lib/offer-privacy";
 // n'est pas confirme — l'echange passe par la messagerie interne. Les
 // photos suivent une regle independante : masquees par defaut, debloquees
 // par le particulier entreprise par entreprise (lib/photo-access.js).
+// clientContactFields (lib/offer-privacy.js, 23 oct) centralise la partie
+// coordonnees/adresse, reutilisee telle quelle par
+// app/api/marketplace/mes-chantiers/route.js — jamais reecrite 2 fois.
 function detailOffer(offer, rdvUnlocked, photosUnlocked) {
-  const base = {
+  return {
     id: offer.id,
     photos: photosUnlocked ? (Array.isArray(offer.photos) ? offer.photos : []) : [],
     photosCount: Array.isArray(offer.photos) ? offer.photos.length : 0,
@@ -24,28 +27,8 @@ function detailOffer(offer, rdvUnlocked, photosUnlocked) {
     delaiEstimeJours: offer.delaiEstimeJours || null,
     status: offer.status,
     createdAt: offer.createdAt,
-    rdvConfirmed: rdvUnlocked
-  };
-
-  if (rdvUnlocked) {
-    return {
-      ...base,
-      address: fixText(offer.address || ""),
-      clientName: fixText(offer.clientName || "Particulier"),
-      clientEmail: offer.clientEmail || "",
-      clientPhone: fixText(offer.clientPhone || "")
-    };
-  }
-
-  return {
-    ...base,
-    address: maskedCityPostal(offer),
-    // Le nom du client fuyait ici meme sans RDV confirme (12 oct, bug
-    // remonte par Amira) — reste generique tant que le RDV n'est pas
-    // confirme, meme regle que l'adresse/email/telephone ci-dessus.
-    clientName: "Particulier",
-    clientEmail: "",
-    clientPhone: ""
+    rdvConfirmed: rdvUnlocked,
+    ...clientContactFields(offer, rdvUnlocked)
   };
 }
 
