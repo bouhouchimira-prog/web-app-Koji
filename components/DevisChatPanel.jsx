@@ -10,6 +10,21 @@ import { useEffect, useRef, useState } from "react";
 // ouvert via les callbacks passes en props (memes fonctions que les
 // boutons "Ajouter" manuels de DevisEditor.jsx) — ce chat ne stocke rien
 // lui-meme, le devis reste la seule source de verite.
+//
+// Protocole de confirmation (22 oct, cahier des charges recu d'Amira) :
+// l'assistant ne doit jamais ANNONCER un changement avant une preuve reelle
+// qu'il a ete enregistre. Comme ce chat n'ecrit jamais lui-meme en base
+// (voir plus haut), la preuve ne peut venir que du navigateur, une fois
+// l'auto-enregistrement (onAutoSave, déjà branche) termine — donc APRES la
+// reponse du modele qui a declenche l'action. On boucle : chaque action
+// appliquee dans un tour est capturee (onAdd.../onUpdate... renvoient
+// desormais {id}/{lotName}/{client} — voir DevisEditor.jsx), puis une fois
+// onAutoSave resolu (succes ou echec reel), un tour synthetique
+// "[RESULTAT_ECRITURE] [...]" est renvoye AUTOMATIQUEMENT au serveur (sans
+// saisie de l'entreprise) avec les valeurs reellement enregistrees — c'est
+// SEULEMENT la reponse du modele a CE tour qui a le droit de dire "c'est
+// fait". Ce tour synthetique ne s'affiche jamais dans la conversation
+// visible (flag `hidden`), mais reste dans l'historique envoye au serveur.
 function SparkleIcon() {
   return (
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -43,14 +58,134 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, streamingText]);
 
+  // Cherche une ligne par id dans le snapshot LE PLUS RECENT (snapshotRef,
+  // tenu a jour a chaque rendu) — jamais dans une valeur capturee avant
+  // l'appel de l'action, pour toujours lire ce que le devis contient
+  // vraiment au moment ou onAutoSave vient de confirmer l'ecriture.
+  function findLigne(id) {
+    for (const lot of snapshotRef.current?.lots || []) {
+      const found = (lot.lignes || []).find((l) => l.id === id);
+      if (found) return { ...found, lot: lot.nom };
+    }
+    return null;
+  }
+
+  // Applique l'action sur le devis (comme avant) et renvoie un descripteur
+  // minimal ({id}/{lotName}/{client}) pour que la boucle de confirmation
+  // sache quoi re-verifier une fois l'enregistrement reel termine — les
+  // callbacks DevisEditor.jsx (onAdd.../onUpdate.../onRemove...) renvoient
+  // maintenant cette valeur au lieu de rien.
   function applyAction(action) {
-    if (!action) return;
-    if (action.subAction === "addLot") onAddLot?.(action.lotName);
-    else if (action.subAction === "addOuvrage") onAddOuvrage?.(action.ouvrage, action.room, action.quantity);
-    else if (action.subAction === "updateOuvrage") onUpdateOuvrage?.(action.id, { quantite: action.quantite, prixUnitaireHt: action.prixUnitaireHt });
-    else if (action.subAction === "removeOuvrage") onRemoveOuvrage?.(action.id);
-    else if (action.subAction === "setManualPrice") onSetPrice?.(action.amountHt);
-    else if (action.subAction === "setClientInfo") onSetClient?.(action.client);
+    if (!action) return null;
+    if (action.subAction === "addLot") {
+      const result = onAddLot?.(action.lotName);
+      return { tool: "ajouter_lot", lotName: result?.lotName || action.lotName };
+    }
+    if (action.subAction === "addOuvrage") {
+      const result = onAddOuvrage?.(action.ouvrage, action.room, action.quantity);
+      return { tool: "ajouter_ouvrage", lineId: result?.id || null };
+    }
+    if (action.subAction === "updateOuvrage") {
+      const result = onUpdateOuvrage?.(action.id, { quantite: action.quantite, prixUnitaireHt: action.prixUnitaireHt });
+      return { tool: "modifier_ouvrage", lineId: result?.id || null };
+    }
+    if (action.subAction === "removeOuvrage") {
+      const result = onRemoveOuvrage?.(action.id);
+      return { tool: "supprimer_ouvrage", lineId: result?.id || action.id, removed: true };
+    }
+    if (action.subAction === "setManualPrice") {
+      const result = onSetPrice?.(action.amountHt);
+      return { tool: "proposer_prix", lineId: result?.id || null };
+    }
+    if (action.subAction === "setClientInfo") {
+      const result = onSetClient?.(action.client);
+      return { tool: "definir_client", client: result?.client || action.client };
+    }
+    return null;
+  }
+
+  // Construit, pour un descripteur d'action, l'objet de resultat REEL
+  // envoye au modele dans le tour "[RESULTAT_ECRITURE]" — toujours apres
+  // que saveOutcome.success est connu (donc apres onAutoSave), jamais avant.
+  function buildResultat(captured, saveOutcome) {
+    const base = { action: captured.tool, devisId: saveOutcome.devisId, enregistreLe: saveOutcome.enregistreLe };
+    if (!saveOutcome.success) return { ...base, success: false, error: saveOutcome.error || "Enregistrement impossible." };
+    if (captured.tool === "definir_client") return { ...base, success: true, client: captured.client };
+    if (captured.tool === "ajouter_lot") return { ...base, success: true, lotName: captured.lotName };
+    if (captured.tool === "supprimer_ouvrage") return { ...base, success: true, id: captured.lineId, supprime: true };
+    const ligne = captured.lineId ? findLigne(captured.lineId) : null;
+    if (!ligne) return { ...base, success: false, error: "Ligne introuvable après enregistrement — relisez le devis avant de réessayer." };
+    return {
+      ...base,
+      success: true,
+      id: ligne.id,
+      lot: ligne.lot,
+      designation: ligne.designation,
+      quantite: ligne.quantite,
+      unite: ligne.unite,
+      prixUnitaireHt: ligne.prixUnitaireHt,
+      totalHt: ligne.totalHt,
+      prixManquant: ligne.prixManquant
+    };
+  }
+
+  // Un seul tour HTTP/SSE vers /api/devis-chat — ne gere ni l'etat
+  // "sending" (partage entre plusieurs tours enchaines, voir sendToEngine)
+  // ni l'auto-enregistrement : juste l'echange et la collecte des actions
+  // appliquees dans CE tour.
+  async function runTurn(turnsForThisCall) {
+    const captured = [];
+    let assistantText = "";
+    const response = await fetch("/api/devis-chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        turns: turnsForThisCall.map(({ role, text }) => ({ role, text })),
+        quoteSnapshot: snapshotRef.current
+      })
+    });
+    if (!response.ok || !response.body) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "L'assistant n'a pas pu répondre.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let liveText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() || "";
+      for (const frame of frames) {
+        const eventMatch = /event: (\w+)/.exec(frame);
+        const dataMatch = /data: (.+)/.exec(frame);
+        if (!eventMatch || !dataMatch) continue;
+        const eventType = eventMatch[1];
+        let data;
+        try { data = JSON.parse(dataMatch[1]); } catch { continue; }
+
+        if (eventType === "delta") {
+          liveText += data.text;
+          setStreamingText(liveText);
+        } else if (eventType === "action") {
+          const result = applyAction(data);
+          if (result) captured.push(result);
+        } else if (eventType === "done") {
+          assistantText = (data.message || liveText || "").trim();
+          if (assistantText) setTurns((current) => [...current, { role: "assistant", text: assistantText }]);
+          setStreamingText("");
+          if (data.finished) onFinish?.();
+        } else if (eventType === "error") {
+          setError(data.message || "L'assistant n'a pas pu répondre.");
+        }
+      }
+    }
+
+    return { captured, assistantText };
   }
 
   async function sendToEngine(nextTurns) {
@@ -58,73 +193,41 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
     setError("");
     setStreamingText("");
     setSaveNotice("");
-    let liveText = "";
-    let changedThisTurn = false;
 
     try {
-      const response = await fetch("/api/devis-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          turns: nextTurns.map(({ role, text }) => ({ role, text })),
-          quoteSnapshot: snapshotRef.current
-        })
-      });
-      if (!response.ok || !response.body) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "L'assistant n'a pas pu répondre.");
+      const { captured, assistantText } = await runTurn(nextTurns);
+
+      // Protocole de confirmation (voir commentaire d'en-tete) : rien
+      // d'ecrit dans ce tour -> rien a confirmer, on s'arrete la (c'est
+      // aussi ce qui arrive apres le tour "[RESULTAT_ECRITURE]" lui-meme,
+      // puisque le modele n'a pas le droit de rappeler un outil en reponse
+      // a celui-ci).
+      if (!captured.length || !onAutoSave) return;
+
+      let saveOutcome;
+      try {
+        const quote = await onAutoSave();
+        saveOutcome = { success: true, devisId: quote?.id || "", enregistreLe: quote?.updatedAt || "" };
+        setSaveNotice("Devis enregistré.");
+      } catch (err) {
+        saveOutcome = { success: false, error: err?.message || "Enregistrement impossible." };
+        setSaveNotice("Modifications appliquées, mais l'enregistrement automatique a échoué — pensez à cliquer sur Enregistrer.");
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      const resultats = captured.map((item) => buildResultat(item, saveOutcome));
+      const resultTurn = { role: "user", text: `[RESULTAT_ECRITURE] ${JSON.stringify(resultats)}`, hidden: true };
+      // Reconstruit l'historique EXACT envoye au serveur a partir de
+      // nextTurns + la reponse d'intention du modele (pas de la state React
+      // `turns`, mise a jour de façon asynchrone par runTurn — lire le
+      // retour direct de runTurn evite toute course avec ces mises a jour).
+      const turnsWithAssistant = assistantText ? [...nextTurns, { role: "assistant", text: assistantText }] : nextTurns;
+      const turnsWithResult = [...turnsWithAssistant, resultTurn];
+      setTurns((current) => [...current, resultTurn]);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const frames = buffer.split("\n\n");
-        buffer = frames.pop() || "";
-        for (const frame of frames) {
-          const eventMatch = /event: (\w+)/.exec(frame);
-          const dataMatch = /data: (.+)/.exec(frame);
-          if (!eventMatch || !dataMatch) continue;
-          const eventType = eventMatch[1];
-          let data;
-          try { data = JSON.parse(dataMatch[1]); } catch { continue; }
-
-          if (eventType === "delta") {
-            liveText += data.text;
-            setStreamingText(liveText);
-          } else if (eventType === "action") {
-            applyAction(data);
-            changedThisTurn = true;
-          } else if (eventType === "done") {
-            const finalMessage = (data.message || liveText || "").trim();
-            if (finalMessage) setTurns((current) => [...current, { role: "assistant", text: finalMessage }]);
-            setStreamingText("");
-            if (data.finished) onFinish?.();
-          } else if (eventType === "error") {
-            setError(data.message || "L'assistant n'a pas pu répondre.");
-          }
-        }
-      }
-
-      // Enregistre automatiquement des que l'assistant a modifie le devis
-      // (21 oct, demande d'Amira) — avant, une correction faite dans le chat
-      // ne vivait qu'en memoire React tant qu'on ne cliquait pas
-      // "Enregistrer" ailleurs dans la page : en quittant/rechargeant avant
-      // ca, le changement disparaissait silencieusement, ce qui donnait
-      // l'impression que l'IA "ne modifiait pas vraiment le devis" (a
-      // l'inverse d'une consigne admin, qui ecrit tout de suite en base).
-      if (changedThisTurn && onAutoSave) {
-        try {
-          await onAutoSave();
-          setSaveNotice("Devis enregistré.");
-        } catch {
-          setSaveNotice("Modifications appliquées, mais l'enregistrement automatique a échoué — pensez à cliquer sur Enregistrer.");
-        }
-      }
+      // Relance automatique (jamais initiee par l'entreprise) : c'est la
+      // reponse du modele a CE tour qui peut enfin confirmer "c'est fait",
+      // avec les vraies valeurs de `resultats` — jamais les siennes.
+      await runTurn(turnsWithResult);
     } catch (err) {
       setError(err.message || "L'assistant n'a pas pu répondre. Réessayez.");
     } finally {
@@ -154,7 +257,7 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       </div>
 
       <div className="devis-chat-thread">
-        {turns.map((turn, index) => (
+        {turns.filter((turn) => !turn.hidden).map((turn, index) => (
           <div key={index} className={`devis-chat-bubble-row ${turn.role === "user" ? "user" : ""}`}>
             <div className="devis-chat-bubble">{turn.text}</div>
           </div>

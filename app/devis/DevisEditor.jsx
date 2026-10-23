@@ -939,11 +939,15 @@ export default function DevisEditor() {
   // datalist pouvait donner l'impression d'un choix ferme).
   function addCustomRoomAndFocus(nameOverride) {
     const label = (nameOverride ?? customRoom).trim();
-    if (!label) return;
+    if (!label) return null;
     setRooms((current) => current.includes(label) ? current : [...current, label]);
     setCustomRoom("");
     setExpandedLotIds((current) => new Set(current).add(label));
     setTargetRoom(label);
+    // Renvoie le nom retenu — lu par DevisChatPanel.jsx (protocole de
+    // confirmation du chat "Avec l'IA") pour savoir quel lot vient d'etre
+    // cree, avant que l'etat React n'ait fini de se propager.
+    return { lotName: label };
   }
 
   // Clic sur l'en-tete d'un lot a gauche : le cible (pour le panneau de
@@ -1583,6 +1587,10 @@ export default function DevisEditor() {
     // catalogue, remis a vide dans ce cas pour ne jamais ecraser le mauvais
     // prix si l'entreprise en donne un plus tard sans lien avec cette ligne.
     lastUnmatchedAiLineIdRef.current = resolved.matched ? "" : id;
+    // Renvoie l'id reel de la ligne creee — lu par DevisChatPanel.jsx pour
+    // retrouver ses valeurs reellement enregistrees (protocole de
+    // confirmation) une fois persistQuote termine, jamais avant.
+    return { id };
   }
 
   // Prix donne directement par l'entreprise dans le chat pour la derniere
@@ -1593,12 +1601,13 @@ export default function DevisEditor() {
   // "IA · à vérifier" reste (ligne toujours ajoutee par le chat).
   function applyAiManualPrice(amountHt) {
     const id = lastUnmatchedAiLineIdRef.current;
-    if (!id || !(Number(amountHt) > 0)) return;
+    if (!id || !(Number(amountHt) > 0)) return { id: null };
     setLineSettings((current) => ({
       ...current,
       [id]: { ...(current[id] || {}), billingMode: "fixed", fixedAmountInput: String(amountHt), fixedAmountMode: "ht", priceSource: "entreprise" }
     }));
     lastUnmatchedAiLineIdRef.current = "";
+    return { id };
   }
 
   // Correction d'une ligne deja ajoutee par le chat (21 oct, demande
@@ -1612,7 +1621,7 @@ export default function DevisEditor() {
   // cote.
   function updateAiOuvrageInRoom(id, { quantite, prixUnitaireHt } = {}) {
     const line = quoteLines.find((item) => item.id === id);
-    if (!line) return;
+    if (!line) return { id: null };
     if (quantite != null && Number(quantite) > 0) {
       updateLine(id, "quantity", String(quantite));
     }
@@ -1623,6 +1632,7 @@ export default function DevisEditor() {
         [id]: { ...(current[id] || {}), priceSource: "entreprise" }
       }));
     }
+    return { id };
   }
 
   // Suppression d'une ligne par le chat (21 oct) — meme fonction que le
@@ -1630,12 +1640,13 @@ export default function DevisEditor() {
   function removeAiOuvrageFromRoom(id) {
     removeQuoteLine(id);
     if (lastUnmatchedAiLineIdRef.current === id) lastUnmatchedAiLineIdRef.current = "";
+    return { id };
   }
 
   // Informations client posees par le chat "Avec l'IA" (16 oct) — meme
   // mapping que l'ancien pont "koji-devis-page-action" (setClientInfo).
   function applyChatClientInfo(client) {
-    if (!client) return;
+    if (!client) return null;
     setForm((current) => ({
       ...current,
       client: client.nom || current.client,
@@ -1643,6 +1654,7 @@ export default function DevisEditor() {
       clientEmail: client.email || current.clientEmail,
       chantierAddress: client.chantier || current.chantierAddress
     }));
+    return { client };
   }
 
   // Ligne au forfait a partir d'un montant HT explicitement donne par

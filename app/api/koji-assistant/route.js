@@ -372,7 +372,10 @@ async function handleDevisPageAction({ ctx, parsed }) {
 
   if (subAction === "addOuvrage") {
     if (!label) return { outcome: "failed", message: "Indiquez l'ouvrage à ajouter." };
-    const ouvrage = await resolveOuvrageForLabel(ctx, label, { unit });
+    const resolvedOuvrage = await resolveOuvrageForLabel(ctx, label, { unit });
+    // Repli "u" conserve ICI (comportement inchange de cet assistant) —
+    // voir le commentaire equivalent dans lib/koji-assistant-tools.js.
+    const ouvrage = { ...resolvedOuvrage, unit: resolvedOuvrage.unit || "u" };
     return { outcome: "devisPageAction", subAction, label: ouvrage.label, room, quantity, ouvrage };
   }
 
