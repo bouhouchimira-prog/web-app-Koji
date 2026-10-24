@@ -6545,6 +6545,23 @@ p {
   font-size: 13px;
 }
 
+.profile-input-eye {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  color: #8a94a6;
+  display: flex;
+  align-items: center;
+}
+
+.profile-input-eye svg {
+  color: inherit;
+}
+
+.profile-input-eye:hover { color: #244ca4; }
+
 .hourly-box {
   margin-top: 10px;
   min-height: 44px;
