@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripe, intervalFromProPriceId, isWebsitePriceId, isPremiumPriceId } from "../../../../lib/stripe";
+import { getStripe, planAndIntervalFromPriceId } from "../../../../lib/stripe";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { readDb, writeDb } from "../../../../lib/db";
 
@@ -38,11 +38,9 @@ export async function POST(request) {
           await updateUserBilling(session.metadata.kojiUserId, {
             _stripeCustomerId: session.customer,
             _stripeSubscriptionId: session.subscription,
-            _billingPlan: "pro",
+            _billingPlan: session.metadata.plan || "pro",
             _billingInterval: session.metadata.interval || null,
-            _billingStatus: "active",
-            _addonWebsite: session.metadata.website === "1",
-            _addonPremium: session.metadata.premium === "1"
+            _billingStatus: "active"
           });
         }
         if (session.mode === "payment" && session.metadata?.chantierPaiementId) {
@@ -61,19 +59,14 @@ export async function POST(request) {
         const userId = subscription.metadata?.kojiUserId;
         if (userId) {
           const items = subscription.items?.data || [];
-          const proItem = items.find((item) => !isWebsitePriceId(item.price?.id) && !isPremiumPriceId(item.price?.id));
-          const addonWebsite = items.some((item) => isWebsitePriceId(item.price?.id));
-          const addonPremium = items.some((item) => isPremiumPriceId(item.price?.id));
+          const resolved = planAndIntervalFromPriceId(items[0]?.price?.id);
           const patch = {
             _stripeSubscriptionId: subscription.id,
-            _billingStatus: subscription.status,
-            _addonWebsite: addonWebsite,
-            _addonPremium: addonPremium
+            _billingStatus: subscription.status
           };
-          const interval = intervalFromProPriceId(proItem?.price?.id);
-          if (interval) {
-            patch._billingPlan = "pro";
-            patch._billingInterval = interval;
+          if (resolved) {
+            patch._billingPlan = resolved.plan;
+            patch._billingInterval = resolved.interval;
           }
           await updateUserBilling(userId, patch);
         }
@@ -85,9 +78,7 @@ export async function POST(request) {
         if (userId) {
           await updateUserBilling(userId, {
             _billingPlan: null,
-            _billingStatus: "canceled",
-            _addonWebsite: false,
-            _addonPremium: false
+            _billingStatus: "canceled"
           });
         }
         break;

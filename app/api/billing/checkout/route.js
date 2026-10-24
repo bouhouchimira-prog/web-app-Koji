@@ -1,6 +1,6 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { getAuth } from "../../../../lib/server-auth";
-import { getStripe, priceIdFor, addonPriceIdFor, addonPremiumPriceIdFor } from "../../../../lib/stripe";
+import { getStripe, priceIdFor } from "../../../../lib/stripe";
 
 // Uses getAuth (Supabase Auth session cookie) on purpose: only entreprise
 // accounts authenticate that way, so particulier/ouvrier sessions (which use
@@ -8,6 +8,8 @@ import { getStripe, priceIdFor, addonPriceIdFor, addonPremiumPriceIdFor } from "
 // clean 401 here instead of being able to trigger a real charge for a plan
 // that has no meaning on their account.
 const VALID_INTERVALS = new Set(["month", "year"]);
+// Start (gratuit) ne passe jamais par cette route — pas de Stripe.
+const VALID_PLANS = new Set(["pro", "business"]);
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
@@ -15,20 +17,11 @@ export async function POST(request) {
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const interval = VALID_INTERVALS.has(body.interval) ? body.interval : "month";
-  const wantsWebsite = Boolean(body.addons?.website);
-  const wantsPremium = Boolean(body.addons?.premium);
+  const plan = VALID_PLANS.has(body.plan) ? body.plan : "pro";
 
-  const proPriceId = priceIdFor(interval);
-  if (!proPriceId) {
+  const priceId = priceIdFor(plan, interval);
+  if (!priceId) {
     return badRequest("L'abonnement n'est pas encore configuré côté paiement. Réessayez plus tard.", 500);
-  }
-  const websitePriceId = wantsWebsite ? addonPriceIdFor(interval) : "";
-  if (wantsWebsite && !websitePriceId) {
-    return badRequest("L'option Site web n'est pas encore configurée côté paiement. Réessayez plus tard.", 500);
-  }
-  const premiumPriceId = wantsPremium ? addonPremiumPriceIdFor(interval) : "";
-  if (wantsPremium && !premiumPriceId) {
-    return badRequest("L'option Koji Premium n'est pas encore configurée côté paiement. Réessayez plus tard.", 500);
   }
 
   let stripe;
@@ -62,11 +55,9 @@ export async function POST(request) {
       if (saveError) return badRequest(`Enregistrement du client de paiement impossible: ${saveError.message}`, 500);
     }
 
-    const lineItems = [{ price: proPriceId, quantity: 1 }];
-    if (websitePriceId) lineItems.push({ price: websitePriceId, quantity: 1 });
-    if (premiumPriceId) lineItems.push({ price: premiumPriceId, quantity: 1 });
+    const lineItems = [{ price: priceId, quantity: 1 }];
 
-    const metadata = { kojiUserId: auth.userId, interval, website: wantsWebsite ? "1" : "0", premium: wantsPremium ? "1" : "0" };
+    const metadata = { kojiUserId: auth.userId, interval, plan };
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

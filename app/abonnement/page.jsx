@@ -1,185 +1,76 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { Shell } from "../../components/Shell";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useLocale } from "../../lib/i18n";
+import Link from "next/link";
+import { useState } from "react";
 import { apiSend, readStoredUser } from "../../lib/client-api";
+import { PricingPlans } from "../../components/PricingPlans";
+import "./abonnement.css";
 
-const PRO_MONTHLY = 49.99;
-const PRO_YEARLY = 499.9;
-const WEBSITE_MONTHLY = 14.99;
-const WEBSITE_YEARLY = 149.9;
-const PREMIUM_MONTHLY = 29.99;
-const PREMIUM_YEARLY = 299.9;
-
-const FEATURES = [
-  { text: "Création de chantiers et devis illimités", highlight: true },
-  { text: "Suivi de chantiers en temps réel" },
-  { text: "Suivi des travaux et de l'équipe" },
-  { text: "Pointage des ouvriers" },
-  { text: "Calendrier & planning" },
-  { text: "Génération de devis en PDF & Word" },
-  { text: "Signature électronique des devis" },
-  { text: "Facturation (acomptes, factures intermédiaires et finales)", highlight: true },
-  { text: "Espace client dédié pour vos clients" },
-  { text: "Bibliothèque d'ouvrages & fournisseurs" },
-  { text: "Carte de visite Koji offerte", highlight: true },
-];
-
-function formatPrice(value) {
-  return value.toFixed(2).replace(".", ",");
-}
-
+// Page Tarifs publique (24 oct, maquette Amira — zip "Page Tarifs
+// (publique)-html.zip") — remplace l'ancienne page de vente a 1 plan,
+// dans le Shell connecte. Celle-ci est publique (pas de Shell, accessible
+// sans compte), 3 paliers (Start gratuit / Pro / Business), vrai Stripe
+// Checkout pour Pro/Business (Produits/Prix crees le 24 oct, voir
+// scripts/stripe-setup-3-tiers.js). Contenu des offres partage avec
+// app/parametres/abonnement/page.jsx via components/PricingPlans.jsx
+// (demande d'Amira : ne plus avoir 2 pages deconnectees l'une de l'autre).
+// Le systeme de "jetons" du Radar des Chantiers est purement informatif
+// pour l'instant : aucun solde/debit reel derriere (Phase 2, pas construit).
 export default function AbonnementPage() {
-  return (
-    <Suspense fallback={null}>
-      <AbonnementContent />
-    </Suspense>
-  );
-}
-
-function AbonnementContent() {
-  const { L } = useLocale();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [interval, setInterval] = useState("month");
-  const [website, setWebsite] = useState(false);
-  const [premium, setPremium] = useState(false);
-  const [pending, setPending] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState("");
   const [error, setError] = useState("");
-  const [accountType, setAccountType] = useState("entreprise");
 
-  useEffect(() => {
+  async function handleChoosePlan(plan, interval) {
+    if (plan === "start") {
+      window.location.href = "/signup";
+      return;
+    }
     const user = readStoredUser();
-    if (user?.accountType) setAccountType(user.accountType);
-  }, []);
-
-  useEffect(() => {
-    if (searchParams.get("checkout") === "cancel") setError(L.abonnement.checkoutCanceled);
-  }, [searchParams, L]);
-
-  async function handleSubscribe() {
+    if (!user) {
+      window.location.href = `/signup?plan=${plan}`;
+      return;
+    }
     setError("");
-    setPending(true);
+    setPendingPlan(plan);
     try {
-      const response = await apiSend("/api/billing/checkout", { interval, addons: { website, premium } });
+      const response = await apiSend("/api/billing/checkout", { interval, plan });
       window.location.href = response.url;
     } catch (err) {
-      setError(err.message || L.abonnement.checkoutError);
-      setPending(false);
+      setError(err.message || "Impossible de démarrer le paiement.");
+      setPendingPlan("");
     }
   }
 
-  if (accountType !== "entreprise") {
-    return (
-      <Shell>
-        <header className="page-header" style={{ textAlign: "center" }}>
-          <div>
-            <p className="eyebrow">ABONNEMENT</p>
-            <h1>{L.abonnement.title}</h1>
-          </div>
-        </header>
-        <section className="panel">
-          <div className="empty-state">
-            <a className="button secondary" href="mailto:contact@kojibuild.com">{L.abonnement.contact}</a>
-          </div>
-        </section>
-      </Shell>
-    );
-  }
-
-  const period = interval === "month" ? L.abonnement.perMonth : L.abonnement.perYear;
-  const proPrice = interval === "month" ? PRO_MONTHLY : PRO_YEARLY;
-  const websitePrice = interval === "month" ? WEBSITE_MONTHLY : WEBSITE_YEARLY;
-  const premiumPrice = interval === "month" ? PREMIUM_MONTHLY : PREMIUM_YEARLY;
-  const total = proPrice + (website ? websitePrice : 0) + (premium ? premiumPrice : 0);
-
   return (
-    <Shell>
-      <header className="page-header" style={{ textAlign: "center" }}>
-        <div>
-          <p className="eyebrow">ABONNEMENT</p>
-          <h1>{L.abonnement.title}</h1>
-          <p className="page-subtitle">{L.abonnement.subtitle}</p>
+    <div className="tarifs-page">
+      <header className="tarifs-header">
+        <div className="tarifs-wrap tarifs-nav">
+          <a href="#top" className="tarifs-logo"><span className="tarifs-logomark">K</span>Koji</a>
+          <nav className="tarifs-navlinks" aria-label="Navigation">
+            <a href="#plans">Offres</a>
+            <a href="#jetons">Jetons</a>
+            <a href="#comparatif">Comparatif</a>
+            <a href="#equipe">Équipe</a>
+            <a href="#faq">Questions</a>
+          </nav>
+          <Link href="/signup" className="tarifs-cta fill" style={{ minHeight: 42, padding: "0 18px", fontSize: 14 }}>Essayer gratuitement</Link>
         </div>
       </header>
 
-      <div className="settings-theme-toggle" style={{ margin: "0 auto 24px" }}>
-        <button type="button" className={interval === "month" ? "active" : ""} onClick={() => setInterval("month")}>
-          {L.abonnement.intervalMonthly}
-        </button>
-        <button type="button" className={interval === "year" ? "active" : ""} onClick={() => setInterval("year")}>
-          {L.abonnement.intervalYearly} · {L.abonnement.yearlySaving}
-        </button>
-      </div>
+      {error ? (
+        <div className="tarifs-wrap" style={{ paddingTop: 16 }}>
+          <p className="tarifs-error">{error}</p>
+        </div>
+      ) : null}
 
-      {error ? <p className="profile-message error" style={{ textAlign: "center" }}>{error}</p> : null}
+      <PricingPlans onChoosePlan={handleChoosePlan} pendingPlan={pendingPlan} showHero />
 
-      <section className="plans-grid plan-card-single-grid">
-        <article className="plan-card plan-card-featured plan-card-single">
-          <div className="plan-badge">Koji Pro</div>
-          <div className="plan-header">
-            <h2 style={{ color: "#2563eb" }}>{L.abonnement.singlePlanName}</h2>
-            <div className="plan-price">
-              <span className="plan-amount">{formatPrice(proPrice)} €</span>
-              <span className="plan-period">{period}</span>
-            </div>
-          </div>
-          <ul className="plan-features">
-            {FEATURES.map((f) => (
-              <li key={f.text} className={f.highlight ? "plan-feature-highlight" : ""}>
-                <span className="plan-check" style={{ color: "#2563eb" }}>✓</span>
-                {f.text}
-              </li>
-            ))}
-          </ul>
-
-          <label className="plan-addon-row">
-            <input type="checkbox" checked={website} onChange={(event) => setWebsite(event.target.checked)} />
-            <span className="plan-addon-text">
-              <strong className="plan-addon-title">{L.abonnement.addonWebsite}</strong>
-              <span>{L.abonnement.addonWebsiteDesc}</span>
-              <span className="plan-addon-price">+ {formatPrice(websitePrice)} € {period}</span>
-            </span>
-          </label>
-
-          <label className="plan-addon-row">
-            <input type="checkbox" checked={premium} onChange={(event) => setPremium(event.target.checked)} />
-            <span className="plan-addon-text">
-              <strong className="plan-addon-title">{L.abonnement.addonPremium}</strong>
-              <span>{L.abonnement.addonPremiumDesc}</span>
-              <span className="plan-addon-price">+ {formatPrice(premiumPrice)} € {period}</span>
-            </span>
-          </label>
-
-          <div className="plan-soon-row">
-            <span>{L.abonnement.marketplaceTitle}</span>
-            <span className="plan-soon-badge">{L.abonnement.marketplaceComingSoon}</span>
-          </div>
-
-          <div className="plan-total-row">
-            <span>{L.abonnement.total}</span>
-            <strong>{formatPrice(total)} € {period}</strong>
-          </div>
-
-          <button
-            type="button"
-            className="button"
-            style={{ background: "#2563eb", color: "#fff", border: "none", width: "100%" }}
-            onClick={handleSubscribe}
-            disabled={pending}
-          >
-            {pending ? L.abonnement.redirecting : `${L.abonnement.choose} — ${formatPrice(total)} €${period}`}
-          </button>
-        </article>
-      </section>
-
-      <div style={{ textAlign: "center", marginTop: 24 }}>
-        <button type="button" className="button secondary" onClick={() => router.back()}>
-          {L.common.back}
-        </button>
-      </div>
-    </Shell>
+      <footer>
+        <div className="tarifs-wrap tarifs-foot">
+          <span>Koji · Prix HT · Offres réservées aux professionnels · Conditions générales de vente applicables</span>
+          <span>kojibuild.com</span>
+        </div>
+      </footer>
+    </div>
   );
 }

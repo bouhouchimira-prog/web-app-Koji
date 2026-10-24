@@ -1,0 +1,87 @@
+/* Page Tarifs publique (app/abonnement/page.jsx), 24 oct — chrome propre a
+   cette page (header/nav/footer publics). Le contenu partage (cartes de
+   prix, jetons, comparatif, FAQ) vit dans components/PricingPlans.css,
+   charge par <PricingPlans> aussi bien ici que dans
+   app/parametres/abonnement/page.jsx. Tout est prefixe .tarifs- : ces
+   styles ne touchent aucun autre ecran (meme principe que
+   app/dashboard.css). */
+
+.tarifs-page {
+  margin: 0;
+  background: #F7F6F2;
+  font-family: "Inter", system-ui, sans-serif;
+  color: #141A2B;
+  min-height: 100vh;
+}
+
+.tarifs-page a {
+  color: #0E1B3D;
+}
+
+.tarifs-page a:hover {
+  color: #2F5BD6;
+}
+
+.tarifs-header {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E3E0D8;
+}
+
+.tarifs-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+}
+
+.tarifs-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: #0E1B3D;
+  text-decoration: none;
+}
+
+.tarifs-logomark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #0E1B3D;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.tarifs-navlinks {
+  display: flex;
+  gap: 28px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tarifs-navlinks a {
+  text-decoration: none;
+}
+
+.tarifs-foot {
+  border-top: 1px solid #E3E0D8;
+  padding: 28px 0;
+  font-size: 13px;
+  color: #5B6472;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .tarifs-navlinks {
+    display: none;
+  }
+}

@@ -2,13 +2,15 @@ import { badRequest, ok } from "../../../../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../../../../lib/db";
 import { resolveEntreprise, loadEntrepriseSnapshot } from "../../../../../../lib/entreprise-auth";
 import { getVerifiedPortalUserId } from "../../../../../../lib/portal-session";
+import { maxPositionsForPlan } from "../../../../../../lib/plan";
 
 // Positionnement d'une entreprise sur un chantier (cahier des charges 3.3 et
 // 4.3) : premier arrive premier servi, pas de plafond sur le nombre
 // d'entreprises pouvant se positionner sur UN chantier, mais un plafond sur
 // le nombre de chantiers qu'UNE entreprise peut avoir en positionnement
-// simultane, pour eviter qu'elle ne se disperse.
-const MAX_ACTIVE_POSITIONNEMENTS = 5;
+// simultane, pour eviter qu'elle ne se disperse. Plafond desormais
+// dependant du plan (24 oct, maxPositionsForPlan) — avant cette date,
+// MAX_ACTIVE_POSITIONNEMENTS=5 etait fixe pour tout le monde.
 
 function publicPositionnement(entry) {
   return {
@@ -36,7 +38,8 @@ export async function GET(request, context) {
     const mine = (db.chantierPositionnements || []).find(
       (p) => p.offerId === id && p.entrepriseUserId === entreprise.userId && p.status === "Active"
     );
-    return ok({ positionnee: Boolean(mine), plafondAtteint: activeCount(db, entreprise.userId) >= MAX_ACTIVE_POSITIONNEMENTS });
+    const snapshot = await loadEntrepriseSnapshot(entreprise);
+    return ok({ positionnee: Boolean(mine), plafondAtteint: activeCount(db, entreprise.userId) >= maxPositionsForPlan(snapshot.plan) });
   }
 
   // Cote particulier (proprietaire de l'offre) : qui s'est positionne.
@@ -69,12 +72,13 @@ export async function POST(request, context) {
   );
   if (existing?.status === "Active") return ok({ positionnement: publicPositionnement(existing) });
 
-  if (activeCount(db, entreprise.userId) >= MAX_ACTIVE_POSITIONNEMENTS) {
-    return badRequest(`Vous êtes déjà positionnée sur ${MAX_ACTIVE_POSITIONNEMENTS} chantiers simultanés. Retirez-vous de l'un d'eux pour vous positionner sur celui-ci.`, 409);
+  const entrepriseSnapshot = await loadEntrepriseSnapshot(entreprise);
+  const maxPositions = maxPositionsForPlan(entrepriseSnapshot.plan);
+  if (activeCount(db, entreprise.userId) >= maxPositions) {
+    return badRequest(`Vous êtes déjà positionnée sur ${maxPositions} chantiers simultanés. Retirez-vous de l'un d'eux pour vous positionner sur celui-ci.`, 409);
   }
 
   const now = new Date().toISOString();
-  const entrepriseSnapshot = await loadEntrepriseSnapshot(entreprise);
 
   let entry;
   if (existing) {

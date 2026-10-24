@@ -1,0 +1,489 @@
+/* Contenu partage des offres (components/PricingPlans.jsx), 24 oct —
+   toggle + cartes Start/Pro/Business + jetons + comparatif + equipe + FAQ.
+   Charge ici une seule fois, consomme par app/abonnement/page.jsx (page
+   publique) ET app/parametres/abonnement/page.jsx (page de gestion,
+   connectee) — le chrome propre a chaque page (header/nav/footer public,
+   ou habillage Shell) reste dans ses propres styles. Tout est prefixe
+   .tarifs-, meme principe que app/dashboard.css. */
+
+.tarifs-wrap {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+.tarifs-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5B6472;
+}
+
+.tarifs-h1 {
+  font-size: 50px;
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 14px 0 18px;
+  color: #0E1B3D;
+}
+
+.tarifs-lead {
+  font-size: 19px;
+  line-height: 1.5;
+  color: #3C4553;
+  max-width: 720px;
+}
+
+.tarifs-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #E3E0D8;
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.tarifs-toggle button {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  color: #3C4553;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.tarifs-toggle button.on {
+  background: #0E1B3D;
+  color: #fff;
+}
+
+.tarifs-pill {
+  display: inline-block;
+  background: #F3EDA8;
+  color: #0E1B3D;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.tarifs-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+}
+
+.tarifs-card {
+  background: #fff;
+  border: 1px solid #E3E0D8;
+  border-radius: 20px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-sizing: border-box;
+}
+
+.tarifs-card.hi {
+  background: #0E1B3D;
+  color: #fff;
+  border-color: #0E1B3D;
+}
+
+.tarifs-card.hi .tarifs-muted,
+.tarifs-card.hi .tarifs-sub {
+  color: #B8C0D4;
+}
+
+.tarifs-card.hi .tarifs-check svg {
+  stroke: #F3EDA8;
+}
+
+.tarifs-card.hi .tarifs-radar {
+  background: #162650;
+  border-color: #2A3A6B;
+}
+
+.tarifs-card.hi .tarifs-radar .tarifs-k {
+  color: #B8C0D4;
+}
+
+.tarifs-plan {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tarifs-who {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #5B6472;
+  min-height: 46px;
+  margin: 8px 0 0;
+}
+
+.tarifs-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tarifs-price .tarifs-n {
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.tarifs-price .tarifs-u {
+  font-size: 15px;
+  font-weight: 500;
+  color: #5B6472;
+}
+
+.tarifs-sub {
+  font-size: 13px;
+  color: #5B6472;
+  margin-top: 6px;
+}
+
+.tarifs-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  text-decoration: none;
+  border: 1.5px solid #0E1B3D;
+  color: #0E1B3D;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tarifs-cta.fill {
+  background: #F3EDA8;
+  border-color: #F3EDA8;
+  color: #0E1B3D;
+}
+
+.tarifs-cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tarifs-cta-current {
+  border-color: #CBD0E0;
+  color: #5B6472;
+  background: #F3F3F0;
+  cursor: default;
+}
+
+.tarifs-feat {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.tarifs-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tarifs-check svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  stroke: #0E1B3D;
+  stroke-width: 2.4;
+  fill: none;
+  margin-top: 2px;
+}
+
+.tarifs-sect {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5B6472;
+  margin-top: 4px;
+}
+
+.tarifs-radar {
+  border: 1px solid #E3E0D8;
+  border-radius: 14px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  background: #FBFAF7;
+  margin-top: auto;
+}
+
+.tarifs-radar .tarifs-k {
+  font-size: 11px;
+  color: #5B6472;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tarifs-radar .tarifs-v {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+}
+
+.tarifs-h2 {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  color: #0E1B3D;
+}
+
+.tarifs-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.tarifs-step {
+  background: #fff;
+  border: 1px solid #E3E0D8;
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tarifs-num {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #F3EDA8;
+  color: #0E1B3D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.tarifs-step h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.tarifs-step p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #3C4553;
+}
+
+.tarifs-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tarifs-tier {
+  background: #0E1B3D;
+  color: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tarifs-tier .tarifs-t {
+  font-size: 13px;
+  color: #B8C0D4;
+  font-weight: 600;
+}
+
+.tarifs-tier .tarifs-j {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.tarifs-tier .tarifs-j span {
+  font-size: 16px;
+  font-weight: 600;
+  color: #F3EDA8;
+  margin-left: 6px;
+}
+
+.tarifs-tier .tarifs-d {
+  font-size: 14px;
+  color: #D7DCE9;
+  margin-top: 6px;
+}
+
+.tarifs-tablebox {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #E3E0D8;
+  border-radius: 16px;
+}
+
+.tarifs-tablebox table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 760px;
+  font-size: 14px;
+}
+
+.tarifs-tablebox th,
+.tarifs-tablebox td {
+  padding: 13px 16px;
+  text-align: left;
+  border-bottom: 1px solid #EEECE6;
+  vertical-align: middle;
+}
+
+.tarifs-tablebox th {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5B6472;
+  background: #FBFAF7;
+}
+
+.tarifs-tablebox th.c,
+.tarifs-tablebox td.c {
+  text-align: center;
+  width: 150px;
+}
+
+.tarifs-tablebox td.g {
+  font-weight: 700;
+  color: #0E1B3D;
+  background: #FBFAF7;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tarifs-yes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #E8F3EC;
+}
+
+.tarifs-yes svg {
+  width: 14px;
+  height: 14px;
+  stroke: #1C7A4A;
+  stroke-width: 2.6;
+  fill: none;
+}
+
+.tarifs-no {
+  color: #B9B5AB;
+  font-size: 18px;
+}
+
+.tarifs-lim {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0E1B3D;
+}
+
+.tarifs-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.tarifs-box {
+  background: #fff;
+  border: 1px solid #E3E0D8;
+  border-radius: 16px;
+  padding: 26px;
+}
+
+.tarifs-box h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tarifs-box p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #3C4553;
+}
+
+.tarifs-faq {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.tarifs-q {
+  background: #fff;
+  border: 1px solid #E3E0D8;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.tarifs-q h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tarifs-q p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #3C4553;
+}
+
+.tarifs-error {
+  color: #B3261E;
+  font-size: 13px;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .tarifs-cards,
+  .tarifs-steps,
+  .tarifs-tiers,
+  .tarifs-two,
+  .tarifs-faq {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+  .tarifs-h1 {
+    font-size: 36px;
+  }
+}

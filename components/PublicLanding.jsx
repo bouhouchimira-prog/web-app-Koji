@@ -103,7 +103,10 @@ const NAV_MENU = [
   { label: "Fonctionnalités", dropdown: true },
   { label: "Métiers", dropdown: true },
   { label: "Comparer", dropdown: true },
-  { label: "Tarifs" },
+  // Seul lien reellement cable du menu pour l'instant (24 oct) — la page
+  // publique /abonnement existe desormais ; les autres entrees restent de
+  // simples boutons decoratifs (aucune page a cibler pour l'instant).
+  { label: "Tarifs", href: "/abonnement" },
   { label: "Blog" }
 ];
 
@@ -183,10 +186,16 @@ export function PublicLanding() {
         </div>
         <nav className="ld-nav-menu" aria-label="Menu">
           {NAV_MENU.map((item) => (
-            <button type="button" className="ld-nav-menu-item" key={item.label}>
-              {item.label}
-              {item.dropdown ? <ChevronIcon /> : null}
-            </button>
+            item.href ? (
+              <Link href={item.href} className="ld-nav-menu-item" key={item.label}>
+                {item.label}
+              </Link>
+            ) : (
+              <button type="button" className="ld-nav-menu-item" key={item.label}>
+                {item.label}
+                {item.dropdown ? <ChevronIcon /> : null}
+              </button>
+            )
           ))}
         </nav>
         <div className="ld-nav-actions">
@@ -326,7 +335,7 @@ export function PublicLanding() {
           <span>Koji</span>
         </div>
         <div className="ld-footer-links">
-          <span>Découvrir</span> · <span>Fonctionnalités</span> · <span>Tarifs</span> · <span>Blog</span> · <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
+          <span>Découvrir</span> · <span>Fonctionnalités</span> · <Link href="/abonnement">Tarifs</Link> · <span>Blog</span> · <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
         </div>
         <span className="ld-footer-copy">© {new Date().getFullYear()} koji</span>
       </footer>

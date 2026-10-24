@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Shell } from "../../../components/Shell";
+import { PricingPlans } from "../../../components/PricingPlans";
 import { apiGet, apiSend } from "../../../lib/client-api";
 import { useLocale } from "../../../lib/i18n";
-import { PLAN_LIMITS } from "../../../lib/plan";
 
 const BILLING_STATUS_KEYS = {
   active: "billingStatusActive",
@@ -31,16 +30,14 @@ function ParametresAbonnementContent() {
   const [billingStatus, setBillingStatus] = useState("");
   const [billingInterval, setBillingInterval] = useState("");
   const [hasBillingAccount, setHasBillingAccount] = useState(false);
-  const [addonWebsite, setAddonWebsite] = useState(false);
-  const [addonPremium, setAddonPremium] = useState(false);
-  const [addonLoading, setAddonLoading] = useState(false);
-  const [addonPremiumLoading, setAddonPremiumLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingMessage, setBillingMessage] = useState("");
   const [connectStatus, setConnectStatus] = useState({ hasAccount: false, onboarded: false });
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectMessage, setConnectMessage] = useState("");
+  const [pendingPlan, setPendingPlan] = useState("");
+  const [planError, setPlanError] = useState("");
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") setBillingMessage(L.settings.checkoutSuccess);
@@ -55,8 +52,6 @@ function ParametresAbonnementContent() {
         setBillingStatus(user.billingStatus || "");
         setBillingInterval(user.billingInterval || "");
         setHasBillingAccount(Boolean(user.hasBillingAccount));
-        setAddonWebsite(Boolean(user.addonWebsite));
-        setAddonPremium(Boolean(user.premiumTools));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -89,35 +84,22 @@ function ParametresAbonnementContent() {
     }
   }
 
-  async function toggleAddonWebsite() {
-    const next = !addonWebsite;
-    setAddonLoading(true);
-    setBillingMessage("");
+  // Cartes de prix integrees ici (24 oct, demande d'Amira : ne plus avoir a
+  // changer de page pour changer de formule) — deja connectee a ce stade
+  // (page dans le Shell), pas besoin de la branche "pas de compte -> signup"
+  // que app/abonnement/page.jsx (publique) doit gerer elle.
+  async function handleChoosePlan(plan, interval) {
+    if (plan === "start") return; // Deja la formule gratuite par defaut, rien a faire ici.
+    setPlanError("");
+    setPendingPlan(plan);
     try {
-      await apiSend("/api/billing/addon", { addon: "website", enable: next });
-      setAddonWebsite(next);
+      const response = await apiSend("/api/billing/checkout", { interval, plan });
+      window.location.href = response.url;
     } catch (error) {
-      setBillingMessage(error.message || L.settings.addonError);
-    } finally {
-      setAddonLoading(false);
+      setPlanError(error.message || "Impossible de démarrer le paiement.");
+      setPendingPlan("");
     }
   }
-
-  async function toggleAddonPremium() {
-    const next = !addonPremium;
-    setAddonPremiumLoading(true);
-    setBillingMessage("");
-    try {
-      await apiSend("/api/billing/addon", { addon: "premium", enable: next });
-      setAddonPremium(next);
-    } catch (error) {
-      setBillingMessage(error.message || L.settings.addonError);
-    } finally {
-      setAddonPremiumLoading(false);
-    }
-  }
-
-  const planLabel = PLAN_LIMITS[plan]?.label || L.settings.trialPlan;
 
   if (loading) {
     return (
@@ -136,10 +118,6 @@ function ParametresAbonnementContent() {
 
         <section className="profile-block">
           <h2>{L.settings.subscription}</h2>
-          <div className="settings-plan-row">
-            <span>{L.settings.currentPlan}</span>
-            <strong>{planLabel}</strong>
-          </div>
           {billingStatus ? (
             <div className="settings-plan-row">
               <span>{L.settings.billingInterval}</span>
@@ -150,30 +128,6 @@ function ParametresAbonnementContent() {
             </div>
           ) : null}
           {billingMessage ? <p className="profile-message">{billingMessage}</p> : null}
-
-          {plan === "pro" && billingStatus === "active" ? (
-            <>
-              <label className="plan-addon-row">
-                <input type="checkbox" checked={addonWebsite} onChange={toggleAddonWebsite} disabled={addonLoading} />
-                <span className="plan-addon-text">
-                  <strong>{L.abonnement.addonWebsite}</strong>
-                  <span>{L.abonnement.addonWebsiteDesc}</span>
-                </span>
-              </label>
-              <label className="plan-addon-row">
-                <input type="checkbox" checked={addonPremium} onChange={toggleAddonPremium} disabled={addonPremiumLoading} />
-                <span className="plan-addon-text">
-                  <strong>{L.abonnement.addonPremium}</strong>
-                  <span>{L.abonnement.addonPremiumDesc}</span>
-                </span>
-              </label>
-            </>
-          ) : null}
-
-          <div className="plan-soon-row plan-included-row">
-            <span>{L.abonnement.marketplaceTitle}</span>
-            <span className="plan-soon-badge plan-included-badge">{L.abonnement.marketplaceComingSoon}</span>
-          </div>
 
           <div className="plan-soon-row plan-included-row">
             <span>Recevoir des paiements (Radar des Chantiers)</span>
@@ -186,14 +140,24 @@ function ParametresAbonnementContent() {
             </button>
           ) : null}
 
-          <div className="profile-card-actions profile-card-actions-column">
-            {hasBillingAccount ? (
+          {hasBillingAccount ? (
+            <div className="profile-card-actions profile-card-actions-column">
               <button type="button" className="button secondary profile-link-button" onClick={openBillingPortal} disabled={portalLoading}>
                 {portalLoading ? L.common.loading : L.settings.manageBilling}
               </button>
-            ) : null}
-            <Link href="/abonnement" className="button secondary profile-link-button">{L.settings.changePlan}</Link>
-          </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="profile-block">
+          <h2>{L.settings.changePlan}</h2>
+          {planError ? <p className="profile-message error">{planError}</p> : null}
+          <PricingPlans
+            currentPlan={plan === "pro" || plan === "business" ? plan : "start"}
+            onChoosePlan={handleChoosePlan}
+            pendingPlan={pendingPlan}
+            showHero={false}
+          />
         </section>
       </div>
     </Shell>
