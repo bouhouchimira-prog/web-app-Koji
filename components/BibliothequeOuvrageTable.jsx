@@ -29,6 +29,14 @@ export function BibliothequeOuvrageTable({
     return <div className="tool-empty">{emptyLabel || L.bibliotheque.noFound}</div>;
   }
 
+  // Source (25 oct) : "IA" pour tout ouvrage koji, ou tout tarif perso issu
+  // d'une copie (donnee de depart venant du catalogue IA, meme si le prix a
+  // ete ajuste) ; "Moi" pour un tarif perso cree de zero par l'entreprise.
+  function source(item) {
+    if (mode === "koji" || item.copiedFromCode) return L.bibliotheque.sourceIa;
+    return L.bibliotheque.sourceManual;
+  }
+
   function subtitle(item) {
     if (mode === "koji") return item.category || "";
     if (item.billingMode === "fixed" && item.copiedFromCode) return L.bibliotheque.copiedFixedMode(item.copiedFromCode);
@@ -43,6 +51,7 @@ export function BibliothequeOuvrageTable({
         <span className="biblio-col-check" />
         <span className="biblio-col-code">{L.bibliotheque.colCode}</span>
         {showFamilyColumn ? <span className="biblio-col-family">{L.bibliotheque.familyColumn}</span> : null}
+        <span className="biblio-col-source">{L.bibliotheque.colSource}</span>
         <span className="biblio-col-unit">{L.bibliotheque.colUnit}</span>
         <span className="biblio-col-num">{L.bibliotheque.colTime}</span>
         <span className="biblio-col-num">{L.bibliotheque.colLabor}</span>
@@ -81,10 +90,10 @@ export function BibliothequeOuvrageTable({
                   <div className="biblio-code-text">
                     <div className="biblio-label">{item.label}</div>
                     <div className="biblio-subtitle">{subtitle(item)}</div>
-                    {mode === "koji" ? <div className="biblio-source">{L.bibliotheque.sourceIa}</div> : null}
                   </div>
                 </div>
                 {showFamilyColumn ? <span className="biblio-col-family">{item.family}</span> : null}
+                <span className="biblio-col-source">{source(item)}</span>
                 <span className="biblio-col-unit">{item.unit}</span>
                 <span className="biblio-col-num">{isForfait ? "—" : `${formatHours(item.normativeTime)} h`}</span>
                 <span className="biblio-col-num">{isForfait ? "—" : formatMoney(laborCost)}</span>
