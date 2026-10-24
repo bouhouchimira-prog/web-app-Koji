@@ -1,52 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Shell } from "../../components/Shell";
+import { BibliothequeOuvrageTable } from "../../components/BibliothequeOuvrageTable";
+import { BibliothequeTariffModal } from "../../components/BibliothequeTariffModal";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import catalog from "../../data/catalog-ouvrages.json";
 import { VISITE_METIERS } from "../../lib/visite-tree";
+import {
+  FAMILY_SUBTITLE_OVERRIDES,
+  METIER_ICONS,
+  matchMetier,
+  nextPersoCode
+} from "../../lib/bibliotheque-pricing";
 
-const emptyForm = {
-  id: "",
-  code: "",
-  label: "",
-  family: "Carrelage",
-  category: "General",
-  unit: "m²",
-  normativeTime: "",
-  hourlyRate: 0,
-  description: "",
-  noteInterne: "",
-  sourceInterne: "",
-  parentCode: "",
-  addToKojiCatalog: false
-};
-
-function formatHours(value) {
-  return Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 3 });
-}
-
-function formatMoney(value) {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2
-  }).format(Number(value || 0));
-}
-
-function moCost(item, fallbackRate = 0) {
-  const rate = Number(item.hourlyRate || 0) || fallbackRate;
-  return Math.max(0, Number(item.normativeTime || 0) * rate);
-}
+const SELECTION_KEY = "koji-devis-ouvrages";
 
 // Catalogue Electricite recu le 19 septembre (KOJI_ouvrages_ELEC_Suchet.pdf,
-// 21 lignes) — pre-rempli dans la zone d'import ci-dessous pour que cette
-// demande se traite en un clic, tout en laissant la zone reutilisable pour
-// d'autres catalogues (colle simplement un nouveau tableau par-dessus).
-// Colonnes : code, designation, famille, sous-famille, unite, temps (h/u),
-// taux horaire (€/h), commentaire — separees par une tabulation.
+// 21 lignes) — pre-rempli dans la zone d'import pour que cette demande se
+// traite en un clic, reutilisable pour d'autres catalogues.
 const DEFAULT_IMPORT_TEXT = [
   "ELEC-GEN-001\tInstallation de chantier, déplacements, protections, nettoyage\tÉlectricité\tGEN\tforfait\t4,00\t60\tchantier < 150 m²",
   "ELEC-GEN-002\tEssais, mise en service, étiquetage du tableau\tÉlectricité\tGEN\tforfait\t4,00\t60\t",
@@ -89,90 +64,35 @@ function parseImportLine(line) {
   };
 }
 
-// Tableau de bord (15 oct, maquette fournie par Amira) — "metier couvert"
-// n'est pas un champ stocke : on rapproche chaque famille d'ouvrage
-// (ouvrages.family, texte libre) d'un des 10 metiers de la visite guidee
-// (lib/visite-tree.js, meme taxonomie que le Radar des Chantiers) par mots-
-// cles, pour savoir quels metiers ont deja une bibliotheque de prix.
-const METIER_KEYWORDS = {
-  Plombier: ["plomberie", "plombier", "sanitaire"],
-  Electricien: ["electricite", "electricien"],
-  Carreleur: ["carrelage", "carreleur"],
-  Menuisier: ["menuiserie", "menuisier"],
-  Peintre: ["peinture", "peintre"],
-  "Maçon": ["maconnerie", "gros oeuvre", "macon"],
-  Chauffagiste: ["chauffage", "chauffagiste"],
-  Climaticien: ["climatisation", "ventilation", "vmc"],
-  Plaquiste: ["cloison", "plafond", "platrerie", "isolation", "plaquiste"],
-  Couvreur: ["toiture", "couverture", "couvreur", "charpente", "zinguerie"]
-};
-
-const METIER_ICONS = {
-  Electricien: "⚡", Peintre: "🖌️", Carreleur: "▦", Plaquiste: "🧱",
-  Menuisier: "🪚", Plombier: "🔧", "Maçon": "🧱", Chauffagiste: "🔥",
-  Climaticien: "❄️", Couvreur: "🏠"
-};
-
-// Note manuelle : le catalogue "Isolation" ne couvre aujourd'hui que les
-// combles, pas toute l'Isolation/Platrerie du metier Plaquiste.
-const FAMILY_SUBTITLE_OVERRIDES = { "Isolation": "Combles uniquement" };
-
-const METIER_SANS_OUVRAGE_DESC = {
-  Plombier: "Fuite, WC, chauffe-eau, robinetterie",
-  "Maçon": "Murs, dalles, fondations",
-  Chauffagiste: "Chaudière, radiateurs, pompe à chaleur",
-  Climaticien: "Climatisation, VMC",
-  Couvreur: "Toiture, charpente, zinguerie"
-};
-
-function stripAccents(value) {
-  return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
-}
-
-function matchMetier(familyName) {
-  const normalized = stripAccents(familyName).toLowerCase();
-  return VISITE_METIERS.find((m) => (METIER_KEYWORDS[m.key] || []).some((kw) => normalized.includes(kw))) || null;
-}
-
-function nextSubCode(parentCode, siblings) {
-  const numbers = siblings
-    .map((item) => item.code?.replace(`${parentCode}-`, ""))
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value));
-  const next = Math.max(0, ...numbers) + 1;
-  return `${parentCode}-${String(next).padStart(2, "0")}`;
-}
-
-export default function OuvragesLibraryPage() {
+export default function BibliothequeAccueilPage() {
   const { L } = useLocale();
+  const router = useRouter();
   const { data: ouvrages, setData: setOuvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
+  const [activeTab, setActiveTab] = useState("familles");
   const [query, setQuery] = useState("");
-  // Plus d'onglet "Toutes" (demande du 19 septembre) — un metier est
-  // toujours selectionne, jamais une liste complete non filtree.
-  const [family, setFamily] = useState("");
-  const [showDashboard, setShowDashboard] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [openMenuId, setOpenMenuId] = useState("");
-  const [formMode, setFormMode] = useState("list");
-  const [form, setForm] = useState(emptyForm);
-  const [message, setMessage] = useState("");
   const [companyHourlyRate, setCompanyHourlyRate] = useState(0);
-  // 21 oct — seul un compte admin peut publier un ouvrage directement dans
-  // le socle commun Koji (visible de toutes les entreprises) ; tout le
-  // monde d'autre ne cree que des ouvrages propres a son compte. Verifie a
-  // nouveau cote serveur (app/api/ouvrages/route.js) — ce flag ne fait que
-  // choisir d'afficher la case a cocher correspondante.
   const [isAdmin, setIsAdmin] = useState(false);
-  // Import en masse (19 septembre) — colle un tableau code/designation/
-  // famille/sous-famille/unite/temps/taux (separateurs tabulation, comme un
-  // copier-coller depuis un tableur ou un PDF) et cree chaque ouvrage via le
-  // meme POST /api/ouvrages que le formulaire "+", un par un. Pre-rempli ici
-  // avec le catalogue Electricite recu (21 lignes), reutilisable ensuite
-  // pour d'autres metiers (Plomberie...).
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState(DEFAULT_IMPORT_TEXT);
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalInitial, setModalInitial] = useState(null);
+  const [modalDefaultFamily, setModalDefaultFamily] = useState("");
+  const [message, setMessage] = useState("");
+
+  function openCreateModal(family) {
+    setModalInitial(null);
+    setModalDefaultFamily(family || "");
+    setModalOpen(true);
+  }
+
+  function openEditModal(item) {
+    setModalInitial(item);
+    setModalDefaultFamily(item.family || "");
+    setModalOpen(true);
+  }
 
   useEffect(() => {
     apiGet("/api/auth/profile")
@@ -186,15 +106,40 @@ export default function OuvragesLibraryPage() {
       .catch(() => {});
   }, []);
 
-  const families = useMemo(() => {
-    return Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort();
-  }, [ouvrages]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const keepSelection = params.get("keepSelection") === "1";
+    const resetSelection = params.get("resetSelection") === "1";
+    if (resetSelection || !keepSelection) {
+      window.localStorage.removeItem(SELECTION_KEY);
+      setSelectedIds([]);
+      return;
+    }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(SELECTION_KEY) || "[]");
+      if (Array.isArray(stored)) setSelectedIds(stored.filter(Boolean));
+    } catch {
+      window.localStorage.removeItem(SELECTION_KEY);
+    }
+  }, []);
+
+  function toggleSelected(id) {
+    setSelectedIds((current) => {
+      const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+      window.localStorage.setItem(SELECTION_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  const families = useMemo(() => Array.from(new Set(ouvrages.map((item) => item.family || "Autre"))).sort(), [ouvrages]);
 
   const familyStats = useMemo(() => {
     const counts = {};
+    const persoCounts = {};
     ouvrages.forEach((item) => {
       const name = item.family || "Autre";
       counts[name] = (counts[name] || 0) + 1;
+      if (item.userId) persoCounts[name] = (persoCounts[name] || 0) + 1;
     });
     return Object.entries(counts)
       .map(([name, count]) => {
@@ -202,6 +147,7 @@ export default function OuvragesLibraryPage() {
         return {
           name,
           count,
+          persoCount: persoCounts[name] || 0,
           metier,
           subtitle: FAMILY_SUBTITLE_OVERRIDES[name] || metier?.key || "Générique",
           icon: (metier && METIER_ICONS[metier.key]) || "🛠️"
@@ -213,153 +159,84 @@ export default function OuvragesLibraryPage() {
   const metierCoverage = useMemo(() => {
     const covered = new Set(familyStats.map((f) => f.metier?.key).filter(Boolean));
     const missing = VISITE_METIERS.filter((m) => !covered.has(m.key));
-    return { coveredCount: covered.size, total: VISITE_METIERS.length, missing };
+    return { missing };
   }, [familyStats]);
 
-  // Sous-familles proposees dans le formulaire : celles deja utilisees pour
-  // la famille en cours de saisie (ex: GEN/DEP/TAB/CHE/PT/LUM/EQU pour
-  // Electricite) — evite de retaper la meme sous-famille a chaque ouvrage.
-  const categories = useMemo(() => {
-    return Array.from(
-      new Set(
-        ouvrages
-          .filter((item) => !form.family || item.family === form.family)
-          .map((item) => item.category)
-          .filter(Boolean)
-      )
-    ).sort();
-  }, [ouvrages, form.family]);
+  const myOuvrages = useMemo(() => ouvrages.filter((item) => item.userId), [ouvrages]);
 
-  // Selectionne automatiquement le premier metier des que la bibliotheque
-  // est chargee — jamais d'etat "aucun metier choisi" affichant tout.
-  useEffect(() => {
-    if (!family && families.length > 0) setFamily(families[0]);
-  }, [families, family]);
+  const categoriesForFamily = (familyName) => Array.from(new Set(
+    ouvrages.filter((item) => !familyName || item.family === familyName).map((item) => item.category).filter(Boolean)
+  )).sort();
 
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return ouvrages.filter((item) => {
-      if (family && item.family !== family) return false;
-      if (!normalized) return true;
-      return [item.code, item.label, item.family, item.category, item.description]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized);
-    });
-  }, [ouvrages, query, family]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const searching = normalizedQuery.length > 0;
 
-  const grouped = useMemo(() => {
-    const out = {};
-    const filteredCodes = new Set(filtered.map((item) => item.code));
-    for (const item of filtered) {
-      if (item.parentCode && filteredCodes.has(item.parentCode)) continue;
+  const searchMatches = useMemo(() => {
+    if (!searching) return [];
+    return ouvrages.filter((item) => [item.code, item.label, item.family, item.category, item.description].join(" ").toLowerCase().includes(normalizedQuery));
+  }, [ouvrages, searching, normalizedQuery]);
+
+  function groupByFamily(items) {
+    const byFamily = {};
+    items.forEach((item) => {
       const key = item.family || "Autre";
-      if (!out[key]) out[key] = [];
-      out[key].push(item);
-    }
-    return out;
-  }, [filtered]);
-
-  const childrenByParent = useMemo(() => {
-    const out = {};
-    for (const item of filtered) {
-      if (!item.parentCode) continue;
-      if (!out[item.parentCode]) out[item.parentCode] = [];
-      out[item.parentCode].push(item);
-    }
-    return out;
-  }, [filtered]);
-
-  const selectedItems = useMemo(() => {
-    return selectedIds.map((id) => ouvrages.find((item) => item.id === id)).filter(Boolean);
-  }, [ouvrages, selectedIds]);
-
-  const units = ["m²", "m³", "ml", "u", "h", "jour", "t"];
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("action") === "create") startCreate();
-    const keepSelection = params.get("keepSelection") === "1";
-    const resetSelection = params.get("resetSelection") === "1";
-    if (resetSelection || !keepSelection) {
-      window.localStorage.removeItem("koji-devis-ouvrages");
-      setSelectedIds([]);
-      return;
-    }
-    try {
-      const stored = JSON.parse(window.localStorage.getItem("koji-devis-ouvrages") || "[]");
-      if (Array.isArray(stored)) setSelectedIds(stored.filter(Boolean));
-    } catch {
-      window.localStorage.removeItem("koji-devis-ouvrages");
-    }
-  }, []);
-
-  function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function toggleSelected(id) {
-    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
-  }
-
-  function startCreate(parent = null, defaultFamily = "") {
-    const siblings = parent ? ouvrages.filter((item) => item.parentCode === parent.code) : [];
-    setForm({
-      ...emptyForm,
-      hourlyRate: companyHourlyRate,
-      family: parent?.family || defaultFamily || family || "Carrelage",
-      category: parent?.category || "General",
-      unit: parent?.unit || "m²",
-      parentCode: parent?.code || "",
-      code: parent ? nextSubCode(parent.code, siblings) : ""
+      if (!byFamily[key]) byFamily[key] = [];
+      byFamily[key].push(item);
     });
-    setFormMode(parent ? "sub" : "create");
-    setOpenMenuId("");
-    setMessage("");
+    return Object.entries(byFamily).map(([title, groupItems]) => ({ title, items: groupItems }));
   }
 
-  function startEdit(item) {
-    setForm({
-      ...emptyForm,
-      ...item,
-      hourlyRate: item.hourlyRate || companyHourlyRate,
-      parentCode: item.parentCode || "",
-      normativeTime: item.normativeTime ?? ""
-    });
-    setFormMode("edit");
-    setOpenMenuId("");
-    setMessage("");
-  }
-
-  async function saveOuvrage(event) {
-    event.preventDefault();
+  async function copyToPerso(item) {
+    const code = nextPersoCode(ouvrages);
     const payload = {
-      ...form,
-      normativeTime: Number(form.normativeTime || 0),
-      hourlyRate: Number(form.hourlyRate || 0),
-      coefficient: Number(form.coefficient || 1),
-      discount: Number(form.discount || 0)
+      code,
+      label: item.label,
+      family: item.family,
+      category: item.category,
+      unit: item.unit,
+      billingMode: item.billingMode === "fixed" ? "fixed" : "time",
+      normativeTime: item.normativeTime,
+      hourlyRate: 0,
+      suppliesCost: item.suppliesCost,
+      fixedAmountHt: item.fixedAmountHt,
+      copiedFromCode: item.code,
+      copiedFromKojiPriceHt: item.billingMode === "fixed" ? Number(item.fixedAmountHt || 0) : null
     };
-    const method = formMode === "edit" ? "PATCH" : "POST";
-    const { ouvrages: nextOuvrages } = await apiSend("/api/ouvrages", payload, method);
-    setOuvrages(nextOuvrages);
-    setFormMode("list");
-    setForm(emptyForm);
-    setMessage(formMode === "edit" ? L.bibliotheque.savedMsg : L.bibliotheque.createdMsg);
+    const { ouvrages: next } = await apiSend("/api/ouvrages", payload, "POST");
+    setOuvrages(next);
+    setActiveTab("perso");
+    setMessage(L.bibliotheque.createdMsg);
   }
 
-  async function deleteOuvrage(item) {
-    setOpenMenuId("");
+  async function saveTariff(payload) {
+    const method = payload.id ? "PATCH" : "POST";
+    // Code auto-genere pour tout tarif perso cree via ce modal (le champ
+    // Code n'est visible que lorsque l'admin l'ajoute au catalogue koji —
+    // voir BibliothequeTariffModal) : sans ca, la creation echouerait cote
+    // API (code obligatoire).
+    const finalPayload = !payload.id && !payload.code ? { ...payload, code: nextPersoCode(ouvrages) } : payload;
+    const { ouvrages: next } = await apiSend("/api/ouvrages", finalPayload, method);
+    setOuvrages(next);
+    setModalOpen(false);
+    if (!payload.addToKojiCatalog) setActiveTab("perso");
+    setMessage(payload.id ? L.bibliotheque.savedMsg : L.bibliotheque.createdMsg);
+  }
+
+  async function removeOuvrage(item) {
     if (!window.confirm(L.bibliotheque.confirmDelete(item.code))) return;
     const response = await fetch(`/api/ouvrages?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
     const payload = await response.json();
-    if (!response.ok) {
-      setMessage(payload.error || L.bibliotheque.deleteError);
-      return;
-    }
+    if (!response.ok) { setMessage(payload.error || L.bibliotheque.deleteError); return; }
     setOuvrages(payload.ouvrages);
-    setSelectedIds((current) => current.filter((id) => id !== item.id));
     setMessage(L.bibliotheque.deletedMsg);
+  }
+
+  async function hideOuvrage(item) {
+    if (!window.confirm(L.bibliotheque.confirmHide(item.code))) return;
+    const response = await fetch(`/api/ouvrages?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+    const payload = await response.json();
+    if (!response.ok) { setMessage(payload.error || L.bibliotheque.deleteError); return; }
+    setOuvrages(payload.ouvrages);
   }
 
   async function importCatalog() {
@@ -392,310 +269,173 @@ export default function OuvragesLibraryPage() {
   }
 
   function addSelectionToQuote() {
-    const nextIds = Array.from(new Set(selectedItems.map((item) => item.id).filter(Boolean)));
-    window.localStorage.setItem("koji-devis-ouvrages", JSON.stringify(nextIds));
     window.location.href = "/devis?selection=ouvrages";
   }
 
-  function renderOuvrageCard(item, { child = false } = {}) {
-    const selected = selectedIds.includes(item.id);
+  const selectedKojiCount = selectedIds.filter((id) => {
+    const item = ouvrages.find((o) => o.id === id);
+    return item && !item.userId;
+  }).length;
 
-    return (
-      <article key={item.id} className={`library-card ${child ? "library-card-child" : ""} ${selected ? "selected" : ""}`}>
-        <button type="button" className="library-select" onClick={() => toggleSelected(item.id)}>
-          {selected ? "OK" : ""}
-        </button>
-        <div className="library-card-main" onClick={() => toggleSelected(item.id)}>
-          <div className="library-code-row">
-            <span>{item.code}</span>
-            <b>{item.unit}</b>
-          </div>
-          <h3>{item.label}</h3>
-          {item.category ? <p className="library-subfamily">{item.category}</p> : null}
-          <p className="library-stats">
-            <span>{L.bibliotheque.normTime}: <strong>{formatHours(item.normativeTime)} h/{item.unit}</strong></span>
-            <span>{L.bibliotheque.hourlyRate}: <strong>{formatMoney(item.hourlyRate || companyHourlyRate)}</strong></span>
-            <span>{L.bibliotheque.moCost}: <strong>{formatMoney(moCost(item, companyHourlyRate))}</strong></span>
-          </p>
-          {item.description ? <p className="library-description">{item.description}</p> : null}
-        </div>
-        <button type="button" className="library-menu-button" onClick={() => setOpenMenuId(openMenuId === item.id ? "" : item.id)}>...</button>
-        {openMenuId === item.id ? (
-          <div className="library-menu">
-            <button type="button" onClick={() => startEdit(item)}>{L.common.edit}</button>
-            <button type="button" className="danger" onClick={() => deleteOuvrage(item)}>{L.common.delete}</button>
-          </div>
-        ) : null}
-      </article>
-    );
-  }
-
-  if (formMode !== "list") {
-    const title = formMode === "edit" ? L.bibliotheque.editItem : formMode === "sub" ? L.bibliotheque.newSubItem : L.bibliotheque.newItem;
-    const buttonLabel = formMode === "edit" ? L.common.save : formMode === "sub" ? L.bibliotheque.createSubItem : L.bibliotheque.createItem;
-    const cost = moCost(form, companyHourlyRate);
-
-    return (
-      <Shell>
-        <main className="library-page">
-          <header className="library-top">
-            <button type="button" onClick={() => setFormMode("list")} aria-label="Retour">{"<"}</button>
-            <h1>{title}</h1>
-            <span />
-          </header>
-
-          <form className="ouvrage-form" onSubmit={saveOuvrage}>
-            <label className="library-field full">{L.bibliotheque.code}<input value={form.code} onChange={(event) => setField("code", event.target.value)} placeholder="Ex: CAR-01" required /></label>
-            <label className="library-field full">{L.bibliotheque.designation}<textarea value={form.label} onChange={(event) => setField("label", event.target.value)} placeholder={L.bibliotheque.designation} required /></label>
-            <label className="library-field">{L.bibliotheque.family}
-              <input
-                list="family-options"
-                value={form.family}
-                onChange={(event) => setField("family", event.target.value)}
-                placeholder={L.bibliotheque.familyPlaceholder}
-              />
-              <datalist id="family-options">
-                {families.map((item) => <option key={item} value={item} />)}
-              </datalist>
-            </label>
-            <label className="library-field">{L.bibliotheque.category}
-              <input
-                list="category-options"
-                value={form.category}
-                onChange={(event) => setField("category", event.target.value)}
-                placeholder={L.bibliotheque.categoryPlaceholder}
-              />
-              <datalist id="category-options">
-                {categories.map((item) => <option key={item} value={item} />)}
-              </datalist>
-            </label>
-            <label className="library-field">{L.bibliotheque.unit}<select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
-              {units.map((item) => <option key={item}>{item}</option>)}
-            </select></label>
-            <label className="library-field">{L.bibliotheque.time}<input type="number" step="0.001" value={form.normativeTime} onChange={(event) => setField("normativeTime", event.target.value)} placeholder="1.20" /></label>
-            <label className="library-field">{L.bibliotheque.hourlyRateEur}<input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} /></label>
-            <div className="mo-box">{L.bibliotheque.moCostPerUnit} : <strong>{formatMoney(cost)}</strong></div>
-            <label className="library-field full">{L.devis.descriptionClient}<textarea value={form.description} onChange={(event) => setField("description", event.target.value)} placeholder={L.bibliotheque.comment} /></label>
-            <label className="library-field full">{L.devis.noteInterne} <span className="library-field-hint">({L.devis.noteInterneHint})</span><textarea value={form.noteInterne} onChange={(event) => setField("noteInterne", event.target.value)} placeholder={L.devis.noteInterne} /></label>
-            <label className="library-field full">{L.devis.sourceInterne}<input value={form.sourceInterne} onChange={(event) => setField("sourceInterne", event.target.value)} placeholder={L.devis.sourceInterne} /></label>
-            {form.parentCode ? <p className="library-note">{L.bibliotheque.subOf} {form.parentCode}</p> : null}
-            {isAdmin && formMode !== "edit" ? (
-              <label className="library-field full library-field-checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.addToKojiCatalog}
-                  onChange={(event) => setField("addToKojiCatalog", event.target.checked)}
-                />
-                Ajouter au catalogue koji (visible et fixe pour toutes les entreprises — modifiable/supprimable uniquement par un admin)
-              </label>
-            ) : null}
-            <button className="library-submit">{buttonLabel}</button>
-          </form>
-        </main>
-      </Shell>
-    );
-  }
-
-  if (showDashboard) {
-    return (
-      <Shell>
-        <section className="fournitures-dashboard">
-          <header className="fournitures-dashboard-head">
-            <div>
-              <h1><span className="title-chip">Bibliothèque koji</span></h1>
-              <p>Vos ouvrages chiffrés : le temps vient de la bibliothèque, le prix de votre taux horaire.</p>
-            </div>
-            <div className="fournitures-dashboard-head-actions">
-              <button type="button" className="button secondary" onClick={() => { setImportOpen(true); setShowDashboard(false); }}>Importer</button>
-              <button type="button" className="button blue" onClick={() => startCreate()}>+ Nouvel ouvrage</button>
-            </div>
-          </header>
-
-          <div className="fournitures-kpi-row">
-            <div className="fournitures-kpi-card">
-              <div className="fournitures-kpi-card-head">
-                <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📖</span>
-                <span className="title-chip">Ouvrages</span>
-              </div>
-              <strong>{ouvrages.length}</strong>
-              <small>de base</small>
-            </div>
-            <div className="fournitures-kpi-card">
-              <div className="fournitures-kpi-card-head">
-                <span className="fournitures-kpi-icon fournitures-kpi-icon-green">▦</span>
-                <span className="title-chip">Familles</span>
-              </div>
-              <strong>{families.length}</strong>
-              <small>actives</small>
-            </div>
-            <div className="fournitures-kpi-card">
-              <div className="fournitures-kpi-card-head">
-                <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
-                <span className="title-chip">Métiers couverts</span>
-              </div>
-              <strong>{metierCoverage.coveredCount} / {metierCoverage.total}</strong>
-              <small className={metierCoverage.missing.length > 0 ? "warning" : ""}>
-                {metierCoverage.missing.length > 0 ? `${metierCoverage.missing.length} métiers à compléter` : "tous couverts"}
-              </small>
-            </div>
-            <div className="fournitures-kpi-card">
-              <div className="fournitures-kpi-card-head">
-                <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">🕐</span>
-                <span className="title-chip">Mon taux horaire</span>
-              </div>
-              <strong>{Math.round(companyHourlyRate)} <small style={{ display: "inline", marginTop: 0 }}>€/h</small></strong>
-              <small>modifiable dans <a href="/profil">Profil</a></small>
-            </div>
-          </div>
-
-          <div className="fournitures-dashboard-body">
-            <div className="fournitures-main-card">
-              <div className="fournitures-main-card-head">
-                <strong className="title-chip">Familles d'ouvrages</strong>
-                <input
-                  className="supplier-search-input"
-                  style={{ maxWidth: 260 }}
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    if (event.target.value.trim()) { setFamily(""); setShowDashboard(false); }
-                  }}
-                  placeholder="Rechercher un ouvrage..."
-                />
-              </div>
-              <div className="library-family-grid">
-                {familyStats.map((fam) => (
-                  <button
-                    type="button"
-                    key={fam.name}
-                    className="library-family-card"
-                    onClick={() => { setFamily(fam.name); setQuery(""); setShowDashboard(false); }}
-                  >
-                    <div className="library-family-card-head">
-                      <span className="library-family-icon">{fam.icon}</span>
-                      <strong>{fam.count}</strong>
-                    </div>
-                    <strong className="library-family-name">{fam.name}</strong>
-                    <small className="library-family-metier">{fam.subtitle}</small>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="fournitures-sidebar-card">
-                <div className="library-sidebar-head">
-                  <strong className="title-chip">Métiers sans ouvrage</strong>
-                  {metierCoverage.missing.length > 0 ? <span className="library-missing-badge">{metierCoverage.missing.length}</span> : null}
-                </div>
-                {metierCoverage.missing.length === 0 ? (
-                  <div className="tool-empty">Tous les métiers ont au moins un ouvrage.</div>
-                ) : (
-                  <>
-                    <p className="library-missing-hint">Sans ouvrage, un devis généré sur ces métiers reste « à chiffrer manuellement ».</p>
-                    {metierCoverage.missing.map((metier) => (
-                      <div className="library-missing-row" key={metier.key}>
-                        <div>
-                          <strong>{metier.label}</strong>
-                          <small>{METIER_SANS_OUVRAGE_DESC[metier.key] || ""}</small>
-                        </div>
-                        <button type="button" className="mini-button" onClick={() => startCreate(null, metier.label)}>Compléter</button>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-
-              <div className="library-price-info-card">
-                <strong>COMMENT SE CALCULE UN PRIX</strong>
-                <p>Temps normatif × votre taux horaire</p>
-                <small>Exemple : pose carrelage sol 40×40 = 1,3 h/m², soit {formatMoney(1.3 * (companyHourlyRate || 55))}/m² à {formatMoney(companyHourlyRate || 55)}/h.</small>
-              </div>
-            </div>
-          </div>
-        </section>
-      </Shell>
-    );
+  async function copySelectionToPerso() {
+    const items = selectedIds.map((id) => ouvrages.find((o) => o.id === id)).filter((item) => item && !item.userId);
+    for (const item of items) await copyToPerso(item);
   }
 
   return (
     <Shell>
-      <main className="library-page">
-        <header className="library-top">
-          <button type="button" onClick={() => setShowDashboard(true)} aria-label="Retour">{"<"}</button>
-          <h1>{L.bibliotheque.chooseItem}</h1>
-          <button type="button" className="library-add" onClick={() => startCreate()} aria-label="Nouvel ouvrage">+</button>
-        </header>
-
-        <button type="button" className="library-import-toggle" onClick={() => setImportOpen((prev) => !prev)}>
-          {importOpen ? "Fermer l'import" : "Importer un catalogue (coller un tableau)"}
-        </button>
-
-        {importOpen ? (
-          <div className="library-import-panel">
-            <p className="library-import-hint">
-              Une ligne par ouvrage, colonnes séparées par une tabulation : code, désignation, famille, sous-famille, unité, temps (h/u), taux horaire (€/h), commentaire (optionnel).
-            </p>
-            <textarea
-              className="library-import-textarea"
-              value={importText}
-              onChange={(event) => setImportText(event.target.value)}
-              rows={8}
-            />
-            {importMessage ? <p className="library-message">{importMessage}</p> : null}
-            <button type="button" className="library-submit" onClick={importCatalog} disabled={importBusy}>
-              {importBusy ? "Import en cours…" : `Importer (${importText.split("\n").filter((l) => l.trim()).length} ligne(s))`}
-            </button>
+      <section className="fournitures-dashboard">
+        <header className="fournitures-dashboard-head">
+          <div>
+            <h1><span className="title-chip">{L.bibliotheque.title}</span></h1>
+            <p>{L.bibliotheque.chooseFamilyHint}</p>
           </div>
-        ) : null}
-
-        <input
-          className="library-search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={L.bibliotheque.search}
-        />
-
-        <div className="library-chips">
-          {families.map((item) => (
-            <button type="button" key={item} className={family === item ? "active" : ""} onClick={() => setFamily(item)}>
-              {item}
-            </button>
-          ))}
-        </div>
+          <div className="fournitures-dashboard-head-actions">
+            <button type="button" className="button secondary" onClick={() => setImportOpen(true)}>{L.bibliotheque.importSpreadsheet}</button>
+            <button type="button" className="button gold" onClick={() => openCreateModal("")}>+ {L.bibliotheque.createTariff}</button>
+          </div>
+        </header>
 
         {message ? <p className="library-message">{message}</p> : null}
 
-        {Object.keys(grouped).length === 0 ? (
-          <section className="library-empty">{L.bibliotheque.noFound}</section>
-        ) : (
-          Object.entries(grouped).map(([title, items]) => (
-            <section className="library-group" key={title}>
-              <h2>{title}</h2>
-              {items.map((item) => (
-                  <div className="library-card-block" key={item.id}>
-                    {renderOuvrageCard(item)}
-                    {(childrenByParent[item.code] || []).map((child) => renderOuvrageCard(child, { child: true }))}
-                    {item.type === "POSTE" ? (
-                      <button type="button" className="sub-ouvrage-button" onClick={() => startCreate(item)}>
-                        {L.bibliotheque.addSubItem}
-                      </button>
-                    ) : null}
-                  </div>
-              ))}
-            </section>
-          ))
-        )}
-
-        {selectedItems.length > 0 ? (
-          <div className="library-selection-bar">
-            <span>{L.bibliotheque.selected(selectedItems.length)}</span>
-            <button type="button" onClick={addSelectionToQuote}>
-              {L.bibliotheque.addToQuote(selectedItems.length)}
+        <div className="biblio-tabs-row">
+          <div className="biblio-tabs">
+            <button type="button" className={activeTab === "familles" ? "active" : ""} onClick={() => setActiveTab("familles")}>
+              {L.bibliotheque.familiesTab}
+            </button>
+            <button type="button" className={activeTab === "perso" ? "active" : ""} onClick={() => setActiveTab("perso")}>
+              {L.bibliotheque.myPricesTab}
+              <span className="biblio-tab-badge perso">{myOuvrages.length}</span>
             </button>
           </div>
+          <input
+            className="supplier-search-input biblio-search-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={L.bibliotheque.search}
+          />
+        </div>
+
+        {searching ? (
+          <>
+            <BibliothequeOuvrageTable
+              L={L}
+              mode="koji"
+              groups={groupByFamily(searchMatches.filter((item) => !item.userId))}
+              companyHourlyRate={companyHourlyRate}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelected}
+              onCopyToPerso={copyToPerso}
+              onEdit={openEditModal}
+              onDelete={removeOuvrage}
+              onHide={hideOuvrage}
+              isAdmin={isAdmin}
+              showFamilyColumn
+            />
+            <BibliothequeOuvrageTable
+              L={L}
+              mode="perso"
+              groups={groupByFamily(searchMatches.filter((item) => item.userId))}
+              companyHourlyRate={companyHourlyRate}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelected}
+              onEdit={openEditModal}
+              onDelete={removeOuvrage}
+              isAdmin={isAdmin}
+              showFamilyColumn
+              emptyLabel={L.bibliotheque.noPersoYet}
+            />
+          </>
+        ) : activeTab === "perso" ? (
+          <BibliothequeOuvrageTable
+            L={L}
+            mode="perso"
+            groups={groupByFamily(myOuvrages)}
+            companyHourlyRate={companyHourlyRate}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelected}
+            onEdit={openEditModal}
+            onDelete={removeOuvrage}
+            isAdmin={isAdmin}
+            showFamilyColumn
+            emptyLabel={L.bibliotheque.noPersoYet}
+          />
+        ) : (
+          <>
+            {metierCoverage.missing.length > 0 ? (
+              <div className="biblio-missing-banner">
+                <span>{L.bibliotheque.missingMetiers(metierCoverage.missing.length)}</span>
+                <div className="biblio-missing-list">
+                  {metierCoverage.missing.map((metier) => (
+                    <button type="button" key={metier.key} className="mini-button" onClick={() => openCreateModal(metier.label)}>
+                      {metier.label} · {L.bibliotheque.completeBtn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="library-family-grid">
+              {familyStats.map((fam) => (
+                <button
+                  type="button"
+                  key={fam.name}
+                  className="library-family-card"
+                  onClick={() => router.push(`/bibliotheque-ouvrages/${encodeURIComponent(fam.name)}`)}
+                >
+                  <div className="library-family-card-head">
+                    <span className="library-family-icon">{fam.icon}</span>
+                    <strong>{fam.count}</strong>
+                  </div>
+                  <strong className="library-family-name">{fam.name}</strong>
+                  <small className="library-family-metier">{fam.subtitle}</small>
+                  {fam.persoCount > 0 ? <span className="biblio-tab-badge perso biblio-family-perso-badge">+{fam.persoCount} perso</span> : null}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {selectedIds.length > 0 ? (
+          <div className="library-selection-bar">
+            <span>{L.bibliotheque.selected(selectedIds.length)}</span>
+            {selectedKojiCount > 0 ? <button type="button" onClick={copySelectionToPerso}>{L.bibliotheque.copyToPerso}</button> : null}
+            <button type="button" onClick={addSelectionToQuote}>{L.bibliotheque.addToQuote(selectedIds.length)}</button>
+          </div>
         ) : null}
-      </main>
+      </section>
+
+      {importOpen ? (
+        <div className="modal-overlay" onClick={() => setImportOpen(false)}>
+          <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
+            <h2>{L.bibliotheque.importSpreadsheet}</h2>
+            <p className="library-import-hint">
+              Une ligne par ouvrage, colonnes séparées par une tabulation : code, désignation, famille, sous-famille, unité, temps (h/u), taux horaire (€/h), commentaire (optionnel).
+            </p>
+            <textarea className="library-import-textarea" value={importText} onChange={(event) => setImportText(event.target.value)} rows={8} />
+            {importMessage ? <p className="library-message">{importMessage}</p> : null}
+            <div>
+              <button type="button" className="button secondary" onClick={() => setImportOpen(false)}>{L.bibliotheque.cancel}</button>
+              <button type="button" className="button gold" onClick={importCatalog} disabled={importBusy}>
+                {importBusy ? "…" : `Importer (${importText.split("\n").filter((l) => l.trim()).length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <BibliothequeTariffModal
+        L={L}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={saveTariff}
+        initial={modalInitial}
+        defaultFamily={modalDefaultFamily}
+        families={families}
+        categoriesForFamily={categoriesForFamily}
+        isAdmin={isAdmin}
+        companyHourlyRate={companyHourlyRate}
+      />
     </Shell>
   );
 }

@@ -1620,10 +1620,22 @@ export default function DevisEditor() {
   // /bibliotheque-ouvrages, sans le detour navigation+localStorage.
   function addOuvrageToRoom(ouvrage, room, quantity) {
     setSelectedIds((current) => current.includes(ouvrage.id) ? current : [...current, ouvrage.id]);
-    setLineSettings((current) => ({
-      ...current,
-      [ouvrage.id]: { ...(current[ouvrage.id] || {}), room, quantity: quantity != null ? String(quantity) : (current[ouvrage.id]?.quantity ?? "1") }
-    }));
+    setLineSettings((current) => {
+      const already = current[ouvrage.id];
+      // Tarifs personnalises (25 oct) : au premier ajout de cette ligne
+      // (pas de settings existants), reprend le forfait/les fournitures de
+      // l'ouvrage catalogue comme point de depart — ensuite editable comme
+      // n'importe quelle ligne (meme bascule Temps reel/Forfait deja en
+      // place partout ailleurs dans cet editeur).
+      const defaults = already ? {} : {
+        ...(ouvrage.billingMode === "fixed" ? { billingMode: "fixed", fixedAmountInput: String(ouvrage.fixedAmountHt || 0), fixedAmountMode: "ht" } : {}),
+        ...(Number(ouvrage.suppliesCost) > 0 ? { materialLines: [{ id: uniqueLocalId("mat"), name: "Fournitures", category: "Divers", unit: "u", unitsToBuy: 1, unitPrice: Number(ouvrage.suppliesCost), showInDevis: true }] } : {})
+      };
+      return {
+        ...current,
+        [ouvrage.id]: { ...defaults, ...(already || {}), room, quantity: quantity != null ? String(quantity) : (already?.quantity ?? "1") }
+      };
+    });
     setExpandedLotIds((current) => new Set(current).add(room));
     setGeneratedQuote(null);
   }

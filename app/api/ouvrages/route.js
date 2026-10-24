@@ -62,6 +62,11 @@ export async function POST(request) {
     discount: body.discount,
     parentCode: body.parentCode || null,
     materialCategories: body.materialCategories || [],
+    billingMode: body.billingMode,
+    fixedAmountHt: body.fixedAmountHt,
+    suppliesCost: body.suppliesCost,
+    copiedFromCode: body.copiedFromCode || null,
+    copiedFromKojiPriceHt: body.copiedFromKojiPriceHt,
     createdAt: now,
     updatedAt: now,
     isCustom: !addToKoji

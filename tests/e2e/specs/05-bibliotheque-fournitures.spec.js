@@ -37,26 +37,26 @@ describe("Fournitures et bibliotheque koji (E2E_WRITE requis)", function () {
     assert.strictEqual(rows.length, 0, "La fourniture supprimee ne devrait plus apparaitre.");
   });
 
-  it("bibliotheque koji : cree puis supprime un ouvrage", async function () {
-    const code = `E2E-${Date.now()}`;
+  it("bibliotheque koji : cree puis supprime un tarif personnalise", async function () {
+    const family = `E2E-famille-${Date.now()}`;
     const label = `Ouvrage test E2E ${Date.now()}`;
 
     await h.goto(driver, "/bibliotheque-ouvrages");
-    await h.clickWhenReady(driver, By.css("button.library-add"));
+    await h.clickWhenReady(driver, By.xpath("//button[contains(., 'Créer un tarif personnalisé')]"));
 
-    const codeInput = await h.findByLabel(driver, "Code");
-    await codeInput.sendKeys(code);
-    const designationInput = await h.findByLabel(driver, "Désignation", "textarea");
+    const designationInput = await h.findByLabel(driver, "Désignation");
     await designationInput.sendKeys(label);
-    await h.clickWhenReady(driver, By.xpath("//button[contains(@class,'library-submit') and normalize-space()=\"Créer l'ouvrage\"]"));
+    const familyInput = await h.findByLabel(driver, "Famille");
+    await h.clearControlledInput(driver, familyInput);
+    await familyInput.sendKeys(family);
+    await h.clickWhenReady(driver, By.xpath("//footer[contains(@class,'biblio-modal-footer')]//button[contains(., 'Enregistrer le tarif')]"));
 
-    const card = await h.waitVisible(driver, By.xpath(`//article[contains(@class,'library-card')][.//h3[normalize-space()=${JSON.stringify(label)}]]`), 20000);
-    const menuBtn = await card.findElement(By.css(".library-menu-button"));
-    await menuBtn.click();
-    const deleteBtn = await card.findElement(By.xpath(".//div[contains(@class,'library-menu')]//button[contains(@class,'danger')]"));
+    const row = await h.waitVisible(driver, By.xpath(`//div[contains(@class,'biblio-row')][.//div[contains(@class,'biblio-label')][normalize-space()=${JSON.stringify(label)}]]`), 20000);
+    const deleteBtn = await row.findElement(By.css(".mini-danger"));
     await deleteBtn.click();
+    await driver.switchTo().alert().accept();
 
-    const cards = await driver.findElements(By.xpath(`//article[contains(@class,'library-card')][.//h3[normalize-space()=${JSON.stringify(label)}]]`));
-    assert.strictEqual(cards.length, 0, "L'ouvrage supprime ne devrait plus apparaitre.");
+    const rows = await driver.findElements(By.xpath(`//div[contains(@class,'biblio-row')][.//div[contains(@class,'biblio-label')][normalize-space()=${JSON.stringify(label)}]]`));
+    assert.strictEqual(rows.length, 0, "Le tarif supprime ne devrait plus apparaitre.");
   });
 });
