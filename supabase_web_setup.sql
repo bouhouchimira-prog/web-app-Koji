@@ -165,3 +165,36 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ
 -- la Corbeille. archived_at est pose par app/api/projects/route.js a
 -- l'archivage, efface a la restauration.
 ALTER TABLE chantiers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+
+-- ── ai_conversations (25 octobre) ───────────────────────────────────────
+-- Journal lisible des conversations avec les assistants IA (Radar des
+-- Chantiers cote client + chat "Avec l'IA" cote devis entreprise), pour
+-- affichage dans koji-admin (https://github.com/FirasMzoughi/koji-admin,
+-- app/dashboard/conversations). Table dediee (pas le blob koji_web_state),
+-- meme principe que radar_offer_drafts : une ligne par conversation, mise
+-- a jour a chaque tour (voir lib/ai-chat-logs.js). koji-web ecrit via la
+-- cle service_role (contourne RLS) ; koji-admin lit avec sa cle anon, donc
+-- la policy de lecture ci-dessous est restreinte aux vrais comptes admin
+-- (lib/auth.js::ADMIN_EMAILS), pas "n'importe quel compte authentifie"
+-- comme le fait deja koji-admin pour users/quotes (ADMIN_ACCESS_ALL_DATA.sql,
+-- pas touche ici — hors perimetre de cette table).
+CREATE TABLE IF NOT EXISTS ai_conversations (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('radar', 'devis')),
+  conversation_id TEXT NOT NULL UNIQUE,
+  particulier_user_id UUID,
+  entreprise_user_id UUID,
+  draft_id TEXT,
+  quote_id TEXT,
+  turns JSONB NOT NULL DEFAULT '[]',
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_conversations_kind_idx ON ai_conversations(kind);
+CREATE INDEX IF NOT EXISTS ai_conversations_updated_idx ON ai_conversations(updated_at DESC);
+
+ALTER TABLE ai_conversations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON ai_conversations FROM anon, authenticated;
+DROP POLICY IF EXISTS "Admins can read AI conversations" ON ai_conversations;
+CREATE POLICY "Admins can read AI conversations" ON ai_conversations FOR SELECT
+  USING (auth.jwt() ->> 'email' IN ('bouhouchimira@gmail.com', 'ablexpertrenov@gmail.com'));
