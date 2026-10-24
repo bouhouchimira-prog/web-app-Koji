@@ -363,9 +363,14 @@ function LoginScreen() {
   // pointant vers /login avec un ?type= deja connu. Un /login sans type
   // (lien historique ou saisi a la main) renvoie donc vers l'accueil
   // plutot que de reafficher ce choix en double.
+  // type=ouvrier (lien genere par app/equipe/page.jsx pour partager l'acces
+  // d'un ouvrier) n'a pas d'ecran dedie ici : /worker est deja la page
+  // complete de connexion+portail ouvrier (son propre formulaire identifiant/
+  // mot de passe contre /api/worker-auth quand aucune session n'est trouvee).
   useEffect(() => {
+    if (typeParam === "ouvrier") { router.replace("/worker"); return; }
     if (!profile) router.replace("/");
-  }, [profile, router]);
+  }, [profile, typeParam, router]);
 
   if (!profile) return null;
 

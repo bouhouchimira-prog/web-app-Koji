@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Shell } from "../../components/Shell";
 
 // Page "Aide" (15 oct, maquette fournie par Amira) — contrairement aux
 // tableaux de bord precedents (Fournitures, Chantiers, Devis...), il n'y a
@@ -12,6 +11,13 @@ import { Shell } from "../../components/Shell";
 // ci-dessous, rien n'est invente. Pas de "videos" (aucune n'existe et je
 // ne peux pas en produire) — remplacees par des raccourcis "Prise en main"
 // qui pointent vers les vrais ecrans concernes.
+//
+// Page publique (declaree dans app/sitemap.ts, bug corrige le 24 oct) :
+// jamais de <Shell> ici (qui redirige vers /login sans session) — meme
+// pattern autonome que app/legal/page.jsx. Les raccourcis "Prise en main"
+// (/devis?new=1, /facturation, /profil) restent eux-memes derriere Shell :
+// un visiteur non connecte y est simplement renvoye vers /login, ce qui est
+// le comportement normal de ces pages.
 
 const THEMES = [
   { key: "premiers-pas", icon: "🚀", label: "Premiers pas" },
@@ -57,10 +63,11 @@ export default function AidePage() {
   const visibleArticles = activeTheme ? ARTICLES.filter((a) => a.theme === activeTheme) : ARTICLES;
 
   return (
-    <Shell>
+    <main className="static-page">
       <section className="fournitures-dashboard">
         <header className="fournitures-dashboard-head">
           <div>
+            <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
             <h1><span className="title-chip">Aide</span></h1>
             <p>Guides et support pour tirer le meilleur de koji.</p>
           </div>
@@ -183,6 +190,6 @@ export default function AidePage() {
           </div>
         </div>
       </section>
-    </Shell>
+    </main>
   );
 }
