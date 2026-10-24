@@ -8488,6 +8488,10 @@ p {
 .biblio-col-family { flex: 0.7 1 0; min-width: 0; color: var(--muted); font-size: 12px; }
 .biblio-col-source { flex: 0.55 1 0; min-width: 0; }
 
+.biblio-table-head .biblio-col-source {
+  color: #ab8328;
+}
+
 .biblio-source-badge {
   display: inline-block;
   font-size: 10.5px;
@@ -8499,8 +8503,8 @@ p {
 }
 
 .biblio-source-badge.ia {
-  background: #ece5fb;
-  color: #6c3fc5;
+  background: #f6ecd9;
+  color: #8a6214;
 }
 
 .biblio-source-badge.manual {
