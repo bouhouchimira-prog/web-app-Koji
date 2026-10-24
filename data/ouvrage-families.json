@@ -1,0 +1,140 @@
+[
+  {
+    "code": "PRE",
+    "name": "Préparation, installation, protections, nettoyage",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Généralités"
+  },
+  {
+    "code": "DEM",
+    "name": "Démolition, dépose",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Démolition"
+  },
+  {
+    "code": "EVA",
+    "name": "Évacuation des déchets",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Démolition"
+  },
+  {
+    "code": "GRO",
+    "name": "Gros-œuvre, maçonnerie rénovation",
+    "hourlyRateDefault": 55,
+    "defaultLot": "Maçonnerie"
+  },
+  {
+    "code": "PLA",
+    "name": "Plâtrerie, cloisons, plafonds, enduits",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Plâtrerie"
+  },
+  {
+    "code": "ISO",
+    "name": "Isolation",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Isolation"
+  },
+  {
+    "code": "SOL",
+    "name": "Sols : préparation, chapes, parquets, souples",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Sols"
+  },
+  {
+    "code": "CAR",
+    "name": "Carrelage, faïence",
+    "hourlyRateDefault": 55,
+    "defaultLot": "Carrelage"
+  },
+  {
+    "code": "PEI",
+    "name": "Peinture, revêtements muraux",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Peinture"
+  },
+  {
+    "code": "MEI",
+    "name": "Menuiserie intérieure, agencement",
+    "hourlyRateDefault": 55,
+    "defaultLot": "Menuiserie intérieure"
+  },
+  {
+    "code": "MEX",
+    "name": "Menuiserie extérieure, fermetures",
+    "hourlyRateDefault": 55,
+    "defaultLot": "Menuiserie extérieure"
+  },
+  {
+    "code": "VIT",
+    "name": "Vitrerie",
+    "hourlyRateDefault": 55,
+    "defaultLot": "Menuiserie extérieure"
+  },
+  {
+    "code": "SER",
+    "name": "Serrurerie, métallerie",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Métallerie"
+  },
+  {
+    "code": "ELEC",
+    "name": "Électricité, courant faible",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Électricité"
+  },
+  {
+    "code": "PLO",
+    "name": "Plomberie, sanitaire, ECS",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Plomberie"
+  },
+  {
+    "code": "CHA",
+    "name": "Chauffage",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Chauffage"
+  },
+  {
+    "code": "VEN",
+    "name": "Ventilation, climatisation",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Ventilation"
+  },
+  {
+    "code": "ENR",
+    "name": "Énergies renouvelables",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Énergies"
+  },
+  {
+    "code": "ECH",
+    "name": "Échafaudage, étaiement, protections collectives",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Généralités"
+  },
+  {
+    "code": "COU",
+    "name": "Couverture, charpente, zinguerie, étanchéité",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Couverture"
+  },
+  {
+    "code": "FAC",
+    "name": "Façade, ravalement, ITE",
+    "hourlyRateDefault": 55,
+    "defaultLot": "Façade"
+  },
+  {
+    "code": "EXT",
+    "name": "Extérieur : terrassement, VRD, dallages, clôtures, jardin, piscine",
+    "hourlyRateDefault": 50,
+    "defaultLot": "Extérieur"
+  },
+  {
+    "code": "AMI",
+    "name": "Amiante, plomb, diagnostics, traitements",
+    "hourlyRateDefault": 60,
+    "defaultLot": "Traitements"
+  }
+]

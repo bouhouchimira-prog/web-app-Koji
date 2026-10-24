@@ -266,6 +266,7 @@ export async function POST(request) {
     items: fixObjectText(body.items || []),
     notes: fixObjectText(body.notes || []),
     surcharges: fixObjectText(body.surcharges || []),
+    situationFactors: fixObjectText(body.situationFactors || {}),
     vatRate: Number(body.vatRate ?? 20),
     draftStep: Number(body.draftStep || 0),
     draftData: fixObjectText(body.draftData || null),
@@ -539,7 +540,7 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
+    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "situationFactors", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);

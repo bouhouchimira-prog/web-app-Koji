@@ -16,6 +16,7 @@ import { computeSurchargeBreakdown } from "../../lib/quote-calculations";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
+import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
 import catalog from "../../data/catalog-ouvrages.json";
 
 const ROOM_SUGGESTIONS = ["Salon", "Cuisine", "Chambre", "Salle de bain", "Bureau", "Exterieur"];
@@ -144,7 +145,33 @@ function profileCompany(user) {
   };
 }
 
+// Parametres par ligne (24 oct, bibliotheque v0) — resout le choix fait
+// sur la ligne (lineSettings[id].parameterChoices, { nomParametre:
+// valeurChoisie }) contre les parametres de l'ouvrage catalogue. 2 formes
+// appliquees au calcul : "choice" (multiplicateur du temps de base) et
+// "count" (nombre saisi x heures/unite, ajoute au temps fixe) ; "amount"
+// (montant indicatif par modalite, ex. tailles de benne) n'est JAMAIS
+// applique automatiquement — ce sont des couts fournisseur non valides,
+// affiches comme aide a la saisie manuelle, jamais un prix invente.
+function resolveParameterEffect(parameters, parameterChoices = {}) {
+  let multiplier = 1;
+  let hoursAdd = 0;
+  (parameters || []).forEach((param) => {
+    const choice = parameterChoices[param.name];
+    if (choice == null || choice === "") return;
+    if (param.type === "choice") {
+      const option = (param.options || []).find((o) => o.label === choice);
+      if (option) multiplier *= Number(option.multiplier || 1);
+    } else if (param.type === "count") {
+      const count = Number(choice || 0);
+      if (count > 0) hoursAdd += count * Number(param.hoursPerUnit || 0);
+    }
+  });
+  return { multiplier, hoursAdd };
+}
+
 function sourceToTask(source, settings = {}) {
+  const paramEffect = resolveParameterEffect(source.parameters, settings.parameterChoices);
   return {
     id: source.id,
     code: source.code,
@@ -152,6 +179,15 @@ function sourceToTask(source, settings = {}) {
     description: settings.description ?? source.description ?? "",
     unit: settings.unit ?? source.unit ?? "u",
     normativeTime: round2(settings.normativeTime ?? source.normativeTime ?? 0),
+    // Bibliotheque v0 (24 oct) : temps fixe + sensibilites aux 7 facteurs
+    // de situation, copies depuis l'ouvrage catalogue (absents = ancien
+    // modele ou ouvrage personnalise -> neutre, voir
+    // lib/pricing.js::calculateTaskPrice).
+    fixedTime: Number(source.fixedTime || 0),
+    sensitivities: source.sensitivities || {},
+    parameters: source.parameters || [],
+    parameterMultiplier: paramEffect.multiplier,
+    parameterHoursAdd: paramEffect.hoursAdd,
     isFixedTime: source.unit === "u",
     billingMode: settings.billingMode || "time",
     fixedAmountHt: fixedAmountHtFromSettings(settings),
@@ -387,6 +423,12 @@ export default function DevisEditor() {
     { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "client" },
     { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "client", calculationBase: "chiffrage_cumule" }
   ]);
+  // Facteurs de situation (24 oct, bibliotheque v0) — collectes UNE FOIS
+  // par devis (pas par ligne), appliques a chaque ligne selon la nature/
+  // sensibilite de son ouvrage (voir lib/pricing.js::calculateTaskPrice).
+  // Valeur par defaut 1 = modalite de reference, aucun effet — jamais
+  // bloquant, coherent avec le reste du formulaire.
+  const [situationFactors, setSituationFactors] = useState(() => ({ ...SITUATION_FACTOR_DEFAULTS }));
   // Acompte/Solde (decisions du 4 septembre pour le module Radar des
   // Chantiers, ouvert a tous les devis le 16 octobre — maquette
   // DevisConditions) : [{ id, label, percent }], toujours exactement 2
@@ -639,6 +681,9 @@ export default function DevisEditor() {
     setRooms(Array.isArray(quote.rooms) ? quote.rooms : []);
     setRoomNotes(Array.isArray(quote.notes) ? quote.notes : []);
     if (Array.isArray(quote.surcharges)) setSurcharges(quote.surcharges);
+    if (quote.situationFactors && typeof quote.situationFactors === "object") {
+      setSituationFactors((current) => ({ ...current, ...quote.situationFactors }));
+    }
     setPaymentMilestones(Array.isArray(quote.paymentMilestones) && quote.paymentMilestones.length > 0 ? quote.paymentMilestones : defaultPaymentMilestones());
     if (quote.vatRate != null) setQuoteVatRate(Number(quote.vatRate));
     setVatManual(true);
@@ -699,7 +744,7 @@ export default function DevisEditor() {
       persistQuote(false).catch(() => {});
     }, 1200);
     return () => clearTimeout(autosaveTimerRef.current);
-  }, [form, rooms, roomNotes, surcharges, paymentMilestones, quoteVatRate, customSources, lineSettings, selectedIds, generatedQuote?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [form, rooms, roomNotes, surcharges, situationFactors, paymentMilestones, quoteVatRate, customSources, lineSettings, selectedIds, generatedQuote?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSources = useMemo(() => {
     const fromCatalog = selectedIds.map((id) => postes.find((item) => item.id === id)).filter(Boolean);
@@ -720,7 +765,7 @@ export default function DevisEditor() {
       const estimate = calculateTaskPrice({
         task,
         quantity: Number(settings.quantity ?? 0),
-        realityFactors: { access: 1, support: 1, complexity: 1 },
+        situationFactors,
         pricingProfile: { ...pricingProfile, hourlyRate: lineHourlyRate },
         selectedProducts: supplies
       });
@@ -749,6 +794,14 @@ export default function DevisEditor() {
         adjustmentReason: task.adjustmentReason,
         fixedDuration: settings.fixedDuration != null ? Number(settings.fixedDuration) : null,
         fixedDurationUnit: settings.fixedDurationUnit || "h",
+        // Bibliotheque v0 (24 oct) — meme precaution que aiAdded/sourceKind
+        // ci-dessous : recalculateLine ne garde que les champs explicitement
+        // passes ici, jamais un spread de task/estimate en entier.
+        fixedTime: task.fixedTime,
+        sensitivities: task.sensitivities,
+        parameters: task.parameters,
+        parameterMultiplier: task.parameterMultiplier,
+        parameterHoursAdd: task.parameterHoursAdd,
         // Badge "IA · à vérifier" (16 oct) — recalculateLine spread "line"
         // tel quel, mais cet objet est construit champ par champ : sans ces
         // 2 lignes, aiAdded/priceSource poses par addAiOuvrageToRoom
@@ -773,7 +826,7 @@ export default function DevisEditor() {
       const subTotalTtc = round2(subItems.reduce((s, sub) => s + sub.totalTtc, 0));
       return { ...line, totalHt: subTotalHt, totalTtc: subTotalTtc, vatAmount: round2(subTotalTtc - subTotalHt), subItems };
     });
-  }, [lineSettings, selectedSources, selectedIds, supplies, company, quoteVatRate]);
+  }, [lineSettings, selectedSources, selectedIds, supplies, company, quoteVatRate, situationFactors]);
 
   const totals = useMemo(() => {
     const hoursPerDay = Number(company.hoursPerDay || 7);
@@ -919,8 +972,10 @@ export default function DevisEditor() {
       majorations: summaryTotals.surchargeLines.map((s) => ({ label: s.label, pourcentage: s.percent, montant: s.amount })),
       totalHt: summaryTotals.totalHt,
       totalTtc: summaryTotals.totalTtc
-    }
-  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks, summaryTotals]);
+    },
+    // Bibliotheque v0 (24 oct) — voir lib/devis-chat-prompt.js regle 4bis.
+    situationFactors
+  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks, summaryTotals, situationFactors]);
 
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1268,6 +1323,23 @@ export default function DevisEditor() {
     if (needle.length < 2) return [];
     return contacts.filter((contact) => contactDisplayName(contact).toLowerCase().includes(needle)).slice(0, 6);
   }, [contacts, clientNameQuery, form.contactId]);
+
+  // Choix de parametre sur une ligne (24 oct, bibliotheque v0) — merge
+  // dans lineSettings[id].parameterChoices plutot que d'ecraser l'objet
+  // entier (plusieurs parametres possibles sur un meme ouvrage).
+  function updateLineParameter(id, paramName, value) {
+    setGeneratedQuote(null);
+    setLineSettings((current) => {
+      const currentSettings = current[id] || {};
+      return {
+        ...current,
+        [id]: {
+          ...currentSettings,
+          parameterChoices: { ...(currentSettings.parameterChoices || {}), [paramName]: value }
+        }
+      };
+    });
+  }
 
   function updateLine(id, field, value) {
     setGeneratedQuote(null);
@@ -1947,6 +2019,7 @@ export default function DevisEditor() {
       items: quoteLines,
       notes: roomNotes,
       surcharges,
+      situationFactors,
       vatRate: quoteVatRate,
       totalHt: summaryTotals.totalHt,
       totalTtc: summaryTotals.totalTtc,
@@ -3201,6 +3274,57 @@ export default function DevisEditor() {
             </span>
           ) : null}
         </div>
+        {renderLineParameters(line)}
+      </div>
+    );
+  }
+
+  // Parametres de l'ouvrage (24 oct, bibliotheque v0) — "choice" (select,
+  // multiplie le temps de base) et "count" (nombre, ajoute des heures) sont
+  // pris en compte dans le calcul (lib/pricing.js). "amount" (ex. tailles
+  // de benne) reste purement indicatif, affiche en aide, jamais applique
+  // automatiquement — ce sont des couts fournisseur non valides.
+  function renderLineParameters(line) {
+    const parameters = Array.isArray(line.parameters) ? line.parameters : [];
+    if (!parameters.length) return null;
+    const choices = lineSettings[line.id]?.parameterChoices || {};
+    return (
+      <div className="quote-recap-line-params">
+        {parameters.map((param) => {
+          if (param.type === "choice") {
+            return (
+              <label className="quote-recap-line-param" key={param.name}>
+                <span>{param.name}</span>
+                <select value={choices[param.name] || ""} onChange={(e) => updateLineParameter(line.id, param.name, e.target.value)}>
+                  <option value="">—</option>
+                  {param.options.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
+                </select>
+              </label>
+            );
+          }
+          if (param.type === "count") {
+            return (
+              <label className="quote-recap-line-param" key={param.name}>
+                <span>{param.name} (+{param.hoursPerUnit} h/u)</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={choices[param.name] || ""}
+                  onChange={(e) => updateLineParameter(line.id, param.name, e.target.value)}
+                />
+              </label>
+            );
+          }
+          if (param.type === "amount") {
+            return (
+              <div className="quote-recap-line-param-hint" key={param.name}>
+                {param.name} (indicatif{param.note ? `, ${param.note}` : ""}) : {param.options.map((o) => `${o.label}≈${o.amountHt}€`).join(" · ")}
+              </div>
+            );
+          }
+          return null;
+        })}
       </div>
     );
   }
@@ -3276,6 +3400,28 @@ export default function DevisEditor() {
                 <span>{L.devis.workDescTitle}</span>
                 <textarea rows={3} value={form.workDescription} onChange={(e) => setField("workDescription", e.target.value)} />
               </label>
+            </section>
+
+            <section className="quote-final-card">
+              <div className="quote-section-title">
+                <h2>Facteurs de situation</h2>
+                <span>Appliqués une fois à toutes les lignes concernées</span>
+              </div>
+              <div className="situation-factors-grid">
+                {SITUATION_FACTORS.map((factor) => (
+                  <label className="recap-field" key={factor.key}>
+                    <span>{factor.question}</span>
+                    <select
+                      value={situationFactors[factor.key] ?? 1}
+                      onChange={(e) => setSituationFactors((current) => ({ ...current, [factor.key]: Number(e.target.value) }))}
+                    >
+                      {factor.options.map((option) => (
+                        <option key={option.label} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
             </section>
 
             <section className="quote-final-card">

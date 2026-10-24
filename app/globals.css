@@ -10234,7 +10234,8 @@ body :where(
 }
 
 .recap-field input,
-.recap-field textarea {
+.recap-field textarea,
+.recap-field select {
   box-sizing: border-box;
   width: 100%;
   border: 1px solid #d6dfec;
@@ -10247,13 +10248,28 @@ body :where(
 }
 
 .recap-field input:focus,
-.recap-field textarea:focus {
+.recap-field textarea:focus,
+.recap-field select:focus {
   outline: none;
   border-color: var(--blue);
 }
 
 .recap-field textarea {
   resize: vertical;
+}
+
+/* Facteurs de situation (24 oct, bibliotheque v0) — 7 selects, collectes
+   une fois par devis sur la page Recapitulatif. */
+.situation-factors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .situation-factors-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Variante alignee a gauche de .quote-ia-preview-input (deja centre a
@@ -10432,6 +10448,44 @@ body :where(
   align-items: center;
   gap: 8px;
   margin-top: 6px;
+}
+
+/* Parametres de ligne (24 oct, bibliotheque v0) */
+.quote-recap-line-params {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.quote-recap-line-param {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quote-recap-line-param span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.quote-recap-line-param select,
+.quote-recap-line-param input {
+  border: 1px solid #d6dfec;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--navy);
+  background: white;
+}
+
+.quote-recap-line-param-hint {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-style: italic;
 }
 
 .recap-source-badge {
