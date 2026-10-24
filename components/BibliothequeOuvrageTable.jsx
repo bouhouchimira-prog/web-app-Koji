@@ -81,6 +81,7 @@ export function BibliothequeOuvrageTable({
                   <div className="biblio-code-text">
                     <div className="biblio-label">{item.label}</div>
                     <div className="biblio-subtitle">{subtitle(item)}</div>
+                    {mode === "koji" ? <div className="biblio-source">{L.bibliotheque.sourceIa}</div> : null}
                   </div>
                 </div>
                 {showFamilyColumn ? <span className="biblio-col-family">{item.family}</span> : null}

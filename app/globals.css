@@ -8370,10 +8370,10 @@ p {
 .biblio-tabs button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
+  gap: 7px;
+  font-size: 12.5px;
   font-weight: 700;
-  padding: 9px 16px;
+  padding: 7px 13px;
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
@@ -8440,39 +8440,42 @@ p {
 .biblio-table {
   background: white;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 10px 8px;
+  border-radius: 16px;
+  padding: 8px 6px;
   margin-top: 16px;
+  font-size: 13px;
 }
 
 .biblio-table-head,
 .biblio-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 11px 14px;
+  gap: 12px;
+  padding: 7px 12px;
 }
 
 .biblio-table-head {
-  padding: 6px 14px 12px 14px;
+  padding: 5px 12px 9px 12px;
   border-bottom: 1px solid #f1f2f6;
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #9c9fb0;
 }
 
-.biblio-col-check { flex: 0 0 20px; }
-.biblio-col-code { flex: 2.9 1 0; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; }
-.biblio-col-family { flex: 0.7 1 0; min-width: 0; color: var(--muted); font-size: 13px; }
-.biblio-col-unit { flex: 0.45 1 0; min-width: 0; color: var(--muted); font-size: 14px; }
-.biblio-col-num { flex: 0.85 1 0; min-width: 0; text-align: right; font-size: 14px; color: #4b5263; }
-.biblio-col-actions { flex: 0 0 150px; display: flex; gap: 8px; justify-content: flex-end; }
+.biblio-col-check { flex: 0 0 18px; }
+.biblio-col-code { flex: 2.9 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; }
+.biblio-col-family { flex: 0.7 1 0; min-width: 0; color: var(--muted); font-size: 12px; }
+.biblio-col-unit { flex: 0.45 1 0; min-width: 0; color: var(--muted); font-size: 12.5px; }
+.biblio-col-num { flex: 0.85 1 0; min-width: 0; text-align: right; font-size: 12.5px; color: #4b5263; }
+.biblio-col-actions { flex: 0 0 132px; display: flex; gap: 6px; justify-content: flex-end; }
+.biblio-col-actions .mini-button,
+.biblio-col-actions .mini-danger { min-height: 28px; font-size: 11px; padding: 0 8px; }
 
 .biblio-row {
   border-bottom: 1px solid #f6f6fa;
-  min-height: 46px;
+  min-height: 36px;
 }
 
 .biblio-row:last-child { border-bottom: none; }
@@ -8481,33 +8484,33 @@ p {
 .biblio-group-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 14px 8px 14px;
-  font-size: 12.5px;
+  gap: 8px;
+  padding: 13px 12px 6px 12px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--navy);
 }
 
 .biblio-group-count {
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 10px;
+  padding: 2px 8px;
+  border-radius: 9px;
   background: #eef0f6;
   color: var(--muted);
 }
 
 .biblio-checkbox {
-  flex: 0 0 20px;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
   border: 1.5px solid #cbd0dc;
   background: white;
   padding: 0;
-  font-size: 12px;
+  font-size: 10px;
   cursor: pointer;
   color: white;
 }
@@ -8519,10 +8522,10 @@ p {
 
 .biblio-code-badge {
   flex: 0 0 auto;
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 9px;
+  padding: 3px 8px;
+  border-radius: 8px;
   background: #fff1e6;
   color: #c2570c;
   white-space: nowrap;
@@ -8533,7 +8536,7 @@ p {
 .biblio-code-text { min-width: 0; }
 
 .biblio-label {
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #1e2430;
   white-space: nowrap;
@@ -8542,27 +8545,36 @@ p {
 }
 
 .biblio-subtitle {
-  font-size: 12.5px;
+  font-size: 11px;
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.biblio-price { font-size: 15px; font-weight: 800; color: var(--navy); display: flex; flex-direction: column; align-items: flex-end; }
-.biblio-price-ref { font-size: 11.5px; color: #9c9fb0; text-decoration: line-through; margin-top: 2px; font-weight: 400; }
+.biblio-source {
+  font-size: 10px;
+  color: #9c9fb0;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.biblio-price { font-size: 13px; font-weight: 800; color: var(--navy); display: flex; flex-direction: column; align-items: flex-end; }
+.biblio-price-ref { font-size: 10px; color: #9c9fb0; text-decoration: line-through; margin-top: 1px; font-weight: 400; }
 
 .biblio-menu-wrap { position: relative; }
 
 .biblio-menu-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
   border: 1px solid #e5e5ec;
   background: white;
   color: #b5b9c6;
-  font-size: 16px;
+  font-size: 14px;
   letter-spacing: 1px;
   cursor: pointer;
 }
@@ -8698,10 +8710,10 @@ p {
 }
 
 .biblio-chips button {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 18px;
+  padding: 6px 12px;
+  border-radius: 16px;
   white-space: nowrap;
   background: white;
   color: var(--muted);
