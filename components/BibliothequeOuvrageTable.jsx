@@ -32,9 +32,12 @@ export function BibliothequeOuvrageTable({
   // Source (25 oct) : "IA" pour tout ouvrage koji, ou tout tarif perso issu
   // d'une copie (donnee de depart venant du catalogue IA, meme si le prix a
   // ete ajuste) ; "Moi" pour un tarif perso cree de zero par l'entreprise.
+  function isIaSource(item) {
+    return mode === "koji" || Boolean(item.copiedFromCode);
+  }
+
   function source(item) {
-    if (mode === "koji" || item.copiedFromCode) return L.bibliotheque.sourceIa;
-    return L.bibliotheque.sourceManual;
+    return isIaSource(item) ? L.bibliotheque.sourceIa : L.bibliotheque.sourceManual;
   }
 
   function subtitle(item) {
@@ -93,7 +96,9 @@ export function BibliothequeOuvrageTable({
                   </div>
                 </div>
                 {showFamilyColumn ? <span className="biblio-col-family">{item.family}</span> : null}
-                <span className="biblio-col-source">{source(item)}</span>
+                <span className="biblio-col-source">
+                  <span className={`biblio-source-badge${isIaSource(item) ? " ia" : " manual"}`}>{source(item)}</span>
+                </span>
                 <span className="biblio-col-unit">{item.unit}</span>
                 <span className="biblio-col-num">{isForfait ? "—" : `${formatHours(item.normativeTime)} h`}</span>
                 <span className="biblio-col-num">{isForfait ? "—" : formatMoney(laborCost)}</span>

@@ -8449,10 +8449,12 @@ p {
 .biblio-table-head,
 .biblio-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding: 7px 12px;
+  padding: 10px 12px;
 }
+
+.biblio-table-head { align-items: center; }
 
 .biblio-table-head {
   padding: 5px 12px 9px 12px;
@@ -8467,7 +8469,27 @@ p {
 .biblio-col-check { flex: 0 0 18px; }
 .biblio-col-code { flex: 2.6 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; }
 .biblio-col-family { flex: 0.7 1 0; min-width: 0; color: var(--muted); font-size: 12px; }
-.biblio-col-source { flex: 0.55 1 0; min-width: 0; color: var(--muted); font-size: 12px; }
+.biblio-col-source { flex: 0.55 1 0; min-width: 0; }
+
+.biblio-source-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.biblio-source-badge.ia {
+  background: #ece5fb;
+  color: #6c3fc5;
+}
+
+.biblio-source-badge.manual {
+  background: #e3f4ea;
+  color: #1a8a53;
+}
 .biblio-col-unit { flex: 0.45 1 0; min-width: 0; color: var(--muted); font-size: 12.5px; }
 .biblio-col-num { flex: 0.85 1 0; min-width: 0; text-align: right; font-size: 12.5px; color: #4b5263; }
 .biblio-col-actions { flex: 0 0 132px; display: flex; gap: 6px; justify-content: flex-end; }
@@ -8540,9 +8562,8 @@ p {
   font-size: 12.5px;
   font-weight: 700;
   color: #1e2430;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.3;
 }
 
 .biblio-subtitle {
