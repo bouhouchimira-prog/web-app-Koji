@@ -53,6 +53,15 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
   const messagesEndRef = useRef(null);
   const snapshotRef = useRef(quoteSnapshot);
   snapshotRef.current = quoteSnapshot;
+  // Identifiant stable pour toute la duree de vie de ce panneau (25 oct,
+  // journal admin) — meme motif que le conversationId deja genere cote
+  // client pour le Radar des Chantiers (app/client/radar/new-chat/page.jsx).
+  const conversationIdRef = useRef(null);
+  if (!conversationIdRef.current) {
+    conversationIdRef.current = typeof crypto !== "undefined" && crypto.randomUUID
+      ? `devischat-${crypto.randomUUID()}`
+      : `devischat-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -140,8 +149,12 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        turns: turnsForThisCall.map(({ role, text }) => ({ role, text })),
-        quoteSnapshot: snapshotRef.current
+        // `hidden` est transmis (pas juste role/text) pour que le serveur
+        // puisse l'exclure du journal admin (lib/ai-chat-logs.js) — sans
+        // ca les tours synthetiques "[RESULTAT_ECRITURE]" s'y retrouveraient.
+        turns: turnsForThisCall.map(({ role, text, hidden }) => (hidden ? { role, text, hidden } : { role, text })),
+        quoteSnapshot: snapshotRef.current,
+        conversationId: conversationIdRef.current
       })
     });
     if (!response.ok || !response.body) {

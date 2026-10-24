@@ -8,6 +8,7 @@ import { RADAR_TOOLS, executeRadarTool } from "../../../lib/radar-assistant-tool
 import { buildRadarSystemPrompt } from "../../../lib/radar-chat-prompt";
 import { readDb } from "../../../lib/db";
 import { ADMIN_INSTRUCTION_TOOL, requesterIsAdmin } from "../../../lib/ai-assistant-instructions";
+import { logConversationSafely } from "../../../lib/ai-chat-logs";
 
 // Nouveau moteur conversationnel Radar des Chantiers (9-10 oct) — PAS
 // ENCORE branche a l'ecran client en production (app/client/radar/new/
@@ -206,7 +207,17 @@ export async function POST(request) {
           if (response.stop_reason !== "tool_use") break;
         }
 
-        send("done", { conversationId, draftId: draft.id, finished, message: finalText || "D'accord." });
+        const visibleReply = finalText || "D'accord.";
+        send("done", { conversationId, draftId: draft.id, finished, message: visibleReply });
+        // Journal admin (25 oct) — conversation lisible complete (jamais le
+        // detail des outils), jamais bloquant pour le client.
+        await logConversationSafely({
+          kind: "radar",
+          conversationId,
+          particulierUserId: portalUserId,
+          draftId: draft.id,
+          turns: [...turns, { role: "assistant", text: visibleReply }]
+        });
       } catch (error) {
         const message = error?.status === 401
           ? "Clé API Claude invalide."

@@ -5,6 +5,7 @@ import { readDb } from "../../../lib/db";
 import { buildDevisChatPrompt } from "../../../lib/devis-chat-prompt";
 import { DEVIS_CHAT_TOOLS, executeDevisChatTool } from "../../../lib/devis-chat-tools";
 import { ADMIN_INSTRUCTION_TOOL, requesterIsAdmin } from "../../../lib/ai-assistant-instructions";
+import { logConversationSafely } from "../../../lib/ai-chat-logs";
 
 // Mode "Avec l'IA" cote devis entreprise (16 oct, maquette Artifact
 // DevisCreerIA) — moteur SSE conversationnel calque sur
@@ -48,7 +49,14 @@ export async function POST(request) {
     return badRequest("Message manquant.");
   }
 
-  const db = await readDb();
+  // Vitesse (25 oct, demande d'Amira) : readDb() et la verification admin
+  // ci-dessous sont 2 appels reseau independants (base d'etat partagee vs
+  // Supabase) — les lancer en parallele plutot que l'un apres l'autre
+  // evite d'empiler leurs latences avant meme le premier appel a Claude.
+  const [db, ownerProfileResult] = await Promise.all([
+    readDb(),
+    auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle()
+  ]);
   const ctx = { auth, db };
   const quoteSnapshot = body.quoteSnapshot || {};
   const messages = toAnthropicMessages(turns);
@@ -59,8 +67,7 @@ export async function POST(request) {
   // consigne permanente a cet assistant, verifie cote serveur a partir du
   // token authentifie — jamais d'une valeur envoyee par le client. L'outil
   // n'est meme pas propose a Claude pour un compte non-admin.
-  const { data: ownerProfile } = await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle();
-  const isAdmin = requesterIsAdmin(ownerProfile?.email);
+  const isAdmin = requesterIsAdmin(ownerProfileResult.data?.email);
   const tools = isAdmin ? [...DEVIS_CHAT_TOOLS, ADMIN_INSTRUCTION_TOOL] : DEVIS_CHAT_TOOLS;
 
   const encoder = new TextEncoder();
@@ -107,7 +114,21 @@ export async function POST(request) {
           if (response.stop_reason !== "tool_use") break;
         }
 
-        send("done", { finished, message: finalText || "D'accord." });
+        const visibleReply = finalText || "D'accord.";
+        send("done", { finished, message: visibleReply });
+        // Journal admin (25 oct) — conversation lisible complete (jamais le
+        // detail des outils ni les tours synthetiques "[RESULTAT_ECRITURE]",
+        // deja marques hidden:true par DevisChatPanel.jsx), jamais bloquant
+        // pour l'entreprise.
+        if (body.conversationId) {
+          await logConversationSafely({
+            kind: "devis",
+            conversationId: String(body.conversationId),
+            entrepriseUserId: auth.userId,
+            quoteId: quoteSnapshot?.id || null,
+            turns: [...turns.filter((t) => !t.hidden), { role: "assistant", text: visibleReply }]
+          });
+        }
       } catch (error) {
         const message = error?.status === 401
           ? "Clé API Claude invalide."

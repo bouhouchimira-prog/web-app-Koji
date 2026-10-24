@@ -950,6 +950,9 @@ export default function DevisEditor() {
   // ajouter une en double (voir lib/devis-chat-prompt.js, qui met ce detail
   // en forme pour le modele).
   const devisChatSnapshot = useMemo(() => ({
+    // Journal admin (25 oct) — absent tant que le devis n'a pas encore ete
+    // enregistre une premiere fois (autosave), lie des qu'il existe.
+    id: generatedQuote?.id || null,
     lots: roomGroups.map((room) => ({
       nom: room === "Services" ? L.devis.generalWorks : room,
       lignes: (linesByRoom[room] || []).map((line) => ({
@@ -975,7 +978,7 @@ export default function DevisEditor() {
     },
     // Bibliotheque v0 (24 oct) — voir lib/devis-chat-prompt.js regle 4bis.
     situationFactors
-  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks, summaryTotals, situationFactors]);
+  }), [roomGroups, linesByRoom, form.client, form.clientPhone, form.clientEmail, form.chantierAddress, L.devis.generalWorks, summaryTotals, situationFactors, generatedQuote?.id]);
 
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
