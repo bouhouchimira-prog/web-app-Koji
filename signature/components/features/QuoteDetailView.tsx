@@ -1,7 +1,6 @@
 'use client';
 
 import { useClientStore } from '@/store/clientStore';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -86,7 +85,6 @@ function lineBreakdown(item: QuoteLineItem): string[] {
 export function QuoteDetailView({ id, email }: QuoteDetailViewProps) {
   const { quotes, updateQuoteStatus, updateQuoteStartDate, addQuoteMessage, fetchQuote, isLoading, error } = useClientStore();
   const authReady = useClientStore((s) => s.authReady);
-  const router = useRouter();
 
   const quote = quotes.find((q) => q.id === id);
 
@@ -183,7 +181,9 @@ export function QuoteDetailView({ id, email }: QuoteDetailViewProps) {
   // ete accepte par get_quote_for_client cote SQL.
   const loadedById = quote != null && !error;
 
-  // Lien invalide/expire, ou email ne correspondant pas a celui du devis.
+  // Lien invalide, email ne correspondant pas, ou devis signe depuis plus de
+  // 48h (expire cote SQL par get_quote_for_client, pour la securite - voir
+  // ADD_ITEMS_TO_GET_QUOTE_RPC.sql).
   if (!loadedById) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center bg-background p-4">
@@ -193,20 +193,12 @@ export function QuoteDetailView({ id, email }: QuoteDetailViewProps) {
               <img src="/koji-mark.svg" alt="Koji" className="w-full h-full object-contain p-2.5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Devis introuvable</h1>
+              <h1 className="text-xl font-bold text-gray-900">Lien non valide</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Ce lien ne permet pas d&apos;ouvrir le devis. Connectez-vous avec
-                l&apos;identifiant et le mot de passe reçus par message.
+                Ce lien est invalide ou a expiré. Contactez votre entreprise pour en recevoir un nouveau.
               </p>
             </div>
           </div>
-          <Button
-            type="button"
-            onClick={() => router.push('/auth/login')}
-            className="w-full h-12 bg-primary hover:bg-primary/90"
-          >
-            Se connecter avec mon identifiant
-          </Button>
         </Card>
       </div>
     );

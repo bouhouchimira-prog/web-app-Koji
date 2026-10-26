@@ -1,18 +1,20 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { QuoteDetailView } from '@/components/features/QuoteDetailView';
 import { Navbar } from "@/components/layout/Navbar";
 
+// Plus de compte client, plus de connexion (26 oct, demande d'Amira) : ce
+// site n'existe que pour ouvrir un devis par lien direct (?quoteId=...). Sans
+// ce parametre, page vierge pour tout le monde — aucun contenu, aucune
+// redirection vers un tableau de bord ou un ecran de connexion.
 function HomeContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const quoteId = searchParams?.get('quoteId');
   const email = searchParams?.get('email') || undefined;
 
-  // If quoteId exists, render the Quote Detail View DIRECTLY
   if (quoteId) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -24,19 +26,7 @@ function HomeContent() {
     );
   }
 
-  // If no quoteId, redirect to Client Dashboard
-  useEffect(() => {
-    router.replace('/client');
-  }, [router]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="animate-pulse flex flex-col items-center gap-4">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        <p className="text-sm text-muted-foreground font-medium">Chargement de votre espace Koji Client...</p>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-background" />;
 }
 
 export default function Home() {
