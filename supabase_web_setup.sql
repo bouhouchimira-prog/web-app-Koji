@@ -195,6 +195,12 @@ CREATE INDEX IF NOT EXISTS ai_conversations_updated_idx ON ai_conversations(upda
 
 ALTER TABLE ai_conversations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ai_conversations FROM anon, authenticated;
+-- Bug trouve le 26 oct (audit Selenium cote koji-admin) : REVOKE ALL retire
+-- aussi le privilege SELECT de base, qui est verifie par Postgres AVANT la
+-- policy RLS ci-dessous. Sans ce GRANT, meme un compte admin autorise par la
+-- policy recoit un 403 "permission denied" sur toute lecture via la cle anon
+-- (koji-admin) — la policy seule ne suffit jamais sans le GRANT qui l'accompagne.
+GRANT SELECT ON ai_conversations TO authenticated;
 DROP POLICY IF EXISTS "Admins can read AI conversations" ON ai_conversations;
 CREATE POLICY "Admins can read AI conversations" ON ai_conversations FOR SELECT
   USING (auth.jwt() ->> 'email' IN ('bouhouchimira@gmail.com', 'ablexpertrenov@gmail.com'));
