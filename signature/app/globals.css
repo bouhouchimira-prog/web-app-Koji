@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  /* The site always renders LIGHT, whatever the phone's theme. Without this,
+     Android Chrome's auto-dark inverted the pages (black cards, invisible
+     date field) on dark-mode phones. */
+  color-scheme: only light;
+  --background: #FFF7ED; /* Mobile: Cream */
+  --foreground: #0F172A; /* Mobile: Navy */
+  --primary: #0F172A; /* Mobile: Navy */
+  --primary-foreground: #ffffff;
+  --secondary: #A18B73; /* Mobile: Gold/Accent */
+  --secondary-foreground: #ffffff;
+  --accent: #A18B73; /* Mobile: Gold/Accent */
+  --accent-foreground: #ffffff;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --card: #ffffff;
+  --card-foreground: #0F172A;
+  --border: #E2E8F0;
+  --radius: 1rem;
+}
+
+.dark {
+  --background: #0B0F14;
+  --foreground: #ffffff;
+  --primary: #1D74FF;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #0B0F14;
+  --accent: #1E293B;
+  --accent-foreground: #ffffff;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --card: #111827;
+  --card-foreground: #ffffff;
+  --border: #1E293B;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+}
+
+/* Keep the navy/gold devis bars and the Koji watermark visible when the quote
+   is exported to PDF or printed (browsers strip backgrounds by default). */
+#quote-document,
+#quote-document * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+}
