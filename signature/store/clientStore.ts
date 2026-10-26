@@ -159,7 +159,29 @@ export const useClientStore = create<ClientState>((set, get) => ({
           }
         });
       } else if (data.items && Array.isArray(data.items)) {
-        items = data.items;
+        // Vraie forme des devis actuels (26 oct) : `quotes.items`, un tableau
+        // plat ou chaque ligne porte deja son `room`, et `totalHt`/`laborCost`/
+        // `materialCost` sont des totaux de LIGNE (pas des prix unitaires) —
+        // contrairement a quote_rooms/quote_tasks (vide en pratique), jamais
+        // alimente par le vrai generateur de devis.
+        items = data.items.map((it: any) => {
+          const qty = Number(it.quantity ?? 1) || 1;
+          const lineTotal = Number(it.totalHt ?? it.totalTtc ?? 0);
+          return {
+            id: it.id,
+            description: it.label || it.description || 'Ligne',
+            quantity: qty,
+            unitPrice: lineTotal / qty,
+            unit: it.unit || 'u',
+            room: it.room || undefined,
+            code: it.code || undefined,
+            forfait: it.billingMode ? it.billingMode !== 'time' : undefined,
+            moUnitPrice: Number(it.laborCost ?? 0) / qty,
+            fournituresUnitPrice: Number(it.materialCost ?? 0) / qty,
+            hours: Number(it.totalTimeHours ?? it.correctedTimeHours ?? it.normativeTime ?? 0) / qty,
+            effectiveRate: Number(it.hourlyRate ?? 0) * Number(it.totalCoefficient ?? 1),
+          };
+        });
       } else if (metadata.expenses) {
         Object.values(metadata.expenses).forEach((roomItems: any) => {
           if (Array.isArray(roomItems)) {

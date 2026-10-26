@@ -77,10 +77,13 @@ function lineBreakdown(item: QuoteLineItem): string[] {
   return parts;
 }
 
-// `email` (the address baked into the link by koji-main) is used only to
-// pre-fill the login field — the devis still opens strictly on the logged-in
-// account's email, never on the URL value.
-export function QuoteDetailView({ id }: QuoteDetailViewProps) {
+// `id` (+ `email` when present) is all the link needs — `get_quote_for_client`
+// (SQL, SECURITY DEFINER) authorizes by email match when the quote has one on
+// file, or by the unguessable UUID alone otherwise. No login required (26 oct,
+// demande d'Amira) : avant ce changement, le lien seul ne suffisait pas, une
+// vraie page de connexion (identifiant/mot de passe) etait obligatoire malgre
+// la maquette envoyee qui montre un acces direct.
+export function QuoteDetailView({ id, email }: QuoteDetailViewProps) {
   const { quotes, updateQuoteStatus, updateQuoteStartDate, addQuoteMessage, fetchQuote, isLoading, error } = useClientStore();
   const authReady = useClientStore((s) => s.authReady);
   const router = useRouter();
@@ -101,29 +104,15 @@ export function QuoteDetailView({ id }: QuoteDetailViewProps) {
   // renders the responsive phone/grid variants poorly — rows came out empty).
   const [pdfMode, setPdfMode] = useState(false);
 
-  // The devis opens ONLY after a successful Identifiant + Mot de passe login,
-  // which sets a per-session flag for this quote id. Opening the link without
-  // logging in (e.g. someone the client forwarded it to) finds no flag and is
-  // sent to /auth/login. So the login screen always gates access — sharing the
-  // raw link grants nothing.
-  const [accessChecked, setAccessChecked] = useState(false);
-  const [hasAccess, setHasAccess] = useState(false);
+  // Le lien seul ouvre le devis : get_quote_for_client verifie deja cote SQL
+  // que l'email correspond (quand le devis en a un) ou que l'UUID (imprevisible)
+  // suffit sinon — pas besoin d'un second verrou cote client.
+  const [fetched, setFetched] = useState(false);
   useEffect(() => {
-    if (!id || accessChecked) return;
-    let unlocked = false;
-    try {
-      unlocked = sessionStorage.getItem(`koji_access_${id}`) === '1';
-    } catch {
-      unlocked = false;
-    }
-    setHasAccess(unlocked);
-    setAccessChecked(true);
-    if (unlocked) {
-      fetchQuote(id); // id alone authorizes the data once login is proven
-    } else {
-      router.replace(`/auth/login`);
-    }
-  }, [id, accessChecked, fetchQuote, router]);
+    if (!id || fetched) return;
+    setFetched(true);
+    fetchQuote(id, email);
+  }, [id, email, fetched, fetchQuote]);
 
   const handleSign = async (signatureData: string) => {
     if (!quote) return;
@@ -183,24 +172,19 @@ export function QuoteDetailView({ id }: QuoteDetailViewProps) {
       setIsSending(false);
     }
   };
-  // Until we've checked the per-session login flag — or while redirecting an
-  // unauthenticated visitor to /auth/login, or while the quote loads — show the
-  // loader. This prevents the devis (or the error card) from flashing before
-  // the login screen takes over.
-  if (!accessChecked || !hasAccess || isLoading || !authReady) {
+  // Le temps que fetchQuote reponde (ou que l'auth Supabase, utilisee par
+  // ailleurs dans l'app, finisse de s'initialiser) — plus de verrou de
+  // connexion ici.
+  if (!fetched || isLoading || !authReady) {
     return <div className="p-8 flex justify-center items-center h-screen text-primary">Chargement du devis...</div>;
   }
 
-  // A quote present in the store + no error means the (login-gated, id-authorized)
-  // fetch succeeded — open it.
+  // Un devis present dans le store + pas d'erreur = le lien (id + email) a
+  // ete accepte par get_quote_for_client cote SQL.
   const loadedById = quote != null && !error;
 
-  // Access was granted (logged in) but the devis still could not be loaded
-  // (bad/expired id, or the backend RPC isn't updated yet).
+  // Lien invalide/expire, ou email ne correspondant pas a celui du devis.
   if (!loadedById) {
-    // The devis could not be opened from this link (bad/expired id, or the
-    // backend RPC isn't updated yet). Point the visitor at the per-chantier
-    // Identifiant + Mot de passe login rather than an email form.
     return (
       <div className="min-h-[70vh] flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md p-8 border-none shadow-sm bg-white space-y-5">
