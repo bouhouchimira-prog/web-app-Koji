@@ -1,4 +1,4 @@
-import { resolveEntreprise } from "@/lib/entreprise-auth";
+import { resolveEntreprise } from "../../../../lib/entreprise-auth";
 
 export async function GET(request) {
   try {
