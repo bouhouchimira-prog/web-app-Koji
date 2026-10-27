@@ -231,5 +231,121 @@ void main() {
       );
       expect(offer['id'], 'radar-1');
     });
+
+    test('getMessages hits the messages endpoint and unwraps the list',
+        () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/marketplace/offres/o1/messages');
+        return http.Response(
+          jsonEncode({
+            'messages': [
+              {'id': 'm1', 'senderType': 'entreprise', 'message': 'Bonjour'},
+            ],
+          }),
+          200,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final messages = await repo.getMessages('o1');
+      expect(messages.single['message'], 'Bonjour');
+    });
+
+    test('proposeRdv sends kind rdv_proposal with an ISO date', () async {
+      final mockClient = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['kind'], 'rdv_proposal');
+        expect(body['entrepriseUserId'], 'e1');
+        expect(body['rdvDate'], '2026-11-01T10:00:00.000');
+        return http.Response(
+          jsonEncode({'message': {'id': 'm2', 'kind': 'rdv_proposal'}}),
+          201,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final message = await repo.proposeRdv(
+        'o1',
+        entrepriseUserId: 'e1',
+        rdvDate: DateTime(2026, 11, 1, 10),
+      );
+      expect(message['kind'], 'rdv_proposal');
+    });
+
+    test('getPaiements hits the paiement endpoint and unwraps the list',
+        () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/marketplace/offres/o1/paiement');
+        return http.Response(
+          jsonEncode({
+            'paiements': [
+              {'id': 'p1', 'step': 'acompte', 'status': 'pending'},
+            ],
+          }),
+          200,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final paiements = await repo.getPaiements('o1');
+      expect(paiements.single['step'], 'acompte');
+    });
+
+    test('checkoutPaiement returns the Stripe Checkout url', () async {
+      final mockClient = MockClient((request) async {
+        expect(
+          request.url.path,
+          '/api/marketplace/offres/o1/paiement/p1/checkout',
+        );
+        return http.Response(
+          jsonEncode({'url': 'https://checkout.stripe.com/session/abc'}),
+          200,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final url = await repo.checkoutPaiement('o1', 'p1');
+      expect(url, 'https://checkout.stripe.com/session/abc');
+    });
+
+    test('getEntrepriseCardPdf fetches raw bytes, not JSON', () async {
+      final mockClient = MockClient((request) async {
+        expect(
+          request.url.path,
+          '/api/marketplace/offres/o1/entreprise-card',
+        );
+        expect(request.url.queryParameters['entrepriseUserId'], 'e1');
+        return http.Response.bytes([0x25, 0x50, 0x44, 0x46], 200);
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final bytes = await repo.getEntrepriseCardPdf('o1', entrepriseUserId: 'e1');
+      expect(bytes, [0x25, 0x50, 0x44, 0x46]);
+    });
   });
 }

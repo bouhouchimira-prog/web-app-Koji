@@ -16,3 +16,13 @@ final marketplaceOfferPositionsProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, offerId) {
   return ref.read(marketplaceRepositoryProvider).getPositions(offerId);
 });
+
+final marketplaceOfferMessagesProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, String>((ref, offerId) {
+  return ref.read(marketplaceRepositoryProvider).getMessages(offerId);
+});
+
+final marketplaceOfferPaiementsProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, String>((ref, offerId) {
+  return ref.read(marketplaceRepositoryProvider).getPaiements(offerId);
+});

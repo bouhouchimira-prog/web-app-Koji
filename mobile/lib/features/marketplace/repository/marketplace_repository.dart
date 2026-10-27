@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
@@ -125,5 +127,118 @@ class MarketplaceRepository {
       if (conversationId != null) 'conversationId': conversationId,
     }) as Map<String, dynamic>;
     return data['offre'] as Map<String, dynamic>;
+  }
+
+  // --- Détail d'une demande : messagerie, RDV, photos, paiement ---------
+  // Gabarit web : app/client/radar/[id]/page.jsx, lu en entier. Les
+  // "conversations" (une par entreprise) ne sont PAS un endpoint à part :
+  // le site les reconstruit lui-même en groupant messages par
+  // entrepriseUserId — ce repository fait pareil, voir
+  // marketplace_offer_detail_screen.dart.
+
+  /// Tous les fils de discussion de cette offre (toutes entreprises
+  /// confondues, à regrouper par entrepriseUserId côté écran).
+  Future<List<Map<String, dynamic>>> getMessages(String offerId) async {
+    final data = await _api.get(
+      '/api/marketplace/offres/$offerId/messages',
+    ) as Map<String, dynamic>;
+    return (data['messages'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>> sendMessage(
+    String offerId, {
+    required String entrepriseUserId,
+    required String message,
+  }) async {
+    final data = await _api.postJson('/api/marketplace/offres/$offerId/messages', {
+      'entrepriseUserId': entrepriseUserId,
+      'message': message,
+    }) as Map<String, dynamic>;
+    return data['message'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> proposeRdv(
+    String offerId, {
+    required String entrepriseUserId,
+    required DateTime rdvDate,
+  }) async {
+    final data = await _api.postJson('/api/marketplace/offres/$offerId/messages', {
+      'entrepriseUserId': entrepriseUserId,
+      'kind': 'rdv_proposal',
+      'rdvDate': rdvDate.toIso8601String(),
+    }) as Map<String, dynamic>;
+    return data['message'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> respondRdv(
+    String offerId, {
+    required String entrepriseUserId,
+    required String respondsToId,
+    required bool accepted,
+  }) async {
+    final data = await _api.postJson('/api/marketplace/offres/$offerId/messages', {
+      'entrepriseUserId': entrepriseUserId,
+      'kind': 'rdv_response',
+      'respondsToId': respondsToId,
+      'rdvStatus': accepted ? 'accepted' : 'declined',
+    }) as Map<String, dynamic>;
+    return data['message'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> grantPhotos(
+    String offerId, {
+    required String entrepriseUserId,
+  }) async {
+    final data = await _api.postJson('/api/marketplace/offres/$offerId/messages', {
+      'entrepriseUserId': entrepriseUserId,
+      'kind': 'photo_grant',
+    }) as Map<String, dynamic>;
+    return data['message'] as Map<String, dynamic>;
+  }
+
+  /// La carte de visite Koji d'une entreprise : un PDF, jamais un lien
+  /// externe — la route exige le cookie de session (voir
+  /// app/api/marketplace/offres/[id]/entreprise-card/route.js), qu'un
+  /// navigateur externe n'a pas. On récupère les octets nous-mêmes et on
+  /// les affiche avec `printing` (même façon que les devis, voir
+  /// features/signature/client_devis_pdf.dart).
+  Future<Uint8List> getEntrepriseCardPdf(
+    String offerId, {
+    required String entrepriseUserId,
+  }) {
+    return _api.getBytes(
+      '/api/marketplace/offres/$offerId/entreprise-card',
+      query: {'entrepriseUserId': entrepriseUserId, 'preview': '1'},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getPaiements(String offerId) async {
+    final data = await _api.get(
+      '/api/marketplace/offres/$offerId/paiement',
+    ) as Map<String, dynamic>;
+    return (data['paiements'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+  }
+
+  /// Ouvre une session Stripe Checkout pour cette échéance — l'URL est à
+  /// ouvrir dans le navigateur (jamais de clé Stripe côté app).
+  Future<String> checkoutPaiement(String offerId, String paiementId) async {
+    final data = await _api.postJson(
+      '/api/marketplace/offres/$offerId/paiement/$paiementId/checkout',
+      const {},
+    ) as Map<String, dynamic>;
+    return data['url'] as String;
+  }
+
+  Future<Map<String, dynamic>> validatePaiement(
+    String offerId,
+    String paiementId,
+  ) async {
+    final data = await _api.postJson(
+      '/api/marketplace/offres/$offerId/paiement/$paiementId/valider',
+      const {},
+    ) as Map<String, dynamic>;
+    return data['paiement'] as Map<String, dynamic>;
   }
 }

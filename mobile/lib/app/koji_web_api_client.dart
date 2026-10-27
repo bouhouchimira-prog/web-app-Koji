@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -150,6 +151,23 @@ class KojiWebApiClient {
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
     final res = await _http.get(_uri(path, query), headers: await _headers());
     return _unwrap(res);
+  }
+
+  /// Like [get], but for a binary response (e.g. the PDF entreprise-card) —
+  /// never JSON-decoded. Still carries the session cookie, unlike opening
+  /// the same URL in an external browser (which has no idea about our
+  /// secure-storage cookie, see the class doc above).
+  Future<Uint8List> getBytes(String path, {Map<String, dynamic>? query}) async {
+    final res = await _http.get(_uri(path, query), headers: await _headers(json: false));
+    if (res.statusCode >= 400) {
+      String message = 'Erreur serveur (${res.statusCode}).';
+      try {
+        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+        if (decoded is Map && decoded['error'] is String) message = decoded['error'] as String;
+      } catch (_) {}
+      throw KojiWebApiException(res.statusCode, message);
+    }
+    return res.bodyBytes;
   }
 
   Future<dynamic> postJson(String path, Map<String, dynamic> body) async {
