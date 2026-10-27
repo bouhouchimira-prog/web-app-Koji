@@ -1,4 +1,4 @@
-import { resolveEntreprise } from "../../../../../lib/entreprise-auth";
+import { resolveEntreprise } from "../../../../../../lib/entreprise-auth";
 
 // GET /api/entreprise/devis/:id/pdf — download quote as PDF
 export async function GET(request, { params }) {
