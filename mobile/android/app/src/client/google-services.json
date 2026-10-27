@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "516208620302",
+    "project_id": "koji-android",
+    "storage_bucket": "koji-android.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:516208620302:android:placeholder_id",
+        "android_client_info": {
+          "package_name": "com.koji.client"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "516208620302-kb9m01pqo39t8h6ps9qfcaq7s88i561s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSy_PLACEHOLDER_KEY_FOR_BUILD"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "516208620302-kb9m01pqo39t8h6ps9qfcaq7s88i561s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

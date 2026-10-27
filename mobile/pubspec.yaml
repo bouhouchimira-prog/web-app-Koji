@@ -1,0 +1,84 @@
+name: koji
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+56
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  intl: ^0.19.0
+  uuid: ^4.2.2
+  flutter_riverpod: ^2.4.9
+  go_router: ^12.0.0
+  logger: ^2.0.0
+  pdf: ^3.10.7
+  printing: ^5.12.0
+  path_provider: ^2.1.2
+  image_picker: ^1.2.1
+  flutter_svg: ^2.0.10
+  flutter_launcher_icons: "^0.14.3"
+  image_cropper: ^8.0.0
+  supabase_flutter: ^2.8.0
+  google_sign_in: ^6.2.1
+  shared_preferences: ^2.5.3
+  share_plus: ^10.1.2
+  url_launcher: ^6.2.0
+  google_fonts: ^6.2.1
+  file_picker: ^10.3.10
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  in_app_purchase: ^3.2.0
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.2
+  webview_flutter: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  mocktail: ^1.0.4
+  flutter_secure_storage_platform_interface: ^1.1.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  # Plus Jakarta Sans — the typeface of the koji design. Bundled (rather than
+  # fetched by google_fonts) so every weight resolves to its own file, offline
+  # too. google_fonts is still used by a few older screens (Inter).
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+        - asset: assets/fonts/PlusJakartaSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-BoldItalic.ttf
+          weight: 700
+          style: italic
+        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/PlusJakartaSans-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/LOGO.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+ # android min sdk min:16, default 21
