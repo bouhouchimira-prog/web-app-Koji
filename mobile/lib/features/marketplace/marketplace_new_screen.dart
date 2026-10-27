@@ -27,12 +27,14 @@ class _Turn {
   final List<String> photos;
 }
 
-/// AI publishing assistant + manual form — port of app/client/radar/new/
-/// page.jsx's "Offre IA" and "Saisie libre" tabs. The assistant itself
-/// (lib/radar-chat-prompt.js / lib/radar-assistant-tools.js) stays entirely
-/// server-side on koji-web — this screen only renders what the SSE stream
-/// sends and relays what the particulier types/picks, exactly like the web
-/// page's own sendToEngine().
+/// AI publishing assistant + manual form. The IA mode implements the
+/// conversational flow from app/client/radar/new-chat/page.jsx (SSE-driven
+/// /api/radar-chat with proposer_choix / demander_photo / terminer_collecte
+/// tools). Manual mode skips the chat and goes straight to description + address.
+/// In both cases: collect via chat/form → recap form → expertise → publish.
+/// The assistant itself (lib/radar-chat-prompt.js / lib/radar-assistant-tools.js)
+/// stays entirely server-side on koji-web — this screen only renders SSE events
+/// and relays user responses, exactly like the web page's sendToEngine().
 class MarketplaceNewScreen extends ConsumerStatefulWidget {
   const MarketplaceNewScreen({super.key});
 
