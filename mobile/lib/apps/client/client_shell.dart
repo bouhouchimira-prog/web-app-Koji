@@ -10,6 +10,7 @@ import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/client/providers/client_providers.dart';
 import 'package:koji/features/client/repository/client_repository.dart';
+import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 
 /// Frame of every signed-in client page.
 ///
@@ -85,6 +86,12 @@ class ClientShell extends ConsumerWidget {
   Widget _webLayout(BuildContext context, WidgetRef ref, int pending) {
     final p = context.koji;
     final account = ref.watch(currentAccountProvider).valueOrNull;
+    final unread = ref
+            .watch(clientNotificationsProvider)
+            .valueOrNull
+            ?.where((n) => n['read'] != true)
+            .length ??
+        0;
     return Material(
       color: p.page,
       child: Column(
@@ -93,6 +100,8 @@ class ClientShell extends ConsumerWidget {
             espace: 'Espace particulier',
             accountName: account?.displayName ?? 'Koji',
             onAccount: () => openClientNav(context, ref, 'profil'),
+            unreadCount: unread,
+            onNotifications: () => context.push('/client/notifications'),
           ),
           Expanded(
             child: Row(

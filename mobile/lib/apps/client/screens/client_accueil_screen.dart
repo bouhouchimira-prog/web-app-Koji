@@ -27,13 +27,34 @@ class ClientAccueilScreen extends ConsumerWidget {
         ClientChantier.group(tasksAsync.valueOrNull ?? const []);
     final offers = offersAsync.valueOrNull ?? const <Map<String, dynamic>>[];
     final prenom = (account?.firstName ?? '').trim();
+    final unread = ref
+            .watch(clientNotificationsProvider)
+            .valueOrNull
+            ?.where((n) => n['read'] != true)
+            .length ??
+        0;
 
     return KojiPage(
       title: prenom.isEmpty ? 'Accueil' : 'Bonjour $prenom',
       onRefresh: () async {
         ref.invalidate(clientTasksProvider);
         ref.invalidate(marketplaceOffersProvider);
+        ref.invalidate(clientNotificationsProvider);
       },
+      actions: [
+        // Point d'entrée vers les notifications sur mobile : la coquille
+        // (ClientShell) n'affiche la cloche que sur grand écran.
+        Badge(
+          isLabelVisible: unread > 0,
+          label: Text('$unread'),
+          backgroundColor: KojiColors.coralDot,
+          child: IconButton(
+            onPressed: () => context.push('/client/notifications'),
+            icon: const KojiIcon(KojiIcons.bell),
+            tooltip: 'Notifications',
+          ),
+        ),
+      ],
       main: [
         // Hero — wording matches the web (app/client/page.jsx: "Un autre
         // projet de travaux ?" / CTA "+ Publier un chantier"), dark-navy
@@ -48,15 +69,22 @@ class ClientAccueilScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  KojiIcon(KojiIcons.sparkle, size: 18, color: KojiColors.gold),
+                  Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: KojiIcon(KojiIcons.sparkle,
+                        size: 18, color: KojiColors.gold),
+                  ),
                   SizedBox(width: 8),
-                  Text(
-                    'Un autre projet de travaux ?',
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                  Expanded(
+                    child: Text(
+                      'Un autre projet de travaux ?',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],
@@ -174,7 +202,8 @@ class _ChantierHomeCard extends StatelessWidget {
               ],
             ),
           ),
-          KojiPill(label, tone: tone),
+          const SizedBox(width: 8),
+          Flexible(child: KojiPill(label, tone: tone)),
         ],
       ),
     );
@@ -228,9 +257,13 @@ class _OfferHomeCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          KojiPill(
-            hasReply ? 'Un artisan vous a écrit' : marketplaceStatusLabel(status),
-            tone: hasReply ? KojiTone.info : marketplaceStatusTone(status),
+          Flexible(
+            child: KojiPill(
+              hasReply
+                  ? 'Un artisan vous a écrit'
+                  : marketplaceStatusLabel(status),
+              tone: hasReply ? KojiTone.info : marketplaceStatusTone(status),
+            ),
           ),
         ],
       ),

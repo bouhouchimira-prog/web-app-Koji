@@ -6,17 +6,18 @@ import 'package:koji/app/session_guard.dart';
 import 'package:koji/apps/client/client_shell.dart';
 import 'package:koji/apps/client/screens/client_accueil_screen.dart';
 import 'package:koji/apps/client/client_widgets.dart';
+import 'package:koji/apps/client/screens/client_aide_screen.dart';
 import 'package:koji/apps/client/screens/client_chantier_detail_screen.dart';
 import 'package:koji/apps/client/screens/client_chantiers_screen.dart';
 import 'package:koji/apps/client/screens/client_devis_screen.dart';
 import 'package:koji/apps/client/screens/client_messages_inbox_screen.dart';
+import 'package:koji/apps/client/screens/client_notifications_screen.dart';
 import 'package:koji/apps/client/screens/client_parametres_screen.dart';
 import 'package:koji/apps/client/screens/client_profil_screen.dart';
 import 'package:koji/core/route_args.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/client/client_messages_screen.dart';
 import 'package:koji/features/client/client_tasks_screen.dart';
-import 'package:koji/features/help/help_screen.dart';
 import 'package:koji/features/marketplace/marketplace_home_screen.dart';
 import 'package:koji/features/marketplace/marketplace_login_screen.dart';
 import 'package:koji/features/marketplace/marketplace_new_screen.dart';
@@ -95,7 +96,9 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
             ),
             _page('/client/profil', (_) => const ClientProfilScreen()),
             _page('/client/parametres', (_) => const ClientParametresScreen()),
-            _page('/client/aide', (_) => const KojiHelpScreen()),
+            _page('/client/aide', (_) => const ClientAideScreen()),
+            _page('/client/notifications',
+                (_) => const ClientNotificationsScreen()),
             _page('/client/marketplace',
                 (_) => const MarketplaceHomeScreen()),
             _page(

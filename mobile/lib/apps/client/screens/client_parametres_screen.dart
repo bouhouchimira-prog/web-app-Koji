@@ -1,20 +1,28 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/account_provider.dart';
+import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/apps/client/client_nav.dart';
 import 'package:koji/core/theme_provider.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
-import 'package:koji/features/auth/provider/auth_provider.dart';
-import 'package:koji/features/auth/repository/auth_repository.dart';
+import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
 
-/// Client settings (design: "Client — Paramètres"). Only settings that work
-/// today: display theme, password, sign-out and account deletion.
-class ClientParametresScreen extends ConsumerWidget {
+/// "Paramètres" (components/SettingsPanel.jsx, variant="particulier", lu en
+/// entier). Pas de ligne Langue (pas d'i18n dans l'app) ni Abonnement
+/// (masquée côté particulier sur le site aussi — Radar des Chantiers est
+/// gratuit). Le thème et la déconnexion existaient déjà et fonctionnent
+/// réellement ; conservés tels quels.
+class ClientParametresScreen extends ConsumerStatefulWidget {
   const ClientParametresScreen({super.key});
 
   /// Account deletion page of the koji signature site (Google Play policy).
@@ -22,7 +30,79 @@ class ClientParametresScreen extends ConsumerWidget {
       'https://koji-signature.vercel.app/legal/delete-account';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ClientParametresScreen> createState() =>
+      _ClientParametresScreenState();
+}
+
+class _ClientParametresScreenState
+    extends ConsumerState<ClientParametresScreen> {
+  bool _exporting = false;
+
+  Future<void> _exportData() async {
+    setState(() => _exporting = true);
+    try {
+      final bytes =
+          await ref.read(marketplaceRepositoryProvider).getAccountExportJson();
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/koji-donnees-${DateTime.now().toIso8601String().substring(0, 10)}.json');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)]);
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(err is KojiWebApiException
+            ? err.message
+            : "Impossible d'exporter vos données."),
+      ));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _reportProblem() async {
+    final controller = TextEditingController();
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Signaler un problème'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          autofocus: true,
+          decoration:
+              const InputDecoration(hintText: 'Décrivez le problème…'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Envoyer')),
+        ],
+      ),
+    );
+    if (send != true || controller.text.trim().isEmpty || !mounted) return;
+    try {
+      await ref
+          .read(marketplaceRepositoryProvider)
+          .sendSupportReport(controller.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Signalement envoyé.')));
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(err is KojiWebApiException
+            ? err.message
+            : "Impossible d'envoyer le signalement."),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final p = context.koji;
     final mode = ref.watch(themeProvider);
     final account = ref.watch(currentAccountProvider).valueOrNull;
@@ -100,28 +180,34 @@ class ClientParametresScreen extends ConsumerWidget {
               const KojiSectionTitle('Sécurité'),
               row(
                 title: 'Mot de passe',
-                subtitle:
-                    'Recevez un lien par e-mail pour en choisir un nouveau.',
+                subtitle: 'Modifiable depuis votre profil.',
                 trailing: KojiButton(
-                  label: 'Modifier',
+                  label: 'Mon profil',
                   variant: KojiButtonVariant.secondary,
                   height: 38,
-                  onPressed: account == null || account.email.isEmpty
-                      ? null
-                      : () async {
-                          final messenger = ScaffoldMessenger.of(context);
-                          try {
-                            await ref
-                                .read(authRepositoryProvider)
-                                .resetPassword(email: account.email);
-                            messenger.showSnackBar(SnackBar(
-                              content: Text('Lien envoyé à ${account.email}.'),
-                            ));
-                          } catch (e) {
-                            messenger.showSnackBar(
-                                SnackBar(content: Text(authErrorMessage(e))));
-                          }
-                        },
+                  onPressed: () => context.push('/client/profil'),
+                ),
+              ),
+              Divider(color: p.lineSoft),
+              row(
+                title: 'Signaler un problème',
+                subtitle: 'Un bug ou un comportement inattendu dans l\'app.',
+                trailing: KojiButton(
+                  label: 'Signaler',
+                  variant: KojiButtonVariant.secondary,
+                  height: 38,
+                  onPressed: _reportProblem,
+                ),
+              ),
+              Divider(color: p.lineSoft),
+              row(
+                title: 'Aide',
+                subtitle: 'Guides et questions fréquentes.',
+                trailing: KojiButton(
+                  label: 'Ouvrir',
+                  variant: KojiButtonVariant.secondary,
+                  height: 38,
+                  onPressed: () => context.push('/client/aide'),
                 ),
               ),
               Divider(color: p.lineSoft),
@@ -149,17 +235,25 @@ class ClientParametresScreen extends ConsumerWidget {
               const KojiSectionTitle('Mes données'),
               const SizedBox(height: 6),
               Text(
-                'Votre profil et vos échanges peuvent être supprimés '
-                'définitivement. Cette action est irréversible.',
+                'Exportez une copie de vos données (RGPD) ou demandez la '
+                'suppression de votre compte à tout moment.',
                 style: TextStyle(fontSize: 13.5, height: 1.45, color: p.muted),
               ),
               const SizedBox(height: 14),
+              KojiButton(
+                label: 'Exporter mes données',
+                variant: KojiButtonVariant.secondary,
+                leadingIcon: KojiIcons.download,
+                loading: _exporting,
+                onPressed: _exportData,
+              ),
+              const SizedBox(height: 10),
               KojiButton(
                 label: 'Supprimer mon compte',
                 variant: KojiButtonVariant.secondary,
                 leadingIcon: KojiIcons.corbeille,
                 onPressed: () => launchUrl(
-                  Uri.parse(_deleteAccountUrl),
+                  Uri.parse(ClientParametresScreen._deleteAccountUrl),
                   mode: LaunchMode.externalApplication,
                 ),
               ),

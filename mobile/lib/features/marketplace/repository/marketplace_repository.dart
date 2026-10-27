@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -268,5 +269,65 @@ class MarketplaceRepository {
 
   Future<void> markAllNotificationsRead() {
     return _api.patchJson('/api/notifications', {'action': 'read-all'});
+  }
+
+  Future<void> deleteNotification(String id) {
+    return _api.patchJson('/api/notifications', {'id': id, 'action': 'delete'});
+  }
+
+  // --- Profil, paramètres (gabarit web : app/client/profil/page.jsx,
+  // components/SettingsPanel.jsx, lus en entier) --------------------------
+  // Attention : ces champs (personal/pro/profileKind/mot de passe) vivent
+  // dans le même système cookie que tout ce qui précède (lib/particulier-
+  // users.js), PAS dans la table Supabase `users` que lit/écrit l'écran
+  // Profil actuel de l'app (userRepositoryProvider.updateClientProfile) —
+  // même écart que pour la connexion (voir koji_web_api_client.dart).
+
+  Future<Map<String, dynamic>> getClientProfile() async {
+    final data = await _api.get('/api/client/profile') as Map<String, dynamic>;
+    return data['user'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateClientProfile({
+    Map<String, dynamic>? personal,
+    String? profileKind,
+    Map<String, dynamic>? pro,
+    String? password,
+    String? currentPassword,
+  }) async {
+    final data = await _api.patchJson('/api/client/profile', {
+      if (personal != null) 'personal': personal,
+      if (profileKind != null) 'profileKind': profileKind,
+      if (pro != null) 'pro': pro,
+      if (password != null) 'password': password,
+      if (currentPassword != null) 'currentPassword': currentPassword,
+    }) as Map<String, dynamic>;
+    return data['user'] as Map<String, dynamic>;
+  }
+
+  /// Export RGPD (article 20) — renvoie les octets d'un fichier JSON à
+  /// enregistrer/partager, jamais affiché directement.
+  Future<Uint8List> getAccountExportJson() async {
+    final data = await _api.get('/api/account/export') as Map<String, dynamic>;
+    final bytes = const Utf8Encoder().convert(
+      const JsonEncoder.withIndent('  ').convert(data['export']),
+    );
+    return Uint8List.fromList(bytes);
+  }
+
+  /// Demande de suppression de compte (RGPD article 17) — traitée
+  /// manuellement par l'équipe koji, jamais une suppression instantanée.
+  Future<void> requestAccountDeletion(String reason) {
+    return _api.postJson('/api/account/deletion-request', {
+      'reason': reason,
+      'accountType': 'particulier',
+    });
+  }
+
+  Future<void> sendSupportReport(String message) {
+    return _api.postJson('/api/support/report', {
+      'message': message,
+      'accountType': 'particulier',
+    });
   }
 }

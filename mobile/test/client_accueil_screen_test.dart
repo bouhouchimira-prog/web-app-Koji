@@ -28,6 +28,7 @@ void main() {
             )),
         clientTasksProvider.overrideWith((ref) async => []),
         marketplaceOffersProvider.overrideWith((ref) async => []),
+        clientNotificationsProvider.overrideWith((ref) async => []),
       ],
     ));
     await tester.pump();
@@ -41,6 +42,11 @@ void main() {
 
   testWidgets('lists chantiers and offres when the providers return data',
       (tester) async {
+    // Tall surface so both sections lay out past the usual 600px test
+    // viewport — otherwise ListView's virtualization never builds the
+    // "Mes demandes" card and find.text() can't see it.
+    await tester.binding.setSurfaceSize(const Size(400, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(wrap(
       const ClientAccueilScreen(),
       overrides: [
@@ -71,10 +77,10 @@ void main() {
                 'hasArtisanReply': false,
               },
             ]),
+        clientNotificationsProvider.overrideWith((ref) async => []),
       ],
     ));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Rénovation salle de bain'), findsOneWidget);
     expect(find.textContaining('Peinture complète du salon'), findsOneWidget);

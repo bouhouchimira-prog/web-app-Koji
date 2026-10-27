@@ -38,3 +38,8 @@ final clientNotificationsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return ref.read(marketplaceRepositoryProvider).getNotifications();
 });
+
+final clientPortalProfileProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
+  return ref.read(marketplaceRepositoryProvider).getClientProfile();
+});

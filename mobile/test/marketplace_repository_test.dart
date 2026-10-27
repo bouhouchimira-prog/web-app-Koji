@@ -389,5 +389,70 @@ void main() {
 
       await repo.markNotificationRead('n1');
     });
+
+    test('getClientProfile hits /api/client/profile and unwraps user',
+        () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/client/profile');
+        return http.Response(
+          jsonEncode({
+            'user': {
+              'email': 'lea@example.com',
+              'personal': {'firstName': 'Léa'},
+            },
+          }),
+          200,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final user = await repo.getClientProfile();
+      expect(user['personal']['firstName'], 'Léa');
+    });
+
+    test('updateClientProfile PATCHes only the provided fields', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.method, 'PATCH');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['personal']['firstName'], 'Léa');
+        expect(body.containsKey('pro'), isFalse);
+        expect(body.containsKey('password'), isFalse);
+        return http.Response(
+          jsonEncode({'user': {'email': 'lea@example.com'}}),
+          200,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      await repo.updateClientProfile(personal: {'firstName': 'Léa'});
+    });
+
+    test('requestAccountDeletion posts the reason and accountType', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/account/deletion-request');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['reason'], 'Je déménage');
+        expect(body['accountType'], 'particulier');
+        return http.Response(jsonEncode({'ok': true}), 201);
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      await repo.requestAccountDeletion('Je déménage');
+    });
   });
 }
