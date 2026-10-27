@@ -100,8 +100,12 @@ class _MarketplaceHomeScreenState
     }
 
     return KojiPage(
-      title: 'Radar des Chantiers',
-      subtitle: 'Les chantiers que vous avez publiés et leurs propositions.',
+      // Titre/sous-titre exacts du site (app/client/radar/page.jsx) : la
+      // page s'appelle "Publier un chantier", "Mes demandes" n'est qu'un
+      // titre de section plus bas (conservé ci-dessous).
+      title: 'Publier un chantier',
+      subtitle: 'Publiez vos travaux, les entreprises du BTP vous '
+          'contactent. Gratuit et illimité.',
       appBarOnPhone: true,
       onRefresh: () async => ref.invalidate(marketplaceOffersProvider),
       actions: [
@@ -140,6 +144,10 @@ class _MarketplaceHomeScreenState
         ]),
       ],
       main: [
+        KojiSectionTitle(
+          offers.isEmpty ? 'Mes demandes' : 'Mes demandes (${offers.length})',
+        ),
+        const SizedBox(height: 10),
         KojiFilterChips<_Filter>(
           options: {
             _Filter.tous: 'Toutes · ${offers.length}',

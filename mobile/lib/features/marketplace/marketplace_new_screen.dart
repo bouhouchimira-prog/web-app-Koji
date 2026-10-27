@@ -18,6 +18,8 @@ import 'package:koji/features/marketplace/repository/marketplace_repository.dart
 
 enum _Phase { hero, chat, recap, result }
 
+enum _Mode { ia, manuel }
+
 class _Turn {
   _Turn({required this.role, required this.text, this.photos = const []});
   final String role; // 'user' | 'assistant'
@@ -25,8 +27,8 @@ class _Turn {
   final List<String> photos;
 }
 
-/// AI publishing assistant — port of app/client/radar/new/page.jsx's "Offre
-/// IA" tab (its "Saisie libre" tab is not ported here). The assistant itself
+/// AI publishing assistant + manual form — port of app/client/radar/new/
+/// page.jsx's "Offre IA" and "Saisie libre" tabs. The assistant itself
 /// (lib/radar-chat-prompt.js / lib/radar-assistant-tools.js) stays entirely
 /// server-side on koji-web — this screen only renders what the SSE stream
 /// sends and relays what the particulier types/picks, exactly like the web
@@ -41,6 +43,9 @@ class MarketplaceNewScreen extends ConsumerStatefulWidget {
 
 class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
   _Phase _phase = _Phase.hero;
+  _Mode _mode = _Mode.ia;
+  final _manualDescriptionController = TextEditingController();
+  final _manualAddressController = TextEditingController();
   late String _conversationId;
   String? _draftId;
   final List<_Turn> _turns = [];
@@ -82,6 +87,8 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     _addressController.dispose();
     _draftController.dispose();
     _scrollController.dispose();
+    _manualDescriptionController.dispose();
+    _manualAddressController.dispose();
     for (final c in _missingPriceControllers.values) {
       c.dispose();
     }
@@ -110,6 +117,30 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
       _phase = _Phase.chat;
     });
     _sendToEngine([_Turn(role: 'user', text: 'Bonjour')], const []);
+  }
+
+  // "Saisie libre" — no AI conversation: the particulier fills the project
+  // description and address directly, then reuses the exact same recap/
+  // expertise/publish flow as the "Offre IA" tab (gabarit web : mode
+  // "manuel" de app/client/radar/new/page.jsx, launchExpertise()).
+  void _startManual() {
+    final description = _manualDescriptionController.text.trim();
+    final address = _manualAddressController.text.trim();
+    if (description.isEmpty) {
+      setState(() => _error = 'Décrivez les travaux à réaliser.');
+      return;
+    }
+    if (address.isEmpty) {
+      setState(() => _error = "L'adresse du chantier est obligatoire.");
+      return;
+    }
+    setState(() {
+      _error = null;
+      _draftAnswers = {'intro': description};
+      _metier = "Tout corps d'état";
+      _addressController.text = address;
+      _phase = _Phase.recap;
+    });
   }
 
   Future<void> _sendToEngine(
@@ -407,28 +438,72 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
             "L'assistant koji vous pose quelques questions, puis chiffre et"
             ' publie votre chantier auprès des entreprises.',
         main: [
-          KojiCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const KojiSectionTitle('Offre IA'),
-                const SizedBox(height: 10),
-                Text(
-                  "Discutez avec l'assistant koji comme avec un conseiller :"
-                  ' décrivez vos travaux, répondez à ses questions, ajoutez des'
-                  ' photos si besoin.',
-                  style: TextStyle(color: context.koji.muted, height: 1.45),
-                ),
-                const SizedBox(height: 16),
-                KojiButton(
-                  label: 'Commencer',
-                  leadingIcon: KojiIcons.sparkle,
-                  expand: true,
-                  onPressed: _openChat,
-                ),
-              ],
-            ),
+          KojiSegmented<_Mode>(
+            options: const {_Mode.ia: 'Offre IA', _Mode.manuel: 'Saisie libre'},
+            value: _mode,
+            onChanged: (m) => setState(() {
+              _mode = m;
+              _error = null;
+            }),
           ),
+          const SizedBox(height: 16),
+          if (_mode == _Mode.ia)
+            KojiCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const KojiSectionTitle('Offre IA'),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Discutez avec l'assistant koji comme avec un conseiller :"
+                    ' décrivez vos travaux, répondez à ses questions, ajoutez des'
+                    ' photos si besoin.',
+                    style: TextStyle(color: context.koji.muted, height: 1.45),
+                  ),
+                  const SizedBox(height: 16),
+                  KojiButton(
+                    label: 'Commencer',
+                    leadingIcon: KojiIcons.sparkle,
+                    expand: true,
+                    onPressed: _openChat,
+                  ),
+                ],
+              ),
+            )
+          else
+            KojiCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const KojiSectionTitle('Saisie libre'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Décrivez vous-même les travaux, sans passer par le chat.',
+                    style: TextStyle(color: context.koji.muted, height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  KojiField(
+                    label: 'Description des travaux',
+                    controller: _manualDescriptionController,
+                    hint: 'Ex : rénovation complète de salle de bain…',
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 14),
+                  KojiField(
+                    label: 'Adresse du chantier',
+                    controller: _manualAddressController,
+                    hint: '12 rue de la Paix, Paris',
+                  ),
+                  const SizedBox(height: 16),
+                  KojiButton(
+                    label: 'Continuer',
+                    trailingIcon: KojiIcons.arrowRight,
+                    expand: true,
+                    onPressed: _startManual,
+                  ),
+                ],
+              ),
+            ),
           if (_error != null) ...[
             const SizedBox(height: 12),
             KojiAlertBox(title: 'Erreur', message: _error!, tone: KojiTone.amber),
@@ -716,23 +791,44 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.koji;
     final isUser = turn.role == 'user';
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        constraints: const BoxConstraints(maxWidth: 320),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isUser ? p.primary : p.surfaceMuted,
-          borderRadius: BorderRadius.circular(14),
+    final bubble = Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      constraints: const BoxConstraints(maxWidth: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isUser ? p.primary : p.surfaceMuted,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        turn.text,
+        style: TextStyle(
+          color: isUser ? p.onPrimary : p.ink,
+          height: 1.4,
         ),
-        child: Text(
-          turn.text,
-          style: TextStyle(
-            color: isUser ? p.onPrimary : p.ink,
-            height: 1.4,
+      ),
+    );
+    if (isUser) return Align(alignment: Alignment.centerRight, child: bubble);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: const BoxDecoration(
+              color: KojiColors.navy,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const KojiIcon(KojiIcons.sparkle,
+                size: 13, color: KojiColors.gold),
           ),
-        ),
+          const SizedBox(width: 8),
+          Flexible(child: bubble),
+        ],
       ),
     );
   }
