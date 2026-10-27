@@ -144,7 +144,10 @@ class _ChantierHomeCard extends StatelessWidget {
     final c = chantier;
     final (label, tone) = c.status;
     return KojiCard(
-      onTap: () => context.go('/client/chantiers'),
+      onTap: () => context.push(
+        '/client/chantier/${Uri.encodeComponent(c.id ?? c.reference)}',
+        extra: c,
+      ),
       child: Row(
         children: [
           KojiProgressRing(percent: (c.progress * 100).round(), size: 56),

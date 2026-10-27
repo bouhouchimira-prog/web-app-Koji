@@ -306,6 +306,13 @@ class _ChantierCardState extends ConsumerState<_ChantierCard> {
             runSpacing: 8,
             alignment: WrapAlignment.spaceBetween,
             children: [
+              TextButton(
+                onPressed: () => context.push(
+                  '/client/chantier/${Uri.encodeComponent(c.id ?? c.reference)}',
+                  extra: c,
+                ),
+                child: const Text('Voir le détail'),
+              ),
               if (c.tasks.length > 4)
                 TextButton(
                   onPressed: () => setState(() => _expanded = !_expanded),

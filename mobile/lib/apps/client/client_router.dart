@@ -5,6 +5,8 @@ import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
 import 'package:koji/apps/client/client_shell.dart';
 import 'package:koji/apps/client/screens/client_accueil_screen.dart';
+import 'package:koji/apps/client/client_widgets.dart';
+import 'package:koji/apps/client/screens/client_chantier_detail_screen.dart';
 import 'package:koji/apps/client/screens/client_chantiers_screen.dart';
 import 'package:koji/apps/client/screens/client_devis_screen.dart';
 import 'package:koji/apps/client/screens/client_messages_inbox_screen.dart';
@@ -70,6 +72,12 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
             _page('/client-home', (_) => const ClientAccueilScreen()),
             _page('/client/devis', (_) => const ClientDevisScreen()),
             _page('/client/chantiers', (_) => const ClientChantiersScreen()),
+            _page(
+              '/client/chantier/:key',
+              (state) => ClientChantierDetailScreen(
+                chantier: state.extra as ClientChantier,
+              ),
+            ),
             _page('/client/tasks', (_) => const ClientTasksScreen()),
             // /client/messages is the Radar des Chantiers inbox on the site
             // (app/client/messages/page.jsx) — a different feature from the
