@@ -7,7 +7,7 @@ import 'package:koji/apps/client/client_shell.dart';
 import 'package:koji/apps/client/screens/client_accueil_screen.dart';
 import 'package:koji/apps/client/screens/client_chantiers_screen.dart';
 import 'package:koji/apps/client/screens/client_devis_screen.dart';
-import 'package:koji/apps/client/screens/client_messages_page.dart';
+import 'package:koji/apps/client/screens/client_messages_inbox_screen.dart';
 import 'package:koji/apps/client/screens/client_parametres_screen.dart';
 import 'package:koji/apps/client/screens/client_profil_screen.dart';
 import 'package:koji/core/route_args.dart';
@@ -71,7 +71,13 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
             _page('/client/devis', (_) => const ClientDevisScreen()),
             _page('/client/chantiers', (_) => const ClientChantiersScreen()),
             _page('/client/tasks', (_) => const ClientTasksScreen()),
-            _page('/client/messages', (_) => const ClientMessagesPage()),
+            // /client/messages is the Radar des Chantiers inbox on the site
+            // (app/client/messages/page.jsx) — a different feature from the
+            // per-devis chat below (ClientChatScreen, Supabase
+            // quote_messages). ClientMessagesPage (per-devis list) has no
+            // confirmed site equivalent at this route; kept but no longer
+            // wired here — see the mobile mission report for this call.
+            _page('/client/messages', (_) => const ClientMessagesInboxScreen()),
             _page(
               '/client/messages/:quoteId',
               (state) => ClientChatScreen(

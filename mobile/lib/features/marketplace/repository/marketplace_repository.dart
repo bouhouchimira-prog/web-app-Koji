@@ -241,4 +241,32 @@ class MarketplaceRepository {
     ) as Map<String, dynamic>;
     return data['paiement'] as Map<String, dynamic>;
   }
+
+  // --- Boîte de réception "Messages" -------------------------------------
+  // Gabarit web : app/client/messages/page.jsx. Attention, ce n'est PAS la
+  // même chose que la messagerie par devis (ClientChatScreen, table Supabase
+  // quote_messages) : /client/messages sur le site regroupe les conversations
+  // Radar des Chantiers (entreprise ↔ particulier à propos d'une offre, AVANT
+  // tout devis), via /api/client/messages — un simple regroupement de ce qui
+  // existe déjà dans db.chantierOffreMessages, pas un nouveau stockage.
+
+  Future<List<Map<String, dynamic>>> getClientMessages() async {
+    final data = await _api.get('/api/client/messages') as Map<String, dynamic>;
+    return (data['conversations'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final data = await _api.get('/api/notifications') as Map<String, dynamic>;
+    return (data['notifications'] as List? ?? const [])
+        .cast<Map<String, dynamic>>();
+  }
+
+  Future<void> markNotificationRead(String id) {
+    return _api.patchJson('/api/notifications', {'id': id, 'action': 'read'});
+  }
+
+  Future<void> markAllNotificationsRead() {
+    return _api.patchJson('/api/notifications', {'action': 'read-all'});
+  }
 }

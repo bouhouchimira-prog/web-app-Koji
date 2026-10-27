@@ -26,3 +26,15 @@ final marketplaceOfferPaiementsProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, offerId) {
   return ref.read(marketplaceRepositoryProvider).getPaiements(offerId);
 });
+
+/// Boîte de réception "Messages" (/client/messages) — conversations Radar
+/// des Chantiers, PAS la messagerie par devis (clientQuotesProvider).
+final clientMessagesInboxProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  return ref.read(marketplaceRepositoryProvider).getClientMessages();
+});
+
+final clientNotificationsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  return ref.read(marketplaceRepositoryProvider).getNotifications();
+});

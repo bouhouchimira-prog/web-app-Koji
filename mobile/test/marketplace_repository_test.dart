@@ -347,5 +347,47 @@ void main() {
       final bytes = await repo.getEntrepriseCardPdf('o1', entrepriseUserId: 'e1');
       expect(bytes, [0x25, 0x50, 0x44, 0x46]);
     });
+
+    test('getClientMessages hits /api/client/messages and unwraps conversations',
+        () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/client/messages');
+        return http.Response(
+          jsonEncode({
+            'conversations': [
+              {'offerId': 'o1', 'entrepriseUserId': 'e1', 'unread': true},
+            ],
+          }),
+          200,
+        );
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      final conversations = await repo.getClientMessages();
+      expect(conversations.single['entrepriseUserId'], 'e1');
+    });
+
+    test('markNotificationRead PATCHes the notification id', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/notifications');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['id'], 'n1');
+        expect(body['action'], 'read');
+        return http.Response(jsonEncode({'ok': true}), 200);
+      });
+      final repo = MarketplaceRepository(
+        KojiWebApiClient(
+          httpClient: mockClient,
+          storage: const FlutterSecureStorage(),
+        ),
+      );
+
+      await repo.markNotificationRead('n1');
+    });
   });
 }
