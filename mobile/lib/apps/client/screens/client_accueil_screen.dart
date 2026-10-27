@@ -3,253 +3,234 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:koji/app/account_provider.dart';
-import 'package:koji/apps/client/client_quote_helpers.dart';
 import 'package:koji/apps/client/client_widgets.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/client/providers/client_providers.dart';
+import 'package:koji/features/marketplace/marketplace_status.dart';
+import 'package:koji/features/marketplace/metier_visuel.dart';
+import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 
-/// Client home: devis to sign, works in progress and quick links.
+/// Client home ("/client" on the web: hero + "Mes chantiers" + "Mes
+/// demandes" — see app/client/page.jsx, read line by line to build this).
 class ClientAccueilScreen extends ConsumerWidget {
   const ClientAccueilScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.koji;
     final account = ref.watch(currentAccountProvider).valueOrNull;
-    final quotesAsync = ref.watch(clientQuotesProvider);
     final tasksAsync = ref.watch(clientTasksProvider);
-    final quotes = quotesAsync.valueOrNull ?? const [];
-    final chantiers = ClientChantier.group(tasksAsync.valueOrNull ?? const []);
-
-    final toSign = quotes.where(ClientQuote.isToSign).toList();
-    final signed = quotes.where(ClientQuote.isSigned).toList();
-    final signedTotal =
-        signed.fold<double>(0, (s, q) => s + ClientQuote.ttc(q));
-    final inProgress = chantiers.where((c) => !c.finished).length;
-
-    Widget loader() => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 28),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        );
+    final offersAsync = ref.watch(marketplaceOffersProvider);
+    final chantiers =
+        ClientChantier.group(tasksAsync.valueOrNull ?? const []);
+    final offers = offersAsync.valueOrNull ?? const <Map<String, dynamic>>[];
+    final prenom = (account?.firstName ?? '').trim();
 
     return KojiPage(
-      title: 'Bonjour ${account?.firstName ?? ''}'.trim(),
-      subtitle: 'Suivez vos travaux et vos devis en temps réel.',
+      title: prenom.isEmpty ? 'Accueil' : 'Bonjour $prenom',
       onRefresh: () async {
-        ref.invalidate(clientQuotesProvider);
         ref.invalidate(clientTasksProvider);
+        ref.invalidate(marketplaceOffersProvider);
       },
-      top: [
-        KojiKpiRow(children: [
-          KojiKpi(
-            label: 'Devis reçus',
-            value: '${quotes.length}',
-            sub: toSign.isEmpty ? '' : '${toSign.length} à signer',
-            tone: KojiTone.navy,
-            icon: KojiIcons.devis,
-            onTap: () => context.go('/client/devis'),
-          ),
-          KojiKpi(
-            label: 'À signer',
-            value: '${toSign.length}',
-            sub: toSign.isEmpty ? 'à jour' : 'en attente',
-            tone: KojiTone.amber,
-            icon: KojiIcons.clock,
-            onTap: () => context.go('/client/devis'),
-          ),
-          KojiKpi(
-            label: 'Chantiers en cours',
-            value: '$inProgress',
-            sub: 'sur ${chantiers.length}',
-            tone: KojiTone.green,
-            icon: KojiIcons.chantiers,
-            onTap: () => context.go('/client/chantiers'),
-          ),
-          KojiKpi(
-            label: 'Montant signé',
-            value: kojiEuro(signedTotal),
-            sub: 'TTC',
-            tone: KojiTone.navy,
-            icon: KojiIcons.euro,
-          ),
-        ]),
-      ],
       main: [
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              KojiSectionTitle(
-                'Devis à signer',
-                action: 'Tous mes devis',
-                onAction: () => context.go('/client/devis'),
-              ),
-              const SizedBox(height: 14),
-              if (quotesAsync.isLoading && quotes.isEmpty)
-                loader()
-              else if (toSign.isEmpty)
-                KojiEmptyState(
-                  compact: true,
-                  icon: KojiIcons.check,
-                  title: quotes.isEmpty
-                      ? 'Aucun devis pour le moment'
-                      : 'Tous vos devis sont signés',
-                  subtitle: quotes.isEmpty
-                      ? 'Les devis envoyés par votre artisan apparaîtront ici.'
-                      : null,
-                )
-              else
-                for (final (i, q) in toSign.take(3).indexed) ...[
-                  if (i > 0) const SizedBox(height: 10),
-                  ClientQuoteCard(quote: q, compact: true),
-                ],
-            ],
+        // Hero — wording matches the web (app/client/page.jsx: "Un autre
+        // projet de travaux ?" / CTA "+ Publier un chantier"), dark-navy
+        // card + sparkle accent from the mobile maquette (01_accueil).
+        Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+          decoration: BoxDecoration(
+            color: KojiColors.navy,
+            borderRadius: BorderRadius.circular(18),
           ),
-        ),
-        KojiCard(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              KojiSectionTitle(
-                'Suivi des travaux',
-                action: 'Mes chantiers',
-                onAction: () => context.go('/client/chantiers'),
+              const Row(
+                children: [
+                  KojiIcon(KojiIcons.sparkle, size: 18, color: KojiColors.gold),
+                  SizedBox(width: 8),
+                  Text(
+                    'Un autre projet de travaux ?',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Décrivez votre projet en quelques minutes. Les artisans de '
+                'votre secteur vous répondent.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: KojiColors.onNavyMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              KojiButton(
+                label: 'Publier un chantier',
+                leadingIcon: KojiIcons.plus,
+                variant: KojiButtonVariant.light,
+                expand: true,
+                onPressed: () => context.go('/client/marketplace/new'),
               ),
               const SizedBox(height: 10),
-              if (tasksAsync.isLoading && chantiers.isEmpty)
-                loader()
-              else if (chantiers.isEmpty)
-                const KojiEmptyState(
-                  compact: true,
-                  icon: KojiIcons.chantiers,
-                  title: 'Pas encore de travaux à suivre',
-                  subtitle:
-                      "L'avancement apparaîtra ici dès que votre artisan aura démarré.",
-                )
-              else
-                for (final c in chantiers.take(4))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                c.reference,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: p.ink,
-                                ),
-                              ),
-                            ),
-                            KojiPill(c.status.$1, tone: c.status.$2),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: KojiProgressBar(
-                                value: c.progress,
-                                track:
-                                    p.isDark ? null : const Color(0xFFF1EEE8),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '${(c.progress * 100).round()} %',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: p.heading,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${c.done}/${c.total} tâches',
-                              style: TextStyle(fontSize: 12.5, color: p.muted),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+              const Text(
+                "C'est gratuit, et c'est vous qui choisissez votre artisan.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: KojiColors.onNavyMuted),
+              ),
             ],
           ),
         ),
-      ],
-      side: [
-        KojiPromoCard(
-          eyebrow: 'Une question ?',
-          text: 'Écrivez à votre artisan depuis la messagerie de votre devis.',
-          actionLabel: 'Ouvrir les messages',
-          onAction: () => context.go('/client/messages'),
-        ),
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const KojiSectionTitle('Documents signés'),
-              const SizedBox(height: 8),
-              if (signed.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Vos devis signés seront rangés ici.',
-                    style: TextStyle(fontSize: 13.5, color: p.muted),
-                  ),
-                )
-              else
-                for (final q in signed.take(4))
-                  InkWell(
-                    onTap: () => ClientQuote.view(context, q),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: p.lineSoft)),
-                      ),
-                      child: Row(
-                        children: [
-                          KojiIcon(KojiIcons.file, size: 18, color: p.heading),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Devis signé ${ClientQuote.number(q)}'.trim(),
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: p.ink,
-                                  ),
-                                ),
-                                Text(
-                                  ClientQuote.date(q),
-                                  style:
-                                      TextStyle(fontSize: 12, color: p.muted),
-                                ),
-                              ],
-                            ),
-                          ),
-                          KojiIcon(KojiIcons.download,
-                              size: 16, color: p.muted),
-                        ],
-                      ),
-                    ),
-                  ),
-            ],
+
+        if (chantiers.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          KojiSectionTitle(
+            'Mes chantiers (${chantiers.length})',
+            action: 'Tout voir',
+            onAction: () => context.go('/client/chantiers'),
           ),
+          const SizedBox(height: 10),
+          for (final (i, c) in chantiers.take(5).indexed) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _ChantierHomeCard(chantier: c),
+          ],
+        ],
+
+        const SizedBox(height: 16),
+        KojiSectionTitle(
+          offers.isEmpty ? 'Mes demandes' : 'Mes demandes (${offers.length})',
+          action: 'Tout voir',
+          onAction: () => context.go('/client/marketplace'),
         ),
+        const SizedBox(height: 10),
+        if (offersAsync.isLoading && offers.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          )
+        else if (offers.isEmpty)
+          const KojiCard(
+            child: KojiEmptyState(
+              compact: true,
+              icon: KojiIcons.radar,
+              title: "Aucune demande publiée pour l'instant",
+            ),
+          )
+        else
+          for (final (i, offre) in offers.take(5).indexed) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _OfferHomeCard(offre: offre),
+          ],
       ],
+    );
+  }
+}
+
+class _ChantierHomeCard extends StatelessWidget {
+  const _ChantierHomeCard({required this.chantier});
+
+  final ClientChantier chantier;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.koji;
+    final c = chantier;
+    final (label, tone) = c.status;
+    return KojiCard(
+      onTap: () => context.go('/client/chantiers'),
+      child: Row(
+        children: [
+          KojiProgressRing(percent: (c.progress * 100).round(), size: 56),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  c.reference,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: p.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${c.done} / ${c.total} tâches',
+                  style: TextStyle(fontSize: 12.5, color: p.muted),
+                ),
+              ],
+            ),
+          ),
+          KojiPill(label, tone: tone),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfferHomeCard extends StatelessWidget {
+  const _OfferHomeCard({required this.offre});
+
+  final Map<String, dynamic> offre;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.koji;
+    final description = (offre['description'] as String?) ?? '';
+    final shortDescription =
+        description.length > 60 ? '${description.substring(0, 60)}…' : description;
+    final metier = offre['metier'] as String?;
+    final address = (offre['address'] as String?) ?? '';
+    final hasReply = offre['hasArtisanReply'] == true;
+    final status = offre['status'] as String?;
+
+    return KojiCard(
+      onTap: () => context.go('/client/marketplace/${offre['id']}'),
+      child: Row(
+        children: [
+          MetierBadge(metier: metier),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  shortDescription.isEmpty ? 'Chantier' : shortDescription,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: p.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  [metier, address].where((s) => (s ?? '').isNotEmpty).join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: p.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          KojiPill(
+            hasReply ? 'Un artisan vous a écrit' : marketplaceStatusLabel(status),
+            tone: hasReply ? KojiTone.info : marketplaceStatusTone(status),
+          ),
+        ],
+      ),
     );
   }
 }

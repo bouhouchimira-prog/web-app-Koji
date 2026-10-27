@@ -766,6 +766,96 @@ class KojiProgressBar extends StatelessWidget {
   }
 }
 
+/// Circular progress donut with the percent centered inside ("ProgressRing"
+/// on the web, used by the home's "Mes chantiers" cards).
+class KojiProgressRing extends StatelessWidget {
+  const KojiProgressRing({
+    super.key,
+    required this.percent,
+    this.size = 72,
+    this.strokeWidth = 6,
+  });
+
+  /// 0-100.
+  final int percent;
+  final double size;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.koji;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _ProgressRingPainter(
+          percent: percent,
+          color: p.primary,
+          track: p.isDark ? p.surfaceMuted : const Color(0xFFE8EDF5),
+          strokeWidth: strokeWidth,
+        ),
+        child: Center(
+          child: Text(
+            '$percent%',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: p.heading,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressRingPainter extends CustomPainter {
+  _ProgressRingPainter({
+    required this.percent,
+    required this.color,
+    required this.track,
+    required this.strokeWidth,
+  });
+
+  final int percent;
+  final Color color;
+  final Color track;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = (size.shortestSide - strokeWidth) / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = track
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth,
+    );
+
+    final sweep = 2 * 3.14159265358979 * (percent.clamp(0, 100) / 100);
+    canvas.drawArc(
+      rect,
+      -3.14159265358979 / 2,
+      sweep,
+      false,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProgressRingPainter old) =>
+      old.percent != percent || old.color != color || old.track != track;
+}
+
 /// Soft tinted box for alerts ("À surveiller").
 class KojiAlertBox extends StatelessWidget {
   const KojiAlertBox({
