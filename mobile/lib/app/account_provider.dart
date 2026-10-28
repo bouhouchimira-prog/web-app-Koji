@@ -75,7 +75,7 @@ class KojiAccount {
   factory KojiAccount.from(User user, Map<String, dynamic>? row) {
     String str(dynamic v) => (v as String?)?.trim() ?? '';
     final biz = row?['business_info'];
-    final bizMap = biz is Map ? biz : const <String, dynamic>{};
+    final bizMap = biz is Map ? Map<String, dynamic>.from(biz as Map) : const <String, dynamic>{};
     final extras = <String, dynamic>{};
     for (final entry in bizMap.entries) {
       final key = entry.key.toString();
