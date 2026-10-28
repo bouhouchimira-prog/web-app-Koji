@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../lib/http";
 import { findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
+import { required, maxLength, validateFields } from "../../../lib/validators";
 
 export async function GET(request) {
   const db = await readDb();
@@ -13,11 +14,15 @@ export async function POST(request) {
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  const validationError = validateFields(body, {
+    name: [(v) => required(v, "Le nom de la catégorie"), (v) => maxLength(v, 100, "Le nom de la catégorie")],
+  });
+  if (validationError) return badRequest(validationError);
   const now = new Date().toISOString();
   const category = {
     id: `cat-${Date.now()}`,
     userId,
-    name: (body.name || "Catégorie").trim(),
+    name: String(body.name).trim(),
     subcategories: Array.isArray(body.subcategories) ? body.subcategories.filter(Boolean) : [],
     createdAt: now,
     updatedAt: now
