@@ -151,6 +151,35 @@ class _ClientParametresScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const KojiSectionTitle('Compte'),
+              const SizedBox(height: 6),
+              Text(
+                account?.displayName ?? 'Compte',
+                style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: p.ink),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                account?.email ?? '',
+                style: TextStyle(fontSize: 13, color: p.muted),
+              ),
+              if (account != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Type : ${account.accountType} · Plan : ${account.plan}'
+                  '${account.profileComplete ? " · Profil complet" : " · Profil à compléter"}',
+                  style: TextStyle(fontSize: 12.5, color: p.muted),
+                ),
+              ],
+            ],
+          ),
+        ),
+        KojiCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               const KojiSectionTitle('Affichage'),
               row(
                 title: 'Thème',
