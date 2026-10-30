@@ -37,7 +37,9 @@ android {
     defaultConfig {
         applicationId = "com.koji.pro"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Pinned rather than flutter.targetSdkVersion so an older Flutter SDK
+        // on a build machine can't silently ship API 35 (Play requires 36).
+        targetSdk = 36
         versionCode = flutter.versionCode
 
         versionName = flutter.versionName 

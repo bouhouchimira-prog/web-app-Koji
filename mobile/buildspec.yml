@@ -28,10 +28,16 @@ phases:
     commands:
       # Two apps from one codebase: Koji Pro (entreprise, com.koji.pro) and
       # Koji (client, com.koji.client).
+      # SUPABASE_URL / SUPABASE_ANON_KEY must be set as CodeBuild environment
+      # variables: a release build without them stops at launch.
+      - |
+        if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+          echo "SUPABASE_URL / SUPABASE_ANON_KEY missing in the CodeBuild environment"; exit 1
+        fi
       - echo "Building Koji Pro (entreprise) App Bundle..."
-      - flutter build appbundle --release --flavor entreprise -t lib/main_entreprise.dart --build-name=1.0.$CODEBUILD_BUILD_NUMBER --build-number=$CODEBUILD_BUILD_NUMBER
+      - flutter build appbundle --release --flavor entreprise -t lib/main_entreprise.dart --build-name=1.0.$CODEBUILD_BUILD_NUMBER --build-number=$CODEBUILD_BUILD_NUMBER --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
       - echo "Building Koji (client) App Bundle..."
-      - flutter build appbundle --release --flavor client -t lib/main_client.dart --build-name=1.0.$CODEBUILD_BUILD_NUMBER --build-number=$CODEBUILD_BUILD_NUMBER
+      - flutter build appbundle --release --flavor client -t lib/main_client.dart --build-name=1.0.$CODEBUILD_BUILD_NUMBER --build-number=$CODEBUILD_BUILD_NUMBER --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 
   post_build:
     commands:
