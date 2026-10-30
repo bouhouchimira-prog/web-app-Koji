@@ -125,7 +125,7 @@ class CalendarRepository {
         .maybeSingle();
 
     if (response == null) return null;
-    return CalendarEvent.fromJson(response as Map<String, dynamic>);
+    return CalendarEvent.fromJson(response);
   }
 
   // ─── CREATE ───────────────────────────────────────────────

@@ -36,7 +36,6 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
   Uint8List? _logoBytes;
   String? _signatureUrl;
   Uint8List? _signatureBytes;
-  bool _isSendingEmail = false;
   // Bundled Koji logo bytes, reused for the watermark and the footer mark.
   Uint8List? _kojiLogoBytes;
 
@@ -832,7 +831,6 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
     try {
       final client = widget.quoteData['client'] as Map<String, dynamic>? ?? {};
       final totals = widget.quoteData['totals'] as Map<String, dynamic>? ?? {};
-      final quoteId = widget.quoteId;
 
       final clientEmail = client['email'] as String? ?? '';
       final clientName = client['name'] as String? ?? 'Client';

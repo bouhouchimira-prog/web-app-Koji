@@ -781,7 +781,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
     // Filter _customTasks by trade BEFORE mapping to TaskItem
     final filteredCustomTasks = isAllTrades ? _customTasks : _customTasks.where((t) {
       final fam = (t.famille ?? '').toLowerCase();
-      final prof = (t.profession ?? '').toLowerCase();
+      final prof = t.profession.toLowerCase();
       final tradeLower = _selectedTrade.toLowerCase();
       
       // 1. Match by backend famille mapping

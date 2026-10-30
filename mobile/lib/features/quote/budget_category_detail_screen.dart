@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
-import 'package:koji/features/quote/repositories/chantier_repository.dart';
 
 /// Full-screen list of every budget line for ONE category, with the running
 /// total pinned at the bottom. Reached by tapping a row on the Budget screen.
