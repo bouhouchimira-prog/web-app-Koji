@@ -21,7 +21,6 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
   final _repository = ChantierRepository();
 
   Map<String, dynamic>? _nextRdv;
-  bool _rdvLoaded = false;
 
   @override
   void initState() {
@@ -49,10 +48,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
   Future<void> _loadNextRdv() async {
     final chantierId = widget.data['id'] as String?;
     final user = ref.read(authProvider).value;
-    if (chantierId == null || user == null) {
-      setState(() => _rdvLoaded = true);
-      return;
-    }
+    if (chantierId == null || user == null) return;
     try {
       final rdvRepo = ref.read(rdvRepositoryProvider);
       final rdvs = await rdvRepo.getRdvs(userId: user.id, chantierId: chantierId);
@@ -62,14 +58,9 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
         return dt != null && dt.isAfter(now);
       }).toList();
       if (mounted) {
-        setState(() {
-          _nextRdv = upcoming.isNotEmpty ? upcoming.first : null;
-          _rdvLoaded = true;
-        });
+        setState(() => _nextRdv = upcoming.isNotEmpty ? upcoming.first : null);
       }
-    } catch (_) {
-      if (mounted) setState(() => _rdvLoaded = true);
-    }
+    } catch (_) {/* no upcoming RDV card; the rest of the dashboard still works */}
   }
 
   String _formatRdvDate(String isoString) {

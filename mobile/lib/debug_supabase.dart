@@ -16,7 +16,7 @@ void main() async {
       print('ERROR: No authenticated user.');
       return;
     }
-    print('User logged in: \${user.id}');
+    print('User logged in: ${user.id}');
 
     // 2. Insert test task
     // We assume chantier_id exists or we query one
@@ -26,7 +26,7 @@ void main() async {
       return;
     }
     final chantierId = chantiers.first['id'];
-    print('Using Chantier ID: \$chantierId');
+    print('Using Chantier ID: $chantierId');
 
     print('Attempting to insert into chantier_tasks...');
     final response = await client.from('chantier_tasks').insert({
@@ -35,9 +35,9 @@ void main() async {
       'is_done': false,
     }).select();
 
-    print('SUCCESS! Inserted row: \$response');
+    print('SUCCESS! Inserted row: $response');
 
-  } catch (e, stack) {
-    print('EXCEPTION CAUGHT: \$e');
+  } catch (e) {
+    print('EXCEPTION CAUGHT: $e');
   }
 }

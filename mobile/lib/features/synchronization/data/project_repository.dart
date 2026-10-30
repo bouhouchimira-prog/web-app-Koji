@@ -143,9 +143,7 @@ class ProjectRepository {
 
       final chantierIds = chantiers.map((c) => c['id'] as String).toList();
 
-      // 2. Fetch tasks for those chantiers on the selected date
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
+      // 2. Fetch tasks for those chantiers (not filtered by [date] yet).
       final response = await _client
           .from('chantier_tasks')
           .select()
