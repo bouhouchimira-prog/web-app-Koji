@@ -1,1 +1,5 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+// Written only by the iOS → TestFlight workflow (manual distribution signing
+// for the Runner target alone); absent locally, so Xcode keeps its own setup.
+#include? "ci-signing.xcconfig"
