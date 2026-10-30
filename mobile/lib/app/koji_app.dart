@@ -24,9 +24,10 @@ Future<void> runKojiApp(KojiAppKind kind) async {
   await initializeDateFormatting();
 
   // Planning reminders and overdue-invoice alerts only concern the entreprise,
-  // and local notifications are not available on the web.
+  // and local notifications are not available on the web. Not awaited: on
+  // first launch the setup waits for the permission prompt, which must appear
+  // over the app rather than keep it on a black screen until answered.
   if (kind == KojiAppKind.entreprise && !kIsWeb) {
-    await NotificationService.instance.init();
     unawaited(NotificationService.instance.refreshDailySummary());
     unawaited(NotificationService.instance.notifyOverdueInvoices());
   }

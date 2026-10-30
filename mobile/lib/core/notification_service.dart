@@ -35,9 +35,17 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialised = false;
+  Future<void>? _initialising;
 
-  Future<void> init() async {
-    if (_initialised) return;
+  /// Safe to call concurrently: on first launch this waits for the user's
+  /// answer to the permission prompt, and every caller shares that one setup.
+  Future<void> init() {
+    if (_initialised) return Future.value();
+    return _initialising ??=
+        _initialise().whenComplete(() => _initialising = null);
+  }
+
+  Future<void> _initialise() async {
     tz.initializeTimeZones();
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -67,6 +75,7 @@ class NotificationService {
   /// Reads tomorrow's tasks and schedules a single 18:00 summary.
   Future<void> refreshDailySummary() async {
     try {
+      await init();
       await _plugin.cancel(_dailySummaryId);
 
       final userId = SupabaseConfig.client.auth.currentUser?.id;
@@ -221,6 +230,7 @@ class NotificationService {
   /// the future. No-op otherwise.
   Future<void> scheduleTaskReminder(ScheduledTask task) async {
     try {
+      await init();
       final parts = task.startTime.split(':');
       final start = DateTime(
         task.scheduledDate.year,
