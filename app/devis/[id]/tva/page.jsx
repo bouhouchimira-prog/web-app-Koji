@@ -10,12 +10,30 @@ export default function TVAPage() {
         <button className="link" onClick={() => router.back()}>← Retour</button>
         <h1>TVA automatique</h1>
       </div>
-      <div className="card">
-        <div className="card-h"><h2>Calcul TVA</h2></div>
-        <div className="row"><div className="t"><small>Montant HT</small><strong>4333€</strong></div></div>
-        <div className="row"><div className="t"><small>TVA (20%)</small><strong>867€</strong></div></div>
-        <div className="row"><div className="t"><small>Montant TTC</small><strong>5200€</strong></div></div>
+
+      <div className="kpis">
+        <div>
+          <div className="l">Montant HT</div>
+          <div className="v">4333€</div>
+          <div className="s">Avant TVA</div>
+        </div>
+        <div>
+          <div className="l">TVA (20%)</div>
+          <div className="v">867€</div>
+          <div className="s">À ajouter</div>
+        </div>
+        <div>
+          <div className="l">Montant TTC</div>
+          <div className="v">5200€</div>
+          <div className="s">Avec TVA</div>
+        </div>
+        <div>
+          <div className="l">Taux appliqué</div>
+          <div className="v">20%</div>
+          <div className="s">Standard</div>
+        </div>
       </div>
+
       <div className="card">
         <p style={{ fontSize: 14, color: "var(--grey)" }}>La TVA est calculée automatiquement selon le taux applicable à votre région et la nature des travaux.</p>
       </div>

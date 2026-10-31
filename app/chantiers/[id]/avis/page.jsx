@@ -133,17 +133,17 @@ export default function AvisPage() {
         </div>
 
         {reviews.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="mlist">
             {reviews.map((r) => (
-              <div key={r.id} style={{ padding: "16px", background: "#F5F5F2", borderRadius: 4 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <div key={r.id} className="m-card">
+                <div className="top2">
                   <strong>{r.clientName}</strong>
                   <small style={{ color: "var(--grey)" }}>{r.date}</small>
                 </div>
-                <div style={{ marginBottom: 8 }}>
+                <div style={{ marginBottom: 8, fontSize: 12 }}>
                   {Array(r.rating).fill("★").join("")}
                 </div>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{r.comment}</p>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "var(--grey)" }}>{r.comment}</p>
               </div>
             ))}
           </div>

@@ -29,6 +29,29 @@ export default function RelancesPage() {
         </div>
       </div>
 
+      <div className="kpis">
+        <div>
+          <div className="l">Montant dû</div>
+          <div className="v">1560€</div>
+          <div className="s">À encaisser</div>
+        </div>
+        <div>
+          <div className="l">En retard de</div>
+          <div className="v">15j</div>
+          <div className="s">Depuis échéance</div>
+        </div>
+        <div>
+          <div className="l">Relances envoyées</div>
+          <div className="v">1</div>
+          <div className="s">Amicale</div>
+        </div>
+        <div>
+          <div className="l">Taux de recouvrement</div>
+          <div className="v">92%</div>
+          <div className="s">Moyenne</div>
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-h">
           <h2>Procédure de relance</h2>
