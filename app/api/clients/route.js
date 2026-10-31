@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { fixObjectText, fixText } from "../../../lib/text";
+import { required, maxLength, isEmail, validateFields } from "../../../lib/validators";
 
 function normalizeClient(client) {
   return fixObjectText(client);
@@ -21,7 +22,14 @@ export async function POST(request) {
   const db = await readDb();
   const userId = await getVerifiedUserId(request, body);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
-  if (!body.name || !String(body.name).trim()) return badRequest("Le nom du client est requis.");
+  const validationError = validateFields(body, {
+    name: [(v) => required(v, "Le nom du client"), (v) => maxLength(v, 150, "Le nom du client")],
+  });
+  if (validationError) return badRequest(validationError);
+  if (body.email) {
+    const emailError = isEmail(body.email);
+    if (emailError) return badRequest(emailError);
+  }
 
   if (!Array.isArray(db.clients)) db.clients = [];
 

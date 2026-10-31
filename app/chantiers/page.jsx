@@ -95,55 +95,62 @@ function TaskMessageThread({ task, projectDocuments, workers }) {
     } finally { setSending(false); }
   }
 
+  const audiences = [
+    { id: "client", label: L.chantiers.audienceClient },
+    { id: "workers", label: L.chantiers.audienceWorkers },
+    { id: "both", label: L.chantiers.audienceBoth }
+  ];
+
   return (
-    <div className="follow-client-notes">
-      <span className="follow-client-notes-label">💬 {L.chantiers.clientMessages}</span>
+    <div className="notes">
+      {clientNotes.length > 0 ? <div className="notes-l">{L.chantiers.clientMessages}</div> : null}
       {clientNotes.map((note) => {
         const replies = allDocs.filter((d) => d.source === "company" && d.replyToId === note.id);
         const isReplying = replyingTo === note.id;
         return (
-          <div key={note.id}>
-            <div className="follow-client-note">
-              <div className="follow-client-note-head">
-                <span className="archive-document-type">{note.type}</span>
-                <strong>{note.clientName || "Client"}</strong>
-                <small>{note.createdAt ? shortDate(note.createdAt) : ""}</small>
-              </div>
-              {note.notes ? <p>{note.notes}</p> : null}
-              {note.url ? <a href={note.url} download={note.fileName || note.title} target="_blank" rel="noreferrer">{L.chantiers.downloadFile}</a> : null}
-              <button type="button" className="reply-trigger-btn" onClick={() => { setReplyingTo(isReplying ? null : note.id); setReplyText(""); }}>
-                {isReplying ? L.common.cancel : `↩ ${L.chantiers.reply}`}
+          <div className="note" key={note.id}>
+            <div className="note-h">
+              <strong>{note.clientName || "Client"}</strong>
+              <span className="tag tag-o">{note.type}</span>
+              <small>{note.createdAt ? shortDate(note.createdAt) : ""}</small>
+            </div>
+            {note.notes ? <p>{note.notes}</p> : null}
+            <div className="note-act">
+              {note.url ? <a className="link" href={note.url} download={note.fileName || note.title} target="_blank" rel="noreferrer">{L.chantiers.downloadFile}</a> : null}
+              <button type="button" className="link" onClick={() => { setReplyingTo(isReplying ? null : note.id); setReplyText(""); }}>
+                {isReplying ? L.common.cancel : L.chantiers.reply}
               </button>
             </div>
 
             {replies.map((rep) => (
-              <div key={rep.id} className="follow-company-reply">
-                <div className="follow-client-note-head">
-                  <span className="archive-document-type reply-badge">{L.chantiers.replyLabel}</span>
+              <div key={rep.id} className="note note-reply">
+                <div className="note-h">
                   <strong>{rep.senderName || "Entreprise"}</strong>
+                  <span className="tag tag-e">{L.chantiers.replyLabel}</span>
                   <small>{rep.createdAt ? shortDate(rep.createdAt) : ""}</small>
                 </div>
                 {rep.notes ? <p>{rep.notes}</p> : null}
-                {rep.url ? <a href={rep.url} download={rep.fileName || rep.title} target="_blank" rel="noreferrer">{L.common.download}</a> : null}
+                {rep.url ? <div className="note-act"><a className="link" href={rep.url} download={rep.fileName || rep.title} target="_blank" rel="noreferrer">{L.common.download}</a></div> : null}
               </div>
             ))}
 
             {isReplying ? (
-              <div className="follow-reply-form">
+              <div className="note-form">
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder={L.chantiers.replyPlaceholder}
+                  aria-label={L.chantiers.replyPlaceholder}
                   rows={2}
                 />
-                <div className="follow-reply-actions">
-                  <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={onFileChange} />
-                  <button type="button" className="mini-button" onClick={() => fileRef.current?.click()}>
-                    {replyFile ? `📎 ${replyFile}` : L.chantiers.attach}
+                <div className="note-act">
+                  <input ref={fileRef} type="file" accept="image/*,.pdf" hidden onChange={onFileChange} />
+                  <button type="button" className="btn btn-sec" onClick={() => fileRef.current?.click()}>
+                    {replyFile ? `Pièce jointe : ${replyFile}` : L.chantiers.attach}
                   </button>
                   <button
                     type="button"
-                    className="mobile-primary"
+                    className="btn btn-sec"
                     disabled={sending || (!replyText.trim() && !replyUrl)}
                     onClick={() => sendReply(note.id)}
                   >
@@ -157,66 +164,63 @@ function TaskMessageThread({ task, projectDocuments, workers }) {
       })}
 
       {companyNotes.map((note) => (
-        <div className="follow-company-note" key={note.id}>
-          <div className="follow-client-note-head">
-            <span className="archive-document-type reply-badge">{L.chantiers.noteSentTo(note.audience)}</span>
+        <div className="note" key={note.id}>
+          <div className="note-h">
             <strong>{note.senderName || "Entreprise"}</strong>
+            <span className="tag tag-e">{L.chantiers.noteSentTo(note.audience)}</span>
             <small>{note.createdAt ? shortDate(note.createdAt) : ""}</small>
           </div>
           {note.notes ? <p>{note.notes}</p> : null}
         </div>
       ))}
 
-      <div className="follow-note-composer">
-        <span className="follow-client-notes-label">{L.chantiers.noteComposer}</span>
+      <div className="note-form">
+        <div className="notes-l">{L.chantiers.noteComposer}</div>
         <textarea
           id="ouvrage-note-composer"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           placeholder={L.chantiers.notePlaceholder}
+          aria-label={L.chantiers.noteComposer}
           rows={2}
         />
-        <div className="follow-note-audience">
-          <button type="button" className={noteAudience === "client" ? "active" : ""} onClick={() => setNoteAudience("client")}>{L.chantiers.audienceClient}</button>
-          <button type="button" className={noteAudience === "workers" ? "active" : ""} onClick={() => setNoteAudience("workers")}>{L.chantiers.audienceWorkers}</button>
-          <button type="button" className={noteAudience === "both" ? "active" : ""} onClick={() => setNoteAudience("both")}>{L.chantiers.audienceBoth}</button>
+        <div className="kp-seg" role="group" aria-label="Destinataires">
+          {audiences.map((audience) => (
+            <button
+              type="button"
+              key={audience.id}
+              className={noteAudience === audience.id ? "on" : ""}
+              aria-pressed={noteAudience === audience.id}
+              onClick={() => setNoteAudience(audience.id)}
+            >
+              {audience.label}
+            </button>
+          ))}
         </div>
         {(noteAudience === "workers" || noteAudience === "both") ? (
-          <div className="follow-note-workers">
-            <span className="follow-client-notes-label">{L.chantiers.noteWorkersLabel}</span>
-            {assignedWorkers.length === 0 ? <p className="tool-muted">{L.chantiers.noteNoWorkers}</p> : null}
-            <div className="follow-note-worker-chips">
-              {assignedWorkers.map((worker) => (
-                <button
-                  type="button"
-                  key={worker.id}
-                  className={noteWorkerIds.includes(worker.id) ? "active" : ""}
-                  onClick={() => toggleNoteWorker(worker.id)}
-                >
-                  {worker.name}
-                </button>
-              ))}
-            </div>
-          </div>
+          <>
+            <div className="notes-l">{L.chantiers.noteWorkersLabel}</div>
+            {assignedWorkers.length === 0 ? <p className="muted">{L.chantiers.noteNoWorkers}</p> : (
+              <div className="chips">
+                {assignedWorkers.map((worker) => {
+                  const on = noteWorkerIds.includes(worker.id);
+                  return (
+                    <button type="button" key={worker.id} className={`chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleNoteWorker(worker.id)}>
+                      <b>{worker.name}</b>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         ) : null}
-        <button
-          type="button"
-          className="mobile-primary"
-          disabled={sendingNote || !noteText.trim()}
-          onClick={sendNote}
-        >
-          {sendingNote ? L.chantiers.sending : L.chantiers.sendNote}
-        </button>
+        <div>
+          <button type="button" className="btn btn-sec" disabled={sendingNote || !noteText.trim()} onClick={sendNote}>
+            {sendingNote ? L.chantiers.sending : L.chantiers.sendNote}
+          </button>
+        </div>
       </div>
     </div>
-  );
-}
-
-function CardChevron({ collapsed }) {
-  return (
-    <svg className="card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
   );
 }
 
@@ -246,38 +250,46 @@ function formatDate(value) {
   }
 }
 
-// Tableau de bord "Chantiers" (15 oct, maquette fournie par Amira) — le
-// statut du chantier n'est pas un champ stocke, il est derive a la volee a
-// partir de signaux deja existants (quote signee, progression des taches,
-// date de fin prevue vs aujourd'hui), pas de nouvelle colonne necessaire.
-const CHANTIER_STATUS_META = {
-  a_planifier: { label: "À planifier", color: "#64748b", bg: "#f1f5f9" },
-  en_cours: { label: "En cours", color: "#1d4ed8", bg: "#dbeafe" },
-  finitions: { label: "Finitions", color: "#15803d", bg: "#dcfce7" },
-  retard: { label: "En retard", color: "#b91c1c", bg: "#fee2e2" },
-  termine: { label: "Terminé", color: "#15803d", bg: "#dcfce7" }
+// Liste des chantiers, maquette PRO-02 (DA Koji Pro, 30 oct). Le statut du
+// chantier n'est pas un champ stocke, il est derive a la volee (devis signe,
+// progression des taches, fin prevue) par computeChantierStatus.
+const CHANTIER_STATUS_TAG = {
+  retard: { label: "En retard", className: "tag tag-b" },
+  a_planifier: { label: "À planifier", className: "tag tag-o" },
+  en_cours: { label: "En cours", className: "tag tag-e" },
+  finitions: { label: "Finitions", className: "tag tag-e" },
+  termine: { label: "Terminé", className: "tag tag-o dim" }
 };
 
-const CHANTIER_STAT_MODAL_TITLES = {
-  en_cours: "Chantiers en cours",
-  a_planifier: "Chantiers à planifier",
-  retard: "Chantiers en retard",
-  ca: "Chiffre d'affaires en cours"
-};
+const CHANTIER_TAB_OF = { en_cours: "en_cours", finitions: "en_cours", retard: "en_cours", a_planifier: "a_planifier", termine: "termine" };
 
-const CHANTIER_FILTER_TABS = [
-  { id: "tous", label: "Tous" },
+const CHANTIER_TABS = [
   { id: "en_cours", label: "En cours" },
-  { id: "retard", label: "En retard" },
-  { id: "termine", label: "Terminés" }
+  { id: "a_planifier", label: "À planifier" },
+  { id: "termine", label: "Terminés" },
+  { id: "tous", label: "Tous" }
 ];
 
-const WEEKDAY_SHORT = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
+// Adresse "rue, code postal, ville" (app/api/projects mapChantier) : la
+// liste n'affiche que la ville.
+function cityOf(address) {
+  const parts = String(address || "").split(",").map((p) => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : parts[0] || "";
+}
 
-function dayBadge(dateStr) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return { dow: "", day: "" };
-  return { dow: WEEKDAY_SHORT[d.getDay()], day: String(d.getDate()) };
+function dayLabel(date) {
+  const d = new Date(`${date}T00:00:00`);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff === 0) return "aujourd'hui";
+  if (diff === 1) return "demain";
+  return new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(d);
+}
+
+function milestoneLabel({ label, date, time }) {
+  const [h, m] = String(time || "").split(":");
+  const hour = h ? ` ${Number(h)} h${m && m !== "00" ? ` ${m}` : ""}` : "";
+  return `${label}, ${dayLabel(date)}${hour}`;
 }
 
 function computeChantierStatus(progress, signed, dueDate) {
@@ -349,10 +361,10 @@ export default function ProjectsTrackingPage() {
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [budgetDraft, setBudgetDraft] = useState(null);
   const [message, setMessage] = useState("");
-  const [collapsedCards, setCollapsedCards] = useState(() => new Set(["agenda", "budget", "rdv", "documents", "archive"]));
+  const [ficheTab, setFicheTab] = useState("lots");
   const [openLineKey, setOpenLineKey] = useState(null);
-  const [chantierFilterTab, setChantierFilterTab] = useState("tous");
-  const [chantierStatModal, setChantierStatModal] = useState(null);
+  const [chantierTab, setChantierTab] = useState(null);
+  const [chantierQuery, setChantierQuery] = useState("");
   const [clientPortalAccess, setClientPortalAccess] = useState(null);
   const [clientAccessForm, setClientAccessForm] = useState({ email: "", phone: "" });
   const [clientAccessCreating, setClientAccessCreating] = useState(false);
@@ -362,14 +374,6 @@ export default function ProjectsTrackingPage() {
   const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
   const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
 
-  function toggleCard(key) {
-    setCollapsedCards((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
   // choice" screen) after a page refresh, since that state only ever lived in
@@ -438,7 +442,7 @@ export default function ProjectsTrackingPage() {
 
   useEffect(() => {
     if (!selectedProjectId) return;
-    setCollapsedCards(new Set(["agenda", "budget", "rdv", "documents", "archive"]));
+    setFicheTab("lots");
   }, [selectedProjectId]);
 
   // All non-archived chantiers, regardless of quote/signature status — used to
@@ -475,58 +479,47 @@ export default function ProjectsTrackingPage() {
     });
   }, [nonArchivedProjects, quotes, tasks]);
 
-  const chantierKpis = useMemo(() => {
-    const now = new Date();
-    const active = chantiersDashboard.filter((p) => p.status !== "termine");
-    const nouveauxCeMois = active.filter((p) => {
-      const d = new Date(p.createdAt || "");
-      return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    }).length;
-    const aPlanifier = chantiersDashboard.filter((p) => p.status === "a_planifier");
-    const enRetard = chantiersDashboard.filter((p) => p.status === "retard");
-    const chiffreAffaires = active.reduce((sum, p) => sum + Number(p.budgetHt || 0), 0);
-    return {
-      enCours: active.length,
-      nouveauxCeMois,
-      aPlanifier: aPlanifier.length,
-      enRetard: enRetard.length,
-      enRetardItems: enRetard,
-      chiffreAffaires
-    };
+  const chantierCounts = useMemo(() => {
+    const counts = { en_cours: 0, a_planifier: 0, termine: 0, tous: chantiersDashboard.length };
+    chantiersDashboard.forEach((p) => { counts[CHANTIER_TAB_OF[p.status]] += 1; });
+    return counts;
   }, [chantiersDashboard]);
+  // Onglet "En cours" par defaut comme la maquette, sauf s'il est vide.
+  const activeChantierTab = chantierTab ?? (chantierCounts.en_cours > 0 ? "en_cours" : "tous");
 
-  const filteredChantiers = useMemo(() => {
-    if (chantierFilterTab === "tous") return chantiersDashboard;
-    if (chantierFilterTab === "termine") return chantiersDashboard.filter((p) => p.status === "termine");
-    if (chantierFilterTab === "retard") return chantiersDashboard.filter((p) => p.status === "retard");
-    return chantiersDashboard.filter((p) => p.status === "en_cours" || p.status === "finitions");
-  }, [chantiersDashboard, chantierFilterTab]);
+  const chantierRows = useMemo(() => {
+    const needle = chantierQuery.trim().toLowerCase();
+    const now = Date.now();
+    const today = new Date().toISOString().slice(0, 10);
+    return chantiersDashboard
+      .filter((p) => activeChantierTab === "tous" || CHANTIER_TAB_OF[p.status] === activeChantierTab)
+      .filter((p) => !needle || [p.title, p.linkedQuote?.client, p.client, p.address].some((v) => String(v || "").toLowerCase().includes(needle)))
+      .map((p) => {
+        const projectTasks = tasks.filter((t) => t.projectId === p.id);
+        // Prochain jalon : la plus proche tache non faite ou le plus proche
+        // RDV du calendrier rattache a ce chantier.
+        const upcoming = [
+          ...projectTasks
+            .filter((t) => !t.done && (t.dueDate || "") >= today)
+            .map((t) => ({ label: t.label, date: t.dueDate, time: "" })),
+          ...calendarEvents
+            .filter((e) => e.projectId === p.id && new Date(e.startAt || "").getTime() >= now)
+            .map((e) => ({ label: e.title, date: String(e.startAt).slice(0, 10), time: String(e.startAt).slice(11, 16) }))
+        ].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+        let blocker = "";
+        if (p.status === "retard") blocker = `Fin prévue dépassée (${shortDate(p.dueDate)})`;
+        else if (p.status === "a_planifier") blocker = "Devis pas encore signé";
+        return {
+          ...p,
+          taskCount: projectTasks.length,
+          taskDone: projectTasks.filter((t) => t.done).length,
+          next: upcoming[0] || null,
+          blocker,
+          amount: Number(p.linkedQuote?.totalHt || p.budgetHt || 0)
+        };
+      });
+  }, [chantiersDashboard, activeChantierTab, chantierQuery, tasks, calendarEvents]);
 
-  const chantierStatModalItems = useMemo(() => {
-    if (!chantierStatModal) return [];
-    if (chantierStatModal === "en_cours" || chantierStatModal === "ca") return chantiersDashboard.filter((p) => p.status !== "termine");
-    if (chantierStatModal === "a_planifier") return chantiersDashboard.filter((p) => p.status === "a_planifier");
-    return chantierKpis.enRetardItems;
-  }, [chantierStatModal, chantiersDashboard, chantierKpis]);
-
-  const upcomingEvents = useMemo(() => {
-    const now = new Date();
-    const in7Days = new Date(now); in7Days.setDate(in7Days.getDate() + 7);
-    return calendarEvents
-      .filter((e) => {
-        const d = new Date(e.startAt || "");
-        return !Number.isNaN(d.getTime()) && d >= now && d <= in7Days;
-      })
-      .sort((a, b) => String(a.startAt).localeCompare(String(b.startAt)))
-      .slice(0, 5);
-  }, [calendarEvents]);
-  // Most recently touched not-yet-sent devis: lets the user resume a
-  // chantier/devis they started and left mid-way (app closed, interrupted...).
-  const draftQuote = useMemo(() => {
-    return quotes
-      .filter((quote) => quote.status === "Brouillon")
-      .sort((a, b) => String(b.updatedAt || b.createdAtIso || "").localeCompare(String(a.updatedAt || a.createdAtIso || "")))[0] || null;
-  }, [quotes]);
   const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
   const selectedQuote = useMemo(() => {
     if (!selectedProject) return null;
@@ -1011,61 +1004,91 @@ export default function ProjectsTrackingPage() {
   }
 
   const planningModal = trackingTarget ? (
-    <div className="modal-overlay open">
-      <div className="tracking-modal">
-        <div className="follow-section-head">
+    <div className="pmodal-bg" onClick={() => setTrackingTarget(null)}>
+      <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.chantiers.planModal} onClick={(event) => event.stopPropagation()}>
+        <div className="card-h">
           <h2>{L.chantiers.planModal}</h2>
-          <button type="button" className="mini-danger" onClick={() => setTrackingTarget(null)}>{L.chantiers.close}</button>
+          <button type="button" className="link" onClick={() => setTrackingTarget(null)}>{L.chantiers.close}</button>
         </div>
-        <div className="follow-section-head">
-          <h3>{L.chantiers.team}</h3>
-          <button type="button" className="mini-outline" onClick={goToTeamAndReturn}>{L.chantiers.goToTeam}</button>
+
+        <div className="pm-sec">
+          <div className="pm-h">
+            <h3>{L.chantiers.team}</h3>
+            <button type="button" className="link" onClick={goToTeamAndReturn}>{L.chantiers.goToTeam}</button>
+          </div>
+          {workers.length === 0 ? <p className="muted">{L.chantiers.addWorkers}</p> : (
+            <div className="chips">
+              {workers.map((worker) => {
+                const on = planForm.workerIds.includes(worker.id);
+                return (
+                  <button type="button" key={worker.id} className={`chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleWorker(worker.id)}>
+                    <b>{worker.name}</b>
+                    <small>{worker.type || "Ouvrier"} · {worker.profession || worker.role}</small>
+                    {worker.loginId ? <small>ID : {worker.loginId}</small> : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="fgrid">
+            <label>{L.chantiers.startDate}<input type="date" value={planForm.startDate} onChange={(event) => setPlanForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
+            <label>{L.chantiers.endDate}<input type="date" value={planForm.endDate} onChange={(event) => setPlanForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
+          </div>
         </div>
-        <div className="worker-chip-grid">
-          {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
-          {workers.map((worker) => (
-            <button type="button" className={planForm.workerIds.includes(worker.id) ? "active" : ""} key={worker.id} onClick={() => toggleWorker(worker.id)}>
-              <span>{worker.name}</span>
-              <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
-              {worker.loginId ? <small className="worker-chip-login">ID: {worker.loginId}</small> : null}
-            </button>
-          ))}
-        </div>
-        <div className="mobile-form-grid">
-          <label>{L.chantiers.startDate}<input type="date" value={planForm.startDate} onChange={(event) => setPlanForm((current) => ({ ...current, startDate: event.target.value }))} /></label>
-          <label>{L.chantiers.endDate}<input type="date" value={planForm.endDate} onChange={(event) => setPlanForm((current) => ({ ...current, endDate: event.target.value }))} /></label>
-        </div>
-        <h3>{L.chantiers.rdvOptional}</h3>
-        <div className="mobile-form-grid">
-          <label>{L.chantiers.rdvType}<select value={planForm.rdvType} onChange={(event) => setPlanForm((current) => ({ ...current, rdvType: event.target.value }))}>
-            <option value="">{L.chantiers.noRdv}</option>
-            <option value="devis">{L.chantiers.rdvReasonQuote}</option>
-            <option value="autres">{L.chantiers.rdvReasonOther}</option>
-          </select></label>
-          {planForm.rdvType === "autres" ? (
-            <label>{L.chantiers.rdvReasonOther}<input value={planForm.rdvReason} onChange={(event) => setPlanForm((current) => ({ ...current, rdvReason: event.target.value }))} placeholder={L.chantiers.rdvReasonPlaceholder} /></label>
-          ) : null}
-          {planForm.rdvType ? (
-            <label className="full">{L.chantiers.rdvWhen}
-              <div className="url-fetch-row">
-                <input type="date" value={planForm.rdvDate} onChange={(event) => setPlanForm((current) => ({ ...current, rdvDate: event.target.value }))} />
-                <input type="time" value={planForm.rdvTime} onChange={(event) => setPlanForm((current) => ({ ...current, rdvTime: event.target.value }))} />
-              </div>
+
+        <div className="pm-sec">
+          <h3>{L.chantiers.rdvOptional}</h3>
+          <div className="fgrid">
+            <label>{L.chantiers.rdvType}
+              <select value={planForm.rdvType} onChange={(event) => setPlanForm((current) => ({ ...current, rdvType: event.target.value }))}>
+                <option value="">{L.chantiers.noRdv}</option>
+                <option value="devis">{L.chantiers.rdvReasonQuote}</option>
+                <option value="autres">{L.chantiers.rdvReasonOther}</option>
+              </select>
             </label>
-          ) : null}
+            {planForm.rdvType === "autres" ? (
+              <label>{L.chantiers.rdvReasonOther}<input value={planForm.rdvReason} onChange={(event) => setPlanForm((current) => ({ ...current, rdvReason: event.target.value }))} placeholder={L.chantiers.rdvReasonPlaceholder} /></label>
+            ) : null}
+            {planForm.rdvType ? (
+              <label className="full">{L.chantiers.rdvWhen}
+                <span className="pair">
+                  <input type="date" value={planForm.rdvDate} onChange={(event) => setPlanForm((current) => ({ ...current, rdvDate: event.target.value }))} />
+                  <input type="time" value={planForm.rdvTime} onChange={(event) => setPlanForm((current) => ({ ...current, rdvTime: event.target.value }))} />
+                </span>
+              </label>
+            ) : null}
+          </div>
         </div>
-        <h3>{L.chantiers.missingSupply}</h3>
-        <div className="mobile-form-grid">
-          <label>{L.chantiers.supply}<select value={planForm.supplyId} onChange={(event) => setPlanForm((current) => ({ ...current, supplyId: event.target.value }))}>
-            <option value="">{L.chantiers.noShortage}</option>
-            {supplies.map((supply) => <option value={supply.id} key={supply.id}>{supply.name}</option>)}
-          </select></label>
-          <label>{L.chantiers.quantity}<input value={planForm.supplyQuantity} onChange={(event) => setPlanForm((current) => ({ ...current, supplyQuantity: event.target.value }))} placeholder="Ex: 2" /></label>
-          <label className="full">{L.chantiers.note}<input value={planForm.supplyNote} onChange={(event) => setPlanForm((current) => ({ ...current, supplyNote: event.target.value }))} placeholder="Ex: a commander" /></label>
+
+        <div className="pm-sec">
+          <h3>{L.chantiers.missingSupply}</h3>
+          <div className="fgrid">
+            <label>{L.chantiers.supply}
+              <select value={planForm.supplyId} onChange={(event) => setPlanForm((current) => ({ ...current, supplyId: event.target.value }))}>
+                <option value="">{L.chantiers.noShortage}</option>
+                {supplies.map((supply) => <option value={supply.id} key={supply.id}>{supply.name}</option>)}
+              </select>
+            </label>
+            <label>{L.chantiers.quantity}<input value={planForm.supplyQuantity} onChange={(event) => setPlanForm((current) => ({ ...current, supplyQuantity: event.target.value }))} placeholder="Ex : 2" /></label>
+            <label className="full">{L.chantiers.note}<input value={planForm.supplyNote} onChange={(event) => setPlanForm((current) => ({ ...current, supplyNote: event.target.value }))} placeholder="Ex : à commander" /></label>
+          </div>
         </div>
-        <button type="button" className="mobile-primary" onClick={savePlanning}>{L.chantiers.savePlanning}</button>
+
+        <div className="pm-act">
+          <button type="button" className="btn btn-sec" onClick={() => setTrackingTarget(null)}>{L.common.cancel}</button>
+          <button type="button" className="btn btn-main" onClick={savePlanning}>{L.chantiers.savePlanning}</button>
+        </div>
       </div>
     </div>
+  ) : null;
+
+  // Fil d'Ariane commun aux écrans du chantier (fiche, ouvrage, démarrage).
+  const chantierCrumb = selectedProject ? (
+    <span className="eyebrow">
+      <button type="button" className="link" onClick={backToList}>Chantiers</button>
+      {" · "}
+      {openLine ? <button type="button" className="link" onClick={() => setOpenLineKey(null)}>{selectedProject.title}</button> : selectedProject.title}
+    </span>
   ) : null;
 
   if (selectedProject && openLine) {
@@ -1083,202 +1106,176 @@ export default function ProjectsTrackingPage() {
     const taskExpenses = task ? expenses.filter((expense) => expense.taskId === task.id) : [];
     const ouvrageSpentTotal = taskExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
     const ouvrageProfit = ouvragePriceHt - ouvrageSpentTotal;
+    const quantityLabel = `${item.quantity || task?.quantity || 1} ${item.unit || task?.unit || ""}`.trim();
 
     return (
-      <Shell>
-        <section className="mobile-tool tool-form-view ouvrage-fiche">
-          <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={() => setOpenLineKey(null)}>{"<"}</button>
-            <div className="follow-title">
-              <h1>{item.label || task?.label}</h1>
-              <p>{item.room || task?.room || "Chantier"}</p>
-            </div>
-            <span />
-          </header>
+      <Shell variant="pro">
+        <div className="head">
+          <div className="stack">
+            {chantierCrumb}
+            <h1>{item.label || task?.label}</h1>
+            <span className="muted">{[item.room || task?.room || "Chantier", item.code || task?.code, quantityLabel].filter(Boolean).join(" · ")}</span>
+          </div>
+          <div className="hact">
+            {task ? <button type="button" className="btn btn-sec" onClick={openQuickAdd}>{L.chantiers.quickAddBtn}</button> : null}
+            <button type="button" className="btn btn-main" onClick={() => openPlanner(openLine)}>{L.chantiers.plan}</button>
+          </div>
+        </div>
 
-          <div className="ouvrage-fiche-body">
-            <div className="ouvrage-info-card">
-              <button
-                type="button"
-                className="ouvrage-info-row"
-                onClick={() => selectedQuote?.id && router.push(`/devis?id=${selectedQuote.id}`)}
-                disabled={!selectedQuote?.id}
-              >
-                <span>{item.code || task?.code || "Ouvrage"}</span>
-                <strong>{item.quantity || task?.quantity || 1} {item.unit || task?.unit || ""}</strong>
-              </button>
-              <button type="button" className="ouvrage-info-row" onClick={() => openPlanner(openLine)}>
-                <span>{L.chantiers.team}</span>
-                <strong>{task?.assignedTo || L.chantiers.notAssigned}</strong>
-              </button>
-              <button type="button" className="ouvrage-info-row" onClick={() => openPlanner(openLine)}>
-                <span>{L.chantiers.startDate} → {L.chantiers.endDate}</span>
-                <strong>{formatDate(task?.startDate)} → {formatDate(task?.endDate || task?.dueDate)}</strong>
-              </button>
-              {ouvragePriceHt > 0 ? (
+        {task ? (
+          <div className="steps">
+            <span className="eyebrow">Avancement de l'ouvrage</span>
+            <div className="kp-seg" role="group" aria-label="Avancement de l'ouvrage">
+              {statusSteps.map((step, index) => (
                 <button
                   type="button"
-                  className="ouvrage-info-row"
-                  onClick={() => selectedQuote?.id && router.push(`/devis?id=${selectedQuote.id}`)}
-                  disabled={!selectedQuote?.id}
+                  key={step.key}
+                  className={step.key === statusKey ? "on" : ""}
+                  aria-pressed={step.key === statusKey}
+                  onClick={() => setOuvrageStatus(task, step.key)}
                 >
-                  <span>{L.chantiers.validatedPrice}</span>
-                  <strong>{euro(ouvragePriceHt)}</strong>
+                  {index < statusIndex ? "✓ " : ""}{step.label}
                 </button>
-              ) : null}
+              ))}
             </div>
+          </div>
+        ) : (
+          <p className="notice">{L.chantiers.notPlannedYet}</p>
+        )}
 
+        {task?.pendingValidation && task.completedByName ? (
+          <p className="notice">
+            Terminé par {task.completedByName} ({task.completedByType?.toLowerCase()}) le {formatDate(task.finishedAt)}
+          </p>
+        ) : null}
+
+        <div className="fiche-grid">
+          <div className="card">
+            <div className="card-h"><h2>Messages et notes</h2></div>
             {task ? (
-              <div className="ouvrage-status-stepper">
-                {statusSteps.map((step, index) => (
-                  <button
-                    type="button"
-                    key={step.key}
-                    className={`ouvrage-status-step${index <= statusIndex ? " done" : ""}${step.key === statusKey ? " current" : ""}`}
-                    onClick={() => setOuvrageStatus(task, step.key)}
-                  >
-                    <i />
-                    <span>{step.label}</span>
-                  </button>
-                ))}
-              </div>
+              <TaskMessageThread task={task} projectDocuments={projectDocuments} workers={workers} />
             ) : (
-              <p className="tool-muted">{L.chantiers.notPlannedYet}</p>
+              <p className="empty">{L.chantiers.notPlannedYet}</p>
             )}
+          </div>
 
-            {task?.pendingValidation && task.completedByName ? (
-              <small className="follow-line-pending-detail">
-                Termine par {task.completedByName} ({task.completedByType?.toLowerCase()}) le {formatDate(task.finishedAt)}
-              </small>
-            ) : null}
-
-            <div className="ouvrage-action-row">
-              <button type="button" className="button blue ouvrage-plan-btn" onClick={() => openPlanner(openLine)}>
-                {L.chantiers.plan}
-              </button>
-              {task ? (
-                <button type="button" className="button ouvrage-quickadd-btn" onClick={openQuickAdd}>
-                  {L.chantiers.quickAddBtn}
-                </button>
+          <div className="fiche-side">
+            <div className="card">
+              <div className="card-h">
+                <h2>Ouvrage</h2>
+                {selectedQuote?.id ? <Link href={`/devis?id=${selectedQuote.id}`} className="link">Voir le devis</Link> : null}
+              </div>
+              <div className="kv"><span>{L.chantiers.team}</span><b>{task?.assignedTo || L.chantiers.notAssigned}</b></div>
+              <div className="kv"><span>{L.chantiers.startDate} → {L.chantiers.endDate}</span><b>{formatDate(task?.startDate)} → {formatDate(task?.endDate || task?.dueDate)}</b></div>
+              {ouvragePriceHt > 0 ? <div className="kv"><span>{L.chantiers.validatedPrice}</span><b>{euro(ouvragePriceHt)}</b></div> : null}
+              {task && ouvragePriceHt > 0 ? (
+                <>
+                  <div className="kv"><span>{L.chantiers.ouvrageSpent}</span><b>{euro(ouvrageSpentTotal)}</b></div>
+                  <div className="kv"><span>{L.chantiers.ouvrageEarned}</span><b>{euro(ouvrageProfit)}</b></div>
+                </>
               ) : null}
             </div>
-
-            {task && ouvragePriceHt > 0 ? (
-              <div className="ouvrage-finance-card">
-                <div>
-                  <span>{L.chantiers.validatedPrice}</span>
-                  <strong>{euro(ouvragePriceHt)}</strong>
-                </div>
-                <div>
-                  <span>{L.chantiers.ouvrageSpent}</span>
-                  <strong>{euro(ouvrageSpentTotal)}</strong>
-                </div>
-                <div>
-                  <span>{L.chantiers.ouvrageEarned}</span>
-                  <strong className={ouvrageProfit >= 0 ? "positive" : "negative"}>{euro(ouvrageProfit)}</strong>
-                </div>
-              </div>
-            ) : null}
 
             {task && taskExpenses.length > 0 ? (
-              <div className="project-mini-list ouvrage-expense-list">
-                <span className="follow-client-notes-label">{L.chantiers.ouvrageExpenses}</span>
+              <div className="card">
+                <div className="card-h"><h2>{L.chantiers.ouvrageExpenses}</h2></div>
                 {taskExpenses.map((expense) => (
-                  <span key={expense.id}>{expense.category}: {expense.label} - {euro(expense.amount)}</span>
+                  <div className="kv" key={expense.id}><span>{expense.category} · {expense.label}</span><b>{euro(expense.amount)}</b></div>
                 ))}
               </div>
             ) : null}
-
-            {task ? <TaskMessageThread task={task} projectDocuments={projectDocuments} workers={workers} /> : null}
           </div>
-        </section>
+        </div>
+
         {planningModal}
 
         {ouvrageAddOpen ? (
-          <div className="qa-overlay" onClick={() => setOuvrageAddOpen(false)}>
-            <div className="qa-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="qa-header">
-                <strong>{L.chantiers.quickAddTitle}</strong>
-                <button type="button" className="qa-close" onClick={() => setOuvrageAddOpen(false)} aria-label={L.common.close}>✕</button>
-              </div>
-              <div className="qa-tabs">
-                <button type="button" className={`qa-tab${ouvrageAddTab === "team" ? " active" : ""}`} onClick={() => setOuvrageAddTab("team")}>
-                  <span>👷</span><span>{L.chantiers.quickAddTeam}</span>
-                </button>
-                <button type="button" className={`qa-tab${ouvrageAddTab === "expense" ? " active" : ""}`} onClick={() => setOuvrageAddTab("expense")}>
-                  <span>💶</span><span>{L.chantiers.quickAddExpense}</span>
-                </button>
-                <button type="button" className={`qa-tab${ouvrageAddTab === "note" ? " active" : ""}`} onClick={() => setOuvrageAddTab("note")}>
-                  <span>💬</span><span>{L.chantiers.quickAddNote}</span>
-                </button>
-              </div>
-
-              {ouvrageAddTab === "team" ? (
-                <div className="qa-form">
-                  <p className="tool-muted">{L.chantiers.quickAddTeamHint}</p>
-                  <div className="worker-chip-grid">
-                    {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
-                    {workers.map((worker) => (
-                      <button
-                        type="button"
-                        key={worker.id}
-                        className={quickAddWorkerIds.includes(worker.id) ? "active" : ""}
-                        onClick={() => toggleQuickAddWorker(worker.id)}
-                      >
-                        <span>{worker.name}</span>
-                        <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="qa-actions">
-                    <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
-                    <button type="button" className="qa-submit" onClick={saveQuickAddTeam}>{L.chantiers.quickAddSaveTeam}</button>
-                  </div>
+          <div className="legacy">
+            <div className="qa-overlay" onClick={() => setOuvrageAddOpen(false)}>
+              <div className="qa-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="qa-header">
+                  <strong>{L.chantiers.quickAddTitle}</strong>
+                  <button type="button" className="qa-close" onClick={() => setOuvrageAddOpen(false)} aria-label={L.common.close}>✕</button>
                 </div>
-              ) : null}
+                <div className="qa-tabs">
+                  <button type="button" className={`qa-tab${ouvrageAddTab === "team" ? " active" : ""}`} onClick={() => setOuvrageAddTab("team")}>
+                    <span>👷</span><span>{L.chantiers.quickAddTeam}</span>
+                  </button>
+                  <button type="button" className={`qa-tab${ouvrageAddTab === "expense" ? " active" : ""}`} onClick={() => setOuvrageAddTab("expense")}>
+                    <span>💶</span><span>{L.chantiers.quickAddExpense}</span>
+                  </button>
+                  <button type="button" className={`qa-tab${ouvrageAddTab === "note" ? " active" : ""}`} onClick={() => setOuvrageAddTab("note")}>
+                    <span>💬</span><span>{L.chantiers.quickAddNote}</span>
+                  </button>
+                </div>
 
-              {ouvrageAddTab === "expense" ? (
-                <form className="qa-form" onSubmit={addOuvrageExpense}>
-                  <div className="qa-field">
-                    <label className="qa-label">{L.chantiers.realExpense}</label>
-                    <input className="qa-input" value={ouvrageExpenseForm.label} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.realExpense} />
-                  </div>
-                  <div className="qa-row">
-                    <div className="qa-field">
-                      <label className="qa-label">{L.chantiers.amount}</label>
-                      <input className="qa-input" type="number" step="0.01" min="0.01" value={ouvrageExpenseForm.amount} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" />
+                {ouvrageAddTab === "team" ? (
+                  <div className="qa-form">
+                    <p className="tool-muted">{L.chantiers.quickAddTeamHint}</p>
+                    <div className="worker-chip-grid">
+                      {workers.length === 0 ? <p className="tool-muted">{L.chantiers.addWorkers}</p> : null}
+                      {workers.map((worker) => (
+                        <button
+                          type="button"
+                          key={worker.id}
+                          className={quickAddWorkerIds.includes(worker.id) ? "active" : ""}
+                          onClick={() => toggleQuickAddWorker(worker.id)}
+                        >
+                          <span>{worker.name}</span>
+                          <small>{worker.type || "Ouvrier"} - {worker.profession || worker.role}</small>
+                        </button>
+                      ))}
                     </div>
-                    <div className="qa-field">
-                      <label className="qa-label">{L.chantiers.category}</label>
-                      <select className="qa-input" value={ouvrageExpenseForm.category} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, category: event.target.value }))}>
-                        {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
-                      </select>
+                    <div className="qa-actions">
+                      <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
+                      <button type="button" className="qa-submit" onClick={saveQuickAddTeam}>{L.chantiers.quickAddSaveTeam}</button>
                     </div>
                   </div>
-                  <div className="qa-field">
-                    <label className="qa-label">{L.chantiers.location}</label>
-                    <input className="qa-input" value={ouvrageExpenseForm.location} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
-                  </div>
-                  <div className="qa-field">
-                    <label className="qa-label">{L.facturation.note}</label>
-                    <textarea className="qa-input qa-textarea" rows={2} value={ouvrageExpenseForm.notes} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, notes: event.target.value }))} />
-                  </div>
-                  <div className="qa-actions">
-                    <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
-                    <button type="submit" className="qa-submit">{L.chantiers.addExpense}</button>
-                  </div>
-                </form>
-              ) : null}
+                ) : null}
 
-              {ouvrageAddTab === "note" ? (
-                <div className="qa-form">
-                  <p className="tool-muted">{L.chantiers.quickAddNoteHint}</p>
-                  <div className="qa-actions">
-                    <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
-                    <button type="button" className="qa-submit" onClick={goToNoteComposer}>{L.chantiers.quickAddGoToNote}</button>
+                {ouvrageAddTab === "expense" ? (
+                  <form className="qa-form" onSubmit={addOuvrageExpense}>
+                    <div className="qa-field">
+                      <label className="qa-label">{L.chantiers.realExpense}</label>
+                      <input className="qa-input" value={ouvrageExpenseForm.label} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.realExpense} />
+                    </div>
+                    <div className="qa-row">
+                      <div className="qa-field">
+                        <label className="qa-label">{L.chantiers.amount}</label>
+                        <input className="qa-input" type="number" step="0.01" min="0.01" value={ouvrageExpenseForm.amount} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" />
+                      </div>
+                      <div className="qa-field">
+                        <label className="qa-label">{L.chantiers.category}</label>
+                        <select className="qa-input" value={ouvrageExpenseForm.category} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, category: event.target.value }))}>
+                          {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="qa-field">
+                      <label className="qa-label">{L.chantiers.location}</label>
+                      <input className="qa-input" value={ouvrageExpenseForm.location} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
+                    </div>
+                    <div className="qa-field">
+                      <label className="qa-label">{L.facturation.note}</label>
+                      <textarea className="qa-input qa-textarea" rows={2} value={ouvrageExpenseForm.notes} onChange={(event) => setOuvrageExpenseForm((current) => ({ ...current, notes: event.target.value }))} />
+                    </div>
+                    <div className="qa-actions">
+                      <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
+                      <button type="submit" className="qa-submit">{L.chantiers.addExpense}</button>
+                    </div>
+                  </form>
+                ) : null}
+
+                {ouvrageAddTab === "note" ? (
+                  <div className="qa-form">
+                    <p className="tool-muted">{L.chantiers.quickAddNoteHint}</p>
+                    <div className="qa-actions">
+                      <button type="button" className="qa-cancel" onClick={() => setOuvrageAddOpen(false)}>{L.common.cancel}</button>
+                      <button type="button" className="qa-submit" onClick={goToNoteComposer}>{L.chantiers.quickAddGoToNote}</button>
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
         ) : null}
@@ -1288,24 +1285,20 @@ export default function ProjectsTrackingPage() {
 
   if (selectedProject && selectedQuote && !quoteSigned && !startChoiceMade) {
     return (
-      <Shell>
-        <div className="mobile-tool chantier-follow">
-          <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={backToList}>{"<"}</button>
-            <div className="follow-title">
-              <h1>{selectedProject.title}</h1>
-              <p>{selectedProject.client || L.chantiers.contact} - {selectedProject.status}</p>
-            </div>
-            <span />
-          </header>
-          <div className="start-choice-card">
-            <p>{L.chantiers.startChoiceIntro}</p>
-            <button type="button" className="button blue" onClick={() => router.push(`/devis?id=${selectedQuote.id}`)}>
-              {L.chantiers.startChoiceEditQuote}
-            </button>
-            <button type="button" className="button" onClick={() => setStartChoiceMade(true)}>
-              {L.chantiers.startChoiceBeginSite}
-            </button>
+      <Shell variant="pro">
+        <div className="head">
+          <div className="stack">
+            {chantierCrumb}
+            <h1>{selectedProject.title}</h1>
+            <span className="muted">{selectedQuote.client || selectedProject.client || L.chantiers.contact} · devis {selectedQuote.quoteNumber} non signé</span>
+          </div>
+        </div>
+        <div className="card start-card">
+          <div className="card-h"><h2>Le devis n'est pas encore signé</h2></div>
+          <p>{L.chantiers.startChoiceIntro}</p>
+          <div className="hact">
+            <button type="button" className="btn btn-sec" onClick={() => setStartChoiceMade(true)}>{L.chantiers.startChoiceBeginSite}</button>
+            <button type="button" className="btn btn-main" onClick={() => router.push(`/devis?id=${selectedQuote.id}`)}>{L.chantiers.startChoiceEditQuote}</button>
           </div>
         </div>
       </Shell>
@@ -1313,539 +1306,582 @@ export default function ProjectsTrackingPage() {
   }
 
   if (selectedProject) {
+    const today = new Date().toISOString().slice(0, 10);
+    const nowIso = new Date().toISOString();
+    const clientName = selectedQuote?.client || selectedProject.client || L.chantiers.contact;
+    const portalId = clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier || "";
+    const portalPassword = clientPortalAccess?.password || selectedQuote?.clientPortalAccess?.password || "";
+    const issuedInvoices = linkedInvoices.filter((invoice) => invoice.status !== "Brouillon");
+    const invoicedTtc = issuedInvoices.reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0);
+    const unpaidTtc = issuedInvoices.filter((invoice) => invoice.status !== "Payee").reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0);
+    const quoteTtc = Number(selectedQuote?.totalTtc || 0);
+    const endDates = projectTasks.map((task) => task.endDate || task.dueDate).filter(Boolean).sort();
+    const startDates = projectTasks.map((task) => task.startDate).filter(Boolean).sort();
+    const plannedEnd = endDates.at(-1) || selectedProject.endDate || selectedProject.dueDate || "";
+    const plannedStart = startDates[0] || selectedProject.startDate || "";
+    const upcomingEvents = projectEvents.filter((event) => String(event.startAt || "") >= nowIso);
+    const unplannedCount = trackingLines.filter((line) => !line.task || (!line.task.startDate && !line.task.endDate && !line.task.dueDate)).length;
+    const lineProgress = (task) => ({ debut: 0, encours: 50, termine: 100, valide: 100 })[ouvrageStatusKey(task)];
+    const archived = Boolean(selectedProject.archiveId || linkedArchive);
+    const archiveSummary = selectedProject.archiveSummary || linkedArchive?.summary || null;
+
+    const aTraiter = [
+      ...upcomingTasks
+        .filter((task) => !task.pendingValidation && (task.endDate || task.dueDate || "") && (task.endDate || task.dueDate) < today)
+        .map((task) => ({ id: `late-${task.id}`, title: task.label, meta: `prévu le ${formatDate(task.endDate || task.dueDate)} · ${task.assignedTo || "équipe non assignée"}`, tag: "En retard", tone: "tag tag-b", lineKey: task.quoteItemId || task.id })),
+      ...projectTasks
+        .filter((task) => task.pendingValidation && !task.done)
+        .map((task) => ({ id: `val-${task.id}`, title: task.label, meta: task.completedByName ? `terminé par ${task.completedByName}` : "terminé, à valider", tag: "À valider", tone: "tag tag-o", lineKey: task.quoteItemId || task.id })),
+      ...issuedInvoices
+        .filter((invoice) => invoice.status === "Emise" && invoice.dueDate && invoice.dueDate < today)
+        .map((invoice) => ({ id: `inv-${invoice.id}`, title: `Facture ${invoice.invoiceNumber}`, meta: `${euro(invoice.amountTtc)} TTC · échéance le ${formatDate(invoice.dueDate)}`, tag: "À relancer", tone: "tag tag-o", href: "/facturation" })),
+      ...supplyNeeds
+        .filter((need) => need.status === "A commander")
+        .map((need, index) => ({ id: `sup-${index}`, title: need.name, meta: `${need.quantity} ${need.unit} · ${need.taskLabel}`, tag: "À commander", tone: "tag tag-e", tab: "fournitures" })),
+      ...(quoteSigned && !portalId ? [{ id: "portal", title: "Accès client à créer", meta: "le client ne peut pas encore suivre son chantier", tag: "Client", tone: "tag tag-e" }] : []),
+      ...(unplannedCount > 0 ? [{ id: "unplanned", title: `${unplannedCount} ouvrage${unplannedCount > 1 ? "s" : ""} à planifier`, meta: "sans date ni équipe", tag: "À planifier", tone: "tag tag-o", tab: "lots" }] : [])
+    ];
+
+    const ficheTabs = [
+      { id: "lots", label: "Ouvrages", count: trackingLines.length },
+      { id: "planning", label: "Planning", count: upcomingTasks.length + upcomingEvents.length },
+      { id: "fournitures", label: "Fournitures", count: supplyNeeds.length },
+      { id: "documents", label: "Documents", count: linkedDocuments.length + linkedInvoices.length + (selectedQuote ? 1 : 0) },
+      { id: "cout", label: "Coût" }
+    ];
+
+    function openTraiter(entry) {
+      if (entry.lineKey) setOpenLineKey(entry.lineKey);
+      else if (entry.href) router.push(entry.href);
+      else if (entry.tab) setFicheTab(entry.tab);
+    }
+
+    function invoiceTag(invoice) {
+      if (invoice.status === "Payee") return <span className="tag tag-o dim">Payée</span>;
+      if (invoice.status === "Emise") return <span className="tag tag-e">Envoyée</span>;
+      return <span className="tag tag-o">{invoice.status || "Brouillon"}</span>;
+    }
+
     return (
-      <Shell>
-        <div className="mobile-tool chantier-follow">
-          {(clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier) ? (
-            <div className="client-portal-id-banner">
-              <div>
-                <span>Identifiant client à partager</span>
-                <strong>{clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier}</strong>
-              </div>
-              {(clientPortalAccess?.password || selectedQuote?.clientPortalAccess?.password) ? (
-                <div>
-                  <span>Mot de passe</span>
-                  <strong>{clientPortalAccess?.password || selectedQuote?.clientPortalAccess?.password}</strong>
-                </div>
-              ) : null}
-              {clientPortalAccess?.email ? (
-                <div>
-                  <span>Email client</span>
-                  <strong>{clientPortalAccess.email}</strong>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {!(clientPortalAccess?.portalIdentifier || selectedQuote?.clientPortalAccess?.portalIdentifier) && quoteSigned ? (
-            <div className="client-portal-id-banner client-portal-id-banner-empty">
-              <p>Ce client n'a pas d'accès (devis signé sans email ni téléphone). Ajoutez-en un pour créer son identifiant.</p>
-              <div className="client-access-form-row">
-                <input
-                  type="email"
-                  placeholder="Email du client"
-                  value={clientAccessForm.email}
-                  onChange={(event) => setClientAccessForm((current) => ({ ...current, email: event.target.value }))}
-                />
-                <input
-                  type="tel"
-                  placeholder="Téléphone du client"
-                  value={clientAccessForm.phone}
-                  onChange={(event) => setClientAccessForm((current) => ({ ...current, phone: event.target.value }))}
-                />
-                <button type="button" className="button" onClick={createClientAccessManually} disabled={clientAccessCreating}>
-                  {clientAccessCreating ? "Création…" : "Créer l'accès client"}
-                </button>
-              </div>
-              {clientAccessError ? <p className="client-access-error">{clientAccessError}</p> : null}
-            </div>
-          ) : null}
-          <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={backToList}>{"<"}</button>
-            <div className="follow-title">
-              <h1>{selectedProject.title}</h1>
-              <p>{selectedProject.client || L.chantiers.contact} - {selectedProject.status}</p>
-            </div>
-            <Link className="round-pill" href="/planning">Planning</Link>
-          </header>
-
-          {!projectReady ? (
-            <div className="tool-message">{L.chantiers.trackingActive}</div>
-          ) : null}
-          {message ? <div className="tool-message">{message}</div> : null}
-
-          <section className="follow-summary">
-            <div>
-              <span>{L.chantiers.progress}</span>
-              <strong>{progress}%</strong>
-              <i><b style={{ width: `${progress}%` }} /></i>
-            </div>
-            <div><span>{L.chantiers.budgetDevis}</span><strong>{euro(selectedQuote?.totalTtc || selectedProject.budgetHt || 0)}</strong></div>
-            <div><span>{L.chantiers.start}</span><strong>{formatDate(selectedProject.startDate)}</strong></div>
-            <div><span>{L.chantiers.end}</span><strong>{formatDate(selectedProject.endDate || selectedProject.dueDate)}</strong></div>
-          </section>
-
-          <section className="project-overview-grid">
-            <article className="project-overview-card">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("agenda")}>
-                <h2>{L.chantiers.agenda}</h2>
-                <span>{L.chantiers.upcoming(upcomingTasks.length)}</span>
-                <CardChevron collapsed={collapsedCards.has("agenda")} />
-              </button>
-              {!collapsedCards.has("agenda") ? (
-                <>
-                  <form className="project-mini-form" onSubmit={addProjectTask}>
-                    <input value={taskForm.label} onChange={(event) => setTaskForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.newTask} />
-                    <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((current) => ({ ...current, dueDate: event.target.value }))} />
-                    <input value={taskForm.location} onChange={(event) => setTaskForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
-                    <button type="submit">{L.chantiers.add}</button>
-                  </form>
-                  <div className="project-mini-list">
-                    {upcomingTasks.length === 0 ? <p>{L.chantiers.noTasks}</p> : upcomingTasks.slice(0, 4).map((task) => (
-                      <button type="button" key={task.id} onClick={() => toggleDone(task)}>
-                        <strong>{task.label}</strong>
-                        <span>{formatDate(task.dueDate || task.startDate)} - {task.assignedTo || "Equipe"}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {completedTasks.length > 0 ? (
-                    <details className="project-history-details">
-                      <summary>{L.chantiers.taskHistory}</summary>
-                      {completedTasks.slice(0, 6).map((task) => <p key={task.id}>{task.label} - {formatDate(task.updatedAt || task.createdAt)}</p>)}
-                    </details>
-                  ) : null}
-                </>
-              ) : null}
-            </article>
-
-            <article className="project-overview-card">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("budget")}>
-                <h2>{L.chantiers.budget}</h2>
-                <span>{L.chantiers.total}: {euro(budgetTotal.real)} / {euro(budgetTotal.estimated)}</span>
-                <CardChevron collapsed={collapsedCards.has("budget")} />
-              </button>
-              {!collapsedCards.has("budget") ? (
-                <>
-                  <div className="ouvrage-finance-card chantier-finance-auto">
-                    <div>
-                      <span>{L.chantiers.autoSpentChantier}</span>
-                      <strong>{euro(chantierSpentAuto)}</strong>
-                    </div>
-                    <div>
-                      <span>{L.chantiers.autoMarginChantier}</span>
-                      <strong className={chantierMarginAuto >= 0 ? "positive" : "negative"}>{euro(chantierMarginAuto)}</strong>
-                    </div>
-                  </div>
-                  <div className="budget-follow-list">
-                    {budgetRows.map((row) => {
-                      const overBudget = Number(row.real || 0) > Number(row.estimated || 0);
-                      return (
-                        <div className={`budget-follow-row ${overBudget ? "over-budget" : ""}`} key={row.id}>
-                          <strong>{row.label}</strong>
-                          <label>{L.chantiers.estimated}<input type="number" value={row.estimated} onChange={(event) => setBudgetValue(row.id, "estimated", event.target.value)} /></label>
-                          <label>{L.chantiers.real}<input type="number" value={row.real} onChange={(event) => setBudgetValue(row.id, "real", event.target.value)} /></label>
-                          <span>{overBudget ? L.chantiers.overBudget : L.chantiers.ok}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <button type="button" className="mini-outline" onClick={saveBudgetRows}>{L.chantiers.saveBudget}</button>
-                  <form className="project-mini-form expense-mini-form" onSubmit={addExpense}>
-                    <input value={expenseForm.label} onChange={(event) => setExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.realExpense} />
-                    <select value={expenseForm.category} onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))}>
-                      {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
-                    </select>
-                    <input type="number" value={expenseForm.amount} onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.chantiers.amount} />
-                    <input value={expenseForm.location} onChange={(event) => setExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
-                    <input value={expenseForm.notes} onChange={(event) => setExpenseForm((current) => ({ ...current, notes: event.target.value }))} placeholder={L.facturation.note} />
-                    <button type="submit">{L.chantiers.addExpense}</button>
-                  </form>
-                  {linkedExpenses.length > 0 ? (
-                    <div className="project-mini-list">
-                      {linkedExpenses.slice(0, 4).map((expense) => (
-                        <span key={expense.id}>{expense.category}: {expense.label} - {euro(expense.amount)}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-            </article>
-
-            <article className="project-overview-card">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("rdv")}>
-                <h2>{L.chantiers.rdv}</h2>
-                <span>{projectEvents.length} RDV</span>
-                <CardChevron collapsed={collapsedCards.has("rdv")} />
-              </button>
-              {!collapsedCards.has("rdv") ? (
-                <>
-                  <div className="next-rdv-card">
-                    <strong>{nextRdv ? nextRdv.title : L.chantiers.noRdv}</strong>
-                    <span>{nextRdv ? dateTimeFromEvent(nextRdv) : L.chantiers.noRdvPlanned}</span>
-                    <small>{nextRdv?.clientName || ""} {nextRdv?.address ? `- ${nextRdv.address}` : ""}</small>
-                  </div>
-                  <form className="project-mini-form" onSubmit={addRdv}>
-                    <input value={rdvForm.title} onChange={(event) => setRdvForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.rdvObject} />
-                    <input type="date" value={rdvForm.date} onChange={(event) => setRdvForm((current) => ({ ...current, date: event.target.value }))} />
-                    <input type="time" value={rdvForm.time} onChange={(event) => setRdvForm((current) => ({ ...current, time: event.target.value }))} />
-                    <input value={rdvForm.contact} onChange={(event) => setRdvForm((current) => ({ ...current, contact: event.target.value }))} placeholder={L.chantiers.contact} />
-                    <input value={rdvForm.address} onChange={(event) => setRdvForm((current) => ({ ...current, address: event.target.value }))} placeholder={L.chantiers.address} />
-                    <button type="submit">{L.chantiers.add}</button>
-                  </form>
-                </>
-              ) : null}
-            </article>
-
-            <article className="project-overview-card">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("documents")}>
-                <h2>{L.chantiers.documents}</h2>
-                <span>{linkedDocuments.length + linkedInvoices.length + linkedExpenses.length + (selectedQuote ? 1 : 0)} total</span>
-                <CardChevron collapsed={collapsedCards.has("documents")} />
-              </button>
-              {!collapsedCards.has("documents") ? (
-                <>
-                  <div className="project-mini-list">
-                    {selectedQuote ? <a href={quoteDocumentUrl(selectedQuote.id)}>Devis {selectedQuote.quoteNumber}</a> : <p>Aucun devis genere.</p>}
-                    {linkedInvoices.map((invoice) => <span key={invoice.id}>{invoice.invoiceNumber} - {euro(invoice.amountTtc)}</span>)}
-                    {linkedDocuments.map((document) => <span key={document.id}>{document.type}: {document.title}</span>)}
-                  </div>
-                  <form className="project-mini-form" onSubmit={addDocument}>
-                    <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.docNameOrPhoto} />
-                    <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))}>
-                      {["Document", "Photo", "Facture", "Ticket", "Bon de commande", "Justificatif"].map((type) => <option key={type}>{type}</option>)}
-                    </select>
-                    <input value={documentForm.category} onChange={(event) => setDocumentForm((current) => ({ ...current, category: event.target.value }))} placeholder={L.chantiers.category} />
-                    <input type="number" value={documentForm.amount} onChange={(event) => setDocumentForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.chantiers.amount} />
-                    <input value={documentForm.location} onChange={(event) => setDocumentForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} />
-                    <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder={L.chantiers.fileLink} />
-                    <button type="submit">{L.chantiers.linkToProject}</button>
-                  </form>
-                </>
-              ) : null}
-            </article>
-
-          </section>
-
-          <section className="follow-section">
-            <div className="follow-section-head">
-              <h2>{L.chantiers.quoteLines}</h2>
-              <span>{L.chantiers.lines(trackingLines.length)}</span>
-            </div>
-
-            {selectedQuote ? (
-              <div className="quote-tracking-summary">
-                <a className="quote-tracking-pdf" href={quoteDocumentUrl(selectedQuote.id)} target="_blank" rel="noreferrer">
-                  Devis {selectedQuote.quoteNumber} - PDF
-                </a>
-                <div className="quote-tracking-dates">
-                  <span><small>{L.chantiers.quoteCreated}</small><strong>{formatDate(selectedQuote.quoteDate || selectedQuote.createdAt)}</strong></span>
-                  <span><small>{L.chantiers.quoteSent}</small><strong>{formatDate(selectedQuote.sentAt) || "-"}</strong></span>
-                  <span><small>{L.chantiers.quoteSigned}</small><strong>{formatDate(selectedQuote.signedAt) || "-"}</strong></span>
-                  <span><small>{L.chantiers.quoteSignPlace}</small><strong>{selectedQuote.signaturePlace || "-"}</strong></span>
-                </div>
-                {selectedQuote.signerMessage ? (
-                  <div className="quote-tracking-message">
-                    <small>{L.chantiers.clientMessage}</small>
-                    <p>{selectedQuote.signerMessage}</p>
-                  </div>
-                ) : null}
-              </div>
+      <Shell variant="pro">
+        <div className="head">
+          <div className="stack">
+            {chantierCrumb}
+            <h1>{selectedProject.title}</h1>
+            <span className="muted">
+              {[
+                clientName,
+                selectedProject.address,
+                selectedQuote ? `devis ${selectedQuote.quoteNumber} ${quoteSigned ? "signé" : "non signé"}` : "",
+                selectedQuote?.totalHt ? `${euro(selectedQuote.totalHt)} HT` : ""
+              ].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+          <div className="hact">
+            <Link href="/planning" className="btn btn-sec">Planning</Link>
+            {selectedQuote ? <Link href={`/avenant?quoteId=${selectedQuote.id}`} className="btn btn-sec">Avenant</Link> : null}
+            {selectedQuote && quoteSigned ? (
+              <Link href={`/facturation?quoteId=${selectedQuote.id}`} className="btn btn-main">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                Nouvelle facture
+              </Link>
             ) : null}
+          </div>
+        </div>
 
-            {trackingLines.length === 0 ? (
-              <div className="tool-empty">{L.chantiers.noQuoteLines}</div>
-            ) : (
-              <div className="follow-line-list">
-                {trackingLines.map((line) => {
-                  const item = line.quoteLine || line.task || {};
+        {!projectReady ? <p className="notice">{L.chantiers.trackingActive}</p> : null}
+        {message ? <p className="notice" role="status">{message}</p> : null}
+
+        <div className="kpis">
+          <div>
+            <div className="l">Avancement</div>
+            <div className="v">{progress} %</div>
+            <div className="s">{projectTasks.length ? `${doneCount} / ${projectTasks.length} tâches faites` : "aucune tâche planifiée"}</div>
+          </div>
+          <div>
+            <div className="l">Facturé</div>
+            <div className="v">{euro(invoicedTtc)}</div>
+            <div className="s">{issuedInvoices.length === 0 ? "aucune facture envoyée" : unpaidTtc > 0 ? `${euro(unpaidTtc)} non réglé` : "tout est réglé"}</div>
+          </div>
+          <div>
+            <div className="l">Reste à facturer</div>
+            <div className="v">{quoteTtc ? euro(Math.max(0, quoteTtc - invoicedTtc)) : "—"}</div>
+            <div className="s">TTC</div>
+          </div>
+          <div>
+            <div className="l">Fin prévue</div>
+            <div className="v">{plannedEnd ? formatDate(plannedEnd) : "—"}</div>
+            <div className="s">{plannedStart ? `début le ${formatDate(plannedStart)}` : "pas encore planifié"}</div>
+          </div>
+        </div>
+
+        <div className="wtabs" role="tablist" aria-label="Sections du chantier">
+          {ficheTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={ficheTab === tab.id}
+              className={ficheTab === tab.id ? "on" : ""}
+              onClick={() => setFicheTab(tab.id)}
+            >
+              {tab.label}{tab.count ? <span>{tab.count}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="fiche-grid">
+          <div className="fiche-main">
+            {ficheTab === "lots" ? (
+              <div className="card">
+                <div className="card-h">
+                  <h2>Ouvrages</h2>
+                  {selectedQuote?.id ? <Link href={`/devis?id=${selectedQuote.id}`} className="link">Modifier le devis</Link> : null}
+                </div>
+                {trackingLines.length === 0 ? (
+                  <p className="empty">{L.chantiers.noQuoteLines}</p>
+                ) : trackingLines.map((line) => {
+                  const lineItem = line.quoteLine || line.task || {};
                   const task = line.task;
+                  const amount = Number(line.quoteLine?.totalHt || 0);
+                  const end = task?.endDate || task?.dueDate;
+                  let dates = "Non planifié";
+                  if (task?.startDate && end) dates = `${formatDate(task.startDate)} → ${formatDate(end)}`;
+                  else if (end) dates = `avant le ${formatDate(end)}`;
+                  else if (task?.startDate) dates = `à partir du ${formatDate(task.startDate)}`;
+                  const statusKey = ouvrageStatusKey(task);
+                  let statusText = "Pas encore planifié";
+                  if (task?.done) statusText = "Terminé et validé";
+                  else if (task?.pendingValidation) statusText = "Terminé, à valider";
+                  else if (statusKey === "encours") statusText = "En cours";
+                  else if (task?.startDate) statusText = `À démarrer le ${formatDate(task.startDate)}`;
+                  else if (task) statusText = "À démarrer";
                   return (
-                    <article
-                      className="follow-line clickable"
+                    <div
+                      className="lf"
                       key={line.key}
                       role="button"
                       tabIndex={0}
                       onClick={() => setOpenLineKey(line.key)}
-                      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenLineKey(line.key); } }}
+                      onKeyDown={(event) => { if (event.key === "Enter") setOpenLineKey(line.key); }}
                     >
-                      <span className={`select-dot ${task?.done ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); if (task) toggleDone(task); else openPlanner(line); }} />
-                      <div className="follow-line-main">
-                        <span>{item.room || task?.room || "Chantier"}</span>
-                        <strong>{item.label || task?.label}</strong>
-                        {task ? (
-                          <small>Equipe: {task.assignedTo || "Non assignee"} - {formatDate(task.startDate)} vers {formatDate(task.endDate || task.dueDate)}</small>
-                        ) : null}
-                        {task?.pendingValidation ? <em className="follow-line-pending">À valider</em> : null}
+                      <div className="lf-h">
+                        <span className="lc">{lineItem.room || task?.room || "Chantier"}</span>
+                        <strong>{lineItem.label || task?.label}</strong>
+                        <span className="lf-w">{task?.assignedTo || L.chantiers.notAssigned}</span>
+                        <span className="lf-d">{dates}</span>
+                        <span className="lf-a">{amount > 0 ? euro(amount) : ""}</span>
                       </div>
-                      <button type="button" className="mini-outline" onClick={(event) => { event.stopPropagation(); openPlanner(line); }}>
-                        {L.chantiers.plan}
-                      </button>
-                    </article>
+                      <div className="bar"><i style={{ width: `${lineProgress(task)}%` }} /></div>
+                      <div className="lf-s">
+                        <span>{statusText}</span>
+                        <span className="lf-act">
+                          {task ? (
+                            <button type="button" className="btn btn-sec" onClick={(event) => { event.stopPropagation(); toggleDone(task); }}>
+                              {task.done ? "Rouvrir" : "Marquer fait"}
+                            </button>
+                          ) : null}
+                          <button type="button" className="btn btn-sec" onClick={(event) => { event.stopPropagation(); openPlanner(line); }}>{L.chantiers.plan}</button>
+                        </span>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            )}
-          </section>
+            ) : null}
 
-          <section className="follow-section">
-            <div className="follow-section-head">
-              <h2>{L.chantiers.supplies}</h2>
-              <Link href="/fournitures/catalogue">{L.chantiers.manageSupplies}</Link>
-            </div>
-            {supplyNeeds.length === 0 ? (
-              <div className="tool-empty">{L.chantiers.noSupplies}</div>
-            ) : (
-              <div className="follow-supply-list">
-                {supplyNeeds.map((need, index) => (
-                  <article key={`${need.supplyId}-${index}`}>
-                    <strong>{need.name}</strong>
-                    <span>{need.quantity} {need.unit} - {need.status}</span>
-                    <small>{need.taskLabel}</small>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="follow-section project-archive-card">
-            <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => toggleCard("archive")}>
-              <h2>{L.chantiers.archive}</h2>
-              <span>{selectedProject.archiveId || linkedArchive ? L.chantiers.archiveCreated : L.chantiers.archivePending}</span>
-              <CardChevron collapsed={collapsedCards.has("archive")} />
-            </button>
-            {!collapsedCards.has("archive") ? (
+            {ficheTab === "planning" ? (
               <>
-                <p>{L.chantiers.archiveDesc}</p>
-                <div className="archive-action-row">
-                  {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
-                    <button type="button" className="mini-outline" onClick={() => closeProject("archive")}>{L.chantiers.archiveProject}</button>
-                  ) : (
-                    <button type="button" className="mini-outline" onClick={() => closeProject("finish")}>{L.chantiers.markFinished}</button>
-                  )}
-                </div>
-                {(selectedProject.archiveSummary || linkedArchive?.summary) ? (
-                  <div className="archive-summary-grid">
-                    {Object.entries(selectedProject.archiveSummary || linkedArchive.summary).filter(([, value]) => typeof value === "number").map(([key, value]) => (
-                      <span key={key}><small>{key}</small><strong>{typeof value === "number" ? euro(value) : String(value)}</strong></span>
-                    ))}
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Tâches</h2>
+                    <span className="muted">{L.chantiers.upcoming(upcomingTasks.length)}</span>
                   </div>
-                ) : null}
-                {linkedHistory.length > 0 ? (
-                  <details className="project-history-details">
-                    <summary>{L.chantiers.projectHistory}</summary>
-                    {linkedHistory.map((item) => <p key={item.id}>{item.label} - {formatDate(item.createdAt)}</p>)}
-                  </details>
-                ) : null}
+                  <form className="pform" onSubmit={addProjectTask}>
+                    <input value={taskForm.label} onChange={(event) => setTaskForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.newTask} aria-label={L.chantiers.newTask} />
+                    <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((current) => ({ ...current, dueDate: event.target.value }))} aria-label="Date" />
+                    <input value={taskForm.location} onChange={(event) => setTaskForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} aria-label={L.chantiers.location} />
+                    <button type="submit" className="btn btn-sec">{L.chantiers.add}</button>
+                  </form>
+                  {upcomingTasks.length === 0 ? <p className="empty">{L.chantiers.noTasks}</p> : upcomingTasks.map((task) => (
+                    <div className="row" key={task.id}>
+                      <div className="t">
+                        <strong>{task.label}</strong>
+                        <small>{formatDate(task.dueDate || task.startDate)} · {task.assignedTo || "Équipe"}</small>
+                      </div>
+                      <button type="button" className="btn btn-sec" onClick={() => toggleDone(task)}>Marquer fait</button>
+                    </div>
+                  ))}
+                  {completedTasks.length > 0 ? (
+                    <details className="hist">
+                      <summary>{L.chantiers.taskHistory}</summary>
+                      {completedTasks.slice(0, 6).map((task) => <p key={task.id}>{task.label} · {formatDate(task.updatedAt || task.createdAt)}</p>)}
+                    </details>
+                  ) : null}
+                </div>
+
+                <div className="card">
+                  <div className="card-h">
+                    <h2>{L.chantiers.rdv}</h2>
+                    <span className="muted">{projectEvents.length} RDV</span>
+                  </div>
+                  {upcomingEvents.length === 0 ? <p className="empty">{L.chantiers.noRdvPlanned}</p> : upcomingEvents.map((event) => (
+                    <div className="row" key={event.id}>
+                      <div className="t">
+                        <strong>{event.title}</strong>
+                        <small>{[dateTimeFromEvent(event), event.clientName, event.address].filter(Boolean).join(" · ")}</small>
+                      </div>
+                      {event.id === nextRdv?.id ? <span className="tag tag-e">Prochain</span> : null}
+                    </div>
+                  ))}
+                  <form className="pform" onSubmit={addRdv}>
+                    <input value={rdvForm.title} onChange={(event) => setRdvForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.rdvObject} aria-label={L.chantiers.rdvObject} />
+                    <input type="date" value={rdvForm.date} onChange={(event) => setRdvForm((current) => ({ ...current, date: event.target.value }))} aria-label="Date" />
+                    <input type="time" value={rdvForm.time} onChange={(event) => setRdvForm((current) => ({ ...current, time: event.target.value }))} aria-label="Heure" />
+                    <input value={rdvForm.contact} onChange={(event) => setRdvForm((current) => ({ ...current, contact: event.target.value }))} placeholder={L.chantiers.contact} aria-label={L.chantiers.contact} />
+                    <input value={rdvForm.address} onChange={(event) => setRdvForm((current) => ({ ...current, address: event.target.value }))} placeholder={L.chantiers.address} aria-label={L.chantiers.address} />
+                    <button type="submit" className="btn btn-sec">{L.chantiers.add}</button>
+                  </form>
+                </div>
               </>
             ) : null}
-          </section>
 
-          {planningModal}
+            {ficheTab === "fournitures" ? (
+              <div className="card">
+                <div className="card-h">
+                  <h2>{L.chantiers.supplies}</h2>
+                  <Link href="/fournitures/catalogue" className="link">{L.chantiers.manageSupplies}</Link>
+                </div>
+                {supplyNeeds.length === 0 ? <p className="empty">{L.chantiers.noSupplies}</p> : supplyNeeds.map((need, index) => (
+                  <div className="row" key={`${need.supplyId}-${index}`}>
+                    <div className="t">
+                      <strong>{need.name}</strong>
+                      <small>{[`${need.quantity} ${need.unit || ""}`.trim(), need.taskLabel, need.note].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <span className={need.status === "A commander" ? "tag tag-e" : "tag tag-o"}>{need.status === "A commander" ? "À commander" : need.status}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {ficheTab === "documents" ? (
+              <div className="card">
+                <div className="card-h"><h2>{L.chantiers.documents}</h2></div>
+                {selectedQuote ? (
+                  <a className="row" href={quoteDocumentUrl(selectedQuote.id)} target="_blank" rel="noreferrer">
+                    <div className="t"><strong>Devis {selectedQuote.quoteNumber}</strong><small>PDF</small></div>
+                    <span className="tag tag-o">Devis</span>
+                  </a>
+                ) : null}
+                {linkedInvoices.map((invoice) => (
+                  <div className="row" key={invoice.id}>
+                    <div className="t"><strong>{invoice.invoiceNumber}</strong><small>{invoice.type || "Facture"} · {euro(invoice.amountTtc)} TTC</small></div>
+                    {invoiceTag(invoice)}
+                  </div>
+                ))}
+                {linkedDocuments.map((document) => (
+                  <div className="row" key={document.id}>
+                    <div className="t">
+                      <strong>{document.title}</strong>
+                      <small>{[document.type, document.category, document.amount ? euro(document.amount) : "", document.location].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    {document.url ? <a className="link" href={document.url} target="_blank" rel="noreferrer">Ouvrir</a> : null}
+                  </div>
+                ))}
+                {!selectedQuote && linkedInvoices.length === 0 && linkedDocuments.length === 0 ? <p className="empty">Aucun document pour le moment.</p> : null}
+                <form className="pform" onSubmit={addDocument}>
+                  <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.docNameOrPhoto} aria-label={L.chantiers.docNameOrPhoto} />
+                  <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))} aria-label="Type">
+                    {["Document", "Photo", "Facture", "Ticket", "Bon de commande", "Justificatif"].map((type) => <option key={type}>{type}</option>)}
+                  </select>
+                  <input value={documentForm.category} onChange={(event) => setDocumentForm((current) => ({ ...current, category: event.target.value }))} placeholder={L.chantiers.category} aria-label={L.chantiers.category} />
+                  <input type="number" value={documentForm.amount} onChange={(event) => setDocumentForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.chantiers.amount} aria-label={L.chantiers.amount} />
+                  <input value={documentForm.location} onChange={(event) => setDocumentForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} aria-label={L.chantiers.location} />
+                  <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder={L.chantiers.fileLink} aria-label={L.chantiers.fileLink} />
+                  <button type="submit" className="btn btn-sec">{L.chantiers.linkToProject}</button>
+                </form>
+              </div>
+            ) : null}
+
+            {ficheTab === "cout" ? (
+              <>
+                <div className="card">
+                  <div className="card-h">
+                    <h2>{L.chantiers.budget}</h2>
+                    <span className="muted">{L.chantiers.total} : {euro(budgetTotal.real)} / {euro(budgetTotal.estimated)}</span>
+                  </div>
+                  <div className="kv"><span>{L.chantiers.autoSpentChantier}</span><b>{euro(chantierSpentAuto)}</b></div>
+                  <div className="kv"><span>{L.chantiers.autoMarginChantier}</span><b>{euro(chantierMarginAuto)}</b></div>
+                  <table className="btable">
+                    <thead>
+                      <tr><th>Poste</th><th>{L.chantiers.estimated}</th><th>{L.chantiers.real}</th><th aria-label="État" /></tr>
+                    </thead>
+                    <tbody>
+                      {budgetRows.map((row) => {
+                        const overBudget = Number(row.real || 0) > Number(row.estimated || 0);
+                        return (
+                          <tr key={row.id}>
+                            <td>{row.label}</td>
+                            <td><input type="number" value={row.estimated} onChange={(event) => setBudgetValue(row.id, "estimated", event.target.value)} aria-label={`${row.label} ${L.chantiers.estimated}`} /></td>
+                            <td><input type="number" value={row.real} onChange={(event) => setBudgetValue(row.id, "real", event.target.value)} aria-label={`${row.label} ${L.chantiers.real}`} /></td>
+                            <td>{overBudget ? <span className="tag tag-b">{L.chantiers.overBudget}</span> : <span className="tag tag-o">{L.chantiers.ok}</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div><button type="button" className="btn btn-sec" onClick={saveBudgetRows}>{L.chantiers.saveBudget}</button></div>
+                </div>
+
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Dépenses</h2>
+                    <span className="muted">{euro(chantierSpentAuto)}</span>
+                  </div>
+                  <form className="pform" onSubmit={addExpense}>
+                    <input value={expenseForm.label} onChange={(event) => setExpenseForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.chantiers.realExpense} aria-label={L.chantiers.realExpense} />
+                    <select value={expenseForm.category} onChange={(event) => setExpenseForm((current) => ({ ...current, category: event.target.value }))} aria-label={L.chantiers.category}>
+                      {["Fournitures", "Main d'oeuvre", "Sous-traitance", "Tickets", "Autres frais"].map((category) => <option key={category}>{category}</option>)}
+                    </select>
+                    <input type="number" value={expenseForm.amount} onChange={(event) => setExpenseForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.chantiers.amount} aria-label={L.chantiers.amount} />
+                    <input value={expenseForm.location} onChange={(event) => setExpenseForm((current) => ({ ...current, location: event.target.value }))} placeholder={L.chantiers.location} aria-label={L.chantiers.location} />
+                    <input value={expenseForm.notes} onChange={(event) => setExpenseForm((current) => ({ ...current, notes: event.target.value }))} placeholder={L.facturation.note} aria-label={L.facturation.note} />
+                    <button type="submit" className="btn btn-sec">{L.chantiers.addExpense}</button>
+                  </form>
+                  {linkedExpenses.length === 0 ? <p className="empty">Aucune dépense enregistrée.</p> : linkedExpenses.map((expense) => (
+                    <div className="row" key={expense.id}>
+                      <div className="t"><strong>{expense.label}</strong><small>{[expense.category, expense.location].filter(Boolean).join(" · ")}</small></div>
+                      <b>{euro(expense.amount)}</b>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          <div className="fiche-side">
+            <div className="card">
+              <div className="card-h">
+                <h2>À traiter{aTraiter.length ? <span className="kcnt">{aTraiter.length}</span> : null}</h2>
+              </div>
+              {aTraiter.length === 0 ? <p className="empty">Rien à traiter pour ce chantier.</p> : aTraiter.slice(0, 6).map((entry) => {
+                const clickable = Boolean(entry.lineKey || entry.href || entry.tab);
+                const content = (
+                  <>
+                    <div className="t"><strong>{entry.title}</strong><small>{entry.meta}</small></div>
+                    <span className={entry.tone}>{entry.tag}</span>
+                  </>
+                );
+                return clickable
+                  ? <button type="button" className="row" key={entry.id} onClick={() => openTraiter(entry)}>{content}</button>
+                  : <div className="row" key={entry.id}>{content}</div>;
+              })}
+              {aTraiter.length > 6 ? <p className="muted">et {aTraiter.length - 6} autre{aTraiter.length - 6 > 1 ? "s" : ""}</p> : null}
+            </div>
+
+            <div className="card">
+              <div className="card-h">
+                <h2>Client</h2>
+                {selectedQuote ? <a className="link" href={quoteDocumentUrl(selectedQuote.id)} target="_blank" rel="noreferrer">PDF du devis</a> : null}
+              </div>
+              <div className="kv"><span>Client</span><b>{clientName}</b></div>
+              {clientPortalAccess?.email ? <div className="kv"><span>Email</span><b>{clientPortalAccess.email}</b></div> : null}
+              {portalId ? (
+                <>
+                  <div className="kv"><span>Identifiant espace client</span><b>{portalId}</b></div>
+                  {portalPassword ? <div className="kv"><span>Mot de passe</span><b>{portalPassword}</b></div> : null}
+                </>
+              ) : quoteSigned ? (
+                <div className="kv-block">
+                  <p className="muted">Ce client n'a pas d'accès (devis signé sans email ni téléphone). Ajoutez-en un pour créer son identifiant.</p>
+                  <div className="pform">
+                    <input type="email" placeholder="Email du client" aria-label="Email du client" value={clientAccessForm.email} onChange={(event) => setClientAccessForm((current) => ({ ...current, email: event.target.value }))} />
+                    <input type="tel" placeholder="Téléphone du client" aria-label="Téléphone du client" value={clientAccessForm.phone} onChange={(event) => setClientAccessForm((current) => ({ ...current, phone: event.target.value }))} />
+                    <button type="button" className="btn btn-sec" onClick={createClientAccessManually} disabled={clientAccessCreating}>
+                      {clientAccessCreating ? "Création…" : "Créer l'accès client"}
+                    </button>
+                  </div>
+                  {clientAccessError ? <p className="err">{clientAccessError}</p> : null}
+                </div>
+              ) : (
+                <div className="kv"><span>Espace client</span><b>après signature du devis</b></div>
+              )}
+              {selectedQuote ? (
+                <>
+                  <div className="kv"><span>{L.chantiers.quoteCreated}</span><b>{formatDate(selectedQuote.quoteDate || selectedQuote.createdAt)}</b></div>
+                  <div className="kv"><span>{L.chantiers.quoteSent}</span><b>{formatDate(selectedQuote.sentAt)}</b></div>
+                  <div className="kv"><span>{L.chantiers.quoteSigned}</span><b>{formatDate(selectedQuote.signedAt)}</b></div>
+                  {selectedQuote.signaturePlace ? <div className="kv"><span>{L.chantiers.quoteSignPlace}</span><b>{selectedQuote.signaturePlace}</b></div> : null}
+                  {selectedQuote.signerMessage ? <div className="kv"><span>{L.chantiers.clientMessage}</span><b>« {selectedQuote.signerMessage} »</b></div> : null}
+                </>
+              ) : null}
+            </div>
+
+            <div className="card">
+              <div className="card-h">
+                <h2>{L.chantiers.archive}</h2>
+                <span className="muted">{archived ? L.chantiers.archiveCreated : L.chantiers.archivePending}</span>
+              </div>
+              <p className="muted">{L.chantiers.archiveDesc}</p>
+              <div>
+                {String(selectedProject.status || "").toLowerCase().includes("termine") ? (
+                  <button type="button" className="btn btn-sec" onClick={() => closeProject("archive")}>{L.chantiers.archiveProject}</button>
+                ) : (
+                  <button type="button" className="btn btn-sec" onClick={() => closeProject("finish")}>{L.chantiers.markFinished}</button>
+                )}
+              </div>
+              {archiveSummary ? Object.entries(archiveSummary).filter(([, value]) => typeof value === "number").map(([key, value]) => (
+                <div className="kv" key={key}><span>{key}</span><b>{euro(value)}</b></div>
+              )) : null}
+              {linkedHistory.length > 0 ? (
+                <details className="hist">
+                  <summary>{L.chantiers.projectHistory}</summary>
+                  {linkedHistory.map((entry) => <p key={entry.id}>{entry.label} · {formatDate(entry.createdAt)}</p>)}
+                </details>
+              ) : null}
+            </div>
+          </div>
         </div>
+
+        {planningModal}
       </Shell>
     );
   }
 
   return (
-    <Shell>
-      <section className="fournitures-dashboard">
-        <header className="fournitures-dashboard-head">
-          <div>
-            <h1><span className="title-chip">Chantiers</span></h1>
-            <p>Suivez l'avancement de vos chantiers et anticipez la semaine.</p>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <Link href="/chantier/new" className="button blue">+ Nouveau chantier</Link>
-          </div>
-        </header>
-
-        {draftQuote ? (
-          <Link href={`/devis?id=${draftQuote.id}`} className="resume-draft-card">
-            <div>
-              <strong>{L.chantiers.finishSite}</strong>
-              <small>{draftQuote.client || draftQuote.project || draftQuote.quoteNumber}</small>
-            </div>
-            <span>→</span>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">Chantiers en cours et à venir</span>
+          <h1>Chantiers</h1>
+        </div>
+        <div className="acts">
+          <Link href="/chantier/new" className="btn btn-main">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Nouveau chantier
           </Link>
-        ) : null}
-
-        <div className="fournitures-kpi-row">
-          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("en_cours")}>
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🏗️</span>
-              <span className="title-chip">Chantiers en cours</span>
-            </div>
-            <strong>{chantierKpis.enCours}</strong>
-            <small className={chantierKpis.nouveauxCeMois > 0 ? "positive" : ""}>
-              {chantierKpis.nouveauxCeMois > 0 ? `+${chantierKpis.nouveauxCeMois} ce mois-ci` : "ce mois-ci"}
-            </small>
-          </button>
-          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("a_planifier")}>
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📅</span>
-              <span className="title-chip">À planifier</span>
-            </div>
-            <strong>{chantierKpis.aPlanifier}</strong>
-            <small>cette semaine</small>
-          </button>
-          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("retard")}>
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏰</span>
-              <span className="title-chip">En retard</span>
-            </div>
-            <strong>{chantierKpis.enRetard}</strong>
-            <small className={chantierKpis.enRetard > 0 ? "warning" : ""}>à traiter</small>
-          </button>
-          <button type="button" className="fournitures-kpi-card clickable" onClick={() => setChantierStatModal("ca")}>
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
-              <span className="title-chip">Chiffre d'affaires en cours</span>
-            </div>
-            <strong>{euro(chantierKpis.chiffreAffaires)} <small style={{ display: "inline", marginTop: 0 }}>HT</small></strong>
-          </button>
         </div>
+      </div>
 
-        <div className="fournitures-dashboard-body">
-          <div className="fournitures-main-card">
-            <div className="fournitures-main-card-head">
-              <strong className="title-chip">Chantiers en cours</strong>
-              <div className="fournitures-filter-tabs">
-                {CHANTIER_FILTER_TABS.map((tab) => (
-                  <button
-                    type="button"
-                    key={tab.id}
-                    className={chantierFilterTab === tab.id ? "active" : ""}
-                    onClick={() => setChantierFilterTab(tab.id)}
+      <div className="tbar">
+        <div className="wtabs" role="tablist" aria-label="Filtrer les chantiers">
+          {CHANTIER_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeChantierTab === tab.id}
+              className={activeChantierTab === tab.id ? "on" : ""}
+              onClick={() => setChantierTab(tab.id)}
+            >
+              {tab.label} <span>{chantierCounts[tab.id]}</span>
+            </button>
+          ))}
+        </div>
+        <label className="search search-wide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+          <input
+            type="search"
+            value={chantierQuery}
+            onChange={(event) => setChantierQuery(event.target.value)}
+            placeholder="Rechercher un chantier"
+            aria-label="Rechercher un chantier"
+          />
+        </label>
+      </div>
+
+      {chantierRows.length === 0 ? (
+        <div className="tbl">
+          <div className="empty">
+            {chantierQuery.trim()
+              ? "Aucun chantier ne correspond à cette recherche."
+              : chantiersDashboard.length === 0
+                ? "Aucun chantier pour le moment. Créez-en un avec « Nouveau chantier » ou depuis un devis."
+                : "Aucun chantier dans cet onglet."}
+          </div>
+        </div>
+      ) : (
+        <>
+        <div className="tbl has-cards">
+          <table>
+            <thead>
+              <tr>
+                <th>Chantier</th>
+                <th>Client</th>
+                <th>Tâches</th>
+                <th>Prochain jalon</th>
+                <th className="r">Montant HT</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chantierRows.map((project) => {
+                const tag = CHANTIER_STATUS_TAG[project.status];
+                const city = cityOf(project.address);
+                return (
+                  <tr
+                    key={project.id}
+                    tabIndex={0}
+                    onClick={() => selectProject(project.id)}
+                    onKeyDown={(event) => { if (event.key === "Enter") selectProject(project.id); }}
                   >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {filteredChantiers.length === 0 ? (
-              <div className="tool-empty">{L.chantiers.noSigned}</div>
-            ) : (
-              <div className="fournitures-table chantiers-table">
-                <div className="fournitures-table-head-row chantiers-table-row">
-                  <div>CHANTIER</div>
-                  <div>AVANCEMENT</div>
-                  <div>STATUT</div>
-                  <div>FIN PRÉVUE</div>
-                </div>
-                {filteredChantiers.map((project) => {
-                  const meta = CHANTIER_STATUS_META[project.status];
-                  return (
-                    <div className="fournitures-table-row-wrap" key={project.id}>
-                      <button type="button" className="fournitures-table-row chantiers-table-row" onClick={() => selectProject(project.id)}>
-                        <div className="fournitures-table-cell">
-                          <strong>{project.title}</strong>
-                          <small>{project.client || "Client"} · {project.reference}</small>
-                        </div>
-                        <div className="chantiers-progress-cell">
-                          <div className="ct-progress-bar"><div style={{ width: `${project.progress}%` }} /></div>
-                          <small>{project.progress}%</small>
-                        </div>
-                        <div>
-                          <span className="status-pill" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
-                        </div>
-                        <div className="fournitures-table-cell">{project.dueDate ? shortDate(project.dueDate) : "—"}</div>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Cette semaine</strong>
-              {upcomingEvents.length === 0 ? (
-                <div className="tool-empty">Rien de prévu cette semaine.</div>
-              ) : (
-                upcomingEvents.map((event) => {
-                  const badge = dayBadge(event.startAt);
-                  return (
-                    <button
-                      type="button"
-                      className="chantiers-week-row"
-                      key={event.id}
-                      onClick={() => event.projectId ? selectProject(event.projectId) : router.push("/calendrier")}
-                    >
-                      <span className="chantiers-week-badge"><small>{badge.dow}</small><strong>{badge.day}</strong></span>
-                      <span className="chantiers-week-main">
-                        <strong>{event.title}</strong>
-                        <small>{[event.address, event.clientName].filter(Boolean).join(" · ")}</small>
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">À surveiller</strong>
-              {chantierKpis.enRetardItems.length === 0 ? (
-                <div className="tool-empty">Rien à signaler.</div>
-              ) : (
-                chantierKpis.enRetardItems.map((project) => {
-                  const today = new Date(); today.setHours(0, 0, 0, 0);
-                  const due = new Date(`${project.dueDate}T00:00:00`);
-                  const lateDays = Math.round((today - due) / 86400000);
-                  return (
-                    <button type="button" className="chantiers-alert-row chantiers-alert-late" key={project.id} onClick={() => selectProject(project.id)}>
-                      <span>⚠️</span>
-                      <span className="chantiers-alert-main">
-                        <strong>{project.title} — {project.client || "Client"}</strong>
-                        <small>Retard de {lateDays} jour{lateDays > 1 ? "s" : ""} sur la date de fin prévue.</small>
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
+                    <td>
+                      <div className="n">{project.title}</div>
+                      {city ? <div className="sm">{city}</div> : null}
+                    </td>
+                    <td>{project.linkedQuote?.client || project.client}</td>
+                    <td className="lots">
+                      {project.taskCount > 0 ? (
+                        <>
+                          <b>{project.taskDone} / {project.taskCount} tâches</b>
+                          <div className="bar"><i style={{ width: `${project.progress}%` }} /></div>
+                        </>
+                      ) : (
+                        <span className="sm2">Aucune tâche</span>
+                      )}
+                    </td>
+                    <td>
+                      {project.next ? <div>{milestoneLabel(project.next)}</div> : <div className="sm2">Rien de prévu</div>}
+                      {project.blocker ? <div className="blk">{project.blocker}</div> : null}
+                    </td>
+                    <td className="r">{project.amount > 0 ? `${euro(project.amount)} HT` : "—"}</td>
+                    <td><span className={tag.className}>{tag.label}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {chantierStatModal ? (
-          <div className="modal-overlay" onClick={() => setChantierStatModal(null)}>
-            <div className="mini-modal stat-detail-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="stat-detail-head">
-                <h2>{CHANTIER_STAT_MODAL_TITLES[chantierStatModal]}</h2>
-                <button type="button" className="mini-button" onClick={() => setChantierStatModal(null)}>✕</button>
-              </div>
-              {chantierStatModalItems.length === 0 ? (
-                <div className="tool-empty">Aucun chantier pour le moment.</div>
-              ) : (
-                <div className="stat-detail-body">
-                  <div className="supplier-articles-list">
-                    {chantierStatModalItems.map((project) => {
-                      const meta = CHANTIER_STATUS_META[project.status];
-                      return (
-                        <div
-                          className="divers-purchase-row"
-                          key={project.id}
-                          onClick={() => { setChantierStatModal(null); selectProject(project.id); }}
-                        >
-                          <div className="divers-purchase-main">
-                            <strong>{project.title}</strong>
-                            <small>{project.client || "Client"} · {project.dueDate ? shortDate(project.dueDate) : "Pas de date de fin"}</small>
-                          </div>
-                          <span className="status-pill" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
-                          <span className="supplier-article-price">
-                            {chantierStatModal === "ca" ? euro(project.budgetHt) : `${project.progress}%`}
-                          </span>
-                        </div>
-                      );
-                    })}
+        <div className="mlist">
+          {chantierRows.map((project) => {
+            const tag = CHANTIER_STATUS_TAG[project.status];
+            return (
+              <button type="button" className="m-card" key={project.id} onClick={() => selectProject(project.id)}>
+                <div className="top2">
+                  <div>
+                    <div className="nm">{project.title}</div>
+                    <div className="meta">{project.linkedQuote?.client || project.client}</div>
                   </div>
+                  <span className={tag.className}>{tag.label}</span>
                 </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </section>
+                <div className="m-f">
+                  <b>{project.taskCount > 0 ? `${project.taskDone} / ${project.taskCount} tâches` : "Aucune tâche"}</b>
+                  <b>{project.amount > 0 ? `${euro(project.amount)} HT` : ""}</b>
+                </div>
+                {project.taskCount > 0 ? <div className="bar"><i style={{ width: `${project.progress}%` }} /></div> : null}
+                <div className="line">{project.next ? milestoneLabel(project.next) : "Rien de prévu"}</div>
+                {project.blocker ? <div className="meta">{project.blocker}</div> : null}
+              </button>
+            );
+          })}
+        </div>
+        </>
+      )}
+
+      <p className="foot-note">
+        {chantierRows.length} chantier{chantierRows.length > 1 ? "s" : ""} affiché{chantierRows.length > 1 ? "s" : ""} sur {chantiersDashboard.length}
+      </p>
     </Shell>
   );
 }
-

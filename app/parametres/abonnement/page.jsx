@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ProAccountNav } from "../../../components/ProAccountNav";
 import { Shell } from "../../../components/Shell";
 import { PricingPlans } from "../../../components/PricingPlans";
 import { apiGet, apiSend } from "../../../lib/client-api";
@@ -58,7 +59,7 @@ function ParametresAbonnementContent() {
     apiGet("/api/billing/connect")
       .then((data) => setConnectStatus({ hasAccount: Boolean(data.hasAccount), onboarded: Boolean(data.onboarded) }))
       .catch(() => {});
-  }, []);
+  }, [L]);
 
   async function startConnectOnboarding() {
     setConnectLoading(true);
@@ -101,65 +102,81 @@ function ParametresAbonnementContent() {
     }
   }
 
-  if (loading) {
-    return (
-      <Shell>
-        <section className="panel"><div className="empty-state">{L.common.loading}</div></section>
-      </Shell>
-    );
-  }
+  const PLAN_NAMES = { start: "Start", pro: "Pro", business: "Business" };
+  const currentPlan = plan === "pro" || plan === "business" ? plan : "start";
+  const connectLabel = connectStatus.onboarded ? "Configuré" : connectStatus.hasAccount ? "À finaliser" : "Non configuré";
 
   return (
-    <Shell>
-      <div className="profile-layout">
-        <header className="profile-header">
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">Profil et compte</span>
           <h1>{L.settings.subscription}</h1>
-        </header>
-
-        <section className="profile-block">
-          <h2>{L.settings.subscription}</h2>
-          {billingStatus ? (
-            <div className="settings-plan-row">
-              <span>{L.settings.billingInterval}</span>
-              <strong>
-                {L.settings[BILLING_STATUS_KEYS[billingStatus] || "billingStatusActive"]}
-                {billingInterval ? ` · ${billingInterval === "year" ? L.settings.billingYearly : L.settings.billingMonthly}` : ""}
-              </strong>
-            </div>
-          ) : null}
-          {billingMessage ? <p className="profile-message">{billingMessage}</p> : null}
-
-          <div className="plan-soon-row plan-included-row">
-            <span>Recevoir des paiements (Radar des Chantiers)</span>
-            <span className="plan-soon-badge plan-included-badge">{connectStatus.onboarded ? "Configuré" : connectStatus.hasAccount ? "À finaliser" : "Non configuré"}</span>
-          </div>
-          {connectMessage ? <p className="profile-message">{connectMessage}</p> : null}
-          {!connectStatus.onboarded ? (
-            <button type="button" className="button secondary profile-link-button" onClick={startConnectOnboarding} disabled={connectLoading}>
-              {connectLoading ? L.common.loading : connectStatus.hasAccount ? "Terminer la configuration Stripe" : "Configurer Stripe pour recevoir des paiements"}
-            </button>
-          ) : null}
-
-          {hasBillingAccount ? (
-            <div className="profile-card-actions profile-card-actions-column">
-              <button type="button" className="button secondary profile-link-button" onClick={openBillingPortal} disabled={portalLoading}>
-                {portalLoading ? L.common.loading : L.settings.manageBilling}
-              </button>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="profile-block">
-          <h2>{L.settings.changePlan}</h2>
-          {planError ? <p className="profile-message error">{planError}</p> : null}
-          <PricingPlans
-            currentPlan={plan === "pro" || plan === "business" ? plan : "start"}
-            onChoosePlan={handleChoosePlan}
-            pendingPlan={pendingPlan}
-            showHero={false}
-          />
-        </section>
+          <span className="muted">Votre formule, sa facturation et la réception des paiements de vos clients.</span>
+        </div>
       </div>
+      {billingMessage ? <p className="notice" role="status">{billingMessage}</p> : null}
+
+      <div className="pf-g">
+        <ProAccountNav current="abonnement" />
+        <div className="pf-c">
+          {loading ? <div className="tbl"><p className="empty">{L.common.loading}</p></div> : (
+            <>
+              <div className="pf-g2">
+                <section className="card">
+                  <div className="card-h"><h2>Votre formule</h2><span className="tag tag-b">{PLAN_NAMES[currentPlan]}</span></div>
+                  <div className="kv"><span>Formule</span><b>Koji {PLAN_NAMES[currentPlan]}</b></div>
+                  {billingStatus ? (
+                    <div className="kv">
+                      <span>{L.settings.billingInterval}</span>
+                      <b>
+                        {L.settings[BILLING_STATUS_KEYS[billingStatus] || "billingStatusActive"]}
+                        {billingInterval ? ` · ${billingInterval === "year" ? L.settings.billingYearly : L.settings.billingMonthly}` : ""}
+                      </b>
+                    </div>
+                  ) : null}
+                  {hasBillingAccount ? (
+                    <div className="ed-act ab-act">
+                      <button type="button" className="btn btn-sec" onClick={openBillingPortal} disabled={portalLoading}>
+                        {portalLoading ? L.common.loading : L.settings.manageBilling}
+                      </button>
+                    </div>
+                  ) : null}
+                </section>
+
+                <section className="card">
+                  <div className="card-h"><h2>Recevoir des paiements</h2><span className={connectStatus.onboarded ? "tag tag-b" : "tag tag-o"}>{connectLabel}</span></div>
+                  <p className="muted">Pour encaisser les paiements échelonnés du Radar des chantiers, via Stripe.</p>
+                  {connectMessage ? <p className="notice notice-err" role="alert">{connectMessage}</p> : null}
+                  {!connectStatus.onboarded ? (
+                    <div className="ed-act ab-act">
+                      <button type="button" className="btn btn-sec" onClick={startConnectOnboarding} disabled={connectLoading}>
+                        {connectLoading ? L.common.loading : connectStatus.hasAccount ? "Terminer la configuration Stripe" : "Configurer Stripe"}
+                      </button>
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Pleine largeur : les trois formules ne tiennent pas dans la colonne à côté du menu. */}
+      {loading ? null : (
+        <section className="card ab-change">
+          <div className="card-h"><h2>{L.settings.changePlan}</h2></div>
+          {planError ? <p className="notice notice-err" role="alert">{planError}</p> : null}
+          <div className="ab-plans">
+            <PricingPlans
+              currentPlan={currentPlan}
+              onChoosePlan={handleChoosePlan}
+              pendingPlan={pendingPlan}
+              showHero={false}
+            />
+          </div>
+        </section>
+      )}
     </Shell>
   );
 }

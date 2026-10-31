@@ -25,18 +25,10 @@ import { useEffect, useRef, useState } from "react";
 // SEULEMENT la reponse du modele a CE tour qui a le droit de dire "c'est
 // fait". Ce tour synthetique ne s'affiche jamais dans la conversation
 // visible (flag `hidden`), mais reste dans l'historique envoye au serveur.
-function SparkleIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
-    </svg>
-  );
-}
-
 function SendIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 2L11 13" /><path d="M22 2L15 22l-4-9-9-4 20-7z" />
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 12l16-8-6 16-2-7z" />
     </svg>
   );
 }
@@ -258,47 +250,40 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
     sendToEngine(nextTurns);
   }
 
+  // Maquette PRO-03.1 : colonne « Devis guidé » de l'éditeur.
   return (
-    <section className="devis-chat-panel">
-      <div className="devis-chat-head">
-        <span className="devis-chat-head-icon"><SparkleIcon /></span>
-        <div className="devis-chat-head-title">
-          <strong>Assistant koji</strong>
-          <small>Visite guidée de chantier</small>
-        </div>
-        <span className="status-pill devis-chat-status">{sending ? "En cours" : "Prêt"}</span>
+    <section className="dv-chat" aria-label="Devis guidé avec Koji">
+      <div className="dv-chat-h">
+        <strong>Devis guidé</strong>
+        <span className="muted">Koji chiffre avec vous</span>
+        <span className={`tag ${sending ? "tag-b" : "tag-o"}`}>{sending ? "En cours" : "Prêt"}</span>
       </div>
 
-      <div className="devis-chat-thread">
+      <div className="msgs" aria-live="polite">
         {turns.filter((turn) => !turn.hidden).map((turn, index) => (
-          <div key={index} className={`devis-chat-bubble-row ${turn.role === "user" ? "user" : ""}`}>
-            <div className="devis-chat-bubble">{turn.text}</div>
-          </div>
+          <div key={index} className={`msg ${turn.role === "user" ? "u" : "k"}`}>{turn.text}</div>
         ))}
-        {streamingText ? (
-          <div className="devis-chat-bubble-row">
-            <div className="devis-chat-bubble">{streamingText}</div>
-          </div>
-        ) : null}
+        {streamingText ? <div className="msg k">{streamingText}</div> : null}
         <div ref={messagesEndRef} />
       </div>
 
-      {error ? <p className="auth-error">{error}</p> : null}
-      {!error && saveNotice ? <p className="devis-chat-save-notice">{saveNotice}</p> : null}
+      {error ? <p className="dv-chat-note err" role="alert">{error}</p> : null}
+      {!error && saveNotice ? <p className="dv-chat-note">{saveNotice}</p> : null}
 
       {/* <div>, pas <form> : ce panneau est rendu a l'interieur du grand
           <form> de DevisEditor.jsx — un <form> imbrique est invalide en
           HTML (avertissement React, risque de double-soumission). */}
-      <div className="devis-chat-form">
+      <div className="composer">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(e); }}
-          placeholder="Répondre à l'assistant…"
+          placeholder="Dites ce qui change, ajoutez un ouvrage, posez une question…"
+          aria-label="Message pour Koji"
           disabled={sending}
         />
-        <button type="button" onClick={handleSubmit} disabled={sending || !draft.trim()}>
-          <SendIcon /> Envoyer
+        <button type="button" className="send" onClick={handleSubmit} disabled={sending || !draft.trim()} aria-label="Envoyer">
+          <SendIcon />
         </button>
       </div>
     </section>

@@ -36,34 +36,55 @@ export default function ChantierNewPage() {
   }
 
   return (
-    <Shell>
-      <div className="koji-wizard">
-        <header className="wizard-top">
-          <button type="button" className="wizard-back" onClick={goBack}>{"<"}</button>
-          <div>
-            <h1>{L.setup.newTitle}</h1>
-          </div>
-          <span />
-        </header>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={goBack}>← Retour</button>
+          <span className="eyebrow">Nouveau chantier</span>
+          <h1>{L.setup.newTitle}</h1>
+        </div>
+      </div>
 
-        <section className="wizard-form-card">
-          <div className="wizard-form-grid">
-            <label className="wizard-field full">{L.setup.refLabel}<input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="Loft Durand - Cuisine ..." /></label>
-            <label className="wizard-field full">{L.setup.street}<input value={form.street} onChange={(event) => setField("street", event.target.value)} /></label>
-            <label className="wizard-field">{L.setup.postalCode}<input value={form.postalCode} onChange={(event) => setField("postalCode", event.target.value)} /></label>
-            <label className="wizard-field">{L.setup.city}<input value={form.city} onChange={(event) => setField("city", event.target.value)} /></label>
-            <label className="wizard-field">{L.setup.client}<input value={form.client} onChange={(event) => setField("client", event.target.value)} /></label>
-            <label className="wizard-field">{L.setup.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@exemple.com" /></label>
-            <label className="wizard-field full">{L.setup.propertyType}<select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
+      <section className="card">
+        <div className="fgrid">
+          <label className="full">
+            {L.setup.refLabel}
+            <input value={form.title} onChange={(event) => setField("title", event.target.value)} placeholder="Loft Durand - Cuisine ..." />
+          </label>
+          <label className="full">
+            {L.setup.street}
+            <input value={form.street} onChange={(event) => setField("street", event.target.value)} />
+          </label>
+          <label>
+            {L.setup.postalCode}
+            <input value={form.postalCode} onChange={(event) => setField("postalCode", event.target.value)} />
+          </label>
+          <label>
+            {L.setup.city}
+            <input value={form.city} onChange={(event) => setField("city", event.target.value)} />
+          </label>
+          <label>
+            {L.setup.client}
+            <input value={form.client} onChange={(event) => setField("client", event.target.value)} />
+          </label>
+          <label>
+            {L.setup.clientEmail}
+            <input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@exemple.com" />
+          </label>
+          <label className="full">
+            {L.setup.propertyType}
+            <select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
               <option>Maison</option>
               <option>Appartement</option>
               <option>Local</option>
               <option>Autre</option>
-            </select></label>
-          </div>
-          <button className="wizard-primary" onClick={next} disabled={!form.title.trim()}>{L.setup.nextBtn} <span>{">"}</span></button>
-        </section>
-      </div>
+            </select>
+          </label>
+        </div>
+        <div className="ed-act" style={{ marginTop: 16 }}>
+          <button type="button" className="btn btn-main" onClick={next} disabled={!form.title.trim()}>{L.setup.nextBtn}</button>
+        </div>
+      </section>
     </Shell>
   );
 }

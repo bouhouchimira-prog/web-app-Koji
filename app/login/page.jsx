@@ -8,6 +8,7 @@ import { EntrepriseLogin } from "../../components/EntrepriseLogin";
 import { LangSwitcher } from "../../components/LangSwitcher";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
+import "../home-pro.css";
 
 const WORKER_SESSION_KEY = "koji-worker-session";
 
@@ -34,9 +35,21 @@ function SwitchArrowIcon() {
 
 function SwitchProfileCard({ label, cta, onClick }) {
   return (
-    <button type="button" className="auth-switch-card" onClick={onClick}>
-      <span className="auth-switch-card-label">{label}</span>
-      <span className="auth-switch-card-cta">{cta}<SwitchArrowIcon /></span>
+    <button type="button" style={{
+      marginTop: 24,
+      padding: "14px 16px",
+      background: "var(--card)",
+      border: "1px solid var(--line)",
+      borderRadius: 2,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      width: "100%",
+      fontSize: 14,
+      cursor: "pointer"
+    }} onClick={onClick}>
+      <span style={{ color: "var(--ink)", fontWeight: 500 }}>{label}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--grey)", fontSize: 13 }}>{cta}<SwitchArrowIcon /></span>
     </button>
   );
 }
@@ -78,15 +91,23 @@ function ParticulierLogin({ L, sso }) {
 
   return (
     <>
-      <h2 className="auth-title">{L.auth.connexionTitle}</h2>
-      <p className="auth-subtitle">{L.auth.heroSubtitleParticulier}</p>
+      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: "var(--ink)" }}>{L.auth.connexionTitle}</h2>
+      <p style={{ fontSize: 14, color: "var(--grey)", marginBottom: 24 }}>{L.auth.heroSubtitleParticulier}</p>
       {sso}
-      <form className="auth-form-v2" onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label>{L.auth.email}</label>
+      <form style={{ display: "flex", flexDirection: "column", gap: 16 }} onSubmit={handleSubmit}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.auth.email}</label>
           <input
             type="text"
-            className="auth-input-v2"
+            style={{
+              padding: "10px 12px",
+              border: "1px solid var(--line)",
+              borderRadius: 2,
+              fontSize: 14,
+              fontFamily: "inherit",
+              backgroundColor: "var(--card)",
+              color: "var(--ink)"
+            }}
             value={identifier}
             onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
             placeholder={L.auth.emailPlaceholder}
@@ -94,31 +115,56 @@ function ParticulierLogin({ L, sso }) {
             autoComplete="username"
           />
         </div>
-        <div className="auth-field">
-          <div className="auth-field-label-row">
-            <label>{L.auth.password}</label>
-            <Link className="auth-link" href="/forgot-password?type=particulier" style={{ fontSize: "0.82rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.auth.password}</label>
+            <Link className="link" href="/forgot-password?type=particulier" style={{ textDecoration: "none" }}>
               {L.auth.forgotPassword}
             </Link>
           </div>
-          <div className="auth-input-wrap">
+          <div style={{ position: "relative", display: "flex" }}>
             <input
-              className="auth-input-v2"
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                border: "1px solid var(--line)",
+                borderRadius: 2,
+                fontSize: 14,
+                fontFamily: "inherit",
+                backgroundColor: "var(--card)",
+                color: "var(--ink)"
+              }}
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
               placeholder="Koji-XXXX-XXXX"
               autoComplete="current-password"
             />
-            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
+            <button
+              type="button"
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--grey)",
+                padding: 4
+              }}
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={L.auth.showHide}
+            >
               <EyeIcon open={showPassword} />
             </button>
           </div>
         </div>
-        {error ? <p className="auth-error">{error}</p> : null}
+        {error ? <p style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
         <button
           type="submit"
-          className="auth-btn-primary"
+          className="btn btn-main"
+          style={{ marginTop: 8 }}
           disabled={loading || !identifier.trim() || !password.trim()}
         >
           {loading ? L.auth.verifying : L.auth.accessBtn}
@@ -167,28 +213,36 @@ function ParticulierSignup({ L, onBack, sso }) {
 
   if (done) {
     return (
-      <div className="auth-inline-confirm">
-        <p className="auth-subtitle">{L.auth.confirmSub(email)}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <p style={{ fontSize: 14, color: "var(--grey)", margin: 0 }}>{L.auth.confirmSub(email)}</p>
         {devUrl ? (
-          <a href={devUrl} className="auth-btn-primary" style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 10 }}>
+          <a href={devUrl} className="btn btn-main" style={{ textAlign: "center", textDecoration: "none" }}>
             {L.auth.activateBtn}
           </a>
         ) : null}
-        <button type="button" className="auth-link auth-link-btn" onClick={onBack}>{L.auth.backToLogin}</button>
+        <button type="button" className="link" onClick={onBack} style={{ textDecoration: "none" }}>{L.auth.backToLogin}</button>
       </div>
     );
   }
 
   return (
     <>
-      <h2 className="auth-title">{L.auth.createAccount}</h2>
-      <p className="auth-subtitle">{L.auth.subtitleSignup2}</p>
+      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: "var(--ink)" }}>{L.auth.createAccount}</h2>
+      <p style={{ fontSize: 14, color: "var(--grey)", marginBottom: 24 }}>{L.auth.subtitleSignup2}</p>
       {sso}
-      <form className="auth-form-v2" onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label>{L.auth.fullName}</label>
+      <form style={{ display: "flex", flexDirection: "column", gap: 16 }} onSubmit={handleSubmit}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.auth.fullName}</label>
           <input
-            className="auth-input-v2"
+            style={{
+              padding: "10px 12px",
+              border: "1px solid var(--line)",
+              borderRadius: 2,
+              fontSize: 14,
+              fontFamily: "inherit",
+              backgroundColor: "var(--card)",
+              color: "var(--ink)"
+            }}
             value={name}
             onChange={(e) => { setName(e.target.value); setError(""); }}
             placeholder={L.auth.namePlaceholder}
@@ -196,37 +250,77 @@ function ParticulierSignup({ L, onBack, sso }) {
             autoComplete="name"
           />
         </div>
-        <div className="auth-field">
-          <label>{L.auth.email}</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.auth.email}</label>
           <input
             type="email"
-            className="auth-input-v2"
+            style={{
+              padding: "10px 12px",
+              border: "1px solid var(--line)",
+              borderRadius: 2,
+              fontSize: 14,
+              fontFamily: "inherit",
+              backgroundColor: "var(--card)",
+              color: "var(--ink)"
+            }}
             value={email}
             onChange={(e) => { setEmail(e.target.value); setError(""); }}
             placeholder={L.auth.emailPlaceholder}
             autoComplete="email"
           />
         </div>
-        <div className="auth-field">
-          <label>{L.auth.password}</label>
-          <div className="auth-input-wrap">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.auth.password}</label>
+          <div style={{ position: "relative", display: "flex" }}>
             <input
-              className="auth-input-v2"
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                border: "1px solid var(--line)",
+                borderRadius: 2,
+                fontSize: 14,
+                fontFamily: "inherit",
+                backgroundColor: "var(--card)",
+                color: "var(--ink)"
+              }}
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
               placeholder={L.auth.passwordMin}
               autoComplete="new-password"
             />
-            <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
+            <button
+              type="button"
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--grey)",
+                padding: 4
+              }}
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={L.auth.showHide}
+            >
               <EyeIcon open={showPassword} />
             </button>
           </div>
         </div>
-        <div className="auth-field">
-          <label>{L.auth.confirmPassword}</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.auth.confirmPassword}</label>
           <input
-            className="auth-input-v2"
+            style={{
+              padding: "10px 12px",
+              border: "1px solid var(--line)",
+              borderRadius: 2,
+              fontSize: 14,
+              fontFamily: "inherit",
+              backgroundColor: "var(--card)",
+              color: "var(--ink)"
+            }}
             type={showPassword ? "text" : "password"}
             value={confirmPassword}
             onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
@@ -234,8 +328,8 @@ function ParticulierSignup({ L, onBack, sso }) {
             autoComplete="new-password"
           />
         </div>
-        {error ? <p className="auth-error">{error}</p> : null}
-        <button type="submit" className="auth-btn-primary" disabled={loading}>
+        {error ? <p style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
+        <button type="submit" className="btn btn-main" disabled={loading}>
           {loading ? L.auth.creating : L.auth.createBtn}
         </button>
       </form>
@@ -251,12 +345,34 @@ function KojiPanel({ L, onSwitchProfile, sso }) {
   const [mode, setMode] = useState("login");
   return (
     <>
-      <span className="auth-eyebrow-badge particulier">{L.auth.espaceParticulier}</span>
-      <div className="auth-mode-tabs">
-        <button type="button" className={`auth-mode-tab${mode === "login" ? " active" : ""}`} onClick={() => setMode("login")}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--grey)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12, display: "inline-block" }}>{L.auth.espaceParticulier}</span>
+      <div style={{ display: "flex", gap: 3, borderBottom: "1px solid var(--frame)", marginBottom: 24 }}>
+        <button type="button" style={{
+          padding: "8px 14px",
+          background: mode === "login" ? "var(--tab-h)" : "var(--tab)",
+          border: "1px solid var(--frame)",
+          borderBottom: "none",
+          borderRadius: "2px 2px 0 0",
+          color: mode === "login" ? "var(--ink)" : "var(--tabtxt)",
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: "pointer",
+          textDecoration: "none"
+        }} onClick={() => setMode("login")}>
           {L.auth.connexionTitle}
         </button>
-        <button type="button" className={`auth-mode-tab${mode === "signup" ? " active" : ""}`} onClick={() => setMode("signup")}>
+        <button type="button" style={{
+          padding: "8px 14px",
+          background: mode === "signup" ? "var(--tab-h)" : "var(--tab)",
+          border: "1px solid var(--frame)",
+          borderBottom: "none",
+          borderRadius: "2px 2px 0 0",
+          color: mode === "signup" ? "var(--ink)" : "var(--tabtxt)",
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: "pointer",
+          textDecoration: "none"
+        }} onClick={() => setMode("signup")}>
           {L.auth.createAccountTab}
         </button>
       </div>
@@ -328,22 +444,27 @@ function SsoOptions({ profile, L }) {
   }
 
   return (
-    <div className="auth-sso-group">
-      <div className="auth-sso-row">
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 10 }}>
         <button
           type="button"
-          className="auth-sso-btn"
+          className="btn btn-sec"
+          style={{ flex: 1 }}
           disabled={loading}
           onClick={handleGoogle}
         >
           <GoogleIcon /> {loading ? "Redirection…" : "Google"}
         </button>
-        <button type="button" className="auth-sso-btn" disabled title="Bientôt disponible">
-          <AppleIcon /> Apple <span className="auth-sso-soon">Bientôt</span>
+        <button type="button" className="btn btn-sec" style={{ flex: 1, position: "relative" }} disabled title="Bientôt disponible">
+          <AppleIcon /> Apple <span style={{ fontSize: 10, color: "var(--grey)", fontWeight: 500 }}>Bientôt</span>
         </button>
       </div>
-      {error ? <p className="auth-error">{error}</p> : null}
-      <div className="auth-sso-divider"><span>{L.auth.orWithEmail}</span></div>
+      {error ? <p style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--grey)", fontSize: 13 }}>
+        <div style={{ flex: 1, height: 1, backgroundColor: "var(--line)" }}></div>
+        <span>{L.auth.orWithEmail}</span>
+        <div style={{ flex: 1, height: 1, backgroundColor: "var(--line)" }}></div>
+      </div>
     </div>
   );
 }
@@ -357,16 +478,6 @@ function LoginScreen() {
     typeParam === "entreprise" ? "entreprise" : typeParam === "particulier" ? "particulier" : null
   );
 
-  // L'ecran de choix de profil ("Bienvenue sur koji") est retire (18 oct,
-  // demande d'Amira) : desormais / et /entreprise (components/PublicLanding,
-  // components/EntrepriseLanding) jouent deja ce role, chacun de leurs CTA
-  // pointant vers /login avec un ?type= deja connu. Un /login sans type
-  // (lien historique ou saisi a la main) renvoie donc vers l'accueil
-  // plutot que de reafficher ce choix en double.
-  // type=ouvrier (lien genere par app/equipe/page.jsx pour partager l'acces
-  // d'un ouvrier) n'a pas d'ecran dedie ici : /worker est deja la page
-  // complete de connexion+portail ouvrier (son propre formulaire identifiant/
-  // mot de passe contre /api/worker-auth quand aucune session n'est trouvee).
   useEffect(() => {
     if (typeParam === "ouvrier") { router.replace("/worker"); return; }
     if (!profile) router.replace("/");
@@ -377,28 +488,53 @@ function LoginScreen() {
   const sso = <SsoOptions profile={profile} L={L} />;
 
   return (
-    <main className="auth-screen-v2">
+    <div className="pro" style={{
+      minHeight: "100vh",
+      display: "flex",
+      backgroundColor: profile === "entreprise" ? "var(--bg)" : "#ffffff"
+    }}>
+      {/* Brand Panel - Koji/Entreprise Sidebar */}
       <AuthBrandPanel profile={profile} />
-      <section className="auth-panel-v2 auth-panel-flat">
-        <div className="auth-card auth-card-flat">
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          <Link href="/" className="auth-back-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-            Changer de profil
-          </Link>
+      {/* Login Form */}
+      <section style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "40px 32px",
+        maxWidth: 480,
+        margin: "0 auto"
+      }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+            <Link href="/" className="link" style={{
+              textDecoration: "none"
+            }}>
+              ← Retour
+            </Link>
+            <LangSwitcher />
+          </div>
+
           {profile === "particulier" ? (
             <KojiPanel L={L} sso={sso} onSwitchProfile={() => setProfile("entreprise")} />
           ) : (
             <EntrepriseLogin L={L} sso={sso} onSwitchProfile={() => setProfile("particulier")} />
           )}
 
-          <p className="auth-help-footer">
-            Besoin d'aide ? <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
+          <p style={{
+            fontSize: 13,
+            color: "var(--grey)",
+            textAlign: "center",
+            marginTop: 32,
+            borderTop: "1px solid var(--line)",
+            paddingTop: 24
+          }}>
+            Besoin d'aide ? <a href="mailto:contact@kojibuild.com" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>contact@kojibuild.com</a>
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

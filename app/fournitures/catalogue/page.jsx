@@ -6,8 +6,17 @@ import { apiGet, apiSend } from "../../../lib/client-api";
 import { useLocale } from "../../../lib/i18n";
 import { euro, shortDate } from "../../../lib/pricing";
 import { useApi } from "../../../lib/use-api";
+import { FournituresTabs } from "../FournituresTabs";
 
 const units = ["Unite", "Piece", "m2", "ml", "kg", "L", "Cartouche", "Pot 10 L"];
+
+// Prix unitaires au centime (le catalogue mélange des articles à 1,10 € et à 569 €).
+const priceFormat = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function price(value) {
+  return priceFormat.format(Number(value) || 0);
+}
+
+const UNIT_LABELS = { Unite: "u", Piece: "pièce(s)", m2: "m²", ml: "ml", kg: "kg", L: "L", Cartouche: "cartouche(s)", "Pot 10 L": "pot(s) de 10 L" };
 
 const initialSupply = {
   name: "",
@@ -95,7 +104,7 @@ export default function SuppliesCataloguePage() {
   const [fromDevis, setFromDevis] = useState(false);
   const [devisTargetRoom, setDevisTargetRoom] = useState("Services");
 
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedSupplyId, setSelectedSupplyId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [viaUrl, setViaUrl] = useState(false);
   const [supplierDialog, setSupplierDialog] = useState(false);
@@ -241,6 +250,7 @@ export default function SuppliesCataloguePage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    if (["fournisseurs", "divers"].includes(params.get("tab"))) setActiveTab(params.get("tab"));
     if (params.get("from") === "devis") {
       setFromDevis(true);
       setDevisTargetRoom(window.localStorage.getItem("koji-devis-target-room") || "Services");
@@ -563,707 +573,607 @@ export default function SuppliesCataloguePage() {
     return (name || "?").slice(0, 2).toUpperCase();
   }
 
-  // ── Supply row ──────────────────────────────────────────────────────────────
+  function pickTab(tab) {
+    setActiveTab(tab);
+    const params = new URLSearchParams(window.location.search);
+    if (tab === "categories") params.delete("tab"); else params.set("tab", tab);
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }
 
-  function SupplyRow({ item }) {
+  function openNewSupply(extra = {}) {
+    setForm({ ...initialSupply, category: activeCategory, ...extra });
+    setEditingSupply(null);
+    setViaUrl(false);
+    setImportMessage("");
+    setFormOpen(true);
+  }
+
+  function closeSupplyForm() {
+    setFormOpen(false);
+    setEditingSupply(null);
+    setForm(initialSupply);
+    setImportMessage("");
+  }
+
+  function openNewSupplier() {
+    setEditingSupplier(null);
+    setSupplierForm(initialSupplier);
+    setSupplierDialog(true);
+  }
+
+  function margin(item) {
+    const purchase = Number(item.purchasePriceHt ?? 0);
+    const sale = Number(item.salePriceHt ?? item.priceHt ?? 0);
+    if (!(purchase > 0) || !(sale > 0)) return null;
+    return { amount: sale - purchase, rate: Math.round(((sale - purchase) / sale) * 100) };
+  }
+
+  function supplyMeta(item) {
+    return [
+      [item.category, item.subcategory].filter(Boolean).join(" › "),
+      item.packaging
+    ].filter(Boolean).join(" · ");
+  }
+
+  function Thumb({ item, size }) {
     return (
-      <article
-        className={`supply-row ${fromDevis ? "" : "clickable"}`}
-        role={fromDevis ? undefined : "button"}
-        tabIndex={fromDevis ? undefined : 0}
-        onClick={fromDevis ? undefined : () => openEditSupply(item)}
-        onKeyDown={fromDevis ? undefined : (event) => handleRowKey(event, () => openEditSupply(item))}
-      >
-        <div className="supply-icon">PR</div>
-        <div>
-          <strong>{item.name}</strong>
-          <small>
-            {item.category || ""}
-            {item.subcategory ? ` › ${item.subcategory}` : ""}
-            {item.packaging ? ` — ${item.packaging}` : ""}
-            {item.supplierName ? ` — ${item.supplierName}` : ""}
-          </small>
-        </div>
-        <div className="supply-price">
-          <strong>{euro(item.salePriceHt ?? item.priceHt)}</strong>
-          <small>H.T</small>
-        </div>
-        {fromDevis ? (
-          pendingSupplyId === item.id ? (
-            <div className="supply-qty-picker" onClick={(event) => event.stopPropagation()}>
-              <button type="button" className="qty-btn" onClick={() => changeQty(-1)}>−</button>
-              <input
-                type="number"
-                className="qty-input"
-                min="1"
-                value={pendingQty}
-                onChange={(event) => setPendingQty(Math.max(1, Number(event.target.value) || 1))}
-              />
-              <button type="button" className="qty-btn" onClick={() => changeQty(1)}>+</button>
-              <button type="button" className="mini-button primary" onClick={() => selectSupplyForDevis(item, pendingQty)}>{L.fournitures.validate}</button>
-            </div>
-          ) : (
-            <button type="button" className="mini-button primary" onClick={(event) => { event.stopPropagation(); openQtyPicker(item); }}>{L.fournitures.choose}</button>
-          )
-        ) : (
-          <>
-            {supplyExternalUrl(item) ? <button type="button" className="mini-button" onClick={(event) => openExternal(supplyExternalUrl(item), event)}>{item.sourceUrl ? L.fournitures.link : L.fournitures.site}</button> : null}
-            <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditSupply(item); }}>{L.common.edit}</button>
-            <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteSupply(item); }}>{L.common.delete}</button>
-          </>
-        )}
-      </article>
+      <span className={`fp-th${size === "big" ? " big" : ""}`} aria-hidden="true">
+        {item.imageUrl ? <img src={item.imageUrl} alt="" /> : (item.name || "?").slice(0, 2).toUpperCase()}
+      </span>
     );
   }
 
-  // ── Supply form (full-page view) ────────────────────────────────────────────
-
-  if (formOpen) {
+  function devisPicker(item) {
+    if (pendingSupplyId !== item.id) {
+      return <button type="button" className="btn btn-sec" onClick={(event) => { event.stopPropagation(); openQtyPicker(item); }}>{L.fournitures.choose}</button>;
+    }
     return (
-      <Shell>
-        <section className="mobile-tool tool-form-view">
-          <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={() => { setFormOpen(false); setEditingSupply(null); setForm(initialSupply); setImportMessage(""); }}>{"<"}</button>
-            <h1>{editingSupply ? L.fournitures.editSupply : L.fournitures.addSupply}</h1>
-            <span />
-          </header>
+      <div className="fp-qty" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="dx" onClick={() => changeQty(-1)} aria-label="Moins">−</button>
+        <input type="number" min="1" value={pendingQty} onChange={(event) => setPendingQty(Math.max(1, Number(event.target.value) || 1))} aria-label="Quantité" />
+        <button type="button" className="dx" onClick={() => changeQty(1)} aria-label="Plus">+</button>
+        <button type="button" className="btn btn-main" onClick={() => selectSupplyForDevis(item, pendingQty)}>{L.fournitures.validate}</button>
+      </div>
+    );
+  }
 
-          {fromDevis && !editingSupply ? (
-            <p className="tool-message">Cette fourniture sera ajoutée directement à votre devis.</p>
-          ) : null}
+  const selectedSupply = supplies.find((item) => item.id === selectedSupplyId) || null;
+  const activeCategoryObj = categories.find((cat) => cat.name === activeCategory) || null;
+  const diversTotal = diversItems.length;
+  const tabCounts = { commandes: commandes.length, categories: supplies.length, fournisseurs: uniqueSuppliers.length, divers: diversTotal };
+  const searchIcon = <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>;
+  const plusIcon = <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>;
 
-          <form className="mobile-form" onSubmit={createSupply}>
-            <div className="segmented large">
-              <button type="button" className={!viaUrl ? "active" : ""} onClick={() => setViaUrl(false)}>{L.fournitures.manual}</button>
-              <button type="button" className={viaUrl ? "active" : ""} onClick={() => setViaUrl(true)}>{L.fournitures.addViaUrl}</button>
+  return (
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            {[`${supplies.length} article${supplies.length > 1 ? "s" : ""}`, `${uniqueSuppliers.length} fournisseur${uniqueSuppliers.length > 1 ? "s" : ""}`, `${categories.length} catégorie${categories.length > 1 ? "s" : ""}`].join(" · ")}
+          </span>
+          <h1>Fournitures</h1>
+          <span className="muted">{CATALOGUE_SUBTITLES[activeTab] || CATALOGUE_SUBTITLES.categories}</span>
+        </div>
+        <div className="acts">
+          {activeTab === "categories" ? (
+            <>
+              <button type="button" className="btn btn-sec" onClick={() => openCategoryDialog()}>Nouvelle catégorie</button>
+              <button type="button" className="btn btn-main" onClick={() => openNewSupply()}>{plusIcon}Nouvel article</button>
+            </>
+          ) : activeTab === "fournisseurs" ? (
+            <button type="button" className="btn btn-main" onClick={openNewSupplier}>{plusIcon}Nouveau fournisseur</button>
+          ) : (
+            <button type="button" className="btn btn-main" onClick={openAddDivers}>{plusIcon}Ajouter un achat</button>
+          )}
+        </div>
+      </div>
+
+      {fromDevis ? (
+        <div className="notice fp-banner">
+          <span>{L.fournitures.selectForDevis}</span>
+          <button type="button" className="link" onClick={() => window.location.assign("/devis?new=1")}>{L.fournitures.backNoSelect}</button>
+        </div>
+      ) : null}
+      {message ? <p className="notice" role="status">{message}</p> : null}
+
+      <div className="tbar">
+        <FournituresTabs current={activeTab} counts={tabCounts} onPick={pickTab} />
+        {activeTab === "categories" ? (
+          <label className="search search-wide">
+            {searchIcon}
+            <input type="search" value={categorySearch} onChange={(event) => setCategorySearch(event.target.value)} placeholder="Rechercher une fourniture" aria-label="Rechercher une fourniture" />
+          </label>
+        ) : null}
+      </div>
+
+      {activeTab === "categories" ? (
+        <>
+          <div className="fp-cats">
+            <div className="chips" role="group" aria-label="Catégories">
+              <button type="button" className={`chip chip-s${!activeCategory ? " on" : ""}`} aria-pressed={!activeCategory} onClick={() => setActiveCategory("")}>{L.fournitures.all}</button>
+              {categories.map((cat) => (
+                <button type="button" key={cat.id} className={`chip chip-s${activeCategory === cat.name ? " on" : ""}`} aria-pressed={activeCategory === cat.name} onClick={() => selectTreeCategory(cat.name)}>{cat.name}</button>
+              ))}
+            </div>
+            {activeCategoryObj ? <button type="button" className="link" onClick={() => openCategoryDialog(activeCategoryObj)}>Renommer « {activeCategoryObj.name} »</button> : null}
+          </div>
+
+          {visibleSupplies.length === 0 ? (
+            <section className="card fp-empty">
+              <div className="card-h"><h2>{supplies.length && (activeCategory || categorySearch.trim()) ? "Aucun article ici" : "Votre catalogue est vide"}</h2></div>
+              <p className="muted">
+                {supplies.length && (activeCategory || categorySearch.trim())
+                  ? "Aucun article ne correspond à cette catégorie ou à cette recherche."
+                  : "Ajoutez les matériaux que vous utilisez le plus souvent. Ils seront proposés en un clic dans vos devis et vos commandes."}
+              </p>
+              <div className="hact">
+                <button type="button" className="btn btn-main" onClick={() => openNewSupply()}>{plusIcon}Ajouter une fourniture</button>
+                <button type="button" className="btn btn-sec" onClick={() => { openNewSupply(); setViaUrl(true); }}>Ajouter depuis un lien</button>
+              </div>
+              {categories.length === 0 ? (
+                <div className="fp-sugg">
+                  <span className="flab">Commencer par une catégorie</span>
+                  <div className="chips">
+                    {SUGGESTED_CATEGORIES.map((name) => (
+                      <button type="button" key={name} className="chip chip-s" onClick={() => quickAddCategory(name)}>+ {name}</button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <div className={`fp-layout${fromDevis ? " solo" : ""}`}>
+              <div className="fp-main">
+                <div className="tbl fit has-cards">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Article</th>
+                        <th>Fournisseur</th>
+                        <th className="r">Achat HT</th>
+                        <th className="r">Vente HT</th>
+                        <th className="r">Marge</th>
+                        <th aria-label="Action" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleSupplies.map((item) => {
+                        const m = margin(item);
+                        const pick = fromDevis ? () => openQtyPicker(item) : () => setSelectedSupplyId(item.id);
+                        return (
+                          <tr key={item.id} className={item.id === selectedSupplyId ? "sel" : ""} tabIndex={0} onClick={pick} onKeyDown={(event) => handleRowKey(event, pick)}>
+                            <td>
+                              <div className="fp-a">
+                                <Thumb item={item} />
+                                <div>
+                                  <div className="fp-n">{item.name}</div>
+                                  <div className="sm">{supplyMeta(item) || "—"}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{item.supplierName || supplierLabel(item.supplierId) || <span className="sm2">{item.storeName || "Sans fournisseur"}</span>}</td>
+                            <td className="r">{item.purchasePriceHt ? price(item.purchasePriceHt) : <span className="sm2">—</span>}</td>
+                            <td className="r">{Number(item.salePriceHt ?? item.priceHt ?? 0) > 0 ? price(item.salePriceHt ?? item.priceHt) : <span className="sm2">—</span>}</td>
+                            <td className="r">{m ? `${m.rate} %` : <span className="sm2">—</span>}</td>
+                            <td className="r">
+                              {fromDevis ? devisPicker(item) : supplyExternalUrl(item) ? (
+                                <button type="button" className="link" onClick={(event) => openExternal(supplyExternalUrl(item), event)}>{item.sourceUrl ? L.fournitures.link : L.fournitures.site}</button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mlist">
+                  {visibleSupplies.map((item) => (
+                    <div className="m-card" key={item.id} role={fromDevis ? undefined : "button"} tabIndex={fromDevis ? undefined : 0} onClick={fromDevis ? undefined : () => openEditSupply(item)} onKeyDown={fromDevis ? undefined : (event) => handleRowKey(event, () => openEditSupply(item))}>
+                      <div className="top2">
+                        <div className="fp-a">
+                          <Thumb item={item} />
+                          <div>
+                            <div className="nm">{item.name}</div>
+                            <div className="meta">{[supplyMeta(item), item.supplierName || supplierLabel(item.supplierId)].filter(Boolean).join(" · ") || "—"}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="dvc-f">
+                        <b>{Number(item.salePriceHt ?? item.priceHt ?? 0) > 0 ? `${price(item.salePriceHt ?? item.priceHt)} HT` : item.amountTtc ? `${price(item.amountTtc)} TTC` : "—"}</b>
+                        <span className="meta">{margin(item) ? `marge ${margin(item).rate} %` : ""}</span>
+                      </div>
+                      {fromDevis ? devisPicker(item) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {fromDevis ? null : <aside className="fp-side fp-aside">
+                {!selectedSupply ? (
+                  <section className="card">
+                    <p className="muted">Cliquez sur un article pour voir ses prix et le modifier.</p>
+                  </section>
+                ) : (
+                  <section className="card fp-ob">
+                    <Thumb item={selectedSupply} size="big" />
+                    <div className="fp-ob-h">
+                      <span className="eyebrow">{supplyMeta(selectedSupply) || L.fournitures.noCategory}</span>
+                      <h2>{selectedSupply.name}</h2>
+                      <span className="muted">{selectedSupply.supplierName || supplierLabel(selectedSupply.supplierId) || "Sans fournisseur"}</span>
+                    </div>
+                    <div className="kv"><span>{L.fournitures.purchasePrice}</span><b>{selectedSupply.purchasePriceHt ? price(selectedSupply.purchasePriceHt) : "—"}</b></div>
+                    <div className="kv"><span>{L.fournitures.salePrice}</span><b>{price(selectedSupply.salePriceHt ?? selectedSupply.priceHt ?? 0)}</b></div>
+                    <div className="kv kv-strong"><span>Marge</span><b>{margin(selectedSupply) ? `${price(margin(selectedSupply).amount)} · ${margin(selectedSupply).rate} %` : "—"}</b></div>
+                    {selectedSupply.quantity || selectedSupply.stock ? <div className="kv"><span>{L.fournitures.quantity}</span><b>{selectedSupply.quantity ?? selectedSupply.stock} {UNIT_LABELS[selectedSupply.unit] || selectedSupply.unit || ""}</b></div> : null}
+                    {selectedSupply.barcode ? <div className="kv"><span>{L.fournitures.barcode}</span><b>{selectedSupply.barcode}</b></div> : null}
+                    {supplyExternalUrl(selectedSupply) ? (
+                      <div className="kv"><span>{selectedSupply.sourceUrl ? "Lien produit" : "Site du fournisseur"}</span><b><button type="button" className="link" onClick={(event) => openExternal(supplyExternalUrl(selectedSupply), event)}>Ouvrir</button></b></div>
+                    ) : null}
+                    <div className="hact fp-ob-act">
+                      <button type="button" className="btn btn-sec" onClick={() => { deleteSupply(selectedSupply); setSelectedSupplyId(null); }}>{L.common.delete}</button>
+                      <button type="button" className="btn btn-main" onClick={() => openEditSupply(selectedSupply)}>{L.common.edit}</button>
+                    </div>
+                  </section>
+                )}
+              </aside>}
+            </div>
+          )}
+        </>
+      ) : activeTab === "fournisseurs" ? (
+        <div className="fp-split">
+          <section className="card fp-list">
+            <label className="search">
+              {searchIcon}
+              <input type="search" value={supplierSearch} onChange={(event) => setSupplierSearch(event.target.value)} placeholder="Rechercher un fournisseur" aria-label="Rechercher un fournisseur" />
+            </label>
+            {filteredSupplierList.length === 0 ? <p className="muted">{L.fournitures.noSuppliers}</p> : null}
+            {filteredSupplierList.map((supplier) => (
+              <button type="button" key={supplier.id} className={`fp-li${supplier.id === selectedSupplierId ? " on" : ""}`} onClick={() => setSelectedSupplierId(supplier.id)} aria-current={supplier.id === selectedSupplierId ? "true" : undefined}>
+                <span className="ct-av fo">{(supplier.name || "FS").slice(0, 2).toUpperCase()}</span>
+                <span className="fp-li-n">{supplier.name}</span>
+                <span className="fp-li-c">{supplierArticleCount[supplier.id] || 0}</span>
+              </button>
+            ))}
+          </section>
+
+          <div className="fp-detail-col">
+            {!selectedSupplier ? (
+              <section className="card"><p className="muted">{L.fournitures.noSuppliers}</p></section>
+            ) : (
+              <>
+                <div className="ct-fh">
+                  <span className="ct-av big fo">{(selectedSupplier.name || "FS").slice(0, 2).toUpperCase()}</span>
+                  <div className="t">
+                    <span className="eyebrow">Fournisseur</span>
+                    <h2>{selectedSupplier.name}</h2>
+                    <small>
+                      {[selectedSupplier.phone, selectedSupplier.email].filter(Boolean).join(" · ")}
+                      {(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name)) ? (
+                        <>{selectedSupplier.phone || selectedSupplier.email ? " · " : ""}<button type="button" className="fp-web" onClick={(event) => openExternal(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name), event)}>{(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name)).replace(/^https?:\/\//, "").replace(/\/$/, "")}</button></>
+                      ) : null}
+                    </small>
+                  </div>
+                  <div className="hact">
+                    <button type="button" className="btn btn-sec" onClick={() => deleteSupplier(selectedSupplier)}>{L.common.delete}</button>
+                    <button type="button" className="btn btn-sec" onClick={() => openEditSupplier(selectedSupplier)}>{L.common.edit}</button>
+                  </div>
+                </div>
+
+                <div className="kpis">
+                  <div><div className="l">Articles</div><div className="v">{selectedSupplierArticles.length}</div><div className="s">au catalogue</div></div>
+                  <div><div className="l">Commandes en cours</div><div className="v">{selectedSupplierStats.enCours}</div><div className="s">non livrées</div></div>
+                  <div><div className="l">Dépenses du mois</div><div className="v">{euro(selectedSupplierStats.depensesMois)}</div><div className="s">HT, ce mois-ci</div></div>
+                  <div><div className="l">Délai moyen</div><div className="v">{selectedSupplierStats.delaiMoyen === null ? "—" : `${selectedSupplierStats.delaiMoyen} j`}</div><div className="s">de livraison</div></div>
+                </div>
+
+                <section className="card">
+                  <div className="card-h">
+                    <h2>Articles de ce fournisseur{selectedSupplierArticles.length ? <span className="kcnt">{selectedSupplierArticles.length}</span> : null}</h2>
+                    <button type="button" className="link" onClick={() => openNewSupply({ supplierId: selectedSupplier.id, category: "" })}>+ {L.common.add}</button>
+                  </div>
+                  {selectedSupplierArticles.length === 0 ? <p className="muted">{L.fournitures.noSupplies}</p> : selectedSupplierArticles.map((item) => (
+                    <div className="row fp-row" key={item.id} role="button" tabIndex={0} onClick={() => openEditSupply(item)} onKeyDown={(event) => handleRowKey(event, () => openEditSupply(item))}>
+                      <Thumb item={item} />
+                      <div className="t">
+                        <strong>{item.name}</strong>
+                        <small>{supplyMeta(item) || "—"}</small>
+                      </div>
+                      {item.sourceUrl ? <button type="button" className="link" onClick={(event) => openExternal(item.sourceUrl, event)}>{L.fournitures.link}</button> : null}
+                      <b>{price(item.salePriceHt ?? item.priceHt ?? 0)}</b>
+                    </div>
+                  ))}
+                </section>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="fp-split">
+          <section className="card fp-list">
+            <div className="card-h"><h2>Magasins</h2></div>
+            <button type="button" className={`fp-li${!selectedStore ? " on" : ""}`} onClick={() => setSelectedStore("")}>
+              <span className="fp-li-n">Tous les magasins</span>
+              <span className="fp-li-c">{diversTotal}</span>
+            </button>
+            {storeList.map((store) => (
+              <button type="button" key={store.name} className={`fp-li${selectedStore === store.name ? " on" : ""}`} onClick={() => setSelectedStore(store.name)}>
+                <span className="ct-av sm st">{storeInitials(store.name)}</span>
+                <span className="fp-li-n">{store.name}</span>
+                <span className="fp-li-c">{store.count}</span>
+              </button>
+            ))}
+          </section>
+
+          <div className="fp-detail-col">
+            <p className="notice">Pour les petits achats sans fournisseur : prenez le ticket en photo et rattachez l'achat à un chantier pour suivre vos dépenses.</p>
+
+            <div className="kpis k3">
+              <button type="button" onClick={() => setStatModal("mois")}>
+                <div className="l">Dépenses du mois</div>
+                <div className="v">{euro(diversStats.depensesMois)}</div>
+                <div className="s">{diversStats.depensesCount} achat{diversStats.depensesCount > 1 ? "s" : ""} · voir le détail</div>
+              </button>
+              <button type="button" onClick={() => setStatModal("chantier")}>
+                <div className="l">Rattachés à un chantier</div>
+                <div className="v">{diversStats.rattachees}</div>
+                <div className="s">sur {diversStats.total} achat{diversStats.total > 1 ? "s" : ""}</div>
+              </button>
+              <button type="button" onClick={() => setStatModal("ticket")}>
+                <div className="l">Tickets joints</div>
+                <div className="v">{diversStats.avecTicket}/{diversStats.total}</div>
+                <div className="s">{diversStats.total - diversStats.avecTicket > 0 ? `${diversStats.total - diversStats.avecTicket} ticket${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""} manquant${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""}` : "tout est à jour"}</div>
+              </button>
             </div>
 
-            {viaUrl ? (
-              <label className="mobile-input full">
-                <span>{L.fournitures.productLink}</span>
-                <div className="url-fetch-row">
-                  <input value={form.sourceUrl} onChange={(event) => setField("sourceUrl", event.target.value)} placeholder="https://..." />
-                  <button type="button" className="mini-button primary" onClick={fetchFromUrl} disabled={!form.sourceUrl.trim() || importing}>
-                    {importing ? "..." : L.fournitures.fetch}
-                  </button>
-                </div>
-                {importMessage ? <small className="import-message">{importMessage}</small> : null}
-              </label>
-            ) : null}
-
-            <label className="mobile-input full">
-              <span>{L.fournitures.description}</span>
-              <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder={L.fournitures.name} required={!viaUrl} />
-              <small className="muted">{L.fournitures.descriptionHint}</small>
+            <label className="search">
+              {searchIcon}
+              <input type="search" value={diversSearch} onChange={(event) => setDiversSearch(event.target.value)} placeholder="Rechercher un achat ou un magasin" aria-label="Rechercher un achat ou un magasin" />
             </label>
 
-            <div className="mobile-form-grid">
-              <label className="mobile-input">
-                <span>{L.fournitures.category}</span>
+            {filteredDiversItems.length === 0 ? (
+              <div className="tbl"><p className="empty">{L.fournitures.noDivers}</p></div>
+            ) : (
+              <>
+                <div className="tbl fit has-cards">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Achat</th>
+                        <th>Chantier</th>
+                        <th>Ticket</th>
+                        <th className="r">Montant TTC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDiversItems.map((item) => (
+                        <tr key={item.id} tabIndex={0} onClick={() => openEditDivers(item)} onKeyDown={(event) => handleRowKey(event, () => openEditDivers(item))}>
+                          <td className="n">{item.name}<div className="sm">{item.storeName || "Sans magasin"} · {shortDate(item.createdAt)}</div></td>
+                          <td>{item.projectTitle || <span className="sm2">Sans chantier</span>}</td>
+                          <td>{item.ticketPhoto ? <span className="tag tag-e">Ticket joint</span> : <span className="tag dim">Sans ticket</span>}</td>
+                          <td className="r">{price(item.amountTtc)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mlist">
+                  {filteredDiversItems.map((item) => (
+                    <button type="button" className="m-card" key={item.id} onClick={() => openEditDivers(item)}>
+                      <div className="top2">
+                        <div>
+                          <div className="nm">{item.name}</div>
+                          <div className="meta">{item.storeName || "Sans magasin"} · {shortDate(item.createdAt)}</div>
+                        </div>
+                        {item.ticketPhoto ? <span className="tag tag-e">Ticket</span> : <span className="tag dim">Sans ticket</span>}
+                      </div>
+                      <div className="dvc-f">
+                        <b>{price(item.amountTtc)} TTC</b>
+                        <span className="meta">{item.projectTitle || "Sans chantier"}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {formOpen ? (
+        <div className="pmodal-bg" onClick={closeSupplyForm}>
+          <form className="pmodal" role="dialog" aria-modal="true" aria-label={editingSupply ? L.fournitures.editSupply : L.fournitures.addSupply} onSubmit={createSupply} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>{editingSupply ? L.fournitures.editSupply : L.fournitures.addSupply}</h2>
+              <button type="button" className="link" onClick={closeSupplyForm}>Fermer</button>
+            </div>
+            {fromDevis && !editingSupply ? <p className="notice">Cette fourniture sera ajoutée directement à votre devis.</p> : null}
+            <div className="fgrid">
+              <div className="full">
+                <div className="kp-seg" role="group" aria-label="Mode d'ajout">
+                  <button type="button" className={!viaUrl ? "on" : ""} aria-pressed={!viaUrl} onClick={() => setViaUrl(false)}>{L.fournitures.manual}</button>
+                  <button type="button" className={viaUrl ? "on" : ""} aria-pressed={viaUrl} onClick={() => setViaUrl(true)}>{L.fournitures.addViaUrl}</button>
+                </div>
+              </div>
+              {viaUrl ? (
+                <div className="full">
+                  <span className="flab">{L.fournitures.productLink}</span>
+                  <div className="pair">
+                    <input value={form.sourceUrl} onChange={(event) => setField("sourceUrl", event.target.value)} placeholder="https://..." aria-label={L.fournitures.productLink} />
+                    <button type="button" className="btn btn-sec" onClick={fetchFromUrl} disabled={!form.sourceUrl.trim() || importing}>{importing ? "Lecture…" : L.fournitures.fetch}</button>
+                  </div>
+                  {importMessage ? <small className="muted">{importMessage}</small> : null}
+                </div>
+              ) : null}
+              <label className="full">{L.fournitures.description}
+                <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder={L.fournitures.name} required={!viaUrl} />
+                <small className="muted">{L.fournitures.descriptionHint}</small>
+              </label>
+              <label>{L.fournitures.category}
                 <select value={form.category} onChange={(event) => setField("category", event.target.value)}>
                   <option value="">{L.fournitures.noCategory}</option>
                   {categories.map((cat) => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
               </label>
-              <label className="mobile-input">
-                <span>{L.fournitures.supplier}</span>
+              <label>{L.fournitures.supplier}
                 <select value={form.supplierId} onChange={(event) => setField("supplierId", event.target.value)}>
                   <option value="">{L.fournitures.noSupplierOpt}</option>
                   {uniqueSuppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
                 </select>
+                {supplierWebsite(form.supplierId) ? <button type="button" className="fp-web" onClick={(event) => openExternal(supplierWebsite(form.supplierId), event)}>{L.fournitures.openSite}</button> : null}
               </label>
-            </div>
-
-            {supplierWebsite(form.supplierId) ? (
-              <button type="button" className="supplier-site-button" onClick={(event) => openExternal(supplierWebsite(form.supplierId), event)}>
-                {L.fournitures.openSite}
-              </button>
-            ) : null}
-
-            <div className="mobile-form-grid">
-              <label className="mobile-input">
-                <span>{L.fournitures.purchasePrice}</span>
+              <label>{L.fournitures.purchasePrice}
                 <input type="number" step="0.01" value={form.purchasePriceHt} onChange={(event) => setField("purchasePriceHt", event.target.value)} placeholder="0.00" />
               </label>
-              <label className="mobile-input">
-                <span>{L.fournitures.salePrice}</span>
+              <label>{L.fournitures.salePrice}
                 <input type="number" step="0.01" value={form.salePriceHt} onChange={(event) => setField("salePriceHt", event.target.value)} placeholder="0.00" />
               </label>
-            </div>
-
-            <label className="mobile-input full">
-              <span>{L.fournitures.packaging}</span>
-              <input value={form.packaging} onChange={(event) => setField("packaging", event.target.value)} placeholder="Pot 10 L, pièce, carton..." />
-            </label>
-
-            <div className="mobile-form-grid">
-              <label className="mobile-input">
-                <span>{L.fournitures.quantity}</span>
+              <label className="full">{L.fournitures.packaging}
+                <input value={form.packaging} onChange={(event) => setField("packaging", event.target.value)} placeholder="Pot 10 L, pièce, carton..." />
+              </label>
+              <label>{L.fournitures.quantity}
                 <input type="number" step="0.01" value={form.quantity} onChange={(event) => setField("quantity", event.target.value)} placeholder="0" />
               </label>
-              <label className="mobile-input">
-                <span>{L.fournitures.unit}</span>
+              <label>{L.fournitures.unit}
                 <select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
                   {units.map((unit) => <option key={unit}>{unit}</option>)}
                 </select>
               </label>
+              <label>{L.fournitures.barcode}
+                <input value={form.barcode} onChange={(event) => setField("barcode", event.target.value)} />
+              </label>
+              <label>{L.fournitures.image}
+                <input value={form.imageUrl} onChange={(event) => setField("imageUrl", event.target.value)} placeholder="https://..." />
+              </label>
             </div>
-
-            <label className="mobile-input full">
-              <span>{L.fournitures.barcode}</span>
-              <input value={form.barcode} onChange={(event) => setField("barcode", event.target.value)} placeholder={L.fournitures.barcode} />
-            </label>
-            <label className="mobile-input full">
-              <span>{L.fournitures.image}</span>
-              <input value={form.imageUrl} onChange={(event) => setField("imageUrl", event.target.value)} placeholder={L.fournitures.image} />
-            </label>
-
-            <button className="mobile-primary">{editingSupply ? L.common.save : fromDevis ? L.fournitures.addToDevisBtn : L.fournitures.createSupply}</button>
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={closeSupplyForm}>{L.common.cancel}</button>
+              <button type="submit" className="btn btn-main">{editingSupply ? L.common.save : fromDevis ? L.fournitures.addToDevisBtn : L.fournitures.createSupply}</button>
+            </div>
           </form>
-        </section>
-      </Shell>
-    );
-  }
-
-  // ── Main list view ──────────────────────────────────────────────────────────
-
-  return (
-    <Shell>
-      <section className="mobile-tool">
-        <header className="catalogue-topline">
-          <button type="button" className="plain-back" onClick={() => fromDevis ? window.location.assign("/devis?new=1") : (window.history.length > 1 ? window.history.back() : window.location.assign("/fournitures"))}>{"<"}</button>
-          <div className="catalogue-topline-title">
-            <h1>Fournitures</h1>
-            <p>{CATALOGUE_SUBTITLES[activeTab] || CATALOGUE_SUBTITLES.categories}</p>
-          </div>
-          {!fromDevis ? <a href="/fournitures?newOrder=1" className="button blue">+ Nouvelle commande</a> : <span />}
-        </header>
-
-        {fromDevis ? (
-          <div className="fournitures-select-banner">
-            <span>{L.fournitures.selectForDevis}</span>
-            <button type="button" className="mini-button" onClick={() => window.location.assign("/devis?new=1")}>{L.fournitures.backNoSelect}</button>
-          </div>
-        ) : null}
-
-        <div className="segmented">
-          <button type="button" className={activeTab === "categories" ? "active" : ""} onClick={() => setActiveTab("categories")}>{L.fournitures.categories}</button>
-          <button type="button" className={activeTab === "fournisseurs" ? "active" : ""} onClick={() => setActiveTab("fournisseurs")}>{L.fournitures.bySupplier}</button>
-          <button type="button" className={activeTab === "divers" ? "active" : ""} onClick={() => setActiveTab("divers")}>{L.fournitures.various}</button>
         </div>
+      ) : null}
 
-        {message ? <p className="tool-message">{message}</p> : null}
-
-        {activeTab === "categories" ? (
-          <div className="categories-layout">
-            {/* Left: category tree */}
-            <div className="category-tree">
-              <button
-                type="button"
-                className={`cat-tree-btn ${!activeCategory ? "active" : ""}`}
-                onClick={() => setActiveCategory("")}
-              >
-                {L.fournitures.all}
-              </button>
-
-              {categories.map((cat) => {
-                const isCatActive = activeCategory === cat.name;
-                return (
-                  <div key={cat.id} className="cat-tree-row">
-                    <button
-                      type="button"
-                      className={`cat-tree-btn ${isCatActive ? "active" : ""}`}
-                      onClick={() => selectTreeCategory(cat.name)}
-                    >
-                      {cat.name}
-                    </button>
-                    <button type="button" className="cat-tree-edit" onClick={() => openCategoryDialog(cat)} title="Modifier">✎</button>
-                  </div>
-                );
-              })}
-
-              <button type="button" className="cat-tree-add" onClick={() => openCategoryDialog()}>
-                + {L.fournitures.addCategory}
-              </button>
-            </div>
-
-            {/* Right: supply list */}
-            <div className="cat-supply-panel">
-              <div className="catalogue-search-row">
-                <input
-                  className="supplier-search-input"
-                  value={categorySearch}
-                  onChange={(event) => setCategorySearch(event.target.value)}
-                  placeholder="Rechercher une fourniture..."
-                />
-                <button
-                  type="button"
-                  className="button blue"
-                  onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setFormOpen(true); }}
-                >
-                  + Ajouter une fourniture
-                </button>
-              </div>
-
-              {visibleSupplies.length === 0 ? (
-                <>
-                  <div className="catalogue-empty-card">
-                    <span className="catalogue-empty-icon">📦</span>
-                    <strong>Votre catalogue est vide</strong>
-                    <p>Ajoutez les matériaux que vous utilisez le plus souvent. Ils seront proposés en un clic dans vos devis et vos commandes.</p>
-                    <div className="catalogue-empty-actions">
-                      <button
-                        type="button"
-                        className="button blue"
-                        onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setFormOpen(true); }}
-                      >
-                        + Ajouter une fourniture
-                      </button>
-                      <button type="button" className="button secondary" onClick={() => { setForm({ ...initialSupply, category: activeCategory }); setEditingSupply(null); setViaUrl(true); setFormOpen(true); }}>
-                        Importer un fichier
-                      </button>
-                    </div>
-                  </div>
-                  {categories.length === 0 ? (
-                    <div className="catalogue-suggestions-card">
-                      <strong>Commencer par une catégorie</strong>
-                      <div className="catalogue-suggestions-row">
-                        {SUGGESTED_CATEGORIES.map((name) => (
-                          <button type="button" key={name} className="catalogue-suggestion-pill" onClick={() => quickAddCategory(name)}>+ {name}</button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                visibleSupplies.map((item) => <SupplyRow key={item.id} item={item} />)
-              )}
-            </div>
-          </div>
-        ) : activeTab === "fournisseurs" ? (
-          <div className="supplier-master-detail">
-            <div className="supplier-list-panel">
-              <div className="panel-header">
-                <strong className="title-chip">{L.fournitures.bySupplier}</strong>
-                <button type="button" className="mini-button primary" onClick={() => { setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>+ {L.common.add}</button>
-              </div>
-              <input
-                className="supplier-search-input"
-                value={supplierSearch}
-                onChange={(event) => setSupplierSearch(event.target.value)}
-                placeholder="Rechercher un fournisseur..."
-              />
-              {filteredSupplierList.length === 0 ? <div className="tool-empty">{L.fournitures.noSuppliers}</div> : null}
-              <div className="supplier-list-items">
-                {filteredSupplierList.map((supplier) => (
-                  <button
-                    type="button"
-                    key={supplier.id}
-                    className={`supplier-list-item ${supplier.id === selectedSupplierId ? "active" : ""}`}
-                    onClick={() => setSelectedSupplierId(supplier.id)}
-                  >
-                    <span className="supplier-list-avatar">{(supplier.name || "FS").slice(0, 2).toUpperCase()}</span>
-                    <span className="supplier-list-name">{supplier.name}</span>
-                    <span className="supplier-list-count">{supplierArticleCount[supplier.id] || 0}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="supplier-detail-panel">
-              {!selectedSupplier ? (
-                <div className="tool-empty">{L.fournitures.noSuppliers}</div>
-              ) : (
-                <>
-                  <div className="supplier-detail-header">
-                    <span className="supplier-detail-avatar">{(selectedSupplier.name || "FS").slice(0, 2).toUpperCase()}</span>
-                    <div className="supplier-detail-identity">
-                      <strong>{selectedSupplier.name}</strong>
-                      <div className="supplier-detail-contacts">
-                        {selectedSupplier.phone ? <span>📞 {selectedSupplier.phone}</span> : null}
-                        {selectedSupplier.email ? <span>✉️ {selectedSupplier.email}</span> : null}
-                        {(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name)) ? (
-                          <span
-                            className="supplier-detail-link"
-                            onClick={(event) => openExternal(selectedSupplier.website || officialSupplierUrl(selectedSupplier.name), event)}
-                          >
-                            🌐 {selectedSupplier.website || officialSupplierUrl(selectedSupplier.name)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="supplier-detail-actions">
-                      <button type="button" className="mini-button" onClick={() => openEditSupplier(selectedSupplier)}>{L.common.edit}</button>
-                      <button type="button" className="mini-danger" onClick={() => deleteSupplier(selectedSupplier)}>{L.common.delete}</button>
-                    </div>
-                  </div>
-
-                  <div className="supplier-stat-grid">
-                    <div className="fournitures-kpi-card">
-                      <div className="fournitures-kpi-card-head">
-                        <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
-                        <span className="title-chip">Articles</span>
-                      </div>
-                      <strong>{selectedSupplierArticles.length}</strong>
-                      <small>au catalogue</small>
-                    </div>
-                    <div className="fournitures-kpi-card">
-                      <div className="fournitures-kpi-card-head">
-                        <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🛒</span>
-                        <span className="title-chip">Commandes en cours</span>
-                      </div>
-                      <strong>{selectedSupplierStats.enCours}</strong>
-                      <small>non livrées</small>
-                    </div>
-                    <div className="fournitures-kpi-card">
-                      <div className="fournitures-kpi-card-head">
-                        <span className="fournitures-kpi-icon fournitures-kpi-icon-green">💶</span>
-                        <span className="title-chip">Dépenses du mois</span>
-                      </div>
-                      <strong>{euro(selectedSupplierStats.depensesMois)}</strong>
-                      <small>HT, ce mois-ci</small>
-                    </div>
-                    <div className="fournitures-kpi-card">
-                      <div className="fournitures-kpi-card-head">
-                        <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">⏱</span>
-                        <span className="title-chip">Délai moyen</span>
-                      </div>
-                      <strong>{selectedSupplierStats.delaiMoyen === null ? "—" : `${selectedSupplierStats.delaiMoyen} j`}</strong>
-                      <small>de livraison</small>
-                    </div>
-                  </div>
-
-                  <div className="supplier-articles-section">
-                    <div className="panel-header">
-                      <strong className="title-chip">Articles de ce fournisseur</strong>
-                      <button
-                        type="button"
-                        className="mini-button primary"
-                        onClick={() => { setForm({ ...initialSupply, supplierId: selectedSupplier.id }); setEditingSupply(null); setFormOpen(true); }}
-                      >
-                        + {L.common.add}
-                      </button>
-                    </div>
-                    {selectedSupplierArticles.length === 0 ? (
-                      <div className="tool-empty">{L.fournitures.noSupplies}</div>
-                    ) : (
-                      <div className="supplier-articles-list">
-                        {selectedSupplierArticles.map((item) => (
-                          <div className="supplier-article-row" key={item.id} onClick={() => openEditSupply(item)}>
-                            <span className="supplier-article-name">{item.name}</span>
-                            <span className="supplier-article-price">{euro(item.salePriceHt ?? item.priceHt)}</span>
-                            {item.sourceUrl ? (
-                              <button type="button" className="mini-button" onClick={(event) => openExternal(item.sourceUrl, event)}>Lien</button>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="supplier-master-detail">
-            <div className="supplier-list-panel">
-              <div className="panel-header">
-                <strong className="title-chip">Tous les magasins</strong>
-                <span className="supplier-list-count">{diversItems.length}</span>
-              </div>
-              <div className="supplier-list-items">
-                <button
-                  type="button"
-                  className={`supplier-list-item ${!selectedStore ? "active" : ""}`}
-                  onClick={() => setSelectedStore("")}
-                >
-                  <span className="supplier-list-name">Tous les magasins</span>
-                  <span className="supplier-list-count">{diversItems.length}</span>
-                </button>
-                {storeList.map((store) => (
-                  <button
-                    type="button"
-                    key={store.name}
-                    className={`supplier-list-item ${selectedStore === store.name ? "active" : ""}`}
-                    onClick={() => setSelectedStore(store.name)}
-                  >
-                    <span className="supplier-list-name">{store.name}</span>
-                    <span className="supplier-list-count">{store.count}</span>
-                  </button>
-                ))}
-              </div>
-              <button type="button" className="cat-tree-add" onClick={openAddDivers}>
-                + Ajouter un magasin
-              </button>
-            </div>
-
-            <div className="supplier-detail-panel">
-              <div className="catalogue-info-banner">
-                ℹ️ Pour les petits achats sans fournisseur : prenez le ticket en photo et rattachez l'achat à un chantier pour suivre vos dépenses.
-              </div>
-
-              <div className="supplier-stat-grid">
-                <button
-                  type="button"
-                  className="fournitures-kpi-card clickable"
-                  onClick={() => setStatModal("mois")}
-                >
-                  <div className="fournitures-kpi-card-head">
-                    <span className="fournitures-kpi-icon fournitures-kpi-icon-green">💶</span>
-                    <span className="title-chip">Dépenses du mois</span>
-                  </div>
-                  <strong>{euro(diversStats.depensesMois)}</strong>
-                  <small>{diversStats.depensesCount} achat{diversStats.depensesCount > 1 ? "s" : ""}</small>
-                </button>
-                <button
-                  type="button"
-                  className="fournitures-kpi-card clickable"
-                  onClick={() => setStatModal("chantier")}
-                >
-                  <div className="fournitures-kpi-card-head">
-                    <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">🏗️</span>
-                    <span className="title-chip">Rattachées à un chantier</span>
-                  </div>
-                  <strong>{diversStats.rattachees}</strong>
-                  <small>sur {diversStats.total} achat{diversStats.total > 1 ? "s" : ""}</small>
-                </button>
-                <button
-                  type="button"
-                  className="fournitures-kpi-card clickable"
-                  onClick={() => setStatModal("ticket")}
-                >
-                  <div className="fournitures-kpi-card-head">
-                    <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">🧾</span>
-                    <span className="title-chip">Tickets joints</span>
-                  </div>
-                  <strong>{diversStats.avecTicket}/{diversStats.total}</strong>
-                  <small>{diversStats.total - diversStats.avecTicket > 0 ? `${diversStats.total - diversStats.avecTicket} ticket${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""} manquant${diversStats.total - diversStats.avecTicket > 1 ? "s" : ""}` : "tout est à jour"}</small>
-                </button>
-              </div>
-
-              <div className="catalogue-search-row">
-                <input
-                  className="supplier-search-input"
-                  value={diversSearch}
-                  onChange={(event) => setDiversSearch(event.target.value)}
-                  placeholder="Rechercher un achat ou un magasin..."
-                />
-                <button type="button" className="button blue" onClick={openAddDivers}>+ Ajouter un achat</button>
-              </div>
-
-              {filteredDiversItems.length === 0 ? (
-                <div className="tool-empty">{L.fournitures.noDivers}</div>
-              ) : (
-                <div className="supplier-articles-list">
-                  {filteredDiversItems.map((item) => (
-                    <div className="divers-purchase-row" key={item.id} onClick={() => openEditDivers(item)}>
-                      <span className="supplier-list-avatar">{storeInitials(item.storeName)}</span>
-                      <div className="divers-purchase-main">
-                        <strong>{item.name}</strong>
-                        <small>{item.storeName || "Sans magasin"} · {shortDate(item.createdAt)}</small>
-                      </div>
-                      <div className="divers-purchase-tags">
-                        {item.projectTitle ? <span className="divers-tag divers-tag-project">{item.projectTitle}</span> : <span className="divers-tag">Sans chantier</span>}
-                        {item.ticketPhoto ? <span className="divers-tag divers-tag-ticket">📎 Ticket</span> : <span className="divers-tag divers-tag-warning">Sans ticket</span>}
-                      </div>
-                      <span className="supplier-article-price">{euro(item.amountTtc)} <small>TTC</small></span>
-                      <button type="button" className="mini-button" onClick={(event) => { event.stopPropagation(); openEditDivers(item); }}>{L.common.edit}</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <button type="button" className="floating-add" onClick={() => setSheetOpen(true)} aria-label="Ajouter">+</button>
-
-        {sheetOpen ? (
-          <div className="sheet-overlay" onClick={() => setSheetOpen(false)}>
-            <div className="bottom-sheet" onClick={(event) => event.stopPropagation()}>
-              <span className="sheet-handle" />
-              <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); setFormOpen(true); }}>
-                <span>PR</span>
-                <div><strong>{L.fournitures.addSupply}</strong><small>{L.fournitures.addSupplySub}</small></div>
-                <b>{">"}</b>
-              </button>
-              <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); setEditingSupplier(null); setSupplierForm(initialSupplier); setSupplierDialog(true); }}>
-                <span>FS</span>
-                <div><strong>{L.fournitures.addSupplier}</strong><small>{L.fournitures.addSupplierSub}</small></div>
-                <b>{">"}</b>
-              </button>
-              <button type="button" className="sheet-choice" onClick={() => { setSheetOpen(false); openCategoryDialog(); }}>
-                <span>CT</span>
-                <div><strong>{L.fournitures.addCategory}</strong><small>{L.fournitures.addCategorySub}</small></div>
-                <b>{">"}</b>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {supplierDialog ? (
-          <div className="modal-overlay" onClick={closeSupplierDialog}>
-            <form className="mini-modal category-modal" onSubmit={createSupplier} onClick={(event) => event.stopPropagation()}>
+      {supplierDialog ? (
+        <div className="pmodal-bg" onClick={closeSupplierDialog}>
+          <form className="pmodal" role="dialog" aria-modal="true" aria-label={editingSupplier ? L.fournitures.editSupplier : L.fournitures.newSupplier} onSubmit={createSupplier} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
               <h2>{editingSupplier ? L.fournitures.editSupplier : L.fournitures.newSupplier}</h2>
-              <label className="category-modal-field">
-                <span>{L.fournitures.supplierName}</span>
-                <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} placeholder={L.fournitures.supplierName} autoFocus required />
+              <button type="button" className="link" onClick={closeSupplierDialog}>Fermer</button>
+            </div>
+            <div className="fgrid">
+              <label className="full">{L.fournitures.supplierName}
+                <input value={supplierForm.name} onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))} autoFocus required />
               </label>
-              <label className="category-modal-field">
-                <span>{L.fournitures.supplierEmail}</span>
-                <input value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="email@..." type="email" />
+              <label>{L.fournitures.supplierEmail}
+                <input type="email" value={supplierForm.email} onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))} placeholder="email@..." />
               </label>
-              <label className="category-modal-field">
-                <span>{L.fournitures.supplierPhone}</span>
+              <label>{L.fournitures.supplierPhone}
                 <input value={supplierForm.phone} onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))} placeholder="06 00 00 00 00" />
               </label>
-              <label className="category-modal-field">
-                <span>{L.fournitures.supplierAddress}</span>
-                <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} placeholder={L.fournitures.supplierAddress} />
+              <label className="full">{L.fournitures.supplierAddress}
+                <input value={supplierForm.address} onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))} />
               </label>
-              <label className="category-modal-field">
-                <span>{L.fournitures.supplierWebsite}</span>
+              <label className="full">{L.fournitures.supplierWebsite}
                 <input value={supplierForm.website} onChange={(event) => setSupplierForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." />
               </label>
-              <label className="category-modal-field">
-                <span>{L.fournitures.supplierNotes}</span>
-                <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} placeholder={L.fournitures.supplierNotes} />
+              <label className="full">{L.fournitures.supplierNotes}
+                <input value={supplierForm.notes} onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))} />
               </label>
-              <div className="category-modal-actions">
-                {editingSupplier ? (
-                  <button type="button" className="button danger small" onClick={() => { closeSupplierDialog(); deleteSupplier(editingSupplier); }}>{L.common.delete}</button>
-                ) : null}
-                <button type="button" onClick={closeSupplierDialog}>{L.common.cancel}</button>
-                <button type="submit" className="button blue">{editingSupplier ? L.common.save : L.common.create}</button>
-              </div>
-            </form>
-          </div>
-        ) : null}
+            </div>
+            <div className="pm-act">
+              {editingSupplier ? <button type="button" className="btn btn-sec pm-left" onClick={() => { closeSupplierDialog(); deleteSupplier(editingSupplier); }}>{L.common.delete}</button> : null}
+              <button type="button" className="btn btn-sec" onClick={closeSupplierDialog}>{L.common.cancel}</button>
+              <button type="submit" className="btn btn-main">{editingSupplier ? L.common.save : L.common.create}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
-        {diversDialog ? (
-          <div className="modal-overlay" onClick={closeDiversDialog}>
-            <form className="mini-modal category-modal" onSubmit={submitDiversForm} onClick={(event) => event.stopPropagation()}>
+      {diversDialog ? (
+        <div className="pmodal-bg" onClick={closeDiversDialog}>
+          <form className="pmodal" role="dialog" aria-modal="true" aria-label={editingDivers ? "Modifier l'achat" : "Nouvel achat"} onSubmit={submitDiversForm} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
               <h2>{editingDivers ? "Modifier l'achat" : "Nouvel achat"}</h2>
-              <label className="category-modal-field">
-                <span>Description</span>
-                <input
-                  value={diversForm.name}
-                  onChange={(event) => setDiversForm((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="Ex : Rallonge électrique 10 m, adaptateur"
-                  autoFocus
-                  required
-                />
+              <button type="button" className="link" onClick={closeDiversDialog}>Fermer</button>
+            </div>
+            <div className="fgrid">
+              <label className="full">Description
+                <input value={diversForm.name} onChange={(event) => setDiversForm((current) => ({ ...current, name: event.target.value }))} placeholder="Ex : Rallonge électrique 10 m, adaptateur" autoFocus required />
               </label>
-              <label className="category-modal-field">
-                <span>Magasin</span>
-                <input
-                  value={diversForm.storeName}
-                  onChange={(event) => setDiversForm((current) => ({ ...current, storeName: event.target.value }))}
-                  placeholder="Ex : Lidl, Action, Bazar du coin..."
-                />
+              <label>Magasin
+                <input value={diversForm.storeName} onChange={(event) => setDiversForm((current) => ({ ...current, storeName: event.target.value }))} placeholder="Ex : Lidl, Action, Bazar du coin..." />
               </label>
-              <label className="category-modal-field">
-                <span>Montant (TTC)</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={diversForm.amountTtc}
-                  onChange={(event) => setDiversForm((current) => ({ ...current, amountTtc: event.target.value }))}
-                  placeholder="0,00"
-                />
+              <label>Montant TTC
+                <input type="number" step="0.01" value={diversForm.amountTtc} onChange={(event) => setDiversForm((current) => ({ ...current, amountTtc: event.target.value }))} placeholder="0,00" />
               </label>
-              <label className="category-modal-field">
-                <span>Chantier</span>
+              <label className="full">Chantier
                 <select value={diversForm.projectId} onChange={(event) => setDiversForm((current) => ({ ...current, projectId: event.target.value }))}>
                   <option value="">Sans chantier</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
                 </select>
               </label>
-              <label className="category-modal-field">
-                <span>Photo du ticket</span>
+              <label className="full">Photo du ticket
                 <input type="file" accept="image/*" onChange={handleTicketFile} />
-                {diversForm.ticketPhoto ? <img src={diversForm.ticketPhoto} alt="Ticket" className="divers-ticket-preview" /> : null}
+                {diversForm.ticketPhoto ? <img src={diversForm.ticketPhoto} alt="Ticket" className="fp-ticket" /> : null}
               </label>
-              <div className="category-modal-actions">
-                {editingDivers ? (
-                  <button type="button" className="button danger small" onClick={() => { closeDiversDialog(); deleteSupply(editingDivers); }}>{L.common.delete}</button>
-                ) : null}
-                <button type="button" onClick={closeDiversDialog}>{L.common.cancel}</button>
-                <button type="submit" className="button blue">{editingDivers ? L.common.save : L.common.create}</button>
-              </div>
-            </form>
-          </div>
-        ) : null}
-
-        {categoryDialog ? (
-          <div className="modal-overlay" onClick={closeCategoryDialog}>
-            <form className="mini-modal category-modal" onSubmit={submitCategoryForm} onClick={(event) => event.stopPropagation()}>
-              <h2>{editingCategory ? L.fournitures.editCategory : L.fournitures.newCategory}</h2>
-
-              <label className="category-modal-field">
-                <span>{L.fournitures.description}</span>
-                <input
-                  value={categoryForm.name}
-                  onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-                  placeholder={L.fournitures.category}
-                  autoFocus
-                  required
-                />
-              </label>
-
-              <div className="category-modal-actions">
-                {editingCategory ? (
-                  <button type="button" className="button danger small" onClick={() => { closeCategoryDialog(); deleteCategory(editingCategory); }}>{L.common.delete}</button>
-                ) : null}
-                <button type="button" onClick={closeCategoryDialog}>{L.common.cancel}</button>
-                <button type="submit" className="button blue">{editingCategory ? L.common.save : L.common.create}</button>
-              </div>
-            </form>
-          </div>
-        ) : null}
-
-        {statModal ? (
-          <div className="modal-overlay" onClick={() => setStatModal(null)}>
-            <div className="mini-modal stat-detail-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="stat-detail-head">
-                <h2>{STAT_MODAL_TITLES[statModal]}</h2>
-                <button type="button" className="mini-button" onClick={() => setStatModal(null)}>✕</button>
-              </div>
-              {statModalGroups.length === 0 ? (
-                <div className="tool-empty">Aucun achat pour le moment.</div>
-              ) : (
-                <div className="stat-detail-body">
-                  {statModalGroups.map((group) => (
-                    <div className="stat-detail-group" key={group.label}>
-                      <strong className="stat-detail-date">{group.label}</strong>
-                      <div className="supplier-articles-list">
-                        {group.items.map((item) => (
-                          <div
-                            className="divers-purchase-row"
-                            key={item.id}
-                            onClick={() => { setStatModal(null); openEditDivers(item); }}
-                          >
-                            <span className="supplier-list-avatar">{storeInitials(item.storeName)}</span>
-                            <div className="divers-purchase-main">
-                              <strong>{item.name}</strong>
-                              <small>{item.storeName || "Sans magasin"}</small>
-                            </div>
-                            <div className="divers-purchase-tags">
-                              {item.projectTitle ? <span className="divers-tag divers-tag-project">{item.projectTitle}</span> : <span className="divers-tag">Sans chantier</span>}
-                              {item.ticketPhoto ? <span className="divers-tag divers-tag-ticket">📎 Ticket</span> : <span className="divers-tag divers-tag-warning">Sans ticket</span>}
-                            </div>
-                            <span className="supplier-article-price">{euro(item.amountTtc)} <small>TTC</small></span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+            <div className="pm-act">
+              {editingDivers ? <button type="button" className="btn btn-sec pm-left" onClick={() => { closeDiversDialog(); deleteSupply(editingDivers); }}>{L.common.delete}</button> : null}
+              <button type="button" className="btn btn-sec" onClick={closeDiversDialog}>{L.common.cancel}</button>
+              <button type="submit" className="btn btn-main">{editingDivers ? L.common.save : L.common.create}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {categoryDialog ? (
+        <div className="pmodal-bg" onClick={closeCategoryDialog}>
+          <form className="pmodal fp-small" role="dialog" aria-modal="true" aria-label={editingCategory ? L.fournitures.editCategory : L.fournitures.newCategory} onSubmit={submitCategoryForm} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>{editingCategory ? L.fournitures.editCategory : L.fournitures.newCategory}</h2>
+              <button type="button" className="link" onClick={closeCategoryDialog}>Fermer</button>
+            </div>
+            <div className="fgrid">
+              <label className="full">Nom de la catégorie
+                <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder={L.fournitures.category} autoFocus required />
+              </label>
+            </div>
+            <div className="pm-act">
+              {editingCategory ? <button type="button" className="btn btn-sec pm-left" onClick={() => { closeCategoryDialog(); deleteCategory(editingCategory); }}>{L.common.delete}</button> : null}
+              <button type="button" className="btn btn-sec" onClick={closeCategoryDialog}>{L.common.cancel}</button>
+              <button type="submit" className="btn btn-main">{editingCategory ? L.common.save : L.common.create}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {statModal ? (
+        <div className="pmodal-bg" onClick={() => setStatModal(null)}>
+          <div className="pmodal" role="dialog" aria-modal="true" aria-label={STAT_MODAL_TITLES[statModal]} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>{STAT_MODAL_TITLES[statModal]}</h2>
+              <button type="button" className="link" onClick={() => setStatModal(null)}>Fermer</button>
+            </div>
+            {statModalGroups.length === 0 ? <p className="muted">Aucun achat pour le moment.</p> : statModalGroups.map((group) => (
+              <div key={group.label}>
+                <h3>{group.label}</h3>
+                {group.items.map((item) => (
+                  <div className="row fp-row" key={item.id} role="button" tabIndex={0} onClick={() => { setStatModal(null); openEditDivers(item); }} onKeyDown={(event) => handleRowKey(event, () => { setStatModal(null); openEditDivers(item); })}>
+                    <span className="ct-av sm st">{storeInitials(item.storeName)}</span>
+                    <div className="t">
+                      <strong>{item.name}</strong>
+                      <small>{[item.storeName || "Sans magasin", item.projectTitle || "sans chantier", item.ticketPhoto ? "ticket joint" : "sans ticket"].join(" · ")}</small>
+                    </div>
+                    <b>{price(item.amountTtc)} TTC</b>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-        ) : null}
-      </section>
+        </div>
+      ) : null}
     </Shell>
   );
 }

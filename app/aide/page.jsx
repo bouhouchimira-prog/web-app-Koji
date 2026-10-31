@@ -1,5 +1,6 @@
 "use client";
 
+import "../home-pro.css";
 import { useState } from "react";
 
 // Page "Aide" (15 oct, maquette fournie par Amira) — contrairement aux
@@ -61,135 +62,79 @@ export default function AidePage() {
   const [activeTheme, setActiveTheme] = useState("");
 
   const visibleArticles = activeTheme ? ARTICLES.filter((a) => a.theme === activeTheme) : ARTICLES;
+  const themeLabel = (key) => THEMES.find((theme) => theme.key === key)?.label || "";
 
   return (
-    <main className="static-page">
-      <section className="fournitures-dashboard">
-        <header className="fournitures-dashboard-head">
-          <div>
-            <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-            <h1><span className="title-chip">Aide</span></h1>
-            <p>Guides et support pour tirer le meilleur de koji.</p>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <a href="mailto:contact@kojibuild.com" className="button blue">Contacter le support</a>
-          </div>
-        </header>
-
-        <div className="fournitures-kpi-row">
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📚</span>
-              <span className="title-chip">Articles</span>
-            </div>
-            <strong>{ARTICLES.length}</strong>
-            <small>guides pas à pas</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🗂️</span>
-              <span className="title-chip">Thèmes</span>
-            </div>
-            <strong>{THEMES.length}</strong>
-            <small>à parcourir</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏱</span>
-              <span className="title-chip">Réponse support</span>
-            </div>
-            <strong>24-48h</strong>
-            <small>par email</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">✅</span>
-              <span className="title-chip">Statut de koji</span>
-            </div>
-            <strong>Opérationnel</strong>
-            <small>aucun incident</small>
-          </div>
+    <div className="pro public-pro wide">
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>← Retour</button>
+          <span className="eyebrow">Aide</span>
+          <h1>Comment pouvons-nous vous aider ?</h1>
+          <span className="muted">Guides et support pour tirer le meilleur de koji.</span>
         </div>
+      </div>
 
-        <div className="fournitures-dashboard-body">
-          <div className="fournitures-main-card">
-            <div className="fournitures-main-card-head">
-              <strong className="title-chip">Parcourir par thème</strong>
-            </div>
-            <div className="library-family-grid">
-              <button
-                type="button"
-                className="library-family-card"
-                onClick={() => setActiveTheme("")}
-                style={activeTheme === "" ? { borderColor: "var(--navy)" } : undefined}
-              >
-                <div className="library-family-card-head">
-                  <span className="library-family-icon">📋</span>
-                  <strong>{ARTICLES.length}</strong>
-                </div>
-                <strong className="library-family-name">Tous les articles</strong>
-                <small className="library-family-metier">&nbsp;</small>
-              </button>
-              {THEMES.map((theme) => {
-                const count = ARTICLES.filter((a) => a.theme === theme.key).length;
-                return (
-                  <button
-                    type="button"
-                    key={theme.key}
-                    className="library-family-card"
-                    onClick={() => setActiveTheme(theme.key)}
-                    style={activeTheme === theme.key ? { borderColor: "var(--navy)" } : undefined}
-                  >
-                    <div className="library-family-card-head">
-                      <span className="library-family-icon">{theme.icon}</span>
-                      <strong>{count}</strong>
-                    </div>
-                    <strong className="library-family-name">{theme.label}</strong>
-                    <small className="library-family-metier">{count} article{count > 1 ? "s" : ""}</small>
-                  </button>
-                );
-              })}
-            </div>
+      <div className="aide-g">
+        <div className="kj-col">
+          <div className="aide-themes">
+            <button type="button" className={`card aide-theme${activeTheme === "" ? " on" : ""}`} onClick={() => setActiveTheme("")}>
+              <div className="aide-theme-h"><h2>Tous les articles</h2><span className="tag dim">{ARTICLES.length}</span></div>
+              <span className="sm2">{ARTICLES.length} guides pas à pas</span>
+            </button>
+            {THEMES.map((theme) => {
+              const count = ARTICLES.filter((a) => a.theme === theme.key).length;
+              return (
+                <button type="button" key={theme.key} className={`card aide-theme${activeTheme === theme.key ? " on" : ""}`} onClick={() => setActiveTheme(theme.key)}>
+                  <div className="aide-theme-h"><h2>{theme.label}</h2><span className="tag dim">{count}</span></div>
+                  <span className="link">Voir les guides</span>
+                </button>
+              );
+            })}
+          </div>
 
-            <div className="aide-article-list">
-              {visibleArticles.map((article) => (
-                <details className="static-faq-item" key={article.title}>
-                  <summary>{article.title}</summary>
-                  <p>{article.body}</p>
-                </details>
-              ))}
+          <section className="card">
+            <div className="card-h">
+              <h2>{activeTheme ? themeLabel(activeTheme) : "Articles"}</h2>
+              <span className="sm2">{visibleArticles.length} article{visibleArticles.length > 1 ? "s" : ""}</span>
             </div>
-
-            <div className="fournitures-main-card-head" style={{ marginTop: 24 }}>
-              <strong className="title-chip">Questions fréquentes</strong>
-            </div>
-            {FAQ.map((item) => (
-              <details className="static-faq-item" key={item.q}>
-                <summary>{item.q}</summary>
-                <p>{item.a}</p>
+            {visibleArticles.map((article) => (
+              <details className="aide-q" key={article.title}>
+                <summary>{article.title}</summary>
+                <p className="kj-p">{article.body}</p>
               </details>
             ))}
-          </div>
+          </section>
 
-          <div>
-            <div className="aide-support-card">
-              <strong>BESOIN D'UN COUP DE MAIN ?</strong>
-              <p>Écrivez-nous, nous répondons sous 24 à 48h.</p>
-              <a href="mailto:contact@kojibuild.com" className="button white">Écrire au support</a>
-            </div>
-
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Prise en main</strong>
-              {QUICKSTART.map((item) => (
-                <a className="aide-quickstart-row" href={item.href} key={item.href}>
-                  <span className="aide-quickstart-icon">▶</span>
-                  <strong>{item.title}</strong>
-                </a>
-              ))}
-            </div>
-          </div>
+          <section className="card">
+            <div className="card-h"><h2>Questions fréquentes</h2></div>
+            {FAQ.map((item) => (
+              <details className="aide-q" key={item.q}>
+                <summary>{item.q}</summary>
+                <p className="kj-p">{item.a}</p>
+              </details>
+            ))}
+          </section>
         </div>
-      </section>
-    </main>
+
+        <aside className="kj-col">
+          <section className="card">
+            <div className="card-h"><h2>Parler à quelqu'un</h2></div>
+            <p className="kj-p">Écrivez-nous, nous répondons sous 24 à 48 h.</p>
+            <a href="mailto:contact@kojibuild.com" className="btn btn-main">Écrire au support</a>
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>Prise en main</h2></div>
+            {QUICKSTART.map((item) => (
+              <a className="row pf-go st-row" href={item.href} key={item.href}>
+                <div className="t"><strong>{item.title}</strong></div>
+                <span aria-hidden="true">›</span>
+              </a>
+            ))}
+          </section>
+        </aside>
+      </div>
+    </div>
   );
 }

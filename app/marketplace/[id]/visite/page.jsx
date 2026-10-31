@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Shell } from "../../../../components/Shell";
@@ -14,6 +15,7 @@ import {
   timestampedAnswer
 } from "../../../../lib/visite-tree";
 import { matchMetierFromVocabulaire } from "../../../../lib/renovation-question-bank";
+import { titreCourt } from "../../../../lib/radar-display";
 
 // Assistant de visite guidee (12 septembre) — remplace le bouton "Creer mon
 // devis" instantane a l'etape ou l'entreprise positionnee visite le
@@ -26,6 +28,8 @@ import { matchMetierFromVocabulaire } from "../../../../lib/renovation-question-
 // deterministe (temps x taux horaire de la personne, bibliotheque de prix)
 // et cree le devis dans l'editeur existant.
 const PIECE_STEPS = ["photos", "metre", "etat", "finitions", "acces", "remarques"];
+const STEP_LABELS = { photos: "Photos", metre: "Métré", etat: "État des supports", finitions: "Finitions", acces: "Accès", remarques: "Remarques" };
+const COUNTER_LABELS = { lavabo: "Lavabo", "douche/baignoire": "Douche ou baignoire", wc: "WC", autre: "Autre" };
 
 function readAsDataUrl(file) {
   return new Promise((resolve) => {
@@ -189,103 +193,135 @@ export default function VisiteGuideePage() {
 
   const metreFields = METRE_FIELDS_BY_METIER[metier] || [];
   const pieceStep = PIECE_STEPS[pieceStepIndex];
+  const offerTitle = offre ? titreCourt(offre.description) : "Chantier";
+  const phaseIndex = { intro: 0, pieces: 1, "piece-questions": 1, suggestions: 2, generating: 3 }[phase] ?? 0;
+
+  function renderChoices(options, value, onPick, label) {
+    return (
+      <div className="chips" role="group" aria-label={label}>
+        {options.map((option) => (
+          <button type="button" key={option} className={`chip chip-s${value === option ? " on" : ""}`} aria-pressed={value === option} onClick={() => onPick(option)}>
+            {option}
+          </button>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <Shell>
-      <section className="mobile-tool tool-form-view">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => router.back()}>{"<"}</button>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            <Link href="/marketplace" className="link">Radar des chantiers</Link>
+            {" · "}
+            <Link href={`/marketplace/${offerId}`} className="link">{offerTitle}</Link>
+          </span>
           <h1>Visite guidée</h1>
-          <span />
-        </header>
+          <span className="muted">Métré pièce par pièce, puis devis chiffré au taux horaire de la personne qui visite.</span>
+        </div>
+      </div>
 
-        {phase === "intro" ? (
-          <div className="mobile-form">
-            <label className="mobile-input full">
-              <span>Métier concerné</span>
+      <ol className="vg-steps" aria-label="Étapes de la visite">
+        {["Préparer", "Pièces", "Suggestions", "Devis"].map((label, i) => (
+          <li key={label} className={i < phaseIndex ? "done" : i === phaseIndex ? "on" : ""} aria-current={i === phaseIndex ? "step" : undefined}>{label}</li>
+        ))}
+      </ol>
+
+      {phase === "intro" ? (
+        <section className="card vg-card">
+          <div className="card-h"><h2>Préparer la visite</h2></div>
+          <div className="fgrid">
+            <label>Métier concerné
               <select value={metier} onChange={(e) => setMetier(e.target.value)}>
                 {VISITE_METIERS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
               </select>
             </label>
-
-            <label className="mobile-input full">
-              <span>Qui réalise la visite ?</span>
+            <label>Qui réalise la visite ?
               <select value={workerId} onChange={(e) => setWorkerId(e.target.value)}>
                 <option value="">Sélectionner…</option>
                 {workers.map((w) => (
-                  <option key={w.id} value={w.id}>{w.name}{w.hourlyRate ? ` — ${w.hourlyRate}€/h` : ""}</option>
+                  <option key={w.id} value={w.id}>{w.name}{w.hourlyRate ? ` — ${w.hourlyRate} €/h` : ""}</option>
                 ))}
               </select>
             </label>
-
-            {error ? <p className="tool-message">{error}</p> : null}
-
-            <button type="button" className="mobile-primary" onClick={startVisite}>
-              Commencer la visite
-            </button>
           </div>
-        ) : null}
+          {error ? <p className="err" role="alert">{error}</p> : null}
+          <div className="ed-act">
+            <button type="button" className="btn btn-main" onClick={startVisite}>Commencer la visite</button>
+          </div>
+        </section>
+      ) : null}
 
-        {phase === "pieces" ? (
-          <div className="mobile-form">
-            <div className="mobile-input full">
-              <span>Pièces déjà visitées</span>
-              {pieces.length === 0 ? <p className="muted">Aucune pièce ajoutée pour l'instant.</p> : (
-                <ul className="radar-address-suggestions" style={{ position: "static", boxShadow: "none", border: "1px solid var(--line)" }}>
-                  {pieces.map((p) => <li key={p.id}><span style={{ padding: "9px 10px", display: "block" }}>{p.nom}</span></li>)}
-                </ul>
-              )}
+      {phase === "pieces" ? (
+        <section className="card vg-card">
+          <div className="card-h">
+            <h2>Pièces visitées{pieces.length ? <span className="kcnt">{pieces.length}</span> : null}</h2>
+          </div>
+          {pieces.length === 0 ? <p className="empty">Aucune pièce ajoutée pour l'instant.</p> : pieces.map((p) => (
+            <div className="row" key={p.id}>
+              <div className="t">
+                <strong>{p.nom}</strong>
+                <small>{p.photos.length} photo{p.photos.length > 1 ? "s" : ""}{p.remarques?.value ? " · remarques" : ""}</small>
+              </div>
+              <span className="tag tag-e">Visitée</span>
             </div>
-
-            <label className="mobile-input full">
-              <span>Nom de la pièce à ajouter</span>
-              <input value={newPieceName} onChange={(e) => setNewPieceName(e.target.value)} placeholder="Ex : Salle de bain" />
-            </label>
-
-            {error ? <p className="tool-message">{error}</p> : null}
-
-            <button type="button" className="mobile-primary" onClick={addPiece} disabled={!newPieceName.trim()}>
-              Ajouter cette pièce
-            </button>
-            <button type="button" className="button secondary" style={{ width: "100%" }} onClick={finishVisite} disabled={pieces.length === 0}>
+          ))}
+          <div className="pform">
+            <input
+              value={newPieceName}
+              onChange={(e) => setNewPieceName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPiece(); } }}
+              placeholder="Nom de la pièce, ex : Salle de bain"
+              aria-label="Nom de la pièce à ajouter"
+            />
+            <button type="button" className="btn btn-sec" onClick={addPiece} disabled={!newPieceName.trim()}>Ajouter cette pièce</button>
+          </div>
+          {error ? <p className="err" role="alert">{error}</p> : null}
+          <div className="ed-act">
+            <button type="button" className="btn btn-main" onClick={finishVisite} disabled={pieces.length === 0}>
               Terminer la visite ({pieces.length} pièce{pieces.length > 1 ? "s" : ""})
             </button>
           </div>
-        ) : null}
+        </section>
+      ) : null}
 
-        {phase === "piece-questions" && currentPiece ? (
-          <div className="mobile-form">
-            <p className="tool-message" style={{ background: "none", padding: 0 }}>
-              {currentPiece.nom} — étape {pieceStepIndex + 1} / {PIECE_STEPS.length}
-            </p>
+      {phase === "piece-questions" && currentPiece ? (
+        <section className="card vg-card">
+          <div className="card-h">
+            <h2>{currentPiece.nom}</h2>
+            <span className="muted">étape {pieceStepIndex + 1} / {PIECE_STEPS.length} · {STEP_LABELS[pieceStep]}</span>
+          </div>
+          <div className="bar vg-bar"><i style={{ width: `${((pieceStepIndex + 1) / PIECE_STEPS.length) * 100}%` }} /></div>
 
-            {pieceStep === "photos" ? (
-              <div className="mobile-input full">
-                <span>Photos de la pièce</span>
-                <label className="radar-dropzone">
-                  <input type="file" accept="image/*" multiple onChange={onPhotosChange} />
-                  <strong>Ajouter des photos</strong>
-                  <span>Cliquez ou glissez vos fichiers ici · 8 max</span>
-                </label>
-                {currentPiece.photos.length > 0 ? (
-                  <div className="radar-photo-grid">
-                    {currentPiece.photos.map((photo, index) => (
-                      <div className="radar-photo-thumb" key={index}>
-                        <img src={photo} alt={`Photo ${index + 1}`} />
-                        <button type="button" onClick={() => removePhoto(index)}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+          {pieceStep === "photos" ? (
+            <div className="vg-field">
+              <span className="flab">Photos de la pièce</span>
+              <label className="vg-drop">
+                <input type="file" accept="image/*" multiple onChange={onPhotosChange} aria-label="Ajouter des photos de la pièce" />
+                <strong>Ajouter des photos</strong>
+                <span>Cliquez ou glissez vos fichiers ici · 8 max</span>
+              </label>
+              {currentPiece.photos.length > 0 ? (
+                <div className="rd-ph">
+                  {currentPiece.photos.map((photo, index) => (
+                    <div className="vg-thumb" key={index}>
+                      <img src={photo} alt={`Photo ${index + 1}`} />
+                      <button type="button" className="dx" onClick={() => removePhoto(index)} aria-label={`Retirer la photo ${index + 1}`}>×</button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
-            {pieceStep === "metre" ? (
-              <>
-                {metreFields.map((field) => (
-                  <div className="mobile-input full" key={field.key}>
-                    <span>{field.label}</span>
-                    {field.type === "nombre" ? (
+          {pieceStep === "metre" ? (
+            <div className="fgrid">
+              {metreFields.length === 0 ? <p className="full muted">Pas de métré prévu pour ce métier.</p> : null}
+              {metreFields.map((field) => {
+                if (field.type === "nombre") {
+                  return (
+                    <label key={field.key}>{field.label}
                       <input
                         type="number"
                         min="0"
@@ -293,26 +329,31 @@ export default function VisiteGuideePage() {
                         onChange={(e) => setMetreField(field.key, e.target.value)}
                         placeholder={field.unit}
                       />
-                    ) : null}
-                    {field.type === "oui_non" ? (
-                      <div className="radar-quick-options">
+                    </label>
+                  );
+                }
+                if (field.type === "oui_non") {
+                  const current = currentPiece.metre.fields[field.key]?.value;
+                  return (
+                    <div className="full" key={field.key}>
+                      <span className="flab">{field.label}</span>
+                      <div className="kp-seg" role="group" aria-label={field.label}>
                         {["oui", "non"].map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            className={`radar-quick-option-btn${currentPiece.metre.fields[field.key]?.value === v ? " active" : ""}`}
-                            onClick={() => setMetreField(field.key, v)}
-                          >
+                          <button type="button" key={v} className={current === v ? "on" : ""} aria-pressed={current === v} onClick={() => setMetreField(field.key, v)}>
                             {v === "oui" ? "Oui" : "Non"}
                           </button>
                         ))}
                       </div>
-                    ) : null}
-                    {field.type === "compteur" ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    </div>
+                  );
+                }
+                if (field.type === "compteur") {
+                  return (
+                    <div className="full" key={field.key}>
+                      <span className="flab">{field.label}</span>
+                      <div className="fgrid fgrid4">
                         {["lavabo", "douche/baignoire", "wc", "autre"].map((sousType) => (
-                          <label key={sousType} className="mobile-input full">
-                            <span style={{ fontWeight: 400, fontSize: 13 }}>{sousType}</span>
+                          <label key={sousType}>{COUNTER_LABELS[sousType]}
                             <input
                               type="number"
                               min="0"
@@ -322,79 +363,49 @@ export default function VisiteGuideePage() {
                           </label>
                         ))}
                       </div>
-                    ) : null}
-                  </div>
-                ))}
-              </>
-            ) : null}
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          ) : null}
 
-            {pieceStep === "etat" ? (
-              <div className="mobile-input full">
-                <span>État des supports constaté par l'artisan</span>
-                <div className="radar-quick-options">
-                  {ETAT_CONSTATE_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`radar-quick-option-btn${currentPiece.etatConstate?.value === option ? " active" : ""}`}
-                      onClick={() => setCurrentPiece((p) => ({ ...p, etatConstate: timestampedAnswer(option) }))}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
+          {pieceStep === "etat" ? (
+            <div className="vg-field">
+              <span className="flab">État des supports constaté</span>
+              {renderChoices(ETAT_CONSTATE_OPTIONS, currentPiece.etatConstate?.value, (option) => setCurrentPiece((p) => ({ ...p, etatConstate: timestampedAnswer(option) })), "État des supports")}
+            </div>
+          ) : null}
+
+          {pieceStep === "finitions" ? (
+            <>
+              <div className="vg-field">
+                <span className="flab">Finitions souhaitées par le client</span>
+                {renderChoices(FINITION_DEMANDEE_OPTIONS, currentPiece.finitionsDemandees?.value, (option) => setCurrentPiece((p) => ({ ...p, finitionsDemandees: timestampedAnswer(option) })), "Finitions souhaitées")}
               </div>
-            ) : null}
-
-            {pieceStep === "finitions" ? (
-              <>
-                <div className="mobile-input full">
-                  <span>Finitions souhaitées par le client</span>
-                  <div className="radar-quick-options">
-                    {FINITION_DEMANDEE_OPTIONS.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`radar-quick-option-btn${currentPiece.finitionsDemandees?.value === option ? " active" : ""}`}
-                        onClick={() => setCurrentPiece((p) => ({ ...p, finitionsDemandees: timestampedAnswer(option) }))}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <label className="mobile-input full">
-                  <span>Précision du client (optionnel)</span>
+              <div className="fgrid">
+                <label className="full">Précision du client (optionnel)
                   <input
                     value={currentPiece.finitionsPrecision?.value || ""}
                     onChange={(e) => setCurrentPiece((p) => ({ ...p, finitionsPrecision: timestampedAnswer(e.target.value) }))}
                     placeholder="Ex : carrelage gris clair, couleur RAL..."
                   />
                 </label>
-              </>
-            ) : null}
-
-            {pieceStep === "acces" ? (
-              <div className="mobile-input full">
-                <span>Accès à cette pièce</span>
-                <div className="radar-quick-options">
-                  {ACCES_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`radar-quick-option-btn${currentPiece.acces?.value === option ? " active" : ""}`}
-                      onClick={() => setCurrentPiece((p) => ({ ...p, acces: timestampedAnswer(option) }))}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
               </div>
-            ) : null}
+            </>
+          ) : null}
 
-            {pieceStep === "remarques" ? (
-              <label className="mobile-input full">
-                <span>Remarques libres</span>
+          {pieceStep === "acces" ? (
+            <div className="vg-field">
+              <span className="flab">Accès à cette pièce</span>
+              {renderChoices(ACCES_OPTIONS, currentPiece.acces?.value, (option) => setCurrentPiece((p) => ({ ...p, acces: timestampedAnswer(option) })), "Accès à la pièce")}
+            </div>
+          ) : null}
+
+          {pieceStep === "remarques" ? (
+            <div className="fgrid">
+              <label className="full">Remarques libres
                 <textarea
                   rows={4}
                   value={currentPiece.remarques?.value || ""}
@@ -402,48 +413,47 @@ export default function VisiteGuideePage() {
                   placeholder="Ex : trace d'infiltration au plafond, fissure au mur nord..."
                 />
               </label>
-            ) : null}
+            </div>
+          ) : null}
 
-            <button type="button" className="mobile-primary" onClick={nextPieceStep}>
+          <div className="ed-act">
+            {pieceStepIndex > 0 ? <button type="button" className="btn btn-sec" onClick={() => setPieceStepIndex(pieceStepIndex - 1)}>Précédent</button> : null}
+            <button type="button" className="btn btn-main" onClick={nextPieceStep}>
               {pieceStepIndex + 1 < PIECE_STEPS.length ? "Suivant" : "Valider cette pièce"}
             </button>
           </div>
-        ) : null}
+        </section>
+      ) : null}
 
-        {phase === "suggestions" ? (
-          <div className="mobile-form">
-            <div className="mobile-input full">
-              <span>Suggestions à partir des remarques</span>
-              {suggestions.length === 0 ? (
-                <p className="muted">Aucune suggestion détectée dans les remarques.</p>
-              ) : (
-                <div className="radar-conseil-list">
-                  {suggestions.map((s) => (
-                    <label key={s.id} className={`radar-conseil-item${acceptedSuggestionIds.has(s.id) ? " checked" : ""}`}>
-                      <input type="checkbox" checked={acceptedSuggestionIds.has(s.id)} onChange={() => toggleSuggestion(s.id)} />
-                      <span className="radar-conseil-label">{s.label} ({s.pieceNom})</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+      {phase === "suggestions" ? (
+        <section className="card vg-card">
+          <div className="card-h"><h2>Suggestions à partir des remarques</h2></div>
+          {suggestions.length === 0 ? (
+            <p className="empty">Aucune suggestion détectée dans les remarques.</p>
+          ) : (
+            <div className="sq-checks vg-sugg">
+              {suggestions.map((s) => (
+                <label key={s.id} className="chk">
+                  <input type="checkbox" checked={acceptedSuggestionIds.has(s.id)} onChange={() => toggleSuggestion(s.id)} />
+                  {s.label} ({s.pieceNom})
+                </label>
+              ))}
             </div>
-
-            {error ? <p className="tool-message">{error}</p> : null}
-
-            <button type="button" className="mobile-primary" onClick={generateDevis}>
-              ✨ Générer le devis
-            </button>
+          )}
+          {error ? <p className="err" role="alert">{error}</p> : null}
+          <div className="ed-act">
+            <button type="button" className="btn btn-main" onClick={generateDevis}>Générer le devis</button>
           </div>
-        ) : null}
+        </section>
+      ) : null}
 
-        {phase === "generating" ? (
-          <div className="radar-expertise-loading">
-            <div className="radar-expertise-spinner" />
-            <strong>Génération du devis en cours…</strong>
-            <p>Calcul des lignes à partir de la bibliothèque de prix et du taux horaire choisi.</p>
-          </div>
-        ) : null}
-      </section>
+      {phase === "generating" ? (
+        <section className="card vg-card vg-loading" aria-live="polite">
+          <span className="vg-spin" aria-hidden="true" />
+          <strong>Génération du devis en cours…</strong>
+          <p className="muted">Calcul des lignes à partir de la bibliothèque de prix et du taux horaire choisi.</p>
+        </section>
+      ) : null}
     </Shell>
   );
 }

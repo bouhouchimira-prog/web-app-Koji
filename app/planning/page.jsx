@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
+
+// Attribution des tâches aux intervenants (ouvert depuis le Calendrier,
+// DA Koji Pro).
 
 const initialTask = {
   label: "",
@@ -14,22 +18,30 @@ const initialTask = {
   durationHours: 1
 };
 
+function shortDay(value) {
+  const text = String(value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
+  const [y, m, d] = text.split("-").map(Number);
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(y, m - 1, d));
+}
+
 export default function PlanningPage() {
   const { L } = useLocale();
   const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: workers } = useApi("/api/workers", "workers");
-  const [projectId, setProjectId] = useState("");
+  // null : pas encore initialisé (premier chantier par défaut) ; "" : tous.
+  const [projectId, setProjectId] = useState(null);
   const [taskForm, setTaskForm] = useState(initialTask);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assignTask, setAssignTask] = useState(null);
   const [participantType, setParticipantType] = useState("Ouvrier");
   const [workerSearch, setWorkerSearch] = useState("");
   const [selectedWorkers, setSelectedWorkers] = useState([]);
-  const [success, setSuccess] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!projectId && projects.length) setProjectId(projects[0].id);
+    if (projectId === null && projects.length) setProjectId(projects[0].id);
   }, [projectId, projects]);
 
   const selectedProject = projects.find((project) => project.id === projectId);
@@ -38,6 +50,9 @@ export default function PlanningPage() {
     if (!selectedProject) return tasks;
     return tasks.filter((task) => task.projectId === selectedProject.id || task.project === selectedProject.title);
   }, [selectedProject, tasks]);
+
+  const workerNames = useMemo(() => Object.fromEntries(workers.map((worker) => [worker.id, worker.name])), [workers]);
+  const unassignedCount = projectTasks.filter((task) => !task.done && !(task.workerIds || []).length).length;
 
   const visibleWorkers = useMemo(() => {
     const needle = workerSearch.trim().toLowerCase();
@@ -64,6 +79,7 @@ export default function PlanningPage() {
     setTasks([task, ...tasks]);
     setTaskForm(initialTask);
     setNewTaskOpen(false);
+    setMessage(`Tâche ajoutée : ${fixText(task.label)}`);
   }
 
   function openAssign(task) {
@@ -87,106 +103,153 @@ export default function PlanningPage() {
     setTasks(tasks.map((item) => (item.id === task.id ? task : item)));
     setAssignTask(null);
     setSelectedWorkers([]);
-    setSuccess(true);
+    setMessage(`Tâche attribuée : ${fixText(task.label)}`);
   }
 
-  if (success) {
-    return (
-      <Shell>
-        <section className="mobile-tool success-view">
-          <div className="big-check"><span>OK</span></div>
-          <h1>{L.planning.confirmAssign}</h1>
-          <p>{L.common.success}</p>
-          <button type="button" className="mobile-primary" onClick={() => setSuccess(false)}>{L.planning.title}</button>
-          <button type="button" className="text-action" onClick={() => window.location.href = "/"}>{L.common.back}</button>
-        </section>
-      </Shell>
-    );
-  }
-
-  if (assignTask) {
-    return (
-      <Shell>
-        <section className="mobile-tool">
-          <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={() => setAssignTask(null)}>{"<"}</button>
-            <h1>{L.planning.assign}</h1>
-            <button type="button" className="round-pill" onClick={validateAssignment} disabled={selectedWorkers.length === 0}>{L.common.confirm}</button>
-          </header>
-          <div className="search-pill">
-            <input value={workerSearch} onChange={(event) => setWorkerSearch(event.target.value)} placeholder={L.planning.search} />
-          </div>
-          <div className="segmented large">
-            <button type="button" className={participantType === "Ouvrier" ? "active" : ""} onClick={() => setParticipantType("Ouvrier")}>{L.planning.worker}</button>
-            <button type="button" className={participantType === "Sous-traitant" ? "active" : ""} onClick={() => setParticipantType("Sous-traitant")}>{L.planning.subcontractor}</button>
-          </div>
-          <div className="people-list">
-            {visibleWorkers.length === 0 ? <div className="tool-empty">{L.planning.noWorkers}</div> : null}
-            {visibleWorkers.map((worker) => (
-              <button type="button" className="person-row as-button" key={worker.id} onClick={() => toggleWorker(worker.id)}>
-                <div className="avatar">
-                  {(worker.name || "AB").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
-                  <i className={worker.availability === "Disponible" ? "online" : ""} />
-                </div>
-                <div>
-                  <strong>{worker.name}</strong>
-                  <small>{worker.profession || worker.role || participantType}</small>
-                </div>
-                <span className={selectedWorkers.includes(worker.id) ? "select-dot selected" : "select-dot"} />
-              </button>
-            ))}
-          </div>
-          <button type="button" className="mobile-primary sticky-bottom" onClick={() => window.location.href = "/equipe"}>{L.common.add}</button>
-        </section>
-      </Shell>
-    );
+  function assigneesOf(task) {
+    const names = (task.workerIds || []).map((id) => workerNames[id]).filter(Boolean);
+    if (names.length) return names.join(", ");
+    return task.assignedTo && task.assignedTo !== "Equipe" ? fixText(task.assignedTo) : "";
   }
 
   return (
-    <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
-          <h1>{L.planning.title}</h1>
-          <span />
-        </header>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            <Link href="/calendrier" className="link">Calendrier</Link>
+            {" · "}{projectTasks.length} tâche{projectTasks.length > 1 ? "s" : ""}{unassignedCount ? ` · ${unassignedCount} sans intervenant` : ""}
+          </span>
+          <h1>Attribuer les tâches</h1>
+        </div>
+        <div className="acts">
+          <button type="button" className="btn btn-main" onClick={() => setNewTaskOpen((open) => !open)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            {L.planning.newTask}
+          </button>
+        </div>
+      </div>
 
-        <label className="mobile-input full">
-          <span>{L.planning.project}</span>
-          <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+      {message ? <p className="notice" role="status">{message}</p> : null}
+
+      <div className="tbar">
+        <label className="search search-wide pl-filter">
+          <span className="flab">{L.planning.project}</span>
+          <select value={projectId ?? ""} onChange={(event) => setProjectId(event.target.value)} aria-label={L.planning.project}>
             <option value="">{L.planning.allProjects}</option>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
           </select>
         </label>
+      </div>
 
-        <h2 className="tool-subtitle">{L.planning.title}</h2>
-
-        <div className="task-list">
-          {projectTasks.length === 0 ? <div className="tool-empty">{L.planning.noTasks}</div> : null}
-          {projectTasks.map((task) => (
-            <article className="task-card" key={task.id}>
-              <i />
-              <div>
-                <small>{fixText(task.room || "Chantier")}</small>
-                <strong>{fixText(task.label)}</strong>
-                <span>{task.assignedTo && task.assignedTo !== "Equipe" ? fixText(task.assignedTo) : L.planning.noWorkers}</span>
-              </div>
-              <button type="button" onClick={() => openAssign(task)}>{L.planning.assign}</button>
-            </article>
-          ))}
-        </div>
-
-        {newTaskOpen ? (
-          <form className="inline-panel" onSubmit={createTask}>
+      {newTaskOpen ? (
+        <form className="card" onSubmit={createTask}>
+          <div className="card-h">
+            <h2>{L.planning.newTask}</h2>
+            <span className="muted">{selectedProject ? fixText(selectedProject.title) : "Sans chantier"}</span>
+          </div>
+          <div className="fgrid fgrid3">
             <label>{L.planning.taskLabel}<input value={taskForm.label} onChange={(event) => setTaskField("label", event.target.value)} required /></label>
             <label>{L.planning.room}<input value={taskForm.room} onChange={(event) => setTaskField("room", event.target.value)} /></label>
             <label>{L.planning.dueDate}<input type="date" value={taskForm.dueDate} onChange={(event) => setTaskField("dueDate", event.target.value)} /></label>
-            <button className="mobile-primary compact">{L.planning.createTask}</button>
-          </form>
-        ) : null}
+          </div>
+          <div className="ed-act">
+            <button type="button" className="btn btn-sec" onClick={() => setNewTaskOpen(false)}>{L.common.cancel}</button>
+            <button type="submit" className="btn btn-sec">{L.planning.createTask}</button>
+          </div>
+        </form>
+      ) : null}
 
-        <button type="button" className="floating-action-button" onClick={() => setNewTaskOpen((open) => !open)}>+ {L.planning.newTask}</button>
-      </section>
+      {projectTasks.length === 0 ? (
+        <div className="tbl"><div className="empty">{L.planning.noTasks}</div></div>
+      ) : (
+        <>
+          <div className="tbl has-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tâche</th>
+                  <th>Chantier</th>
+                  <th>Date</th>
+                  <th>Intervenants</th>
+                  <th aria-label="Action" />
+                </tr>
+              </thead>
+              <tbody>
+                {projectTasks.map((task) => {
+                  const assignees = assigneesOf(task);
+                  const date = shortDay(task.startDate || task.dueDate);
+                  const end = shortDay(task.endDate);
+                  return (
+                    <tr key={task.id} tabIndex={0} onClick={() => openAssign(task)} onKeyDown={(event) => { if (event.key === "Enter") openAssign(task); }}>
+                      <td className="n">{fixText(task.label)}<div className="sm">{fixText(task.room || "Chantier")}</div></td>
+                      <td>{fixText(task.project || "—")}</td>
+                      <td className="sm2">{date ? (end && end !== date ? `${date} → ${end}` : date) : "sans date"}</td>
+                      <td>{assignees || <span className="tag tag-o">À attribuer</span>}</td>
+                      <td className="r">
+                        <button type="button" className="btn btn-sec" onClick={(event) => { event.stopPropagation(); openAssign(task); }}>{L.planning.assign}</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mlist">
+            {projectTasks.map((task) => {
+              const assignees = assigneesOf(task);
+              return (
+                <button type="button" className="m-card" key={task.id} onClick={() => openAssign(task)}>
+                  <div className="top2">
+                    <div>
+                      <div className="nm">{fixText(task.label)}</div>
+                      <div className="meta">{[fixText(task.project || ""), fixText(task.room || "")].filter(Boolean).join(" · ")}</div>
+                    </div>
+                    {assignees ? null : <span className="tag tag-o">À attribuer</span>}
+                  </div>
+                  <div className="line">{assignees || L.planning.noWorkers}</div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {assignTask ? (
+        <div className="pmodal-bg" onClick={() => setAssignTask(null)}>
+          <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.planning.assign} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>{L.planning.assign}</h2>
+              <button type="button" className="link" onClick={() => setAssignTask(null)}>Fermer</button>
+            </div>
+            <p className="muted">{fixText(assignTask.label)} · {fixText(assignTask.project || "Sans chantier")}</p>
+            <div className="kp-seg" role="group" aria-label="Type d'intervenant">
+              <button type="button" className={participantType === "Ouvrier" ? "on" : ""} aria-pressed={participantType === "Ouvrier"} onClick={() => setParticipantType("Ouvrier")}>{L.planning.worker}</button>
+              <button type="button" className={participantType === "Sous-traitant" ? "on" : ""} aria-pressed={participantType === "Sous-traitant"} onClick={() => setParticipantType("Sous-traitant")}>{L.planning.subcontractor}</button>
+            </div>
+            <label className="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+              <input value={workerSearch} onChange={(event) => setWorkerSearch(event.target.value)} placeholder={L.planning.search} aria-label={L.planning.search} />
+            </label>
+            <div className="sq-list">
+              {visibleWorkers.length === 0 ? <p className="muted">{L.planning.noWorkers}</p> : visibleWorkers.map((worker) => {
+                const on = selectedWorkers.includes(worker.id);
+                return (
+                  <button type="button" key={worker.id} className={`sq-pick${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleWorker(worker.id)}>
+                    <b>{worker.name}</b>
+                    <small>{[worker.profession || worker.role || participantType, worker.availability].filter(Boolean).join(" · ")}</small>
+                  </button>
+                );
+              })}
+            </div>
+            <div><Link href="/equipe" className="link">+ Ajouter un intervenant dans Équipe</Link></div>
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setAssignTask(null)}>{L.common.cancel}</button>
+              <button type="button" className="btn btn-main" onClick={validateAssignment} disabled={selectedWorkers.length === 0}>{L.common.confirm}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }

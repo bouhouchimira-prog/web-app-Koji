@@ -119,7 +119,7 @@ export default function NotificationDetailPage() {
   if (loading) {
     return (
       <Shell>
-        <section className="panel"><div className="empty-state">{L.clientSpace.loading}</div></section>
+        <div className="empty">{L.clientSpace.loading}</div>
       </Shell>
     );
   }
@@ -127,14 +127,14 @@ export default function NotificationDetailPage() {
   if (!notif) {
     return (
       <Shell>
-        <header className="page-header compact-page-header">
-          <div>
-            <p className="eyebrow">NOTIFICATION</p>
+        <div className="head">
+          <div className="stack">
+            <Link className="link" href="/notifications">← Notifications</Link>
+            <span className="eyebrow">Notification</span>
             <h1>{L.notifications.notFound}</h1>
           </div>
-        </header>
-        <div className="empty-state">{L.notifications.notifGone}</div>
-        <Link className="notif-action-link" href="/notifications">{L.notifications.backToList}</Link>
+        </div>
+        <div className="empty">{L.notifications.notifGone}</div>
       </Shell>
     );
   }
@@ -143,88 +143,89 @@ export default function NotificationDetailPage() {
 
   return (
     <Shell>
-      <header className="page-header compact-page-header">
-        <div>
-          <p className="eyebrow">NOTIFICATION</p>
-          <h1>{L.notifications.detail}</h1>
+      <div className="head">
+        <div className="stack">
+          <Link className="link" href="/notifications">← Notifications</Link>
+          <span className="eyebrow">Détail</span>
+          <h1>{notif.title}</h1>
         </div>
-        <Link className="notif-action-link" href="/notifications">{L.notifications.back}</Link>
-      </header>
+      </div>
 
-      <section className="notif-detail-card">
-        <div className="notif-detail-top">
-          <div className="notif-icon" style={{ background: meta.bg }}>
-            <span style={{ fontSize: 22, lineHeight: 1 }}>{meta.icon}</span>
+      <section className="card">
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--line)" }}>
+          <div style={{ background: meta.bg, borderRadius: 8, width: 48, height: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 24 }}>{meta.icon}</span>
           </div>
           <div>
-            <span className="notif-type-badge" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
-            <time className="notif-time">{formatFullDate(notif.createdAt)}</time>
+            <span className="tag" style={{ fontSize: 12, padding: "4px 8px", backgroundColor: meta.bg, color: meta.color, marginBottom: 6, display: "inline-block" }}>
+              {meta.label}
+            </span>
+            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{formatFullDate(notif.createdAt)}</p>
           </div>
         </div>
 
-        <h2 className="notif-detail-title">{notif.title}</h2>
-        <p className="notif-detail-message">{notif.message}</p>
+        <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>{notif.message}</p>
 
         {metaEntries.length > 0 ? (
-          <table className="notif-detail-table">
-            <tbody>
-              {metaEntries.map(([key, value]) => (
-                <tr key={key}>
-                  <td className="notif-detail-table-label">
-                    <span className="notif-detail-table-icon">{META_ICONS[key] || "•"}</span>
-                    {META_LABELS[key] || key}
-                  </td>
-                  <td className="notif-detail-table-value">
-                    {key === "loginUrl" ? (
-                      <a href={value} target="_blank" rel="noreferrer">{value}</a>
-                    ) : (
-                      <span>{String(value)}</span>
-                    )}
-                    {key === "portalIdentifier" || key === "password" || key === "loginUrl" ? (
-                      <button type="button" className="notif-detail-copy" onClick={() => copyValue(key, value)}>
-                        {copiedKey === key ? "✓" : "Copier"}
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--line)" }}>
+            {metaEntries.map(([key, value]) => (
+              <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>{META_ICONS[key] || "•"}</span>
+                  <span>{META_LABELS[key] || key}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {key === "loginUrl" ? (
+                    <a href={value} target="_blank" rel="noreferrer" className="link" style={{ fontSize: 13 }}>{value}</a>
+                  ) : (
+                    <span style={{ fontSize: 13, fontWeight: 500, wordBreak: "break-word" }}>{String(value)}</span>
+                  )}
+                  {key === "portalIdentifier" || key === "password" || key === "loginUrl" ? (
+                    <button type="button" className="btn btn-sm" onClick={() => copyValue(key, value)} style={{ fontSize: 11, padding: "2px 6px" }}>
+                      {copiedKey === key ? "✓" : "Copier"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : null}
 
         {notif.meta?.portalIdentifier && notif.meta?.password ? (
-          <div className="notif-resend-card">
-            <strong>{L.notifications.resendTitle}</strong>
-            <div className="notif-resend-row">
-              <button type="button" className="mini-button" onClick={resendByEmail} disabled={!notif.meta.email || resendState === "sending"}>
+          <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--line)" }}>
+            <h3 style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{L.notifications.resendTitle}</h3>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="btn btn-sec" onClick={resendByEmail} disabled={!notif.meta.email || resendState === "sending"} style={{ fontSize: 12 }}>
                 ✉️ {L.notifications.resendEmail}
               </button>
               {!notif.meta.phone ? (
                 <input
-                  className="notif-resend-phone"
                   value={phoneDraft}
                   onChange={(event) => setPhoneDraft(event.target.value)}
                   placeholder={L.notifications.phonePlaceholder}
+                  style={{ padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 4, fontSize: 12 }}
                 />
               ) : null}
-              <button type="button" className="mini-button" onClick={resendByWhatsapp} disabled={!notif.meta.phone && !phoneDraft.trim()}>
+              <button type="button" className="btn btn-sec" onClick={resendByWhatsapp} disabled={!notif.meta.phone && !phoneDraft.trim()} style={{ fontSize: 12 }}>
                 💬 {L.notifications.resendWhatsapp}
               </button>
             </div>
-            {resendState === "sent" ? <p className="notif-resend-status success">{L.notifications.resendSuccess}</p> : null}
-            {resendState && resendState !== "sending" && resendState !== "sent" ? <p className="notif-resend-status error">{resendState}</p> : null}
+            {resendState === "sent" ? <p style={{ marginTop: 8, fontSize: 12, color: "var(--suc, #4cb050)" }}>{L.notifications.resendSuccess}</p> : null}
+            {resendState && resendState !== "sending" && resendState !== "sent" ? <p style={{ marginTop: 8, fontSize: 12, color: "var(--err)" }}>{resendState}</p> : null}
           </div>
         ) : null}
 
         {notif.actionUrl ? (
-          <Link className="notif-action-link notif-detail-action" href={notif.actionUrl}>
-            {notif.actionLabel || L.notifications.see} →
-          </Link>
+          <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--line)" }}>
+            <Link className="link" href={notif.actionUrl}>
+              {notif.actionLabel || L.notifications.see} →
+            </Link>
+          </div>
         ) : null}
 
-        <div className="notif-detail-actions">
-          {!notif.archived ? <button type="button" className="mini-button" onClick={archiveNotif}>{L.notifications.archive}</button> : null}
-          <button type="button" className="mini-danger" onClick={deleteNotif}>{L.notifications.delete}</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!notif.archived ? <button type="button" className="btn btn-sec" onClick={archiveNotif} style={{ fontSize: 12 }}>{L.notifications.archive}</button> : null}
+          <button type="button" className="btn" onClick={deleteNotif} style={{ fontSize: 12, color: "var(--err)" }}>{L.notifications.delete}</button>
         </div>
       </section>
     </Shell>

@@ -6,6 +6,7 @@ import { mapQuote } from "../../../lib/quote-mapping";
 import { resolveAdminUserId, PRIMARY_ADMIN_EMAIL } from "../../../lib/admin-account";
 import { sendExpertiseAlertEmail, sendNewOfferEmailToEntreprises } from "../../../lib/mailer";
 import { fixObjectText, fixText } from "../../../lib/text";
+import { maxLength, validateFields } from "../../../lib/validators";
 
 // V1 de Radar des Chantiers : cote particulier — creer/lister ses propres
 // offres. Stocke dans le blob koji_web_state (db.chantierOffres), pas
@@ -56,6 +57,14 @@ export async function POST(request) {
   const address = fixText(body.address || "");
   if (!expertiseId) return badRequest("Lancez d'abord une expertise avant de publier.");
   if (!address.trim()) return badRequest("L'adresse du chantier est obligatoire.");
+  const validationError = validateFields(body, {
+    address: [(v) => maxLength(v, 200, "L'adresse du chantier")],
+    description: [(v) => maxLength(v, 4000, "La description")],
+    metier: [(v) => maxLength(v, 100, "Le métier")],
+    city: [(v) => maxLength(v, 100, "La ville")],
+    postalCode: [(v) => maxLength(v, 20, "Le code postal")]
+  });
+  if (validationError) return badRequest(validationError);
 
   const db = await readDb();
   const user = db.users.find((entry) => entry.id === userId);

@@ -1,34 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 
+// Liste des devis, maquette PRO-03 (DA Koji Pro, 30 oct). Le choix guidé /
+// manuel vit dans les deux boutons d'en-tête, qui renvoient vers
+// /devis?new=1&mode=... (voir app/devis/page.jsx).
+
+// Même seuil que « Devis à relancer » sur l'Accueil (app/page.jsx).
+const RELANCE_DAYS = 7;
+
+const TABS = [
+  { id: "tous", label: "Tous" },
+  { id: "brouillon", label: "Brouillons" },
+  { id: "envoye", label: "Envoyés" },
+  { id: "accepte", label: "Signés" },
+  { id: "refuse", label: "Refusés" }
+];
+
 function money(value) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
-const STATUS_COLORS = {
-  "Brouillon": { bg: "#f1f5f9", color: "#475569" },
-  "Pret a envoyer": { bg: "#fef3c7", color: "#92400e" },
-  "Envoye": { bg: "#dbeafe", color: "#1d4ed8" },
-  "Signe": { bg: "#dcfce7", color: "#166534" },
-  "Refuse": { bg: "#fee2e2", color: "#b91c1c" },
-  "Annule": { bg: "#fee2e2", color: "#b91c1c" },
-  "Archive": { bg: "#f1f5f9", color: "#64748b" },
-};
-
-function StatusBadge({ status }) {
-  const style = STATUS_COLORS[status] || { bg: "#f1f5f9", color: "#64748b" };
-  const label = status === "Annule" ? "Refusé" : status === "Pret a envoyer" ? "Prêt à envoyer" : status;
-  return <span className="status-pill" style={{ color: style.color, background: style.bg }}>{label}</span>;
+function shortDay(value) {
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(value));
 }
 
-// Statut "Devis" (15 oct, tableau de bord d'Amira) — pas un vrai champ, juste
-// un regroupement du quote.status reel (Brouillon/Pret a envoyer/Envoye/
-// Signe/Refuse/Annule/Archive) pour les 4 onglets de la maquette.
+function daysSince(value) {
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86400000));
+}
+
+// Regroupement du quote.status réel (Brouillon / Pret a envoyer / Envoye /
+// Signe / Refuse / Annule) pour les onglets.
 function bucketOf(status) {
   if (status === "Signe") return "accepte";
   if (status === "Envoye") return "envoye";
@@ -36,26 +43,59 @@ function bucketOf(status) {
   return "brouillon";
 }
 
-function daysSince(dateStr) {
-  if (!dateStr) return null;
-  const diff = Date.now() - new Date(dateStr).getTime();
-  return Math.max(0, Math.floor(diff / 86400000));
+function needsRelance(quote) {
+  return quote.status === "Envoye" && Boolean(quote.sentAt) && daysSince(quote.sentAt) >= RELANCE_DAYS;
 }
 
-const FILTER_TABS = [
-  { id: "tous", label: "Tous" },
-  { id: "brouillon", label: "Brouillons" },
-  { id: "envoye", label: "Envoyés" },
-  { id: "accepte", label: "Acceptés" },
-  { id: "refuse", label: "Refusés" }
-];
+function Status({ quote }) {
+  const bucket = bucketOf(quote.status);
+  if (bucket === "accepte") {
+    return (
+      <span className="signed">
+        <span className="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg></span>
+        Signé
+      </span>
+    );
+  }
+  if (bucket === "refuse") return <span className="tag tag-o dim">Refusé</span>;
+  if (bucket === "envoye") {
+    return needsRelance(quote) ? <span className="tag tag-o">À relancer</span> : <span className="tag tag-e">Envoyé</span>;
+  }
+  return <span className="tag tag-o">{quote.status === "Pret a envoyer" ? "Prêt à envoyer" : "Brouillon"}</span>;
+}
 
-const RELANCE_DAYS = 5;
+function lastAction(quote) {
+  const bucket = bucketOf(quote.status);
+  if (bucket === "accepte") return quote.signedAt ? `Signé le ${shortDay(quote.signedAt)}` : "Signé";
+  if (bucket === "envoye") {
+    const sent = quote.sentAt ? `Envoyé le ${shortDay(quote.sentAt)}` : "Envoyé";
+    return needsRelance(quote) ? `${sent} · sans réponse` : sent;
+  }
+  const edited = quote.updatedAt || quote.createdAtIso;
+  if (!edited) return "";
+  const date = new Date(edited);
+  if (date.toDateString() === new Date().toDateString()) {
+    return `Modifié à ${date.getHours()} h ${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+  return `Modifié le ${shortDay(edited)}`;
+}
+
+function actionLabel(quote) {
+  if (bucketOf(quote.status) === "brouillon") return "Reprendre";
+  if (needsRelance(quote)) return "Relancer";
+  return "Voir";
+}
+
+function plural(n, word) {
+  return `${n} ${word}${n > 1 ? "s" : ""}`;
+}
 
 export default function DevisHistory() {
   const { L } = useLocale();
+  const router = useRouter();
   const { data: quotes } = useApi("/api/quotes", "quotes");
-  const [filterTab, setFilterTab] = useState("tous");
+  const [tab, setTab] = useState("tous");
+  const [query, setQuery] = useState("");
 
   const activeQuotes = useMemo(() => quotes.filter((q) => q.status !== "Archive"), [quotes]);
 
@@ -65,208 +105,128 @@ export default function DevisHistory() {
     return out;
   }, [activeQuotes]);
 
-  const kpis = useMemo(() => {
-    const now = new Date();
-    const sentThisMonth = activeQuotes.filter((q) => {
-      if (!q.sentAt) return false;
-      const d = new Date(q.sentAt);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    });
-    const toRelancer = buckets.envoye.filter((q) => q.sentAt && daysSince(q.sentAt) >= RELANCE_DAYS);
-    const decided = buckets.accepte.length + buckets.refuse.length;
-    const acceptanceRate = decided > 0 ? Math.round((buckets.accepte.length / decided) * 100) : 0;
-    const montantEnAttente = buckets.envoye.reduce((sum, q) => sum + Number(q.totalHt || 0), 0);
-    return {
-      sentThisMonth: sentThisMonth.length,
-      pending: buckets.envoye.length,
-      toRelancer: toRelancer.length,
-      acceptanceRate,
-      decided,
-      montantEnAttente
-    };
-  }, [activeQuotes, buckets]);
+  const relanceCount = useMemo(() => buckets.envoye.filter(needsRelance).length, [buckets]);
 
-  const pipeline = useMemo(() => {
-    const rows = [
-      { key: "brouillon", label: "Brouillons", count: buckets.brouillon.length, color: "#64748b" },
-      { key: "envoye", label: "Envoyés", count: buckets.envoye.length, color: "#1d4ed8" },
-      { key: "accepte", label: "Acceptés", count: buckets.accepte.length, color: "#15803d" },
-      { key: "refuse", label: "Refusés", count: buckets.refuse.length, color: "#b91c1c" }
-    ];
-    const max = Math.max(1, ...rows.map((r) => r.count));
-    return rows.map((r) => ({ ...r, pct: Math.round((r.count / max) * 100) }));
-  }, [buckets]);
+  const rows = useMemo(() => {
+    const list = tab === "tous" ? activeQuotes : buckets[tab];
+    const needle = query.trim().toLowerCase();
+    const matching = needle
+      ? list.filter((q) => [q.quoteNumber, q.client, q.project].some((v) => String(v || "").toLowerCase().includes(needle)))
+      : list;
+    return [...matching].sort((a, b) => String(b.createdAtIso || b.createdAt || "").localeCompare(String(a.createdAtIso || a.createdAt || "")));
+  }, [activeQuotes, buckets, tab, query]);
 
-  const toRelancer = useMemo(() => {
-    return buckets.envoye
-      .filter((q) => q.sentAt && daysSince(q.sentAt) >= RELANCE_DAYS)
-      .sort((a, b) => String(a.sentAt).localeCompare(String(b.sentAt)))
-      .slice(0, 6);
-  }, [buckets]);
-
-  const filteredQuotes = useMemo(() => {
-    const list = filterTab === "tous" ? activeQuotes : buckets[filterTab] || [];
-    return [...list].sort((a, b) => String(b.createdAtIso || b.createdAt || "").localeCompare(String(a.createdAtIso || a.createdAt || "")));
-  }, [activeQuotes, buckets, filterTab]);
+  const eyebrow = [
+    `${activeQuotes.length} devis`,
+    buckets.envoye.length ? `${plural(buckets.envoye.length, "envoyé")} en attente` : null,
+    relanceCount ? `${relanceCount} à relancer` : null,
+    buckets.brouillon.length ? plural(buckets.brouillon.length, "brouillon") : null
+  ].filter(Boolean).join(" · ");
 
   return (
-    <Shell>
-      <section className="fournitures-dashboard">
-        <header className="fournitures-dashboard-head">
-          <div>
-            <h1><span className="title-chip">Devis</span></h1>
-            <p>Créez, envoyez et suivez vos devis jusqu'à la signature.</p>
-          </div>
-        </header>
-
-        <div className="devis-mode-choice-grid">
-          <Link href="/devis?new=1&mode=ia" className="devis-mode-choice-card devis-mode-choice-ia">
-            <span className="devis-mode-choice-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></svg>
-            </span>
-            <div className="devis-mode-choice-body">
-              <div className="devis-mode-choice-title-row">
-                <strong>Devis avec l'IA</strong>
-                <span className="status-pill devis-mode-choice-badge">RECOMMANDÉ</span>
-              </div>
-              <p>Décrivez le chantier, l'assistant prépare le devis à partir de la bibliothèque koji.</p>
-            </div>
-            <span className="button white devis-mode-choice-cta">Démarrer
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </span>
-          </Link>
-
-          <Link href="/devis?new=1&mode=manuel" className="devis-mode-choice-card devis-mode-choice-manuel">
-            <span className="devis-mode-choice-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-            </span>
-            <div className="devis-mode-choice-body">
-              <strong>Devis manuel</strong>
-              <p>Construisez-le ligne par ligne avec vos lots, la bibliothèque et vos fournitures.</p>
-            </div>
-            <span className="button secondary devis-mode-choice-cta">Créer
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </span>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">{eyebrow}</span>
+          <h1>Devis</h1>
+        </div>
+        <div className="acts">
+          <Link href="/devis?new=1&mode=manuel" className="btn btn-sec">Devis manuel</Link>
+          <Link href="/devis?new=1&mode=ia" className="btn btn-main">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Démarrer un devis guidé
           </Link>
         </div>
+      </div>
 
-        <div className="fournitures-kpi-row">
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📄</span>
-              <span className="title-chip">Devis envoyés</span>
-            </div>
-            <strong>{kpis.sentThisMonth}</strong>
-            <small>ce mois-ci</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⏳</span>
-              <span className="title-chip">En attente de réponse</span>
-            </div>
-            <strong>{kpis.pending}</strong>
-            <small className={kpis.toRelancer > 0 ? "warning" : ""}>
-              {kpis.toRelancer > 0 ? `dont ${kpis.toRelancer} à relancer` : "aucune à relancer"}
-            </small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">✅</span>
-              <span className="title-chip">Taux d'acceptation</span>
-            </div>
-            <strong>{kpis.acceptanceRate} %</strong>
-            <small>{kpis.decided > 0 ? `sur ${kpis.decided} devis traités` : "aucun devis traité"}</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
-              <span className="title-chip">Montant en attente</span>
-            </div>
-            <strong>{money(kpis.montantEnAttente)} <small style={{ display: "inline", marginTop: 0 }}>HT</small></strong>
-          </div>
+      <div className="tbar">
+        <div className="wtabs" role="tablist" aria-label="Filtrer les devis">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={tab === t.id ? "on" : ""}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label} <span>{t.id === "tous" ? activeQuotes.length : buckets[t.id].length}</span>
+            </button>
+          ))}
         </div>
+        <label className="search search-wide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Rechercher un client, un chantier, un numéro"
+            aria-label="Rechercher un devis"
+          />
+        </label>
+      </div>
 
-        <div className="fournitures-dashboard-body">
-          <div className="fournitures-main-card">
-            <div className="fournitures-main-card-head">
-              <strong className="title-chip">Derniers devis</strong>
-              <div className="fournitures-filter-tabs">
-                {FILTER_TABS.map((tab) => (
-                  <button
-                    type="button"
-                    key={tab.id}
-                    className={filterTab === tab.id ? "active" : ""}
-                    onClick={() => setFilterTab(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {filteredQuotes.length === 0 ? (
-              <div className="tool-empty">{L.devis.noQuotes}</div>
-            ) : (
-              <div className="fournitures-table devis-table">
-                <div className="fournitures-table-head-row devis-table-row">
-                  <div>N°</div>
-                  <div>CLIENT ET OBJET</div>
-                  <div>MONTANT HT</div>
-                  <div>STATUT</div>
-                </div>
-                {filteredQuotes.map((quote) => (
-                  <div className="fournitures-table-row-wrap" key={quote.id}>
-                    <Link href={`/devis?id=${quote.id}`} className="fournitures-table-row devis-table-row">
-                      <div className="fournitures-table-cell">
-                        <strong>{quote.quoteNumber}</strong>
-                      </div>
-                      <div className="fournitures-table-cell">
-                        <strong>{quote.client || "Client"}</strong>
-                        <small>{quote.project || ""}</small>
-                      </div>
-                      <div className="fournitures-table-cell fournitures-table-amount">{money(quote.totalHt)}</div>
-                      <div><StatusBadge status={quote.status || "Brouillon"} /></div>
+      {rows.length === 0 ? (
+        <div className="tbl">
+          <div className="empty">{query.trim() ? "Aucun devis ne correspond à cette recherche." : L.devis.noQuotes}</div>
+        </div>
+      ) : (
+        <>
+        <div className="tbl has-cards">
+          <table>
+            <thead>
+              <tr>
+                <th>Numéro · client</th>
+                <th>Chantier</th>
+                <th className="r">Montant HT</th>
+                <th>Statut</th>
+                <th>Dernière action</th>
+                <th aria-label="Action" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((quote) => (
+                <tr key={quote.id} onClick={() => router.push(`/devis?id=${quote.id}`)}>
+                  <td className="n">
+                    {quote.quoteNumber}
+                    <div className="sm">{quote.client || "Client"}</div>
+                  </td>
+                  <td>{quote.project || "—"}</td>
+                  <td className="r">{money(quote.totalHt)}</td>
+                  <td><Status quote={quote} /></td>
+                  <td className="sm2">{lastAction(quote)}</td>
+                  <td className="r">
+                    <Link href={`/devis?id=${quote.id}`} className="btn btn-sec" onClick={(event) => event.stopPropagation()}>
+                      {actionLabel(quote)}
                     </Link>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Pipeline</strong>
-              {pipeline.map((row) => (
-                <div className="devis-pipeline-row" key={row.key}>
-                  <div className="devis-pipeline-row-head">
-                    <span>{row.label}</span>
-                    <strong>{row.count}</strong>
-                  </div>
-                  <div className="devis-pipeline-bar"><div style={{ width: `${row.pct}%`, background: row.color }} /></div>
-                </div>
+                  </td>
+                </tr>
               ))}
-            </div>
-
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">À relancer</strong>
-              {toRelancer.length === 0 ? (
-                <div className="tool-empty">Rien à relancer.</div>
-              ) : (
-                toRelancer.map((quote) => (
-                  <div className="devis-relance-row" key={quote.id}>
-                    <span className="devis-relance-avatar">{(quote.client || "?").slice(0, 2).toUpperCase()}</span>
-                    <div className="devis-relance-main">
-                      <strong>{quote.client || "Client"}</strong>
-                      <small>Envoyé il y a {daysSince(quote.sentAt)} jour{daysSince(quote.sentAt) > 1 ? "s" : ""}</small>
-                    </div>
-                    <Link href={`/devis?id=${quote.id}`} className="mini-button primary">Relancer</Link>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
-      </section>
+
+        <div className="mlist">
+          {rows.map((quote) => (
+            <Link href={`/devis?id=${quote.id}`} className="m-card dvc" key={quote.id}>
+              <div className="top2">
+                <div>
+                  <div className="nm">{quote.project || quote.quoteNumber}</div>
+                  <div className="meta">{quote.quoteNumber} · {quote.client || "Client"}</div>
+                </div>
+                <Status quote={quote} />
+              </div>
+              <div className="dvc-f">
+                <b>{money(quote.totalHt)}</b>
+                <span className="meta">{lastAction(quote)}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+        </>
+      )}
+
+      <p className="foot-note">Un devis envoyé sans réponse passe « À relancer » après {RELANCE_DAYS} jours.</p>
     </Shell>
   );
 }

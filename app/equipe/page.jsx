@@ -386,428 +386,424 @@ export default function TeamPage() {
   }
 
   if (planningOpen) {
+    const selectedWorkerName = planningWorker ? planningWorker.name : "";
     return (
-      <Shell>
-        <section className="mobile-tool">
-          <header className="tool-topline compact">
-            <button type="button" className="plain-back" onClick={() => (planningWorker ? setPlanningWorkerId("") : setPlanningOpen(false))}>{"<"}</button>
-            <div className="follow-title">
-              <h1>{planningWorker ? planningWorker.name : L.equipe.planningTitle}</h1>
-              <p>{planningWorker ? (planningWorker.profession || planningWorker.role) : L.equipe.planningIntro}</p>
+      <Shell variant="pro">
+        <div className="head">
+          <div className="stack">
+            <button type="button" className="link" onClick={() => (planningWorker ? setPlanningWorkerId("") : setPlanningOpen(false))}>← Retour</button>
+            <span className="eyebrow">{planningWorker ? (planningWorker.profession || planningWorker.role || "Équipe") : L.equipe.planningIntro}</span>
+            <h1>{planningWorker ? selectedWorkerName : L.equipe.planningTitle}</h1>
+          </div>
+          {planningWorker ? (
+            <div className="hact">
+              <button type="button" className="btn btn-sec" onClick={() => shiftWeek(-7)}>‹ Semaine précédente</button>
+              <button type="button" className="btn btn-sec" onClick={() => shiftWeek(7)}>Semaine suivante ›</button>
             </div>
-            <span />
-          </header>
+          ) : null}
+        </div>
 
-          {!planningWorker ? (
-            <>
-              <div className="search-pill">
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
+        {!planningWorker ? (
+          <>
+            <div className="tbar">
+              <label className="search search-wide">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+                <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
+              </label>
+            </div>
+            <div className="tbl has-cards">
+              <table>
+                <thead><tr><th>Nom</th><th>Métier</th><th>Semaine</th></tr></thead>
+                <tbody>
+                  {workers
+                    .filter((worker) => !search.trim() || (worker.name || "").toLowerCase().includes(search.trim().toLowerCase()))
+                    .map((worker) => {
+                      const badge = workerWeekBadge(worker);
+                      const status = Math.abs(badge.diff) < 15 ? "ok" : badge.diff > 0 ? "over" : "under";
+                      return (
+                        <tr key={worker.id} className="clickable" onClick={() => setPlanningWorkerId(worker.id)}>
+                          <td><strong>{worker.name}</strong></td>
+                          <td>{worker.profession || worker.role || "—"}</td>
+                          <td><span className={`tag ${status === "ok" ? "tag-b" : status === "over" ? "tag-o" : "dim"}`}>{minutesLabel(badge.worked)} / {minutesLabel(badge.contract)}</span></td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+            {!workers.length ? <p className="empty">{L.equipe.noWorkers}</p> : null}
+          </>
+        ) : (
+          <>
+            <div className="kpis">
+              <div><div className="l">{L.equipe.workedLabel}</div><div className="v">{minutesLabel(weekWorkedMinutes)}</div></div>
+              <div><div className="l">{L.equipe.contractLabel}</div><div className="v">{minutesLabel(weekContractMinutes)}</div></div>
+              <div>
+                <div className="l">{L.equipe.diffLabel}</div>
+                <div className="v">{weekDiff > 0 ? "+" : weekDiff < 0 ? "-" : ""}{minutesLabel(Math.abs(weekDiff))}</div>
               </div>
-              <div className="people-list">
-                {workers
-                  .filter((worker) => !search.trim() || (worker.name || "").toLowerCase().includes(search.trim().toLowerCase()))
-                  .map((worker) => {
-                    const badge = workerWeekBadge(worker);
-                    const status = Math.abs(badge.diff) < 15 ? "ok" : badge.diff > 0 ? "over" : "under";
-                    return (
-                      <article
-                        className="person-row clickable"
-                        key={worker.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setPlanningWorkerId(worker.id)}
-                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setPlanningWorkerId(worker.id); } }}
-                      >
-                        <div className="avatar">
-                          {worker.photoDataUrl ? <img src={worker.photoDataUrl} alt={worker.name} /> : (worker.name || "AB").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <strong>{worker.name}</strong>
-                          <small>{worker.profession || worker.role}</small>
-                        </div>
-                        <span className={`planning-week-badge planning-badge-${status}`}>
-                          {minutesLabel(badge.worked)} / {minutesLabel(badge.contract)}
-                        </span>
-                      </article>
-                    );
-                  })}
-                {!workers.length ? <div className="tool-empty">{L.equipe.noWorkers}</div> : null}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="planning-week-nav">
-                <button type="button" className="mini-outline" onClick={() => shiftWeek(-7)}>‹</button>
-                <strong>{L.equipe.weekOf(shortDate(weekInfo.start), shortDate(weekInfo.end))}</strong>
-                <button type="button" className="mini-outline" onClick={() => shiftWeek(7)}>›</button>
-              </div>
+              <div><div className="l">{L.equipe.amountTotalLabel}</div><div className="v">{euro(weekAmountTotal)}</div></div>
+            </div>
 
-              <div className="ouvrage-finance-card">
-                <div><span>{L.equipe.workedLabel}</span><strong>{minutesLabel(weekWorkedMinutes)}</strong></div>
-                <div><span>{L.equipe.contractLabel}</span><strong>{minutesLabel(weekContractMinutes)}</strong></div>
-                <div>
-                  <span>{L.equipe.diffLabel}</span>
-                  <strong className={Math.abs(weekDiff) < 15 ? "" : weekDiff > 0 ? "positive" : "negative"}>
-                    {weekDiff > 0 ? "+" : weekDiff < 0 ? "-" : ""}{minutesLabel(Math.abs(weekDiff))}
-                  </strong>
-                </div>
-                <div><span>{L.equipe.amountTotalLabel}</span><strong>{euro(weekAmountTotal)}</strong></div>
-              </div>
-
+            <section className="card">
+              <div className="card-h"><h2>{L.equipe.weekOf(shortDate(weekInfo.start), shortDate(weekInfo.end))}</h2></div>
               {weekEntriesForWorker.length ? (
-                <div className="planning-entry-list">
-                  {weekEntriesForWorker.map((entry) => {
-                    const entryType = entry.type || "heures";
-                    return (
-                      <div className="planning-entry-row" key={entry.id}>
-                        <span className="planning-entry-source" title={entry.source === "worker" ? L.equipe.sourceWorker : L.equipe.sourceCompany}>
-                          {entry.source === "worker" ? "👤" : "🏢"}
-                        </span>
-                        <span className="planning-entry-type" title={L.equipe.attendanceTypes[entryType]}>{ATTENDANCE_TYPE_ICONS[entryType]}</span>
-                        <strong>{shortDate(entry.date)}</strong>
-                        {entryType === "heures" ? (
-                          <>
-                            <span>{entry.startTime} → {entry.endTime || "…"}</span>
-                            <small>{minutesLabel(entry.durationMinutes)}</small>
-                          </>
-                        ) : (
-                          <>
-                            <span>{entry.label || L.equipe.attendanceTypes[entryType]}</span>
-                            <small>{euro(entry.amount)}</small>
-                          </>
-                        )}
-                        <button type="button" className="mini-danger" onClick={() => deleteAttendanceEntry(entry)}>{L.common.remove}</button>
-                      </div>
-                    );
-                  })}
+                <div className="tbl has-cards">
+                  <table>
+                    <thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Montant</th><th /></tr></thead>
+                    <tbody>
+                      {weekEntriesForWorker.map((entry) => {
+                        const entryType = entry.type || "heures";
+                        return (
+                          <tr key={entry.id}>
+                            <td>{shortDate(entry.date)}</td>
+                            <td><span title={entry.source === "worker" ? L.equipe.sourceWorker : L.equipe.sourceCompany}>{ATTENDANCE_TYPE_ICONS[entryType]} {L.equipe.attendanceTypes[entryType]}</span></td>
+                            <td>{entryType === "heures" ? `${entry.startTime} → ${entry.endTime || "…"}` : (entry.label || L.equipe.attendanceTypes[entryType])}</td>
+                            <td>{entryType === "heures" ? minutesLabel(entry.durationMinutes) : euro(entry.amount)}</td>
+                            <td><button type="button" className="link" onClick={() => deleteAttendanceEntry(entry)}>{L.common.remove}</button></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ) : <p className="tool-muted">{L.equipe.noAttendanceWeek}</p>}
+              ) : <p className="muted">{L.equipe.noAttendanceWeek}</p>}
+            </section>
 
-              <div className="planning-type-chips">
+            <section className="card">
+              <div className="card-h"><h2>{L.equipe.addAttendance}</h2></div>
+              <div className="kp-seg" role="group" aria-label={L.equipe.addAttendance}>
                 {ATTENDANCE_TYPES.map((type) => (
                   <button
                     type="button"
                     key={type}
-                    className={`planning-type-chip${attForm.type === type ? " active" : ""}`}
+                    className={attForm.type === type ? "on" : ""}
+                    aria-pressed={attForm.type === type}
                     onClick={() => setAttForm((current) => ({ ...current, type }))}
                   >
-                    <span>{ATTENDANCE_TYPE_ICONS[type]}</span>
-                    <span>{L.equipe.attendanceTypes[type]}</span>
+                    {ATTENDANCE_TYPE_ICONS[type]} {L.equipe.attendanceTypes[type]}
                   </button>
                 ))}
               </div>
-
-              <form className="project-mini-form" onSubmit={addAttendanceEntry}>
-                <input type="date" value={attForm.date} onChange={(event) => setAttForm((current) => ({ ...current, date: event.target.value }))} />
+              <form className="fgrid" style={{ marginTop: 16 }} onSubmit={addAttendanceEntry}>
+                <label>
+                  Date
+                  <input type="date" value={attForm.date} onChange={(event) => setAttForm((current) => ({ ...current, date: event.target.value }))} />
+                </label>
                 {attForm.type === "heures" ? (
-                  <>
-                    <input type="time" value={attForm.startTime} onChange={(event) => setAttForm((current) => ({ ...current, startTime: event.target.value }))} />
-                    <input type="time" value={attForm.endTime} onChange={(event) => setAttForm((current) => ({ ...current, endTime: event.target.value }))} />
-                  </>
+                  <div className="pair">
+                    <label>Début<input type="time" value={attForm.startTime} onChange={(event) => setAttForm((current) => ({ ...current, startTime: event.target.value }))} /></label>
+                    <label>Fin<input type="time" value={attForm.endTime} onChange={(event) => setAttForm((current) => ({ ...current, endTime: event.target.value }))} /></label>
+                  </div>
                 ) : (
-                  <input type="number" step="0.01" min="0.01" value={attForm.amount} onChange={(event) => setAttForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.equipe.amountPlaceholder} />
+                  <label>
+                    Montant
+                    <input type="number" step="0.01" min="0.01" value={attForm.amount} onChange={(event) => setAttForm((current) => ({ ...current, amount: event.target.value }))} placeholder={L.equipe.amountPlaceholder} />
+                  </label>
                 )}
                 {attForm.type === "ouvrage" ? (
-                  <select value={attForm.ouvrageValue} onChange={(event) => setAttForm((current) => ({ ...current, ouvrageValue: event.target.value }))}>
-                    <option value="">{L.equipe.linkedToItemPh}</option>
-                    {ouvrageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
+                  <label>
+                    {L.equipe.linkedToItem}
+                    <select value={attForm.ouvrageValue} onChange={(event) => setAttForm((current) => ({ ...current, ouvrageValue: event.target.value }))}>
+                      <option value="">{L.equipe.linkedToItemPh}</option>
+                      {ouvrageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </label>
                 ) : null}
                 {attForm.type !== "heures" && attForm.type !== "ouvrage" ? (
-                  <input value={attForm.label} onChange={(event) => setAttForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.equipe.labelPlaceholder} />
+                  <label>
+                    Libellé
+                    <input value={attForm.label} onChange={(event) => setAttForm((current) => ({ ...current, label: event.target.value }))} placeholder={L.equipe.labelPlaceholder} />
+                  </label>
                 ) : null}
-                <input value={attForm.note} onChange={(event) => setAttForm((current) => ({ ...current, note: event.target.value }))} placeholder={L.facturation.note} />
-                <button type="submit">{L.equipe.addAttendance}</button>
+                <label className="full">
+                  {L.facturation.note}
+                  <input value={attForm.note} onChange={(event) => setAttForm((current) => ({ ...current, note: event.target.value }))} />
+                </label>
+                <div className="ed-act full">
+                  <button type="submit" className="btn btn-main">{L.equipe.addAttendance}</button>
+                </div>
               </form>
+            </section>
 
-              <div className="planning-pdf-row">
-                <input type="month" value={pdfMonth} onChange={(event) => setPdfMonth(event.target.value)} />
-                <button type="button" className="mini-outline" onClick={downloadWorkerHoursPdf}>{L.equipe.downloadPdf}</button>
+            <section className="card">
+              <div className="card-h"><h2>{L.equipe.downloadPdf}</h2></div>
+              <div className="fgrid">
+                <label>
+                  Mois
+                  <input type="month" value={pdfMonth} onChange={(event) => setPdfMonth(event.target.value)} />
+                </label>
               </div>
-            </>
-          )}
-        </section>
+              <div className="ed-act" style={{ marginTop: 12 }}>
+                <button type="button" className="btn btn-sec" onClick={downloadWorkerHoursPdf}>{L.equipe.downloadPdf}</button>
+              </div>
+            </section>
+          </>
+        )}
       </Shell>
     );
   }
 
   if (formOpen) {
+    const isEditing = Boolean(editingId);
     return (
-      <Shell>
-        <section className="mobile-tool tool-form-view">
-          <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={closeForm}>{"<"}</button>
-            <h1>{editingId ? L.equipe.editWorker : (activeTab === "Ouvrier" ? L.equipe.addWorker : L.equipe.addSub)}</h1>
-            <span />
-          </header>
+      <Shell variant="pro">
+        <div className="head">
+          <div className="stack">
+            <button type="button" className="link" onClick={closeForm}>← Retour</button>
+            <span className="eyebrow">{activeTab === "Ouvrier" ? "Compagnon" : "Sous-traitant"}</span>
+            <h1>{isEditing ? L.equipe.editWorker : (activeTab === "Ouvrier" ? L.equipe.addWorker : L.equipe.addSub)}</h1>
+          </div>
+          <div className="hact">
+            <button type="submit" form="equipe-form" className="btn btn-main">{L.equipe.save}</button>
+          </div>
+        </div>
 
-          {returnTo ? (
-            <button type="button" className="return-to-site-banner" onClick={goBackToChantier}>
-              {L.equipe.returnToSite}
-            </button>
-          ) : null}
+        {returnTo ? (
+          <div className="notice" role="status">
+            <button type="button" className="link" onClick={goBackToChantier}>{L.equipe.returnToSite}</button>
+          </div>
+        ) : null}
 
-          <form className="mobile-form" onSubmit={submitWorker}>
-            <section className="follow-section">
-              <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => setInfoOpen((current) => !current)}>
-                <h2>{L.equipe.informationsCard}</h2>
-                <CardChevron collapsed={!infoOpen} />
-              </button>
-              {infoOpen ? (
-                <div className="mobile-form">
-                  <div className="worker-photo-box">
-                    <div className="worker-photo-frame">
-                      {form.photoDataUrl ? <img src={form.photoDataUrl} alt="Photo" /> : null}
-                      <button type="button" className="worker-photo-upload" onClick={() => photoInputRef.current?.click()} aria-label="Ajouter une photo">+</button>
-                    </div>
-                    <small>Photo</small>
-                    <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
-                  </div>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.name}</span>
-                    <input value={form.name} onChange={(event) => setField("name", event.target.value)} required />
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.phone}</span>
-                    <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.email}</span>
-                    <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.address}</span>
-                    <input value={form.address} onChange={(event) => setField("address", event.target.value)} />
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.profession}</span>
-                    <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
-                      {professions.map((profession) => <option key={profession}>{profession}</option>)}
-                    </select>
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.availability}</span>
-                    <select value={form.availability} onChange={(event) => setField("availability", event.target.value)}>
-                      <option value="Disponible">{L.equipe.available}</option>
-                      <option value="Occupe">{L.equipe.unavailable}</option>
-                      <option value="Absent">{L.equipe.onLeave}</option>
-                    </select>
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.hourlyRate}</span>
-                    <input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" />
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.weeklyContractHours}</span>
-                    <input type="number" step="0.5" min="0" value={form.weeklyContractHours} onChange={(event) => setField("weeklyContractHours", event.target.value)} placeholder="35" />
-                  </label>
-                  <label className="mobile-input full">
-                    <span>{L.equipe.notes}</span>
-                    <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
-                  </label>
-
-                  {activeTab === "Sous-traitant" ? (
-                    <>
-                      <label className="mobile-checkbox full">
-                        <input type="checkbox" checked={Boolean(form.isCompany)} onChange={(event) => setField("isCompany", event.target.checked)} />
-                        <span>{L.equipe.isCompany}</span>
-                      </label>
-                      {form.isCompany ? (
-                        <label className="mobile-input full">
-                          <span>{L.equipe.companyRegNumber}</span>
-                          <input value={form.companyRegNumber} onChange={(event) => setField("companyRegNumber", event.target.value)} placeholder="123 456 789 00012" />
-                        </label>
-                      ) : null}
-                      <label className="mobile-input full">
-                        <span>{L.equipe.linkedTo}</span>
-                        <select value={linkDraftType} onChange={(event) => { setLinkDraftType(event.target.value); setLinkDraftValue(""); }}>
-                          <option value="">{L.equipe.linkedToNone}</option>
-                          <option value="chantier">{L.equipe.linkedToChantier}</option>
-                          <option value="devis">{L.equipe.linkedToDevis}</option>
-                          <option value="ouvrage">{L.equipe.linkedToOuvrage}</option>
-                          <option value="sous-ouvrage">{L.equipe.linkedToSubwork}</option>
-                        </select>
-                      </label>
-                      {linkDraftType ? (
-                        <label className="mobile-input full">
-                          <span>{L.equipe.linkedToItem}</span>
-                          <div className="url-fetch-row">
-                            <select value={linkDraftValue} onChange={(event) => setLinkDraftValue(event.target.value)}>
-                              <option value="">{L.equipe.linkedToItemPh}</option>
-                              {linkDraftType === "chantier" ? (projects || []).map((project) => (
-                                <option key={project.id} value={project.id}>{project.title || project.reference || "Chantier"}</option>
-                              )) : null}
-                              {linkDraftType === "devis" ? (quotes || []).map((quote) => (
-                                <option key={quote.id} value={quote.id}>{quote.quoteNumber ? `${quote.quoteNumber} - ${quote.client || ""}` : (quote.client || "Devis")}</option>
-                              )) : null}
-                              {linkDraftType === "ouvrage" ? ouvrageOptions.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              )) : null}
-                              {linkDraftType === "sous-ouvrage" ? subworkOptions.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              )) : null}
-                            </select>
-                            <button type="button" className="mini-button" onClick={addLinkDraft} disabled={!linkDraftValue}>{L.common.add}</button>
-                          </div>
-                        </label>
-                      ) : null}
-                      {(form.links || []).length ? (
-                        <div className="mobile-input full">
-                          <span>{L.equipe.linkedItemsList}</span>
-                          <div className="link-chip-list">
-                            {form.links.map((link, index) => (
-                              <span className="link-chip" key={linkKey(link) + index}>
-                                {link.label}
-                                <button type="button" onClick={() => removeLink(index)} aria-label={L.common.remove}>×</button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
+        <form id="equipe-form" className="pf-g2" onSubmit={submitWorker}>
+          <div className="kj-col">
+            <section className="card">
+              <div className="card-h"><h2>{L.equipe.informationsCard}</h2></div>
+              <div className="kj-phi" style={{ marginBottom: 16, position: "relative" }}>
+                {form.photoDataUrl ? <img src={form.photoDataUrl} alt="Photo" /> : null}
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  aria-label="Ajouter une photo"
+                  style={{ position: "absolute", inset: 0, background: "transparent", border: 0, cursor: "pointer" }}
+                />
+                <input ref={photoInputRef} type="file" accept="image/*" onChange={onPhotoChange} style={{ display: "none" }} />
+              </div>
+              <div className="fgrid">
+                <label className="full">{L.equipe.name}<input value={form.name} onChange={(event) => setField("name", event.target.value)} required /></label>
+                <label>{L.equipe.phone}<input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" /></label>
+                <label>{L.equipe.email}<input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} /></label>
+                <label className="full">{L.equipe.address}<input value={form.address} onChange={(event) => setField("address", event.target.value)} /></label>
+                <label>
+                  {L.equipe.profession}
+                  <select value={form.profession} onChange={(event) => setField("profession", event.target.value)}>
+                    {professions.map((profession) => <option key={profession}>{profession}</option>)}
+                  </select>
+                </label>
+                <label>
+                  {L.equipe.availability}
+                  <select value={form.availability} onChange={(event) => setField("availability", event.target.value)}>
+                    <option value="Disponible">{L.equipe.available}</option>
+                    <option value="Occupe">{L.equipe.unavailable}</option>
+                    <option value="Absent">{L.equipe.onLeave}</option>
+                  </select>
+                </label>
+                <label>{L.equipe.hourlyRate}<input type="number" step="0.01" value={form.hourlyRate} onChange={(event) => setField("hourlyRate", event.target.value)} placeholder="0.00" /></label>
+                <label>{L.equipe.weeklyContractHours}<input type="number" step="0.5" min="0" value={form.weeklyContractHours} onChange={(event) => setField("weeklyContractHours", event.target.value)} placeholder="35" /></label>
+                <label className="full">{L.equipe.notes}<input value={form.notes} onChange={(event) => setField("notes", event.target.value)} /></label>
+              </div>
             </section>
 
-            {editingId ? (
-              <section className="follow-section">
-                <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => setAccessOpen((current) => !current)}>
-                  <h2>{L.equipe.accessCard}</h2>
-                  <CardChevron collapsed={!accessOpen} />
-                </button>
-                {accessOpen ? (
-                  <div className="mobile-form">
-                    <label className="mobile-input full">
-                      <span>{L.equipe.loginId}</span>
-                      <input value={form.loginId || ""} readOnly onFocus={(event) => event.target.select()} />
-                    </label>
-                    {revealedPassword ? (
-                      <label className="mobile-input full">
-                        <span>{L.equipe.loginPassword}</span>
-                        <input value={revealedPassword} readOnly onFocus={(event) => event.target.select()} />
-                      </label>
-                    ) : (
-                      <p className="tool-muted">{L.equipe.accessPasswordHidden}</p>
-                    )}
-                    <label className="mobile-input full">
-                      <span>{L.equipe.credentialsLoginUrl}</span>
-                      <input value={typeof window !== "undefined" ? `${window.location.origin}/login?type=ouvrier` : "/login?type=ouvrier"} readOnly onFocus={(event) => event.target.select()} />
-                    </label>
-                    <button type="button" className="mini-button" onClick={regenerateCredentials}>{L.equipe.regenerateCredentials}</button>
-
-                    <label className="mobile-input full">
-                      <span>{L.equipe.accessStatus}</span>
-                      <div className="segmented large">
-                        <button type="button" className={form.active !== false ? "active" : ""} onClick={() => setWorkerActive(true)}>{L.equipe.accessActive}</button>
-                        <button type="button" className={form.active === false ? "active" : ""} onClick={() => setWorkerActive(false)}>{L.equipe.accessInactive}</button>
+            {activeTab === "Sous-traitant" ? (
+              <section className="card">
+                <div className="card-h"><h2>{L.equipe.linkedTo}</h2></div>
+                <label className="st-row" style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 0" }}>
+                  <input type="checkbox" checked={Boolean(form.isCompany)} onChange={(event) => setField("isCompany", event.target.checked)} />
+                  <span>{L.equipe.isCompany}</span>
+                </label>
+                {form.isCompany ? (
+                  <div className="fgrid" style={{ marginTop: 8 }}>
+                    <label className="full">{L.equipe.companyRegNumber}<input value={form.companyRegNumber} onChange={(event) => setField("companyRegNumber", event.target.value)} placeholder="123 456 789 00012" /></label>
+                  </div>
+                ) : null}
+                <div className="fgrid" style={{ marginTop: 8 }}>
+                  <label>
+                    {L.equipe.linkedTo}
+                    <select value={linkDraftType} onChange={(event) => { setLinkDraftType(event.target.value); setLinkDraftValue(""); }}>
+                      <option value="">{L.equipe.linkedToNone}</option>
+                      <option value="chantier">{L.equipe.linkedToChantier}</option>
+                      <option value="devis">{L.equipe.linkedToDevis}</option>
+                      <option value="ouvrage">{L.equipe.linkedToOuvrage}</option>
+                      <option value="sous-ouvrage">{L.equipe.linkedToSubwork}</option>
+                    </select>
+                  </label>
+                  {linkDraftType ? (
+                    <label>
+                      {L.equipe.linkedToItem}
+                      <div className="pair">
+                        <select value={linkDraftValue} onChange={(event) => setLinkDraftValue(event.target.value)}>
+                          <option value="">{L.equipe.linkedToItemPh}</option>
+                          {linkDraftType === "chantier" ? (projects || []).map((project) => (
+                            <option key={project.id} value={project.id}>{project.title || project.reference || "Chantier"}</option>
+                          )) : null}
+                          {linkDraftType === "devis" ? (quotes || []).map((quote) => (
+                            <option key={quote.id} value={quote.id}>{quote.quoteNumber ? `${quote.quoteNumber} - ${quote.client || ""}` : (quote.client || "Devis")}</option>
+                          )) : null}
+                          {linkDraftType === "ouvrage" ? ouvrageOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          )) : null}
+                          {linkDraftType === "sous-ouvrage" ? subworkOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          )) : null}
+                        </select>
+                        <button type="button" className="btn btn-sec" onClick={addLinkDraft} disabled={!linkDraftValue}>{L.common.add}</button>
                       </div>
                     </label>
+                  ) : null}
+                </div>
+                {(form.links || []).length ? (
+                  <div className="kj-chips" style={{ marginTop: 12 }}>
+                    {form.links.map((link, index) => (
+                      <span className="kj-chip" key={linkKey(link) + index}>
+                        {link.label}
+                        <button type="button" onClick={() => removeLink(index)} aria-label={L.common.remove}>×</button>
+                      </span>
+                    ))}
                   </div>
                 ) : null}
               </section>
             ) : null}
+          </div>
 
-            <button className="mobile-primary">{L.equipe.save}</button>
-          </form>
-        </section>
+          <div className="kj-col">
+            {isEditing ? (
+              <section className="card">
+                <div className="card-h"><h2>{L.equipe.accessCard}</h2></div>
+                <div className="fgrid">
+                  <label className="full">{L.equipe.loginId}<input value={form.loginId || ""} readOnly onFocus={(event) => event.target.select()} /></label>
+                  {revealedPassword ? (
+                    <label className="full">{L.equipe.loginPassword}<input value={revealedPassword} readOnly onFocus={(event) => event.target.select()} /></label>
+                  ) : (
+                    <p className="muted full">{L.equipe.accessPasswordHidden}</p>
+                  )}
+                  <label className="full">
+                    {L.equipe.credentialsLoginUrl}
+                    <input value={typeof window !== "undefined" ? `${window.location.origin}/login?type=ouvrier` : "/login?type=ouvrier"} readOnly onFocus={(event) => event.target.select()} />
+                  </label>
+                </div>
+                <div className="ed-act" style={{ marginTop: 12 }}>
+                  <button type="button" className="btn btn-sec" onClick={regenerateCredentials}>{L.equipe.regenerateCredentials}</button>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <span className="flab">{L.equipe.accessStatus}</span>
+                  <div className="kp-seg" role="group" aria-label={L.equipe.accessStatus} style={{ marginTop: 8 }}>
+                    <button type="button" className={form.active !== false ? "on" : ""} aria-pressed={form.active !== false} onClick={() => setWorkerActive(true)}>{L.equipe.accessActive}</button>
+                    <button type="button" className={form.active === false ? "on" : ""} aria-pressed={form.active === false} onClick={() => setWorkerActive(false)}>{L.equipe.accessInactive}</button>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </form>
       </Shell>
     );
   }
 
   return (
-    <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">{workers.length} {workers.length > 1 ? "personnes" : "personne"}</span>
           <h1>{L.equipe.title}</h1>
-          <span />
-        </header>
+        </div>
+        <div className="hact">
+          <button type="button" className="btn btn-sec" onClick={copyLoginLink}>{linkCopied ? "Lien copié !" : "Copier le lien de connexion équipe"}</button>
+          <button type="button" className="btn btn-main" onClick={() => setQuickAddOpen(true)}>{L.equipe.addPersonnel}</button>
+        </div>
+      </div>
 
-        {returnTo ? (
-          <button type="button" className="return-to-site-banner" onClick={goBackToChantier}>
-            {L.equipe.returnToSite}
+      {returnTo ? (
+        <div className="notice" role="status">
+          <button type="button" className="link" onClick={goBackToChantier}>{L.equipe.returnToSite}</button>
+        </div>
+      ) : null}
+
+      <div className="tbar">
+        <div className="wtabs" role="tablist" aria-label={L.equipe.title}>
+          <button type="button" role="tab" aria-selected={activeTab === "Ouvrier"} className={activeTab === "Ouvrier" ? "on" : ""} onClick={() => setActiveTab("Ouvrier")}>
+            {L.equipe.workers} <span>{workers.filter((w) => (w.type || "Ouvrier") === "Ouvrier").length}</span>
           </button>
-        ) : null}
-
-        <div className="search-pill">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
+          <button type="button" role="tab" aria-selected={activeTab === "Sous-traitant"} className={activeTab === "Sous-traitant" ? "on" : ""} onClick={() => setActiveTab("Sous-traitant")}>
+            {L.equipe.subcontractors}
+          </button>
         </div>
+        <label className="search search-wide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={L.equipe.search} />
+        </label>
+      </div>
 
-        <div className="segmented large segmented-beige">
-          <button type="button" className={activeTab === "Ouvrier" ? "active" : ""} onClick={() => setActiveTab("Ouvrier")}>{L.equipe.workers}</button>
-          <button type="button" className={activeTab === "Sous-traitant" ? "active" : ""} onClick={() => setActiveTab("Sous-traitant")}>{L.equipe.subcontractors}</button>
-        </div>
+      {message ? <p className="notice" role="status">{message}</p> : null}
 
-        <button type="button" className="button secondary" onClick={copyLoginLink}>
-          {linkCopied ? "Lien copié !" : "Copier le lien de connexion équipe"}
-        </button>
-
-        {message ? <p className="tool-message">{message}</p> : null}
-
-        <div className="people-list">
-          {filteredWorkers.length === 0 ? <div className="tool-empty">{activeTab === "Ouvrier" ? L.equipe.noWorkers : L.equipe.noSubs}</div> : null}
-          {filteredWorkers.map((worker) => (
-            <article
-              className="person-row clickable"
-              key={worker.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openEdit(worker)}
-              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openEdit(worker); } }}
-            >
-              <div className="avatar">
-                {worker.photoDataUrl ? (
-                  <img src={worker.photoDataUrl} alt={worker.name} />
-                ) : (
-                  (worker.name || "AB").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()
-                )}
-                <i className={worker.availability === "Disponible" ? "online" : ""} />
-              </div>
-              <div>
-                <strong>{worker.name}{worker.isCompany ? ` (${worker.companyRegNumber || L.equipe.isCompany})` : ""}</strong>
-                <small>{worker.profession || worker.role} - {worker.availability || "Disponible"}{worker.hourlyRate ? ` - ${worker.hourlyRate} EUR/h` : ""}</small>
-                {worker.phone || worker.email ? <small>{[worker.phone, worker.email].filter(Boolean).join(" - ")}</small> : null}
-                {(worker.links || []).length ? (
-                  <small>{L.equipe.linkedTo}: {worker.links.map((link) => link.label).filter(Boolean).join(", ")}</small>
-                ) : (worker.linkLabel ? <small>{L.equipe.linkedTo}: {worker.linkLabel}</small> : null)}
-              </div>
-              <button type="button" className={worker.favorite ? "select-dot selected" : "select-dot"} onClick={(event) => { event.stopPropagation(); updateWorker(worker, { favorite: !worker.favorite }); }} aria-label="Favori" />
-              <button type="button" className="mini-danger" onClick={(event) => { event.stopPropagation(); deleteWorker(worker); }}>{L.equipe.delete}</button>
-            </article>
-          ))}
-        </div>
-
-        <button type="button" className="team-fab" onClick={() => setQuickAddOpen(true)} aria-label={L.equipe.addPersonnel}>
-          <span>+</span>
-        </button>
-
-        {quickAddOpen ? (
-          <div className="team-quickadd-overlay" onClick={() => setQuickAddOpen(false)}>
-            <div className="team-quickadd-card" onClick={(event) => event.stopPropagation()}>
-              <div className="team-quickadd-head">
-                <h2>{L.equipe.quickAddTitle}</h2>
-                <button type="button" className="qa-close" onClick={() => setQuickAddOpen(false)} aria-label={L.common.close}>✕</button>
-              </div>
-              <button type="button" className="team-quickadd-tile tile-worker" onClick={() => { setQuickAddOpen(false); openCreate("Ouvrier"); }}>
-                <span className="team-tile-icon">👷</span>
-                <span className="team-tile-text"><strong>{L.equipe.addWorker}</strong><small>{L.equipe.quickAddWorkerHint}</small></span>
-                <span className="team-tile-arrow">→</span>
-              </button>
-              <button type="button" className="team-quickadd-tile tile-sub" onClick={() => { setQuickAddOpen(false); openCreate("Sous-traitant"); }}>
-                <span className="team-tile-icon">🧰</span>
-                <span className="team-tile-text"><strong>{L.equipe.addSub}</strong><small>{L.equipe.quickAddSubHint}</small></span>
-                <span className="team-tile-arrow">→</span>
-              </button>
-              <button type="button" className="team-quickadd-tile tile-planning" onClick={() => { setQuickAddOpen(false); openPlanning(); }}>
-                <span className="team-tile-icon">📊</span>
-                <span className="team-tile-text"><strong>{L.equipe.planningTitle}</strong><small>{L.equipe.quickAddPlanningHint}</small></span>
-                <span className="team-tile-arrow">→</span>
-              </button>
-            </div>
+      {filteredWorkers.length === 0 ? (
+        <div className="tbl"><p className="empty">{activeTab === "Ouvrier" ? L.equipe.noWorkers : L.equipe.noSubs}</p></div>
+      ) : (
+        <>
+          <div className="tbl fit has-cards">
+            <table>
+              <thead>
+                <tr><th>Nom</th><th>Métier</th><th>Disponibilité</th><th>Contact</th><th>Lié à</th><th /></tr>
+              </thead>
+              <tbody>
+                {filteredWorkers.map((worker) => (
+                  <tr key={worker.id} className="clickable" onClick={() => openEdit(worker)}>
+                    <td>
+                      <strong>{worker.name}{worker.isCompany ? ` (${worker.companyRegNumber || L.equipe.isCompany})` : ""}</strong>
+                    </td>
+                    <td>{worker.profession || worker.role || "—"}</td>
+                    <td><span className={`tag ${worker.availability === "Disponible" || !worker.availability ? "tag-b" : "dim"}`}>{worker.availability || "Disponible"}</span></td>
+                    <td>{[worker.phone, worker.email].filter(Boolean).join(" · ") || "—"}</td>
+                    <td>{(worker.links || []).length ? worker.links.map((link) => link.label).filter(Boolean).join(", ") : (worker.linkLabel || "—")}</td>
+                    <td>
+                      <div className="ed-act">
+                        <button type="button" className="dx" aria-label={worker.favorite ? "Retirer des favoris" : "Mettre en favori"} onClick={(event) => { event.stopPropagation(); updateWorker(worker, { favorite: !worker.favorite }); }}>{worker.favorite ? "★" : "☆"}</button>
+                        <button type="button" className="link" onClick={(event) => { event.stopPropagation(); deleteWorker(worker); }}>{L.equipe.delete}</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : null}
-      </section>
+          <div className="mlist">
+            {filteredWorkers.map((worker) => (
+              <div className="m-card" key={worker.id} role="button" tabIndex={0} onClick={() => openEdit(worker)}>
+                <div className="top2">
+                  <div>
+                    <div className="nm">{worker.name}</div>
+                    <div className="meta">{worker.profession || worker.role || "—"}</div>
+                  </div>
+                  <span className={`tag ${worker.availability === "Disponible" || !worker.availability ? "tag-b" : "dim"}`}>{worker.availability || "Disponible"}</span>
+                </div>
+                {worker.phone || worker.email ? <div className="line">{[worker.phone, worker.email].filter(Boolean).join(" · ")}</div> : null}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {quickAddOpen ? (
+        <div className="pmodal-bg" onClick={() => setQuickAddOpen(false)}>
+          <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.equipe.quickAddTitle} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>{L.equipe.quickAddTitle}</h2>
+              <button type="button" className="link" onClick={() => setQuickAddOpen(false)}>Fermer</button>
+            </div>
+            <button type="button" className="row pf-go st-row" onClick={() => { setQuickAddOpen(false); openCreate("Ouvrier"); }}>
+              <div className="t"><strong>{L.equipe.addWorker}</strong><small>{L.equipe.quickAddWorkerHint}</small></div>
+              <span aria-hidden="true">›</span>
+            </button>
+            <button type="button" className="row pf-go st-row" onClick={() => { setQuickAddOpen(false); openCreate("Sous-traitant"); }}>
+              <div className="t"><strong>{L.equipe.addSub}</strong><small>{L.equipe.quickAddSubHint}</small></div>
+              <span aria-hidden="true">›</span>
+            </button>
+            <button type="button" className="row pf-go st-row" onClick={() => { setQuickAddOpen(false); openPlanning(); }}>
+              <div className="t"><strong>{L.equipe.planningTitle}</strong><small>{L.equipe.quickAddPlanningHint}</small></div>
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }

@@ -180,176 +180,199 @@ export default function ClientsPage() {
     const isSociete = form.type === "societe";
     return (
       <Shell>
-        <section className="mobile-tool tool-form-view">
-          <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={closeForm}>{"<"}</button>
+        <div className="head">
+          <div className="stack">
+            <button type="button" className="link" onClick={closeForm}>← Retour</button>
+            <span className="eyebrow">{editingId ? "Modifier" : "Ajouter"}</span>
             <h1>{editingId ? "Modifier le client" : "Nouveau client"}</h1>
-            <span />
-          </header>
+          </div>
+        </div>
 
-          {error ? <p className="tool-message">{error}</p> : null}
+        {error ? <p className="notice notice-err" role="alert">{error}</p> : null}
 
-          <form className="mobile-form" onSubmit={submitClient}>
-            <label className="mobile-input full">
-              <span>Type</span>
-              <div className="segmented large">
-                <button type="button" className={!isSociete ? "active" : ""} onClick={() => setField("type", "particulier")}>Particulier</button>
-                <button type="button" className={isSociete ? "active" : ""} onClick={() => setField("type", "societe")}>Société</button>
-              </div>
-            </label>
+        <section className="card">
+          <form onSubmit={submitClient}>
+            <div className="fgrid">
+              <label className="full">
+                <span className="flab">Type</span>
+                <div className="kp-seg">
+                  <button type="button" className={!isSociete ? "on" : ""} aria-pressed={!isSociete} onClick={() => setField("type", "particulier")}>Particulier</button>
+                  <button type="button" className={isSociete ? "on" : ""} aria-pressed={isSociete} onClick={() => setField("type", "societe")}>Société</button>
+                </div>
+              </label>
 
-            {isSociete ? (
-              <>
-                <label className="mobile-input full">
-                  <span>Raison sociale</span>
-                  <input value={form.companyName} onChange={(event) => setField("companyName", event.target.value)} required />
-                </label>
-                <label className="mobile-input full">
-                  <span>SIRET</span>
-                  <input value={form.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="123 456 789 00012" />
-                </label>
-                <label className="mobile-input full">
-                  <span>Contact</span>
-                  <input value={form.contactPerson} onChange={(event) => setField("contactPerson", event.target.value)} />
-                </label>
-              </>
-            ) : (
-              <>
-                <label className="mobile-input full">
-                  <span>Prénom</span>
-                  <input value={form.firstName} onChange={(event) => setField("firstName", event.target.value)} />
-                </label>
-                <label className="mobile-input full">
-                  <span>Nom</span>
-                  <input value={form.lastName} onChange={(event) => setField("lastName", event.target.value)} required />
-                </label>
-              </>
-            )}
+              {isSociete ? (
+                <>
+                  <label className="full">
+                    <span>Raison sociale</span>
+                    <input value={form.companyName} onChange={(event) => setField("companyName", event.target.value)} required />
+                  </label>
+                  <label className="full">
+                    <span>SIRET</span>
+                    <input value={form.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="123 456 789 00012" />
+                  </label>
+                  <label className="full">
+                    <span>Contact</span>
+                    <input value={form.contactPerson} onChange={(event) => setField("contactPerson", event.target.value)} />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label>
+                    <span>Prénom</span>
+                    <input value={form.firstName} onChange={(event) => setField("firstName", event.target.value)} />
+                  </label>
+                  <label>
+                    <span>Nom</span>
+                    <input value={form.lastName} onChange={(event) => setField("lastName", event.target.value)} required />
+                  </label>
+                </>
+              )}
 
-            <label className="mobile-input full">
-              <span>Téléphone</span>
-              <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
-            </label>
-            <label className="mobile-input full">
-              <span>Email</span>
-              <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
-            </label>
-            <div className="mobile-input full">
-              <AddressFields
-                value={{
-                  address: form.address,
-                  city: form.city,
-                  postalCode: form.postalCode,
-                  floor: form.floor,
-                  accessCode: form.accessCode,
-                  complement: form.complement,
-                  accessInstructions: form.accessInstructions
-                }}
-                onChange={(next) => setForm((current) => ({ ...current, ...next }))}
-              />
+              <label>
+                <span>Téléphone</span>
+                <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
+              </label>
+              <label>
+                <span>Email</span>
+                <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
+              </label>
+
+              <fieldset className="full" style={{ border: "none", margin: 0, padding: 0 }}>
+                <legend className="flab">Adresse</legend>
+                <div className="legacy" style={{ display: "contents" }}>
+                  <AddressFields
+                    value={{
+                      address: form.address,
+                      city: form.city,
+                      postalCode: form.postalCode,
+                      floor: form.floor,
+                      accessCode: form.accessCode,
+                      complement: form.complement,
+                      accessInstructions: form.accessInstructions
+                    }}
+                    onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+                  />
+                </div>
+              </fieldset>
+
+              <label className="full">
+                <span>Notes</span>
+                <textarea value={form.notes} onChange={(event) => setField("notes", event.target.value)} rows="3" />
+              </label>
             </div>
-            <label className="mobile-input full">
-              <span>Notes</span>
-              <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
-            </label>
 
             {editingId ? (
-              <section className="follow-section">
-                <button type="button" className="follow-section-head follow-section-head-toggle" onClick={() => setAccessOpen((current) => !current)}>
-                  <h2>Accès au suivi de chantier</h2>
-                </button>
-                {accessOpen ? (
-                  <div className="mobile-form">
-                    {portalIdentifier ? (
-                      <label className="mobile-input full">
-                        <span>Identifiant</span>
-                        <input value={portalIdentifier} readOnly onFocus={(event) => event.target.select()} />
-                      </label>
-                    ) : null}
-                    {revealedPassword ? (
-                      <label className="mobile-input full">
-                        <span>Mot de passe</span>
-                        <input value={revealedPassword} readOnly onFocus={(event) => event.target.select()} />
-                      </label>
-                    ) : portalIdentifier ? (
-                      <p className="tool-muted">Mot de passe déjà transmis — régénérez-en un nouveau si besoin.</p>
-                    ) : (
-                      <p className="tool-muted">Aucun accès créé pour l'instant.</p>
-                    )}
-                    <label className="mobile-input full">
-                      <span>Lien de connexion</span>
-                      <input value={loginUrl} readOnly onFocus={(event) => event.target.select()} />
+              <details style={{ marginTop: 24 }}>
+                <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 500, padding: "8px 0", userSelect: "none" }}>Accès au suivi de chantier</summary>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                  {portalIdentifier ? (
+                    <label>
+                      <span>Identifiant</span>
+                      <input value={portalIdentifier} readOnly onFocus={(event) => event.target.select()} />
                     </label>
-                    <button type="button" className="mini-button" disabled={busy} onClick={regenerateCredentials}>
+                  ) : null}
+                  {revealedPassword ? (
+                    <label>
+                      <span>Mot de passe</span>
+                      <input value={revealedPassword} readOnly onFocus={(event) => event.target.select()} />
+                    </label>
+                  ) : portalIdentifier ? (
+                    <p className="muted" style={{ marginBottom: 12 }}>Mot de passe déjà transmis — régénérez-en un nouveau si besoin.</p>
+                  ) : (
+                    <p className="muted" style={{ marginBottom: 12 }}>Aucun accès créé pour l'instant.</p>
+                  )}
+                  <label>
+                    <span>Lien de connexion</span>
+                    <input value={loginUrl} readOnly onFocus={(event) => event.target.select()} />
+                  </label>
+                  <div style={{ marginTop: 12 }}>
+                    <button type="button" className="btn btn-sec" disabled={busy} onClick={regenerateCredentials}>
                       {portalIdentifier ? "Régénérer le mot de passe" : "Créer l'accès"}
                     </button>
                   </div>
-                ) : null}
-              </section>
+                </div>
+              </details>
             ) : null}
 
-            <button className="mobile-primary" disabled={busy}>Enregistrer</button>
-          </form>
-
-          {editingId ? (
-            <div className="quote-action-row">
-              <button type="button" className="button danger" onClick={deleteClient}>Supprimer</button>
+            <div className="ed-act" style={{ marginTop: 24 }}>
+              <button type="submit" className="btn btn-main" disabled={busy}>Enregistrer</button>
             </div>
-          ) : null}
+          </form>
         </section>
+
+        {editingId ? (
+          <section className="card" style={{ borderColor: "var(--err, #e63946)", backgroundColor: "rgba(230, 57, 70, 0.04)" }}>
+            <div className="ed-act">
+              <button type="button" className="btn" style={{ color: "var(--err, #e63946)" }} onClick={deleteClient}>Supprimer</button>
+            </div>
+          </section>
+        ) : null}
       </Shell>
     );
   }
 
   return (
     <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>← Retour</button>
+          <span className="eyebrow">Équipe & Accès</span>
           <h1>Clients</h1>
-          <span />
-        </header>
-
-        <div className="search-pill">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un client…" />
+          <span className="muted">Gérez les accès de vos clients au suivi de chantier.</span>
         </div>
+      </div>
 
-        <button type="button" className="button secondary" onClick={copyLoginLink}>
-          {linkCopied ? "Lien copié !" : "Copier le lien de connexion client"}
-        </button>
+      {message ? <p className="notice" style={{ backgroundColor: "var(--suc, rgba(76, 175, 80, 0.1))", borderColor: "var(--suc, #4cb050)", color: "var(--text)" }} role="status">{message}</p> : null}
 
-        {message ? <p className="tool-message">{message}</p> : null}
+      <div className="search search-wide" style={{ marginBottom: 16 }}>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un client…" />
+      </div>
 
-        <div className="people-list">
-          {filteredClients.length === 0 ? (
-            <div className="tool-empty">
-              <strong>Aucun client</strong>
-              <span>Ajoutez votre premier client pour générer son accès de suivi.</span>
-            </div>
-          ) : null}
+      <button type="button" className="btn btn-sec" onClick={copyLoginLink} style={{ marginBottom: 16 }}>
+        {linkCopied ? "Lien copié !" : "Copier le lien de connexion client"}
+      </button>
+
+      {filteredClients.length === 0 ? (
+        <div className="empty">
+          <strong>Aucun client</strong>
+          <span>Ajoutez votre premier client pour générer son accès de suivi.</span>
+        </div>
+      ) : (
+        <div className="mlist">
           {filteredClients.map((client) => (
             <article
-              className="person-row clickable"
+              className="m-card clickable"
               key={client.id}
               role="button"
               tabIndex={0}
               onClick={() => openEdit(client)}
               onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openEdit(client); } }}
             >
-              <div className="avatar">{initials(client)}</div>
-              <div>
-                <strong>{contactDisplayName(client)}</strong>
-                <small>{client.linkedUserId ? "Accès créé" : "Pas encore d'accès"}</small>
-                {client.phone || client.email ? <small>{[client.phone, client.email].filter(Boolean).join(" · ")}</small> : null}
+              <div className="top2">
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "var(--accent)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500, flexShrink: 0 }}>
+                    {initials(client)}
+                  </div>
+                  <div className="nm">
+                    <strong>{contactDisplayName(client)}</strong>
+                    <div className="meta">
+                      {[client.phone, client.email].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                </div>
+                <span className="tag" style={{ fontSize: 12, padding: "4px 8px", backgroundColor: client.linkedUserId ? "var(--accent)" : "var(--border)" }}>
+                  {client.linkedUserId ? "Accès créé" : "Pas d'accès"}
+                </span>
               </div>
             </article>
           ))}
         </div>
+      )}
 
-        <button type="button" className="team-fab" onClick={openCreate} aria-label="Nouveau client">
-          <span>+</span>
-        </button>
-      </section>
+      <button type="button" className="koji-fab" onClick={openCreate} aria-label="Nouveau client">
+        <span style={{ fontSize: 20 }}>+</span>
+      </button>
     </Shell>
   );
 }

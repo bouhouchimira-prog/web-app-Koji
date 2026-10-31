@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { addHistory, findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { CONTACT_ROLES, contactDisplayName, findSimilarContacts } from "../../../lib/contacts";
+import { maxLength, isEmail, validateFields } from "../../../lib/validators";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 import { createOrResetClientPortalAccount } from "../../../lib/client-portal-access";
@@ -44,6 +45,18 @@ export async function POST(request) {
   const userId = await resolveUserId(request, body, db);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const now = new Date().toISOString();
+
+  const validationError = validateFields(body, {
+    firstName: [(v) => maxLength(v, 100, "Le prénom")],
+    lastName: [(v) => maxLength(v, 100, "Le nom")],
+    companyName: [(v) => maxLength(v, 150, "La raison sociale")],
+    siret: [(v) => maxLength(v, 20, "Le SIRET")],
+    phone: [(v) => maxLength(v, 30, "Le téléphone")],
+    email: [(v) => isEmail(v)],
+    address: [(v) => maxLength(v, 200, "L'adresse")],
+    notes: [(v) => maxLength(v, 2000, "Les notes")]
+  });
+  if (validationError) return badRequest(validationError);
 
   const type = body.type === "societe" ? "societe" : "particulier";
   const roles = Array.isArray(body.roles) ? body.roles.filter((role) => CONTACT_ROLES.includes(role)) : [];

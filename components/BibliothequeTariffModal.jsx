@@ -22,6 +22,7 @@ function emptyFormFor(family) {
 
 // Modal de creation/edition d'un tarif personnalise (25 oct, refonte
 // navigation par familles) — remplace l'ancien formulaire pleine page.
+// DA Koji Pro : fenetre .pmodal, champs en .fgrid.
 // Reutilise par la page d'accueil, la page famille et "Compléter" sur un
 // metier sans ouvrage.
 export function BibliothequeTariffModal({
@@ -111,121 +112,96 @@ export function BibliothequeTariffModal({
   const showCodeField = isAdmin && (form.addToKojiCatalog || editingKojiItem);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <form className="biblio-modal" onClick={(event) => event.stopPropagation()} onSubmit={handleSubmit}>
-        <header className="biblio-modal-head">
-          <div>
+    <div className="pmodal-bg" onClick={onClose}>
+      <form className="pmodal" role="dialog" aria-modal="true" aria-label={initial ? L.bibliotheque.editTariffTitle : L.bibliotheque.newTariffTitle} onClick={(event) => event.stopPropagation()} onSubmit={handleSubmit}>
+        <div className="card-h">
+          <div className="stack">
             <h2>{initial ? L.bibliotheque.editTariffTitle : L.bibliotheque.newTariffTitle}</h2>
-            {form.family ? <p>{form.family} · {formatMoney(companyHourlyRate)} / h</p> : null}
+            {form.family ? <span className="muted">{form.family} · {formatMoney(companyHourlyRate)} / h</span> : null}
           </div>
-          <button type="button" className="biblio-modal-close" aria-label={L.common.close || L.bibliotheque.cancel} onClick={onClose}>✕</button>
-        </header>
+          <button type="button" className="link" onClick={onClose}>Fermer</button>
+        </div>
 
-        <div className="biblio-modal-body">
-          <label className="library-field full">
-            {L.bibliotheque.designation}
+        <div className="fgrid">
+          <label className="full">{L.bibliotheque.designation}
             <input value={form.label} onChange={(event) => setField("label", event.target.value)} required autoFocus />
           </label>
-
-          <div className="biblio-modal-row">
-            <label className="library-field">
-              {L.bibliotheque.family}
-              <input list="biblio-family-options" value={form.family} onChange={(event) => setField("family", event.target.value)} required />
-              <datalist id="biblio-family-options">
-                {families.map((item) => <option key={item} value={item} />)}
-              </datalist>
-            </label>
-            <label className="library-field">
-              {L.bibliotheque.category}
-              <input list="biblio-category-options" value={form.category} onChange={(event) => setField("category", event.target.value)} />
-              <datalist id="biblio-category-options">
-                {categories.map((item) => <option key={item} value={item} />)}
-              </datalist>
-            </label>
-          </div>
-
-          <label className="library-field">
-            {L.bibliotheque.unit}
+          <label>{L.bibliotheque.family}
+            <input list="biblio-family-options" value={form.family} onChange={(event) => setField("family", event.target.value)} required />
+            <datalist id="biblio-family-options">
+              {families.map((item) => <option key={item} value={item} />)}
+            </datalist>
+          </label>
+          <label>{L.bibliotheque.category}
+            <input list="biblio-category-options" value={form.category} onChange={(event) => setField("category", event.target.value)} />
+            <datalist id="biblio-category-options">
+              {categories.map((item) => <option key={item} value={item} />)}
+            </datalist>
+          </label>
+          <label>{L.bibliotheque.unit}
             <select value={form.unit} onChange={(event) => setField("unit", event.target.value)}>
               {UNITS.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
-
-          <div className="library-field">
-            {L.bibliotheque.pricingModeLabel}
-            <div className="segmented">
-              <button type="button" className={form.billingMode !== "fixed" ? "active" : ""} onClick={() => setField("billingMode", "time")}>{L.bibliotheque.pricingModeTime}</button>
-              <button type="button" className={form.billingMode === "fixed" ? "active" : ""} onClick={() => setField("billingMode", "fixed")}>{L.bibliotheque.pricingModeFixed}</button>
+          <div>
+            <span className="flab">{L.bibliotheque.pricingModeLabel}</span>
+            <div className="kp-seg" role="group" aria-label={L.bibliotheque.pricingModeLabel}>
+              <button type="button" className={form.billingMode !== "fixed" ? "on" : ""} aria-pressed={form.billingMode !== "fixed"} onClick={() => setField("billingMode", "time")}>{L.bibliotheque.pricingModeTime}</button>
+              <button type="button" className={form.billingMode === "fixed" ? "on" : ""} aria-pressed={form.billingMode === "fixed"} onClick={() => setField("billingMode", "fixed")}>{L.bibliotheque.pricingModeFixed}</button>
             </div>
           </div>
 
           {form.billingMode === "fixed" ? (
-            <label className="library-field">
-              {L.bibliotheque.totalBreakdown}
+            <label>{L.bibliotheque.totalBreakdown}
               <input type="number" step="0.01" min="0" value={form.fixedAmountHt} onChange={(event) => setField("fixedAmountHt", event.target.value)} placeholder="0,00" />
             </label>
           ) : (
-            <div className="biblio-modal-row">
-              <label className="library-field">
-                {L.bibliotheque.normTimeShort} ({L.bibliotheque.hoursUnit})
+            <>
+              <label>{L.bibliotheque.normTimeShort} ({L.bibliotheque.hoursUnit})
                 <input type="number" step="0.01" min="0" value={form.normativeTime} onChange={(event) => setField("normativeTime", event.target.value)} placeholder="0,00" />
               </label>
-              <label className="library-field">
-                {L.bibliotheque.suppliesFieldLabel} ({L.bibliotheque.euroHtUnit})
+              <label>{L.bibliotheque.suppliesFieldLabel} ({L.bibliotheque.euroHtUnit})
                 <input type="number" step="0.01" min="0" value={form.suppliesCost} onChange={(event) => setField("suppliesCost", event.target.value)} placeholder="0,00" />
               </label>
-            </div>
+            </>
           )}
 
-          <div className="biblio-breakdown">
+          <div className="full bib-calc">
             {form.billingMode === "fixed" ? (
-              <div className="biblio-breakdown-total">
-                <span>{L.bibliotheque.totalBreakdown}</span>
-                <strong>{formatMoney(totalHt)}</strong>
-              </div>
+              <div className="bib-calc-t"><span>{L.bibliotheque.totalBreakdown}</span><b>{formatMoney(totalHt)}</b></div>
             ) : (
               <>
-                <div>
-                  <span>{L.bibliotheque.laborBreakdown}</span>
-                  <strong>{formatMoney(laborCost)}</strong>
-                </div>
-                <span className="biblio-breakdown-op">+</span>
-                <div>
-                  <span>{L.bibliotheque.suppliesFieldLabel}</span>
-                  <strong>{formatMoney(suppliesCost)}</strong>
-                </div>
-                <span className="biblio-breakdown-op">=</span>
-                <div className="biblio-breakdown-total">
-                  <span>{L.bibliotheque.totalBreakdown}</span>
-                  <strong>{formatMoney(totalHt)}</strong>
-                </div>
+                <div><span>{L.bibliotheque.laborBreakdown}</span><b>{formatMoney(laborCost)}</b></div>
+                <i aria-hidden="true">+</i>
+                <div><span>{L.bibliotheque.suppliesFieldLabel}</span><b>{formatMoney(suppliesCost)}</b></div>
+                <i aria-hidden="true">=</i>
+                <div className="bib-calc-t"><span>{L.bibliotheque.totalBreakdown}</span><b>{formatMoney(totalHt)}</b></div>
               </>
             )}
           </div>
 
           {isAdmin ? (
-            <label className="library-field full library-field-checkbox">
+            <label className="full chk">
               <input type="checkbox" checked={form.addToKojiCatalog} onChange={(event) => setField("addToKojiCatalog", event.target.checked)} />
               {L.bibliotheque.addToKojiCheckbox}
             </label>
           ) : null}
 
           {showCodeField ? (
-            <label className="library-field full">
-              {L.bibliotheque.code}
+            <label className="full">{L.bibliotheque.code}
               <input value={form.code} onChange={(event) => setField("code", event.target.value)} placeholder="Ex: PLO-WC-03" required />
             </label>
           ) : (
-            <p className="biblio-privacy-note">{L.bibliotheque.privacyNote}</p>
+            <p className="full muted">{L.bibliotheque.privacyNote}</p>
           )}
 
-          {error ? <p className="library-message">{error}</p> : null}
+          {error ? <p className="full err" role="alert">{error}</p> : null}
         </div>
 
-        <footer className="biblio-modal-footer">
-          <button type="button" className="button secondary" onClick={onClose}>{L.bibliotheque.cancel}</button>
-          <button type="submit" className="button gold" disabled={saving}>{saving ? "…" : L.bibliotheque.saveTariff}</button>
-        </footer>
+        <div className="pm-act">
+          <button type="button" className="btn btn-sec" onClick={onClose}>{L.bibliotheque.cancel}</button>
+          <button type="submit" className="btn btn-main" disabled={saving}>{saving ? "Enregistrement…" : L.bibliotheque.saveTariff}</button>
+        </div>
       </form>
     </div>
   );

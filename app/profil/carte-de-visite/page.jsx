@@ -27,20 +27,10 @@ const DEFAULT_CARD_OPTIONS = { showLogo: true, showQr: true, showPhone: true, sh
 
 function ToggleRow({ label, hint, checked, onChange }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 0", borderBottom: "1px solid #F3F3F8" }}>
-      <div style={{ flex: "1 1 auto" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#1E2430" }}>{label}</div>
-        {hint ? <div style={{ fontSize: 12.5, color: "#6B7280", marginTop: 2 }}>{hint}</div> : null}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        aria-pressed={checked}
-        style={{ flex: "0 0 auto", width: 42, height: 24, borderRadius: 12, background: checked ? "#16233F" : "#CBD0DC", position: "relative", border: "none", cursor: "pointer" }}
-      >
-        <i style={{ position: "absolute", top: 3, left: checked ? 21 : 3, width: 18, height: 18, borderRadius: "50%", background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left 0.15s" }} />
-      </button>
-    </div>
+    <button type="button" className={checked ? "kj-tg on" : "kj-tg"} aria-pressed={checked} onClick={() => onChange(!checked)}>
+      <span>{label}{hint ? <small>{hint}</small> : null}</span>
+      <i><b /></i>
+    </button>
   );
 }
 
@@ -151,8 +141,8 @@ export default function CarteVisitePage() {
 
   if (loading || !business) {
     return (
-      <Shell>
-        <section className="panel"><div className="empty-state">{L.common.loading}</div></section>
+      <Shell variant="pro">
+        <section className="card"><p className="empty">{L.common.loading}</p></section>
       </Shell>
     );
   }
@@ -169,49 +159,60 @@ export default function CarteVisitePage() {
   const iconStroke = { fill: "none", stroke: "#E6B94F", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
 
   return (
-    <Shell>
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Link
-            href="/profil"
-            aria-label="Retour"
-            style={{
-              width: 44, height: 44, borderRadius: 12, border: "1px solid #EDEFF3", background: "#FFFFFF",
-              display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", color: "inherit"
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16233F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-          </Link>
-          <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, color: "#9C9FB0", fontWeight: 600 }}>Profil <span style={{ margin: "0 4px" }}>›</span> Carte de visite</div>
-            <h1 style={{ margin: "2px 0 0 0", fontSize: 24, fontWeight: 800, color: "#16233F", letterSpacing: "-0.01em" }}>{L.parametres.businessCard}</h1>
-            <p style={{ margin: "3px 0 0 0", fontSize: 14, color: "#6B7280" }}>{L.parametres.businessCardSub}</p>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <Link href="/profil" className="button secondary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20l4-1L19 8a2.1 2.1 0 00-3-3L5 16zM14 6l3 3M12 20h8" /></svg>
-              Modifier mon profil
-            </Link>
-            <button type="button" className="button secondary" onClick={() => openBusinessCard("preview")} disabled={cardLoading} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /></svg>
-              Aperçu
-            </button>
-            <button type="button" className="button blue" onClick={() => openBusinessCard("download")} disabled={cardLoading} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
-              {cardLoading ? L.parametres.saving : L.parametres.downloadBusinessCard}
-            </button>
-          </div>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">KojiPage · carte de visite</span>
+          <h1>{L.parametres.businessCard}</h1>
+          <span className="muted">{L.parametres.businessCardSub}</span>
+        </div>
+        <div className="hact">
+          <Link href="/profil" className="btn btn-sec">Modifier mon profil</Link>
+          <button type="button" className="btn btn-sec" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>Aperçu</button>
+          <button type="button" className="btn btn-main" onClick={() => openBusinessCard("download")} disabled={cardLoading}>
+            {cardLoading ? L.parametres.saving : L.parametres.downloadBusinessCard}
+          </button>
+        </div>
+      </div>
+
+      <div className="tbar">
+        <div className="wtabs" role="tablist" aria-label="KojiPage">
+          <a role="tab" aria-selected="false" href="/profil/site-web">Profil</a>
+          <a className="on" role="tab" aria-selected="true" href="/profil/carte-de-visite">Carte de visite</a>
+        </div>
+      </div>
+
+      {cardMessage ? <p className="notice notice-err" role="alert">{cardMessage}</p> : null}
+
+      <div className="kj-grid">
+        <div className="kj-col">
+          <section className="card">
+            <div className="card-h"><h2>Informations affichées</h2><span className="sm2">{optionsSaving ? "Enregistrement…" : "Activez ou masquez ce qui apparaît sur la carte"}</span></div>
+            <ToggleRow label="Logo de l'entreprise" hint="Celui de votre profil" checked={cardOptions.showLogo} onChange={(v) => toggleOption("showLogo", v)} />
+            <ToggleRow label="QR code du site web" hint="Sans site, le lien s'ajoute après l'adresse" checked={cardOptions.showQr} onChange={(v) => toggleOption("showQr", v)} />
+            <ToggleRow label="Téléphone" checked={cardOptions.showPhone} onChange={(v) => toggleOption("showPhone", v)} />
+            <ToggleRow label="E-mail professionnel" checked={cardOptions.showEmail} onChange={(v) => toggleOption("showEmail", v)} />
+            <ToggleRow label="Adresse" checked={cardOptions.showAddress} onChange={(v) => toggleOption("showAddress", v)} />
+            <ToggleRow label="Spécialité" hint={specialty ? `« ${specialty} »` : ""} checked={cardOptions.showSpecialty} onChange={(v) => toggleOption("showSpecialty", v)} />
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>Format d'impression</h2></div>
+            <div className="kv"><span>Format</span><b>85 × 55 mm, taille réelle</b></div>
+            <div className="kv"><span>Fichier</span><b>PDF recto-verso</b></div>
+            <div className="kv"><span>Autres formats</span><b className="muted">Bientôt disponibles</b></div>
+            <div className="ed-act" style={{ marginTop: 12 }}>
+              <button type="button" className="btn btn-sec" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>Imprimer</button>
+              <button type="button" className="btn btn-main" onClick={() => openBusinessCard("download")} disabled={cardLoading}>{L.parametres.downloadBusinessCard}</button>
+            </div>
+          </section>
         </div>
 
-        {cardMessage ? <p className="profile-message">{cardMessage}</p> : null}
-
-        <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 26 }}>
+        <aside className="kj-prev">
+          <div className="kj-ph-h"><span className="lab">Aperçu · 85 × 55 mm</span></div>
+          <div className="card" style={{ display: "flex", flexDirection: "column", gap: 22, alignItems: "center" }}>
             <div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 15, fontWeight: 800, color: "#16233F" }}>Recto</span>
-                <span style={{ fontSize: 12.5, color: "#6B7280" }}>Logo de l'entreprise et QR code du site</span>
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#5B5F66", marginBottom: 8 }}>Recto</div>
               <div style={{
                 position: "relative", width: cardW, height: cardH, borderRadius: 14, background: "#FBF9F5",
                 overflow: "hidden", boxShadow: "0 18px 40px rgba(11,21,48,.18)"
@@ -252,10 +253,7 @@ export default function CarteVisitePage() {
             </div>
 
             <div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 15, fontWeight: 800, color: "#16233F" }}>Verso</span>
-                <span style={{ fontSize: 12.5, color: "#6B7280" }}>Logo koji — identique pour tous les artisans</span>
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#5B5F66", marginBottom: 8 }}>Verso</div>
               <div style={{
                 position: "relative", width: cardW, height: cardH, borderRadius: 14, overflow: "hidden",
                 background: "radial-gradient(120% 90% at 50% 0%,#1D2F57 0%,#0B1530 62%)", boxShadow: "0 18px 40px rgba(11,21,48,.3)",
@@ -267,49 +265,7 @@ export default function CarteVisitePage() {
               </div>
             </div>
           </div>
-
-          <div style={{ flex: "1 1 320px", minWidth: 300, display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ background: "#FFFCF4", border: "1px solid #F1E2B8", borderRadius: 18, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E8E5A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-11" /></svg>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#16233F" }}>Prête pour l'imprimeur</div>
-              </div>
-              <div style={{ fontSize: 13.5, color: "#6B5A2A", lineHeight: 1.5 }}>Téléchargez le PDF et envoyez-le à votre imprimeur, ou ouvrez-le pour l'imprimer directement.</div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" className="button blue" onClick={() => openBusinessCard("download")} disabled={cardLoading}>{L.parametres.downloadBusinessCard}</button>
-                <button type="button" className="button secondary" onClick={() => openBusinessCard("preview")} disabled={cardLoading}>Imprimer</button>
-              </div>
-            </div>
-
-            <div className="profile-block">
-              <h2>Informations affichées</h2>
-              <p className="muted" style={{ marginTop: -4, marginBottom: 2 }}>Activez ou masquez ce qui apparaît sur votre carte.{optionsSaving ? " Enregistrement…" : ""}</p>
-              <ToggleRow label="Logo de l'entreprise" hint="Celui de votre profil" checked={cardOptions.showLogo} onChange={(v) => toggleOption("showLogo", v)} />
-              <ToggleRow label="QR code du site web" hint="Sans site, le lien s'ajoute après l'adresse" checked={cardOptions.showQr} onChange={(v) => toggleOption("showQr", v)} />
-              <ToggleRow label="Téléphone" checked={cardOptions.showPhone} onChange={(v) => toggleOption("showPhone", v)} />
-              <ToggleRow label="E-mail professionnel" checked={cardOptions.showEmail} onChange={(v) => toggleOption("showEmail", v)} />
-              <ToggleRow label="Adresse" checked={cardOptions.showAddress} onChange={(v) => toggleOption("showAddress", v)} />
-              <ToggleRow label="Spécialité" hint={specialty ? `« ${specialty} »` : ""} checked={cardOptions.showSpecialty} onChange={(v) => toggleOption("showSpecialty", v)} />
-            </div>
-
-            <div className="profile-block">
-              <h2>Format d'impression</h2>
-              <div style={{ display: "flex", gap: 8, margin: "8px 0 14px" }}>
-                <span style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 11, background: "#16233F", color: "#FFFFFF", border: "1px solid #16233F" }}>85 × 55 mm</span>
-                <span title="Bientôt disponible" style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 11, background: "#F6F7FB", color: "#B5B9C6", border: "1px solid #E5E5EC", cursor: "not-allowed" }}>90 × 50 mm</span>
-                <span title="Bientôt disponible" style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 11, background: "#F6F7FB", color: "#B5B9C6", border: "1px solid #E5E5EC", cursor: "not-allowed" }}>Format US</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #F3F3F8", fontSize: 13.5 }}>
-                <span style={{ color: "#6B7280" }}>Format</span>
-                <span style={{ fontWeight: 700, color: "#1E2430" }}>85 × 55 mm, taille réelle</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", fontSize: 13.5 }}>
-                <span style={{ color: "#6B7280" }}>Fichier</span>
-                <span style={{ fontWeight: 700, color: "#1E2430" }}>PDF recto-verso</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        </aside>
       </div>
     </Shell>
   );

@@ -184,134 +184,136 @@ export default function CorbeillePage() {
   }
 
   return (
-    <Shell>
-      <section className="fournitures-dashboard">
-        <header className="fournitures-dashboard-head">
-          <div>
-            <h1><span className="title-chip">Corbeille</span></h1>
-            <p>Les éléments supprimés sont gardés 30 jours avant suppression définitive.</p>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <button
-              type="button"
-              className="button secondary"
-              disabled={items.length === 0}
-              onClick={() => setConfirmTarget({ bulk: true })}
-            >
-              Vider la corbeille
-            </button>
-          </div>
-        </header>
-
-        <div className="fournitures-main-card">
-          <div className="fournitures-main-card-head">
-            <input
-              className="fournitures-search-input"
-              style={{ flex: "1 1 auto", minWidth: 200, height: 42, borderRadius: 12, border: "1px solid var(--line)", padding: "0 14px" }}
-              placeholder="Rechercher dans la corbeille…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="fournitures-filter-tabs">
-              {FILTER_TABS.map((t) => (
-                <button type="button" key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {error ? <p className="auth-error">{error}</p> : null}
-
-          {filtered.length === 0 ? (
-            <div className="tool-empty">
-              <strong>Corbeille vide</strong>
-              <span>Les éléments supprimés depuis Devis, Factures, Chantiers, Contacts et Avenants apparaîtront ici.</span>
-            </div>
-          ) : (
-            <div className="fournitures-table">
-              <div className="fournitures-table-row fournitures-table-head-row">
-                <div>ÉLÉMENT</div>
-                <div>TYPE</div>
-                <div>SUPPRIMÉ LE</div>
-                <div>SUPPRESSION DANS</div>
-                <div></div>
-              </div>
-              {filtered.map((item) => {
-                const meta = TYPE_META[item.kind];
-                const left = daysLeft(item.archivedAt);
-                return (
-                  <div className="fournitures-table-row-wrap" key={`${item.kind}-${item.id}`}>
-                    <div className="fournitures-table-row">
-                      <div className="fournitures-table-cell" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">{meta.icon}</span>
-                        <div>
-                          <strong>{item.title}</strong>
-                          <small>{item.subtitle}</small>
-                        </div>
-                      </div>
-                      <div>
-                        <span className="status-pill" style={{ color: "#6B7280", background: "#F0F1F5" }}>{meta.label}</span>
-                      </div>
-                      <div className="fournitures-table-cell">{daysAgoLabel(item.archivedAt)}</div>
-                      <div className="fournitures-table-cell">
-                        <span style={{ color: left <= 5 ? "#C4452D" : "#B7791F", fontWeight: 600 }}>{left} jour{left > 1 ? "s" : ""}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button type="button" className="mini-button" onClick={() => restore(item)}>Restaurer</button>
-                        <button type="button" className="mini-danger" onClick={() => { setConfirmTarget({ item }); setConfirmText(""); }} aria-label="Supprimer définitivement">🗑</button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">Gestion</span>
+          <h1>Corbeille</h1>
+          <span className="muted">Les éléments supprimés sont gardés 30 jours avant suppression définitive.</span>
         </div>
-      </section>
+        <div className="hact">
+          <button type="button" className="btn btn-sec" disabled={items.length === 0} onClick={() => setConfirmTarget({ bulk: true })}>
+            Vider la corbeille
+          </button>
+        </div>
+      </div>
+
+      <div className="tbar">
+        <label className="search search-wide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher dans la corbeille…" />
+        </label>
+      </div>
+
+      <div className="kp-seg" role="group" aria-label="Type d'élément" style={{ marginBottom: 16 }}>
+        {FILTER_TABS.map((t) => (
+          <button type="button" key={t.id} className={tab === t.id ? "on" : ""} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {error ? <p className="notice notice-err" role="alert">{error}</p> : null}
+
+      {filtered.length === 0 ? (
+        <div className="tbl">
+          <div className="empty">
+            <strong>Corbeille vide</strong>
+            <span>Les éléments supprimés depuis Devis, Factures, Chantiers, Contacts et Avenants apparaîtront ici.</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="tbl fit has-cards">
+            <table>
+              <thead>
+                <tr><th>Élément</th><th>Type</th><th>Supprimé le</th><th>Suppression dans</th><th /></tr>
+              </thead>
+              <tbody>
+                {filtered.map((item) => {
+                  const meta = TYPE_META[item.kind];
+                  const left = daysLeft(item.archivedAt);
+                  return (
+                    <tr key={`${item.kind}-${item.id}`}>
+                      <td>
+                        <strong>{item.title}</strong>
+                        <small className="muted" style={{ display: "block" }}>{item.subtitle}</small>
+                      </td>
+                      <td><span className="tag dim">{meta.label}</span></td>
+                      <td>{daysAgoLabel(item.archivedAt)}</td>
+                      <td><span className={left <= 5 ? "tag tag-o" : "tag"}>{left} jour{left > 1 ? "s" : ""}</span></td>
+                      <td>
+                        <div className="ed-act">
+                          <button type="button" className="btn btn-sec" onClick={() => restore(item)}>Restaurer</button>
+                          <button type="button" className="dx" aria-label="Supprimer définitivement" title="Supprimer définitivement" onClick={() => { setConfirmTarget({ item }); setConfirmText(""); }}>×</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mlist">
+            {filtered.map((item) => {
+              const meta = TYPE_META[item.kind];
+              const left = daysLeft(item.archivedAt);
+              return (
+                <div className="m-card" key={`${item.kind}-${item.id}`}>
+                  <div className="top2">
+                    <div>
+                      <div className="nm">{item.title}</div>
+                      <div className="meta">{item.subtitle}</div>
+                    </div>
+                    <span className="tag dim">{meta.label}</span>
+                  </div>
+                  <div className="dvc-f">
+                    <span className="meta">Supprimé {daysAgoLabel(item.archivedAt)}</span>
+                    <b>{left} jour{left > 1 ? "s" : ""}</b>
+                  </div>
+                  <div className="ed-act">
+                    <button type="button" className="btn btn-sec" onClick={() => restore(item)}>Restaurer</button>
+                    <button type="button" className="dx" aria-label="Supprimer définitivement" onClick={() => { setConfirmTarget({ item }); setConfirmText(""); }}>×</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {confirmTarget ? (
-        <div className="modal-overlay open" onClick={() => !busy && setConfirmTarget(null)}>
-          <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
-            <h2 style={{ color: "#C4452D" }}>Supprimer définitivement ?</h2>
+        <div className="pmodal-bg" onClick={() => !busy && setConfirmTarget(null)}>
+          <form className="pmodal" role="dialog" aria-modal="true" aria-label="Supprimer définitivement" onClick={(event) => event.stopPropagation()} onSubmit={(event) => { event.preventDefault(); confirmDelete(); }}>
+            <div className="card-h">
+              <h2>Supprimer définitivement ?</h2>
+              <button type="button" className="link" onClick={() => setConfirmTarget(null)} disabled={busy}>Fermer</button>
+            </div>
             <p className="muted">Cette action est irréversible : {confirmTarget.bulk ? "les éléments et leurs pièces jointes seront effacés." : "l'élément et ses pièces jointes seront effacés."}</p>
 
             {!confirmTarget.bulk ? (
-              <div className="divers-purchase-row" style={{ background: "#FBE9E5" }}>
-                <div className="divers-purchase-main">
-                  <strong>{confirmTarget.item.title}</strong>
-                  <small>Supprimée le {daysAgoLabel(confirmTarget.item.archivedAt)}</small>
-                </div>
-              </div>
+              <div className="kv"><span>{confirmTarget.item.title}</span><b>Supprimée {daysAgoLabel(confirmTarget.item.archivedAt)}</b></div>
             ) : (
               <p className="muted">{filtered.length} élément{filtered.length > 1 ? "s" : ""} actuellement affiché{filtered.length > 1 ? "s" : ""} seront supprimés.</p>
             )}
 
-            <label style={{ display: "block", marginTop: 10 }}>
-              <small className="ct-profil-field-hint" style={{ textTransform: "uppercase", fontWeight: 700 }}>Pour confirmer, tapez SUPPRIMER</small>
-              <input
-                className="profile-textarea"
-                style={{ height: 46, minHeight: "unset" }}
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                autoFocus
-              />
-            </label>
+            <div className="fgrid" style={{ marginTop: 12 }}>
+              <label className="full">
+                Pour confirmer, tapez SUPPRIMER
+                <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoFocus />
+              </label>
+            </div>
 
-            {error ? <p className="profile-message error">{error}</p> : null}
+            {error ? <p className="notice notice-err" role="alert">{error}</p> : null}
 
-            <div>
-              <button type="button" onClick={() => setConfirmTarget(null)} disabled={busy}>Annuler</button>
-              <button
-                type="button"
-                className="mini-danger"
-                disabled={busy || confirmText.trim().toUpperCase() !== "SUPPRIMER"}
-                onClick={confirmDelete}
-              >
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setConfirmTarget(null)} disabled={busy}>Annuler</button>
+              <button type="submit" className="btn btn-main" disabled={busy || confirmText.trim().toUpperCase() !== "SUPPRIMER"}>
                 {busy ? "Suppression…" : "Supprimer définitivement"}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       ) : null}
     </Shell>

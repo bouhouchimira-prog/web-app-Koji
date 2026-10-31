@@ -23,6 +23,22 @@ const ROOM_SUGGESTIONS = ["Salon", "Cuisine", "Chambre", "Salle de bain", "Burea
 
 const CUSTOM_OUVRAGE_UNITS = ["u", "m²", "ml", "m³", "h", "forfait"];
 
+const LINE_UNIT_OPTIONS = [["u", "U"], ["m", "M"], ["m2", "M²"], ["l", "L"], ["pce", "Pièce"], ["ens", "Ens"], ["forfait", "Forfait"], ["ml", "ML"], ["autre", "Autre"]];
+
+function unitLabel(unit) {
+  return { m2: "m²", m3: "m³" }[unit] || unit || "u";
+}
+
+const QUOTE_STATUS_WORDS = {
+  Brouillon: "brouillon",
+  "Pret a envoyer": "prêt à envoyer",
+  Envoye: "envoyé",
+  Signe: "signé",
+  Refuse: "refusé",
+  Annule: "annulé",
+  Archive: "archivé"
+};
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -404,7 +420,6 @@ export default function DevisEditor() {
   const [supplyCategory, setSupplyCategory] = useState("");
   const [conditioningOpen, setConditioningOpen] = useState(false);
   const [paymentCardOpen, setPaymentCardOpen] = useState(false);
-  const [totalsDetailOpen, setTotalsDetailOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   // Fenetre "Envoyer le devis" (16 oct, maquette Artifact DevisEnvoi).
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -678,6 +693,9 @@ export default function DevisEditor() {
     setSelectedIds([]);
     setCustomSources(nextCustomSources);
     setLineSettings(nextLineSettings);
+    // Devis rouvert : lignes résumées, une seule s'ouvre au clic (maquette
+    // PRO-03.1). Les lignes ajoutées ensuite restent ouvertes pour l'édition.
+    setCollapsedLineIds(new Set(items.map((item) => item.id)));
     setRooms(Array.isArray(quote.rooms) ? quote.rooms : []);
     setRoomNotes(Array.isArray(quote.notes) ? quote.notes : []);
     if (Array.isArray(quote.surcharges)) setSurcharges(quote.surcharges);
@@ -2490,6 +2508,48 @@ export default function DevisEditor() {
     return () => window.removeEventListener("koji-devis-page-action", handleDevisPageAction);
   }, [roomGroups, targetRoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function lotCode(room) {
+    if (room === "Services") return "Général";
+    const index = roomGroups.filter((r) => r !== "Services").indexOf(room) + 1;
+    return `Lot ${String(index).padStart(2, "0")}`;
+  }
+
+  function aiTag(line) {
+    if (!line.aiAdded) return null;
+    return line.priceSource === "manquant"
+      ? <span className="tag tag-b">IA · prix manquant</span>
+      : <span className="tag tag-o">IA · à vérifier</span>;
+  }
+
+  function renderLineMenu(line, { roomLines, lineIndex, linkedOuvrage, collapsed }) {
+    const open = lineMenuOpenId === line.id;
+    return (
+      <div className="dl-menu-wrap" ref={open ? lineMenuRef : null}>
+        <button
+          type="button"
+          className="dl-menu"
+          aria-label="Actions de la ligne"
+          aria-expanded={open}
+          onClick={(event) => { event.stopPropagation(); setLineMenuOpenId((current) => current === line.id ? null : line.id); }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01" /></svg>
+        </button>
+        {open ? (
+          <div className="dl-pop">
+            <button type="button" disabled={lineIndex <= 0} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "up"); }}>{L.devis.moveUp}</button>
+            <button type="button" disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "down"); }}>{L.devis.moveDown}</button>
+            {linkedOuvrage ? <button type="button" onClick={() => { setLineMenuOpenId(null); openOuvrageReference(line); }}>{L.devis.openBtn}</button> : null}
+            {!collapsed ? <button type="button" onClick={() => { setLineMenuOpenId(null); toggleLineAdvanced(line.id); }}>{L.devis.advancedDetails}</button> : null}
+            <button type="button" className="danger" onClick={() => { setLineMenuOpenId(null); if (collapsed) reopenLine(line.id); setConfirmDeleteLineId(line.id); }}>{L.common.delete}</button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Ligne du devis, maquette PRO-03.1 : ligne résumée (clic pour l'ouvrir),
+  // ou ligne ouverte avec son édition en place (quantité, prix, détails,
+  // fournitures, sous-ouvrages). Mêmes fonctions qu'avant pour chaque champ.
   function renderLineCard(line) {
     const settings = lineSettings[line.id] || {};
     const subItems = Array.isArray(line.subItems) ? line.subItems : [];
@@ -2499,224 +2559,177 @@ export default function DevisEditor() {
     const linkedOuvrage = ouvrages.find((item) => item.id === line.id);
     const lineNumber = lineIndex + 1;
     const isAdvanced = advancedLineIds.has(line.id);
+    const menuContext = { roomLines, lineIndex, linkedOuvrage };
 
     if (collapsedLineIds.has(line.id)) {
       const qty = Number(settings.quantity ?? line.quantity ?? 0) || (line.billingMode === "fixed" ? 1 : 0);
       const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
       return (
-        <article key={line.id} className="quote-final-line quote-final-line-collapsed">
-          <div className="quote-line-collapsed-row-wrap" ref={lineMenuOpenId === line.id ? lineMenuRef : null}>
-            <button type="button" className="quote-line-collapsed-row" onClick={() => reopenLine(line.id)}>
-              <span className="quote-line-collapsed-index">{lineNumber}</span>
-              <span className="quote-line-collapsed-label">
-                {settings.label ?? line.label ?? L.devis.designation}
-                {line.aiAdded ? (
-                  <span className={`status-pill status-pill-ia${line.priceSource === "manquant" ? " status-pill-ia-missing" : ""}`}>
-                    {line.priceSource === "manquant" ? "IA · prix manquant" : "IA · à vérifier"}
-                  </span>
-                ) : null}
-              </span>
-              <span className="quote-line-collapsed-qty">{qty > 0 ? qty : "—"}</span>
-              <span className="quote-line-collapsed-unit">{(settings.unit ?? line.unit ?? "u").toUpperCase()}</span>
-              <span className="quote-line-collapsed-unitprice">{money(unitPriceHt)}</span>
-              <strong className="quote-line-collapsed-total">{money(line.totalHt)}</strong>
-            </button>
-            <button
-              type="button"
-              className="quote-line-menu-trigger"
-              onClick={(event) => { event.stopPropagation(); setLineMenuOpenId((current) => current === line.id ? null : line.id); }}
-              aria-label={L.devis.advancedDetails}
-            >⋮</button>
-            {lineMenuOpenId === line.id ? (
-              <div className="quote-line-menu-dropdown">
-                <button type="button" disabled={lineIndex <= 0} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "up"); }}>{L.devis.moveUp}</button>
-                <button type="button" disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "down"); }}>{L.devis.moveDown}</button>
-                {linkedOuvrage ? (
-                  <button type="button" onClick={() => { setLineMenuOpenId(null); openOuvrageReference(line); }}>{L.devis.openBtn}</button>
-                ) : null}
-                <button type="button" className="danger" onClick={() => { setLineMenuOpenId(null); reopenLine(line.id); setConfirmDeleteLineId(line.id); }}>{L.common.delete}</button>
+        <div key={line.id} className="dl-wrap">
+          <button type="button" className="dl" onClick={() => reopenLine(line.id)}>
+            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}</span>
+            <span className="dq">{qty > 0 ? `${qty.toLocaleString("fr-FR")} ${unitLabel(settings.unit ?? line.unit)}` : "—"}</span>
+            <span className="dp">{money(unitPriceHt)}</span>
+            <span className="dt">{money(line.totalHt)}</span>
+          </button>
+          {renderLineMenu(line, { ...menuContext, collapsed: true })}
+          {subItems.map((sub, subIndex) => {
+            const subQty = Number(sub.quantity || 0) || (sub.billingMode === "fixed" ? 1 : 0);
+            const subUnitPriceHt = subQty > 0 ? sub.totalHt / subQty : sub.totalHt;
+            return (
+              <div className="dl dl-sub" key={sub.id}>
+                <span className="dd">{lineNumber}.{subIndex + 1} · {sub.label || L.devis.designation}</span>
+                <span className="dq">{subQty > 0 ? `${subQty.toLocaleString("fr-FR")} ${unitLabel(sub.unit)}` : "—"}</span>
+                <span className="dp">{money(subUnitPriceHt)}</span>
+                <span className="dt">{money(sub.totalHt)}</span>
               </div>
-            ) : null}
-          </div>
-          {hasSubItems ? (
-            <div className="quote-line-collapsed-subs">
-              {subItems.map((sub, subIndex) => {
-                const subQty = Number(sub.quantity || 0) || (sub.billingMode === "fixed" ? 1 : 0);
-                const subUnitPriceHt = subQty > 0 ? sub.totalHt / subQty : sub.totalHt;
-                return (
-                  <div className="quote-line-collapsed-row quote-line-collapsed-sub" key={sub.id}>
-                    <span className="quote-line-collapsed-index">{lineNumber}.{subIndex + 1}</span>
-                    <span className="quote-line-collapsed-label">{sub.label || L.devis.designation}</span>
-                    <span className="quote-line-collapsed-qty">{subQty > 0 ? subQty : "—"}</span>
-                    <span className="quote-line-collapsed-unit">{(sub.unit || "u").toUpperCase()}</span>
-                    <span className="quote-line-collapsed-unitprice">{money(subUnitPriceHt)}</span>
-                    <strong className="quote-line-collapsed-total">{money(sub.totalHt)}</strong>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </article>
+            );
+          })}
+        </div>
       );
     }
 
+    const visibleMaterials = (line.materialLines || []).filter((m) => m.productId || m.productName || Number(m.unitPrice || 0) > 0);
+    const breakdown = line.billingMode === "fixed"
+      ? [
+        settings.fixedDuration ? `${L.devis.duration} : ${settings.fixedDuration} ${settings.fixedDurationUnit ?? "h"}` : "",
+        `${L.devis.forfait} ${line.fixedAmountMode === "ttc" ? "TTC" : "HT"} : ${money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}`
+      ]
+      : [
+        `${L.devis.hours} : ${Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h`,
+        `${L.devis.labor} : ${money(line.laborCost)}`,
+        `${L.nav.supplies} : ${money(line.materialCost)}`
+      ];
+    breakdown.push(`HT : ${money(line.totalHt)}`);
+
     return (
-      <article key={line.id} className={`quote-final-line${hasSubItems ? " has-sub-items" : ""}`}>
-        <header>
-          <input className="quote-line-label-input quote-line-label-input-header" value={settings.label ?? line.label ?? ""} onChange={(event) => updateLineLabel(line.id, event.target.value)} placeholder={L.devis.designation} />
-          {line.aiAdded ? (
-            <span className={`status-pill status-pill-ia${line.priceSource === "manquant" ? " status-pill-ia-missing" : ""}`}>
-              {line.priceSource === "manquant" ? "IA · prix manquant" : "IA · à vérifier"}
-            </span>
-          ) : null}
-          <div className="quote-line-menu-wrap" ref={lineMenuOpenId === line.id ? lineMenuRef : null}>
-            <button
-              type="button"
-              className="quote-line-menu-trigger"
-              onClick={() => setLineMenuOpenId((current) => current === line.id ? null : line.id)}
-              aria-label={L.devis.advancedDetails}
-            >⋮</button>
-            {lineMenuOpenId === line.id ? (
-              <div className="quote-line-menu-dropdown">
-                <button type="button" disabled={lineIndex <= 0} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "up"); }}>{L.devis.moveUp}</button>
-                <button type="button" disabled={lineIndex === -1 || lineIndex >= roomLines.length - 1} onClick={() => { setLineMenuOpenId(null); moveLine(line.id, "down"); }}>{L.devis.moveDown}</button>
-                {linkedOuvrage ? (
-                  <button type="button" onClick={() => { setLineMenuOpenId(null); openOuvrageReference(line); }}>{L.devis.openBtn}</button>
-                ) : null}
-                <button type="button" onClick={() => { setLineMenuOpenId(null); toggleLineAdvanced(line.id); }}>{L.devis.advancedDetails}</button>
-                <button type="button" className="danger" onClick={() => { setLineMenuOpenId(null); setConfirmDeleteLineId(line.id); }}>{L.common.delete}</button>
-              </div>
-            ) : null}
+      <div key={line.id} className="dl-open">
+        <div className="dl-wrap">
+          <div className="dl sel dl-head">
+            <input
+              className="dl-label"
+              value={settings.label ?? line.label ?? ""}
+              onChange={(event) => updateLineLabel(line.id, event.target.value)}
+              placeholder={L.devis.designation}
+              aria-label={L.devis.designation}
+            />
+            {aiTag(line)}
+            <span className="dt">{money(line.totalHt)}</span>
           </div>
-        </header>
-        <label className="quote-line-description">
-          <span>{L.devis.descriptionClient}</span>
-          <textarea
-            rows={2}
-            value={settings.description ?? line.description ?? ""}
-            onChange={(event) => updateLine(line.id, "description", event.target.value)}
-            placeholder={L.devis.descriptionPlaceholder}
-          />
-        </label>
-        {!hasSubItems ? (
-          <>
-            <div className="quote-line-inputs compact quote-line-inputs-simple">
-              {line.billingMode === "fixed" ? (
-                <label className="forfait-amount-field">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
-              ) : (
-                <>
-                  <label>{L.devis.quantity}<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
-                  <label>{L.bibliotheque.unit}<select value={settings.unit ?? line.unit ?? "u"} onChange={(event) => updateLine(line.id, "unit", event.target.value)}>
-                    <option value="u">U</option>
-                    <option value="m">M</option>
-                    <option value="m2">M²</option>
-                    <option value="l">L</option>
-                    <option value="pce">Pièce</option>
-                    <option value="ens">Ens</option>
-                    <option value="forfait">Forfait</option>
-                    <option value="ml">ML</option>
-                    <option value="autre">Autre</option>
-                  </select></label>
-                  <label>{L.devis.priceHt}<input type="number" min="0" step="0.01" value={formatNumberInput((settings.normativeTime ?? line.normativeTime ?? 0) * (settings.hourlyRate ?? line.hourlyRate ?? 0))} onChange={(event) => updateLineUnitPrice(line.id, line, settings, event.target.value)} placeholder="0.00" /></label>
-                </>
-              )}
-            </div>
+          {renderLineMenu(line, { ...menuContext, collapsed: false })}
+        </div>
 
-            {isAdvanced ? (
-              <div className="quote-line-advanced">
-                <div className="quote-mode-row">
-                  <button type="button" className={line.billingMode !== "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "time")}>{L.devis.realTime}</button>
-                  <button type="button" className={line.billingMode === "fixed" ? "active" : ""} onClick={() => updateLine(line.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
-                  <label>{L.devis.room}<select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
-                    <option value="Services">{L.devis.noRoom}</option>
-                    {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
-                  </select></label>
-                </div>
-                <div className={`quote-line-inputs compact ${line.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
-                  {line.billingMode === "fixed" ? (
-                    <>
-                      <label>{L.devis.duration}<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
-                      <label>{L.bibliotheque.unit}<select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
-                        <option value="h">{L.devis.hours}</option>
-                        <option value="j">Jours</option>
-                      </select></label>
-                    </>
-                  ) : (
-                    <>
-                      <label>{L.bibliotheque.time} h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
-                      <label>{L.devis.hourlyRate}<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
-                      <label>{L.devis.adjustment}<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
-                      <label>{L.devis.discountPct}<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
-                    </>
-                  )}
-                </div>
-                {linkedOuvrage && (linkedOuvrage.noteInterne || linkedOuvrage.sourceInterne) ? (
-                  <div className="quote-line-internal-ref">
-                    {linkedOuvrage.noteInterne ? <p><span>{L.devis.noteInterne}</span>{linkedOuvrage.noteInterne}</p> : null}
-                    {linkedOuvrage.sourceInterne ? <p><span>{L.devis.sourceInterne}</span>{linkedOuvrage.sourceInterne}</p> : null}
-                  </div>
-                ) : null}
+        <div className="dl-edit">
+          <label className="ed">{L.devis.descriptionClient}
+            <textarea
+              rows={2}
+              value={settings.description ?? line.description ?? ""}
+              onChange={(event) => updateLine(line.id, "description", event.target.value)}
+              placeholder={L.devis.descriptionPlaceholder}
+            />
+          </label>
+
+          {!hasSubItems ? (
+            <>
+              <div className="eg3">
+                {line.billingMode === "fixed" ? (
+                  <label className="ed">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={settings.fixedAmountInput ?? line.fixedAmountInput ?? ""} onChange={(event) => updateLine(line.id, "fixedAmountInput", event.target.value)} /></label>
+                ) : (
+                  <>
+                    <label className="ed">{L.devis.quantity}<input type="number" min="0" step="any" value={settings.quantity ?? ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} placeholder="0" /></label>
+                    <label className="ed">{L.bibliotheque.unit}
+                      <select value={settings.unit ?? line.unit ?? "u"} onChange={(event) => updateLine(line.id, "unit", event.target.value)}>
+                        {LINE_UNIT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <label className="ed">{L.devis.priceHt}<input type="number" min="0" step="0.01" value={formatNumberInput((settings.normativeTime ?? line.normativeTime ?? 0) * (settings.hourlyRate ?? line.hourlyRate ?? 0))} onChange={(event) => updateLineUnitPrice(line.id, line, settings, event.target.value)} placeholder="0.00" /></label>
+                  </>
+                )}
               </div>
-            ) : null}
 
-            <div className="quote-line-breakdown">
-              {line.billingMode === "fixed" ? (
-                <>
-                  {settings.fixedDuration ? <span>{L.devis.duration}: {settings.fixedDuration} {settings.fixedDurationUnit ?? "h"}</span> : null}
-                  <span>{L.devis.forfait} {line.fixedAmountMode === "ttc" ? "TTC" : "HT"}: {money(line.fixedAmountMode === "ttc" ? line.totalTtc : line.totalHt)}</span>
-                </>
-              ) : (
-                <>
-                  <span>{L.devis.hours}: {Number(line.correctedTimeHours || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</span>
-                  <span>{L.devis.labor}: {money(line.laborCost)}</span>
-                  <span>{L.nav.supplies}: {money(line.materialCost)}</span>
-                </>
-              )}
-              <span>HT: {money(line.totalHt)}</span>
-            </div>
-            {(() => {
-              const visibleMaterials = (line.materialLines || []).filter((m) => m.productId || m.productName || Number(m.unitPrice || 0) > 0);
-              if (!visibleMaterials.length) return null;
-              return (
-                <div className="quote-line-supplies">
-                  <div className="quote-line-supplies-head">
-                    <span>{L.nav.supplies}</span>
+              {isAdvanced ? (
+                <div className="dl-adv">
+                  <div className="dl-row">
+                    <div className="kp-seg" role="group" aria-label="Mode de facturation">
+                      <button type="button" className={line.billingMode !== "fixed" ? "on" : ""} aria-pressed={line.billingMode !== "fixed"} onClick={() => updateLine(line.id, "billingMode", "time")}>{L.devis.realTime}</button>
+                      <button type="button" className={line.billingMode === "fixed" ? "on" : ""} aria-pressed={line.billingMode === "fixed"} onClick={() => updateLine(line.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
+                    </div>
+                    <label className="ed">{L.devis.room}
+                      <select value={line.room} onChange={(event) => updateLine(line.id, "room", event.target.value)}>
+                        <option value="Services">{L.devis.noRoom}</option>
+                        {roomGroups.filter((r) => r !== "Services").map((roomOption) => <option key={roomOption} value={roomOption}>{roomOption}</option>)}
+                      </select>
+                    </label>
                   </div>
+                  <div className="eg3">
+                    {line.billingMode === "fixed" ? (
+                      <>
+                        <label className="ed">{L.devis.duration}<input type="number" min="0" step="any" value={settings.fixedDuration ?? ""} onChange={(event) => updateLine(line.id, "fixedDuration", event.target.value)} placeholder="0" /></label>
+                        <label className="ed">{L.bibliotheque.unit}
+                          <select value={settings.fixedDurationUnit ?? "h"} onChange={(event) => updateLine(line.id, "fixedDurationUnit", event.target.value)}>
+                            <option value="h">{L.devis.hours}</option>
+                            <option value="j">Jours</option>
+                          </select>
+                        </label>
+                      </>
+                    ) : (
+                      <>
+                        <label className="ed">{L.bibliotheque.time} h/{settings.unit ?? line.unit ?? "u"}<input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" /></label>
+                        <label className="ed">{L.devis.hourlyRate}<input type="number" min="0" step="any" value={settings.hourlyRate ?? (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} /></label>
+                        <label className="ed">{L.devis.adjustment}<input type="number" min="0" step="0.5" value={line.adjustmentPercent || ""} onChange={(event) => updateLine(line.id, "adjustmentPercent", event.target.value)} /></label>
+                        <label className="ed">{L.devis.discountPct}<input type="number" min="0" step="0.5" value={line.discountPercent || ""} onChange={(event) => updateLine(line.id, "discountPercent", event.target.value)} /></label>
+                      </>
+                    )}
+                  </div>
+                  {linkedOuvrage && (linkedOuvrage.noteInterne || linkedOuvrage.sourceInterne) ? (
+                    <div className="pu">
+                      {linkedOuvrage.noteInterne ? <p><b>{L.devis.noteInterne}</b> {linkedOuvrage.noteInterne}</p> : null}
+                      {linkedOuvrage.sourceInterne ? <p><b>{L.devis.sourceInterne}</b> {linkedOuvrage.sourceInterne}</p> : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="pu">{breakdown.filter(Boolean).join(" · ")}</div>
+
+              {visibleMaterials.length ? (
+                <div className="fl">
+                  <div className="fl-h"><span>{L.nav.supplies} · {money(line.materialCost)}</span></div>
                   {visibleMaterials.map((material) => {
                     const linkedSupply = findSupplyForMaterial(supplies, material);
                     const originalIndex = (line.materialLines || []).indexOf(material);
                     return (
-                      <div className="supply-card" key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
-                        <div className={`supply-card-main ${linkedSupply ? "" : "needs-link"}`}>
-                          <button type="button" className={linkedSupply ? "supply-open-button" : "supply-create-button"} onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? L.devis.openBtn : L.devis.createBtn}</button>
-                          <input value={material.productName || material.category || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "productName", e.target.value)} placeholder={L.devis.supplyDesig} />
-                          <input type="number" min="0" step="0.01" value={material.unitsToBuy || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitsToBuy", e.target.value)} placeholder="Qté" />
-                          <strong>{money(material.total)}</strong>
-                          <button type="button" className="supply-delete-btn" onClick={() => removeMaterial(line.id, originalIndex)} aria-label="Supprimer">×</button>
+                      <div className="fr-edit" key={`${line.id}-${material.productId || material.category}-${originalIndex}`}>
+                        <div className="fr-main">
+                          <input value={material.productName || material.category || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "productName", e.target.value)} placeholder={L.devis.supplyDesig} aria-label={L.devis.supplyDesig} />
+                          <input type="number" min="0" step="0.01" value={material.unitsToBuy || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitsToBuy", e.target.value)} placeholder="Qté" aria-label="Quantité" />
+                          <b>{money(material.total)}</b>
+                          <button type="button" className="link" onClick={() => openSupplyReference(line.id, originalIndex, material)}>{linkedSupply ? L.devis.openBtn : L.devis.createBtn}</button>
+                          <button type="button" className="dx" onClick={() => removeMaterial(line.id, originalIndex)} aria-label="Supprimer la fourniture">×</button>
                         </div>
-                        <div className="supply-card-extra">
-                          <label className="supply-price-field">{L.devis.purchasePrice}
-                            <div className="supply-price-input-group">
+                        <div className="fr-extra">
+                          <label className="ed">{L.devis.purchasePrice}
+                            <span className="ig">
                               <input type="number" min="0" step="0.01" value={material.purchasePriceInput || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceInput", e.target.value)} placeholder="0.00" />
-                              <select className="supply-price-mode-select" value={material.purchasePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceMode", e.target.value)}>
+                              <select value={material.purchasePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "purchasePriceMode", e.target.value)} aria-label="HT ou TTC">
                                 <option value="ht">HT</option>
                                 <option value="ttc">TTC</option>
                               </select>
-                            </div>
+                            </span>
                           </label>
-                          <label className="supply-price-field">{L.devis.salePrice}
-                            <div className="supply-price-input-group">
+                          <label className="ed">{L.devis.salePrice}
+                            <span className="ig">
                               <input type="number" min="0" step="0.01" value={material.unitPrice || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "unitPrice", e.target.value)} placeholder="0.00" />
-                              <select className="supply-price-mode-select" value={material.salePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "salePriceMode", e.target.value)}>
+                              <select value={material.salePriceMode || "ht"} onChange={(e) => updateMaterial(line.id, originalIndex, "salePriceMode", e.target.value)} aria-label="HT ou TTC">
                                 <option value="ht">HT</option>
                                 <option value="ttc">TTC</option>
                               </select>
-                            </div>
+                            </span>
                           </label>
-                          <label className="supply-price-field">{L.devis.packaging}
-                            <input value={material.packaging || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "packaging", e.target.value)} placeholder="ex: Pot 5L, Boîte 12..." />
+                          <label className="ed">{L.devis.packaging}
+                            <input value={material.packaging || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "packaging", e.target.value)} placeholder="ex : Pot 5L, Boîte 12..." />
                           </label>
-                          <label className="supply-price-field">{L.devis.linkedTo}
+                          <label className="ed">{L.devis.linkedTo}
                             <select value={material.linkedTo || ""} onChange={(e) => updateMaterial(line.id, originalIndex, "linkedTo", e.target.value)}>
                               <option value="">{L.devis.thisWork}</option>
                               {subItems.map((sub) => <option key={sub.id} value={`sub:${sub.id}`}>{sub.label || L.devis.designation}</option>)}
@@ -2724,240 +2737,229 @@ export default function DevisEditor() {
                               <option value="autre">Autre</option>
                             </select>
                           </label>
-                          <div className="supply-card-actions">
-                            <label className="material-visibility">
-                              <input type="checkbox" checked={material.showInDevis !== false} onChange={(e) => updateMaterial(line.id, originalIndex, "showInDevis", e.target.checked)} />
-                              {L.devis.showInQuote}
-                            </label>
-                            <button type="button" className="supply-link-button" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>{L.devis.viaLink}</button>
-                          </div>
+                          <label className="chk">
+                            <input type="checkbox" checked={material.showInDevis !== false} onChange={(e) => updateMaterial(line.id, originalIndex, "showInDevis", e.target.checked)} />
+                            {L.devis.showInQuote}
+                          </label>
+                          <button type="button" className="link" onClick={() => openSupplyComposer(line.id, "url", originalIndex, material)}>{L.devis.viaLink}</button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              );
-            })()}
-          </>
-        ) : (
-          <div className="quote-line-breakdown sub-items-summary">
-            <span>{L.devis.subWorks(subItems.length)}</span>
-            <span>HT total : {money(line.totalHt)}</span>
-          </div>
-        )}
-        {(hasSubItems || isAdvanced) ? (
-        <div className="quote-sub-items">
-          {subItems.map((sub) => (
-            <article key={sub.id} className="quote-sub-item-card">
-              <header className="quote-sub-item-header">
-                <input className="quote-line-label-input quote-line-label-input-header" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder={L.devis.designation} />
-                <b>{money(sub.totalHt)} HT</b>
-              </header>
-              <div className="quote-mode-row">
-                <button type="button" className={sub.billingMode !== "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>{L.devis.realTime}</button>
-                <button type="button" className={sub.billingMode === "fixed" ? "active" : ""} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
-              </div>
-              <div className={`quote-line-inputs compact ${sub.billingMode === "fixed" ? "fixed-only main-fixed" : ""}`}>
-                {sub.billingMode === "fixed" ? (
-                  <>
-                    <label className="forfait-amount-field">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} /></label>
-                    <label>{L.devis.duration}<input type="number" min="0" step="any" value={sub.fixedDuration ?? ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDuration", e.target.value)} placeholder="0" /></label>
-                    <label>{L.bibliotheque.unit}<select value={sub.fixedDurationUnit ?? "h"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDurationUnit", e.target.value)}>
-                      <option value="h">{L.devis.hours}</option>
-                      <option value="j">Jours</option>
-                    </select></label>
-                  </>
-                ) : (
-                  <>
-                    <label>{L.devis.quantity}<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
-                    <label>{L.bibliotheque.unit}<select value={sub.unit || "u"} onChange={(e) => updateSubItem(line.id, sub.id, "unit", e.target.value)}>
-                      <option value="u">U</option>
-                      <option value="m">M</option>
-                      <option value="m2">M²</option>
-                      <option value="l">L</option>
-                      <option value="pce">Pièce</option>
-                      <option value="ens">Ens</option>
-                      <option value="forfait">Forfait</option>
-                      <option value="ml">ML</option>
-                      <option value="autre">Autre</option>
-                    </select></label>
-                    <label>{L.bibliotheque.time} h/{sub.unit || "u"}<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
-                    <label>{L.devis.hourlyRate}<input type="number" min="0" step="any" value={sub.hourlyRate || line.hourlyRate || (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
-                    <label>{L.devis.adjustment}<input type="number" min="0" step="0.5" value={sub.adjustmentPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "adjustmentPercent", e.target.value)} /></label>
-                    <label>{L.devis.discountPct}<input type="number" min="0" step="0.5" value={sub.discountPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "discountPercent", e.target.value)} /></label>
-                  </>
-                )}
-              </div>
-              <div className="quote-line-breakdown">
-                {sub.billingMode === "fixed" ? (
-                  <>
-                    {sub.fixedDuration ? <span>{L.devis.duration}: {sub.fixedDuration} {sub.fixedDurationUnit ?? "h"}</span> : null}
-                    <span>{L.devis.forfait} HT : {money(sub.totalHt)}</span>
-                  </>
-                ) : (
-                  <span>{Number(sub.quantity || 0)} {sub.unit || "u"} × {Number(sub.normativeTime || 0)} h × {money(sub.hourlyRate || line.hourlyRate || 0)}/h</span>
-                )}
-                <span>HT : {money(sub.totalHt)}</span>
-              </div>
-              <div className="quote-sub-item-delete-bar">
-                {confirmDeleteSubId === sub.id ? (
-                  <span className="quote-line-confirm-delete">
-                    <span>{L.devis.deleteSubWork}</span>
-                    <button type="button" className="quote-line-confirm-yes" onClick={() => removeSubItem(line.id, sub.id)}>{L.devis.yesDelete}</button>
-                    <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteSubId(null)}>{L.common.cancel}</button>
-                  </span>
-                ) : (
-                  <button type="button" className="quote-line-delete-btn" onClick={() => setConfirmDeleteSubId(sub.id)}>{L.common.delete}</button>
-                )}
-              </div>
-            </article>
-          ))}
-          <button type="button" className="quote-sub-add-btn" onClick={() => addSubItem(line.id)}>
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
-            {L.devis.addSubWork}
-          </button>
-        </div>
-        ) : null}
-        <div className="quote-line-save-bar">
-          {confirmDeleteLineId === line.id ? (
-            <span className="quote-line-confirm-delete">
-              <span>{L.devis.deleteWork}</span>
-              <button type="button" className="quote-line-confirm-yes" onClick={() => removeQuoteLine(line.id)}>{L.devis.yesDelete}</button>
-              <button type="button" className="quote-line-confirm-no" onClick={() => setConfirmDeleteLineId(null)}>{L.common.cancel}</button>
-            </span>
+              ) : null}
+            </>
           ) : (
-            <button
-              type="button"
-              className={`quote-line-save-btn${savedLineId === `saving-${line.id}` ? " saving" : ""}${savedLineId === `saved-${line.id}` ? " saved" : ""}`}
-              onClick={() => saveLineDraft(line.id)}
-            >
-              {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : L.devis.save}
-            </button>
+            <div className="pu">{L.devis.subWorks(subItems.length)} · HT total : {money(line.totalHt)}</div>
           )}
+
+          {(hasSubItems || isAdvanced) ? (
+            <div className="subs">
+              {subItems.map((sub) => (
+                <div className="sub" key={sub.id}>
+                  <div className="sub-h">
+                    <input className="dl-label" value={sub.label || ""} onChange={(e) => updateSubItem(line.id, sub.id, "label", e.target.value)} placeholder={L.devis.designation} aria-label={L.devis.designation} />
+                    <b>{money(sub.totalHt)} HT</b>
+                  </div>
+                  <div className="kp-seg" role="group" aria-label="Mode de facturation">
+                    <button type="button" className={sub.billingMode !== "fixed" ? "on" : ""} aria-pressed={sub.billingMode !== "fixed"} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "time")}>{L.devis.realTime}</button>
+                    <button type="button" className={sub.billingMode === "fixed" ? "on" : ""} aria-pressed={sub.billingMode === "fixed"} onClick={() => updateSubItem(line.id, sub.id, "billingMode", "fixed")}>{L.devis.forfait}</button>
+                  </div>
+                  <div className="eg3">
+                    {sub.billingMode === "fixed" ? (
+                      <>
+                        <label className="ed">{L.devis.fixedAmount}<input type="number" min="0" step="0.01" value={sub.fixedAmountInput || ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedAmountInput", e.target.value)} /></label>
+                        <label className="ed">{L.devis.duration}<input type="number" min="0" step="any" value={sub.fixedDuration ?? ""} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDuration", e.target.value)} placeholder="0" /></label>
+                        <label className="ed">{L.bibliotheque.unit}
+                          <select value={sub.fixedDurationUnit ?? "h"} onChange={(e) => updateSubItem(line.id, sub.id, "fixedDurationUnit", e.target.value)}>
+                            <option value="h">{L.devis.hours}</option>
+                            <option value="j">Jours</option>
+                          </select>
+                        </label>
+                      </>
+                    ) : (
+                      <>
+                        <label className="ed">{L.devis.quantity}<input type="number" min="0" step="any" value={sub.quantity || ""} onChange={(e) => updateSubItem(line.id, sub.id, "quantity", e.target.value)} placeholder="0" /></label>
+                        <label className="ed">{L.bibliotheque.unit}
+                          <select value={sub.unit || "u"} onChange={(e) => updateSubItem(line.id, sub.id, "unit", e.target.value)}>
+                            {LINE_UNIT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                          </select>
+                        </label>
+                        <label className="ed">{L.bibliotheque.time} h/{sub.unit || "u"}<input type="number" min="0" step="any" value={sub.normativeTime || ""} onChange={(e) => updateSubItem(line.id, sub.id, "normativeTime", e.target.value)} placeholder="0" /></label>
+                        <label className="ed">{L.devis.hourlyRate}<input type="number" min="0" step="any" value={sub.hourlyRate || line.hourlyRate || (company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(e) => updateSubItem(line.id, sub.id, "hourlyRate", e.target.value)} placeholder={String(company.hourlyRate || "0")} /></label>
+                        <label className="ed">{L.devis.adjustment}<input type="number" min="0" step="0.5" value={sub.adjustmentPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "adjustmentPercent", e.target.value)} /></label>
+                        <label className="ed">{L.devis.discountPct}<input type="number" min="0" step="0.5" value={sub.discountPercent || ""} onChange={(e) => updateSubItem(line.id, sub.id, "discountPercent", e.target.value)} /></label>
+                      </>
+                    )}
+                  </div>
+                  <div className="pu">
+                    {sub.billingMode === "fixed"
+                      ? [sub.fixedDuration ? `${L.devis.duration} : ${sub.fixedDuration} ${sub.fixedDurationUnit ?? "h"}` : "", `${L.devis.forfait} HT : ${money(sub.totalHt)}`].filter(Boolean).join(" · ")
+                      : `${Number(sub.quantity || 0)} ${sub.unit || "u"} × ${Number(sub.normativeTime || 0)} h × ${money(sub.hourlyRate || line.hourlyRate || 0)}/h · HT : ${money(sub.totalHt)}`}
+                  </div>
+                  <div className="ed-act">
+                    {confirmDeleteSubId === sub.id ? (
+                      <span className="confirm">
+                        <span>{L.devis.deleteSubWork}</span>
+                        <button type="button" className="btn btn-sec" onClick={() => removeSubItem(line.id, sub.id)}>{L.devis.yesDelete}</button>
+                        <button type="button" className="btn btn-sec" onClick={() => setConfirmDeleteSubId(null)}>{L.common.cancel}</button>
+                      </span>
+                    ) : (
+                      <button type="button" className="btn btn-sec" onClick={() => setConfirmDeleteSubId(sub.id)}>{L.common.delete}</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div>
+                <button type="button" className="link" onClick={() => addSubItem(line.id)}>+ {L.devis.addSubWork}</button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="ed-act">
+            {confirmDeleteLineId === line.id ? (
+              <span className="confirm">
+                <span>{L.devis.deleteWork}</span>
+                <button type="button" className="btn btn-sec" onClick={() => removeQuoteLine(line.id)}>{L.devis.yesDelete}</button>
+                <button type="button" className="btn btn-sec" onClick={() => setConfirmDeleteLineId(null)}>{L.common.cancel}</button>
+              </span>
+            ) : (
+              <button type="button" className="btn btn-sec" onClick={() => saveLineDraft(line.id)}>
+                {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : L.devis.save}
+              </button>
+            )}
+          </div>
         </div>
-      </article>
+      </div>
     );
   }
 
-  // Panneau "Devis en préparation" du mode Avec l'IA (16 oct, rendu
-  // modifiable le 21 oct — demande d'Amira : corriger une ligne directement
-  // ici, au meme endroit que l'IA travaille, plutot que de repasser par le
-  // chat a chaque erreur). Quantite/prix unitaire reutilisent EXACTEMENT
-  // updateLine/updateLineUnitPrice, les memes fonctions que le mode Manuel
-  // et que les outils du chat (modifier_ouvrage) — une seule source de
-  // verite, jamais de recalcul propre a cette vue. Les majorations
-  // (surcharges) sont maintenant affichees ici aussi : avant, le total HT
-  // affiche pouvait grimper bien au-dessus de la somme des lignes sans
-  // aucune explication visible dans ce mode (l'IA elle-meme ne les voyait
-  // pas et pouvait repondre a cote, cf. lib/devis-chat-prompt.js).
-  function renderAiPreviewCard() {
+  function renderDocHeader() {
+    const clientName = contactDisplayName({ type: form.clientType, firstName: form.clientFirstName, lastName: form.clientLastName, companyName: form.clientCompanyName }) || form.client;
+    const addressDetails = form.chantierAddressDetails || {};
+    const chantierAddress = [addressDetails.address, addressDetails.postalCode, addressDetails.city].filter(Boolean).join(", ") || form.chantierAddress;
+    const signedAvenant = avenants.some((item) => item.status === "Signe");
     return (
-      <section className="quote-final-card quote-ia-preview-card">
-        <div className="quote-section-title">
+      <div className="dv-doc-h">
+        <div className="dv-cli">
           <div>
-            <span>Devis en préparation</span>
-            <h2>Se remplit au fil de la conversation</h2>
+            <span className="lab">Client</span>
+            <strong>{clientName || "À renseigner"}</strong>
+            <span className="muted">{[form.clientPhone, form.clientEmail].filter(Boolean).join(" · ") || "coordonnées à renseigner"}</span>
+          </div>
+          <div>
+            <span className="lab">Chantier</span>
+            <strong>{form.project || "Sans titre"}</strong>
+            <span className="muted">{chantierAddress || "adresse à renseigner"}</span>
+          </div>
+          <div>
+            <span className="lab">Validité</span>
+            <strong>{form.validityDays || 30} jours</strong>
+            <span className="muted">TVA {quoteVatRate} %</span>
           </div>
         </div>
-        <p className="quote-ia-preview-banner">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-          Prix issus de la bibliothèque koji : temps normatif × taux horaire. L'IA n'invente aucun prix.
-        </p>
+        {signedAvenant ? <p className="muted">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</p> : null}
+        {mode === "manuel" ? (
+          <button type="button" className="link" onClick={() => { setRightPanelTab("client"); setToolsDrawerOpen(true); }}>Modifier le client</button>
+        ) : null}
+      </div>
+    );
+  }
 
-        {roomGroups.every((room) => (linesByRoom[room] || []).length === 0) ? (
-          <div className="empty-state">Les lots et lignes ajoutés par l'assistant apparaîtront ici.</div>
-        ) : (
-          roomGroups.map((room) => {
+  function renderTotals() {
+    return (
+      <div className="dv-tot">
+        {summaryTotals.surchargeTotal ? (
+          <>
+            <div><span>Sous-total lignes</span><b>{money(summaryTotals.baseHt)}</b></div>
+            <div><span>Majorations</span><b>+{money(summaryTotals.surchargeTotal)}</b></div>
+          </>
+        ) : null}
+        <div><span>Total HT</span><b>{money(summaryTotals.totalHt)}</b></div>
+        <div><span>TVA {quoteVatRate} %</span><b>{money(summaryTotals.vatAmount)}</b></div>
+        <div className="ttc"><span>Total TTC</span><b>{money(summaryTotals.totalTtc)}</b></div>
+      </div>
+    );
+  }
+
+  // Devis en préparation du mode Avec l'IA : se remplit au fil du chat.
+  // Quantité et prix unitaire passent par updateLine/updateLineUnitPrice,
+  // les mêmes fonctions que le mode Manuel et que les outils du chat
+  // (modifier_ouvrage) : une seule source de vérité. Les majorations sont
+  // affichées ici aussi, sinon le total HT dépasse la somme des lignes sans
+  // explication (cf. lib/devis-chat-prompt.js).
+  function renderAiPreviewCard() {
+    const hasLines = roomGroups.some((room) => (linesByRoom[room] || []).length > 0);
+    return (
+      <>
+        {renderDocHeader()}
+        <p className="notice">Prix issus de la bibliothèque Koji : temps normatif × taux horaire. L'IA n'invente aucun prix.</p>
+
+        <div className="dv-lines">
+          {!hasLines ? (
+            <p className="empty lot-empty">Les lots et lignes ajoutés par l'assistant apparaîtront ici.</p>
+          ) : roomGroups.map((room) => {
             const roomLines = linesByRoom[room] || [];
             if (!roomLines.length) return null;
             const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
             return (
-              <div className="quote-ia-preview-lot" key={room}>
-                <div className="quote-ia-preview-lot-head">
-                  <strong>{room === "Services" ? L.devis.generalWorks : room}</strong>
-                  <span>{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""}</span>
-                  <strong>{money(roomTotalHt)}</strong>
+              <div className="lot" key={room}>
+                <div className="lot-h">
+                  <span className="lc">{lotCode(room)}</span>
+                  <span className="ln">{room === "Services" ? L.devis.generalWorks : room}</span>
+                  <span className="ls">{money(roomTotalHt)}</span>
                 </div>
                 {roomLines.map((line) => {
                   const qty = Number(line.quantity || 0);
                   const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
                   return (
-                    <div className="quote-ia-preview-line" key={line.id}>
-                      <div className="quote-ia-preview-line-label">
-                        {line.code ? <small>{line.code}</small> : null}
-                        <span>
-                          {line.label}
-                          {line.aiAdded ? (
-                            <span className={`status-pill status-pill-ia${line.priceSource === "manquant" ? " status-pill-ia-missing" : ""}`}>
-                              {line.priceSource === "manquant" ? "IA · prix manquant" : "IA · à vérifier"}
-                            </span>
-                          ) : null}
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        className="quote-ia-preview-input"
-                        value={qty || ""}
-                        onChange={(event) => updateLine(line.id, "quantity", event.target.value)}
-                        min="0"
-                        step="any"
-                      />
-                      <span>{line.unit}</span>
-                      <input
-                        type="number"
-                        className="quote-ia-preview-input"
-                        value={round2(unitPriceHt) || ""}
-                        onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)}
-                        min="0"
-                        step="any"
-                      />
-                      <strong>{money(line.totalHt)}</strong>
-                      <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label="Supprimer">×</button>
+                    <div className="dl dl-in" key={line.id}>
+                      <span className="dd">{line.code ? <small>{line.code}</small> : null}{line.label}{aiTag(line)}</span>
+                      <span className="dq">
+                        <input type="number" value={qty || ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} min="0" step="any" aria-label={`Quantité, ${line.label}`} />
+                        {unitLabel(line.unit)}
+                      </span>
+                      <span className="dp">
+                        <input type="number" value={round2(unitPriceHt) || ""} onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)} min="0" step="any" aria-label={`Prix unitaire HT, ${line.label}`} />
+                      </span>
+                      <span className="dt">{money(line.totalHt)}</span>
+                      <button type="button" className="dx" onClick={() => removeQuoteLine(line.id)} aria-label={`Supprimer ${line.label}`}>×</button>
                     </div>
                   );
                 })}
               </div>
             );
-          })
-        )}
-
-        {summaryTotals.surchargeLines.length ? (
-          <div className="quote-ia-preview-surcharges">
-            <div className="quote-ia-preview-surcharges-head">
-              <strong>Majorations</strong>
-              <span>appliquées sur le total des lignes ci-dessus</span>
-            </div>
-            {summaryTotals.surchargeLines.map((surcharge) => (
-              <div className="quote-ia-preview-surcharge-row" key={surcharge.id}>
-                <span>{surcharge.label}</span>
-                <input
-                  type="number"
-                  className="quote-ia-preview-input quote-ia-preview-input-percent"
-                  value={surcharge.percent}
-                  onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)}
-                  min="0"
-                  step="any"
-                />
-                <span className="quote-ia-preview-surcharge-amount">+{money(surcharge.amount)}</span>
-                <button type="button" className="quote-ia-preview-remove" onClick={() => removeSurcharge(surcharge.id)} aria-label="Retirer cette majoration">×</button>
+          })}
+          {summaryTotals.surchargeLines.length ? (
+            <div className="lot">
+              <div className="lot-h">
+                <span className="lc">Majorations</span>
+                <span className="ln muted">appliquées sur le total des lignes</span>
+                <span className="ls">+{money(summaryTotals.surchargeTotal)}</span>
               </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="quote-lots-footer-right quote-ia-preview-totals">
-          <div><span>Sous-total lignes</span><strong>{money(summaryTotals.baseHt)}</strong></div>
-          {summaryTotals.surchargeTotal ? <div><span>Majorations</span><strong>+{money(summaryTotals.surchargeTotal)}</strong></div> : null}
-          <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
-          <div><span>TVA</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
-          <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
+              {summaryTotals.surchargeLines.map((surcharge) => (
+                <div className="dl dl-in" key={surcharge.id}>
+                  <span className="dd">{surcharge.label}</span>
+                  <span className="dq">
+                    <input type="number" value={surcharge.percent} onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Pourcentage, ${surcharge.label}`} />
+                    %
+                  </span>
+                  <span className="dp" />
+                  <span className="dt">+{money(surcharge.amount)}</span>
+                  <button type="button" className="dx" onClick={() => removeSurcharge(surcharge.id)} aria-label="Retirer cette majoration">×</button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
-        <div className="quote-ia-preview-actions">
-          <button type="button" className="button secondary" onClick={() => setMode("manuel")}>Passer en édition manuelle</button>
-          <button type="button" className="button blue" onClick={goToRecap}>Valider et ajuster</button>
+        {renderTotals()}
+
+        <div className="dv-doc-act">
+          <button type="button" className="btn btn-sec" onClick={() => setMode("manuel")}>Passer en édition manuelle</button>
+          <button type="button" className="btn btn-sec" onClick={goToRecap}>Valider et ajuster</button>
         </div>
-      </section>
+      </>
     );
   }
 
@@ -2968,247 +2970,173 @@ export default function DevisEditor() {
   // (renderRecapView ci-dessous) : memes etats (surcharges,
   // conditioningOpen, paymentCardOpen...), aucune duplication de logique.
   function renderConditioningAndPaymentCards() {
+    const surchargeModes = [
+      ["excluded", L.devis.notCounted],
+      ["internal", L.devis.includedHidden],
+      ["client", L.devis.visibleClient]
+    ];
     return (
       <>
-        <section className="quote-final-card quote-conditioning-toggle-card">
-          <button type="button" className="quote-conditioning-toggle" onClick={() => setConditioningOpen((open) => !open)} aria-expanded={conditioningOpen}>
-            <span>{L.devis.conditioning}</span>
-            <svg className={`svg-icon ${conditioningOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </section>
-
-            {conditioningOpen ? (
-        <section className="quote-recap-card">
-          <div className="recap-title-row">
-            <div>
-              <p className="recap-title-hint">{L.devis.clickStatus}</p>
-            </div>
-            <div className="recap-mode-legend">
-              <span className="recap-legend-chip recap-legend-excluded">{L.devis.notCounted}</span>
-              <span className="recap-legend-chip recap-legend-internal">{L.devis.includedHidden}</span>
-              <span className="recap-legend-chip recap-legend-client">{L.devis.visibleClient}</span>
-            </div>
-          </div>
-
-          {roomGroups.map((room) => {
-            const roomHt = (linesByRoom[room] || []).reduce((s, l) => s + l.totalHt, 0);
-            if (roomHt === 0 && room === "Services") return null;
-            return (
-              <div className="recap-row recap-room-row" key={room}>
-                <span>{room === "Services" ? L.devis.generalWorks : room}</span>
-                <strong>{money(roomHt)}</strong>
-              </div>
-            );
-          })}
-
-          {surcharges.map((s) => {
-            const line = summaryTotals.surchargeLines.find((x) => x.id === s.id);
-            return (
-              <div className={`recap-row recap-surcharge-row recap-surcharge-mode-${s.mode ?? "excluded"}`} key={s.id}>
-                <div className="recap-surcharge-checks">
-                  <div className="surcharge-mode-pill">
-                    <button
-                      type="button"
-                      className={(s.mode ?? "excluded") === "excluded" ? "active" : ""}
-                      onClick={() => updateSurcharge(s.id, "mode", "excluded")}
-                    >
-                      {L.devis.notCounted}
-                    </button>
-                    <button
-                      type="button"
-                      className={s.mode === "internal" ? "active" : ""}
-                      onClick={() => updateSurcharge(s.id, "mode", "internal")}
-                    >
-                      {L.devis.includedHidden}
-                    </button>
-                    <button
-                      type="button"
-                      className={s.mode === "client" ? "active" : ""}
-                      onClick={() => updateSurcharge(s.id, "mode", "client")}
-                    >
-                      {L.devis.visibleClient}
-                    </button>
+        <section className="card acc">
+          <button type="button" className="acc-h" onClick={() => setConditioningOpen((open) => !open)} aria-expanded={conditioningOpen}>
+            <h2>{L.devis.conditioning}</h2>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d={conditioningOpen ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} /></svg>
+          </button>
+          {conditioningOpen ? (
+            <div className="acc-b">
+              <p className="muted">{L.devis.clickStatus}</p>
+              {roomGroups.map((room) => {
+                const roomHt = (linesByRoom[room] || []).reduce((s, l) => s + l.totalHt, 0);
+                if (roomHt === 0 && room === "Services") return null;
+                return (
+                  <div className="kv" key={room}>
+                    <span>{room === "Services" ? L.devis.generalWorks : room}</span>
+                    <b>{money(roomHt)}</b>
                   </div>
-                  <label className="recap-check-label recap-surcharge-base" title={L.devis.calculationBaseHint}>
-                    {L.devis.calculationBase}
-                    <select
-                      value={s.calculationBase === "chiffrage_cumule" ? "chiffrage_cumule" : "total_lots"}
-                      onChange={(e) => updateSurcharge(s.id, "calculationBase", e.target.value)}
-                    >
-                      <option value="total_lots">{L.devis.calculationBaseLots}</option>
-                      <option value="chiffrage_cumule">{L.devis.calculationBaseCumulative}</option>
-                    </select>
-                  </label>
-                </div>
-                <input
-                  className="recap-surcharge-label"
-                  value={s.label}
-                  onChange={(e) => updateSurcharge(s.id, "label", e.target.value)}
-                  placeholder="Libellé (ex: Coordination...)"
-                />
-                <input
-                  type="number"
-                  className="recap-surcharge-pct"
-                  value={s.percent}
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
-                />
-                <span className="recap-pct-sym">%</span>
-                <strong className="recap-surcharge-amount">
-                  {s.mode === "excluded" ? <span className="recap-surcharge-dim">{money(line?.amount ?? 0)}</span> : money(line?.amount ?? 0)}
-                </strong>
-                <button type="button" className="recap-remove-btn" onClick={() => removeSurcharge(s.id)} aria-label="Supprimer">×</button>
-              </div>
-            );
-          })}
+                );
+              })}
 
-          <button type="button" className="recap-add-surcharge" onClick={addSurcharge}>{L.devis.addLine}</button>
-
-          <div className="recap-divider" />
-
-          <div className="recap-row recap-total-ht">
-            <span>{L.devis.totalHtGen}</span>
-            <strong>{money(summaryTotals.totalHt)}</strong>
-          </div>
-
-          <div className="recap-row recap-tva-row">
-            <span>TVA</span>
-            <div className="recap-tva-controls">
-              {vatManual ? (
-                <>
-                  <input
-                    type="number"
-                    className="recap-tva-input"
-                    value={quoteVatRate}
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    onChange={(e) => setQuoteVatRate(Math.max(0, Number(e.target.value) || 0))}
-                  />
-                  <span className="recap-pct-sym">%</span>
-                  <button type="button" className="recap-tva-switch" onClick={() => setVatManual(false)}>{L.devis.choose}</button>
-                </>
-              ) : (
-                <>
-                  <select
-                    className="recap-tva-select"
-                    value={[5.5, 10, 20].includes(Number(quoteVatRate)) ? String(quoteVatRate) : "autre"}
-                    onChange={(e) => {
-                      if (e.target.value === "autre") {
-                        setVatManual(true);
-                      } else {
-                        setQuoteVatRate(Number(e.target.value));
-                      }
-                    }}
-                  >
-                    <option value="5.5">5,5 %</option>
-                    <option value="10">10 %</option>
-                    <option value="20">20 %</option>
-                    <option value="autre">{L.devis.vatOther}</option>
-                  </select>
-                </>
-              )}
-            </div>
-            <strong>{money(summaryTotals.vatAmount)}</strong>
-          </div>
-
-          <div className="recap-row recap-total-ttc">
-            <span>{L.devis.totalTtcGen}</span>
-            <strong>{money(summaryTotals.totalTtc)}</strong>
-          </div>
-        </section>
-            ) : null}
-
-            <section className="quote-final-card quote-conditioning-toggle-card">
-              <button type="button" className="quote-conditioning-toggle" onClick={() => setPaymentCardOpen((open) => !open)} aria-expanded={paymentCardOpen}>
-                <span>{L.devis.paymentTitle}</span>
-                <svg className={`svg-icon ${paymentCardOpen ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </section>
-
-            {paymentCardOpen ? (
-              <section className="quote-final-card quote-payment-card">
-                <div className="payment-fields-grid">
-                  <label className="payment-field">
-                    <span>IBAN</span>
-                    <input
-                      value={company.iban || ""}
-                      onChange={(e) => setCompanyField("iban", e.target.value)}
-                      placeholder="FR76 3000 6000 0112 3456 7890 189"
-                    />
-                  </label>
-                  <label className="payment-field">
-                    <span>BIC / SWIFT</span>
-                    <input
-                      value={company.bic || ""}
-                      onChange={(e) => setCompanyField("bic", e.target.value)}
-                      placeholder="BNPAFRPP"
-                    />
-                  </label>
-                  <label className="payment-field">
-                    <span>{L.devis.accountHolder}</span>
-                    <input
-                      value={company.bankHolder || ""}
-                      onChange={(e) => setCompanyField("bankHolder", e.target.value)}
-                      placeholder="Nom du titulaire"
-                    />
-                  </label>
-                </div>
-
-                <div className="payment-fields-grid payment-acompte-row">
-                  <label className="payment-field">
-                    <span>{L.devis.depositLabel}</span>
-                    <div className="payment-field-suffix">
+              {surcharges.map((s) => {
+                const line = summaryTotals.surchargeLines.find((x) => x.id === s.id);
+                const surchargeMode = s.mode ?? "excluded";
+                return (
+                  <div className={`cond-row${surchargeMode === "excluded" ? " off" : ""}`} key={s.id}>
+                    <div className="cond-top">
                       <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={paymentMilestones[0]?.percent ?? 30}
-                        onChange={(e) => updateAcomptePercent(e.target.value)}
+                        className="cond-label"
+                        value={s.label}
+                        onChange={(e) => updateSurcharge(s.id, "label", e.target.value)}
+                        placeholder="Libellé (ex : Coordination...)"
+                        aria-label="Libellé de la majoration"
                       />
-                      <span>%</span>
+                      <span className="cond-pct">
+                        <input
+                          type="number"
+                          value={s.percent}
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
+                          aria-label={`Pourcentage, ${s.label}`}
+                        />
+                        %
+                      </span>
+                      <b>{money(line?.amount ?? 0)}</b>
+                      <button type="button" className="dx" onClick={() => removeSurcharge(s.id)} aria-label={`Supprimer ${s.label}`}>×</button>
                     </div>
-                  </label>
-                  <label className="payment-field">
-                    <span>{L.devis.soldeLabel}</span>
-                    <input
-                      value={(paymentMilestones[1]?.label || "").replace(/^Solde( —\s*)?/, "")}
-                      onChange={(e) => updateSoldeLabel(e.target.value ? `Solde — ${e.target.value}` : "Solde")}
-                      placeholder="À la réception des travaux"
-                    />
-                  </label>
-                  <label className="payment-field">
-                    <span>{L.devis.validityLabel}</span>
-                    <select value={form.validityDays || 30} onChange={(e) => setField("validityDays", Number(e.target.value))}>
-                      <option value="15">15 {L.devis.days}</option>
-                      <option value="30">30 {L.devis.days}</option>
-                      <option value="45">45 {L.devis.days}</option>
-                      <option value="60">60 {L.devis.days}</option>
-                      <option value="90">90 {L.devis.days}</option>
-                    </select>
-                  </label>
-                </div>
+                    <div className="cond-opts">
+                      <div className="kp-seg" role="group" aria-label="Prise en compte">
+                        {surchargeModes.map(([value, label]) => (
+                          <button type="button" key={value} className={surchargeMode === value ? "on" : ""} aria-pressed={surchargeMode === value} onClick={() => updateSurcharge(s.id, "mode", value)}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="cond-base" title={L.devis.calculationBaseHint}>
+                        {L.devis.calculationBase}
+                        <select
+                          value={s.calculationBase === "chiffrage_cumule" ? "chiffrage_cumule" : "total_lots"}
+                          onChange={(e) => updateSurcharge(s.id, "calculationBase", e.target.value)}
+                        >
+                          <option value="total_lots">{L.devis.calculationBaseLots}</option>
+                          <option value="chiffrage_cumule">{L.devis.calculationBaseCumulative}</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
 
-                <label className="payment-field payment-field-wide">
-                  <span>{L.devis.paymentCond}</span>
+              <div><button type="button" className="link" onClick={addSurcharge}>{L.devis.addLine}</button></div>
+
+              <div className="dv-tot cond-tot">
+                <div><span>Total HT</span><b>{money(summaryTotals.totalHt)}</b></div>
+                <div>
+                  <span>TVA</span>
+                  <span className="cond-tva">
+                    {vatManual ? (
+                      <>
+                        <input
+                          type="number"
+                          value={quoteVatRate}
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          onChange={(e) => setQuoteVatRate(Math.max(0, Number(e.target.value) || 0))}
+                          aria-label="Taux de TVA"
+                        />
+                        %
+                        <button type="button" className="link" onClick={() => setVatManual(false)}>{L.devis.choose}</button>
+                      </>
+                    ) : (
+                      <select
+                        value={[5.5, 10, 20].includes(Number(quoteVatRate)) ? String(quoteVatRate) : "autre"}
+                        onChange={(e) => {
+                          if (e.target.value === "autre") setVatManual(true);
+                          else setQuoteVatRate(Number(e.target.value));
+                        }}
+                        aria-label="Taux de TVA"
+                      >
+                        <option value="5.5">5,5 %</option>
+                        <option value="10">10 %</option>
+                        <option value="20">20 %</option>
+                        <option value="autre">{L.devis.vatOther}</option>
+                      </select>
+                    )}
+                  </span>
+                  <b>{money(summaryTotals.vatAmount)}</b>
+                </div>
+                <div className="ttc"><span>Total TTC</span><b>{money(summaryTotals.totalTtc)}</b></div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="card acc">
+          <button type="button" className="acc-h" onClick={() => setPaymentCardOpen((open) => !open)} aria-expanded={paymentCardOpen}>
+            <h2>{L.devis.paymentTitle}</h2>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paymentCardOpen ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} /></svg>
+          </button>
+          {paymentCardOpen ? (
+            <div className="acc-b">
+              <div className="fgrid fgrid3">
+                <label>IBAN<input value={company.iban || ""} onChange={(e) => setCompanyField("iban", e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" /></label>
+                <label>BIC / SWIFT<input value={company.bic || ""} onChange={(e) => setCompanyField("bic", e.target.value)} placeholder="BNPAFRPP" /></label>
+                <label>{L.devis.accountHolder}<input value={company.bankHolder || ""} onChange={(e) => setCompanyField("bankHolder", e.target.value)} placeholder="Nom du titulaire" /></label>
+                <label>{L.devis.depositLabel}
+                  <span className="ig">
+                    <input type="number" min="0" max="100" step="1" value={paymentMilestones[0]?.percent ?? 30} onChange={(e) => updateAcomptePercent(e.target.value)} />
+                    <span className="ig-u">%</span>
+                  </span>
+                </label>
+                <label>{L.devis.soldeLabel}
+                  <input
+                    value={(paymentMilestones[1]?.label || "").replace(/^Solde( —\s*)?/, "")}
+                    onChange={(e) => updateSoldeLabel(e.target.value ? `Solde — ${e.target.value}` : "Solde")}
+                    placeholder="À la réception des travaux"
+                  />
+                </label>
+                <label>{L.devis.validityLabel}
+                  <select value={form.validityDays || 30} onChange={(e) => setField("validityDays", Number(e.target.value))}>
+                    {[15, 30, 45, 60, 90].map((days) => <option key={days} value={days}>{days} {L.devis.days}</option>)}
+                  </select>
+                </label>
+                <label className="full">{L.devis.paymentCond}
                   <textarea
-                    className="payment-terms-textarea"
                     value={company.paymentTerms || ""}
                     onChange={(e) => setCompanyField("paymentTerms", e.target.value)}
                     placeholder={"Modalités de paiement : 30 % à la signature, solde à la réception.\nDélai d'exécution : à convenir avec le client.\nDevis valable 30 jours. TVA applicable selon la réglementation en vigueur."}
                     rows={3}
                   />
                 </label>
-
-                <div className="payment-acompte-summary-bar">
-                  <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30}%)</span>
-                  <strong>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</strong>
-                </div>
-              </section>
-            ) : null}
+              </div>
+              <div className="kv kv-strong">
+                <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30} %)</span>
+                <b>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</b>
+              </div>
+            </div>
+          ) : null}
+        </section>
       </>
     );
   }
@@ -3247,47 +3175,20 @@ export default function DevisEditor() {
     const qty = Number(line.quantity || 0);
     const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
     const badge = sourceBadgeMeta(line);
-    const missingPrice = line.aiAdded && line.priceSource === "manquant";
     return (
-      <div className="quote-recap-line-block" key={line.id}>
-        <div className="quote-ia-preview-line">
-          <input
-            className="quote-ia-preview-input quote-ia-preview-input-left"
-            value={line.label}
-            onChange={(e) => updateLineLabel(line.id, e.target.value)}
-          />
-          <input
-            type="number"
-            className="quote-ia-preview-input"
-            value={qty || ""}
-            onChange={(event) => updateLine(line.id, "quantity", event.target.value)}
-            min="0"
-            step="any"
-          />
-          <input
-            className="quote-ia-preview-input quote-ia-preview-input-left"
-            value={line.unit}
-            onChange={(e) => updateLine(line.id, "unit", e.target.value)}
-          />
-          <input
-            type="number"
-            className="quote-ia-preview-input"
-            value={round2(unitPriceHt) || ""}
-            onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)}
-            min="0"
-            step="any"
-          />
-          <strong>{money(line.totalHt)}</strong>
-          <button type="button" className="quote-ia-preview-remove" onClick={() => removeQuoteLine(line.id)} aria-label={L.common.remove}>×</button>
+      <div className="rc-line" key={line.id}>
+        <div className="rc-row">
+          <input className="rc-in rc-label" value={line.label} onChange={(e) => updateLineLabel(line.id, e.target.value)} aria-label={L.devis.recapColDesignation} />
+          <input type="number" className="rc-in" value={qty || ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} min="0" step="any" aria-label={L.devis.quantity} />
+          <input className="rc-in" value={line.unit} onChange={(e) => updateLine(line.id, "unit", e.target.value)} aria-label={L.devis.recapColUnit} />
+          <input type="number" className="rc-in" value={round2(unitPriceHt) || ""} onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)} min="0" step="any" aria-label={L.devis.recapColPriceHt} />
+          <b>{money(line.totalHt)}</b>
+          <button type="button" className="dx" onClick={() => removeQuoteLine(line.id)} aria-label={`${L.common.remove} ${line.label}`}>×</button>
         </div>
-        <div className="quote-recap-line-tags">
-          <span className={`recap-source-badge recap-source-${badge.kind}`}>{badge.label}</span>
-          <span className="recap-source-caption">{badge.caption}</span>
-          {line.aiAdded ? (
-            <span className={`status-pill status-pill-ia${missingPrice ? " status-pill-ia-missing" : ""}`}>
-              {missingPrice ? "IA · prix manquant" : "IA · à vérifier"}
-            </span>
-          ) : null}
+        <div className="rc-tags">
+          <span className={badge.kind === "koji" ? "tag tag-e" : "tag tag-o"}>{badge.label}</span>
+          <span className="muted">{badge.caption}</span>
+          {aiTag(line)}
         </div>
         {renderLineParameters(line)}
       </div>
@@ -3304,12 +3205,11 @@ export default function DevisEditor() {
     if (!parameters.length) return null;
     const choices = lineSettings[line.id]?.parameterChoices || {};
     return (
-      <div className="quote-recap-line-params">
+      <div className="rc-params">
         {parameters.map((param) => {
           if (param.type === "choice") {
             return (
-              <label className="quote-recap-line-param" key={param.name}>
-                <span>{param.name}</span>
+              <label className="ed" key={param.name}>{param.name}
                 <select value={choices[param.name] || ""} onChange={(e) => updateLineParameter(line.id, param.name, e.target.value)}>
                   <option value="">—</option>
                   {param.options.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
@@ -3319,23 +3219,16 @@ export default function DevisEditor() {
           }
           if (param.type === "count") {
             return (
-              <label className="quote-recap-line-param" key={param.name}>
-                <span>{param.name} (+{param.hoursPerUnit} h/u)</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={choices[param.name] || ""}
-                  onChange={(e) => updateLineParameter(line.id, param.name, e.target.value)}
-                />
+              <label className="ed" key={param.name}>{param.name} (+{param.hoursPerUnit} h/u)
+                <input type="number" min="0" step="1" value={choices[param.name] || ""} onChange={(e) => updateLineParameter(line.id, param.name, e.target.value)} />
               </label>
             );
           }
           if (param.type === "amount") {
             return (
-              <div className="quote-recap-line-param-hint" key={param.name}>
-                {param.name} (indicatif{param.note ? `, ${param.note}` : ""}) : {param.options.map((o) => `${o.label}≈${o.amountHt}€`).join(" · ")}
-              </div>
+              <p className="pu" key={param.name}>
+                {param.name} (indicatif{param.note ? `, ${param.note}` : ""}) : {param.options.map((o) => `${o.label} ≈ ${o.amountHt} €`).join(" · ")}
+              </p>
             );
           }
           return null;
@@ -3348,215 +3241,178 @@ export default function DevisEditor() {
     const isIaRecap = recapOrigin === "ia";
     const aiLines = quoteLines.filter((line) => line.aiAdded);
     const hasLines = quoteLines.length > 0;
+    const filledLots = roomGroups.filter((r) => (linesByRoom[r] || []).length).length;
+    const depositPercent = paymentMilestones[0]?.percent ?? 30;
 
     return (
-      <div className="quote-recap-page">
-        <div className="quote-recap-layout">
-          <div className="quote-recap-col-main">
+      <div className="rc">
+        <div className="rc-grid">
+          <div className="rc-main">
             {isIaRecap && aiLines.length ? (
-              <section className="quote-final-card quote-recap-ia-banner">
-                <div>
-                  <strong>{L.devis.recapIaBannerTitle}</strong>
-                  <p>{L.devis.recapIaBannerText}</p>
-                </div>
-                <span className="status-pill status-pill-ia">{aiLines.length} {L.devis.recapToVerify}</span>
-              </section>
+              <p className="notice">
+                <b>{L.devis.recapIaBannerTitle}</b> {L.devis.recapIaBannerText} <span className="tag tag-b">{aiLines.length} {L.devis.recapToVerify}</span>
+              </p>
             ) : null}
 
-            <section className="quote-final-card">
-              <div className="quote-section-title">
-                <div>
-                  <span>{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</span>
-                  <h2>{L.devis.recapTitle} <span className="status-pill">{L.devis.draft}</span></h2>
-                </div>
+            <section className="card">
+              <div className="card-h">
+                <h2>{L.devis.recapTitle}<span className="kcnt rc-draft">{L.devis.draft}</span></h2>
+                <span className="muted">{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</span>
               </div>
-
-              <div className="recap-identity-grid">
-                <div className="recap-identity-col">
-                  <strong>{company.name}</strong>
+              <div className="rc-id">
+                <div className="rc-co">
+                  <b>{company.name}</b>
                   {company.address ? <span>{company.address}</span> : null}
                   {company.email ? <span>{company.email}</span> : null}
                   {company.phone ? <span>{company.phone}</span> : null}
                 </div>
-                <div className="recap-identity-col">
-                  <label className="recap-field">
-                    <span>{L.devis.client}</span>
-                    <input value={form.client} onChange={(e) => setField("client", e.target.value)} />
-                  </label>
-                  <label className="recap-field">
-                    <span>{L.devis.clientPhone}</span>
-                    <input value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} />
-                  </label>
-                  <label className="recap-field">
-                    <span>{L.devis.clientEmail}</span>
-                    <input value={form.clientEmail} onChange={(e) => setField("clientEmail", e.target.value)} />
-                  </label>
+                <div className="fgrid rc-fields">
+                  <label className="full">{L.devis.client}<input value={form.client} onChange={(e) => setField("client", e.target.value)} /></label>
+                  <label>{L.devis.clientPhone}<input value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} /></label>
+                  <label>{L.devis.clientEmail}<input value={form.clientEmail} onChange={(e) => setField("clientEmail", e.target.value)} /></label>
                 </div>
               </div>
             </section>
 
-            <section className="quote-final-card">
-              <div className="quote-section-title"><h2>{L.devis.siteAddressTitle}</h2></div>
-              <label className="recap-field recap-field-wide">
-                <span>{L.devis.clientAddress}</span>
-                <input value={form.chantierAddress} onChange={(e) => setField("chantierAddress", e.target.value)} />
-              </label>
-              <div className="recap-identity-grid">
-                <label className="recap-field">
-                  <span>{L.devis.startDate}</span>
-                  <input type="date" value={form.startDate || ""} onChange={(e) => setField("startDate", e.target.value)} />
-                </label>
-                <label className="recap-field">
-                  <span>{L.devis.expectedDur}</span>
-                  <input value={form.expectedDuration} onChange={(e) => setField("expectedDuration", e.target.value)} />
-                </label>
+            <section className="card">
+              <div className="card-h"><h2>{L.devis.siteAddressTitle}</h2></div>
+              <div className="fgrid">
+                <label className="full">{L.devis.clientAddress}<input value={form.chantierAddress} onChange={(e) => setField("chantierAddress", e.target.value)} /></label>
+                <label>{L.devis.startDate}<input type="date" value={form.startDate || ""} onChange={(e) => setField("startDate", e.target.value)} /></label>
+                <label>{L.devis.expectedDur}<input value={form.expectedDuration} onChange={(e) => setField("expectedDuration", e.target.value)} /></label>
+                <label className="full">{L.devis.workDescTitle}<textarea rows={3} value={form.workDescription} onChange={(e) => setField("workDescription", e.target.value)} /></label>
               </div>
-              <label className="recap-field recap-field-wide">
-                <span>{L.devis.workDescTitle}</span>
-                <textarea rows={3} value={form.workDescription} onChange={(e) => setField("workDescription", e.target.value)} />
-              </label>
             </section>
 
-            <section className="quote-final-card">
-              <div className="quote-section-title">
+            <section className="card">
+              <div className="card-h">
                 <h2>Facteurs de situation</h2>
-                <span>Appliqués une fois à toutes les lignes concernées</span>
+                <span className="muted">Appliqués une fois à toutes les lignes concernées</span>
               </div>
-              <div className="situation-factors-grid">
+              <div className="fgrid">
                 {SITUATION_FACTORS.map((factor) => (
-                  <label className="recap-field" key={factor.key}>
-                    <span>{factor.question}</span>
+                  <label key={factor.key}>{factor.question}
                     <select
                       value={situationFactors[factor.key] ?? 1}
                       onChange={(e) => setSituationFactors((current) => ({ ...current, [factor.key]: Number(e.target.value) }))}
                     >
-                      {factor.options.map((option) => (
-                        <option key={option.label} value={option.value}>{option.label}</option>
-                      ))}
+                      {factor.options.map((option) => <option key={option.label} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
                 ))}
               </div>
             </section>
 
-            <section className="quote-final-card">
-              <div className="quote-section-title">
+            <section className="card">
+              <div className="card-h">
                 <h2>{L.devis.recapLotsTitle}</h2>
-                <span>{roomGroups.filter((r) => (linesByRoom[r] || []).length).length} · {quoteLines.length}</span>
+                <span className="muted">{filledLots} lot{filledLots > 1 ? "s" : ""} · {quoteLines.length} ligne{quoteLines.length > 1 ? "s" : ""}</span>
               </div>
               {!hasLines ? (
-                <div className="empty-state">{L.devis.noLinesYet}</div>
+                <p className="empty">{L.devis.noLinesYet}</p>
               ) : (
-                roomGroups.map((room) => {
-                  const roomLines = linesByRoom[room] || [];
-                  if (!roomLines.length) return null;
-                  const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
-                  const collapsed = collapsedLots.has(room);
-                  return (
-                    <div className="quote-recap-lot" key={room}>
-                      <div className="quote-recap-lot-head">
-                        {room === "Services" ? (
-                          <strong className="quote-recap-lot-name">{L.devis.generalWorks}</strong>
-                        ) : (
-                          <input
-                            key={room}
-                            className="quote-room-name-input quote-recap-lot-name-input"
-                            defaultValue={room}
-                            onBlur={(e) => renameRoom(room, e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                          />
-                        )}
-                        <span>{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""}</span>
-                        <div className="segmented recap-lot-detail-toggle">
-                          <button type="button" className={!collapsed ? "active" : ""} onClick={() => collapsed && toggleLotDetail(room)}>{L.devis.recapWithDetail}</button>
-                          <button type="button" className={collapsed ? "active" : ""} onClick={() => !collapsed && toggleLotDetail(room)}>{L.devis.recapWithoutDetail}</button>
-                        </div>
-                        <strong className="quote-recap-lot-total">{money(roomTotalHt)}</strong>
-                      </div>
-                      {!collapsed ? (
-                        <>
-                          <div className="quote-recap-col-headers">
-                            <span>{L.devis.recapColDesignation}</span>
-                            <span>{L.devis.quantity}</span>
-                            <span>{L.devis.recapColUnit}</span>
-                            <span>{L.devis.recapColPriceHt}</span>
-                            <span>{L.devis.recapColTotalHt}</span>
-                            <span />
-                          </div>
-                          {roomLines.map((line) => renderRecapLine(line))}
-                        </>
-                      ) : null}
-                      <div className="quote-recap-lot-actions">
-                        <button type="button" className="link-button" onClick={() => openOuvrageComposer(room)}>{L.devis.addFreeLine}</button>
-                        <button type="button" className="link-button" onClick={() => { setTargetRoom(room); setRightPanelTab("bibliotheque"); backToEditingFromRecap(); }}>+ {L.bibliotheque.title}</button>
-                      </div>
-                      {ouvrageComposer.open && ouvrageComposer.room === room ? (
-                        <div className="quote-picker-inline-form">
-                          <label className="supply-composer-field full">
-                            <span>{L.devis.designation}</span>
+                <div className="dv-lines rc-lines">
+                  {roomGroups.map((room) => {
+                    const roomLines = linesByRoom[room] || [];
+                    if (!roomLines.length) return null;
+                    const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+                    const collapsed = collapsedLots.has(room);
+                    return (
+                      <div className="lot" key={room}>
+                        <div className="lot-h rc-lot-h">
+                          <span className="lc">{lotCode(room)}</span>
+                          {room === "Services" ? (
+                            <span className="ln">{L.devis.generalWorks}</span>
+                          ) : (
                             <input
-                              value={ouvrageComposer.label}
-                              onChange={(event) => setOuvrageComposerField("label", event.target.value)}
-                              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitOuvrageComposer(); } }}
-                              autoFocus
+                              key={room}
+                              className="ln ln-input"
+                              defaultValue={room}
+                              aria-label="Nom du lot"
+                              onBlur={(e) => renameRoom(room, e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
                             />
-                          </label>
-                          <label className="supply-composer-field">
-                            <span>{L.devis.quantity}</span>
-                            <input type="number" min="0" step="any" value={ouvrageComposer.quantity} onChange={(event) => setOuvrageComposerField("quantity", event.target.value)} placeholder="1" />
-                          </label>
-                          <label className="supply-composer-field">
-                            <span>{L.bibliotheque.unit}</span>
-                            <select value={ouvrageComposer.unit} onChange={(event) => setOuvrageComposerField("unit", event.target.value)}>
-                              {CUSTOM_OUVRAGE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-                            </select>
-                          </label>
-                          <label className="supply-composer-field">
-                            <span>{L.devis.priceHt}</span>
-                            <input type="number" min="0" step="0.01" value={ouvrageComposer.priceHt} onChange={(event) => setOuvrageComposerField("priceHt", event.target.value)} placeholder="0.00" />
-                          </label>
-                          {ouvrageComposer.error ? <p className="profile-message error">{ouvrageComposer.error}</p> : null}
-                          <div className="supply-modal-actions">
-                            <button type="button" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
-                            <button type="button" className="button blue" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
+                          )}
+                          <div className="kp-seg" role="group" aria-label="Détail du lot sur le devis">
+                            <button type="button" className={!collapsed ? "on" : ""} aria-pressed={!collapsed} onClick={() => collapsed && toggleLotDetail(room)}>{L.devis.recapWithDetail}</button>
+                            <button type="button" className={collapsed ? "on" : ""} aria-pressed={collapsed} onClick={() => !collapsed && toggleLotDetail(room)}>{L.devis.recapWithoutDetail}</button>
                           </div>
+                          <span className="ls">{money(roomTotalHt)}</span>
                         </div>
-                      ) : null}
-                    </div>
-                  );
-                })
+                        {!collapsed ? (
+                          <>
+                            <div className="rc-row rc-cols" aria-hidden="true">
+                              <span>{L.devis.recapColDesignation}</span>
+                              <span>{L.devis.quantity}</span>
+                              <span>{L.devis.recapColUnit}</span>
+                              <span>{L.devis.recapColPriceHt}</span>
+                              <span>{L.devis.recapColTotalHt}</span>
+                              <span />
+                            </div>
+                            {roomLines.map((line) => renderRecapLine(line))}
+                          </>
+                        ) : (
+                          <p className="pu rc-collapsed">{roomLines.length} ligne{roomLines.length > 1 ? "s" : ""} masquée{roomLines.length > 1 ? "s" : ""}</p>
+                        )}
+                        <div className="lot-add rc-acts">
+                          <button type="button" className="link" onClick={() => openOuvrageComposer(room)}>+ Ligne libre</button>
+                          <button type="button" className="link" onClick={() => { setTargetRoom(room); setRightPanelTab("bibliotheque"); backToEditingFromRecap(); }}>+ {L.bibliotheque.title}</button>
+                        </div>
+                        {ouvrageComposer.open && ouvrageComposer.room === room ? (
+                          <div className="fgrid tp-form rc-form">
+                            <label className="full">{L.devis.designation}
+                              <input
+                                value={ouvrageComposer.label}
+                                onChange={(event) => setOuvrageComposerField("label", event.target.value)}
+                                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitOuvrageComposer(); } }}
+                                autoFocus
+                              />
+                            </label>
+                            <label>{L.devis.quantity}<input type="number" min="0" step="any" value={ouvrageComposer.quantity} onChange={(event) => setOuvrageComposerField("quantity", event.target.value)} placeholder="1" /></label>
+                            <label>{L.bibliotheque.unit}
+                              <select value={ouvrageComposer.unit} onChange={(event) => setOuvrageComposerField("unit", event.target.value)}>
+                                {CUSTOM_OUVRAGE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                              </select>
+                            </label>
+                            <label className="full">{L.devis.priceHt}<input type="number" min="0" step="0.01" value={ouvrageComposer.priceHt} onChange={(event) => setOuvrageComposerField("priceHt", event.target.value)} placeholder="0.00" /></label>
+                            {ouvrageComposer.error ? <p className="err full">{ouvrageComposer.error}</p> : null}
+                            <div className="full ed-act">
+                              <button type="button" className="btn btn-sec" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
+                              <button type="button" className="btn btn-sec" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-              <button type="button" className="quote-recap-add-lot" onClick={() => addCustomRoomAndFocus()}>+ {L.devis.recapAddLot}</button>
+              <div><button type="button" className="link" onClick={() => addCustomRoomAndFocus()}>+ {L.devis.recapAddLot}</button></div>
             </section>
 
             {renderConditioningAndPaymentCards()}
           </div>
 
-          <div className="quote-recap-col-side">
-            <section className="quote-final-card">
-              <div className="quote-section-title">
+          <div className="rc-side">
+            <section className="card">
+              <div className="card-h">
                 <h2>{L.devis.recapTotalsTitle}</h2>
-                <span>{L.devis.recapLiveUpdate}</span>
+                <span className="muted">{L.devis.recapLiveUpdate}</span>
               </div>
-              <div className="quote-recap-totals-list">
-                <div><span>{L.devis.recapWorksTotal}</span><strong>{money(lotTotals.works)}</strong></div>
-                <div><span>{L.devis.recapSuppliesTotal}</span><strong>{money(lotTotals.supplies)}</strong></div>
-                <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
-                <div><span>{L.devis.vatLabel} {quoteVatRate}%</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
-                <div className="quote-recap-total-ttc"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
-                <div className="quote-recap-deposit-row">
-                  <span>{L.devis.depositLabel} ({paymentMilestones[0]?.percent ?? 30}%)</span>
-                  <strong>{money(summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 30) / 100)}</strong>
-                </div>
-              </div>
+              <div className="kv"><span>{L.devis.recapWorksTotal}</span><b>{money(lotTotals.works)}</b></div>
+              <div className="kv"><span>{L.devis.recapSuppliesTotal}</span><b>{money(lotTotals.supplies)}</b></div>
+              <div className="kv"><span>Total HT</span><b>{money(summaryTotals.totalHt)}</b></div>
+              <div className="kv"><span>TVA {quoteVatRate} %</span><b>{money(summaryTotals.vatAmount)}</b></div>
+              <div className="kv kv-strong rc-ttc"><span>Total TTC</span><b>{money(summaryTotals.totalTtc)}</b></div>
+              <div className="kv"><span>{L.devis.depositLabel} ({depositPercent} %)</span><b>{money(summaryTotals.totalTtc * depositPercent / 100)}</b></div>
             </section>
 
-            <section className="quote-final-card">
-              <div className="quote-section-title"><h2>{L.devis.recapChecklistTitle}</h2></div>
-              <ul className="quote-recap-checklist">
+            <section className="card">
+              <div className="card-h"><h2>{L.devis.recapChecklistTitle}</h2></div>
+              <ul className="rc-check">
                 <li className={form.client ? "done" : ""}>{L.devis.recapChecklistClient}</li>
                 <li className={form.chantierAddress ? "done" : ""}>{L.devis.recapChecklistAddress}</li>
-                <li className={hasLines ? "done" : ""}>{roomGroups.filter((r) => (linesByRoom[r] || []).length).length} {L.devis.recapChecklistLinesSuffix}</li>
+                <li className={hasLines ? "done" : ""}>{filledLots} {L.devis.recapChecklistLinesSuffix}</li>
                 <li className={paymentMilestones.length ? "done" : ""}>{L.devis.recapChecklistPayment}</li>
                 {isIaRecap && aiLines.length ? (
                   <li className="warn">
@@ -3567,87 +3423,111 @@ export default function DevisEditor() {
               </ul>
             </section>
 
-            <section className="quote-final-card">
-              <div className="quote-section-title">
+            <section className="card">
+              <div className="card-h">
                 <h2>{L.devis.recapPreviewTitle}</h2>
-                <span>{previewQuoteNumber ? `Devis_${previewQuoteNumber}.pdf` : ""}</span>
+                <span className="muted">{previewQuoteNumber ? `Devis_${previewQuoteNumber}.pdf` : ""}</span>
               </div>
-              <button type="button" className="button secondary quote-recap-preview-btn" onClick={() => handleDownload("quote", "pdf")}>{L.devis.recapOpenPreview}</button>
+              <div><button type="button" className="btn btn-sec" onClick={() => handleDownload("quote", "pdf")}>{L.devis.recapOpenPreview}</button></div>
             </section>
           </div>
         </div>
 
-        <section className="quote-final-card quote-recap-footer-bar">
-          <div className="quote-recap-footer-text">
-            <strong>{L.devis.recapFooterTitle}</strong>
-            <p>{L.devis.recapFooterHint}</p>
+        <div className="rc-foot">
+          <div>
+            <b>{L.devis.recapFooterTitle}</b>
+            <p className="muted">{L.devis.recapFooterHint}</p>
           </div>
-          <button type="button" className="button secondary" onClick={validateQuote}>{L.devis.recapSaveToQuotes}</button>
-          <button type="button" className="button blue" onClick={openSendModal}>{L.devis.send}…</button>
-        </section>
+          <div className="hact">
+            <button type="button" className="btn btn-sec" onClick={validateQuote}>{L.devis.recapSaveToQuotes}</button>
+            <button type="button" className="btn btn-main" onClick={openSendModal}>Envoyer au client</button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  return (
-    <Shell>
-      <header className="page-header quote-final-header quote-final-header-v2">
-        <button type="button" className="avenant-back-btn" aria-label="Retour" onClick={() => router.push("/devis")}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
-        </button>
-        <div className="quote-final-header-title">
-          <p className="eyebrow">{L.devis.quoteNum} {previewQuoteNumber} · {L.devis.versionNum} {previewVersionNumber}</p>
-          <h1>{L.devis.newQuote}</h1>
-        </div>
-        <div className="quote-mode-toggle segmented large">
-          <button type="button" className={mode === "manuel" ? "active" : ""} onClick={() => setMode("manuel")}>{L.devis.modeManual}</button>
-          <button type="button" className={mode === "ia" ? "active" : ""} onClick={() => setMode("ia")}>{L.devis.modeAi}</button>
-        </div>
-        <div className="quote-final-actions">
-          <button type="button" className="button secondary" onClick={() => handlePreview()}>{L.devis.preview}</button>
-          <button type="button" className="button secondary" onClick={handleGenerate}>{L.devis.save}</button>
-          <button type="button" className="button secondary" onClick={handleTransformToInvoice}>{L.devis.transformToInvoice}</button>
-          <button type="button" className="button blue" onClick={openSendModal}>{L.devis.send}</button>
-          <button type="button" className="quote-tools-drawer-trigger" onClick={() => setToolsDrawerOpen(true)}>
-            <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a4 4 0 0 1-5.4 5.4L6 20 4 18l8.4-9.4a4 4 0 0 1 5.4-5.4l-3.1 3.1Z" /></svg>
-            {L.devis.tabTools}
-          </button>
-        </div>
-      </header>
+  const headerClientName = contactDisplayName({ type: form.clientType, firstName: form.clientFirstName, lastName: form.clientLastName, companyName: form.clientCompanyName }) || form.client;
+  const headerTitle = [previewQuoteNumber ? `Devis ${previewQuoteNumber}` : L.devis.newQuote, form.project].filter(Boolean).join(" · ");
+  const savedAt = generatedQuote?.updatedAt ? new Date(generatedQuote.updatedAt) : null;
+  const savedLabel = !savedAt || Number.isNaN(savedAt.getTime())
+    ? "pas encore enregistré"
+    : savedAt.toDateString() === new Date().toDateString()
+      ? `enregistré à ${savedAt.getHours()} h ${String(savedAt.getMinutes()).padStart(2, "0")}`
+      : `enregistré le ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(savedAt)}`;
+  const headerSubtitle = [
+    headerClientName,
+    `${L.devis.versionNum} ${previewVersionNumber}`,
+    [QUOTE_STATUS_WORDS[generatedQuote?.status] || "brouillon", savedLabel].join(" ")
+  ].filter(Boolean).join(" · ");
 
-      <form className="quote-final-page" onSubmit={(event) => event.preventDefault()}>
-        {/* Numero/version deja dans l'eyebrow de l'en-tete (16 oct) — cette
-            barre ne s'affiche plus que si elle a quelque chose de reellement
-            utile a montrer (client, ou total de marche mis a jour par un
-            avenant signe), pour ne pas laisser une carte vide/redondante. */}
-        {form.client || form.chantierAddress || avenants.some((item) => item.status === "Signe") ? (
-          <div className="quote-meta-bar">
-            {avenants.some((item) => item.status === "Signe") ? (
-              <div className="quote-meta-number">
-                <span className="quote-meta-version">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</span>
-              </div>
-            ) : null}
-            {form.client || form.chantierAddress ? (
-              <div className="quote-meta-client">
-                {form.client ? <strong>{form.client}</strong> : null}
-                {form.chantierAddress ? <span>{form.chantierAddress}</span> : null}
+  return (
+    <Shell variant="pro-focus">
+      <header className="dv-top">
+        <Link href="/devis" className="back">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+          Devis
+        </Link>
+        <div className="dv-title">
+          <strong>{headerTitle}</strong>
+          <span className="muted">{headerSubtitle}</span>
+        </div>
+        <div className="kp-seg dv-mode" role="group" aria-label="Mode de saisie">
+          <button type="button" className={mode === "manuel" ? "on" : ""} aria-pressed={mode === "manuel"} onClick={() => setMode("manuel")}>{L.devis.modeManual}</button>
+          <button type="button" className={mode === "ia" ? "on" : ""} aria-pressed={mode === "ia"} onClick={() => setMode("ia")}>{L.devis.modeAi}</button>
+        </div>
+        <div className="dv-act">
+          <button type="button" className="btn btn-sec dv-tools" onClick={() => setToolsDrawerOpen(true)}>{mode === "ia" ? "Voir le devis" : L.devis.tabTools}</button>
+          <button type="button" className="btn btn-sec" onClick={() => handlePreview()}>Aperçu PDF</button>
+          <button type="button" className="btn btn-sec" onClick={handleGenerate}>{L.devis.save}</button>
+          <button type="button" className="btn btn-main" onClick={openSendModal}>Envoyer au client</button>
+          <div className="dv-more" ref={moreActionsRef}>
+            <button type="button" className="btn btn-sec" onClick={() => setMoreActionsOpen((open) => !open)} aria-expanded={moreActionsOpen} aria-label="Plus d'actions">•••</button>
+            {moreActionsOpen ? (
+              <div className="dl-pop">
+                <button type="button" onClick={() => { setMoreActionsOpen(false); handleTransformToInvoice(); }}>{L.devis.transformToInvoice}</button>
+                <button type="button" onClick={() => { setMoreActionsOpen(false); handleGenerate(); }}>{L.devis.generateQuote}</button>
+                <button type="button" onClick={() => { setMoreActionsOpen(false); handleConfirm(); }}>{L.devis.confirm}</button>
+                {generatedQuote?.signatureStatus !== "Signe" ? (
+                  <button type="button" onClick={() => { setMoreActionsOpen(false); openAcceptComposer(); }}>{L.devis.acceptManually}</button>
+                ) : null}
+                {generatedQuote?.signatureStatus === "Signe" && generatedQuote?.projectId ? (
+                  <button type="button" onClick={() => { setMoreActionsOpen(false); router.push(`/chantiers?project=${generatedQuote.projectId}`); }}>{L.devis.startSite}</button>
+                ) : null}
+                {generatedQuote?.id ? (
+                  <button type="button" onClick={() => { setMoreActionsOpen(false); handleArchiveQuote(); }}>Archiver</button>
+                ) : null}
+                {generatedQuote?.id && generatedQuote?.signatureStatus !== "Signe" && generatedQuote?.status !== "Refuse" ? (
+                  <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleMarkRefused(); }}>Marquer comme refusé</button>
+                ) : null}
+                <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleCancel(); }}>{L.common.cancel}</button>
+                {generatedQuote?.id ? (
+                  <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleDeleteQuote(); }}>{L.common.delete}</button>
+                ) : null}
               </div>
             ) : null}
           </div>
-        ) : null}
+        </div>
+      </header>
 
+      {message ? <p className={`notice dv-msg ${messageType || ""}`} role="status">{message}</p> : null}
+
+      <form className="dv-form" onSubmit={(event) => event.preventDefault()}>
         <div
           className={`quote-tools-drawer-backdrop ${toolsDrawerOpen ? "open" : ""}`}
           onClick={() => setToolsDrawerOpen(false)}
         />
 
-        {mode === "recap" ? renderRecapView() : null}
+        {mode === "recap" ? <div className="dv-recap">{renderRecapView()}</div> : null}
 
-        {/* Cache (pas demonte) plutot que conditionne, meme principe deja
-            utilise plus bas pour le corps Manuel en mode IA (:2918/:3062) —
-            l'etat du formulaire/chat reste vivant pendant la relecture. */}
-        <div className={`quote-two-col${mode === "ia" ? " quote-two-col-ia" : ""}`} style={mode === "recap" ? { display: "none" } : undefined}>
-          <div className="quote-col-left">
+        {/* Cache (pas demonte) plutot que conditionne : l'etat du formulaire
+            et du chat reste vivant pendant la relecture. Maquette PRO-03.1 :
+            l'aide (chat Koji ou outils) a gauche, le devis a droite. */}
+        <div
+          className={`quote-two-col dv-body ${mode === "ia" ? "quote-two-col-ia is-ia" : "is-manuel"}`}
+          style={mode === "recap" ? { display: "none" } : undefined}
+        >
+          <div className={`quote-col-left ${mode === "ia" ? "dv-helper" : "dv-main"}`}>
             {mode === "ia" ? (
               <DevisChatPanel
                 quoteSnapshot={devisChatSnapshot}
@@ -3661,187 +3541,160 @@ export default function DevisEditor() {
                 onFinish={() => enterRecap("ia")}
               />
             ) : null}
-            <div style={mode === "ia" ? { display: "none" } : undefined}>
-            <section className="quote-final-card">
-              <div className="quote-section-title">
-                <div>
-                  <span>{L.devis.presentation}</span>
-                  <h2>{L.devis.workDescTitle}</h2>
-                </div>
-              </div>
-              <textarea
-                className="quote-work-description"
-                value={form.workDescription}
-                onChange={(event) => setField("workDescription", event.target.value)}
-                placeholder={L.devis.workDescPh}
-                rows={3}
-              />
-            </section>
+            <div className="dv-doc" style={mode === "ia" ? { display: "none" } : undefined}>
+              {renderDocHeader()}
 
-            {(
-              // "Services" ("Travaux généraux") ne s'affiche plus comme une
-              // carte vide par defaut (30 sept, demande d'Amira) — uniquement
-              // si elle contient deja des lignes, ou si elle a ete creee
-              // explicitement par l'entreprise via le selecteur de lot.
-              roomGroups.includes("Services") || (linesByRoom.Services || []).length > 0
-                ? ["Services", ...roomGroups.filter((r) => r !== "Services")]
-                : roomGroups.filter((r) => r !== "Services")
-            ).map((room) => {
-              const roomLines = linesByRoom[room] || [];
-              const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
-              const isExpanded = expandedLotIds.has(room);
-              const isTargeted = targetRoom === room;
-              return (
-                <section key={room} className={`quote-final-card quote-room-card quote-lot-editor${isTargeted ? " targeted" : ""}`}>
-                  <button type="button" className="quote-section-title quote-room-title-row quote-lot-header-refined quote-lot-header-btn" onClick={() => selectAndToggleLot(room)}>
-                    <span className="quote-lot-number-badge">
-                      <span className="quote-lot-number-badge-emoji" aria-hidden="true">📦</span>
-                      {room === "Services" ? "•" : roomGroups.filter((r) => r !== "Services").indexOf(room) + 1}
-                    </span>
-                    {room === "Services" ? (
-                      <h2 className="quote-lot-name">{L.devis.generalWorks}</h2>
-                    ) : (
-                      <div className="quote-lot-name-edit">
-                        <input
-                          key={room}
-                          className="quote-room-name-input"
-                          defaultValue={room}
-                          onClick={(e) => e.stopPropagation()}
-                          onBlur={(e) => renameRoom(room, e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                          placeholder="Nom du lot…"
-                        />
-                        <svg className="quote-lot-edit-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-                      </div>
-                    )}
-                    <span className="quote-room-subtotal-badge">{money(roomTotalHt)} HT</span>
-                    <svg className={`svg-icon quote-lot-chevron ${isExpanded ? "open" : ""}`} viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-                  </button>
+              <label className="ed dv-desc">{L.devis.workDescTitle}
+                <textarea
+                  value={form.workDescription}
+                  onChange={(event) => setField("workDescription", event.target.value)}
+                  placeholder={L.devis.workDescPh}
+                  rows={3}
+                />
+              </label>
 
-                  {isExpanded ? (
-                    <>
-                      {roomNotes.filter((note) => note.room === room).map((note) => (
-                        <div key={note.id} className="room-note-card">
-                          <div className="room-note-header">
-                            <span className="room-note-type">
-                              {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
-                            </span>
-                            <button type="button" className="room-note-remove" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
-                          </div>
-                          {note.message ? <p className="room-note-message">{note.message}</p> : null}
-                          {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" className="room-note-photo" /> : null}
-                          {note.fileName && !note.photoDataUrl ? <span className="room-note-file">{note.fileName}</span> : null}
-                        </div>
-                      ))}
-
-                      {!roomLines.length ? (
-                        <div className="empty-state">{L.devis.noWorkForLot}</div>
-                      ) : (
-                        <div className="quote-final-lines">
-                          {roomLines.map((line) => renderLineCard(line))}
-                        </div>
-                      )}
-
-                      <div className="quote-add-line-row" ref={addLineMenuRoom === room ? addLineMenuRef : null}>
-                        <button type="button" className="quote-add-line-btn" onClick={() => setAddLineMenuRoom((current) => current === room ? null : room)} aria-expanded={addLineMenuRoom === room}>
-                          <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
-                          {L.devis.addLineFull}
+              <div className="dv-lines">
+                {roomGroups.length === 0 && !(linesByRoom.Services || []).length ? (
+                  <p className="empty lot-empty">Aucun lot pour le moment. Ajoutez-en un depuis l'onglet {L.devis.tabLots} des outils.</p>
+                ) : null}
+                {(
+                  // "Services" ("Travaux généraux") ne s'affiche que s'il
+                  // contient deja des lignes, ou s'il a ete cree explicitement.
+                  roomGroups.includes("Services") || (linesByRoom.Services || []).length > 0
+                    ? ["Services", ...roomGroups.filter((r) => r !== "Services")]
+                    : roomGroups.filter((r) => r !== "Services")
+                ).map((room) => {
+                  const roomLines = linesByRoom[room] || [];
+                  const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+                  const isExpanded = expandedLotIds.has(room);
+                  const isTargeted = targetRoom === room;
+                  return (
+                    <div key={room} className={`lot${isTargeted ? " targeted" : ""}`}>
+                      <div className="lot-h" onClick={() => selectAndToggleLot(room)}>
+                        <button
+                          type="button"
+                          className="lot-tg"
+                          aria-expanded={isExpanded}
+                          aria-label={isExpanded ? "Replier le lot" : "Déplier le lot"}
+                          onClick={(event) => { event.stopPropagation(); selectAndToggleLot(room); }}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d={isExpanded ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6"} /></svg>
                         </button>
-                        {addLineMenuRoom === room ? (
-                          <div className="quote-add-line-dropdown">
-                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openOuvragesLibrary(room); }}>
-                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 6.5C10.5 5.5 8 5 4 5v13c4 0 6.5.5 8 1.5M12 6.5c1.5-1 4-1.5 8-1.5v13c-4 0-6.5.5-8 1.5M12 6.5v13" /></svg>
-                              {L.devis.library}
-                            </button>
-                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openOuvrageComposer(room); }}>
-                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 8v8M8 12h8" /></svg>
-                              {L.devis.createWork}
-                            </button>
-                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openFournitureComposer(room); }}>
-                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5" fill="currentColor" /><circle cx="18" cy="20" r="1.5" fill="currentColor" /><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" /></svg>
-                              {L.devis.addSupplyBtn}
-                            </button>
-                            <button type="button" onClick={() => { setAddLineMenuRoom(null); openNoteComposer(room); }}>
-                              <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                              {L.devis.noteBtn}
-                            </button>
-                          </div>
-                        ) : null}
+                        <span className="lc">{lotCode(room)}</span>
+                        {room === "Services" ? (
+                          <span className="ln">{L.devis.generalWorks}</span>
+                        ) : (
+                          <input
+                            key={room}
+                            className="ln ln-input"
+                            defaultValue={room}
+                            aria-label="Nom du lot"
+                            onClick={(e) => e.stopPropagation()}
+                            onBlur={(e) => renameRoom(room, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                            placeholder="Nom du lot…"
+                          />
+                        )}
+                        <span className="ls">{money(roomTotalHt)}</span>
                       </div>
-                    </>
-                  ) : null}
-                </section>
-              );
-            })}
 
-            <section className="quote-final-card quote-lots-footer">
-              <button type="button" className="quote-totals-detail-toggle" onClick={() => setTotalsDetailOpen((open) => !open)}>
-                {totalsDetailOpen ? "▾" : "▸"} {L.devis.detailsBtn}
-              </button>
-              {totalsDetailOpen ? (
-                <div className="quote-total-panel-compact">
-                  <div><span>{L.devis.totalHours}</span><strong>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</strong></div>
-                  <div><span>{L.devis.laborHt}</span><strong>{money(totals.labor)}</strong></div>
-                  <div><span>{L.devis.suppliesHt}</span><strong>{money(totals.supplies)}</strong></div>
-                  <div><span>{L.devis.subtotalHt}</span><strong>{money(totals.ht)}</strong></div>
+                      {isExpanded ? (
+                        <>
+                          {roomNotes.filter((note) => note.room === room).map((note) => (
+                            <div key={note.id} className="dl-note">
+                              <div className="note-h">
+                                <span className="tag tag-o">
+                                  {note.type === "photo" ? L.devis.photo : note.type === "attachment" ? L.devis.attachment : L.devis.messageType}
+                                </span>
+                                <button type="button" className="dx" onClick={() => removeNote(note.id)} aria-label="Supprimer la note">×</button>
+                              </div>
+                              {note.message ? <p>{note.message}</p> : null}
+                              {note.photoDataUrl ? <img src={note.photoDataUrl} alt="Note photo" /> : null}
+                              {note.fileName && !note.photoDataUrl ? <span className="muted">{note.fileName}</span> : null}
+                            </div>
+                          ))}
+
+                          {!roomLines.length ? <p className="empty lot-empty">{L.devis.noWorkForLot}</p> : roomLines.map((line) => renderLineCard(line))}
+
+                          <div className="lot-add" ref={addLineMenuRoom === room ? addLineMenuRef : null}>
+                            <button type="button" className="link" onClick={() => setAddLineMenuRoom((current) => current === room ? null : room)} aria-expanded={addLineMenuRoom === room}>
+                              {L.devis.addLineFull}
+                            </button>
+                            {addLineMenuRoom === room ? (
+                              <div className="dl-pop">
+                                <button type="button" onClick={() => { setAddLineMenuRoom(null); openOuvragesLibrary(room); }}>{L.devis.library}</button>
+                                <button type="button" onClick={() => { setAddLineMenuRoom(null); openOuvrageComposer(room); }}>{L.devis.createWork}</button>
+                                <button type="button" onClick={() => { setAddLineMenuRoom(null); openFournitureComposer(room); }}>{L.devis.addSupplyBtn}</button>
+                                <button type="button" onClick={() => { setAddLineMenuRoom(null); openNoteComposer(room); }}>{L.devis.noteBtn}</button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="dv-foot">
+                <div className="dv-mini">
+                  <div className="kv"><span>{L.devis.worksTotal}</span><b>{money(lotTotals.works)}</b></div>
+                  <div className="kv"><span>{L.devis.suppliesTotal}</span><b>{money(lotTotals.supplies)}</b></div>
+                  <div className="kv"><span>{L.devis.totalHours}</span><b>{totals.hours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h</b></div>
+                  <div className="kv"><span>{L.devis.laborHt}</span><b>{money(totals.labor)}</b></div>
                 </div>
-              ) : null}
-              <div className="quote-lots-footer-left">
-                <div><span>{L.devis.worksTotal}</span><strong>{money(lotTotals.works)}</strong></div>
-                <div><span>{L.devis.suppliesTotal}</span><strong>{money(lotTotals.supplies)}</strong></div>
+                {renderTotals()}
               </div>
-              <div className="quote-lots-footer-right">
-                <div><span>{L.devis.totalHtGen}</span><strong>{money(summaryTotals.totalHt)}</strong></div>
-                <div><span>TVA</span><strong>{money(summaryTotals.vatAmount)}</strong></div>
-                <div className="total"><span>{L.devis.totalTtcGen}</span><strong>{money(summaryTotals.totalTtc)}</strong></div>
-              </div>
-            </section>
             </div>
           </div>
 
-          <div className={`quote-col-right ${toolsDrawerOpen ? "open" : ""}`}>
-            {mode === "ia" ? renderAiPreviewCard() : null}
-            <div style={mode === "ia" ? { display: "none" } : undefined}>
-            <button type="button" className="quote-tools-drawer-close" onClick={() => setToolsDrawerOpen(false)} aria-label={L.common.cancel}>×</button>
-            <div className="quote-right-tabs">
-              <button type="button" className={rightPanelTab === "client" ? "active" : ""} onClick={() => setRightPanelTab("client")}>{L.devis.tabClient}</button>
-              <button type="button" className={rightPanelTab === "lots" ? "active" : ""} onClick={() => setRightPanelTab("lots")}>{L.devis.tabLots}</button>
-              <button type="button" className={rightPanelTab === "bibliotheque" ? "active" : ""} onClick={() => setRightPanelTab("bibliotheque")}>{L.devis.library}</button>
-              <button type="button" className={rightPanelTab === "fournitures" ? "active" : ""} onClick={() => setRightPanelTab("fournitures")}>{L.nav.supplies}</button>
-              {generatedQuote?.signatureStatus === "Signe" ? (
-                <button type="button" className={rightPanelTab === "avenants" ? "active" : ""} onClick={() => setRightPanelTab("avenants")}>{L.avenants.tabAvenants}</button>
-              ) : null}
+          <div className={`quote-col-right ${toolsDrawerOpen ? "open" : ""} ${mode === "ia" ? "dv-main" : "dv-helper"}`}>
+            {mode === "ia" ? <div className="dv-doc">{renderAiPreviewCard()}</div> : null}
+            <div className="dv-tools-panel" style={mode === "ia" ? { display: "none" } : undefined}>
+            <button type="button" className="dx dv-drawer-close" onClick={() => setToolsDrawerOpen(false)} aria-label="Fermer les outils">×</button>
+            <div className="kp-seg dv-tabs" role="tablist" aria-label="Outils du devis">
+              {[
+                ["client", L.devis.tabClient],
+                ["lots", L.devis.tabLots],
+                ["bibliotheque", "Bibliothèque"],
+                ["fournitures", L.nav.supplies],
+                ...(generatedQuote?.signatureStatus === "Signe" ? [["avenants", L.avenants.tabAvenants]] : [])
+              ].map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={rightPanelTab === id} className={rightPanelTab === id ? "on" : ""} onClick={() => setRightPanelTab(id)}>{label}</button>
+              ))}
             </div>
 
             {rightPanelTab === "client" && !clientEditing ? (
-              <section className="quote-final-card quote-client-card">
-                <div className="quote-client-summary">
-                  <div><span>{L.devis.client}</span><strong>{contactDisplayName({ type: form.clientType, firstName: form.clientFirstName, lastName: form.clientLastName, companyName: form.clientCompanyName }) || form.client || "—"}</strong></div>
-                  <div><span>{L.devis.clientPhone}</span><strong>{form.clientPhone || "—"}</strong></div>
-                  <div><span>{L.devis.clientEmail}</span><strong>{form.clientEmail || "—"}</strong></div>
-                  <div><span>{L.devis.clientAddress}</span><strong>{[form.chantierAddressDetails?.address, form.chantierAddressDetails?.postalCode, form.chantierAddressDetails?.city].filter(Boolean).join(", ") || form.chantierAddress || "—"}</strong></div>
-                  {form.chantierAddressDetails?.department ? (
-                    <div><span>{L.devis.department}</span><strong>{form.chantierAddressDetails.department}</strong></div>
-                  ) : null}
-                  <div><span>{L.devis.project}</span><strong>{form.project || "—"}</strong></div>
+              <section className="tp">
+                <div className="card-h">
+                  <h2>Client et chantier</h2>
+                  <button type="button" className="link" onClick={() => setClientEditing(true)}>{L.common.edit}</button>
                 </div>
-                <button type="button" className="button secondary" onClick={() => setClientEditing(true)}>{L.common.edit}</button>
+                <div className="kv"><span>{L.devis.client}</span><b>{contactDisplayName({ type: form.clientType, firstName: form.clientFirstName, lastName: form.clientLastName, companyName: form.clientCompanyName }) || form.client || "—"}</b></div>
+                <div className="kv"><span>{L.devis.clientPhone}</span><b>{form.clientPhone || "—"}</b></div>
+                <div className="kv"><span>{L.devis.clientEmail}</span><b>{form.clientEmail || "—"}</b></div>
+                <div className="kv"><span>{L.devis.clientAddress}</span><b>{[form.chantierAddressDetails?.address, form.chantierAddressDetails?.postalCode, form.chantierAddressDetails?.city].filter(Boolean).join(", ") || form.chantierAddress || "—"}</b></div>
+                {form.chantierAddressDetails?.department ? (
+                  <div className="kv"><span>{L.devis.department}</span><b>{form.chantierAddressDetails.department}</b></div>
+                ) : null}
+                <div className="kv"><span>{L.devis.project}</span><b>{form.project || "—"}</b></div>
               </section>
             ) : null}
 
             {rightPanelTab === "client" && clientEditing ? (
-              <section className="quote-final-card quote-client-card">
-                <div className="quote-client-grid quote-client-grid-pair">
-                  <label>{L.devis.clientRef}<input value={form.clientReference} onChange={(event) => setField("clientReference", event.target.value)} placeholder={L.devis.clientRef} /></label>
-                  <div className="wide">
-                    <span className="quote-client-type-label">{L.contacts.typeLabel}</span>
-                    <div className="segmented large">
-                      <button type="button" className={form.clientType !== "societe" ? "active" : ""} onClick={() => setField("clientType", "particulier")}>{L.contacts.typeParticulier}</button>
-                      <button type="button" className={form.clientType === "societe" ? "active" : ""} onClick={() => setField("clientType", "societe")}>{L.contacts.typeSociete}</button>
+              <section className="tp">
+                <div className="card-h"><h2>Client et chantier</h2></div>
+                <div className="fgrid">
+                  <label className="full">{L.devis.clientRef}<input value={form.clientReference} onChange={(event) => setField("clientReference", event.target.value)} placeholder={L.devis.clientRef} /></label>
+                  <div className="full">
+                    <span className="flab">{L.contacts.typeLabel}</span>
+                    <div className="kp-seg" role="group" aria-label={L.contacts.typeLabel}>
+                      <button type="button" className={form.clientType !== "societe" ? "on" : ""} aria-pressed={form.clientType !== "societe"} onClick={() => setField("clientType", "particulier")}>{L.contacts.typeParticulier}</button>
+                      <button type="button" className={form.clientType === "societe" ? "on" : ""} aria-pressed={form.clientType === "societe"} onClick={() => setField("clientType", "societe")}>{L.contacts.typeSociete}</button>
                     </div>
                   </div>
                   {form.clientType === "societe" ? (
-                    <label className="wide">{L.contacts.companyName}<input value={form.clientCompanyName} onChange={(event) => updateClientNameField("clientCompanyName", event.target.value)} placeholder={L.contacts.companyName} /></label>
+                    <label className="full">{L.contacts.companyName}<input value={form.clientCompanyName} onChange={(event) => updateClientNameField("clientCompanyName", event.target.value)} placeholder={L.contacts.companyName} /></label>
                   ) : (
                     <>
                       <label>{L.contacts.firstName}<input value={form.clientFirstName} onChange={(event) => updateClientNameField("clientFirstName", event.target.value)} placeholder={L.contacts.firstName} /></label>
@@ -3849,68 +3702,71 @@ export default function DevisEditor() {
                     </>
                   )}
                   {clientSuggestions.length ? (
-                    <div className="wide quote-client-suggestions">
-                      <span className="quote-client-suggestions-hint">{L.devis.clientSuggestHint}</span>
-                      {clientSuggestions.map((contact) => (
-                        <button type="button" key={contact.id} className="quote-client-suggestion-chip" onClick={() => selectContact(contact.id)}>
-                          <strong>{contactDisplayName(contact)}</strong>
-                          {contact.phone || contact.email ? <span>{[contact.phone, contact.email].filter(Boolean).join(" · ")}</span> : null}
-                        </button>
-                      ))}
+                    <div className="full">
+                      <span className="flab">{L.devis.clientSuggestHint}</span>
+                      <div className="chips">
+                        {clientSuggestions.map((contact) => (
+                          <button type="button" key={contact.id} className="chip" onClick={() => selectContact(contact.id)}>
+                            <b>{contactDisplayName(contact)}</b>
+                            {contact.phone || contact.email ? <small>{[contact.phone, contact.email].filter(Boolean).join(" · ")}</small> : null}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
                   {form.contactId ? (
-                    <div className="wide quote-client-linked-hint">
-                      {L.devis.clientLinked}
-                      <button type="button" onClick={() => selectContact("")}>{L.devis.clientUnlink}</button>
-                    </div>
+                    <p className="full pu">
+                      {L.devis.clientLinked} <button type="button" className="link" onClick={() => selectContact("")}>{L.devis.clientUnlink}</button>
+                    </p>
                   ) : null}
                   <label>{L.devis.clientPhone}<input value={form.clientPhone} onChange={(event) => setField("clientPhone", event.target.value)} placeholder="06 12 34 56 78" /></label>
                   <label>{L.devis.clientEmail}<input type="email" value={form.clientEmail} onChange={(event) => setField("clientEmail", event.target.value)} placeholder="client@email.fr" /></label>
-                  <div className="wide">
-                    <span className="quote-client-type-label">{L.devis.clientAddress}</span>
-                    <AddressFields
-                      value={form.chantierAddressDetails}
-                      onChange={(next) => setField("chantierAddressDetails", next)}
-                      showDepartment
-                    />
+                  <div className="full">
+                    <span className="flab">{L.devis.clientAddress}</span>
+                    <div className="legacy addr">
+                      <AddressFields
+                        value={form.chantierAddressDetails}
+                        onChange={(next) => setField("chantierAddressDetails", next)}
+                        showDepartment
+                      />
+                    </div>
                   </div>
-                  <label>{L.devis.project}<select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
-                    if (event.target.value === "nouveau") {
-                      setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "", chantierAddressDetails: null }));
-                      setIsNewChantier(true);
-                    } else {
-                      setIsNewChantier(false);
-                      selectProject(event.target.value);
-                    }
-                  }}>
-                    <option value="">{L.devis.chooseSite}</option>
-                    {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
-                    <option value="nouveau">{L.devis.newSite}</option>
-                  </select></label>
+                  <label className="full">{L.devis.project}
+                    <select value={isNewChantier && !form.projectId ? "nouveau" : form.projectId} onChange={(event) => {
+                      if (event.target.value === "nouveau") {
+                        setForm((current) => ({ ...current, projectId: "", project: "", client: current.client, clientEmail: current.clientEmail, clientPhone: current.clientPhone, chantierAddress: "", chantierAddressDetails: null }));
+                        setIsNewChantier(true);
+                      } else {
+                        setIsNewChantier(false);
+                        selectProject(event.target.value);
+                      }
+                    }}>
+                      <option value="">{L.devis.chooseSite}</option>
+                      {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+                      <option value="nouveau">{L.devis.newSite}</option>
+                    </select>
+                  </label>
                   {generatedQuote?.id && !form.projectId && !isNewChantier ? (
-                    <button type="button" className="button secondary quote-create-site-btn" onClick={() => setIsNewChantier(true)}>
-                      {L.devis.createSiteFromQuote}
-                    </button>
+                    <div className="full">
+                      <button type="button" className="btn btn-sec" onClick={() => setIsNewChantier(true)}>{L.devis.createSiteFromQuote}</button>
+                    </div>
                   ) : null}
                   {isNewChantier && !form.projectId ? (
-                    <label>{L.devis.siteName}<input value={form.project} onChange={(event) => setField("project", event.target.value)} placeholder={L.devis.siteName} autoFocus /></label>
+                    <label className="full">{L.devis.siteName}<input value={form.project} onChange={(event) => setField("project", event.target.value)} placeholder={L.devis.siteName} autoFocus /></label>
                   ) : null}
                   <label>{L.devis.creationDate}<input type="date" value={form.quoteDate} onChange={(event) => setField("quoteDate", event.target.value)} /></label>
                   <label>{L.devis.startDate}<input type="date" value={form.startDate} onChange={(event) => setField("startDate", event.target.value)} /></label>
-                  <label>{L.devis.expectedDur}<input value={form.expectedDuration} onChange={(event) => setField("expectedDuration", event.target.value)} placeholder="Ex: 10 jours" /></label>
-                  <label>{L.devis.propertyType}<select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
-                    <option>Maison</option>
-                    <option>Appartement</option>
-                    <option>Local</option>
-                    <option>Autre</option>
-                  </select></label>
-                  <div className="quote-identity-card-save">
-                    <button
-                      type="button"
-                      className={`quote-identity-save-btn${savingClient ? " saving" : ""}`}
-                      onClick={saveClientInfo}
-                    >
+                  <label>{L.devis.expectedDur}<input value={form.expectedDuration} onChange={(event) => setField("expectedDuration", event.target.value)} placeholder="Ex : 10 jours" /></label>
+                  <label>{L.devis.propertyType}
+                    <select value={form.propertyType} onChange={(event) => setField("propertyType", event.target.value)}>
+                      <option>Maison</option>
+                      <option>Appartement</option>
+                      <option>Local</option>
+                      <option>Autre</option>
+                    </select>
+                  </label>
+                  <div className="full ed-act">
+                    <button type="button" className="btn btn-sec" onClick={saveClientInfo} disabled={savingClient}>
                       {savingClient ? L.devis.saving : L.devis.save}
                     </button>
                   </div>
@@ -3919,49 +3775,41 @@ export default function DevisEditor() {
             ) : null}
 
             {rightPanelTab === "lots" ? (
-              <section className="quote-final-card quote-lots-list-card">
-                <div className="quote-section-title">
-                  <div>
-                    <span>{L.devis.organization}</span>
-                    <h2>{L.devis.lotsTitle}</h2>
-                  </div>
+              <section className="tp">
+                <div className="card-h"><h2>{L.devis.lotsTitle}</h2></div>
+                <div className="pform tp-add">
+                  <input
+                    value={customRoom}
+                    onChange={(event) => setCustomRoom(event.target.value)}
+                    placeholder={L.devis.roomPh}
+                    aria-label={L.devis.roomPh}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoomAndFocus(); } }}
+                  />
+                  <button type="button" className="btn btn-sec" onClick={() => addCustomRoomAndFocus()}>Ajouter</button>
                 </div>
-                <div className="room-add-card">
-                  <div className="room-add-row">
-                    <input
-                      value={customRoom}
-                      onChange={(event) => setCustomRoom(event.target.value)}
-                      placeholder={L.devis.roomPh}
-                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomRoomAndFocus(); } }}
-                    />
-                    <button type="button" onClick={() => addCustomRoomAndFocus()}>+</button>
-                  </div>
-                  <div className="room-add-suggestions">
-                    {ROOM_SUGGESTIONS.map((room) => (
-                      <button type="button" key={room} className="room-add-suggestion-chip" onClick={() => addCustomRoomAndFocus(room)}>
-                        {room}
-                      </button>
-                    ))}
-                  </div>
+                <div className="chips">
+                  {ROOM_SUGGESTIONS.map((room) => (
+                    <button type="button" key={room} className="chip chip-s" onClick={() => addCustomRoomAndFocus(room)}>{room}</button>
+                  ))}
                 </div>
-                <div className="lot-list">
+                <div className="tp-lots">
                   {roomGroups.filter((room) => room !== "Services").map((room) => (
                     <div
                       key={room}
                       data-room-row={room}
-                      className={`lot-list-row ${targetRoom === room ? "active" : ""} ${dragOverRoom === room && dragRoom && dragRoom !== room ? "drag-over" : ""} ${dragRoom === room ? "dragging" : ""}`}
+                      className={`tp-lot${targetRoom === room ? " on" : ""}${dragOverRoom === room && dragRoom && dragRoom !== room ? " over" : ""}${dragRoom === room ? " dragging" : ""}`}
                     >
                       <span
-                        className="lot-list-drag-handle"
+                        className="tp-grip"
                         onPointerDown={(e) => handleRoomPointerDown(e, room)}
                         onPointerMove={handleRoomPointerMove}
                         onPointerUp={handleRoomPointerUp}
                         onPointerCancel={handleRoomPointerUp}
                         aria-hidden="true"
                       >⠿</span>
-                      <button type="button" className="lot-list-label" onClick={() => setTargetRoom(room)}>{room}</button>
-                      <button type="button" className="lot-list-duplicate" onClick={() => duplicateRoom(room)} aria-label={L.devis.duplicateLot} title={L.devis.duplicateLot}>⧉</button>
-                      <button type="button" className="lot-list-remove" onClick={() => removeRoom(room)} aria-label={`Retirer ${room}`}>×</button>
+                      <button type="button" className="tp-lot-l" onClick={() => setTargetRoom(room)}>{room}</button>
+                      <button type="button" className="dx" onClick={() => duplicateRoom(room)} aria-label={`${L.devis.duplicateLot} ${room}`} title={L.devis.duplicateLot}>⧉</button>
+                      <button type="button" className="dx" onClick={() => removeRoom(room)} aria-label={`Retirer ${room}`}>×</button>
                     </div>
                   ))}
                 </div>
@@ -3969,73 +3817,63 @@ export default function DevisEditor() {
             ) : null}
 
             {rightPanelTab === "bibliotheque" ? (
-              <section className="quote-final-card quote-picker-card">
-                <p className="quote-picker-hint">{L.devis.addToLot} : <strong>{targetRoom === "Services" ? L.devis.generalWorks : targetRoom}</strong></p>
-                <input
-                  className="quote-picker-search"
-                  value={libraryQuery}
-                  onChange={(event) => setLibraryQuery(event.target.value)}
-                  placeholder={L.bibliotheque.search}
-                />
-                <div className="quote-picker-chips">
-                  <button type="button" className={!libraryFamily ? "active" : ""} onClick={() => setLibraryFamily("")}>{L.fournitures.all}</button>
+              <section className="tp">
+                <p className="pu">{L.devis.addToLot} : <b>{targetRoom === "Services" ? L.devis.generalWorks : targetRoom}</b></p>
+                <label className="search tp-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+                  <input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder={L.bibliotheque.search} aria-label={L.bibliotheque.search} />
+                </label>
+                <div className="kp-seg" role="group" aria-label="Familles d'ouvrages">
+                  <button type="button" className={!libraryFamily ? "on" : ""} onClick={() => setLibraryFamily("")}>{L.fournitures.all}</button>
                   {libraryFamilies.map((family) => (
-                    <button type="button" key={family} className={libraryFamily === family ? "active" : ""} onClick={() => setLibraryFamily(family)}>{family}</button>
+                    <button type="button" key={family} className={libraryFamily === family ? "on" : ""} onClick={() => setLibraryFamily(family)}>{family}</button>
                   ))}
                 </div>
-                <div className="quote-picker-list">
+                <div className="tp-list">
                   {filteredLibraryItems.map((item) => {
                     const unitPrice = Number(item.normativeTime || 0) * (Number(item.hourlyRate || 0) || company.hourlyRate || 0);
                     return (
-                      <div className="quote-picker-row" key={item.id}>
-                        <div className="quote-picker-row-main">
-                          <span className="quote-picker-row-code">{item.code}</span>
+                      <div className="row tp-row" key={item.id}>
+                        <div className="t">
+                          {item.code ? <small className="tp-code">{item.code}</small> : null}
                           <strong>{item.label}</strong>
-                          <span className="quote-picker-row-stats">{L.bibliotheque.time} : {item.normativeTime || 0} h/{item.unit || "u"} · {money(unitPrice)} HT</span>
+                          <small>{L.bibliotheque.time} : {item.normativeTime || 0} h/{item.unit || "u"} · {money(unitPrice)} HT</small>
                         </div>
-                        <button type="button" className="quote-picker-add-btn" onClick={() => addOuvrageToRoom(item, targetRoom)}>{L.bibliotheque.addToCatalog}</button>
+                        <button type="button" className="btn btn-sec" onClick={() => addOuvrageToRoom(item, targetRoom)}>{L.bibliotheque.addToCatalog}</button>
                       </div>
                     );
                   })}
-                  {!filteredLibraryItems.length ? <p className="empty-state">{L.bibliotheque.noFound}</p> : null}
+                  {!filteredLibraryItems.length ? <p className="empty">{L.bibliotheque.noFound}</p> : null}
                 </div>
-                <div className="quote-picker-footer">
-                  <button type="button" className="button secondary" onClick={() => (ouvrageComposer.open ? closeOuvrageComposer() : openOuvrageComposer(targetRoom))}>
-                    {ouvrageComposer.open ? "▾" : "+"} {L.devis.createWork}
+                <div className="tp-foot">
+                  <button type="button" className="link" onClick={() => (ouvrageComposer.open ? closeOuvrageComposer() : openOuvrageComposer(targetRoom))}>
+                    {ouvrageComposer.open ? "Fermer" : `+ ${L.devis.createWork}`}
                   </button>
-                  <Link className="quote-picker-full-link" href="/bibliotheque-ouvrages">{L.bibliotheque.title} →</Link>
+                  <Link className="link" href="/bibliotheque-ouvrages">{L.bibliotheque.title} →</Link>
                 </div>
 
                 {ouvrageComposer.open ? (
-                  <div className="quote-picker-inline-form">
-                    <label className="supply-composer-field full">
-                      <span>{L.devis.designation}</span>
+                  <div className="fgrid tp-form">
+                    <label className="full">{L.devis.designation}
                       <input
                         value={ouvrageComposer.label}
                         onChange={(event) => setOuvrageComposerField("label", event.target.value)}
                         onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitOuvrageComposer(); } }}
-                        placeholder="Ex: Pose de carrelage, Peinture murs..."
+                        placeholder="Ex : Pose de carrelage, Peinture murs..."
                         autoFocus
                       />
                     </label>
-                    <label className="supply-composer-field">
-                      <span>{L.devis.quantity}</span>
-                      <input type="number" min="0" step="any" value={ouvrageComposer.quantity} onChange={(event) => setOuvrageComposerField("quantity", event.target.value)} placeholder="1" />
-                    </label>
-                    <label className="supply-composer-field">
-                      <span>{L.bibliotheque.unit}</span>
+                    <label>{L.devis.quantity}<input type="number" min="0" step="any" value={ouvrageComposer.quantity} onChange={(event) => setOuvrageComposerField("quantity", event.target.value)} placeholder="1" /></label>
+                    <label>{L.bibliotheque.unit}
                       <select value={ouvrageComposer.unit} onChange={(event) => setOuvrageComposerField("unit", event.target.value)}>
                         {CUSTOM_OUVRAGE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                       </select>
                     </label>
-                    <label className="supply-composer-field">
-                      <span>{L.devis.priceHt}</span>
-                      <input type="number" min="0" step="0.01" value={ouvrageComposer.priceHt} onChange={(event) => setOuvrageComposerField("priceHt", event.target.value)} placeholder="0.00" />
-                    </label>
-                    {ouvrageComposer.error ? <p className="profile-message error">{ouvrageComposer.error}</p> : null}
-                    <div className="supply-modal-actions">
-                      <button type="button" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
-                      <button type="button" className="button blue" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
+                    <label className="full">{L.devis.priceHt}<input type="number" min="0" step="0.01" value={ouvrageComposer.priceHt} onChange={(event) => setOuvrageComposerField("priceHt", event.target.value)} placeholder="0.00" /></label>
+                    {ouvrageComposer.error ? <p className="err full">{ouvrageComposer.error}</p> : null}
+                    <div className="full ed-act">
+                      <button type="button" className="btn btn-sec" onClick={closeOuvrageComposer}>{L.common.cancel}</button>
+                      <button type="button" className="btn btn-sec" onClick={submitOuvrageComposer}>{L.bibliotheque.addToCatalog}</button>
                     </div>
                   </div>
                 ) : null}
@@ -4043,354 +3881,283 @@ export default function DevisEditor() {
             ) : null}
 
             {rightPanelTab === "fournitures" ? (
-              <section className="quote-final-card quote-picker-card">
-                <p className="quote-picker-hint">{L.devis.addToLot} : <strong>{targetRoom === "Services" ? L.devis.generalWorks : targetRoom}</strong></p>
-                <input
-                  className="quote-picker-search"
-                  value={supplyQuery}
-                  onChange={(event) => setSupplyQuery(event.target.value)}
-                  placeholder={L.bibliotheque.search}
-                />
-                <div className="quote-picker-chips">
-                  <button type="button" className={!supplyCategory ? "active" : ""} onClick={() => setSupplyCategory("")}>{L.fournitures.all}</button>
+              <section className="tp">
+                <p className="pu">{L.devis.addToLot} : <b>{targetRoom === "Services" ? L.devis.generalWorks : targetRoom}</b></p>
+                <label className="search tp-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+                  <input value={supplyQuery} onChange={(event) => setSupplyQuery(event.target.value)} placeholder={L.bibliotheque.search} aria-label={L.bibliotheque.search} />
+                </label>
+                <div className="kp-seg" role="group" aria-label="Catégories de fournitures">
+                  <button type="button" className={!supplyCategory ? "on" : ""} onClick={() => setSupplyCategory("")}>{L.fournitures.all}</button>
                   {supplyCategories.map((category) => (
-                    <button type="button" key={category} className={supplyCategory === category ? "active" : ""} onClick={() => setSupplyCategory(category)}>{category}</button>
+                    <button type="button" key={category} className={supplyCategory === category ? "on" : ""} onClick={() => setSupplyCategory(category)}>{category}</button>
                   ))}
                 </div>
-                <div className="quote-picker-list">
+                <div className="tp-list">
                   {filteredSupplyItems.map((item) => (
-                    <div className="quote-picker-row" key={item.id}>
-                      <div className="quote-picker-row-main">
+                    <div className="row tp-row" key={item.id}>
+                      <div className="t">
                         <strong>{item.name}</strong>
-                        <span className="quote-picker-row-stats">{item.category || ""} · {money(supplyPrice(item))} HT/{item.unit || "u"}</span>
+                        <small>{[item.category, `${money(supplyPrice(item))} HT/${item.unit || "u"}`].filter(Boolean).join(" · ")}</small>
                       </div>
-                      <button type="button" className="quote-picker-add-btn" onClick={() => addFournitureLine(item, 1, targetRoom)}>{L.bibliotheque.addToCatalog}</button>
+                      <button type="button" className="btn btn-sec" onClick={() => addFournitureLine(item, 1, targetRoom)}>{L.bibliotheque.addToCatalog}</button>
                     </div>
                   ))}
-                  {!filteredSupplyItems.length ? <p className="empty-state">{L.bibliotheque.noFound}</p> : null}
+                  {!filteredSupplyItems.length ? <p className="empty">{L.bibliotheque.noFound}</p> : null}
                 </div>
-                <div className="quote-picker-footer">
-                  <Link className="quote-picker-full-link" href="/fournitures/catalogue">{L.nav.supplies} →</Link>
+                <div className="tp-foot">
+                  <Link className="link" href="/fournitures/catalogue">{L.nav.supplies} →</Link>
                 </div>
               </section>
             ) : null}
 
             {rightPanelTab === "avenants" && generatedQuote?.signatureStatus === "Signe" ? (
-              <section className="quote-final-card quote-avenants-card">
-                <div className="quote-section-title">
-                  <div><span>{L.avenants.title}</span><h2>{L.avenants.tabAvenants}</h2></div>
-                </div>
+              <section className="tp">
+                <div className="card-h"><h2>{L.avenants.tabAvenants}</h2></div>
                 {avenants.some((item) => item.status === "Signe") ? (
-                  <div className="avenant-market-total-row">
-                    <span>{L.avenants.marketTotalUpdated}</span>
-                    <strong>{money(cumulativeMarketTotal(generatedQuote, avenants))}</strong>
-                  </div>
+                  <div className="kv"><span>{L.avenants.marketTotalUpdated}</span><b>{money(cumulativeMarketTotal(generatedQuote, avenants))}</b></div>
                 ) : null}
-                {avenants.length ? (
-                  <div className="avenant-list">
-                    {avenants.map((item) => (
-                      <Link key={item.id} href={`/avenant?id=${item.id}`} className="avenant-list-row">
-                        <div className="avenant-list-row-main">
-                          <strong>{item.numero}</strong>
-                          <span>{L.avenants[AVENANT_STATUS_LABEL_KEYS[item.status]] || item.status}</span>
-                        </div>
-                        <span className="avenant-list-row-amount">{money(item.totalTtcDelta)}</span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">{L.avenants.noAvenants}</p>
+                {avenants.length ? avenants.map((item) => (
+                  <Link key={item.id} href={`/avenant?id=${item.id}`} className="row">
+                    <div className="t">
+                      <strong>{item.numero}</strong>
+                      <small>{L.avenants[AVENANT_STATUS_LABEL_KEYS[item.status]] || item.status}</small>
+                    </div>
+                    <b>{money(item.totalTtcDelta)}</b>
+                  </Link>
+                )) : (
+                  <p className="empty">{L.avenants.noAvenants}</p>
                 )}
-                <button type="button" className="button secondary" style={{ marginTop: 10 }} onClick={() => router.push(`/avenant?quoteId=${generatedQuote.id}`)}>
-                  {L.avenants.newAvenant}
-                </button>
+                <div>
+                  <button type="button" className="btn btn-sec" onClick={() => router.push(`/avenant?quoteId=${generatedQuote.id}`)}>{L.avenants.newAvenant}</button>
+                </div>
               </section>
             ) : null}
             </div>
           </div>
         </div>
 
+        <div className="dv-after">
         {mode === "manuel" ? renderConditioningAndPaymentCards() : null}
 
-        {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
-
-        <div className="quote-more-actions" ref={moreActionsRef}>
-          <button type="button" className="quote-more-actions-trigger" onClick={() => setMoreActionsOpen((open) => !open)} aria-expanded={moreActionsOpen} aria-label="Plus d'actions">•••</button>
-          {moreActionsOpen ? (
-            <div className="quote-more-actions-dropdown">
-              <button type="button" onClick={() => { setMoreActionsOpen(false); handleGenerate(); }}>{L.devis.generateQuote}</button>
-              <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleCancel(); }}>{L.common.cancel}</button>
-              <button type="button" onClick={() => { setMoreActionsOpen(false); handleConfirm(); }}>{L.devis.confirm}</button>
-              {generatedQuote?.signatureStatus !== "Signe" ? (
-                <button type="button" onClick={() => { setMoreActionsOpen(false); openAcceptComposer(); }}>{L.devis.acceptManually}</button>
-              ) : null}
-              {generatedQuote?.id && generatedQuote?.signatureStatus !== "Signe" && generatedQuote?.status !== "Refuse" ? (
-                <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleMarkRefused(); }}>Marquer comme refusé</button>
-              ) : null}
-              {generatedQuote?.id ? (
-                <button type="button" onClick={() => { setMoreActionsOpen(false); handleArchiveQuote(); }}>Archiver</button>
-              ) : null}
-              {generatedQuote?.id ? (
-                <button type="button" className="danger" onClick={() => { setMoreActionsOpen(false); handleDeleteQuote(); }}>{L.common.delete}</button>
-              ) : null}
-              {generatedQuote?.signatureStatus === "Signe" && generatedQuote?.projectId ? (
-                <button type="button" onClick={() => { setMoreActionsOpen(false); router.push(`/chantiers?project=${generatedQuote.projectId}`); }}>
-                  {L.devis.startSite}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
         {generatedQuote ? (
-          <section className="quote-generated-suite">
-            <article className="quote-ready-card">
-              <div className="quote-ready-check">OK</div>
-              <div>
-                <span>{L.devis.quoteReady}</span>
-                <h2>{generatedQuote.quoteNumber}</h2>
-                <p>{L.devis.docsReady}</p>
+          <div className="dv-ready">
+            <section className="card">
+              <div className="card-h">
+                <h2>{L.devis.quoteReady} · {generatedQuote.quoteNumber}</h2>
               </div>
-              <div className="quote-ready-docs-stack">
-                <div className="quote-ready-doc-row" onClick={() => handleDownload("quote", "pdf")}>
-                  <span className="quote-ready-doc-label">
-                    <strong>{L.devis.finalQuote}</strong>
-                    <small>PDF A4</small>
-                  </span>
-                  <button
-                    type="button"
-                    className="quote-ready-doc-eye"
-                    onClick={(event) => { event.stopPropagation(); handlePreview("quote"); }}
-                    aria-label="Ouvrir l'aperçu du devis"
-                  >
-                    👁
-                  </button>
-                </div>
-                <div className="quote-ready-doc-row" onClick={() => handleDownload("supplies", "pdf")}>
-                  <span className="quote-ready-doc-label">
-                    <strong>{L.devis.suppliesDoc}</strong>
-                    <small>PDF A4</small>
-                  </span>
-                  <button
-                    type="button"
-                    className="quote-ready-doc-eye"
-                    onClick={(event) => { event.stopPropagation(); handlePreview("supplies"); }}
-                    aria-label="Ouvrir l'aperçu des fournitures"
-                  >
-                    👁
-                  </button>
+              <p className="muted">{L.devis.docsReady}</p>
+              <div className="row">
+                <div className="t"><strong>{L.devis.finalQuote}</strong><small>PDF A4</small></div>
+                <div className="hact">
+                  <button type="button" className="btn btn-sec" onClick={() => handlePreview("quote")}>Aperçu</button>
+                  <button type="button" className="btn btn-sec" onClick={() => handleDownload("quote", "pdf")}>Télécharger</button>
                 </div>
               </div>
-            </article>
+              <div className="row">
+                <div className="t"><strong>{L.devis.suppliesDoc}</strong><small>PDF A4</small></div>
+                <div className="hact">
+                  <button type="button" className="btn btn-sec" onClick={() => handlePreview("supplies")}>Aperçu</button>
+                  <button type="button" className="btn btn-sec" onClick={() => handleDownload("supplies", "pdf")}>Télécharger</button>
+                </div>
+              </div>
+            </section>
 
-            <section className="quote-final-card signature-delivery-card signature-send-card">
-              <div className="signature-send-heading signature-send-heading-simple">
-                <div>
-                  <h2>{L.devis.signatureTitle}</h2>
-                  <p>{L.devis.signatureHint}</p>
-                </div>
-                <button type="button" className="button blue" onClick={resendSignatureLink}>
+            <section className="card">
+              <div className="card-h">
+                <h2>{L.devis.signatureTitle}</h2>
+                <button type="button" className="btn btn-sec" onClick={resendSignatureLink}>
                   {signatureDelivery ? L.devis.resendLink : L.devis.sendLink}
                 </button>
               </div>
-
+              <p className="muted">{L.devis.signatureHint}</p>
               {signatureDelivery ? (
                 <>
-                  <div className="signature-access-box signature-access-box-unified">
-                    <div className="signature-access-row signature-access-row-copy">
-                      <div>
-                        <span>{L.devis.signatureLink}</span>
-                        <a href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{signatureDelivery.loginUrl}</a>
-                      </div>
-                      <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>{L.devis.copy}</button>
-                    </div>
-                    <div className="signature-access-row-pair">
-                      <div className="signature-access-row-copy">
-                        <div><span>{L.devis.tempId}</span><strong>{signatureDelivery.identifier}</strong></div>
-                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.identifier, "Identifiant copié")}>{L.devis.copy}</button>
-                      </div>
-                      <div className="signature-access-row-copy">
-                        <div><span>{L.devis.tempPass}</span><strong>{signatureDelivery.password}</strong></div>
-                        <button type="button" className="signature-copy-btn" onClick={() => copySignatureText(signatureDelivery.password, "Mot de passe copié")}>{L.devis.copy}</button>
-                      </div>
-                    </div>
-                    <div className="signature-access-row">
-                      <span>{L.devis.clientMsg}</span>
-                      <textarea
-                        className="signature-message-input"
-                        value={clientMessage}
-                        onChange={(event) => setClientMessage(event.target.value)}
-                        rows={5}
-                      />
-                    </div>
+                  <div className="kv kv-act">
+                    <span>{L.devis.signatureLink}</span>
+                    <b><a href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{signatureDelivery.loginUrl}</a></b>
+                    <button type="button" className="link" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>{L.devis.copy}</button>
                   </div>
-                  <div className="signature-channel-row">
-                    <a className="signature-channel primary" href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{L.devis.openLink}</a>
-                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>{L.devis.copyLink}</button>
-                    <button type="button" className="signature-channel" onClick={() => copySignatureText(signatureText, "Message prêt à envoyer")}>{L.devis.copyMsg}</button>
-                    <a className="signature-channel" href={signatureMailHref}>{L.devis.emailClient}</a>
-                    <a className="signature-channel" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>
+                  <div className="kv kv-act">
+                    <span>{L.devis.tempId}</span>
+                    <b>{signatureDelivery.identifier}</b>
+                    <button type="button" className="link" onClick={() => copySignatureText(signatureDelivery.identifier, "Identifiant copié")}>{L.devis.copy}</button>
                   </div>
-                  {copyMessage ? <p className="signature-copy-message">{copyMessage}</p> : null}
+                  <div className="kv kv-act">
+                    <span>{L.devis.tempPass}</span>
+                    <b>{signatureDelivery.password}</b>
+                    <button type="button" className="link" onClick={() => copySignatureText(signatureDelivery.password, "Mot de passe copié")}>{L.devis.copy}</button>
+                  </div>
+                  <label className="ed">{L.devis.clientMsg}
+                    <textarea value={clientMessage} onChange={(event) => setClientMessage(event.target.value)} rows={5} />
+                  </label>
+                  <div className="hact">
+                    <a className="btn btn-sec" href={signatureDelivery.loginUrl} target="_blank" rel="noreferrer">{L.devis.openLink}</a>
+                    <button type="button" className="btn btn-sec" onClick={() => copySignatureText(signatureDelivery.loginUrl, "Lien copié")}>{L.devis.copyLink}</button>
+                    <button type="button" className="btn btn-sec" onClick={() => copySignatureText(signatureText, "Message prêt à envoyer")}>{L.devis.copyMsg}</button>
+                    <a className="btn btn-sec" href={signatureMailHref}>{L.devis.emailClient}</a>
+                    <a className="btn btn-sec" href={signatureWhatsAppHref} target="_blank" rel="noreferrer">WhatsApp</a>
+                  </div>
+                  {copyMessage ? <p className="notice" role="status">{copyMessage}</p> : null}
                 </>
               ) : (
-                <p className="signature-empty-hint">
-                  {L.devis.signatureEmpty}
-                </p>
+                <p className="empty">{L.devis.signatureEmpty}</p>
               )}
             </section>
-          </section>
+          </div>
         ) : null}
 
         {selectedSupply ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSelectedSupply(null)}>
-            <div className="mini-modal supply-detail-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{selectedSupply.name}</h2>
-              <p>{L.devis.supplyLinked}</p>
-              <dl className="supply-detail-list">
-                <div><dt>{L.devis.catLabel}</dt><dd>{selectedSupply.category || "Divers"}</dd></div>
-                <div><dt>{L.devis.supLabel}</dt><dd>{selectedSupply.supplierName || "Non renseigne"}</dd></div>
-                <div><dt>{L.devis.priceHt}</dt><dd>{money(supplyPrice(selectedSupply))}</dd></div>
-                <div><dt>{L.devis.stockLabel}</dt><dd>{selectedSupply.stock ?? selectedSupply.quantity ?? 0}</dd></div>
-              </dl>
-              {selectedSupply.sourceUrl ? <a className="supply-source-link" href={selectedSupply.sourceUrl} target="_blank" rel="noreferrer">{L.devis.sourceLink}</a> : null}
-              <div className="supply-modal-actions">
-                <button type="button" onClick={() => setSelectedSupply(null)}>{L.devis.closeBtn}</button>
-                <Link className="button secondary" href={`/fournitures/catalogue?supply=${selectedSupply.id}`}>{L.devis.openInSupply}</Link>
-                <button type="button" className="button blue" onClick={() => { applySupplyToLine(selectedSupply.lineId, selectedSupply, selectedSupply.materialIndex); setSelectedSupply(null); }}>{L.devis.useBtn}</button>
+          <div className="pmodal-bg" onClick={() => setSelectedSupply(null)}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label={selectedSupply.name} onClick={(event) => event.stopPropagation()}>
+              <div className="card-h">
+                <h2>{selectedSupply.name}</h2>
+                <button type="button" className="link" onClick={() => setSelectedSupply(null)}>{L.devis.closeBtn}</button>
+              </div>
+              <p className="muted">{L.devis.supplyLinked}</p>
+              <div>
+                <div className="kv"><span>{L.devis.catLabel}</span><b>{selectedSupply.category || "Divers"}</b></div>
+                <div className="kv"><span>{L.devis.supLabel}</span><b>{selectedSupply.supplierName || "Non renseigné"}</b></div>
+                <div className="kv"><span>{L.devis.priceHt}</span><b>{money(supplyPrice(selectedSupply))}</b></div>
+                <div className="kv"><span>{L.devis.stockLabel}</span><b>{selectedSupply.stock ?? selectedSupply.quantity ?? 0}</b></div>
+              </div>
+              {selectedSupply.sourceUrl ? <div><a className="link" href={selectedSupply.sourceUrl} target="_blank" rel="noreferrer">{L.devis.sourceLink}</a></div> : null}
+              <div className="pm-act">
+                <Link className="btn btn-sec" href={`/fournitures/catalogue?supply=${selectedSupply.id}`}>{L.devis.openInSupply}</Link>
+                <button type="button" className="btn btn-main" onClick={() => { applySupplyToLine(selectedSupply.lineId, selectedSupply, selectedSupply.materialIndex); setSelectedSupply(null); }}>{L.devis.useBtn}</button>
               </div>
             </div>
           </div>
         ) : null}
 
         {selectedOuvrageRef ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSelectedOuvrageRef(null)}>
-            <div className="mini-modal supply-detail-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{selectedOuvrageRef.label}</h2>
-              <p>{L.devis.ouvrageLinked}</p>
-              <dl className="supply-detail-list">
-                <div><dt>{L.bibliotheque.code}</dt><dd>{selectedOuvrageRef.code || "-"}</dd></div>
-                <div><dt>{L.bibliotheque.family}</dt><dd>{selectedOuvrageRef.family || "-"}</dd></div>
-                <div><dt>{L.bibliotheque.unit}</dt><dd>{selectedOuvrageRef.unit || "-"}</dd></div>
-                <div><dt>{L.bibliotheque.normTime}</dt><dd>{Number(selectedOuvrageRef.normativeTime || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</dd></div>
-                <div><dt>{L.bibliotheque.hourlyRateEur}</dt><dd>{money(selectedOuvrageRef.hourlyRate || 0)}</dd></div>
-                {selectedOuvrageRef.description ? <div><dt>{L.bibliotheque.description}</dt><dd>{selectedOuvrageRef.description}</dd></div> : null}
-              </dl>
-              <div className="supply-modal-actions">
-                <button type="button" onClick={() => setSelectedOuvrageRef(null)}>{L.devis.closeBtn}</button>
-                <Link className="button secondary" href="/bibliotheque-ouvrages">{L.devis.openInLibrary}</Link>
+          <div className="pmodal-bg" onClick={() => setSelectedOuvrageRef(null)}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label={selectedOuvrageRef.label} onClick={(event) => event.stopPropagation()}>
+              <div className="card-h">
+                <h2>{selectedOuvrageRef.label}</h2>
+                <button type="button" className="link" onClick={() => setSelectedOuvrageRef(null)}>{L.devis.closeBtn}</button>
+              </div>
+              <p className="muted">{L.devis.ouvrageLinked}</p>
+              <div>
+                <div className="kv"><span>{L.bibliotheque.code}</span><b>{selectedOuvrageRef.code || "—"}</b></div>
+                <div className="kv"><span>{L.bibliotheque.family}</span><b>{selectedOuvrageRef.family || "—"}</b></div>
+                <div className="kv"><span>{L.bibliotheque.unit}</span><b>{selectedOuvrageRef.unit || "—"}</b></div>
+                <div className="kv"><span>{L.bibliotheque.normTime}</span><b>{Number(selectedOuvrageRef.normativeTime || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</b></div>
+                <div className="kv"><span>{L.bibliotheque.hourlyRateEur}</span><b>{money(selectedOuvrageRef.hourlyRate || 0)}</b></div>
+                {selectedOuvrageRef.description ? <div className="kv"><span>{L.bibliotheque.description}</span><b>{selectedOuvrageRef.description}</b></div> : null}
+              </div>
+              <div className="pm-act">
+                <Link className="btn btn-sec" href="/bibliotheque-ouvrages">{L.devis.openInLibrary}</Link>
               </div>
             </div>
           </div>
         ) : null}
 
         {supplyComposer.open ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeSupplyComposer}>
-            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{supplyComposer.mode === "url" ? L.devis.addViaLink : L.devis.addSupplyTitle}</h2>
-              <div className="supply-composer-tabs">
-                <button type="button" className={supplyComposer.mode === "manual" ? "active" : ""} onClick={() => setSupplyComposerField("mode", "manual")}>{L.devis.manual}</button>
-                <button type="button" className={supplyComposer.mode === "url" ? "active" : ""} onClick={() => setSupplyComposerField("mode", "url")}>{L.devis.viaLink}</button>
+          <div className="pmodal-bg" onClick={closeSupplyComposer}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label={supplyComposer.mode === "url" ? L.devis.addViaLink : L.devis.addSupplyTitle} onClick={(event) => event.stopPropagation()}>
+              <div className="card-h">
+                <h2>{supplyComposer.mode === "url" ? L.devis.addViaLink : L.devis.addSupplyTitle}</h2>
+                <button type="button" className="link" onClick={closeSupplyComposer}>{L.devis.closeBtn}</button>
               </div>
-              {supplyComposer.mode === "url" ? (
-                <label className="supply-composer-field full"><span>{L.devis.productLink}</span><input value={supplyComposer.sourceUrl} onChange={(event) => setSupplyComposerField("sourceUrl", event.target.value)} placeholder="https://..." /></label>
-              ) : null}
-              <label className="supply-composer-field full"><span>{L.devis.name}</span><input value={supplyComposer.name} onChange={(event) => setSupplyComposerField("name", event.target.value)} placeholder={L.devis.name} /></label>
-              <div className="supply-composer-grid">
-                <label className="supply-composer-field"><span>{L.devis.catLabel}</span><input value={supplyComposer.category} onChange={(event) => setSupplyComposerField("category", event.target.value)} /></label>
-                <label className="supply-composer-field"><span>{L.devis.supLabel}</span><input value={supplyComposer.supplierName} onChange={(event) => setSupplyComposerField("supplierName", event.target.value)} /></label>
-                <label className="supply-composer-field"><span>{L.devis.qtyLabel}</span><input type="number" min="0" step="0.01" value={supplyComposer.quantity} onChange={(event) => setSupplyComposerField("quantity", event.target.value)} /></label>
-                <label className="supply-composer-field"><span>{L.devis.priceHt}</span><input type="number" min="0" step="0.01" value={supplyComposer.unitPrice} onChange={(event) => setSupplyComposerField("unitPrice", event.target.value)} placeholder="Auto si lien" /></label>
+              <div className="kp-seg" role="group" aria-label="Mode d'ajout">
+                <button type="button" className={supplyComposer.mode === "manual" ? "on" : ""} aria-pressed={supplyComposer.mode === "manual"} onClick={() => setSupplyComposerField("mode", "manual")}>{L.devis.manual}</button>
+                <button type="button" className={supplyComposer.mode === "url" ? "on" : ""} aria-pressed={supplyComposer.mode === "url"} onClick={() => setSupplyComposerField("mode", "url")}>{L.devis.viaLink}</button>
               </div>
-              {supplyComposer.error ? <p className="profile-message error">{supplyComposer.error}</p> : null}
-              <div className="supply-modal-actions">
-                <button type="button" onClick={closeSupplyComposer}>{L.common.cancel}</button>
-                <button type="button" className="button blue" onClick={saveSupplyFromComposer} disabled={supplyComposer.loading}>{supplyComposer.loading ? L.devis.importing : L.common.add}</button>
+              <div className="fgrid">
+                {supplyComposer.mode === "url" ? (
+                  <label className="full">{L.devis.productLink}<input value={supplyComposer.sourceUrl} onChange={(event) => setSupplyComposerField("sourceUrl", event.target.value)} placeholder="https://..." /></label>
+                ) : null}
+                <label className="full">{L.devis.name}<input value={supplyComposer.name} onChange={(event) => setSupplyComposerField("name", event.target.value)} placeholder={L.devis.name} /></label>
+                <label>{L.devis.catLabel}<input value={supplyComposer.category} onChange={(event) => setSupplyComposerField("category", event.target.value)} /></label>
+                <label>{L.devis.supLabel}<input value={supplyComposer.supplierName} onChange={(event) => setSupplyComposerField("supplierName", event.target.value)} /></label>
+                <label>{L.devis.qtyLabel}<input type="number" min="0" step="0.01" value={supplyComposer.quantity} onChange={(event) => setSupplyComposerField("quantity", event.target.value)} /></label>
+                <label>{L.devis.priceHt}<input type="number" min="0" step="0.01" value={supplyComposer.unitPrice} onChange={(event) => setSupplyComposerField("unitPrice", event.target.value)} placeholder="Auto si lien" /></label>
+              </div>
+              {supplyComposer.error ? <p className="err" role="alert">{supplyComposer.error}</p> : null}
+              <div className="pm-act">
+                <button type="button" className="btn btn-sec" onClick={closeSupplyComposer}>{L.common.cancel}</button>
+                <button type="button" className="btn btn-main" onClick={saveSupplyFromComposer} disabled={supplyComposer.loading}>{supplyComposer.loading ? L.devis.importing : L.common.add}</button>
               </div>
             </div>
           </div>
         ) : null}
 
         {noteComposer.open ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeNoteComposer}>
-            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{L.devis.noteTitle}</h2>
-              <div className="supply-composer-tabs">
-                <button type="button" className={noteComposer.type === "message" ? "active" : ""} onClick={() => setNoteComposerField("type", "message")}>{L.devis.messageType}</button>
-                <button type="button" className={noteComposer.type === "photo" ? "active" : ""} onClick={() => setNoteComposerField("type", "photo")}>{L.devis.photo}</button>
-                <button type="button" className={noteComposer.type === "attachment" ? "active" : ""} onClick={() => setNoteComposerField("type", "attachment")}>{L.devis.attachment}</button>
+          <div className="pmodal-bg" onClick={closeNoteComposer}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.devis.noteTitle} onClick={(event) => event.stopPropagation()}>
+              <div className="card-h">
+                <h2>{L.devis.noteTitle}</h2>
+                <button type="button" className="link" onClick={closeNoteComposer}>{L.devis.closeBtn}</button>
               </div>
-              <label className="supply-composer-field full">
-                <span>{L.devis.messageType}</span>
-                <textarea
-                  className="note-composer-textarea"
-                  value={noteComposer.message}
-                  onChange={(event) => setNoteComposerField("message", event.target.value)}
-                  placeholder={L.devis.noteMsg}
-                  rows={3}
-                />
-              </label>
-              {noteComposer.type === "photo" ? (
-                <label className="supply-composer-field full">
-                  <span>{L.devis.photo}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (e) => setNoteComposerField("photoDataUrl", e.target.result);
-                      reader.readAsDataURL(file);
-                      setNoteComposerField("fileName", file.name);
-                    }}
-                  />
-                  {noteComposer.photoDataUrl ? <img src={noteComposer.photoDataUrl} alt="Aperçu" className="room-note-photo" /> : null}
+              <div className="kp-seg" role="group" aria-label="Type de note">
+                {[["message", L.devis.messageType], ["photo", L.devis.photo], ["attachment", L.devis.attachment]].map(([value, label]) => (
+                  <button type="button" key={value} className={noteComposer.type === value ? "on" : ""} aria-pressed={noteComposer.type === value} onClick={() => setNoteComposerField("type", value)}>{label}</button>
+                ))}
+              </div>
+              <div className="fgrid">
+                <label className="full">{L.devis.messageType}
+                  <textarea value={noteComposer.message} onChange={(event) => setNoteComposerField("message", event.target.value)} placeholder={L.devis.noteMsg} rows={3} />
                 </label>
-              ) : noteComposer.type === "attachment" ? (
-                <label className="supply-composer-field full">
-                  <span>{L.devis.attachment}</span>
-                  <input
-                    type="file"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) setNoteComposerField("fileName", file.name);
-                    }}
-                  />
-                  {noteComposer.fileName ? <span className="room-note-file">{noteComposer.fileName}</span> : null}
-                </label>
-              ) : null}
-              {noteComposer.error ? <p className="profile-message error">{noteComposer.error}</p> : null}
-              <div className="supply-modal-actions">
-                <button type="button" onClick={closeNoteComposer}>{L.common.cancel}</button>
-                <button type="button" className="button blue" onClick={submitNoteComposer}>{L.common.add}</button>
+                {noteComposer.type === "photo" ? (
+                  <label className="full">{L.devis.photo}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (e) => setNoteComposerField("photoDataUrl", e.target.result);
+                        reader.readAsDataURL(file);
+                        setNoteComposerField("fileName", file.name);
+                      }}
+                    />
+                  </label>
+                ) : null}
+                {noteComposer.type === "photo" && noteComposer.photoDataUrl ? <img className="full pm-img" src={noteComposer.photoDataUrl} alt="Aperçu" /> : null}
+                {noteComposer.type === "attachment" ? (
+                  <label className="full">{L.devis.attachment}
+                    <input
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) setNoteComposerField("fileName", file.name);
+                      }}
+                    />
+                  </label>
+                ) : null}
+                {noteComposer.type === "attachment" && noteComposer.fileName ? <p className="full muted">{noteComposer.fileName}</p> : null}
+              </div>
+              {noteComposer.error ? <p className="err" role="alert">{noteComposer.error}</p> : null}
+              <div className="pm-act">
+                <button type="button" className="btn btn-sec" onClick={closeNoteComposer}>{L.common.cancel}</button>
+                <button type="button" className="btn btn-main" onClick={submitNoteComposer}>{L.common.add}</button>
               </div>
             </div>
           </div>
         ) : null}
 
         {acceptComposer.open ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeAcceptComposer}>
-            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
-              <h2>{L.devis.acceptManuallyTitle}</h2>
-              <p className="tool-muted">{L.devis.acceptManuallySub}</p>
-              <div className="supply-composer-tabs">
-                <button type="button" className={acceptComposer.reason === "verbal" ? "active" : ""} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "verbal" }))}>{L.devis.acceptReasonVerbal}</button>
-                <button type="button" className={acceptComposer.reason === "acompte" ? "active" : ""} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "acompte" }))}>{L.devis.acceptReasonDeposit}</button>
+          <div className="pmodal-bg" onClick={closeAcceptComposer}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.devis.acceptManuallyTitle} onClick={(event) => event.stopPropagation()}>
+              <div className="card-h">
+                <h2>{L.devis.acceptManuallyTitle}</h2>
+                <button type="button" className="link" onClick={closeAcceptComposer}>{L.devis.closeBtn}</button>
               </div>
-              <label className="supply-composer-field full">
-                <span>{L.devis.acceptNoteLabel}</span>
-                <textarea
-                  className="note-composer-textarea"
-                  value={acceptComposer.note}
-                  onChange={(event) => setAcceptComposer((current) => ({ ...current, note: event.target.value }))}
-                  placeholder={L.devis.acceptNotePlaceholder}
-                  rows={2}
-                />
-              </label>
-              <div className="supply-modal-actions">
-                <button type="button" onClick={closeAcceptComposer}>{L.common.cancel}</button>
-                <button type="button" className="button blue" onClick={submitAcceptManually}>{L.devis.acceptManually}</button>
+              <p className="muted">{L.devis.acceptManuallySub}</p>
+              <div className="kp-seg" role="group" aria-label="Motif">
+                <button type="button" className={acceptComposer.reason === "verbal" ? "on" : ""} aria-pressed={acceptComposer.reason === "verbal"} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "verbal" }))}>{L.devis.acceptReasonVerbal}</button>
+                <button type="button" className={acceptComposer.reason === "acompte" ? "on" : ""} aria-pressed={acceptComposer.reason === "acompte"} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "acompte" }))}>{L.devis.acceptReasonDeposit}</button>
+              </div>
+              <div className="fgrid">
+                <label className="full">{L.devis.acceptNoteLabel}
+                  <textarea value={acceptComposer.note} onChange={(event) => setAcceptComposer((current) => ({ ...current, note: event.target.value }))} placeholder={L.devis.acceptNotePlaceholder} rows={2} />
+                </label>
+              </div>
+              <div className="pm-act">
+                <button type="button" className="btn btn-sec" onClick={closeAcceptComposer}>{L.common.cancel}</button>
+                <button type="button" className="btn btn-main" onClick={submitAcceptManually}>{L.devis.acceptManually}</button>
               </div>
             </div>
           </div>
@@ -4408,6 +4175,7 @@ export default function DevisEditor() {
             onSent={handleQuoteSent}
           />
         ) : null}
+        </div>
       </form>
     </Shell>
   );

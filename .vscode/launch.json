@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "koji (particulier)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "mobile",
+      "program": "lib/main_client.dart",
+      "args": [
+        "--flavor",
+        "client",
+        "--dart-define=SUPABASE_URL=https://hbgqbpyufaajqmedxodg.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_nD_mz7oSnwq_4hYpg8wRSQ_PCxHFdMU"
+      ]
+    },
+    {
+      "name": "koji Pro (entreprise)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "mobile",
+      "program": "lib/main_entreprise.dart",
+      "args": [
+        "--flavor",
+        "entreprise",
+        "--dart-define=SUPABASE_URL=https://hbgqbpyufaajqmedxodg.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_nD_mz7oSnwq_4hYpg8wRSQ_PCxHFdMU"
+      ]
+    }
+  ]
+}

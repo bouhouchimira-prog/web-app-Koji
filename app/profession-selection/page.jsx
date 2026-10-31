@@ -35,22 +35,30 @@ export default function ProfessionSelectionPage() {
   }
 
   return (
-    <Shell>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">{L.setup.professionEyebrow}</p>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">{L.setup.professionEyebrow}</span>
           <h1>{L.setup.professionTitle}</h1>
-          <p className="muted">{L.setup.professionDesc}</p>
+          <span className="muted">{L.setup.professionDesc}</span>
         </div>
-      </header>
-      <section className="grid cols-3">
+      </div>
+      <div className="pf-chips" role="group" aria-label={L.setup.professionTitle}>
         {professions.map((profession) => (
-          <button className="panel" key={profession} onClick={() => toggle(profession)} style={{ borderColor: selected.includes(profession) ? "var(--blue)" : "var(--line)", textAlign: "left" }}>
-            <h2>{selected.includes(profession) ? "✓ " : ""}{profession}</h2>
+          <button
+            type="button"
+            key={profession}
+            className={`pf-chip${selected.includes(profession) ? " on" : ""}`}
+            aria-pressed={selected.includes(profession)}
+            onClick={() => toggle(profession)}
+          >
+            {selected.includes(profession) ? "✓ " : ""}{profession}
           </button>
         ))}
-      </section>
-      <button className="button blue" disabled={!selected.length} onClick={submit} style={{ marginTop: 22 }}>{L.setup.saveProfile}</button>
+      </div>
+      <div className="ed-act" style={{ marginTop: 16 }}>
+        <button type="button" className="btn btn-main" disabled={!selected.length} onClick={submit}>{L.setup.saveProfile}</button>
+      </div>
     </Shell>
   );
 }

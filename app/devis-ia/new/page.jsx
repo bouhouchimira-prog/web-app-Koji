@@ -132,168 +132,202 @@ export default function DevisIaNewPage() {
 
   return (
     <Shell>
-      <section className="mobile-tool tool-form-view">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (phase === "form" ? router.back() : setPhase("form"))}>{"<"}</button>
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => (phase === "form" ? router.back() : setPhase("form"))}>← Retour</button>
+          <span className="eyebrow">Création rapide</span>
           <h1>Devis 100% IA</h1>
-          <span />
-        </header>
+        </div>
+      </div>
 
-        {phase === "form" ? (
-          <form className="mobile-form" onSubmit={submitForm}>
-            <label className="mobile-input full">
-              <span>Métier concerné</span>
-              <select value={form.metier} onChange={(e) => setField("metier", e.target.value)}>
-                {METIERS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </label>
-
-            <label className="mobile-input full">
-              <span>Nom du client</span>
-              <input value={form.clientName} onChange={(e) => setField("clientName", e.target.value)} required />
-            </label>
-
-            <label className="mobile-input full">
-              <span>Adresse du chantier</span>
-              <input value={form.address} onChange={(e) => setField("address", e.target.value)} />
-            </label>
-
-            <div className="mobile-input full">
-              <span>Photo(s) du chantier</span>
-              <label className="radar-dropzone">
-                <input type="file" accept="image/*" multiple onChange={onPhotosChange} />
-                <strong>Ajouter des photos</strong>
-                <span>Cliquez ou glissez vos fichiers ici · 8 max</span>
+      {phase === "form" ? (
+        <section className="card">
+          <form onSubmit={submitForm}>
+            <div className="fgrid">
+              <label className="full">
+                <span>Métier concerné</span>
+                <select value={form.metier} onChange={(e) => setField("metier", e.target.value)}>
+                  {METIERS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
               </label>
-              {form.photos.length > 0 ? (
-                <div className="radar-photo-grid">
-                  {form.photos.map((photo, index) => (
-                    <div className="radar-photo-thumb" key={index}>
-                      <img src={photo} alt={`Photo ${index + 1}`} />
-                      <button type="button" onClick={() => removePhoto(index)}>×</button>
-                    </div>
+
+              <label className="full">
+                <span>Nom du client</span>
+                <input value={form.clientName} onChange={(e) => setField("clientName", e.target.value)} required />
+              </label>
+
+              <label className="full">
+                <span>Adresse du chantier</span>
+                <input value={form.address} onChange={(e) => setField("address", e.target.value)} />
+              </label>
+
+              <label className="full">
+                <span>Surface ou pièce concernée</span>
+                <input
+                  value={form.surface}
+                  onChange={(e) => setField("surface", e.target.value)}
+                  placeholder="Ex : Salle de bain, 6 m²"
+                />
+              </label>
+
+              <label className="full">
+                <span>Description des travaux</span>
+                <textarea
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => setField("description", e.target.value)}
+                  placeholder="Ex : Refaire la plomberie de la salle de bain, remplacer la baignoire par une douche…"
+                  required
+                />
+              </label>
+
+              <fieldset className="full" style={{ border: "none", margin: 0, padding: 0 }}>
+                <legend className="flab">Niveau de finition</legend>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                  {FINITIONS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`btn btn-sm${form.finition === f ? " btn-main" : " btn-sec"}`}
+                      onClick={() => setField("finition", f)}
+                    >
+                      {f}
+                    </button>
                   ))}
                 </div>
-              ) : null}
+              </fieldset>
+
+              <fieldset className="full" style={{ border: "none", margin: 0, padding: 0 }}>
+                <legend className="flab">Photo(s) du chantier</legend>
+                <label style={{
+                  border: "2px dashed var(--line)",
+                  borderRadius: 6,
+                  padding: 24,
+                  textAlign: "center",
+                  cursor: "pointer",
+                  display: "block",
+                  marginTop: 8,
+                  marginBottom: 12
+                }}>
+                  <input type="file" accept="image/*" multiple onChange={onPhotosChange} style={{ display: "none" }} />
+                  <strong>Ajouter des photos</strong>
+                  <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Cliquez ou glissez vos fichiers ici · 8 max</p>
+                </label>
+                {form.photos.length > 0 ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 8 }}>
+                    {form.photos.map((photo, index) => (
+                      <div key={index} style={{ position: "relative", aspectRatio: "1", borderRadius: 6, overflow: "hidden" }}>
+                        <img src={photo} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <button type="button" onClick={() => removePhoto(index)} style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          background: "rgba(0,0,0,0.5)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: 24,
+                          height: 24,
+                          cursor: "pointer",
+                          fontSize: 16,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </fieldset>
             </div>
 
-            <label className="mobile-input full">
-              <span>Description des travaux</span>
-              <textarea
-                rows={4}
-                value={form.description}
-                onChange={(e) => setField("description", e.target.value)}
-                placeholder="Ex : Refaire la plomberie de la salle de bain, remplacer la baignoire par une douche…"
-                required
-              />
-            </label>
+            {error ? <p className="notice notice-err" role="alert" style={{ marginTop: 16 }}>{error}</p> : null}
 
-            <label className="mobile-input full">
-              <span>Surface ou pièce concernée</span>
-              <input
-                value={form.surface}
-                onChange={(e) => setField("surface", e.target.value)}
-                placeholder="Ex : Salle de bain, 6 m²"
-              />
-            </label>
-
-            <div className="mobile-input full">
-              <span>Niveau de finition</span>
-              <div className="radar-quick-options">
-                {FINITIONS.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={`radar-quick-option-btn${form.finition === f ? " active" : ""}`}
-                    onClick={() => setField("finition", f)}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
+            <div className="ed-act" style={{ marginTop: 24 }}>
+              <button type="submit" className="btn btn-main">✨ Continuer</button>
             </div>
-
-            {error ? <p className="tool-message">{error}</p> : null}
-
-            <button className="mobile-primary">
-              ✨ Continuer
-            </button>
           </form>
-        ) : null}
+        </section>
+      ) : null}
 
-        {phase === "lots-loading" ? (
-          <div className="radar-expertise-loading">
-            <div className="radar-expertise-spinner" />
-            <strong>Identification des lots en cours…</strong>
-            <p>L'IA repère les pièces concernées par les travaux.</p>
+      {phase === "lots-loading" ? (
+        <section className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ width: 40, height: 40, border: "3px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", margin: "0 auto 16px", animation: "spin 1s linear infinite" }} />
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Identification des lots en cours…</h2>
+          <p className="muted">L'IA repère les pièces concernées par les travaux.</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </section>
+      ) : null}
+
+      {phase === "lots-questions" && currentLot ? (
+        <section className="card">
+          <p className="muted" style={{ marginBottom: 16 }}>Lot {lotIndex + 1} / {lots.length}</p>
+
+          <h2 style={{ fontSize: 16, marginBottom: 16 }}>{currentLot.nom}</h2>
+
+          <div style={{ marginBottom: 20 }}>
+            <p className="flab" style={{ marginBottom: 8 }}>Quel niveau de main d'oeuvre pour ce lot ?</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {LABOR_LEVELS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`btn btn-sm${currentLaborLevel === level ? " btn-main" : " btn-sec"}`}
+                  onClick={() => setCurrentLaborLevel(level)}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : null}
 
-        {phase === "lots-questions" && currentLot ? (
-          <div className="mobile-form">
-            <p className="tool-message" style={{ background: "none", padding: 0 }}>
-              Lot {lotIndex + 1} / {lots.length}
-            </p>
-            <div className="mobile-input full">
-              <span>{currentLot.nom}</span>
-              <p className="muted" style={{ margin: "4px 0 12px" }}>Quel niveau de main d'oeuvre pour ce lot ?</p>
-              <div className="radar-quick-options">
-                {LABOR_LEVELS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    className={`radar-quick-option-btn${currentLaborLevel === level ? " active" : ""}`}
-                    onClick={() => setCurrentLaborLevel(level)}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <label className="mobile-input full">
-              <span>Nombre de jours estimé pour ce lot</span>
-              <input
-                type="number"
-                min="1"
-                value={currentDaysDraft}
-                onChange={(e) => setCurrentDaysDraft(e.target.value)}
-              />
+          <div style={{ marginBottom: 20 }}>
+            <label className="flab" style={{ display: "block", marginBottom: 8 }}>
+              Nombre de jours estimé pour ce lot
             </label>
+            <input
+              type="number"
+              min="1"
+              value={currentDaysDraft}
+              onChange={(e) => setCurrentDaysDraft(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 4, fontSize: 14 }}
+            />
+          </div>
 
-            <div className="mobile-input full">
-              <span>Fournitures pour ce lot</span>
-              <p className="muted" style={{ margin: "4px 0 12px" }}>Si "Sans fournitures", le devis listera une estimation des matériaux à acheter, sans les facturer.</p>
-              <div className="radar-quick-options">
-                {FOURNITURES_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`radar-quick-option-btn${currentFournitures === option.value ? " active" : ""}`}
-                    onClick={() => setCurrentFournitures(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+          <div style={{ marginBottom: 20 }}>
+            <p className="flab" style={{ marginBottom: 8 }}>Fournitures pour ce lot</p>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>Si "Sans fournitures", le devis listera une estimation des matériaux à acheter, sans les facturer.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {FOURNITURES_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`btn btn-sm${currentFournitures === option.value ? " btn-main" : " btn-sec"}`}
+                  onClick={() => setCurrentFournitures(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {error ? <p className="tool-message">{error}</p> : null}
+          {error ? <p className="notice notice-err" role="alert" style={{ marginBottom: 16 }}>{error}</p> : null}
 
-            <button type="button" className="mobile-primary" onClick={confirmLot} disabled={!currentLaborLevel || !currentFournitures}>
+          <div className="ed-act">
+            <button type="button" className="btn btn-main" onClick={confirmLot} disabled={!currentLaborLevel || !currentFournitures}>
               {lotIndex + 1 < lots.length ? "Lot suivant" : "✨ Générer le devis avec l'IA"}
             </button>
           </div>
-        ) : null}
+        </section>
+      ) : null}
 
-        {phase === "generating" ? (
-          <div className="radar-expertise-loading">
-            <div className="radar-expertise-spinner" />
-            <strong>Génération du devis en cours…</strong>
-            <p>L'IA chiffre chaque lot à partir de la bibliothèque de prix.</p>
-          </div>
-        ) : null}
-      </section>
+      {phase === "generating" ? (
+        <section className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ width: 40, height: 40, border: "3px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", margin: "0 auto 16px", animation: "spin 1s linear infinite" }} />
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Génération du devis en cours…</h2>
+          <p className="muted">L'IA chiffre chaque lot à partir de la bibliothèque de prix.</p>
+        </section>
+      ) : null}
     </Shell>
   );
 }

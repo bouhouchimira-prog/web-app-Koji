@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale } from "../../../lib/i18n";
+import "../../home-pro.css";
 
 function SignatureLoginScreen() {
   const { L } = useLocale();
@@ -49,68 +50,93 @@ function SignatureLoginScreen() {
   }
 
   return (
-    <main className="signature-public">
-      <section className="signature-card" style={{ maxWidth: 420 }}>
-        <div className="signature-brand">
-          <img src="/koji-logo-blue.svg" alt="Koji" style={{ width: 48, height: 48 }} />
+    <div className="pro" style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "40px 20px",
+      backgroundColor: "var(--bg)"
+    }}>
+      <section className="card" style={{ maxWidth: 400, width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
+          <img src="/koji-logo-blue.svg" alt="Koji" style={{ width: 40, height: 40 }} />
           <div>
-            <strong>Koji</strong>
-            <span>{L.signaturePub.clientSig}</span>
+            <strong style={{ display: "block", fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>Koji</strong>
+            <span style={{ fontSize: 12, color: "var(--grey)" }}>{L.signaturePub.clientSig}</span>
           </div>
         </div>
 
-        <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0a1538", margin: "20px 0 6px" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--ink)", margin: "0 0 6px" }}>
           {L.signaturePub.loginTitle}
         </h1>
-        <p style={{ color: "#737b88", fontSize: "0.9rem", marginBottom: 24 }}>
+        <p style={{ color: "var(--grey)", fontSize: 14, marginBottom: 28, margin: 0 }}>
           {L.signaturePub.loginDesc}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <label className="field">
-            {L.signaturePub.identifier}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.signaturePub.identifier}</label>
             <input
               type="text"
+              style={{
+                padding: "10px 12px",
+                border: "1px solid var(--line)",
+                borderRadius: 2,
+                fontSize: 14,
+                fontFamily: "inherit",
+                backgroundColor: "var(--card)",
+                color: "var(--ink)"
+              }}
               value={identifier}
               onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
               placeholder="Koji-XXXXXX"
               autoComplete="username"
               autoFocus={!identifier}
             />
-          </label>
+          </div>
 
-          <label className="field">
-            {L.signaturePub.password}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{L.signaturePub.password}</label>
             <input
+              style={{
+                padding: "10px 12px",
+                border: "1px solid var(--line)",
+                borderRadius: 2,
+                fontSize: 14,
+                fontFamily: "inherit",
+                backgroundColor: "var(--card)",
+                color: "var(--ink)"
+              }}
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
               placeholder="Koji-XXXX-XXXX"
               autoComplete="current-password"
             />
-          </label>
+          </div>
 
           {error && (
-            <p style={{ color: "#ef3f4a", background: "#fff0f0", border: "1px solid #ffd6d6", borderRadius: 8, padding: "10px 14px", fontSize: "0.88rem", margin: 0 }}>
+            <p style={{ color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, fontSize: 13, margin: 0 }}>
               {error}
             </p>
           )}
 
           <button
             type="submit"
-            className="button blue"
+            className="btn btn-main"
             disabled={loading || !identifier.trim() || !password.trim()}
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 8 }}
           >
             {loading ? L.signaturePub.verifying : L.signaturePub.accessQuote}
           </button>
         </form>
 
-        <p style={{ marginTop: 20, fontSize: "0.82rem", color: "#9aa5b4", textAlign: "center" }}>
+        <p style={{ marginTop: 24, fontSize: 12, color: "var(--grey)", textAlign: "center", margin: 0 }}>
           {L.signaturePub.receivedHint}
         </p>
       </section>
-    </main>
+    </div>
   );
 }
 

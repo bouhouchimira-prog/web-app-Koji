@@ -3,6 +3,7 @@ import { findScopedIndex, getUserScope, readDb, resolveUserId, scopedItems, writ
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixObjectText } from "../../../lib/text";
 import { sendClientAccessEmail } from "../../../lib/mailer";
+import { isEmail } from "../../../lib/validators";
 
 // Notifications are read by both company/pro accounts (Supabase session) and
 // particulier client-portal accounts (signed portal token, see
@@ -65,6 +66,8 @@ export async function PATCH(request) {
     const meta = notification.meta || {};
     const email = body.email || meta.email;
     if (!email) return badRequest("Aucune adresse email disponible pour ce destinataire.");
+    const emailError = isEmail(email);
+    if (emailError) return badRequest(emailError);
     const { ok: sent, error: mailError } = await sendClientAccessEmail({
       email,
       identifier: meta.portalIdentifier,

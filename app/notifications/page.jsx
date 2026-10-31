@@ -159,112 +159,91 @@ export default function NotificationsPage() {
 
   return (
     <Shell>
-      <header className="page-header compact-page-header">
-        <div>
-          <p className="eyebrow">CENTRE DE NOTIFICATIONS</p>
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => window.history.back()}>← Retour</button>
+          <span className="eyebrow">Notifications</span>
           <h1>{L.notifications.title}</h1>
         </div>
         {unreadCount > 0 && (
-          <button type="button" className="notif-mark-all-btn" onClick={markAllRead}>
+          <button type="button" className="btn btn-sec" onClick={markAllRead} style={{ marginTop: 8 }}>
             {L.notifications.markAllRead}
           </button>
         )}
-      </header>
+      </div>
 
-      {/* Barre de recherche */}
-      <div className="notif-search-wrap">
-        <span className="notif-search-icon"><IconSearch /></span>
+      <div className="search search-wide" style={{ marginBottom: 16 }}>
         <input
-          className="notif-search-input"
           type="text"
           placeholder={L.notifications.search}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {search ? (
-          <button className="notif-search-clear" onClick={() => setSearch("")} aria-label="Effacer">×</button>
-        ) : null}
       </div>
 
-      {/* Onglets filtre */}
-      <div className="notif-tabs">
+      <div className="wtabs" style={{ marginBottom: 16 }}>
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
-            className={`notif-tab${tab === t.key ? " active" : ""}`}
+            className={tab === t.key ? "on" : ""}
             onClick={() => setTab(t.key)}
+            aria-pressed={tab === t.key}
           >
             {t.label}
             {t.key === "unread" && unreadCount > 0 ? (
-              <span className="notif-tab-count">{unreadCount}</span>
+              <span style={{ marginLeft: 6, opacity: 0.6 }}>({unreadCount})</span>
             ) : null}
           </button>
         ))}
       </div>
 
-      {/* Liste */}
-      <section className="notif-list-card">
-        {filtered.length === 0 ? (
-          <div className="empty-state" style={{ minHeight: 140 }}>
-            {search ? `${L.notifications.noResults} "${search}"` : L.notifications.noResults}
-          </div>
-        ) : (
-          <div className="notif-list">
-            {filtered.map((notif) => (
-              <article
-                key={notif.id}
-                className={`notif-row notif-row-clickable${notif.read ? " notif-read" : " notif-unread"}${notif.archived ? " notif-archived" : ""}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => router.push(`/notifications/${notif.id}`)}
-                onKeyDown={(event) => { if (event.key === "Enter") router.push(`/notifications/${notif.id}`); }}
-              >
-                {/* Point non lu */}
-                <div className="notif-dot-col">
-                  <IconDot read={notif.read} />
-                </div>
-
-                {/* Icône type */}
-                <TypeIcon type={notif.type} />
-
-                {/* Contenu */}
-                <div className="notif-content">
-                  <div className="notif-content-top">
-                    <TypeBadge type={notif.type} />
-                    <time className="notif-time">{formatDate(notif.updatedAt || notif.createdAt)}</time>
+      {filtered.length === 0 ? (
+        <div className="empty">
+          <strong>Pas de notifications</strong>
+          <span>{search ? `aucun résultat pour "${search}"` : "Vous êtes à jour !"}</span>
+        </div>
+      ) : (
+        <div className="mlist">
+          {filtered.map((notif) => (
+            <article
+              key={notif.id}
+              className="m-card clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/notifications/${notif.id}`)}
+              onKeyDown={(event) => { if (event.key === "Enter") router.push(`/notifications/${notif.id}`); }}
+            >
+              <div className="top2">
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flex: 1 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", marginTop: 2 }}>
+                    <div className="notif-icon" style={{ background: TYPE_META[notif.type]?.bg || "#f1f5f9", borderRadius: 6, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 16 }}>{TYPE_META[notif.type]?.icon || "🔔"}</span>
+                    </div>
+                    {!notif.read && !notif.archived && (
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#1d74ff", marginTop: 4 }} aria-label="Non lu" />
+                    )}
                   </div>
-                  <h2 className="notif-title">{notif.title}</h2>
-                  <p className="notif-message">{notif.message}</p>
-                  {notif.metaLabel ? <span className="notif-meta">{notif.metaLabel}</span> : null}
-
-                  {/* Actions spéciales */}
-                  {notif.type === "quote.draft" && !notif.archived ? (
-                    <div className="notif-inline-actions" onClick={(event) => event.stopPropagation()}>
-                      <Link className="notif-action-link" href={notif.actionUrl || "/chantier/new"}>
-                        Reprendre le brouillon →
-                      </Link>
-                      <button type="button" className="notif-action-delete-draft" onClick={() => deleteDraft(notif)}>
-                        Supprimer le brouillon
-                      </button>
+                  <div className="nm" style={{ flex: 1 }}>
+                    <strong>{notif.title}</strong>
+                    <div className="meta" style={{ marginTop: 4 }}>
+                      <span className="tag" style={{ fontSize: 11, padding: "2px 6px", backgroundColor: TYPE_META[notif.type]?.bg || "#f1f5f9", color: TYPE_META[notif.type]?.color || "#475569", marginRight: 8 }}>
+                        {TYPE_META[notif.type]?.label || notif.type}
+                      </span>
+                      <time style={{ fontSize: 12, opacity: 0.6 }}>{formatDate(notif.updatedAt || notif.createdAt)}</time>
                     </div>
-                  ) : notif.actionUrl && !notif.archived ? (
-                    <div className="notif-inline-actions" onClick={(event) => event.stopPropagation()}>
-                      <Link className="notif-action-link" href={notif.actionUrl} onClick={() => markRead(notif)}>
-                        {notif.actionLabel || "Voir"} →
-                      </Link>
-                    </div>
-                  ) : null}
+                    {notif.message ? <p style={{ marginTop: 6, fontSize: 13, opacity: 0.8 }}>{notif.message}</p> : null}
+                    {notif.metaLabel ? <p style={{ marginTop: 4, fontSize: 12, opacity: 0.6 }}>{notif.metaLabel}</p> : null}
+                  </div>
                 </div>
-
-                {/* Actions droite */}
-                <div className="notif-actions-col" onClick={(event) => event.stopPropagation()}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={(event) => event.stopPropagation()}>
                   {!notif.read && !notif.archived && (
                     <button
                       type="button"
-                      className="notif-btn notif-btn-read"
+                      className="btn btn-sm"
                       title={L.notifications.markRead}
                       onClick={() => markRead(notif)}
+                      style={{ fontSize: 12, padding: "4px 8px" }}
                     >
                       {L.notifications.markRead}
                     </button>
@@ -272,43 +251,62 @@ export default function NotificationsPage() {
                   {!notif.archived ? (
                     <button
                       type="button"
-                      className="notif-btn notif-btn-archive"
+                      className="btn btn-sm"
                       title={L.notifications.archive}
                       onClick={() => archiveNotif(notif)}
+                      style={{ fontSize: 12, padding: "4px 8px" }}
                     >
-                      <IconArchive />
+                      📦
                     </button>
                   ) : (
                     <button
                       type="button"
-                      className="notif-btn notif-btn-unarchive"
+                      className="btn btn-sm"
                       title={L.common.back}
                       onClick={() => unarchiveNotif(notif)}
+                      style={{ fontSize: 12, padding: "4px 8px" }}
                     >
                       ↩
                     </button>
                   )}
-                  {confirmDelete === notif.id ? (
-                    <span className="notif-confirm-delete">
-                      <button className="notif-btn notif-btn-danger" onClick={() => deleteNotif(notif.id)}>{L.common.delete}</button>
-                      <button className="notif-btn" onClick={() => setConfirmDelete(null)}>{L.common.no}</button>
-                    </span>
-                  ) : (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    title={L.notifications.delete}
+                    onClick={() => setConfirmDelete(confirmDelete === notif.id ? null : notif.id)}
+                    style={{ fontSize: 12, padding: "4px 8px", color: confirmDelete === notif.id ? "var(--err)" : "inherit" }}
+                  >
+                    {confirmDelete === notif.id ? "Sûr ?" : "🗑"}
+                  </button>
+                  {confirmDelete === notif.id && (
                     <button
                       type="button"
-                      className="notif-btn notif-btn-trash"
-                      title={L.notifications.delete}
-                      onClick={() => setConfirmDelete(notif.id)}
+                      className="btn btn-sm"
+                      onClick={() => deleteNotif(notif.id)}
+                      style={{ fontSize: 12, padding: "4px 8px", color: "var(--err)" }}
                     >
-                      <IconTrash />
+                      {L.common.delete}
                     </button>
                   )}
                 </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+              </div>
+              {notif.type === "quote.draft" && !notif.archived ? (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }} onClick={(event) => event.stopPropagation()}>
+                  <Link className="link" href={notif.actionUrl || "/devis/new"}>
+                    Reprendre le brouillon →
+                  </Link>
+                </div>
+              ) : notif.actionUrl && !notif.archived ? (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }} onClick={(event) => event.stopPropagation()}>
+                  <Link className="link" href={notif.actionUrl} onClick={() => markRead(notif)}>
+                    {notif.actionLabel || "Voir"} →
+                  </Link>
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
     </Shell>
   );
 }

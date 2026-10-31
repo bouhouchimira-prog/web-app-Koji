@@ -1,0 +1,47 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+    commands:
+      - echo "Installing Flutter..."
+      - git clone https://github.com/flutter/flutter.git -b stable
+      - export PATH="$PATH:`pwd`/flutter/bin"
+      - flutter --version
+      - flutter doctor --android-licenses
+      
+  pre_build:
+    commands:
+      - echo "Resolving dependencies..."
+      - flutter pub get
+      
+      - echo "Setting up Keystore..."
+      # Create the keystore file from the base64 environment variable
+      # We place it in android/app/ so the build.gradle.kts logic finds it explicitly or as default
+      - |
+        if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+        fi
+
+  build:
+    commands:
+      # Two apps from one codebase: Koji Pro (entreprise, com.koji.pro) and
+      # Koji (client, com.koji.client).
+      - echo "Building Koji Pro (entreprise) App Bundle..."
+      - flutter build appbundle --release --flavor entreprise -t lib/main_entreprise.dart --build-name=1.0.$CODEBUILD_BUILD_NUMBER --build-number=$CODEBUILD_BUILD_NUMBER
+      - echo "Building Koji (client) App Bundle..."
+      - flutter build appbundle --release --flavor client -t lib/main_client.dart --build-name=1.0.$CODEBUILD_BUILD_NUMBER --build-number=$CODEBUILD_BUILD_NUMBER
+
+  post_build:
+    commands:
+      - echo "Organizing artifacts..."
+      - mkdir -p build_output/android
+      - cp build/app/outputs/bundle/entrepriseRelease/app-entreprise-release.aab build_output/android/koji-pro-release.aab
+      - cp build/app/outputs/bundle/clientRelease/app-client-release.aab build_output/android/koji-client-release.aab
+      - echo "Build completed on `date`"
+
+artifacts:
+  files:
+    - build_output/android/**/*
+  name: android-app-bundle

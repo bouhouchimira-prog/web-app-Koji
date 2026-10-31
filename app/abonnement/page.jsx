@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { apiSend, readStoredUser } from "../../lib/client-api";
 import { PricingPlans } from "../../components/PricingPlans";
+import "../home-pro.css";
 import "./abonnement.css";
 
 // Page Tarifs publique (24 oct, maquette Amira — zip "Page Tarifs
@@ -42,34 +43,34 @@ export default function AbonnementPage() {
   }
 
   return (
-    <div className="tarifs-page">
-      <header className="tarifs-header">
-        <div className="tarifs-wrap tarifs-nav">
-          <a href="#top" className="tarifs-logo"><span className="tarifs-logomark">K</span>Koji</a>
-          <nav className="tarifs-navlinks" aria-label="Navigation">
-            <a href="#plans">Offres</a>
-            <a href="#jetons">Jetons</a>
-            <a href="#comparatif">Comparatif</a>
-            <a href="#equipe">Équipe</a>
-            <a href="#faq">Questions</a>
+    <div className="pro" style={{ backgroundColor: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <header style={{ borderBottom: "1px solid var(--line)", padding: "16px 0" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, padding: "0 48px" }}>
+          <a href="#top" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "var(--ink)", fontWeight: 700, fontSize: 18, fontFamily: "var(--hd)" }}>
+            <span style={{ fontSize: 22 }}>K</span>Koji
+          </a>
+          <nav style={{ display: "flex", gap: 24, fontSize: 14, fontWeight: 500 }} aria-label="Navigation">
+            <a href="#plans" style={{ color: "var(--ink)", textDecoration: "none" }}>Offres</a>
+            <a href="#jetons" style={{ color: "var(--ink)", textDecoration: "none" }}>Jetons</a>
+            <a href="#comparatif" style={{ color: "var(--ink)", textDecoration: "none" }}>Comparatif</a>
+            <a href="#equipe" style={{ color: "var(--ink)", textDecoration: "none" }}>Équipe</a>
+            <a href="#faq" style={{ color: "var(--ink)", textDecoration: "none" }}>Questions</a>
           </nav>
-          <Link href="/signup" className="tarifs-cta fill" style={{ minHeight: 42, padding: "0 18px", fontSize: 14 }}>Essayer gratuitement</Link>
+          <Link href="/signup" className="btn btn-main">Essayer gratuitement</Link>
         </div>
       </header>
 
-      {error ? (
-        <div className="tarifs-wrap" style={{ paddingTop: 16 }}>
-          <p className="tarifs-error">{error}</p>
-        </div>
-      ) : null}
+      <main style={{ flex: 1, maxWidth: 1200, margin: "0 auto", width: "100%", padding: "48px" }}>
+        {error ? (
+          <p style={{ fontSize: 14, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "12px 16px", borderRadius: 2, marginBottom: 24 }}>{error}</p>
+        ) : null}
 
-      <PricingPlans onChoosePlan={handleChoosePlan} pendingPlan={pendingPlan} showHero />
+        <PricingPlans onChoosePlan={handleChoosePlan} pendingPlan={pendingPlan} showHero />
+      </main>
 
-      <footer>
-        <div className="tarifs-wrap tarifs-foot">
-          <span>Koji · Prix HT · Offres réservées aux professionnels · Conditions générales de vente applicables</span>
-          <span>kojibuild.com</span>
-        </div>
+      <footer style={{ borderTop: "1px solid var(--line)", padding: "32px 48px", backgroundColor: "var(--card)", textAlign: "center", fontSize: 13, color: "var(--grey)" }}>
+        <p>Koji · Prix HT · Offres réservées aux professionnels · Conditions générales de vente applicables</p>
+        <p>kojibuild.com</p>
       </footer>
     </div>
   );
