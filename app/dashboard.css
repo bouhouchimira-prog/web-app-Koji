@@ -4,6 +4,7 @@
    Cartes et vignettes arrondies, boutons à angles droits. */
 
 .kd {
+  --radius: 2px;
   --kd-navy: #172549;
   --kd-navy-2: #22335f;
   --kd-navy-3: #2d4175;
