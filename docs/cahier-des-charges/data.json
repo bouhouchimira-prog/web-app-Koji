@@ -255,6 +255,15 @@
         { "name": "Multilingue", "description": "5 langues disponibles (français, anglais, arabe, allemand, italien), avec adaptation du sens de lecture pour l'arabe." },
         { "name": "Historique des actions", "description": "Chaque action importante (création, modification, suppression) est journalisée pour garder une trace de l'activité." }
       ]
+    },
+    {
+      "title": "Évolutions récentes — Koji Pro (Octobre 2026)",
+      "intro": "Refonte complète de l'interface Koji Pro réalisée en octobre 2026, incluant la redesign du dashboard web et de l'application mobile.",
+      "features": [
+        { "name": "Refonte intégrale du dashboard entreprise (50 pages web)", "description": "Le dashboard Koji Pro a été entièrement refondu selon la nouvelle Design Appliqué (DA) : 50 pages répartis sur 12 modules (Chantiers, Devis, Facturation, Fournitures, Bibliothèque, Comptabilité, Contacts, Calendrier, KojiPage, Profil, Équipe, Urgences). Chaque module et sous-page respecte le design system PRO-01 à PRO-17, avec KPIs, listes, fiches détail et formulaires cohérents." },
+        { "name": "Refonte intégrale de l'app mobile entreprise (5 fichiers Flutter)", "description": "L'application mobile Koji Pro a été refondée sur 5 fichiers (Accueil, Listes Devis/Clients/Équipe/Facturation, Assistant IA Devis, Profil et Paramètres, Options avancées). Tous les écrans utilisent le nouveau design system KOJI Pro (couleurs, composants, KPI cards mobiles, mise en page responsive)." },
+        { "name": "Validation et tests de la refonte Koji Pro", "description": "Tests Playwright pour le web : 16/16 pages PRO passent les validations (sélecteurs CSS, KPIs, listes, formulaires). Tests Flutter : 0 erreurs de compilation (flutter analyze). Tous les composants respectent la DA et les spécifications PRO-01 à PRO-17." }
+      ]
     }
   ],
   "closing": {

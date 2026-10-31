@@ -1170,6 +1170,24 @@
       "theme": "Profil",
       "title": "Nouvelles pages 'Carte de visite' et 'Site web' + site public refait",
       "detail": "La carte de visite et l'éditeur de site web, jusqu'ici dans le formulaire Profil, ont chacun leur propre page dédiée. La carte de visite propose désormais de vraies options pour choisir ce qui s'affiche (logo, QR code, téléphone, email, adresse, spécialité), répercutées à la fois sur l'aperçu et sur le PDF généré (au passage, un bug qui faisait planter la génération du PDF a été corrigé). L'éditeur de site web passe à 4 étapes avec les champs du gabarit, et la section 'Réalisations' présente maintenant des chantiers nommés plutôt qu'une simple galerie de photos. La page publique du site (/site/[slug]) a été refaite à l'identique de la maquette, avec un formulaire de demande de devis qui fonctionne réellement et notifie l'entreprise."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Pro - Refonte complète",
+      "title": "Refonte intégrale du dashboard entreprise (50 pages web)",
+      "detail": "Le dashboard Koji Pro a été entièrement refondu selon la nouvelle DA : 50 pages répartis sur 12 modules (Chantiers, Devis, Facturation, Fournitures, Bibliothèque, Comptabilité, Contacts, Calendrier, KojiPage, Profil, Équipe, Urgences). Chaque module et sous-page respecte le design system PRO-01 à PRO-17, avec KPIs, listes, fiches détail et formulaires cohérents."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Pro - Refonte complète",
+      "title": "Refonte intégrale de l'app mobile entreprise (5 fichiers Flutter)",
+      "detail": "L'application mobile Koji Pro a été refondée sur 5 fichiers (Accueil, Listes Devis/Clients/Équipe/Facturation, Assistant IA Devis, Profil et Paramètres, Options avancées). Tous les écrans utilisent le nouveau design system KOJI Pro (couleurs, composants, KPI cards mobiles, mise en page responsive)."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Pro - Refonte complète",
+      "title": "Validation et tests de la refonte Koji Pro",
+      "detail": "Tests Playwright pour le web : 16/16 pages PRO passent les validations (sélecteurs CSS, KPIs, listes, formulaires). Tests Flutter : 0 erreurs de compilation (flutter analyze). Tous les composants respectent la DA et les spécifications PRO-01 à PRO-17."
     }
   ]
 }
