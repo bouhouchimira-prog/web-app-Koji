@@ -29,10 +29,9 @@ export function ChoisissezVotreEspace() {
         <ul>
           <li><a href="#decouvrir">Découvrir</a></li>
           <li><a href="#fonctions">Fonctionnalités ▾</a></li>
-          <li><a href="#metiers">Métiers ▾</a></li>
+          <li><a href="/profile/entreprise">Métiers ▾</a></li>
           <li><a href="#comparer">Comparer ▾</a></li>
           <li><a href="/entreprise#tarifs">Tarifs</a></li>
-          <li><a href="#blog">Blog</a></li>
         </ul>
         <span className="cv-right">
           <a className="cv-login" href="/login">Connexion</a>
@@ -86,9 +85,8 @@ export function ChoisissezVotreEspace() {
         <nav className="cv-fn">
           <a href="#decouvrir">Découvrir</a>
           <a href="#fonctions">Fonctionnalités</a>
-          <a href="#metiers">Métiers</a>
+          <a href="/profile/entreprise">Métiers</a>
           <a href="/entreprise#tarifs">Tarifs</a>
-          <a href="#blog">Blog</a>
           <a href={CONTACT}>contact@kojibuild.com</a>
         </nav>
         <span className="cv-fc">© 2026 koji · Marketplace BTP</span>

@@ -117,7 +117,7 @@ const PLANS = [
   {
     name: "Start",
     sub: "Pour l'artisan qui démarre ou veut essayer",
-    features: ["Devis guidé illimités", "Chantiers et calendrier", "Votre page Koji", "Radar des chantiers avec jetons"],
+    features: ["5 devis avec l'IA par mois", "Chantiers et calendrier", "Votre page Koji", "Radar des chantiers avec jetons"],
     cta: "Créer mon compte gratuit",
     primary: true
   },
@@ -176,10 +176,9 @@ export function EntrepriseLanding() {
                 ))}
               </div>
             </li>
-            <li><a href="#">Métiers</a></li>
+            <li><a href="/profile/entreprise">Métiers</a></li>
             <li><a href="#comparer">Comparer</a></li>
             <li><a href="#tarifs">Tarifs</a></li>
-            <li><a href="#">Blog</a></li>
           </ul>
           <span className="lang">FR</span>
           <Link className="login" href={SIGNUP}>Se connecter</Link>
