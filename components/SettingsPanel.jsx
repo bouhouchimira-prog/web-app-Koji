@@ -211,6 +211,92 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
     </div>
   ) : null;
 
+  // DA Koji Pro (31 oct) : cartes .card, fenêtres .pmodal. L'abonnement a
+  // sa propre entrée dans la navigation du compte (components/ProAccountNav).
+  if (variant === "pro") {
+    const proModal = (open, close, title, intro, onSubmit, value, setValue, placeholder, error, sent, sentText, sending, rows) => (open ? (
+      <div className="pmodal-bg" onClick={close}>
+        <form className="pmodal" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()} onSubmit={onSubmit}>
+          <div className="card-h">
+            <h2>{title}</h2>
+            <button type="button" className="link" onClick={close}>Fermer</button>
+          </div>
+          {intro ? <p className="muted">{intro}</p> : null}
+          <div className="fgrid">
+            <label className="full">Message
+              <textarea rows={rows} value={value} onChange={(event) => setValue(event.target.value)} placeholder={placeholder} autoFocus />
+            </label>
+          </div>
+          {error ? <p className="notice notice-err" role="alert">{error}</p> : null}
+          {sent ? <p className="notice" role="status">{sentText}</p> : null}
+          <div className="pm-act">
+            <button type="button" className="btn btn-sec" onClick={close}>{L.common.cancel}</button>
+            <button type="submit" className="btn btn-main" disabled={sending}>{L.common.send}</button>
+          </div>
+        </form>
+      </div>
+    ) : null);
+
+    return (
+      <>
+        <section className="card">
+          <div className="card-h"><h2>{L.settings.language}</h2></div>
+          <p className="muted">{L.settings.languageSub}</p>
+          <div className="pf-chips" role="group" aria-label={L.settings.language}>
+            {LANGUAGES.map((item) => (
+              <button type="button" key={item.code} className={`pf-chip${lang === item.code ? " on" : ""}`} aria-pressed={lang === item.code} onClick={() => setLang(item.code)}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-h"><h2>{L.settings.appearance}</h2></div>
+          <p className="muted">{L.settings.appearanceSub}</p>
+          <div>
+            <div className="kp-seg" role="group" aria-label={L.settings.appearance}>
+              <button type="button" className={theme === "light" ? "on" : ""} aria-pressed={theme === "light"} onClick={() => applyTheme("light")}>{L.settings.light}</button>
+              <button type="button" className={theme === "dark" ? "on" : ""} aria-pressed={theme === "dark"} onClick={() => applyTheme("dark")}>{L.settings.dark}</button>
+            </div>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-h"><h2>Assistance</h2></div>
+          <button type="button" className="row pf-go st-row" onClick={openReport}>
+            <div className="t"><strong>{L.settings.reportProblem}</strong><small>Décrivez ce qui ne marche pas, l'équipe Koji vous répond.</small></div>
+            <span aria-hidden="true">›</span>
+          </button>
+          <Link href={helpHref} className="row pf-go st-row">
+            <div className="t"><strong>{L.settings.help}</strong><small>Questions fréquentes et contact.</small></div>
+            <span aria-hidden="true">›</span>
+          </Link>
+          <Link href="/legal" className="row pf-go st-row">
+            <div className="t"><strong>{L.settings.legal}</strong><small>Conditions, confidentialité, mentions.</small></div>
+            <span aria-hidden="true">›</span>
+          </Link>
+        </section>
+
+        <section className="card">
+          <div className="card-h"><h2>Vos données</h2></div>
+          <button type="button" className="row pf-go st-row" onClick={exportData} disabled={exporting}>
+            <div className="t"><strong>{L.settings.exportData}</strong><small>Un fichier avec toutes les données de votre compte.</small></div>
+            <span aria-hidden="true">{exporting ? "…" : "›"}</span>
+          </button>
+          {exportError ? <p className="notice notice-err" role="alert">{exportError}</p> : null}
+          <button type="button" className="row pf-go st-row" onClick={openDelete}>
+            <div className="t"><strong>{L.settings.deleteAccount}</strong><small>{L.settings.deleteAccountIntro}</small></div>
+            <span aria-hidden="true">›</span>
+          </button>
+        </section>
+
+        {proModal(reportOpen, () => setReportOpen(false), L.settings.reportProblem, "", submitReport, reportMessage, setReportMessage, L.settings.reportPlaceholder, reportError, reportSent, L.settings.reportSent, reportSending || !reportMessage.trim(), 4)}
+        {proModal(deleteOpen, () => setDeleteOpen(false), L.settings.deleteAccount, L.settings.deleteAccountIntro, submitDelete, deleteReason, setDeleteReason, L.settings.deleteAccountPlaceholder, deleteError, deleteSent, L.settings.deleteAccountSent, deleteSending, 3)}
+      </>
+    );
+  }
+
   if (variant === "cards") {
     return (
       <>

@@ -17,6 +17,9 @@ import { useApi } from "../../lib/use-api";
 //   (deja utilise pour les depenses de chantier), categorise par mot-cle ;
 //   le formulaire "+ Ajouter une charge" de cette page permet d'en creer
 //   sans etre rattache a un chantier (modif App API le 15 oct).
+// DA Koji Pro (31 oct) : graphique CA/charges en barres groupees, couleurs
+// validees (voir home-pro.css, .cp-*), montants au survol + vue tableau ;
+// repartition des charges en barres horizontales au lieu du donut.
 // - TVA a declarer = ESTIMATION (taux 20% suppose, affichee comme telle) :
 //   aucun taux de TVA par facture n'est stocke aujourd'hui, donc ce nombre
 //   ne doit pas etre pris comme une declaration officielle.
@@ -77,6 +80,8 @@ export default function ComptabilitePage() {
   const [selectedMonth, setSelectedMonth] = useState(() => last12MonthKeys()[0]);
   const [chargeDialog, setChargeDialog] = useState(false);
   const [chargeForm, setChargeForm] = useState(emptyCharge);
+  const [hoverKey, setHoverKey] = useState("");
+  const [showTable, setShowTable] = useState(false);
 
   const monthlyStats = useMemo(() => {
     const map = {};
@@ -153,21 +158,13 @@ export default function ComptabilitePage() {
 
   const repartition = useMemo(() => {
     const rows = [
-      { key: "fournitures", label: "Fournitures", value: selected.fournitures, color: "#0b1f44" },
-      { key: "sousTraitance", label: "Sous-traitance", value: selected.sousTraitance, color: "#1d4ed8" },
-      { key: "salaires", label: "Salaires", value: selected.salaires, color: "#f0ad4e" },
-      { key: "autres", label: "Autres charges", value: selected.autres, color: "#cbd5e1" }
+      { key: "fournitures", label: "Fournitures", value: selected.fournitures },
+      { key: "sousTraitance", label: "Sous-traitance", value: selected.sousTraitance },
+      { key: "salaires", label: "Salaires", value: selected.salaires },
+      { key: "autres", label: "Autres charges", value: selected.autres }
     ];
     const total = Math.max(0.0001, rows.reduce((sum, r) => sum + r.value, 0));
-    let offset = 0;
-    const withPct = rows.map((r) => {
-      const pct = Math.round((r.value / total) * 100);
-      const row = { ...r, pct, offset };
-      offset += pct;
-      return row;
-    });
-    const gradient = withPct.map((r) => `${r.color} ${r.offset}% ${r.offset + r.pct}%`).join(", ");
-    return { rows: withPct, gradient };
+    return { rows: rows.map((r) => ({ ...r, pct: Math.round((r.value / total) * 100) })) };
   }, [selected]);
 
   const dernieresEcritures = useMemo(() => {
@@ -204,159 +201,195 @@ export default function ComptabilitePage() {
     setChargeForm(emptyCharge);
   }
 
+  const chartMax = Math.max(1, ...chartMonths.map((m) => Math.max(m.ca, m.charges)));
+  const hovered = chartMonths.find((m) => m.key === hoverKey) || null;
+
   return (
-    <Shell>
-      <section className="fournitures-dashboard">
-        <header className="fournitures-dashboard-head">
-          <div>
-            <h1><span className="title-chip">Comptabilité</span></h1>
-            <p>Votre activité en un coup d'œil : chiffre d'affaires, charges et résultat.</p>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <select className="button secondary compta-month-select" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">{`${monthLabel(selectedMonth)} · ${selected.ecritures.length} écriture${selected.ecritures.length > 1 ? "s" : ""}`}</span>
+          <h1>Comptabilité</h1>
+          <span className="muted">Votre activité en un coup d'œil : chiffre d'affaires, charges et résultat.</span>
+        </div>
+        <div className="acts">
+          <label className="cp-month">
+            <span className="sr-only">Mois affiché</span>
+            <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
               {last12MonthKeys().map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}
             </select>
-            <button type="button" className="button blue" onClick={exportCsv}>Exporter pour l'expert-comptable</button>
-          </div>
-        </header>
-
-        <div className="fournitures-kpi-row">
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🏢</span>
-              <span className="title-chip">Chiffre d'affaires</span>
-            </div>
-            <strong>{euro(selected.ca)}</strong>
-            <small className={caTrend === null ? "" : caTrend >= 0 ? "positive" : "warning"}>
-              {caTrend === null ? "pas de comparaison" : `${caTrend >= 0 ? "+" : ""}${caTrend} %`}
-            </small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">📁</span>
-              <span className="title-chip">Charges</span>
-            </div>
-            <strong>{euro(totalCharges)}</strong>
-            <small className={chargesTrend === null ? "" : chargesTrend > 0 ? "warning" : "positive"}>
-              {chargesTrend === null ? "pas de comparaison" : `${chargesTrend >= 0 ? "+" : ""}${chargesTrend} %`}
-            </small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">✅</span>
-              <span className="title-chip">Résultat</span>
-            </div>
-            <strong>{euro(resultat)}</strong>
-            <small>{selected.ca > 0 ? `${marge} % de marge` : "—"}</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">🧾</span>
-              <span className="title-chip">TVA à déclarer</span>
-            </div>
-            <strong>{euro(tvaEstimate)}</strong>
-            <small className="warning">estimation (TVA 20 %)</small>
-          </div>
+          </label>
+          <button type="button" className="btn btn-sec" onClick={() => setChargeDialog(true)}>Ajouter une charge</button>
+          <button type="button" className="btn btn-main" onClick={exportCsv}>Exporter pour l'expert-comptable</button>
         </div>
+      </div>
 
-        <div className="fournitures-dashboard-body">
-          <div className="fournitures-main-card">
-            <div className="fournitures-main-card-head">
-              <strong className="title-chip">Chiffre d'affaires et charges</strong>
-              <div className="compta-legend">
-                <span><i className="compta-legend-dot" style={{ background: "#0b1f44" }} /> Chiffre d'affaires</span>
-                <span><i className="compta-legend-dot" style={{ background: "#f0ad4e" }} /> Charges</span>
+      <div className="kpis">
+        <div>
+          <div className="l">Chiffre d'affaires</div>
+          <div className="v">{euro(selected.ca)}</div>
+          <div className="s">{caTrend === null ? "pas de comparaison avec le mois précédent" : `${caTrend >= 0 ? "+" : "−"} ${Math.abs(caTrend)} % sur le mois précédent`}</div>
+        </div>
+        <div>
+          <div className="l">Charges</div>
+          <div className="v">{euro(totalCharges)}</div>
+          <div className="s">{chargesTrend === null ? "pas de comparaison avec le mois précédent" : `${chargesTrend >= 0 ? "+" : "−"} ${Math.abs(chargesTrend)} % sur le mois précédent`}</div>
+        </div>
+        <div>
+          <div className="l">Résultat</div>
+          <div className="v">{euro(resultat)}</div>
+          <div className="s">{selected.ca > 0 ? `${marge} % de marge` : "pas de chiffre d'affaires ce mois-ci"}</div>
+        </div>
+        <div>
+          <div className="l">TVA à déclarer</div>
+          <div className="v">{euro(tvaEstimate)}</div>
+          <div className="s">estimation, TVA 20 % supposée</div>
+        </div>
+      </div>
+
+      <div className="fiche-grid">
+        <div className="fiche-main">
+          <section className="card cp-card">
+            <div className="card-h">
+              <h2>Chiffre d'affaires et charges</h2>
+              <div className="cp-legend" aria-hidden="true">
+                <span><i className="cp-sw ca" />Chiffre d'affaires</span>
+                <span><i className="cp-sw ch" />Charges</span>
               </div>
             </div>
-            <div className="compta-chart">
-              {chartMonths.map((m) => (
-                <div className="compta-chart-col" key={m.key}>
-                  <div className="compta-chart-bars">
-                    <div className="compta-chart-bar compta-chart-bar-ca" style={{ height: `${m.caPct}%` }} title={euro(m.ca)} />
-                    <div className="compta-chart-bar compta-chart-bar-charges" style={{ height: `${m.chargesPct}%` }} title={euro(m.charges)} />
-                  </div>
-                  <small>{m.label}</small>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Répartition des charges</strong>
-              <div className="compta-donut-wrap">
-                <div className="compta-donut" style={{ background: totalCharges > 0 ? `conic-gradient(${repartition.gradient})` : "#f1efe9" }}>
-                  <div className="compta-donut-center">
-                    <strong>{euro(totalCharges)}</strong>
-                    <small>ce mois</small>
-                  </div>
-                </div>
-                <div className="compta-donut-legend">
-                  {repartition.rows.map((r) => (
-                    <div className="compta-donut-legend-row" key={r.key}>
-                      <span><i className="compta-legend-dot" style={{ background: r.color }} /> {r.label}</span>
-                      <b>{r.pct} %</b>
-                    </div>
-                  ))}
-                </div>
+            <div className="cp-plot" onMouseLeave={() => setHoverKey("")}>
+              <div className="cp-grid" aria-hidden="true">
+                {[1, 0.5, 0].map((f) => (
+                  <div key={f} className="cp-gl"><span>{euro(chartMax * f)}</span></div>
+                ))}
               </div>
-              <button type="button" className="mini-button" style={{ marginTop: 10 }} onClick={() => setChargeDialog(true)}>+ Ajouter une charge</button>
-            </div>
-
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Dernières écritures</strong>
-              {dernieresEcritures.length === 0 ? (
-                <div className="tool-empty">Aucune écriture ce mois-ci.</div>
-              ) : (
-                dernieresEcritures.map((e) => (
-                  <div className="compta-ecriture-row" key={e.id}>
-                    <div>
-                      <strong>{e.label}</strong>
-                      <small>{e.date ? shortDate(e.date) : ""}</small>
+              <div className="cp-cols">
+                {chartMonths.map((m) => {
+                  const current = m.key === selectedMonth;
+                  return (
+                    <div
+                      key={m.key}
+                      className={`cp-col${current ? " on" : ""}${hoverKey === m.key ? " hov" : ""}`}
+                      tabIndex={0}
+                      aria-label={`${monthLabel(m.key)} : chiffre d'affaires ${euro(m.ca)}, charges ${euro(m.charges)}`}
+                      onMouseEnter={() => setHoverKey(m.key)}
+                      onFocus={() => setHoverKey(m.key)}
+                      onBlur={() => setHoverKey("")}
+                    >
+                      <div className="cp-bars">
+                        <i className="ca" style={{ height: `${(m.ca / chartMax) * 100}%` }} />
+                        <i className="ch" style={{ height: `${(m.charges / chartMax) * 100}%` }} />
+                      </div>
+                      <small>{m.label}</small>
+                      {hoverKey === m.key ? (
+                        <div className="cp-tip" role="tooltip">
+                          <strong>{monthLabel(m.key)}</strong>
+                          <span><i className="cp-sw ca" />Chiffre d'affaires<b>{euro(m.ca)}</b></span>
+                          <span><i className="cp-sw ch" />Charges<b>{euro(m.charges)}</b></span>
+                        </div>
+                      ) : null}
                     </div>
-                    <b className={e.amount >= 0 ? "compta-amount-positive" : "compta-amount-negative"}>
-                      {e.amount >= 0 ? "+" : ""}{euro(e.amount)}
-                    </b>
-                  </div>
-                ))
-              )}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+            <div className="cp-foot">
+              <span className="sm2">{hovered ? `${monthLabel(hovered.key)} : ${euro(hovered.ca)} de chiffre d'affaires, ${euro(hovered.charges)} de charges` : "Survolez ou touchez un mois pour voir ses montants."}</span>
+              <button type="button" className="link" aria-expanded={showTable} onClick={() => setShowTable((v) => !v)}>{showTable ? "Masquer le tableau" : "Voir en tableau"}</button>
+            </div>
+            {showTable ? (
+              <div className="tbl fit cp-tbl">
+                <table>
+                  <thead>
+                    <tr><th>Mois</th><th className="r">Chiffre d'affaires</th><th className="r">Charges</th><th className="r">Résultat</th></tr>
+                  </thead>
+                  <tbody>
+                    {chartMonths.map((m) => (
+                      <tr key={m.key}>
+                        <td>{monthLabel(m.key)}</td>
+                        <td className="r">{euro(m.ca)}</td>
+                        <td className="r">{euro(m.charges)}</td>
+                        <td className="r">{euro(m.ca - m.charges)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="card">
+            <div className="card-h">
+              <h2>Dernières écritures{selected.ecritures.length ? <span className="kcnt">{selected.ecritures.length}</span> : null}</h2>
+            </div>
+            {dernieresEcritures.length === 0 ? <p className="muted">Aucune écriture ce mois-ci.</p> : dernieresEcritures.map((e) => (
+              <div className="row" key={e.id}>
+                <div className="t">
+                  <strong>{e.label}</strong>
+                  <small>{e.date ? shortDate(e.date) : ""}</small>
+                </div>
+                <b>{e.amount >= 0 ? "+ " : "− "}{euro(Math.abs(e.amount))}</b>
+              </div>
+            ))}
+            {selected.ecritures.length > dernieresEcritures.length ? <p className="foot-note cp-note">Les {selected.ecritures.length} écritures du mois sont dans l'export.</p> : null}
+          </section>
         </div>
-      </section>
+
+        <aside className="fiche-side">
+          <section className="card">
+            <div className="card-h">
+              <h2>Répartition des charges</h2>
+              <b className="cp-total">{euro(totalCharges)}</b>
+            </div>
+            {repartition.rows.map((r) => (
+              <div className="fp-stock" key={r.key}>
+                <div className="fp-stock-h">
+                  <span>{r.label}</span>
+                  <b>{euro(r.value)} · {totalCharges > 0 ? `${r.pct} %` : "—"}</b>
+                </div>
+                <div className="bar"><i style={{ width: `${totalCharges > 0 ? r.pct : 0}%` }} /></div>
+              </div>
+            ))}
+            <button type="button" className="link cp-add" onClick={() => setChargeDialog(true)}>+ Ajouter une charge</button>
+          </section>
+          <p className="foot-note">
+            Chiffre d'affaires : factures envoyées ou payées. Charges : commandes fournisseurs, achats divers et charges saisies. La TVA est une estimation à 20 %, pas une déclaration.
+          </p>
+        </aside>
+      </div>
 
       {chargeDialog ? (
-        <div className="modal-overlay" onClick={() => setChargeDialog(false)}>
-          <form className="mini-modal category-modal" onSubmit={submitCharge} onClick={(event) => event.stopPropagation()}>
-            <h2>Nouvelle charge</h2>
-            <label className="category-modal-field">
-              <span>Libellé</span>
-              <input value={chargeForm.label} onChange={(event) => setChargeForm((current) => ({ ...current, label: event.target.value }))} placeholder="Ex : Assurance décennale" autoFocus required />
-            </label>
-            <label className="category-modal-field">
-              <span>Catégorie</span>
-              <select value={chargeForm.category} onChange={(event) => setChargeForm((current) => ({ ...current, category: event.target.value }))}>
-                {CHARGE_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-            </label>
-            <label className="category-modal-field">
-              <span>Montant (TTC)</span>
-              <input type="number" step="0.01" value={chargeForm.amount} onChange={(event) => setChargeForm((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" required />
-            </label>
-            <label className="category-modal-field">
-              <span>Date</span>
-              <input type="date" value={chargeForm.date} onChange={(event) => setChargeForm((current) => ({ ...current, date: event.target.value }))} />
-            </label>
-            <label className="category-modal-field">
-              <span>Chantier (optionnel)</span>
-              <select value={chargeForm.projectId} onChange={(event) => setChargeForm((current) => ({ ...current, projectId: event.target.value }))}>
-                <option value="">Charge générale</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
-            </label>
-            <div className="category-modal-actions">
-              <button type="button" onClick={() => setChargeDialog(false)}>Annuler</button>
-              <button type="submit" className="button blue">Créer</button>
+        <div className="pmodal-bg" onClick={() => setChargeDialog(false)}>
+          <form className="pmodal" role="dialog" aria-modal="true" aria-label="Nouvelle charge" onSubmit={submitCharge} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>Nouvelle charge</h2>
+              <button type="button" className="link" onClick={() => setChargeDialog(false)}>Fermer</button>
+            </div>
+            <div className="fgrid">
+              <label className="full">Libellé
+                <input value={chargeForm.label} onChange={(event) => setChargeForm((current) => ({ ...current, label: event.target.value }))} placeholder="Ex : Assurance décennale" autoFocus required />
+              </label>
+              <label>Catégorie
+                <select value={chargeForm.category} onChange={(event) => setChargeForm((current) => ({ ...current, category: event.target.value }))}>
+                  {CHARGE_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </label>
+              <label>Montant TTC
+                <input type="number" step="0.01" value={chargeForm.amount} onChange={(event) => setChargeForm((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" required />
+              </label>
+              <label>Date
+                <input type="date" value={chargeForm.date} onChange={(event) => setChargeForm((current) => ({ ...current, date: event.target.value }))} />
+              </label>
+              <label>Chantier (optionnel)
+                <select value={chargeForm.projectId} onChange={(event) => setChargeForm((current) => ({ ...current, projectId: event.target.value }))}>
+                  <option value="">Charge générale</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setChargeDialog(false)}>Annuler</button>
+              <button type="submit" className="btn btn-main">Créer la charge</button>
             </div>
           </form>
         </div>

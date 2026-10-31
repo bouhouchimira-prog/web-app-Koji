@@ -357,16 +357,6 @@ function LoginScreen() {
     typeParam === "entreprise" ? "entreprise" : typeParam === "particulier" ? "particulier" : null
   );
 
-  // L'ecran de choix de profil ("Bienvenue sur koji") est retire (18 oct,
-  // demande d'Amira) : desormais / et /entreprise (components/PublicLanding,
-  // components/EntrepriseLanding) jouent deja ce role, chacun de leurs CTA
-  // pointant vers /login avec un ?type= deja connu. Un /login sans type
-  // (lien historique ou saisi a la main) renvoie donc vers l'accueil
-  // plutot que de reafficher ce choix en double.
-  // type=ouvrier (lien genere par app/equipe/page.jsx pour partager l'acces
-  // d'un ouvrier) n'a pas d'ecran dedie ici : /worker est deja la page
-  // complete de connexion+portail ouvrier (son propre formulaire identifiant/
-  // mot de passe contre /api/worker-auth quand aucune session n'est trouvee).
   useEffect(() => {
     if (typeParam === "ouvrier") { router.replace("/worker"); return; }
     if (!profile) router.replace("/");
@@ -377,24 +367,55 @@ function LoginScreen() {
   const sso = <SsoOptions profile={profile} L={L} />;
 
   return (
-    <main className="auth-screen-v2">
+    <main style={{
+      minHeight: "100vh",
+      display: "flex",
+      backgroundColor: profile === "entreprise" ? "#f8f7f6" : "#ffffff"
+    }}>
+      {/* Brand Panel - Koji/Entreprise Sidebar */}
       <AuthBrandPanel profile={profile} />
-      <section className="auth-panel-v2 auth-panel-flat">
-        <div className="auth-card auth-card-flat">
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangSwitcher /></div>
 
-          <Link href="/" className="auth-back-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-            Changer de profil
-          </Link>
+      {/* Login Form */}
+      <section style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "40px 32px",
+        maxWidth: 450,
+        margin: "0 auto"
+      }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <Link href="/" style={{
+              color: "#666",
+              textDecoration: "none",
+              fontSize: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 0"
+            }}>
+              ← Retour
+            </Link>
+            <LangSwitcher />
+          </div>
+
           {profile === "particulier" ? (
             <KojiPanel L={L} sso={sso} onSwitchProfile={() => setProfile("entreprise")} />
           ) : (
             <EntrepriseLogin L={L} sso={sso} onSwitchProfile={() => setProfile("particulier")} />
           )}
 
-          <p className="auth-help-footer">
-            Besoin d'aide ? <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
+          <p style={{
+            fontSize: 12,
+            color: "#999",
+            textAlign: "center",
+            marginTop: 24,
+            borderTop: "1px solid #e5e4e2",
+            paddingTop: 24
+          }}>
+            Besoin d'aide ? <a href="mailto:contact@kojibuild.com" style={{ color: "#1a1a1a", textDecoration: "none", fontWeight: 500 }}>contact@kojibuild.com</a>
           </p>
         </div>
       </section>

@@ -54,21 +54,26 @@ export default function BusinessInfoPage() {
   ];
 
   return (
-    <Shell>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">{L.setup.setupEyebrow}</p>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">{L.setup.setupEyebrow}</span>
           <h1>{L.setup.businessTitle}</h1>
-          <p className="muted">{L.setup.businessDesc}</p>
+          <span className="muted">{L.setup.businessDesc}</span>
         </div>
-      </header>
-      <form className="panel" onSubmit={submit}>
-        <div className="form-grid">
+      </div>
+      <form className="card" onSubmit={submit}>
+        <div className="fgrid">
           {fields.map(([field, label]) => (
-            <label className="field" key={field}>{label}<input value={business[field]} onChange={(event) => setField(field, event.target.value)} /></label>
+            <label key={field}>
+              {label}
+              <input value={business[field]} onChange={(event) => setField(field, event.target.value)} />
+            </label>
           ))}
         </div>
-        <button className="button blue" style={{ marginTop: 16 }}>{L.common.save}</button>
+        <div className="ed-act" style={{ marginTop: 16 }}>
+          <button type="submit" className="btn btn-main">{L.common.save}</button>
+        </div>
       </form>
     </Shell>
   );

@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { DM_Sans } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
+import { ProSidebar } from "./ProSidebar";
 import "./shell-layout.css";
+import "../app/home-pro.css";
+
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--f" });
 
 // Menu restructure en 2 groupes (23 septembre, Koji Premium) : "principal"
 // toujours accessible, "premium" verrouille sauf abonnement Koji Premium
@@ -272,7 +277,14 @@ function Icon({ name, className = "" }) {
   }
 }
 
-export function Shell({ children }) {
+// variant="pro" : nouvelle DA Koji Pro (sidebar de la maquette), pages
+// migrées une par une. Sans variant : ancienne mise en page.
+export function Shell({ children, variant }) {
+  // Une seule mise en page : Koji Pro. L'ancienne (web-shell) est supprimée ; variant reste accepté pour compatibilité.
+  const isPro = true;
+  // "pro-focus" : plein écran sans menu (éditeur de devis, maquette PRO-03.1),
+  // la page fournit sa propre barre du haut.
+  const isFocus = variant === "pro-focus";
   const pathname = usePathname();
   const router = useRouter();
   const { L } = useLocale();
@@ -369,6 +381,20 @@ export function Shell({ children }) {
       return next;
     });
   }
+
+  useEffect(() => {
+    if (!isPro) return undefined;
+    function openOnCtrlK(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setKojiAssistantOpen(true);
+        try { window.localStorage.setItem("koji-assistant-open", "1"); } catch { /**/ }
+        setTimeout(() => kojiAssistantInputRef.current?.focus(), 0);
+      }
+    }
+    document.addEventListener("keydown", openOnCtrlK);
+    return () => document.removeEventListener("keydown", openOnCtrlK);
+  }, [isPro]);
 
   function toggleKojiAssistantMenu() {
     setKojiAssistantMenuOpen((prev) => {
@@ -667,300 +693,67 @@ export function Shell({ children }) {
     router.push("/login?type=entreprise");
   }
 
+  const premiumLocked = !isAdmin && !premiumTools;
+  const onTrial = !trial.subscribed && trial.daysLeft !== Infinity;
+
   return (
-    <div className="web-shell">
-      <header className="app-topbar">
-        <button type="button" className="icon-round menu-toggle-btn" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
-          <Icon name="menu" className="svg-icon" />
-        </button>
-        {/* Logo centre remplace par une barre de recherche (demande
-            d'Amira, 12 oct) — la cloche de notification est revenue a sa
-            place d'origine, a droite avec l'avatar (12 oct, meme jour). */}
-        <div className="topbar-search-wrap" ref={searchRef}>
-          <label className="topbar-search">
-            <Icon name="search" className="svg-icon" />
-            <input
-              type="text"
-              placeholder="Rechercher un chantier, un devis, un contact…"
-              value={searchQuery}
-              onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true); }}
-              onFocus={() => setSearchOpen(true)}
-            />
-          </label>
-          {searchOpen && searchQuery.trim().length >= 2 ? (
-            <div className="search-dropdown">
-              {(() => {
-                const groups = [
-                  { key: "tools", label: "Outils", items: searchResults.tools },
-                  { key: "chantiers", label: "Chantiers", items: searchResults.chantiers },
-                  { key: "devis", label: "Devis", items: searchResults.devis },
-                  { key: "fournitures", label: "Fournitures", items: searchResults.fournitures },
-                  { key: "fournisseurs", label: "Fournisseurs", items: searchResults.fournisseurs },
-                  { key: "contacts", label: "Contacts", items: searchResults.contacts },
-                  { key: "equipe", label: "Équipe", items: searchResults.equipe },
-                  { key: "factures", label: "Factures", items: searchResults.factures }
-                ].filter((group) => group.items.length > 0);
-                if (groups.length === 0) return <p className="notif-dropdown-empty">Aucun résultat</p>;
-                return groups.map((group) => (
-                  <div className="search-dropdown-group" key={group.key}>
-                    <small>{group.label}</small>
-                    {group.items.map((item) => (
-                      <Link key={item.id || item.href} href={item.href} onClick={() => { setSearchOpen(false); setSearchQuery(""); }}>
-                        <strong>{item.title}</strong>
-                        {item.sub ? <span>{item.sub}</span> : null}
-                      </Link>
-                    ))}
-                  </div>
-                ));
-              })()}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="topbar-right">
-          <div className="topbar-notif" ref={notifRef}>
-            <button
-              type="button"
-              className="icon-round notif-bell-link"
-              aria-label={L.shell.notifications}
-              aria-haspopup="true"
-              aria-expanded={notifOpen}
-              onClick={() => setNotifOpen((open) => !open)}
-            >
-              <Icon name="bell" className="svg-icon" />
-              {unreadCount > 0 ? <span className="notif-bell-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+    <div className={isPro ? `pro ${dmSans.variable}` : "web-shell"}>
+      {isFocus ? (
+        <div className="app dv">{children}</div>
+      ) : (
+        <div className="app">
+          <header className="mbar">
+            <Link href="/" className="brand">KOJI</Link>
+            <button type="button" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
-            {notifOpen ? (
-              <div className="notif-dropdown">
-                <div className="notif-dropdown-head">{L.shell.notifications}</div>
-                {recentNotifications.length === 0 ? (
-                  <p className="notif-dropdown-empty">{L.notifications.noResults}</p>
-                ) : (
-                  <ul className="notif-dropdown-list">
-                    {recentNotifications.map((notif) => (
-                      <li key={notif.id} className={notif.read ? "" : "unread"}>
-                        <Link
-                          href={`/notifications/${notif.id}`}
-                          onClick={() => { markNotifRead(notif); setNotifOpen(false); }}
-                        >
-                          <span className="notif-dropdown-icon" aria-hidden="true">{NOTIF_TYPE_ICONS[notif.type] || "🔔"}</span>
-                          <span className="notif-dropdown-body">
-                            <span className="notif-dropdown-row-top">
-                              <strong>{notif.title}</strong>
-                              <time>{formatRelativeTime(notif.createdAt)}</time>
-                            </span>
-                            <span className="notif-dropdown-message">{notif.message}</span>
-                          </span>
-                          {!notif.read ? <span className="notif-dropdown-dot" aria-hidden="true" /> : null}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Link href="/notifications" className="notif-dropdown-footer" onClick={() => setNotifOpen(false)}>
-                  {L.shell.seeAllNotifications}
+          </header>
+          <div className={`side-backdrop${drawerOpen ? " open" : ""}`} onClick={() => setDrawerOpen(false)} />
+          <ProSidebar
+            pathname={pathname}
+            open={drawerOpen}
+            isLocked={(href) => premiumLocked && PREMIUM_PATHS.some((p) => href.startsWith(p))}
+            hasNewMarketplaceOffers={hasNewMarketplaceOffers}
+            onAsk={() => { setDrawerOpen(false); toggleKojiAssistant(); }}
+            account={{
+              name: avatarLabel,
+              initials: initialsFrom(avatarLabel),
+              logo: avatarLoadError ? "" : avatarLogo,
+              onLogoError: () => setAvatarLoadError(true),
+              plan: isAdmin ? "Administrateur" : premiumTools ? "Koji Premium" : onTrial ? `Essai · ${trial.daysLeft} j restant${trial.daysLeft > 1 ? "s" : ""}` : "Koji Pro",
+              trialDaysLeft: onTrial ? trial.daysLeft : null
+            }}
+            menuOpen={avatarMenuOpen}
+            onToggleMenu={() => setAvatarMenuOpen((v) => !v)}
+            menuRef={avatarMenuRef}
+            onLogout={logout}
+          />
+          <main className="wide">{children}</main>
+          {/* Barre du bas téléphone (maquette PRO-19, premier jour) : visible sous 900 px seulement. */}
+          <nav className="pro-tabbar" aria-label="Navigation principale">
+            {[
+              { href: "/devis", label: "Devis", icon: "M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h6" },
+              { href: "/chantiers", label: "Chantiers", icon: "M3 21V9l9-6 9 6v12M9 21v-6h6v6" },
+              { href: "/", label: "Accueil", icon: "M4 11l8-7 8 7M6 10v10h12V10", home: true },
+              { href: "/facturation", label: "Factures", icon: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" }
+            ].map((item) => {
+              const locked = premiumLocked && PREMIUM_PATHS.some((p) => item.href.startsWith(p));
+              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              return (
+                <Link key={item.href} href={locked ? "/parametres/abonnement" : item.href} className={`${active ? "on" : ""}${item.home ? " home" : ""}`} aria-current={active ? "page" : undefined}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={item.icon} /></svg>
+                  <span>{item.label}</span>
                 </Link>
-              </div>
-            ) : null}
-          </div>
-          <div className="topbar-avatar" ref={avatarMenuRef}>
-            <button
-              type="button"
-              className="icon-round avatar-btn"
-              aria-label={L.nav.profile}
-              aria-expanded={avatarMenuOpen}
-              onClick={() => setAvatarMenuOpen((v) => !v)}
-            >
-              {avatarLogo && !avatarLoadError ? (
-                <img src={avatarLogo} alt="" className="avatar-btn-img" onError={() => setAvatarLoadError(true)} />
-              ) : (
-                <span className="avatar-btn-initials">{initialsFrom(avatarLabel)}</span>
-              )}
-            </button>
-            {avatarMenuOpen ? (
-              <ul className="avatar-dropdown">
-                <li>
-                  <Link href="/profil" onClick={() => setAvatarMenuOpen(false)}>
-                    <Icon name="user" className="svg-icon" />{L.nav.profile}
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/parametres" onClick={() => setAvatarMenuOpen(false)}>
-                    <Icon name="settings" className="svg-icon" />{L.nav.settings}
-                  </Link>
-                </li>
-                <li>
-                  <button type="button" onClick={logout}>
-                    <Icon name="logout" className="svg-icon" />{L.nav.logout}
-                  </button>
-                </li>
-              </ul>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
-      {profileType !== "particulier" ? (
-        <nav className="side-rail" aria-label="nav bureau">
-          <button type="button" className="side-rail-item side-rail-menu-btn" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
-            <span className="side-rail-icon side-rail-icon-neutral"><Icon name="menu" className="svg-icon" /></span>
-          </button>
-          <div className="side-rail-divider" />
-          {navItems.filter((item) => item.group === "principal").map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return (
-              <Link href={item.href} key={item.href} className={`side-rail-item${active ? " active" : ""}`} title={item.label}>
-                <span className="side-rail-icon" style={{ background: item.color }}><Icon name={item.icon} className="svg-icon" /></span>
-                {item.href === "/marketplace" && hasNewMarketplaceOffers ? <span className="side-rail-dot" aria-label="Nouvelles offres" /> : null}
-              </Link>
-            );
-          })}
-          <div className="side-rail-divider" />
-          {navItems.filter((item) => item.group === "premium").map((item) => {
-            const active = item.href === "/calendrier"
-              ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
-              : pathname.startsWith(item.href);
-            const locked = !isAdmin && !premiumTools;
-            return (
-              <Link href={locked ? "/abonnement" : item.href} key={item.href} className={`side-rail-item${active ? " active" : ""}${locked ? " locked" : ""}`} title={item.label}>
-                <span className="side-rail-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
-                {locked ? <Icon name="lock" className="svg-icon side-rail-lock" /> : null}
-              </Link>
-            );
-          })}
-        </nav>
-      ) : null}
-
-      <div className={`drawer-backdrop ${drawerOpen ? "open" : ""}`} onClick={() => setDrawerOpen(false)} />
-      <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-label={L.nav.settings}>
-        <div className="drawer-brand">
-          <img src="/koji-logo.svg" alt="Koji" />
-          <div>
-            <strong>Koji</strong>
-          </div>
-        </div>
-        {profileType !== "particulier" ? (
-          <Link href="/marketplace" className="drawer-hero-cta">
-            <Icon name="market" className="svg-icon" />
-            {L.shell.findSite}
-            {hasNewMarketplaceOffers ? <span className="drawer-hero-cta-dot" aria-label="Nouvelles offres" /> : null}
-          </Link>
-        ) : null}
-
-        <nav className="drawer-nav" aria-label="nav">
-          <span className="drawer-nav-section">{L.nav.sectionPrincipal}</span>
-          {navItems.filter((item) => item.group === "principal").map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return (
-              <Link href={item.href} className={active ? "active" : ""} key={item.href}>
-                <span className="drawer-nav-icon" style={{ background: item.color }}><Icon name={item.icon} className="svg-icon" /></span>
-                {item.label}
-                {item.href === "/marketplace" && hasNewMarketplaceOffers ? (
-                  <span className="drawer-nav-dot" aria-label="Nouvelles offres" />
-                ) : null}
-              </Link>
-            );
-          })}
-
-          <button
-            type="button"
-            className="drawer-nav-section drawer-nav-section-premium drawer-gestion-toggle"
-            onClick={() => setGestionOpen((open) => !open)}
-            aria-expanded={gestionOpen}
-          >
-            <Icon name="lock" className="svg-icon" />
-            {L.nav.sectionPremium}
-            <Icon name="chevron-down" className={`svg-icon drawer-gestion-chevron${gestionOpen ? " open" : ""}`} />
-          </button>
-          {gestionOpen ? (
-            <div className="drawer-gestion-list">
-              {navItems.filter((item) => item.group === "premium").map((item) => {
-                const active = item.href === "/calendrier"
-                  ? pathname.startsWith("/calendrier") || pathname.startsWith("/planning")
-                  : pathname.startsWith(item.href);
-                const locked = !isAdmin && !premiumTools;
-                return (
-                  <Link href={locked ? "/abonnement" : item.href} className={`${active ? "active" : ""}${locked ? " locked" : ""}`} key={item.href}>
-                    <span className="drawer-nav-icon" style={{ background: locked ? "#c7cddb" : item.color }}><Icon name={item.icon} className="svg-icon" /></span>
-                    {item.label}
-                    {locked ? <Icon name="lock" className="svg-icon drawer-nav-lock" /> : null}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
-        </nav>
-
-        <div className="drawer-divider" />
-
-        <button
-          type="button"
-          className="drawer-nav-section drawer-nav-section-premium drawer-gestion-toggle"
-          onClick={() => setAccountOpen((open) => !open)}
-          aria-expanded={accountOpen}
-        >
-          <Icon name="user" className="svg-icon" />
-          {L.nav.profile} / {L.nav.sectionConfiguration}
-          <Icon name="chevron-down" className={`svg-icon drawer-gestion-chevron${accountOpen ? " open" : ""}`} />
-        </button>
-        {accountOpen ? (
-          <div className="drawer-footer">
-            <Link href="/profil"><Icon name="user" className="svg-icon" />{L.nav.profile}</Link>
-            <Link href="/aide"><Icon name="help" className="svg-icon" />{L.nav.help}</Link>
-            <Link href="/parametres"><Icon name="settings" className="svg-icon" />{L.nav.settings}</Link>
-            <button type="button" onClick={logout}><Icon name="logout" className="svg-icon" />{L.nav.logout}</button>
-          </div>
-        ) : null}
-      </aside>
-
-      {!trial.subscribed && !trial.expired && trial.daysLeft !== Infinity && (
-        <div className={`trial-banner${trial.daysLeft <= 3 ? " trial-banner-urgent" : ""}`}>
-          <span>
-            {trial.daysLeft === 0
-              ? L.shell.trialExpired
-              : L.shell.trialLeft(trial.daysLeft)}
-          </span>
-          <a href="/abonnement" className="trial-banner-btn">{L.shell.choosePlan}</a>
+              );
+            })}
+            <span className="soon" aria-disabled="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+              <span>Messages</span>
+              <em>Bientôt</em>
+            </span>
+          </nav>
         </div>
       )}
-
-      {profileType !== "particulier" ? (
-        <nav className="bottom-nav" aria-label="nav mobile">
-          {(() => {
-            const chantiersLocked = !isAdmin && !premiumTools;
-            const chantiersActive = pathname.startsWith("/chantiers");
-            return (
-              <Link href={chantiersLocked ? "/abonnement" : "/chantiers"} className={`bottom-nav-item${chantiersActive ? " active" : ""}${chantiersLocked ? " locked" : ""}`}>
-                <Icon name="tools" className="svg-icon" />
-                <span>{L.nav.projects}</span>
-                {chantiersLocked ? <Icon name="lock" className="svg-icon bottom-nav-lock" /> : null}
-              </Link>
-            );
-          })()}
-          <Link href="/devis" className={`bottom-nav-item${pathname.startsWith("/devis") ? " active" : ""}`}>
-            <Icon name="file" className="svg-icon" />
-            <span>{L.nav.quotes}</span>
-          </Link>
-          <Link href="/marketplace" className="bottom-nav-item bottom-nav-item-main">
-            <span className="bottom-nav-main-btn">
-              <Icon name="market" className="svg-icon" />
-              {hasNewMarketplaceOffers ? <span className="bottom-nav-dot" aria-label="Nouvelles offres" /> : null}
-            </span>
-            <span>{L.nav.marketplace}</span>
-          </Link>
-          <Link href="/bibliotheque-ouvrages" className={`bottom-nav-item${pathname.startsWith("/bibliotheque-ouvrages") ? " active" : ""}`}>
-            <Icon name="book" className="svg-icon" />
-            <span>{L.nav.library}</span>
-          </Link>
-          <Link href="/notifications" className={`bottom-nav-item${pathname.startsWith("/notifications") ? " active" : ""}`}>
-            <Icon name="bell" className="svg-icon" />
-            {unreadCount > 0 ? <span className="bottom-nav-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
-            <span>{L.shell.notifications}</span>
-          </Link>
-        </nav>
-      ) : null}
-
-      <main className={`web-main${profileType !== "particulier" ? " has-bottom-nav" : ""}`}>{children}</main>
 
       <button
         type="button"

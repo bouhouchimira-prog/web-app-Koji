@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense } from "react";
-import { AvenantEditor } from "./AvenantEditor";
+import { AvenantRoute } from "./AvenantEditor";
 
 export default function AvenantPage() {
   return (
     <Suspense fallback={null}>
-      <AvenantEditor />
+      <AvenantRoute />
     </Suspense>
   );
 }

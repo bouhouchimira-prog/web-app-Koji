@@ -137,54 +137,56 @@ export function SendQuoteFlow({ quote, quoteNumber, lotsCount, linesCount, total
     return contactDisplayName(contact).toLowerCase().includes(contactQuery.trim().toLowerCase());
   }).slice(0, 30);
 
+  const channels = [
+    { id: "email", label: "E-mail", detail: selected.email || "—", checked: channelEmail, set: setChannelEmail },
+    { id: "whatsapp", label: "WhatsApp", detail: selected.phone || "—", checked: channelWhatsapp, set: setChannelWhatsapp },
+    { id: "sms", label: "SMS", detail: selected.phone || "—", checked: channelSms, set: setChannelSms }
+  ];
+
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => !sending && onClose?.()}>
-      <div className="mini-modal send-quote-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="send-quote-modal-head">
-          <div>
-            <h2>Envoyer le devis</h2>
-            <p className="muted">Choisissez le client et les canaux. Il pourra lire et signer le devis depuis son téléphone.</p>
-          </div>
-          <button type="button" className="mini-button" onClick={onClose} aria-label="Fermer" disabled={sending}>✕</button>
+    <div className="pmodal-bg" onClick={() => !sending && onClose?.()}>
+      <div className="pmodal sq" role="dialog" aria-modal="true" aria-label="Envoyer le devis" onClick={(event) => event.stopPropagation()}>
+        <div className="card-h">
+          <h2>Envoyer le devis</h2>
+          <button type="button" className="link" onClick={onClose} disabled={sending}>Fermer</button>
         </div>
+        <p className="muted">Choisissez le client et les canaux. Il pourra lire et signer le devis depuis son téléphone.</p>
 
-        <div className="send-quote-form">
-          <div className="segmented large send-quote-dest-toggle">
-            <button type="button" className={destinataireMode === "existing" ? "active" : ""} onClick={() => setDestinataireMode("existing")}>Client existant</button>
-            <button type="button" className={destinataireMode === "marketplace" ? "active" : ""} onClick={openMarketplaceTab}>Client de la marketplace</button>
+        <div className="pm-sec">
+          <div className="kp-seg" role="group" aria-label="Origine du client">
+            <button type="button" className={destinataireMode === "existing" ? "on" : ""} aria-pressed={destinataireMode === "existing"} onClick={() => setDestinataireMode("existing")}>Client existant</button>
+            <button type="button" className={destinataireMode === "marketplace" ? "on" : ""} aria-pressed={destinataireMode === "marketplace"} onClick={openMarketplaceTab}>Client du Radar</button>
           </div>
 
-          <div className="send-quote-dest-label">Destinataire</div>
-
+          <h3>Destinataire</h3>
           {destinataireMode === "existing" ? (
             <>
-              <input
-                className="quote-picker-search"
-                value={contactQuery}
-                onChange={(e) => setContactQuery(e.target.value)}
-                placeholder="Rechercher un contact…"
-              />
-              <div className="marketplace-picker-list send-quote-dest-list">
-                <button type="button" className={`marketplace-picker-row${selected.key === "current" ? " selected" : ""}`} onClick={() => pickContact(quote?.client || "Client", quote?.clientEmail || "", quote?.clientPhone || "", "current")}>
-                  <strong>{quote?.client || "Client"}</strong>
-                  <small>{[quote?.clientEmail, quote?.clientPhone].filter(Boolean).join(" · ")}</small>
+              <label className="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+                <input value={contactQuery} onChange={(e) => setContactQuery(e.target.value)} placeholder="Rechercher un contact…" aria-label="Rechercher un contact" />
+              </label>
+              <div className="sq-list">
+                <button type="button" className={`sq-pick${selected.key === "current" ? " on" : ""}`} aria-pressed={selected.key === "current"} onClick={() => pickContact(quote?.client || "Client", quote?.clientEmail || "", quote?.clientPhone || "", "current")}>
+                  <b>{quote?.client || "Client"}</b>
+                  <small>{[quote?.clientEmail, quote?.clientPhone].filter(Boolean).join(" · ") || "coordonnées à renseigner"}</small>
                 </button>
                 {filteredContacts.map((contact) => (
                   <button
                     type="button"
                     key={contact.id}
-                    className={`marketplace-picker-row${selected.key === contact.id ? " selected" : ""}`}
+                    className={`sq-pick${selected.key === contact.id ? " on" : ""}`}
+                    aria-pressed={selected.key === contact.id}
                     onClick={() => pickContact(contactDisplayName(contact), contact.email || "", contact.phone || "", contact.id)}
                   >
-                    <strong>{contactDisplayName(contact)}</strong>
+                    <b>{contactDisplayName(contact)}</b>
                     <small>{[contact.email, contact.phone].filter(Boolean).join(" · ")}</small>
                   </button>
                 ))}
               </div>
             </>
           ) : (
-            <div className="marketplace-picker-list send-quote-dest-list">
-              {marketplaceError ? <p className="auth-error">{marketplaceError}</p> : null}
+            <div className="sq-list">
+              {marketplaceError ? <p className="err" role="alert">{marketplaceError}</p> : null}
               {!marketplaceError && marketplaceContacts === null ? <p className="muted">Chargement…</p> : null}
               {!marketplaceError && marketplaceContacts && !marketplaceContacts.length ? (
                 <p className="muted">Aucun chantier avec un RDV confirmé pour l'instant.</p>
@@ -193,69 +195,63 @@ export function SendQuoteFlow({ quote, quoteNumber, lotsCount, linesCount, total
                 <button
                   type="button"
                   key={chantier.offerId}
-                  className={`marketplace-picker-row${selected.key === chantier.offerId ? " selected" : ""}`}
+                  className={`sq-pick${selected.key === chantier.offerId ? " on" : ""}`}
+                  aria-pressed={selected.key === chantier.offerId}
                   onClick={() => pickContact(chantier.clientName, chantier.clientEmail || "", chantier.clientPhone || "", chantier.offerId)}
                 >
-                  <strong>{chantier.clientName}</strong>
+                  <b>{chantier.clientName}</b>
                   <small>{chantier.description || chantier.address}</small>
                   <small>{[chantier.clientPhone, chantier.clientEmail].filter(Boolean).join(" · ")}</small>
                 </button>
               ))}
             </div>
           )}
+        </div>
 
-          <div className="send-quote-channels">
-            <label className={`send-quote-channel${channelEmail ? " checked" : ""}`}>
-              <input type="checkbox" checked={channelEmail} onChange={(e) => setChannelEmail(e.target.checked)} />
-              <div><strong>E-mail</strong><small>{selected.email || "—"}</small></div>
-            </label>
-            <label className={`send-quote-channel${channelWhatsapp ? " checked" : ""}`}>
-              <input type="checkbox" checked={channelWhatsapp} onChange={(e) => setChannelWhatsapp(e.target.checked)} />
-              <div><strong>WhatsApp</strong><small>{selected.phone || "—"}</small></div>
-            </label>
-            <label className={`send-quote-channel${channelSms ? " checked" : ""}`}>
-              <input type="checkbox" checked={channelSms} onChange={(e) => setChannelSms(e.target.checked)} />
-              <div><strong>SMS</strong><small>{selected.phone || "—"}</small></div>
-            </label>
+        <div className="pm-sec">
+          <h3>Canaux</h3>
+          <div className="sq-channels">
+            {channels.map((channel) => (
+              <label key={channel.id} className={`sq-ch${channel.checked ? " on" : ""}`}>
+                <input type="checkbox" checked={channel.checked} onChange={(e) => channel.set(e.target.checked)} />
+                <span><b>{channel.label}</b><small>{channel.detail}</small></span>
+              </label>
+            ))}
           </div>
+        </div>
 
+        <div className="fgrid">
           {channelEmail ? (
-            <label className="payment-field">
-              <span>Objet</span>
-              <input value={objet} onChange={(e) => setObjet(e.target.value)} />
-            </label>
+            <label className="full">Objet<input value={objet} onChange={(e) => setObjet(e.target.value)} /></label>
           ) : null}
-          <label className="payment-field">
-            <span>Message</span>
-            <textarea className="payment-terms-textarea" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
-          </label>
+          <label className="full">Message<textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} /></label>
+        </div>
 
-          {(channelWhatsapp || channelSms) ? (
-            <div className="send-quote-preview">
-              <div className="send-quote-preview-title">Aperçu · {channelWhatsapp ? "WhatsApp" : "SMS"}</div>
-              <p>{message} {includeSignatureLink ? "Lien : kojibuild.com/s/…" : ""}</p>
-              {includePdf ? <div className="send-quote-preview-pdf">Devis_{quoteNumber}.pdf</div> : null}
-            </div>
-          ) : null}
-
-          <div className="send-quote-checklist">
-            <label><input type="checkbox" checked={includePdf} onChange={(e) => setIncludePdf(e.target.checked)} /> Joindre le devis en PDF</label>
-            <label><input type="checkbox" checked={includeSignatureLink} onChange={(e) => setIncludeSignatureLink(e.target.checked)} /> Inclure le lien de signature en ligne</label>
-            <label><input type="checkbox" checked={includeCredentials} onChange={(e) => setIncludeCredentials(e.target.checked)} /> Inclure l'identifiant et le mot de passe de connexion</label>
-            {channelEmail ? <label><input type="checkbox" checked={sendCopyToSelf} onChange={(e) => setSendCopyToSelf(e.target.checked)} /> M'envoyer une copie</label> : null}
+        {(channelWhatsapp || channelSms) ? (
+          <div className="sq-preview">
+            <span className="flab">Aperçu · {channelWhatsapp ? "WhatsApp" : "SMS"}</span>
+            <p>{message} {includeSignatureLink ? "Lien : kojibuild.com/s/…" : ""}</p>
+            {includePdf ? <span className="tag tag-o">Devis_{quoteNumber}.pdf</span> : null}
           </div>
+        ) : null}
 
-          <div className="payment-acompte-summary-bar">
-            <span>Devis {quoteNumber} · {lotsCount} lot{lotsCount > 1 ? "s" : ""} · {linesCount} ligne{linesCount > 1 ? "s" : ""}</span>
-            <strong>{euro(totalTtc)} TTC</strong>
-          </div>
+        <div className="sq-checks">
+          <label className="chk"><input type="checkbox" checked={includePdf} onChange={(e) => setIncludePdf(e.target.checked)} /> Joindre le devis en PDF</label>
+          <label className="chk"><input type="checkbox" checked={includeSignatureLink} onChange={(e) => setIncludeSignatureLink(e.target.checked)} /> Inclure le lien de signature en ligne</label>
+          <label className="chk"><input type="checkbox" checked={includeCredentials} onChange={(e) => setIncludeCredentials(e.target.checked)} /> Inclure l'identifiant et le mot de passe de connexion</label>
+          {channelEmail ? <label className="chk"><input type="checkbox" checked={sendCopyToSelf} onChange={(e) => setSendCopyToSelf(e.target.checked)} /> M'envoyer une copie</label> : null}
+        </div>
 
-          {error ? <p className="profile-message error">{error}</p> : null}
+        <div className="kv kv-strong">
+          <span>Devis {quoteNumber} · {lotsCount} lot{lotsCount > 1 ? "s" : ""} · {linesCount} ligne{linesCount > 1 ? "s" : ""}</span>
+          <b>{euro(totalTtc)} TTC</b>
+        </div>
 
-          <div className="send-quote-footer">
-            <button type="button" onClick={onClose} disabled={sending}>Annuler</button>
-            <button type="button" className="button blue" onClick={submitSend} disabled={sending}>{sending ? "Envoi…" : sendButtonLabel}</button>
-          </div>
+        {error ? <p className="err" role="alert">{error}</p> : null}
+
+        <div className="pm-act">
+          <button type="button" className="btn btn-sec" onClick={onClose} disabled={sending}>Annuler</button>
+          <button type="button" className="btn btn-main" onClick={submitSend} disabled={sending}>{sending ? "Envoi…" : sendButtonLabel}</button>
         </div>
       </div>
     </div>

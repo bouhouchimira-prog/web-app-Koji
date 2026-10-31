@@ -18,6 +18,17 @@ function money(value) {
   }).format(Number(value || 0));
 }
 
+function shortDate(value) {
+  if (!value) return "";
+  const date = new Date(String(value).length === 10 ? `${value}T00:00:00` : value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
+
+function quantityText(value) {
+  return Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 3 });
+}
+
 function round2(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
@@ -37,13 +48,16 @@ function emptyLigne(type) {
 
 const STATUS_KEYS = AVENANT_STATUS_LABEL_KEYS;
 
-// Maquette du 15 oct (artifact fournie par Amira) — couleurs/icones par
-// type de ligne et libelles des motifs/mode de facturation.
+// Signe et style par type de ligne (DA Koji Pro, maquette PRO-05) : carré
+// plein pour un ajout, contour pour une modification, barré pour une
+// suppression.
 const LIGNE_TYPE_META = {
-  ajout: { icon: "+", color: "#1E8E5A", bg: "#E6F5EE" },
-  suppression: { icon: "−", color: "#C4452D", bg: "#FBE9E5" },
-  modification: { icon: "~", color: "#B7791F", bg: "#FDF3E3" }
+  ajout: { icon: "+", cls: "add", word: "Ajout" },
+  suppression: { icon: "−", cls: "del", word: "Suppression" },
+  modification: { icon: "~", cls: "mod", word: "Modification" }
 };
+
+const STATUS_TAGS = { Brouillon: "tag tag-o", Envoye: "tag tag-e", Signe: "tag tag-b", Refuse: "tag dim", Archive: "tag dim" };
 
 const MOTIF_CATEGORIES = [
   { id: "demande_client", label: "Demande du client" },
@@ -288,261 +302,387 @@ export function AvenantEditor() {
 
   if (loadingAvenant) {
     return (
-      <Shell>
-        <div className="quote-final-page"><p className="empty-state">{L.common.loading}</p></div>
+      <Shell variant="pro">
+        <div className="tbl"><p className="empty">{L.common.loading}</p></div>
       </Shell>
     );
   }
 
   const statusLabel = avenant?.status ? (L.avenants[STATUS_KEYS[avenant.status]] || avenant.status) : "Brouillon";
+  const vatText = Number(vatRate).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+  const signedSign = (value) => (value >= 0 ? "+ " : "− ");
 
   return (
-    <Shell>
-      <div className="avenant-page-v2">
-        <div className="avenant-topbar">
-          <button type="button" className="avenant-back-btn" aria-label="Retour" onClick={() => router.push(backQuoteId ? `/devis?id=${backQuoteId}` : "/devis")}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
-          </button>
-          <div className="avenant-topbar-title">
-            <div className="avenant-topbar-title-row">
-              <h1>{avenant?.numero ? `Avenant ${avenant.numero}` : "Nouvel avenant"}</h1>
-              <span className={`avenant-status-pill avenant-status-pill-${avenant?.status || "Brouillon"}`}>{statusLabel}</span>
-            </div>
-            <p>{avenant?.numero || "Brouillon"} · modifie le devis signé sans le refaire.</p>
-          </div>
-          <div className="avenant-topbar-actions">
-            {avenant?.id && editable ? <button type="button" className="avenant-link-btn danger" onClick={handleDelete}>{L.avenants.deleteAvenant}</button> : null}
-            {editable ? (
-              <>
-                <button type="button" className="button secondary" onClick={handleSave} disabled={saving}>Enregistrer le brouillon</button>
-                <button type="button" className="button blue" onClick={handleSend} disabled={saving}>Envoyer pour signature</button>
-              </>
-            ) : avenant?.status === "Envoye" ? (
-              <>
-                <button type="button" className="button secondary danger" onClick={openRefuseComposer}>{L.avenants.refuseAvenant}</button>
-                <button type="button" className="button blue" onClick={openAcceptComposer}>{L.avenants.acceptManually}</button>
-              </>
-            ) : null}
-            {avenant?.id ? <button type="button" className="button secondary" onClick={handleDownloadPdf}>{L.avenants.downloadPdf}</button> : null}
-          </div>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            <Link href="/avenant" className="link">Avenants</Link>
+            {quote ? <>{" · "}<Link href={`/devis?id=${quote.id}`} className="link">Devis {quote.quoteNumber}</Link></> : null}
+          </span>
+          <h1 className="av-title">
+            {avenant?.numero ? `Avenant ${avenant.numero}` : "Nouvel avenant"}
+            <span className={STATUS_TAGS[avenant?.status || "Brouillon"] || "tag tag-o"}>{statusLabel}</span>
+          </h1>
+          <span className="muted">Modifie le devis signé sans le refaire.</span>
         </div>
+        <div className="acts">
+          {avenant?.id ? <button type="button" className="btn btn-sec" onClick={handleDownloadPdf}>{L.avenants.downloadPdf}</button> : null}
+          {editable ? (
+            <>
+              <button type="button" className="btn btn-sec" onClick={handleSave} disabled={saving}>Enregistrer le brouillon</button>
+              <button type="button" className="btn btn-main" onClick={handleSend} disabled={saving}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z" /></svg>
+                Envoyer pour signature
+              </button>
+            </>
+          ) : avenant?.status === "Envoye" ? (
+            <>
+              <button type="button" className="btn btn-sec" onClick={openRefuseComposer}>{L.avenants.refuseAvenant}</button>
+              <button type="button" className="btn btn-main" onClick={openAcceptComposer}>{L.avenants.acceptManually}</button>
+            </>
+          ) : null}
+        </div>
+      </div>
 
-        {!editable ? <p className="profile-message info">{L.avenants.readOnlyNotice(statusLabel)}</p> : null}
-        {message ? <p className={`profile-message ${messageType}`}>{message}</p> : null}
+      {!editable ? <p className="notice">{L.avenants.readOnlyNotice(statusLabel)}</p> : null}
+      {message ? <p className={`notice${messageType === "error" ? " notice-err" : ""}`} role={messageType === "error" ? "alert" : "status"}>{message}</p> : null}
 
-        <div className="avenant-body">
-          <div className="avenant-col-left">
-            <section className="avenant-card">
-              <strong className="avenant-card-title">Rattachement</strong>
-              <div className="avenant-rattachement-grid">
-                <div className="avenant-rattachement-field">
-                  <span>Devis d'origine</span>
-                  {quote ? (
-                    <Link href={`/devis?id=${quote.id}`} className="avenant-rattachement-box">
-                      <div>
-                        <div className="avenant-rattachement-main">{quote.quoteNumber} · {quote.client || "Client"}</div>
-                        <div className="avenant-rattachement-sub">{money(quote.totalTtc)} TTC{quote.signedAt ? ` · signé le ${shortDate(quote.signedAt)}` : ""}</div>
-                      </div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                    </Link>
-                  ) : <div className="avenant-rattachement-box"><div className="avenant-rattachement-main muted">—</div></div>}
-                </div>
-                <div className="avenant-rattachement-field">
-                  <span>Chantier</span>
-                  {linkedProject ? (
-                    <Link href={`/chantiers?project=${linkedProject.id}`} className="avenant-rattachement-box">
-                      <div>
-                        <div className="avenant-rattachement-main">{linkedProject.title}</div>
-                        <div className="avenant-rattachement-sub">{[linkedProject.address, linkedProject.status].filter(Boolean).join(" · ")}</div>
-                      </div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                    </Link>
-                  ) : <div className="avenant-rattachement-box"><div className="avenant-rattachement-main muted">Aucun chantier lié</div></div>}
-                </div>
-                <div className="avenant-rattachement-field">
-                  <span>Facture liée</span>
-                  {linkedInvoice ? (
-                    <Link href="/facturation" className="avenant-rattachement-box">
-                      <div>
-                        <div className="avenant-rattachement-main">{linkedInvoice.invoiceNumber} · {linkedInvoice.type || ""}</div>
-                        <div className="avenant-rattachement-sub">{(L.avenants[STATUS_KEYS[linkedInvoice.status]] || linkedInvoice.status || linkedInvoice.status)} · {money(linkedInvoice.amountTtc)}</div>
-                      </div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                    </Link>
-                  ) : <div className="avenant-rattachement-box"><div className="avenant-rattachement-main muted">Aucune facture liée</div></div>}
-                </div>
+      <div className="fiche-grid">
+        <div className="fiche-main">
+          <div className="env-sum">
+            <div>
+              <span className="lab">{avenant?.numero ? `Avenant ${avenant.numero}` : "Nouvel avenant"}</span>
+              <strong>{quote ? `au devis ${quote.quoteNumber}` : "Devis d'origine introuvable"}</strong>
+              <span className="muted">{[linkedProject?.title, quote?.client || avenant?.client].filter(Boolean).join(" · ") || "—"}</span>
+            </div>
+            <div>
+              <span className="lab">Facturation de l'avenant</span>
+              <div className="kp-seg" role="group" aria-label="Facturation de l'avenant">
+                <button type="button" className={facturationMode === "separee" ? "on" : ""} aria-pressed={facturationMode === "separee"} onClick={() => setFacturationMode("separee")} disabled={!editable}>Facture séparée</button>
+                <button type="button" className={facturationMode === "solde" ? "on" : ""} aria-pressed={facturationMode === "solde"} onClick={() => setFacturationMode("solde")} disabled={!editable}>Ajouté au solde</button>
               </div>
-              <div className="avenant-facturation-row">
-                <span>Facturation de l'avenant</span>
-                <div className="avenant-pill-group">
-                  <button type="button" className={`avenant-pill ${facturationMode === "separee" ? "active" : ""}`} onClick={() => setFacturationMode("separee")} disabled={!editable}>Facture séparée</button>
-                  <button type="button" className={`avenant-pill ${facturationMode === "solde" ? "active" : ""}`} onClick={() => setFacturationMode("solde")} disabled={!editable}>Ajouté au solde</button>
-                </div>
-              </div>
-            </section>
-
-            <section className="avenant-card">
-              <div className="avenant-card-head-row">
-                <strong className="avenant-card-title">Motif</strong>
-                <div className="avenant-pill-group">
-                  {MOTIF_CATEGORIES.map((cat) => (
-                    <button type="button" key={cat.id} className={`avenant-pill ${motifCategory === cat.id ? "active" : ""}`} onClick={() => setMotifCategory(cat.id)} disabled={!editable}>{cat.label}</button>
-                  ))}
-                </div>
-              </div>
-              <textarea
-                className="avenant-motif-textarea"
-                value={motif}
-                onChange={(event) => setMotif(event.target.value)}
-                placeholder="Ex : ajout d'une cloison suite à la demande du client le 12/09…"
-                rows={2}
-                disabled={!editable}
-              />
-            </section>
-
-            <section className="avenant-card avenant-lignes-card">
-              <div className="avenant-card-head-row">
-                <strong className="avenant-card-title">Lignes de l'avenant</strong>
-                {editable ? (
-                  <div className="avenant-ligne-add-actions">
-                    <select value={newLigneType} onChange={(event) => setNewLigneType(event.target.value)}>
-                      <option value="ajout">{L.avenants.typeAjout}</option>
-                      <option value="suppression">{L.avenants.typeSuppression}</option>
-                      <option value="modification">{L.avenants.typeModification}</option>
-                    </select>
-                    <button type="button" className="avenant-mini-btn" onClick={() => addLigne(emptyLigne(newLigneType))}>+ Ligne libre</button>
-                  </div>
-                ) : null}
-              </div>
-
-              {!normalizedForTotals.length ? (
-                <div className="avenant-ligne-empty-hint">Ajoutez un ouvrage ou une fourniture depuis la liste de droite, ou une ligne libre.</div>
-              ) : (
-                <div className="avenant-ligne-list">
-                  {normalizedForTotals.map((ligne) => {
-                    const meta = LIGNE_TYPE_META[ligne.type] || LIGNE_TYPE_META.ajout;
-                    const expanded = expandedLigneId === ligne.id;
-                    return (
-                      <div key={ligne.id} className="avenant-ligne-block">
-                        <div className="avenant-ligne-row" onClick={() => editable && setExpandedLigneId(expanded ? "" : ligne.id)}>
-                          <span className="avenant-ligne-icon" style={{ background: meta.bg, color: meta.color }}>{meta.icon}</span>
-                          <div className="avenant-ligne-main">
-                            <strong>{ligne.label || "Sans titre"}</strong>
-                            <small>{ligne.quantity} {ligne.unit} × {money(ligne.unitPriceHt)}</small>
-                          </div>
-                          <strong className="avenant-ligne-amount" style={{ color: meta.color }}>{ligne.totalHt >= 0 ? "+" : "−"} {money(Math.abs(ligne.totalHt))}</strong>
-                          {editable ? (
-                            <button type="button" className="avenant-ligne-delete" onClick={(event) => { event.stopPropagation(); removeLigne(ligne.id); }} aria-label={L.avenants.removeLine}>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4452D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14" /></svg>
-                            </button>
-                          ) : null}
-                        </div>
-                        {expanded && editable ? (
-                          <div className="avenant-ligne-edit">
-                            <select value={ligne.type} onChange={(event) => updateLigne(ligne.id, "type", event.target.value)}>
-                              <option value="ajout">{L.avenants.typeAjout}</option>
-                              <option value="suppression">{L.avenants.typeSuppression}</option>
-                              <option value="modification">{L.avenants.typeModification}</option>
-                            </select>
-                            <input value={ligne.label} onChange={(event) => updateLigne(ligne.id, "label", event.target.value)} placeholder={L.avenants.lineLabel} />
-                            <input value={ligne.room} onChange={(event) => updateLigne(ligne.id, "room", event.target.value)} placeholder={L.avenants.lineRoom} />
-                            <input type="number" min="0" step="any" value={ligne.quantity} onChange={(event) => updateLigne(ligne.id, "quantity", event.target.value)} placeholder={L.avenants.lineQuantity} />
-                            <input value={ligne.unit} onChange={(event) => updateLigne(ligne.id, "unit", event.target.value)} placeholder={L.avenants.lineUnit} />
-                            <input type="number" step="0.01" value={ligne.unitPriceHt} onChange={(event) => updateLigne(ligne.id, "unitPriceHt", event.target.value)} placeholder={L.avenants.lineUnitPrice} />
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="avenant-card avenant-totals-row">
-              <div className="avenant-total-item flex"><span>Devis initial</span><strong>{quote ? money(quote.totalTtc) : "—"}</strong></div>
-              <div className="avenant-total-item"><span>Total HT (écart)</span><strong>{totals.totalHtDelta >= 0 ? "+ " : ""}{money(totals.totalHtDelta)}</strong></div>
-              <div className="avenant-total-item"><span>{L.avenants.vatLabel} {Number(vatRate).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}%</span><strong>{totals.totalTtcDelta - totals.totalHtDelta >= 0 ? "+ " : ""}{money(totals.totalTtcDelta - totals.totalHtDelta)}</strong></div>
-              <div className="avenant-total-item"><span>Avenant TTC</span><strong className="avenant-total-green">{totals.totalTtcDelta >= 0 ? "+ " : ""}{money(totals.totalTtcDelta)}</strong></div>
-              <div className="avenant-total-item final"><span>Nouveau total</span><strong>{quote ? money(newMarketTotal) : "—"}</strong></div>
-            </section>
+            </div>
           </div>
 
-          {editable ? (
-            <div className="avenant-col-right">
-              <div className="avenant-right-tabs">
-                <button type="button" className={pickerTab === "ouvrages" ? "active" : ""} onClick={() => setPickerTab("ouvrages")}>{L.avenants.tabOuvrages}</button>
-                <button type="button" className={pickerTab === "fournitures" ? "active" : ""} onClick={() => setPickerTab("fournitures")}>{L.avenants.tabFournitures}</button>
-              </div>
-              <label className="avenant-picker-search">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9C9FB0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14" /></svg>
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={L.avenants.searchCatalog}
-                />
-              </label>
-              <div className="avenant-picker-list">
-                {pickerTab === "ouvrages" ? filteredOuvrages.map((item) => (
-                  <div className="avenant-picker-row" key={item.id}>
-                    <div className="avenant-picker-row-main">
-                      <span className="avenant-picker-row-code">{item.code}</span>
-                      <strong>{item.label}</strong>
-                    </div>
-                    <span className="avenant-picker-row-price">{money(Number(item.hourlyRate || 0) * Number(item.normativeTime || 0))}/{item.unit}</span>
-                    <button type="button" className="avenant-picker-add-btn" onClick={() => addOuvrageLigne(item)}>{L.common.add}</button>
-                  </div>
-                )) : filteredSupplies.map((item) => (
-                  <div className="avenant-picker-row" key={item.id}>
-                    <div className="avenant-picker-row-main">
-                      <strong>{item.name}</strong>
-                      <span className="avenant-picker-row-code">{item.category || ""}</span>
-                    </div>
-                    <span className="avenant-picker-row-price">{money(supplyPrice(item))}</span>
-                    <button type="button" className="avenant-picker-add-btn" onClick={() => addSupplyLigne(item)}>{L.common.add}</button>
-                  </div>
+          <section className="card">
+            <div className="card-h">
+              <h2>Motif</h2>
+              <div className="kp-seg" role="group" aria-label="Catégorie du motif">
+                {MOTIF_CATEGORIES.map((cat) => (
+                  <button type="button" key={cat.id} className={motifCategory === cat.id ? "on" : ""} aria-pressed={motifCategory === cat.id} onClick={() => setMotifCategory(cat.id)} disabled={!editable}>{cat.label}</button>
                 ))}
               </div>
             </div>
-          ) : null}
+            <div className="fgrid">
+              <label className="full">{L.avenants.motifLabel}
+                <textarea value={motif} onChange={(event) => setMotif(event.target.value)} placeholder="Ex : ajout d'une cloison suite à la demande du client le 12/09…" rows={2} disabled={!editable} />
+              </label>
+            </div>
+          </section>
+
+          <section className="card av-lines">
+            <div className="lots-h">
+              <span className="lab">Modifications{normalizedForTotals.length ? ` · ${normalizedForTotals.length}` : ""}</span>
+              {editable ? (
+                <div className="av-add">
+                  <select value={newLigneType} onChange={(event) => setNewLigneType(event.target.value)} aria-label="Type de la prochaine ligne">
+                    <option value="ajout">{L.avenants.typeAjout}</option>
+                    <option value="suppression">{L.avenants.typeSuppression}</option>
+                    <option value="modification">{L.avenants.typeModification}</option>
+                  </select>
+                  <button type="button" className="link" onClick={() => addLigne(emptyLigne(newLigneType))}>+ Ligne libre</button>
+                </div>
+              ) : null}
+            </div>
+
+            {!normalizedForTotals.length ? (
+              <p className="muted av-empty">{editable ? "Ajoutez un ouvrage ou une fourniture depuis la liste de droite, ou une ligne libre." : "Aucune ligne."}</p>
+            ) : normalizedForTotals.map((ligne) => {
+              const meta = LIGNE_TYPE_META[ligne.type] || LIGNE_TYPE_META.ajout;
+              const expanded = expandedLigneId === ligne.id;
+              return (
+                <div key={ligne.id} className={`avr-wrap${expanded ? " open" : ""}`}>
+                  <div
+                    className={`avr ${meta.cls}${editable ? " edit" : ""}`}
+                    role={editable ? "button" : undefined}
+                    tabIndex={editable ? 0 : undefined}
+                    aria-expanded={editable ? expanded : undefined}
+                    onClick={() => editable && setExpandedLigneId(expanded ? "" : ligne.id)}
+                    onKeyDown={(event) => { if (editable && event.key === "Enter") setExpandedLigneId(expanded ? "" : ligne.id); }}
+                  >
+                    <span className="avs" aria-label={meta.word}>{meta.icon}</span>
+                    <div className="avt">
+                      <strong>{ligne.label || "Sans titre"}</strong>
+                      <small>{[ligne.room, `${quantityText(ligne.quantity)} ${ligne.unit || ""} × ${money(ligne.unitPriceHt)}`].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <span className="ava">{signedSign(ligne.totalHt)}{money(Math.abs(ligne.totalHt))}</span>
+                    {editable ? (
+                      <button type="button" className="dx" onClick={(event) => { event.stopPropagation(); removeLigne(ligne.id); }} aria-label={L.avenants.removeLine}>×</button>
+                    ) : null}
+                  </div>
+                  {expanded && editable ? (
+                    <div className="fgrid av-edit">
+                      <label>{L.avenants.lineType}
+                        <select value={ligne.type} onChange={(event) => updateLigne(ligne.id, "type", event.target.value)}>
+                          <option value="ajout">{L.avenants.typeAjout}</option>
+                          <option value="suppression">{L.avenants.typeSuppression}</option>
+                          <option value="modification">{L.avenants.typeModification}</option>
+                        </select>
+                      </label>
+                      <label>{L.avenants.lineRoom}
+                        <input value={ligne.room} onChange={(event) => updateLigne(ligne.id, "room", event.target.value)} />
+                      </label>
+                      <label className="full">{L.avenants.lineLabel}
+                        <input value={ligne.label} onChange={(event) => updateLigne(ligne.id, "label", event.target.value)} />
+                      </label>
+                      <label>{L.avenants.lineQuantity}
+                        <input type="number" min="0" step="any" value={ligne.quantity} onChange={(event) => updateLigne(ligne.id, "quantity", event.target.value)} />
+                      </label>
+                      <label>{L.avenants.lineUnit}
+                        <input value={ligne.unit} onChange={(event) => updateLigne(ligne.id, "unit", event.target.value)} />
+                      </label>
+                      <label>{L.avenants.lineUnitPrice}
+                        <input type="number" step="0.01" value={ligne.unitPriceHt} onChange={(event) => updateLigne(ligne.id, "unitPriceHt", event.target.value)} />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </section>
+
+          <div className="ac-amt">
+            <div><span>Devis initial TTC</span><b>{quote ? money(quote.totalTtc) : "—"}</b></div>
+            <div><span>Écart HT</span><b>{signedSign(totals.totalHtDelta)}{money(Math.abs(totals.totalHtDelta))}</b></div>
+            <div><span>{L.avenants.vatLabel} {vatText} %</span><b>{signedSign(totals.totalTtcDelta - totals.totalHtDelta)}{money(Math.abs(totals.totalTtcDelta - totals.totalHtDelta))}</b></div>
+            <div><span>Avenant TTC</span><b>{signedSign(totals.totalTtcDelta)}{money(Math.abs(totals.totalTtcDelta))}</b></div>
+            <div className="big">
+              <span>{L.avenants.newMarketTotal}</span>
+              <b>{quote ? `${money(newMarketTotal)} TTC` : "—"}</b>
+              <small>Compté dans le total du marché une fois l'avenant signé.</small>
+            </div>
+          </div>
         </div>
 
-        {acceptComposer.open ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setAcceptComposer((current) => ({ ...current, open: false }))}>
-            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
+        <aside className="fiche-side">
+          {editable ? (
+            <section className="card av-pick">
+              <div className="card-h"><h2>Ajouter une ligne</h2></div>
+              <div className="kp-seg" role="group" aria-label="Catalogue">
+                <button type="button" className={pickerTab === "ouvrages" ? "on" : ""} aria-pressed={pickerTab === "ouvrages"} onClick={() => setPickerTab("ouvrages")}>{L.avenants.tabOuvrages}</button>
+                <button type="button" className={pickerTab === "fournitures" ? "on" : ""} aria-pressed={pickerTab === "fournitures"} onClick={() => setPickerTab("fournitures")}>{L.avenants.tabFournitures}</button>
+              </div>
+              <label className="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={L.avenants.searchCatalog} aria-label={L.avenants.searchCatalog} />
+              </label>
+              <span className="sm2">Ajouté comme : {(LIGNE_TYPE_META[newLigneType] || LIGNE_TYPE_META.ajout).word.toLowerCase()}</span>
+              <div className="av-list">
+                {(pickerTab === "ouvrages" ? filteredOuvrages : filteredSupplies).length === 0 ? <p className="muted">Aucun résultat.</p> : null}
+                {pickerTab === "ouvrages" ? filteredOuvrages.map((item) => (
+                  <div className="row av-row" key={item.id}>
+                    <div className="t">
+                      <strong>{item.label}</strong>
+                      <small>{[item.code, `${money(Number(item.hourlyRate || 0) * Number(item.normativeTime || 0))} / ${item.unit}`].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <button type="button" className="link" onClick={() => addOuvrageLigne(item)}>{L.common.add}</button>
+                  </div>
+                )) : filteredSupplies.map((item) => (
+                  <div className="row av-row" key={item.id}>
+                    <div className="t">
+                      <strong>{item.name}</strong>
+                      <small>{[item.category, money(supplyPrice(item))].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    <button type="button" className="link" onClick={() => addSupplyLigne(item)}>{L.common.add}</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="card">
+            <div className="card-h"><h2>Rattachement</h2></div>
+            <div className="kv kv-act"><span>Devis d'origine</span><b>{quote ? <Link href={`/devis?id=${quote.id}`}>{quote.quoteNumber} · {quote.client || "Client"}</Link> : "—"}</b></div>
+            {quote ? <div className="kv"><span>Montant du devis</span><b>{money(quote.totalTtc)} TTC{quote.signedAt ? ` · signé le ${shortDate(quote.signedAt)}` : ""}</b></div> : null}
+            <div className="kv kv-act"><span>Chantier</span><b>{linkedProject ? <Link href={`/chantiers?project=${linkedProject.id}`}>{linkedProject.title}</Link> : "Aucun chantier lié"}</b></div>
+            <div className="kv kv-act"><span>Facture liée</span><b>{linkedInvoice ? <Link href="/facturation">{linkedInvoice.invoiceNumber} · {money(linkedInvoice.amountTtc)}</Link> : "Aucune facture liée"}</b></div>
+          </section>
+
+          {avenant?.id && editable ? (
+            <button type="button" className="btn btn-sec av-del" onClick={handleDelete}>{L.avenants.deleteAvenant}</button>
+          ) : null}
+          {!avenant?.id ? <Link href={backQuoteId ? `/devis?id=${backQuoteId}` : "/avenant"} className="btn btn-sec av-del">Annuler</Link> : null}
+        </aside>
+      </div>
+
+      {acceptComposer.open ? (
+        <div className="pmodal-bg" onClick={() => setAcceptComposer((current) => ({ ...current, open: false }))}>
+          <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.avenants.acceptManuallyTitle} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
               <h2>{L.avenants.acceptManuallyTitle}</h2>
-              <p className="tool-muted">{L.avenants.acceptManuallySub}</p>
-              <label className="supply-composer-field full">
-                <span>{L.avenants.signerName}</span>
+              <button type="button" className="link" onClick={() => setAcceptComposer((current) => ({ ...current, open: false }))}>Fermer</button>
+            </div>
+            <p className="muted">{L.avenants.acceptManuallySub}</p>
+            <div className="fgrid">
+              <label className="full">{L.avenants.signerName}
                 <input value={acceptComposer.signerName} onChange={(event) => setAcceptComposer((current) => ({ ...current, signerName: event.target.value }))} />
               </label>
-              <div className="supply-composer-tabs">
-                <button type="button" className={acceptComposer.reason === "verbal" ? "active" : ""} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "verbal" }))}>{L.avenants.acceptReasonVerbal}</button>
-                <button type="button" className={acceptComposer.reason === "acompte" ? "active" : ""} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "acompte" }))}>{L.avenants.acceptReasonDeposit}</button>
-              </div>
-              <div className="supply-modal-actions">
-                <button type="button" onClick={() => setAcceptComposer((current) => ({ ...current, open: false }))}>{L.common.cancel}</button>
-                <button type="button" className="button blue" onClick={submitAcceptManually}>{L.avenants.acceptManually}</button>
+              <div className="full">
+                <span className="flab">Accord donné par</span>
+                <div className="kp-seg" role="group" aria-label="Accord donné par">
+                  <button type="button" className={acceptComposer.reason === "verbal" ? "on" : ""} aria-pressed={acceptComposer.reason === "verbal"} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "verbal" }))}>{L.avenants.acceptReasonVerbal}</button>
+                  <button type="button" className={acceptComposer.reason === "acompte" ? "on" : ""} aria-pressed={acceptComposer.reason === "acompte"} onClick={() => setAcceptComposer((current) => ({ ...current, reason: "acompte" }))}>{L.avenants.acceptReasonDeposit}</button>
+                </div>
               </div>
             </div>
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setAcceptComposer((current) => ({ ...current, open: false }))}>{L.common.cancel}</button>
+              <button type="button" className="btn btn-main" onClick={submitAcceptManually}>{L.avenants.acceptManually}</button>
+            </div>
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        {refuseComposer.open ? (
-          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setRefuseComposer((current) => ({ ...current, open: false }))}>
-            <div className="mini-modal supply-composer-modal" onClick={(event) => event.stopPropagation()}>
+      {refuseComposer.open ? (
+        <div className="pmodal-bg" onClick={() => setRefuseComposer((current) => ({ ...current, open: false }))}>
+          <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.avenants.refuseTitle} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
               <h2>{L.avenants.refuseTitle}</h2>
-              <label className="supply-composer-field full">
-                <span>{L.avenants.refuseReasonLabel}</span>
-                <textarea rows={2} value={refuseComposer.reason} onChange={(event) => setRefuseComposer((current) => ({ ...current, reason: event.target.value }))} />
+              <button type="button" className="link" onClick={() => setRefuseComposer((current) => ({ ...current, open: false }))}>Fermer</button>
+            </div>
+            <div className="fgrid">
+              <label className="full">{L.avenants.refuseReasonLabel}
+                <textarea rows={3} value={refuseComposer.reason} onChange={(event) => setRefuseComposer((current) => ({ ...current, reason: event.target.value }))} />
               </label>
-              <div className="supply-modal-actions">
-                <button type="button" onClick={() => setRefuseComposer((current) => ({ ...current, open: false }))}>{L.common.cancel}</button>
-                <button type="button" className="button blue" onClick={submitRefuse}>{L.avenants.refuseAvenant}</button>
-              </div>
+            </div>
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setRefuseComposer((current) => ({ ...current, open: false }))}>{L.common.cancel}</button>
+              <button type="button" className="btn btn-main" onClick={submitRefuse}>{L.avenants.refuseAvenant}</button>
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </Shell>
   );
+}
+
+// /avenant sans paramètre (lien « Avenant » du menu) : liste des avenants et
+// création à partir d'un devis signé. Avant, la page ouvrait un éditeur vide
+// sans devis d'origine, que l'API refusait d'enregistrer.
+export function AvenantList() {
+  const { L } = useLocale();
+  const router = useRouter();
+  const { data: avenants, loading } = useApi("/api/avenants", "avenants");
+  const { data: quotes } = useApi("/api/quotes", "quotes");
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickedQuoteId, setPickedQuoteId] = useState("");
+
+  const signedQuotes = useMemo(() => quotes.filter((q) => q.status === "Signe"), [quotes]);
+  const rows = useMemo(() => [...avenants].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))), [avenants]);
+  const pending = avenants.filter((a) => a.status === "Envoye").length;
+  const drafts = avenants.filter((a) => a.status === "Brouillon").length;
+
+  function openPicker() {
+    setPickedQuoteId(signedQuotes[0]?.id || "");
+    setPickOpen(true);
+  }
+
+  return (
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            {[`${avenants.length} avenant${avenants.length > 1 ? "s" : ""}`, `${drafts} brouillon${drafts > 1 ? "s" : ""}`, `${pending} en attente de signature`].join(" · ")}
+          </span>
+          <h1>Avenants</h1>
+          <span className="muted">Un avenant modifie un devis signé sans le refaire : ajout, suppression ou modification de lignes.</span>
+        </div>
+        <div className="acts">
+          <button type="button" className="btn btn-main" onClick={openPicker}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Nouvel avenant
+          </button>
+        </div>
+      </div>
+
+      {loading || rows.length === 0 ? (
+        <div className="tbl"><p className="empty">{loading ? "Chargement…" : "Aucun avenant pour l'instant. Créez-en un depuis un devis signé."}</p></div>
+      ) : (
+        <>
+          <div className="tbl has-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Avenant · devis</th>
+                  <th>Client</th>
+                  <th>Motif</th>
+                  <th className="r">Montant TTC</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((item) => (
+                  <tr key={item.id} tabIndex={0} onClick={() => router.push(`/avenant?id=${item.id}`)} onKeyDown={(event) => { if (event.key === "Enter") router.push(`/avenant?id=${item.id}`); }}>
+                    <td className="n">{item.numero}<div className="sm">Devis {item.quoteNumber || "—"} · {shortDate(item.createdAt)}</div></td>
+                    <td>{item.client || "—"}</td>
+                    <td className="av-motif">{item.motif || <span className="sm2">Sans motif</span>}</td>
+                    <td className="r">{Number(item.totalTtcDelta || 0) >= 0 ? "+ " : "− "}{money(Math.abs(Number(item.totalTtcDelta || 0)))}</td>
+                    <td><span className={STATUS_TAGS[item.status] || "tag tag-o"}>{L.avenants[STATUS_KEYS[item.status]] || item.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mlist">
+            {rows.map((item) => (
+              <Link className="m-card" key={item.id} href={`/avenant?id=${item.id}`}>
+                <div className="top2">
+                  <div>
+                    <div className="nm">{item.numero} · {item.client || "Client"}</div>
+                    <div className="meta">Devis {item.quoteNumber || "—"} · {shortDate(item.createdAt)}</div>
+                  </div>
+                  <span className={STATUS_TAGS[item.status] || "tag tag-o"}>{L.avenants[STATUS_KEYS[item.status]] || item.status}</span>
+                </div>
+                {item.motif ? <div className="line">{item.motif}</div> : null}
+                <div className="dvc-f"><b>{Number(item.totalTtcDelta || 0) >= 0 ? "+ " : "− "}{money(Math.abs(Number(item.totalTtcDelta || 0)))} TTC</b></div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+
+      {pickOpen ? (
+        <div className="pmodal-bg" onClick={() => setPickOpen(false)}>
+          <form className="pmodal fp-small" role="dialog" aria-modal="true" aria-label="Nouvel avenant" onClick={(event) => event.stopPropagation()} onSubmit={(event) => { event.preventDefault(); if (pickedQuoteId) router.push(`/avenant?quoteId=${pickedQuoteId}`); }}>
+            <div className="card-h">
+              <h2>Nouvel avenant</h2>
+              <button type="button" className="link" onClick={() => setPickOpen(false)}>Fermer</button>
+            </div>
+            {signedQuotes.length === 0 ? (
+              <p className="muted">{L.avenants.onlyOnSigned}</p>
+            ) : (
+              <div className="fgrid">
+                <label className="full">Devis signé à modifier
+                  <select value={pickedQuoteId} onChange={(event) => setPickedQuoteId(event.target.value)}>
+                    {signedQuotes.map((q) => <option key={q.id} value={q.id}>{q.quoteNumber} · {q.client || "Client"} · {money(q.totalTtc)}</option>)}
+                  </select>
+                </label>
+              </div>
+            )}
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setPickOpen(false)}>{L.common.cancel}</button>
+              <button type="submit" className="btn btn-main" disabled={!pickedQuoteId}>Continuer</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </Shell>
+  );
+}
+
+export function AvenantRoute() {
+  const params = useSearchParams();
+  if (!params.get("id") && !params.get("quoteId")) return <AvenantList />;
+  return <AvenantEditor />;
 }

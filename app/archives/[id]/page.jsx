@@ -91,23 +91,22 @@ export default function ArchiveDetailPage() {
 
   if (projectsLoading) {
     return (
-      <Shell>
-        <section className="panel"><div className="empty-state">{L.clientSpace.loading}</div></section>
+      <Shell variant="pro">
+        <section className="card"><p className="empty">{L.clientSpace.loading}</p></section>
       </Shell>
     );
   }
 
   if (!project) {
     return (
-      <Shell>
-        <section className="mobile-tool">
-          <header className="tool-topline">
-            <button type="button" className="plain-back" onClick={() => router.push("/archives")}>{"<"}</button>
+      <Shell variant="pro">
+        <div className="head">
+          <div className="stack">
+            <button type="button" className="link" onClick={() => router.push("/archives")}>← Archives</button>
             <h1>{L.archives.notFound}</h1>
-            <span />
-          </header>
-          <div className="tool-empty">{L.archives.notFound}</div>
-        </section>
+          </div>
+        </div>
+        <div className="tbl"><p className="empty">{L.archives.notFound}</p></div>
       </Shell>
     );
   }
@@ -115,122 +114,140 @@ export default function ArchiveDetailPage() {
   const validatedQuote = archive?.quotes?.find((q) => q.status === "Signe" || q.signatureStatus === "Signe");
   const planningTasks = [...(archive?.tasks || [])].sort((a, b) => String(a.startDate || a.dueDate || "").localeCompare(String(b.startDate || b.dueDate || "")));
   const pastEvents = (archive?.appointments || []).filter((e) => String(e.startAt || "") <= new Date().toISOString());
+  const noteDocuments = documents.filter((document) => document.type === "Note");
+  const accountingDocuments = documents.filter((document) => document.type !== "Note");
 
   return (
-    <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => router.push("/archives")}>{"<"}</button>
-          <div className="follow-title">
-            <h1>{project.title}</h1>
-            <p>{project.client || project.reference}</p>
-          </div>
-          <span />
-        </header>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => router.push("/archives")}>← Archives</button>
+          <span className="eyebrow">{L.archives.ref} {project.reference || "-"} · {L.archives.startLabel} {formatDate(project.startDate)} · {L.archives.endLabel} {formatDate(project.endDate)}</span>
+          <h1>{project.title}</h1>
+          <span className="muted">{project.client || project.reference}</span>
+        </div>
+        <div className="hact">
+          <button type="button" className="btn btn-sec" onClick={restoreProject}>{L.archives.restore}</button>
+          <button type="button" className="btn btn-sec" onClick={deleteProject}>{L.archives.delete}</button>
+        </div>
+      </div>
 
-        <div className="archive-row-block archive-detail-page">
-          <div className="archive-row">
-            <span className="archive-icon">CH</span>
-            <div>
-              <strong>{project.title}</strong>
-              <small>{project.client || project.reference}</small>
-              <small className="archive-row-dates">
-                {L.archives.ref} {project.reference || "-"} · {L.archives.startLabel} {formatDate(project.startDate)} · {L.archives.endLabel} {formatDate(project.endDate)}
-              </small>
-            </div>
-            <div className="archive-row-actions">
-              <button type="button" onClick={restoreProject}>{L.archives.restore}</button>
-              <button type="button" className="danger" onClick={deleteProject}>{L.archives.delete}</button>
-            </div>
-          </div>
+      <div className="pf-g2">
+        <div className="kj-col">
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.quotesSection}</h2></div>
+            {(archive?.quotes || []).length === 0 ? <p className="muted">{L.archives.noQuotesLinked}</p> : (
+              (archive.quotes).map((q) => (
+                <div className="kv" key={q.id}>
+                  <span>{q.quoteNumber} · {q.signatureStatus === "Signe" ? L.archives.validatedByClient : (q.status || "Brouillon")}</span>
+                  <b>{euro(q.totalTtc)} <a className="link" href={`/api/quotes/${q.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a></b>
+                </div>
+              ))
+            )}
+          </section>
 
-          <div className="archive-detail">
-            <div className="archive-detail-section">
-              <h3>{L.archives.quotesSection}</h3>
-              {(archive?.quotes || []).length === 0 ? <p className="tool-muted">{L.archives.noQuotesLinked}</p> : (
-                (archive.quotes).map((q) => (
-                  <p key={q.id}>
-                    {q.quoteNumber} - {euro(q.totalTtc)} - {q.signatureStatus === "Signe" ? L.archives.validatedByClient : (q.status || "Brouillon")}
-                    {" "}<a href={`/api/quotes/${q.id}/documents?type=quote&format=pdf`} target="_blank" rel="noreferrer">{L.common.download}</a>
-                  </p>
-                ))
-              )}
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.clientValidation}</h3>
-              <p className="tool-muted">{validatedQuote ? `${L.archives.quotesSection} ${validatedQuote.quoteNumber} ${L.archives.validatedByClient}.` : L.archives.noValidation}</p>
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.taskPlanningTitle}</h3>
-              {planningTasks.length === 0 ? <p className="tool-muted">{L.archives.noTasks}</p> : planningTasks.map((task) => (
-                <p key={task.id} className="archive-document-row">
-                  <span className={`archive-document-type${task.done ? " done" : ""}`}>{task.done ? L.archives.taskDone : L.archives.taskPlanned}</span>
-                  <span>{task.label} - {task.room || "—"} - {formatDate(task.startDate || task.dueDate)}{task.endDate && task.endDate !== task.startDate ? ` → ${formatDate(task.endDate)}` : ""} - {task.assignedTo || "—"}</span>
-                </p>
-              ))}
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.pastAppts}</h3>
-              {pastEvents.length === 0 ? <p className="tool-muted">{L.archives.noAppts}</p> : pastEvents.map((event) => (
-                <p key={event.id}>{event.title} - {formatDate(event.startAt)}</p>
-              ))}
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.conversations}</h3>
-              {messages.length === 0 ? <p className="tool-muted">{L.archives.noMessages}</p> : messages.map((message) => (
-                <p key={message.id} className="archive-document-row">
-                  <span className="archive-document-type">{message.channel === "email" ? "Email" : "SMS"}</span>
-                  <span>{formatDateTime(message.createdAt)} - {message.to} - {message.subject || message.text}</span>
-                </p>
-              ))}
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.noteSection}</h3>
-              {project.notes ? <p>{project.notes}</p> : null}
-              {documents.filter((document) => document.type === "Note").length === 0 && !project.notes ? <p className="tool-muted">{L.archives.noNotes}</p> : null}
-              {documents.filter((document) => document.type === "Note").map((document) => (
-                <p key={document.id} className="archive-document-row">
-                  <span>{document.title}</span>
-                  <button type="button" className="mini-danger" onClick={() => deleteArchiveDocument(document)}>{L.common.delete}</button>
-                </p>
-              ))}
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.expenses}</h3>
-              {(archive?.expenses || []).length === 0 ? <p className="tool-muted">{L.archives.noExpenses}</p> : (archive.expenses).map((expense) => (
-                <p key={expense.id}>{expense.category}: {expense.label} - {euro(expense.amount)}</p>
-              ))}
-              {archive?.summary ? <p className="archive-detail-total">{L.archives.totalExpenses} {euro(archive.summary.expensesTotal)} - {L.archives.gain} {euro(archive.summary.gain)}</p> : null}
-            </div>
-            <div className="archive-detail-section">
-              <h3>{L.archives.accountingDocs}</h3>
-              {documents.filter((document) => document.type !== "Note").length === 0 ? <p className="tool-muted">{L.archives.noDocs}</p> : documents.filter((document) => document.type !== "Note").map((document) => (
-                <p key={document.id} className="archive-document-row">
-                  <span className="archive-document-type">{document.type}</span>
-                  <span>{document.title}{document.amount ? ` - ${euro(document.amount)}` : ""}</span>
-                  {document.url ? <a href={document.url} download={document.fileName || document.title} target="_blank" rel="noreferrer">{L.common.download}</a> : null}
-                  <button type="button" className="mini-danger" onClick={() => deleteArchiveDocument(document)}>{L.common.delete}</button>
-                </p>
-              ))}
-              <form className="archive-doc-form" onSubmit={addArchiveDocument}>
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.clientValidation}</h2></div>
+            <p className="muted">{validatedQuote ? `${L.archives.quotesSection} ${validatedQuote.quoteNumber} ${L.archives.validatedByClient}.` : L.archives.noValidation}</p>
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.taskPlanningTitle}</h2></div>
+            {planningTasks.length === 0 ? <p className="muted">{L.archives.noTasks}</p> : planningTasks.map((task) => (
+              <div className="kv" key={task.id}>
+                <span>{task.label} · {task.room || "—"} · {task.assignedTo || "—"}</span>
+                <b><span className={task.done ? "tag tag-b" : "tag dim"}>{task.done ? L.archives.taskDone : L.archives.taskPlanned}</span> {formatDate(task.startDate || task.dueDate)}{task.endDate && task.endDate !== task.startDate ? ` → ${formatDate(task.endDate)}` : ""}</b>
+              </div>
+            ))}
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.pastAppts}</h2></div>
+            {pastEvents.length === 0 ? <p className="muted">{L.archives.noAppts}</p> : pastEvents.map((event) => (
+              <div className="kv" key={event.id}><span>{event.title}</span><b>{formatDate(event.startAt)}</b></div>
+            ))}
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.conversations}</h2></div>
+            {messages.length === 0 ? <p className="muted">{L.archives.noMessages}</p> : messages.map((message) => (
+              <div className="kv" key={message.id}>
+                <span><span className="tag dim">{message.channel === "email" ? "Email" : "SMS"}</span> {message.to} · {message.subject || message.text}</span>
+                <b>{formatDateTime(message.createdAt)}</b>
+              </div>
+            ))}
+          </section>
+        </div>
+
+        <div className="kj-col">
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.noteSection}</h2></div>
+            {project.notes ? <p className="kj-p">{project.notes}</p> : null}
+            {noteDocuments.length === 0 && !project.notes ? <p className="muted">{L.archives.noNotes}</p> : null}
+            {noteDocuments.map((document) => (
+              <div className="kv" key={document.id}>
+                <span>{document.title}</span>
+                <button type="button" className="link" onClick={() => deleteArchiveDocument(document)}>{L.common.delete}</button>
+              </div>
+            ))}
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.expenses}</h2></div>
+            {(archive?.expenses || []).length === 0 ? <p className="muted">{L.archives.noExpenses}</p> : (archive.expenses).map((expense) => (
+              <div className="kv" key={expense.id}><span>{expense.category}: {expense.label}</span><b>{euro(expense.amount)}</b></div>
+            ))}
+            {archive?.summary ? (
+              <div className="kv"><span>{L.archives.totalExpenses}</span><b>{euro(archive.summary.expensesTotal)} · {L.archives.gain} {euro(archive.summary.gain)}</b></div>
+            ) : null}
+          </section>
+
+          <section className="card">
+            <div className="card-h"><h2>{L.archives.accountingDocs}</h2></div>
+            {accountingDocuments.length === 0 ? <p className="muted">{L.archives.noDocs}</p> : accountingDocuments.map((document) => (
+              <div className="kv" key={document.id}>
+                <span><span className="tag dim">{document.type}</span> {document.title}{document.amount ? ` · ${euro(document.amount)}` : ""}</span>
+                <b>
+                  {document.url ? <a className="link" href={document.url} download={document.fileName || document.title} target="_blank" rel="noreferrer">{L.common.download}</a> : null}
+                  {" "}<button type="button" className="link" onClick={() => deleteArchiveDocument(document)}>{L.common.delete}</button>
+                </b>
+              </div>
+            ))}
+            <form className="fgrid" style={{ marginTop: 16 }} onSubmit={addArchiveDocument}>
+              <label>
+                Type
                 <select value={docForm.type} onChange={(event) => setDocField("type", event.target.value)}>
                   {DOCUMENT_TYPES.map((type) => <option key={type}>{type}</option>)}
                 </select>
+              </label>
+              <label>
+                {L.archives.docTitlePh}
                 <input value={docForm.title} onChange={(event) => setDocField("title", event.target.value)} placeholder={L.archives.docTitlePh} />
-                {docForm.type !== "Note" ? (
-                  <>
+              </label>
+              {docForm.type !== "Note" ? (
+                <>
+                  <label>
+                    {L.archives.amountOptional}
                     <input type="number" step="0.01" value={docForm.amount} onChange={(event) => setDocField("amount", event.target.value)} placeholder={L.archives.amountOptional} />
+                  </label>
+                  <label>
+                    Fichier
                     <input type="file" accept="image/*,.pdf" onChange={onDocFile} />
-                  </>
-                ) : (
+                  </label>
+                </>
+              ) : (
+                <label className="full">
+                  {L.archives.noteContent}
                   <input value={docForm.notes} onChange={(event) => setDocField("notes", event.target.value)} placeholder={L.archives.noteContent} />
-                )}
-                <button type="submit" className="mini-button">{L.archives.addBtn}</button>
-              </form>
-            </div>
-          </div>
+                </label>
+              )}
+              <div className="ed-act full">
+                <button type="submit" className="btn btn-main">{L.archives.addBtn}</button>
+              </div>
+            </form>
+          </section>
         </div>
-      </section>
+      </div>
     </Shell>
   );
 }

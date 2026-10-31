@@ -36,48 +36,52 @@ export default function AdminClientsPage() {
 
   return (
     <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => router.push("/")}>{"<"}</button>
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => router.push("/")}> ← Accueil</button>
+          <span className="eyebrow">Administration</span>
           <h1>Conversations enregistrées</h1>
-          <span />
-        </header>
-        <p className="radar-recap-note" style={{ margin: "0 0 14px" }}>
-          Historique des conversations avec l'assistant, pour debug en cas de problème — particuliers (Radar des Chantiers) et entreprises (assistant koji).
-        </p>
+          <span className="muted">Historique des conversations avec l'assistant, pour debug en cas de problème — particuliers (Radar des Chantiers) et entreprises (assistant koji).</span>
+        </div>
+      </div>
 
-        {error ? <div className="tool-empty">{error}</div> : null}
-        {!data && !error ? <div className="tool-empty">Chargement…</div> : null}
+      {error ? <p className="notice notice-err" role="alert">{error}</p> : null}
+      {!data && !error ? <p className="empty">Chargement…</p> : null}
 
-        {data ? (
-          <>
-            <h2 style={{ fontSize: 16, margin: "18px 0 10px" }}>Clients particuliers — Radar des Chantiers ({data.radarClients.length})</h2>
-            {data.radarClients.length === 0 ? <p className="radar-recap-note">Aucune conversation enregistrée pour l'instant.</p> : null}
-            {data.radarClients.map((client) => (
-              <div className="radar-recap-card" key={client.userId} style={{ marginBottom: 10 }}>
+      {data ? (
+        <>
+          <h2 style={{ fontSize: 16, margin: "24px 0 16px" }}>Clients particuliers — Radar des Chantiers ({data.radarClients.length})</h2>
+          {data.radarClients.length === 0 ? (
+            <p className="muted">Aucune conversation enregistrée pour l'instant.</p>
+          ) : (
+            data.radarClients.map((client) => (
+              <section className="card" key={client.userId}>
                 <button
                   type="button"
                   onClick={() => setOpenRadar((c) => ({ ...c, [client.userId]: !c[client.userId] }))}
                   style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: "inherit" }}
                 >
                   <strong>{client.name}</strong>{client.email ? ` — ${client.email}` : ""}
-                  <small style={{ display: "block", color: "var(--muted)" }}>{client.conversations.length} conversation{client.conversations.length > 1 ? "s" : ""}</small>
+                  <small style={{ display: "block", color: "var(--muted)", fontSize: 13, marginTop: 4 }}>{client.conversations.length} conversation{client.conversations.length > 1 ? "s" : ""}</small>
                 </button>
                 {openRadar[client.userId] ? (
-                  <div style={{ marginTop: 10 }}>
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
                     {client.conversations.map((conv) => {
                       const key = `${client.userId}:${conv.id}`;
                       return (
-                        <div key={conv.id} style={{ borderTop: "1px solid var(--border, #eee)", paddingTop: 8, marginTop: 8 }}>
+                        <div key={conv.id} style={{ marginBottom: 12 }}>
                           <button
                             type="button"
                             onClick={() => setOpenConv((c) => ({ ...c, [key]: !c[key] }))}
-                            style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: "inherit" }}
+                            style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: "inherit", padding: "8px 0" }}
                           >
-                            {conv.metier || "Métier non précisé"} — {shortDate(conv.updatedAt)} {conv.chantierOffreId ? "· Offre publiée" : "· Non publiée"}
+                            <strong>{conv.metier || "Métier non précisé"}</strong>
+                            <small style={{ display: "block", color: "var(--muted)", fontSize: 12, marginTop: 2 }}>
+                              {shortDate(conv.updatedAt)} {conv.chantierOffreId ? "· Offre publiée" : "· Non publiée"}
+                            </small>
                           </button>
                           {openConv[key] ? (
-                            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: "2px solid var(--line)", display: "flex", flexDirection: "column", gap: 6 }}>
                               {conv.turns.map((t, i) => (
                                 <div key={i} style={{ fontSize: 13 }}>
                                   <strong>{t.role === "assistant" ? "koji" : "Client"} :</strong> {t.text}
@@ -90,36 +94,42 @@ export default function AdminClientsPage() {
                     })}
                   </div>
                 ) : null}
-              </div>
-            ))}
+              </section>
+            ))
+          )}
 
-            <h2 style={{ fontSize: 16, margin: "24px 0 10px" }}>Entreprises — assistant koji ({data.artisanConversations.length})</h2>
-            {data.artisanConversations.length === 0 ? <p className="radar-recap-note">Aucune conversation enregistrée pour l'instant.</p> : null}
-            {data.artisanConversations.map((client) => (
-              <div className="radar-recap-card" key={client.userId} style={{ marginBottom: 10 }}>
+          <h2 style={{ fontSize: 16, margin: "32px 0 16px" }}>Entreprises — assistant koji ({data.artisanConversations.length})</h2>
+          {data.artisanConversations.length === 0 ? (
+            <p className="muted">Aucune conversation enregistrée pour l'instant.</p>
+          ) : (
+            data.artisanConversations.map((client) => (
+              <section className="card" key={client.userId}>
                 <button
                   type="button"
                   onClick={() => setOpenArtisan((c) => ({ ...c, [client.userId]: !c[client.userId] }))}
                   style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: "inherit" }}
                 >
                   <strong>{client.name}</strong>{client.email ? ` — ${client.email}` : ""}
-                  <small style={{ display: "block", color: "var(--muted)" }}>{client.conversations.length} conversation{client.conversations.length > 1 ? "s" : ""}</small>
+                  <small style={{ display: "block", color: "var(--muted)", fontSize: 13, marginTop: 4 }}>{client.conversations.length} conversation{client.conversations.length > 1 ? "s" : ""}</small>
                 </button>
                 {openArtisan[client.userId] ? (
-                  <div style={{ marginTop: 10 }}>
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
                     {client.conversations.map((conv) => {
                       const key = `a:${client.userId}:${conv.id}`;
                       return (
-                        <div key={conv.id} style={{ borderTop: "1px solid var(--border, #eee)", paddingTop: 8, marginTop: 8 }}>
+                        <div key={conv.id} style={{ marginBottom: 12 }}>
                           <button
                             type="button"
                             onClick={() => setOpenConv((c) => ({ ...c, [key]: !c[key] }))}
-                            style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: "inherit" }}
+                            style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: "inherit", padding: "8px 0" }}
                           >
-                            {shortDate(conv.updatedAt)} — {conv.messages.length} message{conv.messages.length > 1 ? "s" : ""}
+                            <strong>{shortDate(conv.updatedAt)}</strong>
+                            <small style={{ display: "block", color: "var(--muted)", fontSize: 12, marginTop: 2 }}>
+                              {conv.messages.length} message{conv.messages.length > 1 ? "s" : ""}
+                            </small>
                           </button>
                           {openConv[key] ? (
-                            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: "2px solid var(--line)", display: "flex", flexDirection: "column", gap: 6 }}>
                               {conv.messages.map((m, i) => (
                                 <div key={i} style={{ fontSize: 13 }}>
                                   <strong>{m.role === "assistant" ? "koji" : "Entreprise"} :</strong> {m.message}
@@ -132,11 +142,11 @@ export default function AdminClientsPage() {
                     })}
                   </div>
                 ) : null}
-              </div>
-            ))}
-          </>
-        ) : null}
-      </section>
+              </section>
+            ))
+          )}
+        </>
+      ) : null}
     </Shell>
   );
 }

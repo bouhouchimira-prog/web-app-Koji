@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Shell } from "../../../../components/Shell";
@@ -232,221 +233,117 @@ export default function PropositionDevisPage() {
   const total = lots.reduce((sum, l) => sum + lotTotal(l), 0);
 
   return (
-    <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => router.push(`/marketplace/${params.id}`)}>{"<"}</button>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            <Link href="/marketplace" className="link">Radar des chantiers</Link>
+            {" · "}
+            <Link href={`/marketplace/${params.id}`} className="link">Fiche du chantier</Link>
+          </span>
           <h1>Proposition de devis</h1>
-          <span />
-        </header>
+          <span className="muted">Ajustez les lots et les prix proposés, puis créez le devis. Il reste modifiable dans l'éditeur.</span>
+        </div>
+      </div>
 
-        {loading ? <div className="tool-empty">Chargement…</div> : null}
-        {!loading && error ? <div className="tool-empty">{error}</div> : null}
+      {loading ? <div className="tbl"><p className="empty">Chargement…</p></div> : null}
+      {!loading && error ? <p className="notice" role="alert">{error}</p> : null}
 
-        {!loading && !error ? (
-          <>
-            <p className="radar-recap-note" style={{ margin: "0 0 14px" }}>
-              Ajustez les lots et les prix avant de créer le devis. {description ? description.slice(0, 140) : ""}
-            </p>
+      {!loading && !error ? (
+        <>
+          {description ? <p className="rd-msg">« {description} »</p> : null}
 
+          <div className="dv-lines">
+            {lots.length === 0 ? <p className="empty lot-empty">Aucun lot. Ajoutez-en un pour commencer.</p> : null}
             {lots.map((lot) => (
-              <div className="devis-lot-card" key={lot.id}>
-                <div className="devis-lot-header">
-                  <input
-                    className="devis-lot-name"
-                    value={lot.name}
-                    onChange={(e) => renameLot(lot.id, e.target.value)}
-                  />
-                  <span className="devis-lot-total">{euro(lotTotal(lot))}</span>
+              <div className="lot" key={lot.id}>
+                <div className="lot-h pp-lot-h">
+                  <input className="ln ln-input" value={lot.name} onChange={(e) => renameLot(lot.id, e.target.value)} aria-label="Nom du lot" />
+                  <div className="kp-seg" role="group" aria-label="Affichage du lot">
+                    <button type="button" className={lot.mode !== "resume" ? "on" : ""} aria-pressed={lot.mode !== "resume"} onClick={() => setLotMode(lot.id, "detail")}>Détail</button>
+                    <button type="button" className={lot.mode === "resume" ? "on" : ""} aria-pressed={lot.mode === "resume"} onClick={() => setLotMode(lot.id, "resume")}>Résumé</button>
+                  </div>
+                  <span className="ls">{euro(lotTotal(lot))}</span>
                   <button
                     type="button"
-                    className="devis-lot-delete"
+                    className="dx"
                     onClick={() => removeLot(lot.id)}
                     disabled={lot.ouvrages.length > 0}
-                    aria-label="Supprimer le lot"
+                    aria-label={`Supprimer le lot ${lot.name}`}
                     title={lot.ouvrages.length > 0 ? "Videz d'abord le lot pour le supprimer" : "Supprimer le lot"}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="devis-mode-switch" role="tablist" aria-label="Affichage du lot">
-                  <button type="button" className={lot.mode !== "resume" ? "active" : ""} onClick={() => setLotMode(lot.id, "detail")}>
-                    Détail
-                  </button>
-                  <button type="button" className={lot.mode === "resume" ? "active" : ""} onClick={() => setLotMode(lot.id, "resume")}>
-                    Résumé
-                  </button>
+                  >×</button>
                 </div>
 
                 {lot.mode === "resume" ? (
-                  <div className="devis-summary-block">
-                    <textarea
-                      className="devis-summary-textarea"
-                      value={lot.summary}
-                      onChange={(e) => updateLot(lot.id, { summary: e.target.value })}
-                      placeholder="Décrivez ce lot en une phrase…"
-                    />
-                    <div className="devis-summary-price-row">
-                      <label htmlFor={`summary-price-${lot.id}`}>Prix forfaitaire</label>
-                      <input
-                        id={`summary-price-${lot.id}`}
-                        className="devis-field devis-field-price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={lot.summaryPrice}
-                        onChange={(e) => updateLot(lot.id, { summaryPrice: e.target.value })}
-                      />
-                      <span className="devis-currency">€ HT</span>
-                    </div>
+                  <div className="fgrid pp-summary">
+                    <label className="full">Résumé du lot
+                      <textarea value={lot.summary} onChange={(e) => updateLot(lot.id, { summary: e.target.value })} placeholder="Décrivez ce lot en une phrase…" />
+                    </label>
+                    <label>Prix forfaitaire (€ HT)
+                      <input type="number" min="0" step="0.01" value={lot.summaryPrice} onChange={(e) => updateLot(lot.id, { summaryPrice: e.target.value })} />
+                    </label>
                   </div>
                 ) : (
                   <>
-                    {lot.ouvrages.length === 0 ? <p className="devis-lot-empty">Aucun ouvrage dans ce lot.</p> : null}
-
+                    {lot.ouvrages.length === 0 ? (
+                      <p className="empty lot-empty">Aucun ouvrage dans ce lot.</p>
+                    ) : (
+                      <div className="pp-row pp-cols" aria-hidden="true">
+                        <span>Ouvrage</span><span>Qté</span><span>Unité</span><span>Prix HT</span><span>Lot</span><span />
+                      </div>
+                    )}
                     {lot.ouvrages.map((ouvrage) => (
-                      <div className="devis-ouvrage" key={ouvrage.id}>
-                        <div className="devis-ouvrage-row">
-                          <input
-                            className="devis-field devis-field-label"
-                            value={ouvrage.label}
-                            onChange={(e) => editOuvrage(lot.id, ouvrage.id, "label", e.target.value)}
-                            placeholder="Intitulé de l'ouvrage"
-                          />
-                          <input
-                            className="devis-field devis-field-qty"
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={ouvrage.quantity}
-                            onChange={(e) => editOuvrage(lot.id, ouvrage.id, "quantity", e.target.value)}
-                            aria-label="Quantité"
-                          />
-                          <input
-                            className="devis-field devis-field-unit"
-                            value={ouvrage.unit}
-                            onChange={(e) => editOuvrage(lot.id, ouvrage.id, "unit", e.target.value)}
-                            aria-label="Unité"
-                          />
-                          <input
-                            className={`devis-field devis-field-price ${ouvrage.needsPrice ? "devis-field-needs-price" : ""}`}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={ouvrage.price}
-                            onChange={(e) => editOuvrage(lot.id, ouvrage.id, "price", e.target.value)}
-                            aria-label="Prix HT"
-                          />
-                          <span className="devis-currency">€ HT</span>
-                          <select
-                            className="devis-move-select"
-                            value={lot.name}
-                            onChange={(e) => moveOuvrage(lot.id, ouvrage.id, e.target.value)}
-                            aria-label="Déplacer vers un autre lot"
-                          >
-                            {lotNames.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
+                      <div className="pp-ouv" key={ouvrage.id}>
+                        <div className="pp-row">
+                          <input className="rc-in rc-label" value={ouvrage.label} onChange={(e) => editOuvrage(lot.id, ouvrage.id, "label", e.target.value)} placeholder="Intitulé de l'ouvrage" aria-label="Intitulé de l'ouvrage" />
+                          <input className="rc-in" type="number" min="0" step="1" value={ouvrage.quantity} onChange={(e) => editOuvrage(lot.id, ouvrage.id, "quantity", e.target.value)} aria-label="Quantité" />
+                          <input className="rc-in" value={ouvrage.unit} onChange={(e) => editOuvrage(lot.id, ouvrage.id, "unit", e.target.value)} aria-label="Unité" />
+                          <input className={`rc-in${ouvrage.needsPrice ? " pp-miss" : ""}`} type="number" min="0" step="0.01" value={ouvrage.price} onChange={(e) => editOuvrage(lot.id, ouvrage.id, "price", e.target.value)} aria-label="Prix HT" />
+                          <select className="rc-in pp-move" value={lot.name} onChange={(e) => moveOuvrage(lot.id, ouvrage.id, e.target.value)} aria-label="Déplacer vers un autre lot">
+                            {lotNames.map((name) => <option key={name} value={name}>{name}</option>)}
                           </select>
-                          <button
-                            type="button"
-                            className="devis-icon-btn"
-                            onClick={() => deleteOuvrage(lot.id, ouvrage.id)}
-                            aria-label="Supprimer l'ouvrage"
-                          >
-                            ×
-                          </button>
-                          {ouvrage.needsPrice ? <small className="devis-needs-price-note">Prix manquant dans notre base — à compléter.</small> : null}
+                          <button type="button" className="dx" onClick={() => deleteOuvrage(lot.id, ouvrage.id)} aria-label="Supprimer l'ouvrage">×</button>
                         </div>
-
-                        {ouvrage.subOuvrages.length > 0 ? (
-                          <div className="devis-subouvrages">
-                            {ouvrage.subOuvrages.map((sub) => (
-                              <div className="devis-subouvrage-row" key={sub.id}>
-                                <input
-                                  className="devis-field devis-field-label"
-                                  value={sub.label}
-                                  onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "label", e.target.value)}
-                                  placeholder="Intitulé du sous-ouvrage"
-                                />
-                                <input
-                                  className="devis-field devis-field-qty"
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={sub.quantity}
-                                  onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "quantity", e.target.value)}
-                                  aria-label="Quantité"
-                                />
-                                <input
-                                  className="devis-field devis-field-unit"
-                                  value={sub.unit}
-                                  onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "unit", e.target.value)}
-                                  aria-label="Unité"
-                                />
-                                <input
-                                  className="devis-field devis-field-price"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={sub.price}
-                                  onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "price", e.target.value)}
-                                  aria-label="Prix HT"
-                                />
-                                <span className="devis-currency">€ HT</span>
-                                <button
-                                  type="button"
-                                  className="devis-icon-btn"
-                                  onClick={() => deleteSubOuvrage(lot.id, ouvrage.id, sub.id)}
-                                  aria-label="Supprimer le sous-ouvrage"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
+                        {ouvrage.needsPrice ? <p className="pp-note">Prix manquant dans notre base, à compléter.</p> : null}
+                        {ouvrage.subOuvrages.map((sub) => (
+                          <div className="pp-row pp-sub" key={sub.id}>
+                            <input className="rc-in rc-label" value={sub.label} onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "label", e.target.value)} placeholder="Intitulé du sous-ouvrage" aria-label="Intitulé du sous-ouvrage" />
+                            <input className="rc-in" type="number" min="0" step="1" value={sub.quantity} onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "quantity", e.target.value)} aria-label="Quantité" />
+                            <input className="rc-in" value={sub.unit} onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "unit", e.target.value)} aria-label="Unité" />
+                            <input className="rc-in" type="number" min="0" step="0.01" value={sub.price} onChange={(e) => editSubOuvrage(lot.id, ouvrage.id, sub.id, "price", e.target.value)} aria-label="Prix HT" />
+                            <span className="pp-gap" />
+                            <button type="button" className="dx" onClick={() => deleteSubOuvrage(lot.id, ouvrage.id, sub.id)} aria-label="Supprimer le sous-ouvrage">×</button>
                           </div>
-                        ) : null}
-
-                        <button type="button" className="devis-add-sub-btn" onClick={() => addSubOuvrage(lot.id, ouvrage.id)}>
-                          + Sous-ouvrage
-                        </button>
+                        ))}
+                        <div className="pp-add">
+                          <button type="button" className="link" onClick={() => addSubOuvrage(lot.id, ouvrage.id)}>+ Sous-ouvrage</button>
+                        </div>
                       </div>
                     ))}
-
-                    <button type="button" className="devis-add-ouvrage-btn" onClick={() => addOuvrage(lot.id)}>
-                      + Nouvel ouvrage
-                    </button>
+                    <div className="lot-add">
+                      <button type="button" className="link" onClick={() => addOuvrage(lot.id)}>+ Nouvel ouvrage</button>
+                    </div>
                   </>
                 )}
               </div>
             ))}
+          </div>
 
-            <button type="button" className="button secondary" style={{ marginBottom: 14 }} onClick={addLot}>
-              + Nouveau lot
+          <div><button type="button" className="btn btn-sec" onClick={addLot}>+ Nouveau lot</button></div>
+
+          <div className="dv-tot pp-tot">
+            <div className="ttc"><span>Total HT</span><b>{euro(total)}</b></div>
+          </div>
+
+          {submitError ? <p className="err" role="alert">{submitError}</p> : null}
+
+          <div className="ed-act">
+            <button type="button" className="btn btn-main" onClick={handleContinue} disabled={submitting}>
+              {submitting ? "Création du devis…" : "Continuer vers le devis"}
             </button>
-
-            <div className="radar-recap-card" style={{ marginBottom: 14 }}>
-              <div className="radar-recap-row"><span>Total HT</span><strong>{euro(total)}</strong></div>
-            </div>
-
-            {submitError ? <p className="profile-message error" style={{ marginBottom: 14 }}>{submitError}</p> : null}
-
-            <button
-              type="button"
-              className="radar-contact-btn radar-contact-btn-primary"
-              style={{ width: "100%" }}
-              onClick={handleContinue}
-              disabled={submitting}
-            >
-              <span>
-                <strong>{submitting ? "Création du devis…" : "Continuer vers le devis"}</strong>
-                <small>Le devis final reste modifiable dans l'éditeur</small>
-              </span>
-            </button>
-          </>
-        ) : null}
-      </section>
+          </div>
+        </>
+      ) : null}
     </Shell>
   );
 }

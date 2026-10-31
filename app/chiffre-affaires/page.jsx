@@ -28,51 +28,67 @@ export default function ChiffreAffairesPage() {
   const netEarned = billedRevenue - totalExpenses;
 
   return (
-    <Shell>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">FINANCES</p>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">Finances</span>
           <h1>{L.home.revenue}</h1>
         </div>
-      </header>
+      </div>
 
-      <section className="home-revenue-hero">
-        <span>{L.home.billed}</span>
-        <strong>{euro(billedRevenue)}</strong>
-      </section>
+      <div className="kpis">
+        <div>
+          <div className="l">{L.home.billed}</div>
+          <div className="v">{euro(billedRevenue)}</div>
+        </div>
+        <div>
+          <div className="l">{L.home.waitingSig}</div>
+          <div className="v">{euro(waitingRevenue)}</div>
+        </div>
+        <div>
+          <div className="l">{L.home.revenueNet}</div>
+          <div className={`v${netEarned >= 0 ? "" : " negative"}`}>{euro(netEarned)}</div>
+        </div>
+        <div>
+          <div className="l">{L.home.revenueRefused}</div>
+          <div className="v">{euro(refusedRevenue)}</div>
+        </div>
+      </div>
 
-      <section className="home-section-card home-revenue-detail">
-        <p className="home-revenue-subhead">{L.home.revenueExpenses}</p>
-        {Object.keys(expensesByCategory).length === 0 ? (
-          <p className="home-revenue-empty">{L.common.noData}</p>
-        ) : (
-          Object.entries(expensesByCategory).map(([category, amount]) => (
-            <div className="home-revenue-line" key={category}>
-              <span>{category}</span>
-              <strong>{euro(amount)}</strong>
-            </div>
-          ))
-        )}
-        <div className="home-revenue-line home-revenue-total-expenses">
-          <span>{L.home.revenueTotalExpenses}</span>
-          <strong>{euro(totalExpenses)}</strong>
-        </div>
+      <div className="pf-g2">
+        <section className="card">
+          <div className="card-h"><h2>{L.home.revenueExpenses}</h2></div>
+          {Object.keys(expensesByCategory).length === 0 ? (
+            <p className="muted">{L.common.noData}</p>
+          ) : (
+            Object.entries(expensesByCategory).map(([category, amount]) => (
+              <div className="kv" key={category}>
+                <span>{category}</span>
+                <b>{euro(amount)}</b>
+              </div>
+            ))
+          )}
+          <div className="kv">
+            <span>{L.home.revenueTotalExpenses}</span>
+            <b>{euro(totalExpenses)}</b>
+          </div>
+        </section>
 
-        <div className="home-revenue-line home-revenue-net">
-          <span>{L.home.revenueNet}</span>
-          <strong className={netEarned >= 0 ? "positive" : "negative"}>{euro(netEarned)}</strong>
-        </div>
-        <div className="home-revenue-line">
-          <span>{L.home.waitingSig}</span>
-          <strong>{euro(waitingRevenue)}</strong>
-        </div>
-        <div className="home-revenue-line">
-          <span>{L.home.revenueRefused}</span>
-          <strong>{euro(refusedRevenue)}</strong>
-        </div>
-
-        <Link href="/facturation" className="home-revenue-more-link">{L.home.viewBilling} →</Link>
-      </section>
+        <section className="card">
+          <div className="card-h"><h2>{L.home.billed}</h2></div>
+          <div className="kv">
+            <span>{L.home.billed}</span>
+            <b>{euro(billedRevenue)}</b>
+          </div>
+          <div className="kv">
+            <span>{L.home.revenueNet}</span>
+            <b className={netEarned >= 0 ? "positive" : "negative"}>{euro(netEarned)}</b>
+          </div>
+          <div className="ed-act" style={{ marginTop: 12 }}>
+            <Link href="/facturation" className="btn btn-sec">{L.home.viewBilling}</Link>
+          </div>
+        </section>
+      </div>
     </Shell>
   );
 }

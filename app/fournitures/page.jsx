@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
+import { FournituresTabs } from "./FournituresTabs";
 import { apiSend } from "../../lib/client-api";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -14,11 +15,11 @@ import { useApi } from "../../lib/use-api";
 // inchangee, vers app/fournitures/catalogue/page.jsx.
 
 const STATUS_META = {
-  a_commander: { label: "À commander", color: "#b45309", bg: "#fef3c7" },
-  confirmee: { label: "Confirmée", color: "#15803d", bg: "#dcfce7" },
-  expediee: { label: "Expédiée", color: "#1d4ed8", bg: "#dbeafe" },
-  livree: { label: "Livrée", color: "#15803d", bg: "#dcfce7" },
-  en_retard: { label: "En retard", color: "#b91c1c", bg: "#fee2e2" }
+  a_commander: { label: "À commander", tag: "tag tag-o" },
+  confirmee: { label: "Confirmée", tag: "tag tag-e" },
+  expediee: { label: "Expédiée", tag: "tag tag-e" },
+  livree: { label: "Livrée", tag: "tag tag-o dim" },
+  en_retard: { label: "En retard", tag: "tag tag-b" }
 };
 
 const FILTER_TABS = [
@@ -157,198 +158,228 @@ export default function FournituresDashboardPage() {
     }
   }
 
+  const tabCounts = {
+    commandes: commandes.length,
+    categories: supplies.length,
+    fournisseurs: new Set(suppliers.map((s) => (s.name || "").trim().toLowerCase())).size,
+    divers: supplies.filter((s) => !s.supplierId).length
+  };
+  const filterCounts = {
+    toutes: commandes.length,
+    en_cours: commandes.filter((c) => c.status === "confirmee" || c.status === "expediee" || c.status === "en_retard").length,
+    livrees: commandes.filter((c) => c.status === "livree").length,
+    a_commander: commandes.filter((c) => c.status === "a_commander").length
+  };
+  const itemsText = (commande) => (commande.items || []).map((i) => i.name).join(", ");
+  const statusSelect = (commande) => (
+    <label className="fp-status">Statut
+      <select value={commande.status} onChange={(event) => changeStatus(commande, event.target.value)} onClick={(event) => event.stopPropagation()}>
+        {Object.entries(STATUS_META).map(([id, m]) => <option key={id} value={id}>{m.label}</option>)}
+      </select>
+    </label>
+  );
+
   return (
-    <Shell>
-      <section className="fournitures-dashboard">
-        <div className="fournitures-dashboard-head">
-          <div>
-            <h1><span className="title-chip">Fournitures</span></h1>
-            <p>Commandes, livraisons et stock rattachés à vos chantiers.</p>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <a href="/fournitures/catalogue" className="button secondary">Fournisseurs</a>
-            <button type="button" className="button blue" onClick={() => setFormOpen(true)}>+ Nouvelle commande</button>
-          </div>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            {[`${kpis.enCours} commande${kpis.enCours > 1 ? "s" : ""} en cours`, `${tabCounts.fournisseurs} fournisseur${tabCounts.fournisseurs > 1 ? "s" : ""}`, `${supplies.length} article${supplies.length > 1 ? "s" : ""} au catalogue`].join(" · ")}
+          </span>
+          <h1>Fournitures</h1>
         </div>
-
-        {error ? <p className="tool-message">{error}</p> : null}
-
-        <div className="fournitures-kpi-row">
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-blue">📦</span>
-              <span className="title-chip">Commandes en cours</span>
-            </div>
-            <strong>{kpis.enCours}</strong>
-            <small>{kpis.enCoursSuppliers} fournisseur{kpis.enCoursSuppliers > 1 ? "s" : ""}</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-green">🚚</span>
-              <span className="title-chip">À livrer cette semaine</span>
-            </div>
-            <strong>{kpis.aLivrer}</strong>
-            <small className="positive">{kpis.demain ? `dont ${kpis.demain} demain` : "—"}</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-amber">⚠️</span>
-              <span className="title-chip">Stock bas</span>
-            </div>
-            <strong>{kpis.stockBas.length}</strong>
-            <small className="warning">{kpis.stockBas.length ? "articles à recommander" : "—"}</small>
-          </div>
-          <div className="fournitures-kpi-card">
-            <div className="fournitures-kpi-card-head">
-              <span className="fournitures-kpi-icon fournitures-kpi-icon-purple">📊</span>
-              <span className="title-chip">Dépenses du mois</span>
-            </div>
-            <strong>{euro(kpis.depensesMois)}</strong>
-            <small>HT</small>
-          </div>
+        <div className="acts">
+          <button type="button" className="btn btn-main" onClick={() => setFormOpen(true)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Nouvelle commande
+          </button>
         </div>
+      </div>
 
-        <div className="fournitures-dashboard-body">
-          <div className="fournitures-main-card">
-            <div className="fournitures-main-card-head">
-              <strong className="title-chip">Commandes</strong>
-              <div className="fournitures-filter-tabs">
-                {FILTER_TABS.map((tab) => (
-                  <button type="button" key={tab.id} className={filterTab === tab.id ? "active" : ""} onClick={() => setFilterTab(tab.id)}>
-                    {tab.label}
-                  </button>
-                ))}
+      {error ? <p className="notice" role="alert">{error}</p> : null}
+
+      <div className="kpis">
+        <div>
+          <div className="l">Commandes en cours</div>
+          <div className="v">{kpis.enCours}</div>
+          <div className="s">{kpis.enCoursSuppliers} fournisseur{kpis.enCoursSuppliers > 1 ? "s" : ""}</div>
+        </div>
+        <div>
+          <div className="l">À livrer cette semaine</div>
+          <div className="v">{kpis.aLivrer}</div>
+          <div className="s">{kpis.demain ? `dont ${kpis.demain} demain` : "rien demain"}</div>
+        </div>
+        <div>
+          <div className="l">Stock bas</div>
+          <div className="v">{kpis.stockBas.length}</div>
+          <div className="s">{kpis.stockBas.length ? "articles à recommander" : "rien à recommander"}</div>
+        </div>
+        <div>
+          <div className="l">Dépenses du mois</div>
+          <div className="v">{euro(kpis.depensesMois)}</div>
+          <div className="s">HT, commandes créées ce mois-ci</div>
+        </div>
+      </div>
+
+      <div className="tbar">
+        <FournituresTabs current="commandes" counts={tabCounts} />
+      </div>
+
+      <div className="fp-layout">
+        <div className="fp-main">
+          <div className="kp-seg" role="group" aria-label="Filtrer les commandes">
+            {FILTER_TABS.map((tab) => (
+              <button type="button" key={tab.id} className={filterTab === tab.id ? "on" : ""} aria-pressed={filterTab === tab.id} onClick={() => setFilterTab(tab.id)}>
+                {tab.label}<b>{filterCounts[tab.id]}</b>
+              </button>
+            ))}
+          </div>
+
+          {loading || filteredCommandes.length === 0 ? (
+            <div className="tbl">
+              <p className="empty">{loading ? "Chargement…" : filterTab === "toutes" ? "Aucune commande. Créez votre première commande fournisseur." : "Aucune commande dans cette catégorie."}</p>
+            </div>
+          ) : (
+            <>
+              <div className="tbl fit has-cards">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fournisseur · articles</th>
+                      <th>Chantier</th>
+                      <th>Livraison</th>
+                      <th className="r">Montant HT</th>
+                      <th>Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCommandes.map((commande) => {
+                      const meta = STATUS_META[commande.status] || STATUS_META.a_commander;
+                      const expanded = expandedId === commande.id;
+                      return [
+                        <tr key={commande.id} tabIndex={0} aria-expanded={expanded} onClick={() => setExpandedId(expanded ? null : commande.id)} onKeyDown={(event) => { if (event.key === "Enter") setExpandedId(expanded ? null : commande.id); }}>
+                          <td className="n">{commande.supplierName || "Fournisseur"}<div className="sm">{itemsText(commande) || "—"}</div></td>
+                          <td>{commande.projectTitle || <span className="sm2">Sans chantier</span>}</td>
+                          <td>{commande.deliveryDate ? deliveryLabel(commande.deliveryDate) : <span className="sm2">—</span>}</td>
+                          <td className="r">{euro(commande.montantHt)}</td>
+                          <td><span className={meta.tag}>{meta.label}</span></td>
+                        </tr>,
+                        expanded ? (
+                          <tr key={`${commande.id}-detail`} className="tbl-detail">
+                            <td colSpan={5}>
+                              <div className="fp-detail">
+                                {statusSelect(commande)}
+                                {commande.notes ? <p>{commande.notes}</p> : <p className="sm2">Pas de note sur cette commande.</p>}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null
+                      ];
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
 
-            {loading ? <p className="tool-muted">Chargement…</p> : null}
-            {!loading && filteredCommandes.length === 0 ? (
-              <div className="tool-empty">
-                <strong>Aucune commande</strong>
-                <span>Créez votre première commande fournisseur.</span>
+              <div className="mlist">
+                {filteredCommandes.map((commande) => {
+                  const meta = STATUS_META[commande.status] || STATUS_META.a_commander;
+                  return (
+                    <div className="m-card" key={commande.id}>
+                      <div className="top2">
+                        <div>
+                          <div className="nm">{commande.supplierName || "Fournisseur"}</div>
+                          <div className="meta">{[itemsText(commande), commande.projectTitle].filter(Boolean).join(" · ") || "—"}</div>
+                        </div>
+                        <span className={meta.tag}>{meta.label}</span>
+                      </div>
+                      <div className="dvc-f">
+                        <b>{euro(commande.montantHt)}</b>
+                        <span className="meta">{commande.deliveryDate ? `livraison ${deliveryLabel(commande.deliveryDate).toLowerCase()}` : "pas de date de livraison"}</span>
+                      </div>
+                      {commande.notes ? <div className="line">{commande.notes}</div> : null}
+                      {statusSelect(commande)}
+                    </div>
+                  );
+                })}
               </div>
-            ) : null}
-
-            <div className="fournitures-table">
-              {filteredCommandes.map((commande) => {
-                const meta = STATUS_META[commande.status];
-                const expanded = expandedId === commande.id;
-                return (
-                  <div key={commande.id} className="fournitures-table-row-wrap">
-                    <button
-                      type="button"
-                      className="fournitures-table-row"
-                      onClick={() => setExpandedId(expanded ? null : commande.id)}
-                      aria-expanded={expanded}
-                    >
-                      <div className="fournitures-table-cell fournitures-table-supplier">
-                        <strong>{commande.supplierName || "Fournisseur"}</strong>
-                        <small>{commande.items.map((i) => i.name).join(", ") || "—"}</small>
-                      </div>
-                      <div className="fournitures-table-cell">{commande.projectTitle || "—"}</div>
-                      <div className="fournitures-table-cell">{commande.deliveryDate ? shortDate(commande.deliveryDate) : "—"}</div>
-                      <div className="fournitures-table-cell fournitures-table-amount">{euro(commande.montantHt)}</div>
-                      <span className="status-pill" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
-                    </button>
-                    {expanded ? (
-                      <div className="fournitures-table-detail">
-                        {commande.notes ? <p>{commande.notes}</p> : null}
-                        <label>
-                          <span>Statut</span>
-                          <select value={commande.status} onChange={(event) => changeStatus(commande, event.target.value)}>
-                            {Object.entries(STATUS_META).map(([id, m]) => <option key={id} value={id}>{m.label}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="fournitures-sidebar">
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Stock bas</strong>
-              {kpis.stockBas.length === 0 ? <p className="tool-muted">Rien à signaler.</p> : null}
-              {kpis.stockBas.map((item) => (
-                <div className="fournitures-stock-row" key={item.id}>
-                  <div>
-                    <span>{item.name}</span>
-                    <strong className="warning">{item.quantity} restant{item.quantity > 1 ? "s" : ""}</strong>
-                  </div>
-                  <div className="fournitures-stock-bar">
-                    <div style={{ width: `${Math.min(100, (item.quantity / Math.max(item.reorderThreshold, 1)) * 100)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="fournitures-sidebar-card">
-              <strong className="title-chip">Prochaines livraisons</strong>
-              {prochainesLivraisons.length === 0 ? <p className="tool-muted">Rien de prévu.</p> : null}
-              {prochainesLivraisons.map((commande) => (
-                <div className="fournitures-delivery-row" key={commande.id}>
-                  <span className="fournitures-kpi-icon">📦</span>
-                  <div>
-                    <strong>{commande.items.map((i) => i.name).join(", ") || commande.supplierName}</strong>
-                    <small>{commande.projectTitle || commande.supplierName}</small>
-                  </div>
-                  <span>{deliveryLabel(commande.deliveryDate)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+              <p className="foot-note">Cliquez sur une commande pour changer son statut ou lire sa note.</p>
+            </>
+          )}
         </div>
 
-        {formOpen ? (
-          <div className="modal-overlay" onClick={() => setFormOpen(false)}>
-            <form className="mini-modal category-modal" onSubmit={submitOrder} onClick={(event) => event.stopPropagation()}>
+        <aside className="fp-side">
+          <section className="card">
+            <div className="card-h"><h2>Prochaines livraisons</h2></div>
+            {prochainesLivraisons.length === 0 ? <p className="muted">Rien de prévu.</p> : prochainesLivraisons.map((commande) => (
+              <div className="row" key={commande.id}>
+                <div className="t">
+                  <strong>{itemsText(commande) || commande.supplierName}</strong>
+                  <small>{[commande.supplierName, commande.projectTitle].filter(Boolean).join(" · ")}</small>
+                </div>
+                <b>{deliveryLabel(commande.deliveryDate)}</b>
+              </div>
+            ))}
+          </section>
+          <section className="card">
+            <div className="card-h"><h2>Stock bas</h2></div>
+            {kpis.stockBas.length === 0 ? <p className="muted">Rien à signaler.</p> : kpis.stockBas.map((item) => (
+              <div className="fp-stock" key={item.id}>
+                <div className="fp-stock-h">
+                  <span>{item.name}</span>
+                  <b>{item.quantity} restant{item.quantity > 1 ? "s" : ""}</b>
+                </div>
+                <div className="bar"><i style={{ width: `${Math.min(100, (item.quantity / Math.max(item.reorderThreshold, 1)) * 100)}%` }} /></div>
+              </div>
+            ))}
+          </section>
+        </aside>
+      </div>
+
+      {formOpen ? (
+        <div className="pmodal-bg" onClick={() => setFormOpen(false)}>
+          <form className="pmodal" role="dialog" aria-modal="true" aria-label="Nouvelle commande" onSubmit={submitOrder} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
               <h2>Nouvelle commande</h2>
-              <label className="category-modal-field">
-                <span>Fournisseur</span>
+              <button type="button" className="link" onClick={() => setFormOpen(false)}>Fermer</button>
+            </div>
+            <div className="fgrid">
+              <label>Fournisseur
                 <select value={form.supplierId} onChange={(event) => setField("supplierId", event.target.value)} required>
                   <option value="">Choisir…</option>
                   {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </label>
-              <label className="category-modal-field">
-                <span>Chantier</span>
+              <label>Chantier
                 <select value={form.projectId} onChange={(event) => setField("projectId", event.target.value)}>
                   <option value="">Aucun</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
                 </select>
               </label>
-              <label className="category-modal-field">
-                <span>Articles (séparés par une virgule)</span>
+              <label className="full">Articles, séparés par une virgule
                 <input value={form.itemsText} onChange={(event) => setField("itemsText", event.target.value)} placeholder="Carrelage 60x60, colle, joints" />
               </label>
-              <label className="category-modal-field">
-                <span>Montant HT</span>
+              <label>Montant HT
                 <input type="number" step="0.01" value={form.montantHt} onChange={(event) => setField("montantHt", event.target.value)} placeholder="0.00" />
               </label>
-              <label className="category-modal-field">
-                <span>Date de livraison</span>
+              <label>Date de livraison
                 <input type="date" value={form.deliveryDate} onChange={(event) => setField("deliveryDate", event.target.value)} />
               </label>
-              <label className="category-modal-field">
-                <span>Statut</span>
+              <label>Statut
                 <select value={form.status} onChange={(event) => setField("status", event.target.value)}>
                   {Object.entries(STATUS_META).map(([id, m]) => <option key={id} value={id}>{m.label}</option>)}
                 </select>
               </label>
-              <label className="category-modal-field">
-                <span>Notes</span>
+              <label className="full">Notes
                 <input value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
               </label>
-              <div className="category-modal-actions">
-                <button type="button" onClick={() => setFormOpen(false)}>Annuler</button>
-                <button type="submit" className="button blue" disabled={busy}>Créer</button>
-              </div>
-            </form>
-          </div>
-        ) : null}
-      </section>
+            </div>
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setFormOpen(false)}>Annuler</button>
+              <button type="submit" className="btn btn-main" disabled={busy}>{busy ? "Création…" : "Créer la commande"}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </Shell>
   );
 }

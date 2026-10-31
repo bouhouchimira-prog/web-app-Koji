@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Shell } from "../../components/Shell";
 import { BibliothequeOuvrageTable } from "../../components/BibliothequeOuvrageTable";
 import { BibliothequeTariffModal } from "../../components/BibliothequeTariffModal";
@@ -13,6 +13,7 @@ import { VISITE_METIERS } from "../../lib/visite-tree";
 import {
   FAMILY_SUBTITLE_OVERRIDES,
   METIER_ICONS,
+  formatMoney,
   matchMetier,
   nextPersoCode
 } from "../../lib/bibliotheque-pricing";
@@ -66,7 +67,6 @@ function parseImportLine(line) {
 
 export default function BibliothequeAccueilPage() {
   const { L } = useLocale();
-  const router = useRouter();
   const { data: ouvrages, setData: setOuvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
   const [activeTab, setActiveTab] = useState("familles");
   const [query, setQuery] = useState("");
@@ -282,142 +282,141 @@ export default function BibliothequeAccueilPage() {
     for (const item of items) await copyToPerso(item);
   }
 
+  const tableProps = {
+    L,
+    companyHourlyRate,
+    selectedIds,
+    onToggleSelect: toggleSelected,
+    onEdit: openEditModal,
+    onDelete: removeOuvrage,
+    isAdmin,
+    showFamilyColumn: true
+  };
+  const importLines = importText.split("\n").filter((l) => l.trim()).length;
+
   return (
-    <Shell>
-      <section className="fournitures-dashboard">
-        <header className="fournitures-dashboard-head">
-          <div>
-            <h1><span className="title-chip">{L.bibliotheque.title}</span></h1>
-            <p>{L.bibliotheque.chooseFamilyHint}</p>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <button type="button" className="button secondary" onClick={() => setImportOpen(true)}>{L.bibliotheque.importSpreadsheet}</button>
-            <button type="button" className="button gold" onClick={() => openCreateModal("")}>+ {L.bibliotheque.createTariff}</button>
-          </div>
-        </header>
-
-        {message ? <p className="library-message">{message}</p> : null}
-
-        <div className="biblio-tabs-row">
-          <div className="biblio-tabs">
-            <button type="button" className={activeTab === "familles" ? "active" : ""} onClick={() => setActiveTab("familles")}>
-              {L.bibliotheque.familiesTab}
-            </button>
-            <button type="button" className={activeTab === "perso" ? "active" : ""} onClick={() => setActiveTab("perso")}>
-              {L.bibliotheque.myPricesTab}
-              <span className="biblio-tab-badge perso">{myOuvrages.length}</span>
-            </button>
-          </div>
-          <input
-            className="supplier-search-input biblio-search-input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={L.bibliotheque.search}
-          />
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            {[`${ouvrages.length} ouvrage${ouvrages.length > 1 ? "s" : ""}`, `${familyStats.length} famille${familyStats.length > 1 ? "s" : ""}`, companyHourlyRate ? `taux horaire ${formatMoney(companyHourlyRate)} / h` : "taux horaire non renseigné"].join(" · ")}
+          </span>
+          <h1>{L.bibliotheque.title}</h1>
+          <span className="muted">{L.bibliotheque.chooseFamilyHint}</span>
         </div>
+        <div className="acts">
+          <button type="button" className="btn btn-sec" onClick={() => setImportOpen(true)}>{L.bibliotheque.importSpreadsheet}</button>
+          <button type="button" className="btn btn-main" onClick={() => openCreateModal("")}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            {L.bibliotheque.createTariff}
+          </button>
+        </div>
+      </div>
 
-        {searching ? (
-          <>
-            <BibliothequeOuvrageTable
-              L={L}
-              mode="koji"
-              groups={groupByFamily(searchMatches.filter((item) => !item.userId))}
-              companyHourlyRate={companyHourlyRate}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelected}
-              onCopyToPerso={copyToPerso}
-              onEdit={openEditModal}
-              onDelete={removeOuvrage}
-              onHide={hideOuvrage}
-              isAdmin={isAdmin}
-              showFamilyColumn
-            />
-            <BibliothequeOuvrageTable
-              L={L}
-              mode="perso"
-              groups={groupByFamily(searchMatches.filter((item) => item.userId))}
-              companyHourlyRate={companyHourlyRate}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelected}
-              onEdit={openEditModal}
-              onDelete={removeOuvrage}
-              isAdmin={isAdmin}
-              showFamilyColumn
-              emptyLabel={L.bibliotheque.noPersoYet}
-            />
-          </>
-        ) : activeTab === "perso" ? (
+      {message ? <p className="notice" role="status">{message}</p> : null}
+
+      <div className="tbar">
+        <div className="wtabs" role="tablist" aria-label={L.bibliotheque.title}>
+          <button type="button" role="tab" aria-selected={activeTab === "familles" && !searching} className={activeTab === "familles" && !searching ? "on" : ""} onClick={() => { setActiveTab("familles"); setQuery(""); }}>
+            {L.bibliotheque.familiesTab} <span>{familyStats.length}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "perso" && !searching} className={activeTab === "perso" && !searching ? "on" : ""} onClick={() => { setActiveTab("perso"); setQuery(""); }}>
+            {L.bibliotheque.myPricesTab} <span>{myOuvrages.length}</span>
+          </button>
+        </div>
+        <label className="search search-wide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Code, ouvrage, famille" aria-label={L.bibliotheque.search} />
+        </label>
+      </div>
+
+      {searching ? (
+        <>
+          <p className="muted bib-found">{searchMatches.length} résultat{searchMatches.length > 1 ? "s" : ""} pour « {query.trim()} »</p>
           <BibliothequeOuvrageTable
-            L={L}
+            {...tableProps}
+            mode="koji"
+            title={L.bibliotheque.kojiTab}
+            groups={groupByFamily(searchMatches.filter((item) => !item.userId))}
+            onCopyToPerso={copyToPerso}
+            onHide={hideOuvrage}
+          />
+          <BibliothequeOuvrageTable
+            {...tableProps}
             mode="perso"
-            groups={groupByFamily(myOuvrages)}
-            companyHourlyRate={companyHourlyRate}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelected}
-            onEdit={openEditModal}
-            onDelete={removeOuvrage}
-            isAdmin={isAdmin}
-            showFamilyColumn
+            title={L.bibliotheque.myPricesTab}
+            groups={groupByFamily(searchMatches.filter((item) => item.userId))}
             emptyLabel={L.bibliotheque.noPersoYet}
           />
-        ) : (
-          <>
-            {metierCoverage.missing.length > 0 ? (
-              <div className="biblio-missing-banner">
-                <span>{L.bibliotheque.missingMetiers(metierCoverage.missing.length)}</span>
-                <div className="biblio-missing-list">
-                  {metierCoverage.missing.map((metier) => (
-                    <button type="button" key={metier.key} className="mini-button" onClick={() => openCreateModal(metier.label)}>
-                      {metier.label} · {L.bibliotheque.completeBtn}
-                    </button>
-                  ))}
-                </div>
+        </>
+      ) : activeTab === "perso" ? (
+        <>
+          <p className="notice">{L.bibliotheque.persoInfoBanner}</p>
+          <BibliothequeOuvrageTable
+            {...tableProps}
+            mode="perso"
+            groups={groupByFamily(myOuvrages)}
+            emptyLabel={L.bibliotheque.noPersoYet}
+          />
+        </>
+      ) : (
+        <>
+          {metierCoverage.missing.length > 0 ? (
+            <div className="notice bib-missing">
+              <strong>{L.bibliotheque.missingMetiers(metierCoverage.missing.length)}</strong>
+              <div className="chips">
+                {metierCoverage.missing.map((metier) => (
+                  <button type="button" key={metier.key} className="chip chip-s" onClick={() => openCreateModal(metier.label)}>
+                    {metier.label} · {L.bibliotheque.completeBtn}
+                  </button>
+                ))}
               </div>
-            ) : null}
-
-            <div className="library-family-grid">
-              {familyStats.map((fam) => (
-                <button
-                  type="button"
-                  key={fam.name}
-                  className="library-family-card"
-                  onClick={() => router.push(`/bibliotheque-ouvrages/${encodeURIComponent(fam.name)}`)}
-                >
-                  <div className="library-family-card-head">
-                    <span className="library-family-icon">{fam.icon}</span>
-                    <strong>{fam.count}</strong>
-                  </div>
-                  <strong className="library-family-name">{fam.name}</strong>
-                  <small className="library-family-metier">{fam.subtitle}</small>
-                  {fam.persoCount > 0 ? <span className="biblio-tab-badge perso biblio-family-perso-badge">+{fam.persoCount} perso</span> : null}
-                </button>
-              ))}
             </div>
-          </>
-        )}
+          ) : null}
 
-        {selectedIds.length > 0 ? (
-          <div className="library-selection-bar">
-            <span>{L.bibliotheque.selected(selectedIds.length)}</span>
-            {selectedKojiCount > 0 ? <button type="button" onClick={copySelectionToPerso}>{L.bibliotheque.copyToPerso}</button> : null}
-            <button type="button" onClick={addSelectionToQuote}>{L.bibliotheque.addToQuote(selectedIds.length)}</button>
+          <div className="bib-grid">
+            {familyStats.map((fam) => (
+              <Link key={fam.name} className="bib-fam" href={`/bibliotheque-ouvrages/${encodeURIComponent(fam.name)}`}>
+                <span className="bib-fam-h">
+                  <strong>{fam.name}</strong>
+                  <b>{fam.count}</b>
+                </span>
+                <span className="muted">{fam.subtitle}</span>
+                {fam.persoCount > 0 ? <span className="tag tag-e">+{fam.persoCount} perso</span> : null}
+              </Link>
+            ))}
           </div>
-        ) : null}
-      </section>
+        </>
+      )}
+
+      {selectedIds.length > 0 ? (
+        <div className="bib-selbar" role="region" aria-label="Sélection">
+          <span>{L.bibliotheque.selected(selectedIds.length)}</span>
+          {selectedKojiCount > 0 ? <button type="button" className="btn btn-sec" onClick={copySelectionToPerso}>{L.bibliotheque.copyToPerso}</button> : null}
+          <button type="button" className="btn btn-main" onClick={addSelectionToQuote}>{L.bibliotheque.addToQuote(selectedIds.length)}</button>
+        </div>
+      ) : null}
 
       {importOpen ? (
-        <div className="modal-overlay" onClick={() => setImportOpen(false)}>
-          <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
-            <h2>{L.bibliotheque.importSpreadsheet}</h2>
-            <p className="library-import-hint">
+        <div className="pmodal-bg" onClick={() => setImportOpen(false)}>
+          <div className="pmodal" role="dialog" aria-modal="true" aria-label={L.bibliotheque.importSpreadsheet} onClick={(event) => event.stopPropagation()}>
+            <div className="card-h">
+              <h2>{L.bibliotheque.importSpreadsheet}</h2>
+              <button type="button" className="link" onClick={() => setImportOpen(false)}>Fermer</button>
+            </div>
+            <p className="muted">
               Une ligne par ouvrage, colonnes séparées par une tabulation : code, désignation, famille, sous-famille, unité, temps (h/u), taux horaire (€/h), commentaire (optionnel).
             </p>
-            <textarea className="library-import-textarea" value={importText} onChange={(event) => setImportText(event.target.value)} rows={8} />
-            {importMessage ? <p className="library-message">{importMessage}</p> : null}
-            <div>
-              <button type="button" className="button secondary" onClick={() => setImportOpen(false)}>{L.bibliotheque.cancel}</button>
-              <button type="button" className="button gold" onClick={importCatalog} disabled={importBusy}>
-                {importBusy ? "…" : `Importer (${importText.split("\n").filter((l) => l.trim()).length})`}
+            <div className="fgrid">
+              <label className="full">Lignes à importer
+                <textarea className="bib-import" value={importText} onChange={(event) => setImportText(event.target.value)} rows={10} />
+              </label>
+            </div>
+            {importMessage ? <p className="notice" role="status">{importMessage}</p> : null}
+            <div className="pm-act">
+              <button type="button" className="btn btn-sec" onClick={() => setImportOpen(false)}>{L.bibliotheque.cancel}</button>
+              <button type="button" className="btn btn-main" onClick={importCatalog} disabled={importBusy || importLines === 0}>
+                {importBusy ? "Import en cours…" : `Importer ${importLines} ligne${importLines > 1 ? "s" : ""}`}
               </button>
             </div>
           </div>

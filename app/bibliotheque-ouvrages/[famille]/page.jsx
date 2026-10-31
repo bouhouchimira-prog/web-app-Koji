@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Shell } from "../../../components/Shell";
 import { BibliothequeOuvrageTable } from "../../../components/BibliothequeOuvrageTable";
 import { BibliothequeTariffModal } from "../../../components/BibliothequeTariffModal";
@@ -9,13 +10,12 @@ import { apiGet, apiSend } from "../../../lib/client-api";
 import { useLocale } from "../../../lib/i18n";
 import { useApi } from "../../../lib/use-api";
 import catalog from "../../../data/catalog-ouvrages.json";
-import { METIER_ICONS, formatMoney, matchMetier, nextPersoCode } from "../../../lib/bibliotheque-pricing";
+import { formatMoney, matchMetier, nextPersoCode } from "../../../lib/bibliotheque-pricing";
 
 const SELECTION_KEY = "koji-devis-ouvrages";
 
 export default function BibliothequeFamillePage() {
   const { L } = useLocale();
-  const router = useRouter();
   const params = useParams();
   const familyName = decodeURIComponent(params.famille || "");
   const { data: ouvrages, setData: setOuvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
@@ -63,7 +63,6 @@ export default function BibliothequeFamillePage() {
   const persoOuvrages = useMemo(() => familyOuvrages.filter((item) => item.userId), [familyOuvrages]);
 
   const metier = matchMetier(familyName);
-  const icon = (metier && METIER_ICONS[metier.key]) || "🛠️";
 
   const subfamilies = useMemo(
     () => Array.from(new Set(familyOuvrages.map((item) => item.category).filter(Boolean))).sort(),
@@ -171,111 +170,130 @@ export default function BibliothequeFamillePage() {
     for (const item of items) await copyToPerso(item);
   }
 
+  const familyCounts = useMemo(() => {
+    const counts = {};
+    ouvrages.forEach((item) => {
+      const name = item.family || "Autre";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    return counts;
+  }, [ouvrages]);
+
+  const tableProps = {
+    L,
+    companyHourlyRate,
+    selectedIds,
+    onToggleSelect: toggleSelected,
+    onEdit: openEditModal,
+    onDelete: removeOuvrage,
+    isAdmin
+  };
+
   return (
-    <Shell>
-      <main className="biblio-family-page">
-        <div className="biblio-family-head">
-          <button type="button" className="biblio-back" aria-label="Retour" onClick={() => router.push("/bibliotheque-ouvrages")}>{"<"}</button>
-          <span className="biblio-family-icon-lg">{icon}</span>
-          <div className="biblio-family-title">
-            <div className="biblio-breadcrumb">{L.bibliotheque.title} <span>›</span> <span>{L.bibliotheque.familiesTab}</span></div>
-            <h1>{familyName}</h1>
-          </div>
-          <div className="fournitures-dashboard-head-actions">
-            <button type="button" className="button gold" onClick={openCreateModal}>+ {L.bibliotheque.createTariff}</button>
-          </div>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <span className="eyebrow">
+            <Link href="/bibliotheque-ouvrages" className="link">{L.bibliotheque.title}</Link>
+            {" · "}{metier?.label || "Famille d'ouvrages"}
+          </span>
+          <h1>{familyName}</h1>
         </div>
-
-        {message ? <p className="library-message">{message}</p> : null}
-
-        <div className="biblio-kpi-row">
-          <div className="fournitures-kpi-card">
-            <small>{L.bibliotheque.hourlyRateCardLabel(metier?.label || familyName)}</small>
-            <strong>{formatMoney(companyHourlyRate)} / h</strong>
-            <small>{L.bibliotheque.kojiOuvragesDesc}</small>
-            <a className="mini-button" href="/profil">{L.bibliotheque.editRateBtn}</a>
-          </div>
-          <div className="fournitures-kpi-card">
-            <small>{L.bibliotheque.kojiTab}</small>
-            <strong>{kojiOuvrages.length}</strong>
-            <small>{L.bibliotheque.kojiOuvragesDesc}</small>
-          </div>
-          <div className="fournitures-kpi-card biblio-perso-card">
-            <small>{L.bibliotheque.myPricesTab}</small>
-            <strong>{persoOuvrages.length}</strong>
-            <small>{L.bibliotheque.myPricesDesc}</small>
-          </div>
+        <div className="acts">
+          <button type="button" className="btn btn-main" onClick={openCreateModal}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            {L.bibliotheque.createTariff}
+          </button>
         </div>
+      </div>
 
-        <div className="biblio-info-banner">{tab === "koji" ? L.bibliotheque.kojiInfoBanner : L.bibliotheque.persoInfoBanner}</div>
+      {message ? <p className="notice" role="status">{message}</p> : null}
 
-        <div className="biblio-tabs-row">
-          <div className="biblio-tabs">
-            <button type="button" className={tab === "koji" ? "active" : ""} onClick={() => setTab("koji")}>
-              {L.bibliotheque.kojiTab}<span className="biblio-tab-badge">{kojiOuvrages.length}</span>
-            </button>
-            <button type="button" className={tab === "perso" ? "active" : ""} onClick={() => setTab("perso")}>
-              {L.bibliotheque.myPricesTab}<span className="biblio-tab-badge perso">{persoOuvrages.length}</span>
-            </button>
-          </div>
-          <input
-            className="supplier-search-input biblio-search-input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={L.bibliotheque.searchInFamily(familyName)}
-          />
+      <div className="kpis k3">
+        <div>
+          <div className="l">{L.bibliotheque.hourlyRateCardLabel(metier?.label || familyName)}</div>
+          <div className="v">{companyHourlyRate ? `${formatMoney(companyHourlyRate)} / h` : "—"}</div>
+          <div className="s"><Link href="/profil" className="fp-web">{L.bibliotheque.editRateBtn}</Link></div>
         </div>
+        <div>
+          <div className="l">{L.bibliotheque.kojiTab}</div>
+          <div className="v">{kojiOuvrages.length}</div>
+          <div className="s">{L.bibliotheque.kojiOuvragesDesc}</div>
+        </div>
+        <div>
+          <div className="l">{L.bibliotheque.myPricesTab}</div>
+          <div className="v">{persoOuvrages.length}</div>
+          <div className="s">{L.bibliotheque.myPricesDesc}</div>
+        </div>
+      </div>
 
-        <div className="biblio-chips">
-          <button type="button" className={!subfamily ? "active" : ""} onClick={() => setSubfamily("")}>{L.bibliotheque.allSubfamilies}</button>
-          {subfamilies.map((item) => (
-            <button type="button" key={item} className={subfamily === item ? "active" : ""} onClick={() => setSubfamily(item)}>{item}</button>
+      <div className="tbar">
+        <div className="wtabs" role="tablist" aria-label={familyName}>
+          <button type="button" role="tab" aria-selected={tab === "koji"} className={tab === "koji" ? "on" : ""} onClick={() => setTab("koji")}>
+            {L.bibliotheque.kojiTab} <span>{kojiOuvrages.length}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "perso"} className={tab === "perso" ? "on" : ""} onClick={() => setTab("perso")}>
+            {L.bibliotheque.myPricesTab} <span>{persoOuvrages.length}</span>
+          </button>
+        </div>
+        <label className="search search-wide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={L.bibliotheque.searchInFamily(familyName)} aria-label={L.bibliotheque.searchInFamily(familyName)} />
+        </label>
+      </div>
+
+      <div className="bib-layout">
+        <nav className="bib-nav" aria-label="Familles">
+          <span className="flab">Familles</span>
+          {families.map((name) => (
+            <Link key={name} href={`/bibliotheque-ouvrages/${encodeURIComponent(name)}`} className={name === familyName ? "on" : ""} aria-current={name === familyName ? "page" : undefined}>
+              {name}<span>{familyCounts[name] || 0}</span>
+            </Link>
           ))}
-        </div>
+        </nav>
 
-        {tab === "koji" ? (
-          <BibliothequeOuvrageTable
-            L={L}
-            mode="koji"
-            groups={visibleKoji}
-            companyHourlyRate={companyHourlyRate}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelected}
-            onCopyToPerso={copyToPerso}
-            onEdit={openEditModal}
-            onDelete={removeOuvrage}
-            onHide={hideOuvrage}
-            isAdmin={isAdmin}
-            emptyLabel={L.bibliotheque.noFamilyOuvrages}
-          />
-        ) : (
-          <>
+        <div className="fp-main">
+          <p className="notice">{tab === "koji" ? L.bibliotheque.kojiInfoBanner : L.bibliotheque.persoInfoBanner}</p>
+
+          {subfamilies.length > 1 ? (
+            <div className="chips" role="group" aria-label="Sous-familles">
+              <button type="button" className={`chip chip-s${!subfamily ? " on" : ""}`} aria-pressed={!subfamily} onClick={() => setSubfamily("")}>{L.bibliotheque.allSubfamilies}</button>
+              {subfamilies.map((item) => (
+                <button type="button" key={item} className={`chip chip-s${subfamily === item ? " on" : ""}`} aria-pressed={subfamily === item} onClick={() => setSubfamily(item)}>{item}</button>
+              ))}
+            </div>
+          ) : null}
+
+          {tab === "koji" ? (
             <BibliothequeOuvrageTable
-              L={L}
-              mode="perso"
-              groups={visiblePerso}
-              companyHourlyRate={companyHourlyRate}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelected}
-              onEdit={openEditModal}
-              onDelete={removeOuvrage}
-              isAdmin={isAdmin}
-              emptyLabel={L.bibliotheque.noPersoYet}
+              {...tableProps}
+              mode="koji"
+              groups={visibleKoji}
+              onCopyToPerso={copyToPerso}
+              onHide={hideOuvrage}
+              emptyLabel={L.bibliotheque.noFamilyOuvrages}
             />
-            <button type="button" className="biblio-create-in-family" onClick={openCreateModal}>
-              + {L.bibliotheque.createTariffInFamily(familyName)}
-            </button>
-          </>
-        )}
+          ) : (
+            <>
+              <BibliothequeOuvrageTable
+                {...tableProps}
+                mode="perso"
+                groups={visiblePerso}
+                emptyLabel={L.bibliotheque.noPersoYet}
+              />
+              <div><button type="button" className="btn btn-sec" onClick={openCreateModal}>+ {L.bibliotheque.createTariffInFamily(familyName)}</button></div>
+            </>
+          )}
+        </div>
+      </div>
 
-        {selectedIds.length > 0 ? (
-          <div className="library-selection-bar">
-            <span>{L.bibliotheque.selected(selectedIds.length)}</span>
-            {tab === "koji" && selectedInFamilyKojiCount > 0 ? <button type="button" onClick={copySelectionToPerso}>{L.bibliotheque.copyToPerso}</button> : null}
-            <button type="button" onClick={addSelectionToQuote}>{L.bibliotheque.addToQuote(selectedIds.length)}</button>
-          </div>
-        ) : null}
-      </main>
+      {selectedIds.length > 0 ? (
+        <div className="bib-selbar" role="region" aria-label="Sélection">
+          <span>{L.bibliotheque.selected(selectedIds.length)}</span>
+          {tab === "koji" && selectedInFamilyKojiCount > 0 ? <button type="button" className="btn btn-sec" onClick={copySelectionToPerso}>{L.bibliotheque.copyToPerso}</button> : null}
+          <button type="button" className="btn btn-main" onClick={addSelectionToQuote}>{L.bibliotheque.addToQuote(selectedIds.length)}</button>
+        </div>
+      ) : null}
 
       <BibliothequeTariffModal
         L={L}

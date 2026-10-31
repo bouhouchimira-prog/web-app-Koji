@@ -20,30 +20,28 @@ const PERIOD_OPTIONS = [
 
 function StepRow({ row }) {
   return (
-    <div className="algo-stats-row">
-      <div className="algo-stats-row-top">
-        <strong>{row.label}</strong>
-        <span className="algo-stats-row-total">{row.total} réponse{row.total > 1 ? "s" : ""}</span>
+    <div style={{ padding: "12px 0", borderTop: "1px solid var(--line)" }}>
+      <div className="kv">
+        <span>{row.label}</span>
+        <b>{row.total} réponse{row.total > 1 ? "s" : ""}</b>
       </div>
-      <div className="algo-stats-bar">
-        <div className="algo-stats-bar-algo" style={{ width: `${row.algorithmePercent}%` }} />
-      </div>
-      <div className="algo-stats-row-legend">
-        <span className="algo-stats-dot algo" />Algorithme {row.algorithmePercent}% ({row.algorithme})
-        {row.ia_resserree > 0 ? <><span className="algo-stats-dot ia-resserree" />IA resserrée {Math.round((row.ia_resserree / row.total) * 100)}% ({row.ia_resserree})</> : null}
-        <span className="algo-stats-dot ia" />IA {Math.round((row.ia / row.total) * 100)}% ({row.ia})
-      </div>
+      <div className="bar"><i style={{ width: `${row.algorithmePercent}%` }} /></div>
+      <p className="sm2" style={{ margin: "6px 0 0" }}>
+        Algorithme {row.algorithmePercent} % ({row.algorithme})
+        {row.ia_resserree > 0 ? ` · IA resserrée ${Math.round((row.ia_resserree / row.total) * 100)} % (${row.ia_resserree})` : ""}
+        {` · IA ${Math.round((row.ia / row.total) * 100)} % (${row.ia})`}
+      </p>
     </div>
   );
 }
 
 function AssistantBlock({ title, rows }) {
   return (
-    <div className="radar-recap-card" style={{ marginBottom: 14 }}>
-      <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>{title}</h2>
-      {rows.length === 0 ? <p className="radar-recap-note">Aucune donnée pour cette période.</p> : null}
+    <section className="card">
+      <div className="card-h"><h2>{title}</h2></div>
+      {rows.length === 0 ? <p className="muted">Aucune donnée pour cette période.</p> : null}
       {rows.map((row) => <StepRow key={row.step} row={row} />)}
-    </div>
+    </section>
   );
 }
 
@@ -75,42 +73,36 @@ export default function AdminAlgoStatsPage() {
   if (allowed === null) return null;
 
   return (
-    <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => router.push("/")}>{"<"}</button>
+    <Shell variant="pro">
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => router.push("/")}>← Accueil</button>
+          <span className="eyebrow">Administration</span>
           <h1>Algorithme vs IA</h1>
-          <span />
-        </header>
-        <p className="radar-recap-note" style={{ margin: "0 0 14px" }}>
-          Pour chaque étape des deux assistants, part des réponses tranchées par un algorithme déterministe (mot-clé, clic exact, code F/T...) contre un appel IA.
-        </p>
-
-        <div className="radar-mode-tabs" style={{ marginBottom: 14, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-          {PERIOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.days}
-              type="button"
-              className={`radar-mode-tab ${days === opt.days ? "active" : ""}`}
-              style={{ padding: "10px 12px" }}
-              onClick={() => setDays(opt.days)}
-            >
-              <div><strong style={{ fontSize: 13 }}>{opt.label}</strong></div>
-            </button>
-          ))}
+          <span className="muted">Pour chaque étape des deux assistants, part des réponses tranchées par un algorithme déterministe (mot-clé, clic exact, code F/T...) contre un appel IA.</span>
         </div>
+      </div>
 
-        {error ? <div className="tool-empty">{error}</div> : null}
-        {!data && !error ? <div className="tool-empty">Chargement…</div> : null}
+      <div className="kp-seg" role="group" aria-label="Période" style={{ marginBottom: 16 }}>
+        {PERIOD_OPTIONS.map((opt) => (
+          <button type="button" key={opt.days} className={days === opt.days ? "on" : ""} aria-pressed={days === opt.days} onClick={() => setDays(opt.days)}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
-        {data ? (
-          <>
-            <p className="radar-recap-note" style={{ marginBottom: 14 }}>{data.totalEntries} événement{data.totalEntries > 1 ? "s" : ""} mesuré{data.totalEntries > 1 ? "s" : ""} sur la période.</p>
+      {error ? <p className="notice notice-err" role="alert">{error}</p> : null}
+      {!data && !error ? <p className="empty">Chargement…</p> : null}
+
+      {data ? (
+        <>
+          <p className="muted" style={{ marginBottom: 16 }}>{data.totalEntries} événement{data.totalEntries > 1 ? "s" : ""} mesuré{data.totalEntries > 1 ? "s" : ""} sur la période.</p>
+          <div className="pf-g2">
             <AssistantBlock title="Radar des Chantiers (particulier)" rows={data.radar} />
             <AssistantBlock title="Koji pro (entreprise)" rows={data.koji} />
-          </>
-        ) : null}
-      </section>
+          </div>
+        </>
+      ) : null}
     </Shell>
   );
 }

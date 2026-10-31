@@ -154,93 +154,128 @@ export default function SignaturePage() {
 
   return (
     <Shell>
-      <section className="mobile-tool">
-        <header className="tool-topline">
-          <button type="button" className="plain-back" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>{"<"}</button>
+      <div className="head">
+        <div className="stack">
+          <button type="button" className="link" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/"))}>← Retour</button>
+          <span className="eyebrow">Signature</span>
           <h1>{L.signature.title}</h1>
-          <span />
-        </header>
+        </div>
+      </div>
 
-        <section className="signature-config">
-          <h2>{L.signature.config}</h2>
-          <p>{L.signature.configDesc}</p>
+      <Toast message={message} onClose={() => setMessage("")} />
 
-          <div className="segmented" style={{ marginBottom: "16px" }}>
-            <button type="button" className={signMode === "draw" ? "active" : ""} onClick={() => setSignMode("draw")}>{L.signature.draw}</button>
-            <button type="button" className={signMode === "import" ? "active" : ""} onClick={() => setSignMode("import")}>{L.signature.importPhoto}</button>
-          </div>
+      <section className="card">
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>{L.signature.config}</h2>
+        <p className="muted" style={{ marginBottom: 16 }}>{L.signature.configDesc}</p>
 
-          {signMode === "draw" ? (
-            <>
-              <div className="signature-pad-head">
-                <strong>{L.signature.drawSignature}</strong>
-                <button type="button" onClick={clearSignature}>{L.signature.clear}</button>
-              </div>
-              <canvas
-                ref={canvasRef}
-                className="signature-canvas"
-                onPointerDown={startDraw}
-                onPointerMove={draw}
-                onPointerUp={stopDraw}
-                onPointerCancel={stopDraw}
-                onPointerLeave={stopDraw}
-              />
-            </>
-          ) : (
-            <div className="signature-import-zone">
-              {importedImage || savedSignature?.signatureDataUrl ? (
-                <div className="signature-import-preview">
-                  <img
-                    src={importedImage || savedSignature.signatureDataUrl}
-                    alt="Aperçu de la signature"
-                  />
-                </div>
-              ) : (
-                <div className="signature-import-placeholder">
-                  <span>{L.signature.noImage}</span>
-                  <small>{L.signature.formats}</small>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleFileChange}
-              />
-              <button type="button" className="button secondary" onClick={() => fileInputRef.current?.click()}>
-                {importedImage || savedSignature?.signatureDataUrl ? L.signature.changeImage : L.signature.chooseImage}
-              </button>
-              {importedImage ? (
-                <button type="button" className="button danger small" onClick={() => setImportedImage(null)}>{L.signature.remove}</button>
-              ) : null}
+        <div className="kp-seg" role="group" style={{ marginBottom: 16 }}>
+          <button type="button" className={signMode === "draw" ? "on" : ""} aria-pressed={signMode === "draw"} onClick={() => setSignMode("draw")}>{L.signature.draw}</button>
+          <button type="button" className={signMode === "import" ? "on" : ""} aria-pressed={signMode === "import"} onClick={() => setSignMode("import")}>{L.signature.importPhoto}</button>
+        </div>
+
+        {signMode === "draw" ? (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <strong style={{ fontSize: 14 }}>{L.signature.drawSignature}</strong>
+              <button type="button" className="btn btn-sm" onClick={clearSignature}>{L.signature.clear}</button>
             </div>
-          )}
-
-          <button type="button" className="mobile-primary" onClick={saveSignature} style={{ marginTop: "14px" }}>{L.signature.save}</button>
-        </section>
-
-        <Toast message={message} onClose={() => setMessage("")} />
-
-        <section className="signature-list">
-          <h2>{L.signature.quotesToSign}</h2>
-          {signable.length === 0 ? <div className="tool-empty">{L.signature.noQuotesToSign}</div> : null}
-          {signable.map((quote) => (
-            <article className="quote-sign-row" key={quote.id}>
-              <div>
-                <strong>{quote.client}</strong>
-                <small>{quote.quoteNumber} - {quote.sentAt ? shortDate(quote.sentAt) : L.signature.notSent}</small>
+            <canvas
+              ref={canvasRef}
+              style={{
+                border: "2px solid var(--line)",
+                borderRadius: 6,
+                width: "100%",
+                height: 200,
+                backgroundColor: "#ffffff",
+                cursor: "crosshair",
+                display: "block",
+                marginBottom: 16
+              }}
+              onPointerDown={startDraw}
+              onPointerMove={draw}
+              onPointerUp={stopDraw}
+              onPointerCancel={stopDraw}
+              onPointerLeave={stopDraw}
+            />
+          </>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            {importedImage || savedSignature?.signatureDataUrl ? (
+              <div style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 12, marginBottom: 12, textAlign: "center" }}>
+                <img
+                  src={importedImage || savedSignature.signatureDataUrl}
+                  alt="Aperçu de la signature"
+                  style={{ maxWidth: "100%", maxHeight: 150, display: "block", margin: "0 auto" }}
+                />
               </div>
-              <span>{euro(quote.totalTtc)}</span>
-              <div className="row-actions">
-                {quote.status === "Brouillon" ? <button className="mini-button" onClick={() => updateQuote(quote.id, "ready")}>{L.signature.prepare}</button> : null}
-                {quote.status !== "Signe" ? <button className="mini-button primary" onClick={() => updateQuote(quote.id, "send")}>{L.signature.link}</button> : null}
-                {quote.signatureUrl ? <Link className="mini-button" href={quote.signatureUrl}>{L.devis.openBtn}</Link> : null}
-                {quote.signatureUrl ? <button className="mini-button" onClick={() => copyLink(quote.signatureUrl)}>{L.devis.copy}</button> : null}
+            ) : (
+              <div style={{ border: "2px dashed var(--line)", borderRadius: 6, padding: 24, textAlign: "center", marginBottom: 12 }}>
+                <p>{L.signature.noImage}</p>
+                <small style={{ color: "var(--muted)" }}>{L.signature.formats}</small>
               </div>
-            </article>
-          ))}
-        </section>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+            <button type="button" className="btn btn-sec" onClick={() => fileInputRef.current?.click()}>
+              {importedImage || savedSignature?.signatureDataUrl ? L.signature.changeImage : L.signature.chooseImage}
+            </button>
+            {importedImage ? (
+              <button type="button" className="btn" style={{ marginLeft: 8, color: "var(--err)" }} onClick={() => setImportedImage(null)}>{L.signature.remove}</button>
+            ) : null}
+          </div>
+        )}
+
+        <button type="button" className="btn btn-main" onClick={saveSignature} style={{ marginTop: 16 }}>{L.signature.save}</button>
+      </section>
+
+      <section className="card">
+        <h2 style={{ fontSize: 16, marginBottom: 16 }}>{L.signature.quotesToSign}</h2>
+        {signable.length === 0 ? (
+          <div className="empty">
+            <p>{L.signature.noQuotesToSign}</p>
+          </div>
+        ) : (
+          <div className="tbl fit has-cards">
+            <table>
+              <tbody>
+                {signable.map((quote) => (
+                  <tr key={quote.id}>
+                    <td>
+                      <div>
+                        <strong>{quote.client}</strong>
+                        <small style={{ display: "block", color: "var(--muted)", fontSize: 12, marginTop: 2 }}>{quote.quoteNumber} — {quote.sentAt ? shortDate(quote.sentAt) : L.signature.notSent}</small>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <strong>{euro(quote.totalTtc)}</strong>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        {quote.status === "Brouillon" && (
+                          <button className="btn btn-sm" onClick={() => updateQuote(quote.id, "ready")} style={{ fontSize: 11 }}>{L.signature.prepare}</button>
+                        )}
+                        {quote.status !== "Signe" && (
+                          <button className="btn btn-sm" onClick={() => updateQuote(quote.id, "send")} style={{ fontSize: 11 }}>{L.signature.link}</button>
+                        )}
+                        {quote.signatureUrl && (
+                          <>
+                            <Link className="btn btn-sm" href={quote.signatureUrl} style={{ fontSize: 11 }}>{L.devis.openBtn}</Link>
+                            <button className="btn btn-sm" onClick={() => copyLink(quote.signatureUrl)} style={{ fontSize: 11 }}>{L.devis.copy}</button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </Shell>
   );
