@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
-import { PublicLanding } from "../components/PublicLanding";
+import { ChoisissezVotreEspace } from "./ChoisissezVotreEspace";
 import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
@@ -530,6 +530,6 @@ export default function RootPage() {
   }, []);
 
   if (status === "checking") return null;
-  if (status === "guest") return <PublicLanding />;
+  if (status === "guest") return <ChoisissezVotreEspace />;
   return <DashboardHome />;
 }

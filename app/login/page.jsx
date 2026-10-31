@@ -404,15 +404,14 @@ function AppleIcon() {
 
 // Ecran de connexion en 3 etapes : "quel profil ?" -> formulaire du profil
 // choisi -> (dans le formulaire) options Google/Apple (Microsoft retire le
-// 30 sept, aucune app OAuth Microsoft prevue). Google est desormais branche
+// 30 sept, aucune app OAuth Microsoft prevue). Google et Apple sont branches
 // pour les DEUX profils : cote Koji Pro (entreprise), la session Supabase
 // obtenue est la session finale (app/api/auth/google/finish) ; cote Koji
 // (particulier), ces comptes ne sont pas sur Supabase Auth — la session
 // Supabase sert uniquement a prouver l'email verifie, puis
 // app/api/auth/google/finish-particulier retrouve ou cree le compte dans
 // db.users et pose un jeton de portail (voir app/auth/google/callback pour
-// le branchement des deux, via ?profile=... dans redirectTo). Apple reste
-// "Bientot disponible" (pas d'app Sign in with Apple enregistree).
+// le branchement des deux, via ?profile=... dans redirectTo).
 function SsoOptions({ profile, L }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -443,6 +442,26 @@ function SsoOptions({ profile, L }) {
     }
   }
 
+  async function handleApple() {
+    setError("");
+    setLoading(true);
+    try {
+      const { getSupabaseBrowser } = await import("../../lib/supabase-browser");
+      const supabase = getSupabaseBrowser();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "apple",
+        options: {
+          redirectTo: `${window.location.origin}/auth/google/callback?profile=${profile}`,
+          scopes: "email name"
+        }
+      });
+      if (oauthError) throw oauthError;
+    } catch (err) {
+      setError(err.message || "Connexion Apple impossible.");
+      setLoading(false);
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
       <div style={{ display: "flex", gap: 10 }}>
@@ -455,8 +474,14 @@ function SsoOptions({ profile, L }) {
         >
           <GoogleIcon /> {loading ? "Redirection…" : "Google"}
         </button>
-        <button type="button" className="btn btn-sec" style={{ flex: 1, position: "relative" }} disabled title="Bientôt disponible">
-          <AppleIcon /> Apple <span style={{ fontSize: 10, color: "var(--grey)", fontWeight: 500 }}>Bientôt</span>
+        <button
+          type="button"
+          className="btn btn-sec"
+          style={{ flex: 1 }}
+          disabled={loading}
+          onClick={handleApple}
+        >
+          <AppleIcon /> {loading ? "Redirection…" : "Apple"}
         </button>
       </div>
       {error ? <p style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
