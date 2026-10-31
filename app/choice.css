@@ -11,6 +11,7 @@ html:has(.cv){scroll-behavior:smooth}
   --yellow:#FFC400;
   --dark:#181B1E;
   --dark-2:#23272B;
+  --radius:2px;
 
   color-scheme:light;
   min-height:100vh;
@@ -175,6 +176,7 @@ html:has(.cv){scroll-behavior:smooth}
   font-size:17px;
   border:1.5px solid transparent;
   white-space:nowrap;
+  border-radius:var(--radius);
 }
 
 .cv-btn-y{
@@ -226,6 +228,7 @@ html:has(.cv){scroll-behavior:smooth}
   padding:9px 16px;
   font-size:14px;
   font-weight:600;
+  border-radius:var(--radius);
 }
 
 .cv-radar .cv-pill{
