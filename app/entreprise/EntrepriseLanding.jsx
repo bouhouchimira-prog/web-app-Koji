@@ -132,7 +132,7 @@ const PLANS = [
   {
     name: "Business",
     sub: "Pour l'entreprise avec une équipe",
-    price: { month: 59, year: 47 },
+    price: { month: 69, year: 55 },
     features: ["Tout Pro", "Dépenses par chantier", "Équipe, planning et heures", "5 comptes"],
     cta: "Essayer Business"
   }

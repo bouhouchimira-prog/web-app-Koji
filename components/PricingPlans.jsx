@@ -123,9 +123,9 @@ export function PricingPlans({ currentPlan = "", onChoosePlan, pendingPlan = "",
 
   const interval = yearly ? "year" : "month";
   const proPrice = yearly ? 23 : 29;
-  const bizPrice = yearly ? 47 : 59;
+  const bizPrice = yearly ? 55 : 69;
   const proNote = yearly ? "soit 276 € HT par an, facturé en une fois" : "ou 23 € HT par mois en annuel";
-  const bizNote = yearly ? "soit 564 € HT par an, facturé en une fois" : "ou 47 € HT par mois en annuel";
+  const bizNote = yearly ? "soit 660 € HT par an, facturé en une fois" : "ou 55 € HT par mois en annuel";
   const periodNote = yearly ? "Tarif annuel affiché : deux mois offerts." : "Tarif mensuel affiché.";
 
   function cardCta(plan, label, className) {
