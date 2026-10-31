@@ -59,7 +59,7 @@ function ParametresAbonnementContent() {
     apiGet("/api/billing/connect")
       .then((data) => setConnectStatus({ hasAccount: Boolean(data.hasAccount), onboarded: Boolean(data.onboarded) }))
       .catch(() => {});
-  }, []);
+  }, [L]);
 
   async function startConnectOnboarding() {
     setConnectLoading(true);
