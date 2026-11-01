@@ -3,6 +3,9 @@ import { ADMIN_SCOPE, addHistory, findScopedIndex, getUserScope, readDb, resolve
 import { fixObjectText, fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
+import { loadInvoiceContext } from "../../../lib/invoice-context";
+import { buildInvoicePdf, invoiceDocumentFilename } from "../../../lib/document-generator";
+import { sendInvoiceReminderEmail } from "../../../lib/mailer";
 
 // Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
 // shared with the mobile app), so this fetches the two via the service_role
@@ -19,6 +22,9 @@ function mapChantierLite(row) {
 }
 
 const ACTIVE_INVOICE_STATUSES = new Set(["Brouillon", "Emise", "Payee"]);
+const CREDIT_REASONS = new Set(["erreur", "retractation", "geste", "annulation"]);
+const REMINDER_LEVELS = new Set(["aimable", "ferme", "demeure"]);
+const REMINDER_LABELS = { aimable: "Rappel", ferme: "Relance" };
 
 function toAmount(value) {
   const number = Number(value || 0);
@@ -90,6 +96,70 @@ export async function POST(request) {
   const userId = await resolveUserId(request, body, db);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const now = new Date().toISOString();
+
+  // PRO-06.1 : avoir depuis une facture envoyée, total ou partiel, série
+  // AV-AAAA-NNN continue par entreprise. Montant négatif : le déjà-facturé du
+  // devis et le chiffre d'affaires baissent d'autant.
+  if (body.creditNoteFor) {
+    const index = findScopedIndex(db.invoices, body.creditNoteFor, userId);
+    if (index === -1) return badRequest("Facture introuvable.", 404);
+    const original = db.invoices[index];
+    if (original.kind === "avoir") return badRequest("Un avoir ne s'annule pas par un autre avoir.");
+    if (!["Emise", "Payee"].includes(original.status)) return badRequest("L'avoir se fait sur une facture envoyée ; un brouillon se modifie ou s'annule.");
+    const credited = db.invoices
+      .filter((item) => item.kind === "avoir" && item.refInvoiceId === original.id && item.status !== "Annulee")
+      .reduce((sum, item) => sum - Number(item.amountTtc || 0), 0);
+    const max = toAmount(Number(original.amountTtc || 0) - credited);
+    if (max <= 0.01) return badRequest("Cette facture est déjà entièrement couverte par des avoirs.");
+    const amount = body.amountTtc === undefined || body.amountTtc === "" || body.amountTtc === null ? max : toAmount(body.amountTtc);
+    if (amount <= 0 || amount > max + 0.01) return badRequest(`Le montant de l'avoir doit être compris entre 0,01 et ${max.toFixed(2).replace(".", ",")} € TTC.`);
+    const owner = original.userId || userId;
+    const year = new Date().getFullYear();
+    const prefix = `AV-${year}-`;
+    const sequence = db.invoices.filter((item) => item.kind === "avoir" && item.userId === owner && String(item.invoiceNumber || "").startsWith(prefix)).length + 1;
+    const avoir = {
+      id: `av-${Date.now()}`,
+      userId: owner,
+      kind: "avoir",
+      invoiceNumber: `${prefix}${String(sequence).padStart(3, "0")}`,
+      refInvoiceId: original.id,
+      refInvoiceNumber: original.invoiceNumber,
+      refInvoiceDate: original.issuedAt || original.createdAt,
+      reason: CREDIT_REASONS.has(body.reason) ? body.reason : "erreur",
+      projectId: original.projectId || "",
+      quoteId: original.quoteId || "",
+      quoteNumber: original.quoteNumber || "",
+      contactId: original.contactId || "",
+      projectTitle: original.projectTitle || "",
+      client: original.client || "Client",
+      clientEmail: original.clientEmail || "",
+      type: "Avoir",
+      amountMode: "fixed",
+      percent: 0,
+      amountTtc: -amount,
+      totalQuoteTtc: toAmount(original.totalQuoteTtc),
+      alreadyInvoicedBefore: 0,
+      remainingAfter: 0,
+      status: "Emise",
+      dueDate: now.slice(0, 10),
+      issuedAt: now,
+      paidAt: "",
+      notes: fixText(body.notes || ""),
+      createdAt: now,
+      updatedAt: now
+    };
+    db.invoices.unshift(avoir);
+    addHistory(db, {
+      userId: owner,
+      type: "invoice.credit_note",
+      label: `Avoir ${avoir.invoiceNumber} sur la facture ${original.invoiceNumber}`,
+      entityId: avoir.id,
+      entityType: "invoice",
+      meta: { refInvoiceId: original.id, amountTtc: avoir.amountTtc }
+    });
+    await writeDb(db);
+    return ok({ invoice: normalizeInvoice(avoir) }, 201);
+  }
 
   // Invoices can also be created directly from an intervention report (no
   // signed devis involved) — that's a simpler, self-contained path that
@@ -303,6 +373,34 @@ export async function PATCH(request) {
   } else if (action === "purge") {
     if (!invoice.archived) return badRequest("Seule une facture déjà dans la corbeille peut être supprimée définitivement.", 400);
     db.invoices.splice(index, 1);
+  } else if (invoice.kind === "avoir" && (action === "issue" || action === "pay")) {
+    return badRequest("Un avoir est émis à sa création et ne se marque pas payé.");
+  } else if (action === "remind") {
+    // PRO-06.2 : relance manuelle. La mise en demeure n'est jamais envoyée
+    // par e-mail : elle part en recommandé, Koji ne fait que la noter.
+    if (invoice.kind === "avoir" || invoice.status !== "Emise") return badRequest("Seule une facture envoyée et non payée se relance.");
+    const level = REMINDER_LEVELS.has(body.level) ? body.level : "aimable";
+    const channel = body.channel === "email" ? "email" : level === "demeure" ? "recommande" : "manuel";
+    if (channel === "email") {
+      if (level === "demeure") return badRequest("La mise en demeure part en recommandé : Koji ne l'envoie jamais par e-mail.");
+      if (!invoice.clientEmail) return badRequest("Aucune adresse e-mail client sur cette facture.");
+      const text = fixText(String(body.text || "").trim().slice(0, 4000));
+      if (!text) return badRequest("Le message de relance est vide.");
+      const { quote, project } = await loadInvoiceContext(invoice);
+      const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      const sent = await sendInvoiceReminderEmail({
+        to: invoice.clientEmail,
+        subject: `${REMINDER_LABELS[level]} : facture ${invoice.invoiceNumber}`,
+        message: text,
+        replyTo: owner?.email || undefined,
+        pdfBuffer: buildInvoicePdf({ invoice, quote, project, db }),
+        pdfFilename: invoiceDocumentFilename(invoice)
+      });
+      if (!sent.ok) return badRequest(`Envoi impossible : ${sent.error}`, 502);
+    }
+    invoice.reminders = [...(Array.isArray(invoice.reminders) ? invoice.reminders : []), { level, channel, at: now }];
+  } else if (action === "reminders-off" || action === "reminders-on") {
+    invoice.remindersOff = action === "reminders-off";
   } else if (action === "issue") {
     invoice.status = "Emise";
     invoice.issuedAt = now;

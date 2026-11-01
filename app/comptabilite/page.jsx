@@ -96,7 +96,7 @@ export default function ComptabilitePage() {
       const bucket = ensure(key);
       const amount = Number(inv.amountTtc || 0);
       bucket.ca += amount;
-      bucket.ecritures.push({ id: `inv-${inv.id}`, label: `Facture ${inv.invoiceNumber || ""} — ${inv.client || "Client"}`, date, amount });
+      bucket.ecritures.push({ id: `inv-${inv.id}`, label: `${inv.kind === "avoir" ? "Avoir" : "Facture"} ${inv.invoiceNumber || ""} — ${inv.client || "Client"}`, date, amount });
     });
 
     commandes.forEach((c) => {

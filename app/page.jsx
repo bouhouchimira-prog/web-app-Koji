@@ -272,7 +272,7 @@ function DashboardHome() {
     }
     for (const invoice of invoices) {
       const echeance = String(invoice.dueDate || "").slice(0, 10);
-      if (!["Emise", "Partielle"].includes(invoice.status) || !echeance || echeance >= today) continue;
+      if (invoice.kind === "avoir" || !["Emise", "Partielle"].includes(invoice.status) || !echeance || echeance >= today) continue;
       items.push({
         id: `facture-${invoice.id}`,
         rang: 2,

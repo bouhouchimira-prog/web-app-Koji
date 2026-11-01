@@ -23,7 +23,51 @@ const INVOICE_TABS = [
   { id: "Brouillon", label: "Brouillons" }
 ];
 
-const STATUS_LABELS = { Brouillon: "Brouillon", Emise: "Envoyée", Payee: "Payée", Retard: "En retard", Annulee: "Annulée" };
+const STATUS_LABELS = { Brouillon: "Brouillon", Emise: "Envoyée", Payee: "Payée", Retard: "En retard", Annulee: "Annulée", Avoir: "Avoir" };
+
+const CREDIT_REASONS = [
+  { id: "erreur", label: "Erreur sur la facture" },
+  { id: "retractation", label: "Rétractation du client" },
+  { id: "geste", label: "Geste commercial" },
+  { id: "annulation", label: "Annulation" }
+];
+
+const REMINDER_LEVELS = [
+  { id: "aimable", label: "Rappel aimable", hint: "dès 3 jours de retard" },
+  { id: "ferme", label: "Relance ferme", hint: "dès 15 jours" },
+  { id: "demeure", label: "Mise en demeure", hint: "dès 30 jours, en recommandé" }
+];
+
+const CHANNEL_LABELS = { email: "e-mail", manuel: "notée", recommande: "recommandé" };
+
+function daysLate(invoice) {
+  const due = invoice.dueDate ? new Date(`${invoice.dueDate}T00:00:00`) : null;
+  if (!due) return 0;
+  return Math.max(0, Math.floor((new Date(new Date().toDateString()) - due) / 86400000));
+}
+
+function suggestedLevel(invoice) {
+  const late = daysLate(invoice);
+  return late >= 30 ? "demeure" : late >= 15 ? "ferme" : "aimable";
+}
+
+// PRO-06.2 : textes préremplis, modifiables avant envoi.
+function reminderText(level, invoice) {
+  const company = fixText(readStoredUser()?.business?.raisonSociale || "");
+  const client = fixText(invoice.client || "Madame, Monsieur");
+  const amount = euro(invoice.amountTtc);
+  const due = invoice.dueDate ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${invoice.dueDate}T00:00:00`)) : "";
+  const previous = (Array.isArray(invoice.reminders) ? invoice.reminders : [])
+    .map((reminder) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(new Date(reminder.at)));
+  const signature = company ? `\n\nCordialement,\n${company}` : "\n\nCordialement,";
+  if (level === "demeure") {
+    return `Objet : mise en demeure de payer, facture ${invoice.invoiceNumber}\n\n${client},\n\nPar la présente, nous vous mettons en demeure de régler la somme de ${amount} TTC due au titre de la facture ${invoice.invoiceNumber}, échue le ${due}${previous.length ? `, malgré nos relances du ${previous.join(" et du ")}` : ""}.\n\nÀ défaut de règlement dans un délai de 8 jours à compter de la réception de ce courrier, nous nous réservons le droit d'engager une procédure de recouvrement.${company ? `\n\n${company}` : ""}`;
+  }
+  if (level === "ferme") {
+    return `Bonjour ${client},\n\nMalgré notre précédent rappel${previous.length ? ` du ${previous[previous.length - 1]}` : ""}, la facture ${invoice.invoiceNumber} d'un montant de ${amount} TTC, échue le ${due}, reste impayée (${daysLate(invoice)} jours de retard).\n\nMerci de procéder au règlement sous 8 jours. La facture est jointe à ce message.${signature}`;
+  }
+  return `Bonjour ${client},\n\nSauf erreur de notre part, la facture ${invoice.invoiceNumber} d'un montant de ${amount} TTC, arrivée à échéance le ${due}, n'a pas encore été réglée.\n\nPourriez-vous procéder au règlement ? Vous trouverez la facture en pièce jointe. Si le paiement est déjà parti, merci de ne pas tenir compte de ce message.${signature}`;
+}
 
 function signedQuote(quote) {
   return quote.status === "Signe" || quote.signatureStatus === "Signe";
@@ -36,6 +80,7 @@ function activeInvoice(invoice) {
 // "En retard" n'est pas stocké : une facture émise dont l'échéance est
 // passée est considérée en retard à la volée.
 function invoiceBucket(invoice) {
+  if (invoice.kind === "avoir") return "Avoir";
   if (invoice.status === "Emise") {
     const due = invoice.dueDate ? new Date(`${invoice.dueDate}T00:00:00`) : null;
     if (due && due < new Date(new Date().toDateString())) return "Retard";
@@ -86,14 +131,19 @@ function InvoiceStatus({ bucket }) {
     );
   }
   if (bucket === "Annulee") return <span className="tag tag-o dim">Annulée</span>;
+  if (bucket === "Avoir") return <span className="tag tag-o">Avoir</span>;
   if (bucket === "Retard") return <span className="tag tag-b">En retard</span>;
   if (bucket === "Emise") return <span className="tag tag-e">À échéance</span>;
   return <span className="tag tag-o">Brouillon</span>;
 }
 
 function dueLabel(invoice) {
+  if (invoice.bucket === "Avoir") return invoice.refInvoiceNumber ? `sur ${invoice.refInvoiceNumber}` : "—";
   if (invoice.bucket === "Payee") return invoice.paidAt ? `payée le ${shortDay(invoice.paidAt)}` : "payée";
-  if (invoice.bucket === "Retard") return `échue le ${shortDay(invoice.dueDate)}`;
+  if (invoice.bucket === "Retard") {
+    const last = Array.isArray(invoice.reminders) ? invoice.reminders[invoice.reminders.length - 1] : null;
+    return `échue le ${shortDay(invoice.dueDate)}${last ? ` · relancée le ${shortDay(last.at)}` : ""}`;
+  }
   if (invoice.bucket === "Emise") return invoice.dueDate ? shortDay(invoice.dueDate) : "—";
   return "—";
 }
@@ -126,6 +176,14 @@ function FacturationContent() {
     dueDate: new Date().toISOString().slice(0, 10),
     notes: ""
   });
+
+  const [creditFor, setCreditFor] = useState(null);
+  const [creditForm, setCreditForm] = useState({ reason: "erreur", mode: "total", amount: "", notes: "" });
+  const [createdCredit, setCreatedCredit] = useState(null);
+  const [remindFor, setRemindFor] = useState(null);
+  const [remindForm, setRemindForm] = useState({ level: "aimable", text: "" });
+  const [busy, setBusy] = useState(false);
+  const [modalError, setModalError] = useState("");
 
   const invoicesWithBucket = useMemo(
     () => invoices.filter(activeInvoice).map((invoice) => ({ ...invoice, bucket: invoiceBucket(invoice) })),
@@ -267,16 +325,105 @@ function FacturationContent() {
     setMessage(action === "issue" ? L.facturation.issue : action === "pay" ? L.facturation.markPaid : L.common.cancel);
   }
 
+  function creditedOn(invoice) {
+    return invoices
+      .filter((item) => item.kind === "avoir" && item.refInvoiceId === invoice.id && item.status !== "Annulee")
+      .reduce((sum, item) => sum - Number(item.amountTtc || 0), 0);
+  }
+
+  function openCredit(invoice) {
+    setModalError("");
+    setCreatedCredit(null);
+    setCreditForm({ reason: "erreur", mode: "total", amount: "", notes: "" });
+    setCreditFor(invoice);
+  }
+
+  async function submitCredit(event) {
+    event.preventDefault();
+    setBusy(true);
+    setModalError("");
+    try {
+      const { invoice: avoir } = await apiSend("/api/invoices", {
+        creditNoteFor: creditFor.id,
+        reason: creditForm.reason,
+        amountTtc: creditForm.mode === "partiel" ? creditForm.amount : undefined,
+        notes: creditForm.notes
+      });
+      setInvoices((current) => [avoir, ...current]);
+      setCreatedCredit({ avoir, original: creditFor });
+      setCreditFor(null);
+      setMessage(`Avoir ${avoir.invoiceNumber} créé sur la facture ${creditFor.invoiceNumber}.`);
+    } catch (error) {
+      setModalError(error.message || "Création de l'avoir impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function remakeInvoice() {
+    const { avoir, original } = createdCredit;
+    setSelectedQuoteId(original.quoteId);
+    setForm((current) => ({ ...current, type: original.type || current.type, amountMode: "fixed", fixedAmount: String(-Number(avoir.amountTtc || 0)), notes: `Remplace la facture ${original.invoiceNumber} (avoir ${avoir.invoiceNumber})` }));
+    setCreatedCredit(null);
+    setShowDashboard(false);
+  }
+
+  function openRemind(invoice) {
+    const level = suggestedLevel(invoice);
+    setModalError("");
+    setRemindForm({ level, text: reminderText(level, invoice) });
+    setRemindFor(invoice);
+  }
+
+  async function submitRemind(channel) {
+    setBusy(true);
+    setModalError("");
+    try {
+      const { invoice } = await apiSend("/api/invoices", { id: remindFor.id, action: "remind", level: remindForm.level, channel, text: remindForm.text }, "PATCH");
+      setInvoices((current) => current.map((item) => (item.id === invoice.id ? invoice : item)));
+      setRemindFor(null);
+      setMessage(channel === "email" ? `Relance envoyée à ${invoice.clientEmail}.` : `Relance notée sur la facture ${invoice.invoiceNumber}.`);
+    } catch (error) {
+      setModalError(error.message || "Relance impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleReminders(invoice) {
+    const { invoice: updated } = await apiSend("/api/invoices", { id: invoice.id, action: invoice.remindersOff ? "reminders-on" : "reminders-off" }, "PATCH");
+    setInvoices((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    setRemindFor(updated);
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setModalError("");
+      setMessage("Texte copié.");
+    } catch {
+      setModalError("Copie impossible : sélectionnez le texte à la main.");
+    }
+  }
+
   function primaryAction(invoice) {
+    if (invoice.kind === "avoir") return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
     if (invoice.status === "Brouillon") return { label: L.facturation.issue, run: () => updateInvoice(invoice.id, "issue") };
     if (invoice.status !== "Payee") return { label: L.facturation.markPaid, run: () => updateInvoice(invoice.id, "pay") };
     return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
   }
 
   function invoiceActions(invoice) {
+    if (invoice.kind === "avoir") {
+      return <button type="button" className="btn btn-sec" onClick={() => downloadInvoicePdf(invoice)}>{L.facturation.downloadPdf}</button>;
+    }
     return (
       <>
         <button type="button" className="btn btn-sec" onClick={() => downloadInvoicePdf(invoice)}>{L.facturation.downloadPdf}</button>
+        {invoice.status === "Emise" ? <button type="button" className="btn btn-sec" onClick={() => openRemind(invoice)}>Relancer</button> : null}
+        {(invoice.status === "Emise" || invoice.status === "Payee") && creditedOn(invoice) < Number(invoice.amountTtc || 0) - 0.01 ? (
+          <button type="button" className="btn btn-sec" onClick={() => openCredit(invoice)}>Créer un avoir</button>
+        ) : null}
         {invoice.status === "Brouillon" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "issue")}>{L.facturation.issue}</button> : null}
         {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "pay")}>{L.facturation.markPaid}</button> : null}
         {invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "cancel")}>{L.common.cancel}</button> : null}
@@ -413,6 +560,94 @@ function FacturationContent() {
         )}
 
         <p className="foot-note">Une facture envoyée dont l'échéance est passée apparaît « En retard ». Cliquez sur une ligne pour ses autres actions.</p>
+
+        {createdCredit?.original.quoteId ? (
+          <div className="pmodal-bg" onClick={() => setCreatedCredit(null)}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label="Avoir créé" onClick={(event) => event.stopPropagation()}>
+              <div className="card-h"><h2>Avoir {createdCredit.avoir.invoiceNumber} créé</h2><button type="button" className="link" onClick={() => setCreatedCredit(null)}>Fermer</button></div>
+              <p className="muted">{euro(createdCredit.avoir.amountTtc)} TTC sur la facture {createdCredit.original.invoiceNumber}. Le montant redevient facturable sur le devis {createdCredit.original.quoteNumber}.</p>
+              <div className="pm-act">
+                <button type="button" className="btn btn-sec" onClick={() => downloadInvoicePdf(createdCredit.avoir)}>PDF de l'avoir</button>
+                <button type="button" className="btn btn-main" onClick={remakeInvoice}>Refaire la facture corrigée</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {creditFor ? (() => {
+          const remaining = Number(creditFor.amountTtc || 0) - creditedOn(creditFor);
+          return (
+            <div className="pmodal-bg" onClick={() => setCreditFor(null)}>
+              <form className="pmodal" role="dialog" aria-modal="true" aria-label="Créer un avoir" onClick={(event) => event.stopPropagation()} onSubmit={submitCredit}>
+                <div className="card-h"><h2>Créer un avoir</h2><button type="button" className="link" onClick={() => setCreditFor(null)}>Fermer</button></div>
+                <div className="env-sum">
+                  <div><span className="lab">Facture d'origine</span><strong>{creditFor.invoiceNumber}</strong><span className="muted">{fixText(creditFor.client || "")} · émise le {shortDay(creditFor.issuedAt || creditFor.createdAt)}</span></div>
+                  <div><span className="lab">Montant TTC</span><strong>{euro(creditFor.amountTtc)}</strong><span className="muted">{creditedOn(creditFor) > 0 ? `déjà couvert par avoir : ${euro(creditedOn(creditFor))}` : "aucun avoir pour l'instant"}</span></div>
+                </div>
+                <label className="ed">Motif
+                  <select value={creditForm.reason} onChange={(event) => setCreditForm({ ...creditForm, reason: event.target.value })}>
+                    {CREDIT_REASONS.map((reason) => <option key={reason.id} value={reason.id}>{reason.label}</option>)}
+                  </select>
+                </label>
+                <div className="kp-seg" role="group" aria-label="Montant de l'avoir">
+                  <button type="button" className={creditForm.mode === "total" ? "on" : ""} aria-pressed={creditForm.mode === "total"} onClick={() => setCreditForm({ ...creditForm, mode: "total" })}>Total · {euro(remaining)}</button>
+                  <button type="button" className={creditForm.mode === "partiel" ? "on" : ""} aria-pressed={creditForm.mode === "partiel"} onClick={() => setCreditForm({ ...creditForm, mode: "partiel" })}>Partiel</button>
+                </div>
+                {creditForm.mode === "partiel" ? (
+                  <label className="ed">Montant de l'avoir TTC
+                    <input type="number" min="0.01" max={remaining} step="0.01" value={creditForm.amount} onChange={(event) => setCreditForm({ ...creditForm, amount: event.target.value })} required />
+                  </label>
+                ) : null}
+                <label className="ed">Note (sur l'avoir)
+                  <textarea rows={2} value={creditForm.notes} onChange={(event) => setCreditForm({ ...creditForm, notes: event.target.value })} maxLength={500} />
+                </label>
+                <p className="muted">Numéroté dans la série AV, avec le numéro et la date de la facture d'origine. Si la facture était payée, le remboursement reste à faire.</p>
+                {modalError ? <p className="notice" role="alert">{modalError}</p> : null}
+                <div className="pm-act">
+                  <button type="button" className="btn btn-sec" onClick={() => setCreditFor(null)}>Annuler</button>
+                  <button type="submit" className="btn btn-main" disabled={busy}>{busy ? "Création…" : "Créer l'avoir"}</button>
+                </div>
+              </form>
+            </div>
+          );
+        })() : null}
+
+        {remindFor ? (
+          <div className="pmodal-bg" onClick={() => setRemindFor(null)}>
+            <div className="pmodal" role="dialog" aria-modal="true" aria-label="Relancer la facture" onClick={(event) => event.stopPropagation()}>
+              <div className="card-h"><h2>Relancer {remindFor.invoiceNumber}</h2><button type="button" className="link" onClick={() => setRemindFor(null)}>Fermer</button></div>
+              <div className="env-sum">
+                <div><span className="lab">Client</span><strong>{fixText(remindFor.client || "Client")}</strong><span className="muted">{remindFor.clientEmail || "pas d'e-mail sur la facture"}</span></div>
+                <div><span className="lab">Montant TTC</span><strong>{euro(remindFor.amountTtc)}</strong><span className="muted">{daysLate(remindFor) ? `${daysLate(remindFor)} jours de retard` : `échéance le ${shortDay(remindFor.dueDate)}`}</span></div>
+              </div>
+              {Array.isArray(remindFor.reminders) && remindFor.reminders.length ? (
+                <p className="muted">Déjà relancée : {remindFor.reminders.map((reminder) => `${REMINDER_LEVELS.find((level) => level.id === reminder.level)?.label.toLowerCase() || reminder.level} le ${shortDay(reminder.at)} (${CHANNEL_LABELS[reminder.channel] || reminder.channel})`).join(" · ")}</p>
+              ) : null}
+              {remindFor.remindersOff ? <p className="notice">Relances désactivées pour cette facture.</p> : null}
+              <div className="kp-seg" role="group" aria-label="Niveau de relance">
+                {REMINDER_LEVELS.map((level) => (
+                  <button key={level.id} type="button" className={remindForm.level === level.id ? "on" : ""} aria-pressed={remindForm.level === level.id} title={level.hint} onClick={() => setRemindForm({ level: level.id, text: reminderText(level.id, remindFor) })}>{level.label}</button>
+                ))}
+              </div>
+              <label className="ed">{remindForm.level === "demeure" ? "Courrier à envoyer en recommandé avec accusé de réception" : "Message (la facture est jointe à l'e-mail)"}
+                <textarea rows={10} value={remindForm.text} onChange={(event) => setRemindForm({ ...remindForm, text: event.target.value })} maxLength={4000} />
+              </label>
+              {modalError ? <p className="notice" role="alert">{modalError}</p> : null}
+              <div className="pm-act">
+                <button type="button" className="link" onClick={() => toggleReminders(remindFor)}>{remindFor.remindersOff ? "Réactiver les relances" : "Ne pas relancer cette facture"}</button>
+                <button type="button" className="btn btn-sec" onClick={() => copyText(remindForm.text)}>Copier le texte</button>
+                {remindForm.level === "demeure" ? (
+                  <button type="button" className="btn btn-main" disabled={busy} onClick={() => submitRemind("manuel")}>{busy ? "…" : "Noter l'envoi en recommandé"}</button>
+                ) : (
+                  <>
+                    <button type="button" className="btn btn-sec" disabled={busy} onClick={() => submitRemind("manuel")}>Noter comme relancée</button>
+                    <button type="button" className="btn btn-main" disabled={busy || !remindFor.clientEmail || !remindForm.text.trim()} onClick={() => submitRemind("email")}>{busy ? "Envoi…" : "Envoyer par e-mail"}</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </Shell>
     );
   }

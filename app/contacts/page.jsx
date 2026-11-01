@@ -126,6 +126,7 @@ function accessText(contact) {
 }
 
 function invoiceBucket(invoice) {
+  if (invoice.kind === "avoir") return "Avoir";
   if (invoice.status === "Emise" && invoice.dueDate && new Date(`${invoice.dueDate}T00:00:00`) < new Date(new Date().toDateString())) return "Retard";
   return invoice.status;
 }

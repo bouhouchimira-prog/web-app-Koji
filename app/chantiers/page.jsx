@@ -1333,7 +1333,7 @@ export default function ProjectsTrackingPage() {
         .filter((task) => task.pendingValidation && !task.done)
         .map((task) => ({ id: `val-${task.id}`, title: task.label, meta: task.completedByName ? `terminé par ${task.completedByName}` : "terminé, à valider", tag: "À valider", tone: "tag tag-o", lineKey: task.quoteItemId || task.id })),
       ...issuedInvoices
-        .filter((invoice) => invoice.status === "Emise" && invoice.dueDate && invoice.dueDate < today)
+        .filter((invoice) => invoice.kind !== "avoir" && invoice.status === "Emise" && invoice.dueDate && invoice.dueDate < today)
         .map((invoice) => ({ id: `inv-${invoice.id}`, title: `Facture ${invoice.invoiceNumber}`, meta: `${euro(invoice.amountTtc)} TTC · échéance le ${formatDate(invoice.dueDate)}`, tag: "À relancer", tone: "tag tag-o", href: "/facturation" })),
       ...supplyNeeds
         .filter((need) => need.status === "A commander")
@@ -1357,6 +1357,7 @@ export default function ProjectsTrackingPage() {
     }
 
     function invoiceTag(invoice) {
+      if (invoice.kind === "avoir") return <span className="tag tag-o">Avoir</span>;
       if (invoice.status === "Payee") return <span className="tag tag-o dim">Payée</span>;
       if (invoice.status === "Emise") return <span className="tag tag-e">Envoyée</span>;
       return <span className="tag tag-o">{invoice.status || "Brouillon"}</span>;
