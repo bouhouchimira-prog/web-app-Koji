@@ -567,6 +567,13 @@ export default function CalendrierPage() {
         </div>
         <div className="hact">
           <Link href="/planning" className="btn btn-sec">Attribuer les tâches</Link>
+          <Link
+            className="btn btn-sec"
+            target="_blank"
+            href={`/calendrier/export?from=${dayKey(rangeStart)}&to=${dayKey(rangeEnd)}${projectFilter.length === 1 ? `&model=chantier&project=${encodeURIComponent(projectFilter[0])}` : workerFilter.length === 1 ? `&model=intervenant&worker=${encodeURIComponent(workerFilter[0])}` : ""}`}
+          >
+            Exporter en PDF
+          </Link>
           <button type="button" className="btn btn-main" onClick={openCreateEvent}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             Planifier un RDV
