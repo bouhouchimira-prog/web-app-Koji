@@ -98,6 +98,15 @@ function money(value) {
   }).format(Number(value || 0));
 }
 
+function trackDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+const DEPOSIT_PERCENTS = [20, 30, 40, 50];
+
 function round2(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
@@ -301,6 +310,9 @@ export default function DevisEditor() {
   const { data: supplies, setData: setSupplies } = useApi("/api/supplies", "supplies");
   const { data: ouvrages } = useApi("/api/ouvrages", "ouvrages", catalog);
   const { data: contacts, setData: setContacts } = useApi("/api/contacts", "contacts");
+  const { data: invoices, setData: setInvoices } = useApi("/api/invoices", "invoices");
+  const [depositPercent, setDepositPercent] = useState(30);
+  const [depositBusy, setDepositBusy] = useState(false);
 
   const postes = useMemo(() => ouvrages.filter((item) => item.type === "POSTE" || item.type === "SOUS-POSTE"), [ouvrages]);
   const [company, setCompany] = useState(profileCompany(null));
@@ -1882,6 +1894,86 @@ export default function DevisEditor() {
     if (error?.upgradeRequired) {
       window.setTimeout(() => router.push("/abonnement"), 2200);
     }
+  }
+
+  async function createDepositInvoice() {
+    if (!generatedQuote?.id || !generatedQuote.projectId) return;
+    setDepositBusy(true);
+    try {
+      const { invoice } = await apiSend("/api/invoices", {
+        quoteId: generatedQuote.id,
+        projectId: generatedQuote.projectId,
+        type: "Acompte initial",
+        amountMode: "deposit",
+        depositPercent
+      });
+      setInvoices((current) => [invoice, ...current]);
+      notify(`Facture d'acompte ${invoice.invoiceNumber} créée en brouillon.`, "success");
+    } catch (error) {
+      notifyError(error, "Création de la facture d'acompte impossible.");
+    } finally {
+      setDepositBusy(false);
+    }
+  }
+
+  // PRO-03.3 / PRO-03.4 : suivi Envoyé → Vu → Signé → Chantier lancé, puis
+  // facture d'acompte depuis le devis signé.
+  function renderTracking() {
+    if (!generatedQuote) return null;
+    const signed = generatedQuote.signatureStatus === "Signe" || generatedQuote.status === "Signe";
+    if (!generatedQuote.sentAt && !signed) return null;
+    const steps = [
+      { label: "Envoyé", done: Boolean(generatedQuote.sentAt), when: generatedQuote.sentAt },
+      { label: "Vu", done: Boolean(generatedQuote.viewedAt) || signed, when: generatedQuote.viewedAt },
+      { label: "Signé", done: signed, when: generatedQuote.signedAt },
+      { label: "Chantier lancé", done: signed && Boolean(generatedQuote.projectId) }
+    ];
+    const depositInvoice = invoices.find((invoice) => invoice.quoteId === generatedQuote.id
+      && /acompte/i.test(invoice.type || "") && invoice.status !== "Annulee" && !invoice.archived);
+    return (
+      <section className="card dv-track">
+        <div className="card-h"><h2>Suivi du devis</h2></div>
+        <ol className="dv-steps">
+          {steps.map((step) => (
+            <li key={step.label} className={step.done ? "done" : ""}>
+              <b>{step.label}</b>
+              <small>{step.done ? (trackDate(step.when) || "fait") : "en attente"}</small>
+            </li>
+          ))}
+        </ol>
+        {signed && generatedQuote.projectId ? (
+          <div className="dv-track-act">
+            <Link className="btn btn-sec" href={`/chantiers?project=${generatedQuote.projectId}`}>Voir le chantier</Link>
+          </div>
+        ) : null}
+        {signed && generatedQuote.projectId ? (
+          <div className="dv-deposit">
+            <h3>Facture d'acompte</h3>
+            {depositInvoice ? (
+              <p className="muted">
+                {depositInvoice.invoiceNumber} · {money(depositInvoice.amountTtc)} TTC ({depositInvoice.percent} %) · {depositInvoice.status === "Brouillon" ? "brouillon" : depositInvoice.status === "Payee" ? "payée" : "émise"}
+                {" "}<Link className="link" href="/facturation">Ouvrir dans Factures</Link>
+              </p>
+            ) : (
+              <>
+                <p className="muted">Reprend le client, les montants et la TVA du devis ; seul le pourcentage se choisit.</p>
+                <div className="dv-deposit-row">
+                  <div className="kp-seg" role="group" aria-label="Pourcentage d'acompte">
+                    {DEPOSIT_PERCENTS.map((percent) => (
+                      <button key={percent} type="button" className={depositPercent === percent ? "on" : ""} aria-pressed={depositPercent === percent} onClick={() => setDepositPercent(percent)}>{percent} %</button>
+                    ))}
+                  </div>
+                  <b>{money(Number(generatedQuote.totalTtc || 0) * depositPercent / 100)} TTC</b>
+                  <button type="button" className="btn btn-sec" disabled={depositBusy} onClick={createDepositInvoice}>
+                    {depositBusy ? "Création…" : "Créer la facture d'acompte"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+      </section>
+    );
   }
 
   async function saveClientInfo() {
@@ -3938,6 +4030,7 @@ export default function DevisEditor() {
         </div>
 
         <div className="dv-after">
+        {renderTracking()}
         {mode === "manuel" ? renderConditioningAndPaymentCards() : null}
 
         {generatedQuote ? (

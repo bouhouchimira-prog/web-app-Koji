@@ -306,6 +306,22 @@
 .pro .k-nav strong{margin-left:8px;font-size:15px;font-weight:600}
 .pro .k-nav span{color:var(--grey);font-size:13px}
 .pro .k-nav .btn{height:36px}
+.pro .cc-note{margin:16px 0}
+.pro .cc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.pro .cc-card{display:flex;flex-direction:column;gap:8px}
+.pro .cc-card > p{margin:0}
+.pro .cc-bar{height:6px;background:var(--rule);border-radius:var(--radius);overflow:hidden}
+.pro .cc-bar i{display:block;height:100%;background:var(--ink)}
+.pro .cc-phrase{font-size:13px}
+.pro .k-filters{display:flex;flex-wrap:wrap;gap:8px}
+.pro .k-filter{position:relative}
+.pro .k-filter > .btn{height:36px;gap:6px;font-weight:500}
+.pro .k-filter > .btn b{font-weight:600}
+.pro .k-filter > .btn svg{width:14px;height:14px}
+.pro .k-filter-bg{position:fixed;inset:0;z-index:39}
+.pro .k-filter-pop{position:absolute;top:calc(100% + 4px);right:0;z-index:40;display:flex;flex-direction:column;gap:8px;min-width:240px;max-height:360px;overflow:auto;padding:12px;background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:var(--radius);box-shadow:0 8px 24px rgba(23,27,30,.12)}
+.pro .k-filter-grp{display:flex;flex-direction:column;gap:8px;padding-top:8px;border-top:1px solid var(--line)}
+.pro .k-filter-grp .lab{color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .pro .k-ib{display:grid;place-items:center;width:36px;height:36px;padding:0;background:var(--card);border:1px solid var(--btn);border-radius:var(--radius);color:var(--ink);cursor:pointer}
 .pro .k-ib svg{width:16px;height:16px;stroke-width:2}
 .pro .k-scroll{overflow-x:auto}
@@ -512,6 +528,18 @@
 .pro .dv-doc-act{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .pro .dv-after{display:flex;flex-direction:column;gap:16px;padding:24px 32px 48px;border-top:1px solid var(--line)}
 .pro .dv-after:empty{display:none}
+.pro .dv-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.pro .dv-steps li{display:flex;flex-direction:column;gap:2px;padding-top:10px;border-top:2px solid var(--line);color:var(--grey);font-size:13px}
+.pro .dv-steps li b{font-size:14px;font-weight:600}
+.pro .dv-steps li.done{border-top-color:var(--ink);color:var(--ink)}
+.pro .dv-steps li.done small{color:var(--grey)}
+.pro .dv-track-act{display:flex;justify-content:flex-end;margin-top:12px}
+.pro .dv-deposit{display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.pro .dv-deposit h3{margin:0;font-size:15px;font-weight:600}
+.pro .dv-deposit p{margin:0}
+.pro .dv-deposit-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.pro .dv-deposit-row b{margin-right:auto;font-weight:600;white-space:nowrap}
+@media (max-width:600px){.pro .dv-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Éditeur : blocs sous le devis (conditionnement, paiement, devis prêt, signature) */
 .pro .dv-ready{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}

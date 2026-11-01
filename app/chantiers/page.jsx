@@ -258,7 +258,7 @@ const CHANTIER_STATUS_TAG = {
   a_planifier: { label: "À planifier", className: "tag tag-o" },
   en_cours: { label: "En cours", className: "tag tag-e" },
   finitions: { label: "Finitions", className: "tag tag-e" },
-  termine: { label: "Terminé", className: "tag tag-o dim" }
+  termine: { label: "Clôturé", className: "tag tag-o dim" }
 };
 
 const CHANTIER_TAB_OF = { en_cours: "en_cours", finitions: "en_cours", retard: "en_cours", a_planifier: "a_planifier", termine: "termine" };
@@ -266,7 +266,7 @@ const CHANTIER_TAB_OF = { en_cours: "en_cours", finitions: "en_cours", retard: "
 const CHANTIER_TABS = [
   { id: "en_cours", label: "En cours" },
   { id: "a_planifier", label: "À planifier" },
-  { id: "termine", label: "Terminés" },
+  { id: "termine", label: "Clôturés" },
   { id: "tous", label: "Tous" }
 ];
 

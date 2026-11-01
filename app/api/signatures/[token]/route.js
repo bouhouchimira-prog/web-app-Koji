@@ -7,6 +7,7 @@ import { recordEstimationAccuracy } from "../../../../lib/estimation-accuracy";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 import { ensureClientPortalAccess, normalizeEmail } from "../../../../lib/client-portal-access";
+import { getVerifiedUserId } from "../../../../lib/server-auth";
 
 // The signing client has no Koji session (they're not one of the company's
 // Supabase-authenticated users), so this can't use a per-user token — it
@@ -23,10 +24,25 @@ async function findQuoteByToken(token) {
   return row ? mapQuote(row) : null;
 }
 
-export async function GET(_request, context) {
+// « Vu » du suivi PRO-03.3 : première ouverture du lien par le client. Ignorée
+// quand c'est l'entreprise elle-même qui ouvre son propre lien (bouton
+// « Ouvrir le lien » de l'éditeur), sinon le suivi mentirait.
+async function markViewed(request, quote) {
+  if (quote.viewedAt || quote.signatureStatus === "Signe") return quote;
+  const viewerId = await getVerifiedUserId(request);
+  if (viewerId && viewerId === quote.userId) return quote;
+  const supabase = getSupabaseAdmin();
+  const { data: row } = await supabase.from("quotes").select("web_extras").eq("id", quote.id).maybeSingle();
+  const viewedAt = new Date().toISOString();
+  await supabase.from("quotes").update({ web_extras: { ...(row?.web_extras || {}), viewedAt } }).eq("id", quote.id);
+  return { ...quote, viewedAt };
+}
+
+export async function GET(request, context) {
   const { token } = await context.params;
-  const quote = await findQuoteByToken(token);
-  if (!quote) return badRequest("Lien de signature invalide.", 404);
+  const found = await findQuoteByToken(token);
+  if (!found) return badRequest("Lien de signature invalide.", 404);
+  const quote = await markViewed(request, found);
 
   return ok({
     quote: {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiSend } from "../../lib/client-api";
@@ -213,6 +214,7 @@ export default function ComptabilitePage() {
           <span className="muted">Votre activité en un coup d'œil : chiffre d'affaires, charges et résultat.</span>
         </div>
         <div className="acts">
+          <Link href="/comptabilite/chantiers" className="btn btn-sec">Coût des chantiers</Link>
           <label className="cp-month">
             <span className="sr-only">Mois affiché</span>
             <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>

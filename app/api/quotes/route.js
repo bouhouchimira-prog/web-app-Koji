@@ -375,6 +375,7 @@ export async function PATCH(request) {
     quote.status = "Envoye";
     quote.signatureStatus = "En attente";
     quote.sentAt = now;
+    quote.viewedAt = "";
     if (quote.projectId) {
       await auth.supabase.from("chantiers").update({ status: "En attente signature" }).eq("id", quote.projectId);
     }

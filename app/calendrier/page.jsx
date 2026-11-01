@@ -131,6 +131,10 @@ export default function CalendrierPage() {
   const [editingEventId, setEditingEventId] = useState(null);
   const [detailTask, setDetailTask] = useState(null);
   const [message, setMessage] = useState("");
+  const [projectFilter, setProjectFilter] = useState([]);
+  const [workerFilter, setWorkerFilter] = useState([]);
+  const [shown, setShown] = useState({ tasks: true, rdv: true, done: true });
+  const [openFilter, setOpenFilter] = useState("");
 
   const today = useMemo(() => {
     const now = new Date();
@@ -152,7 +156,7 @@ export default function CalendrierPage() {
 
   const workerById = useMemo(() => Object.fromEntries(workers.map((worker) => [worker.id, worker])), [workers]);
 
-  const taskItems = useMemo(() => tasks.map((task) => {
+  const allTaskItems = useMemo(() => tasks.map((task) => {
     const start = parseDay(task.startDate || task.dueDate || task.endDate);
     if (!start) return null;
     const endRaw = parseDay(task.endDate || task.dueDate || task.startDate) || start;
@@ -175,7 +179,7 @@ export default function CalendrierPage() {
     };
   }).filter(Boolean), [tasks, projects, workerById]);
 
-  const eventItems = useMemo(() => calendarEvents.map((event) => {
+  const allEventItems = useMemo(() => calendarEvents.map((event) => {
     const start = localDay(event.startAt);
     if (!start) return null;
     const endRaw = localDay(event.endAt) || start;
@@ -195,6 +199,41 @@ export default function CalendrierPage() {
       done: event.status === "Termine"
     };
   }).filter(Boolean), [calendarEvents]);
+
+  // PRO-11.3 : filtres Chantier / Intervenant / Afficher, appliqués à la
+  // source pour que grille, « Aujourd'hui » et agenda les suivent tous.
+  const { taskItems, eventItems } = useMemo(() => {
+    const keep = (item) => (!projectFilter.length || projectFilter.includes(item.projectId))
+      && (shown.done || !item.done)
+      && (!workerFilter.length || item.workerIds.some((id) => workerFilter.includes(id)));
+    return {
+      taskItems: shown.tasks ? allTaskItems.filter(keep) : [],
+      eventItems: shown.rdv ? allEventItems.filter(keep) : []
+    };
+  }, [allTaskItems, allEventItems, projectFilter, workerFilter, shown]);
+
+  const projectOptions = useMemo(() => {
+    const byId = new Map();
+    [...allTaskItems, ...allEventItems].forEach((item) => {
+      if (item.projectId && !byId.has(item.projectId)) byId.set(item.projectId, item.project || "Sans chantier");
+    });
+    const options = [...byId.entries()].map(([id, title]) => {
+      const project = projects.find((entry) => entry.id === id);
+      return { id, title, closed: /termin|cl[oô]tur/i.test(project?.status || "") };
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    return [
+      { title: "En cours", items: options.filter((option) => !option.closed) },
+      { title: "Clôturés", items: options.filter((option) => option.closed) }
+    ];
+  }, [allTaskItems, allEventItems, projects]);
+
+  const workerOptions = useMemo(() => {
+    const sorted = [...workers].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return [
+      { title: "Équipe", items: sorted.filter((worker) => worker.type !== "Sous-traitant").map((worker) => ({ id: worker.id, title: worker.name })) },
+      { title: "Sous-traitants", items: sorted.filter((worker) => worker.type === "Sous-traitant").map((worker) => ({ id: worker.id, title: worker.name })) }
+    ];
+  }, [workers]);
 
   // Position d'une barre dans les colonnes affichées (null si hors période).
   function clip(item) {
@@ -221,7 +260,9 @@ export default function CalendrierPage() {
     const rdv = clipAll(eventItems).map((item) => ({ ...item, title: item.label, sub: [item.time, item.project].filter(Boolean).join(" · ") }));
     if (rdv.length) rows.push({ id: "rdv", title: "Rendez-vous", sub: plural(rdv.length, "rendez-vous", "rendez-vous"), ...assignLanes(rdv) });
 
-    const sortedWorkers = [...workers].sort((a, b) => (a.type === "Sous-traitant") - (b.type === "Sous-traitant") || String(a.name).localeCompare(String(b.name)));
+    const sortedWorkers = workers
+      .filter((worker) => !workerFilter.length || workerFilter.includes(worker.id))
+      .sort((a, b) => (a.type === "Sous-traitant") - (b.type === "Sous-traitant") || String(a.name).localeCompare(String(b.name)));
     sortedWorkers.forEach((worker) => {
       const items = clipAll(taskItems.filter((item) => item.workerIds.includes(worker.id)))
         .map((item) => ({ ...item, title: item.project, sub: item.label }));
@@ -248,7 +289,7 @@ export default function CalendrierPage() {
       .map((item) => ({ ...item, title: item.project, sub: item.label }));
     if (unassigned.length) rows.push({ id: "na", title: "À attribuer", sub: plural(unassigned.length, "tâche"), ...assignLanes(unassigned) });
     return { workerRows: rows, conflicts: found };
-  }, [eventItems, taskItems, workers, days]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [eventItems, taskItems, workers, workerFilter, days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Vue « Par chantier » : une ligne par chantier, ses tâches et ses RDV.
   const projectRows = useMemo(() => {
@@ -465,6 +506,58 @@ export default function CalendrierPage() {
     `${weekCount.rdv} RDV cette semaine`
   ].join(" · ");
 
+  function toggleIn(list, setList, id) {
+    setList(list.includes(id) ? list.filter((value) => value !== id) : [...list, id]);
+  }
+
+  function summary(selected, groups, plural) {
+    if (!selected.length) return "tous";
+    if (selected.length === 1) return groups.flatMap((group) => group.items).find((item) => item.id === selected[0])?.title || "1";
+    return `${selected.length} ${plural}`;
+  }
+
+  const SHOW_LABELS = { tasks: "lots", rdv: "rendez-vous", done: "terminés" };
+  const shownSummary = Object.values(shown).every(Boolean)
+    ? "tout"
+    : Object.entries(shown).filter(([, on]) => on).map(([key]) => SHOW_LABELS[key]).join(", ") || "rien";
+
+  function renderFilter(id, label, value, content) {
+    const open = openFilter === id;
+    return (
+      <div className="k-filter">
+        <button type="button" className="btn btn-sec" aria-expanded={open} onClick={() => setOpenFilter(open ? "" : id)}>
+          {label} : <b>{value}</b>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        {open ? (
+          <>
+            <div className="k-filter-bg" onClick={() => setOpenFilter("")} />
+            <div className="k-filter-pop" role="group" aria-label={label} onKeyDown={(event) => { if (event.key === "Escape") setOpenFilter(""); }}>{content}</div>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderChecklist(groups, selected, setSelected, allLabel) {
+    return (
+      <>
+        <label className="chk"><input type="checkbox" checked={!selected.length} onChange={() => setSelected([])} />{allLabel}</label>
+        {groups.map((group) => group.items.length ? (
+          <div key={group.title} className="k-filter-grp">
+            <span className="lab">{group.title}</span>
+            {group.items.map((item) => (
+              <label key={item.id} className="chk">
+                <input type="checkbox" checked={selected.includes(item.id)} onChange={() => toggleIn(selected, setSelected, item.id)} />
+                {item.title}
+              </label>
+            ))}
+          </div>
+        ) : null)}
+      </>
+    );
+  }
+
   return (
     <Shell variant="pro">
       <div className="head">
@@ -502,6 +595,22 @@ export default function CalendrierPage() {
             <button type="button" className="btn btn-sec" onClick={() => setOffset(0)} disabled={offset === 0}>Aujourd'hui</button>
             <strong>{rangeLabel(rangeStart, rangeEnd)}</strong>
             <span>{step === 1 ? `Semaine ${isoWeek(rangeStart)}` : `Semaines ${isoWeek(rangeStart)} à ${isoWeek(rangeEnd)} · jours ouvrés`}</span>
+          </div>
+          <div className="k-filters">
+            {renderFilter("chantier", "Chantier", summary(projectFilter, projectOptions, "chantiers"),
+              renderChecklist(projectOptions, projectFilter, setProjectFilter, "Tous les chantiers"))}
+            {renderFilter("intervenant", "Intervenant", summary(workerFilter, workerOptions, "intervenants"),
+              renderChecklist(workerOptions, workerFilter, setWorkerFilter, "Tous les intervenants"))}
+            {renderFilter("afficher", "Afficher", shownSummary, (
+              <>
+                {Object.entries(SHOW_LABELS).map(([key, text]) => (
+                  <label key={key} className="chk">
+                    <input type="checkbox" checked={shown[key]} onChange={() => setShown((current) => ({ ...current, [key]: !current[key] }))} />
+                    {text.charAt(0).toUpperCase() + text.slice(1)}
+                  </label>
+                ))}
+              </>
+            ))}
           </div>
         </div>
         {renderGrid()}
