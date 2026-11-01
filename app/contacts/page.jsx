@@ -39,6 +39,7 @@ const emptyHistory = { quotes: [], chantiers: [], invoices: [], interventions: [
 // "Type" affine sur un rôle précis.
 const GROUPS = [
   { id: "tous", label: "Tous", test: () => true },
+  { id: "afaire", label: "À faire", test: (roles, contact) => Boolean(contact.nextAction?.label) },
   { id: "prospect", label: "Prospects", test: (roles) => roles.includes("prospect") },
   { id: "pros", label: "Pros", test: (roles) => roles.some((r) => r !== "prospect" && r !== "client") }
 ];
@@ -125,6 +126,10 @@ function accessText(contact) {
   return [contact.floor ? `étage ${contact.floor}` : "", contact.accessCode ? `code ${contact.accessCode}` : "", contact.complement].filter(Boolean).join(" · ");
 }
 
+function isOverdue(date) {
+  return Boolean(date) && date < new Date().toISOString().slice(0, 10);
+}
+
 function invoiceBucket(invoice) {
   if (invoice.kind === "avoir") return "Avoir";
   if (invoice.status === "Emise" && invoice.dueDate && new Date(`${invoice.dueDate}T00:00:00`) < new Date(new Date().toDateString())) return "Retard";
@@ -148,6 +153,10 @@ export default function ContactsPage() {
   const [history, setHistory] = useState(emptyHistory);
   const [historyFilter, setHistoryFilter] = useState("tout");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [noteKind, setNoteKind] = useState("appel");
+  const [noteText, setNoteText] = useState("");
+  const [actionForm, setActionForm] = useState({ label: "", date: "" });
+  const [editingAction, setEditingAction] = useState(false);
 
   // "client" n'est plus un role selectionnable ici — les clients ont leur
   // propre page dediee (/clients, 12 oct, demande d'Amira), avec generation
@@ -169,22 +178,25 @@ export default function ContactsPage() {
   const activeContacts = useMemo(() => contacts.filter((c) => !(c.roles || []).includes("client")), [contacts]);
 
   const groupCounts = useMemo(
-    () => Object.fromEntries(GROUPS.map((g) => [g.id, activeContacts.filter((c) => g.test(c.roles || [])).length])),
+    () => Object.fromEntries(GROUPS.map((g) => [g.id, activeContacts.filter((c) => g.test(c.roles || [], c)).length])),
     [activeContacts]
   );
 
   const filteredContacts = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const test = GROUPS.find((g) => g.id === group)?.test || (() => true);
+    const todoKey = (contact) => (contact.nextAction?.label ? `0${contact.nextAction.date || "9999-99-99"}` : "1");
     return activeContacts.filter((contact) => {
-      if (!test(contact.roles || [])) return false;
+      if (!test(contact.roles || [], contact)) return false;
       if (roleFilter && !(contact.roles || []).includes(roleFilter)) return false;
       if (!needle) return true;
       const haystack = [contactDisplayName(contact), contact.companyName, contact.siret, contact.phone, contact.email, contact.address, contact.city, contact.postalCode].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(needle);
     }).sort((a, b) => (sortBy === "recent"
       ? String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
-      : contactDisplayName(a).localeCompare(contactDisplayName(b), "fr")));
+      : sortBy === "afaire" || group === "afaire"
+        ? todoKey(a).localeCompare(todoKey(b)) || contactDisplayName(a).localeCompare(contactDisplayName(b), "fr")
+        : contactDisplayName(a).localeCompare(contactDisplayName(b), "fr")));
   }, [activeContacts, search, group, roleFilter, sortBy]);
 
   const selected = activeContacts.find((c) => c.id === selectedId) || null;
@@ -200,6 +212,9 @@ export default function ContactsPage() {
     setHistory(emptyHistory);
     setHistoryFilter("tout");
     setConfirmDelete(false);
+    setNoteText("");
+    setActionForm({ label: "", date: "" });
+    setEditingAction(false);
     if (!selectedId) return;
     let alive = true;
     apiGet(`/api/contacts/${selectedId}/history`).then((payload) => {
@@ -264,6 +279,26 @@ export default function ContactsPage() {
       setMessage(`${contactDisplayName(contact)} ajouté aux contacts.`);
       closeForm();
     }
+  }
+
+  async function patchSelected(payload, done) {
+    try {
+      const { contact } = await apiSend("/api/contacts", { id: selected.id, ...payload }, "PATCH");
+      setContacts((current) => current.map((item) => (item.id === contact.id ? contact : item)));
+      done?.();
+    } catch (error) {
+      setMessage(error.message || "Enregistrement impossible.");
+    }
+  }
+
+  function saveNextAction(event) {
+    event.preventDefault();
+    patchSelected({ action: "next-action", ...actionForm }, () => setEditingAction(false));
+  }
+
+  function addJournal(event) {
+    event.preventDefault();
+    patchSelected({ action: "journal-add", kind: noteKind, text: noteText }, () => setNoteText(""));
   }
 
   async function archiveContact() {
@@ -363,6 +398,7 @@ export default function ContactsPage() {
             <label>Trier :
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
                 <option value="nom">par nom</option>
+                <option value="afaire">à faire d'abord</option>
                 <option value="recent">ajouts récents</option>
               </select>
             </label>
@@ -392,7 +428,9 @@ export default function ContactsPage() {
                     </span>
                     <span className="l2">
                       <small>{[rolesText(contact) || "Sans rôle", contact.city].filter(Boolean).join(" · ")}</small>
-                      {contact.archived ? <span className="ct-todo">archivé</span> : null}
+                      {contact.archived ? <span className="ct-todo">archivé</span> : contact.nextAction?.label ? (
+                        <span className={`ct-todo${isOverdue(contact.nextAction.date) ? " late" : ""}`}>{contact.nextAction.date ? shortDay(contact.nextAction.date) : "à faire"}</span>
+                      ) : null}
                     </span>
                   </span>
                 </button>
@@ -460,6 +498,35 @@ export default function ContactsPage() {
                 </div>
               ) : null}
 
+              {!selected.archived && selected.nextAction?.label && !editingAction ? (
+                <div className="ct-next">
+                  <span className="ic"><Icon name="edit" /></span>
+                  <div>
+                    <strong>{selected.nextAction.label}</strong>
+                    <small>
+                      {selected.nextAction.date
+                        ? `${isOverdue(selected.nextAction.date) ? "En retard, prévu" : "Prévu"} le ${longDay(selected.nextAction.date)}`
+                        : "Prochaine action, sans date"}
+                    </small>
+                  </div>
+                  <button type="button" className="btn btn-sec" onClick={() => { setActionForm({ label: selected.nextAction.label, date: selected.nextAction.date || "" }); setEditingAction(true); }}>Modifier</button>
+                  <button type="button" className="btn btn-sec" onClick={() => patchSelected({ action: "next-action", label: "" })}>Fait</button>
+                </div>
+              ) : null}
+
+              {!selected.archived && (!selected.nextAction?.label || editingAction) ? (
+                <form className="card ct-na" onSubmit={saveNextAction}>
+                  <div className="card-h"><h2>Prochaine action</h2></div>
+                  <div className="ct-na-row">
+                    <input value={actionForm.label} onChange={(event) => setActionForm({ ...actionForm, label: event.target.value })} placeholder="Rappeler pour le devis, envoyer les photos…" aria-label="Prochaine action" maxLength={200} />
+                    <input type="date" value={actionForm.date} onChange={(event) => setActionForm({ ...actionForm, date: event.target.value })} aria-label="Date de la prochaine action" />
+                    <button type="submit" className="btn btn-sec" disabled={!actionForm.label.trim()}>Enregistrer</button>
+                    {editingAction ? <button type="button" className="link" onClick={() => setEditingAction(false)}>Annuler</button> : null}
+                  </div>
+                  <small className="muted">Le contact apparaît alors dans l'onglet « À faire ».</small>
+                </form>
+              ) : null}
+
               {history.quotes.length || history.invoices.length ? (
                 <div className="ct-strip">
                   <div><span>Signé TTC</span><b>{euro(money.signed)}</b></div>
@@ -503,6 +570,26 @@ export default function ContactsPage() {
                   <div className="kv"><span>{L.contacts.rolesLabel}</span><b>{rolesText(selected) || "aucun"}</b></div>
                   {selected.notes ? <div className="kv"><span>{L.contacts.notes}</span><b>{selected.notes}</b></div> : null}
                 </div>
+              </div>
+
+              <div className="card ct-jn">
+                <div className="card-h"><h2>Appels et notes{selected.journal?.length ? <span className="kcnt">{selected.journal.length}</span> : null}</h2></div>
+                <form className="ct-jn-f" onSubmit={addJournal}>
+                  <div className="kp-seg" role="group" aria-label="Type de note">
+                    <button type="button" className={noteKind === "appel" ? "on" : ""} aria-pressed={noteKind === "appel"} onClick={() => setNoteKind("appel")}>Appel</button>
+                    <button type="button" className={noteKind === "note" ? "on" : ""} aria-pressed={noteKind === "note"} onClick={() => setNoteKind("note")}>Note</button>
+                  </div>
+                  <textarea rows={2} value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder={noteKind === "appel" ? "Ce qui s'est dit au téléphone…" : "Une information à garder…"} aria-label="Texte de la note" maxLength={2000} />
+                  <button type="submit" className="btn btn-sec" disabled={!noteText.trim()}>Ajouter</button>
+                </form>
+                {(selected.journal || []).map((entry) => (
+                  <div className="ct-jn-e" key={entry.id}>
+                    <span className="d">{shortDay(entry.at)}</span>
+                    <span className="s">{entry.kind === "appel" ? "Appel" : "Note"}</span>
+                    <p>{entry.text}</p>
+                    <button type="button" className="dx" aria-label="Supprimer cette note" onClick={() => patchSelected({ action: "journal-delete", entryId: entry.id })}>×</button>
+                  </div>
+                ))}
               </div>
 
               <div className="card ct-tl">

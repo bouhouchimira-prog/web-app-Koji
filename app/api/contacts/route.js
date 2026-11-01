@@ -150,6 +150,27 @@ export async function PATCH(request) {
     return ok({ contact: { ...normalizeContact(contact), deleted: true } });
   }
 
+  // PRO-10 : journal d'appels et de notes, et prochaine action (onglet « À faire »).
+  if (action === "journal-add" || action === "journal-delete" || action === "next-action") {
+    const now = new Date().toISOString();
+    const journal = Array.isArray(contact.journal) ? contact.journal : [];
+    if (action === "journal-add") {
+      const text = fixText(String(body.text || "").trim().slice(0, 2000));
+      if (!text) return badRequest("La note est vide.");
+      contact.journal = [{ id: `jn-${Date.now()}`, kind: body.kind === "appel" ? "appel" : "note", text, at: now }, ...journal].slice(0, 200);
+    } else if (action === "journal-delete") {
+      contact.journal = journal.filter((entry) => entry.id !== body.entryId);
+    } else {
+      const label = fixText(String(body.label || "").trim().slice(0, 200));
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(body.date || "")) ? body.date : "";
+      contact.nextAction = label ? { label, date } : null;
+    }
+    contact.updatedAt = now;
+    db.contacts[index] = contact;
+    await writeDb(db);
+    return ok({ contact: normalizeContact(contact) });
+  }
+
   if (action === "archive") {
     contact.archived = true;
     contact.archivedAt = new Date().toISOString();
