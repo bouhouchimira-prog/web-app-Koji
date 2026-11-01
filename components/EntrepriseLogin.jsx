@@ -108,6 +108,10 @@ export function EntrepriseLogin({ L, sso, onSwitchProfile }) {
   return (
     <div className="el">
       <span className="el-badge">{L.auth.espaceEntreprise}</span>
+      <div className="el-tabs">
+        <span className="el-tab on">{L.auth.connexionTitle}</span>
+        <Link href="/signup?type=entreprise" className="el-tab">{L.auth.createAccountTab}</Link>
+      </div>
       <h2 className="el-title">{L.auth.connexionTitle}</h2>
       <p className="el-subtitle">{L.auth.heroSubtitleEntreprise}</p>
 

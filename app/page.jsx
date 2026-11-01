@@ -340,7 +340,7 @@ function DashboardHome() {
               ) : null}
             </p>
           </div>
-          <Link href="/devis-ia/new" className="kp-btn kp-btn-main">
+          <Link href="/devis?new=1&mode=ia" className="kp-btn kp-btn-main">
             <IconPlus /> Démarrer un devis guidé
           </Link>
         </section>
