@@ -339,6 +339,7 @@ export default function ProfilPage() {
             <span className="muted">Les informations de votre entreprise, reprises sur vos devis et factures.</span>
           </div>
           <div className="acts">
+            <Link href="/demarrage" className="btn btn-sec">Démarrage guidé</Link>
             <Link href="/profil/carte-de-visite" className="btn btn-sec">Carte de visite</Link>
             {tab !== "securite" ? <button type="submit" className="btn btn-main" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button> : null}
           </div>

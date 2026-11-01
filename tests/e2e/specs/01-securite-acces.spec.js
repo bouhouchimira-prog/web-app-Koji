@@ -16,7 +16,7 @@ const ENTREPRISE_PAGES = [
   "/chantiers", "/chantier/new", "/devis", "/devis-ia/new", "/avenant",
   "/facturation", "/fournitures", "/fournitures/catalogue", "/bibliotheque-ouvrages",
   "/comptabilite", "/contacts", "/clients", "/equipe", "/calendrier", "/archives",
-  "/corbeille", "/interventions", "/marketplace", "/reseau-pro", "/notifications", "/profil",
+  "/corbeille", "/interventions", "/marketplace", "/reseau-pro", "/demarrage", "/bibliotheque-ouvrages/mes-prix", "/notifications", "/profil",
   "/profil/carte-de-visite", "/profil/site-web", "/parametres", "/parametres/abonnement",
   "/business-info", "/chiffre-affaires", "/planning", "/profession-selection"
 ];

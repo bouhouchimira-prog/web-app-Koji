@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { ChoisissezVotreEspace } from "./ChoisissezVotreEspace";
 import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
+import { DEMARRAGE_SKIP_KEY, demarrageSteps, essentialsDone } from "../lib/demarrage";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
 import { estNouveau, publication, titreCourt, villeSeule } from "../lib/radar-display";
@@ -129,13 +130,23 @@ function DashboardHome() {
   const [radarTri, setRadarTri] = useState("recent");
   const [leadOuvert, setLeadOuvert] = useState(undefined); // undefined = le premier
   const [toutAfficher, setToutAfficher] = useState(false);
+  const [demarrage, setDemarrage] = useState(null);
 
   useEffect(() => {
     const user = readStoredUser();
     if (!user) return;
     setPrenom(prenomDe(user));
     setProfileComplete(Boolean(user.profileComplete && user.businessInfoComplete));
+    let skipped = false;
+    try { skipped = Boolean(window.localStorage.getItem(DEMARRAGE_SKIP_KEY)); } catch {}
+    const steps = demarrageSteps(user);
+    if (!skipped && !essentialsDone(steps)) setDemarrage({ done: steps.filter((step) => step.done).length });
   }, []);
+
+  function passerDemarrage() {
+    try { window.localStorage.setItem(DEMARRAGE_SKIP_KEY, new Date().toISOString()); } catch {}
+    setDemarrage(null);
+  }
 
   // Statut « déjà positionné » de chaque chantier (pas de route qui liste
   // tous les positionnements d'une entreprise).
@@ -323,6 +334,17 @@ function DashboardHome() {
           <span className="kp-eyebrow">{eyebrow}</span>
           <h1>{prenom ? `Bonjour, ${prenom}.` : "Bonjour."}</h1>
         </header>
+
+        {demarrage ? (
+          <section className="kp-start" aria-label="Démarrage guidé">
+            <div>
+              <strong>Démarrage guidé · {demarrage.done} étape{demarrage.done > 1 ? "s" : ""} sur 6</strong>
+              <small>Entreprise, métiers et prix : trois étapes pour envoyer votre premier devis.</small>
+            </div>
+            <button type="button" className="link" onClick={passerDemarrage}>Passer</button>
+            <Link href="/demarrage" className="btn btn-sec">Continuer</Link>
+          </section>
+        ) : null}
 
         <section className="kp-hero" aria-label="Devis guidé">
           <div>
