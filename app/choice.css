@@ -34,7 +34,7 @@ html:has(.cv){scroll-behavior:smooth}
   gap:12px;
   height:72px;
   padding:0 40px;
-  background:#0B1530;
+  background:#171B1E;
   color:#FFFFFF;
 }
 
@@ -251,7 +251,7 @@ html:has(.cv){scroll-behavior:smooth}
 
 /* Pied */
 .cv-bf{
-  background:#0B1530;
+  background:#171B1E;
   color:#FFFFFF;
   padding:18px 40px;
   display:flex;
