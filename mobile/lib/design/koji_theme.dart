@@ -3,44 +3,56 @@ import 'package:flutter/material.dart';
 import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/design/koji_tokens.dart';
 
-/// Material themes for both koji apps, built from the web design: Plus Jakarta
-/// Sans, navy primary actions, white cards with a hairline border on a soft
-/// page background (cool grey for entreprise, warm cream for client).
+/// Material themes for both koji apps. Koji (client) keeps Plus Jakarta Sans,
+/// navy actions and rounded cards; Koji Pro (entreprise) follows the website's
+/// Koji Pro art direction (app/home-pro.css): DM Sans, graphite, yellow
+/// reserved for the main action, 2 px corners everywhere.
 abstract final class KojiTheme {
-  /// Bundled font family (declared in pubspec.yaml).
+  /// Bundled font families (declared in pubspec.yaml).
   static const fontFamily = 'PlusJakartaSans';
+  static const proFontFamily = 'DMSans';
+
+  static bool _isPro(KojiAppKind? kind) => (kind ?? KojiAppConfig.kind) == KojiAppKind.entreprise;
 
   static ThemeData light([KojiAppKind? kind]) {
-    final isClient = (kind ?? KojiAppConfig.kind) == KojiAppKind.client;
+    if (_isPro(kind)) return _build(KojiPalette.pro, Brightness.light, pro: true);
     return _build(
-      KojiPalette.light(
-        page: isClient ? KojiColors.pageClient : KojiColors.pageEntreprise,
-      ),
+      KojiPalette.light(page: KojiColors.pageClient),
       Brightness.light,
     );
   }
 
-  static ThemeData dark([KojiAppKind? kind]) =>
-      _build(KojiPalette.dark, Brightness.dark);
+  static ThemeData dark([KojiAppKind? kind]) => _isPro(kind)
+      ? _build(KojiPalette.proDark, Brightness.dark, pro: true)
+      : _build(KojiPalette.dark, Brightness.dark);
 
-  static ThemeData _build(KojiPalette p, Brightness brightness) {
+  static ThemeData _build(KojiPalette p, Brightness brightness, {bool pro = false}) {
+    final family = pro ? proFontFamily : fontFamily;
     final base = ThemeData(
       brightness: brightness,
       useMaterial3: true,
-      fontFamily: fontFamily,
+      fontFamily: family,
     );
     final textTheme =
         base.textTheme.apply(bodyColor: p.ink, displayColor: p.heading);
 
     TextStyle font(double size, FontWeight weight, Color color) => TextStyle(
-        fontFamily: fontFamily,
+        fontFamily: family,
         fontSize: size,
         fontWeight: weight,
         color: color);
 
+    // Koji Pro : 2 px partout, comme le site (--radius).
+    double r(double legacy) => pro ? 2 : legacy;
+    final accent = pro ? p.heading : (p.isDark ? KojiColors.cream : KojiColors.navy);
+    // Koji Pro : le jaune est réservé à l'action principale ; onglets, puces,
+    // cases et interrupteurs sélectionnés sont graphite.
+    final selection = pro ? p.heading : p.primary;
+    final onSelection = pro ? p.surface : p.onPrimary;
+
     final fieldBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(13),
-      borderSide: BorderSide(color: p.isDark ? p.line : KojiColors.fieldLine),
+      borderRadius: BorderRadius.circular(r(13)),
+      borderSide: BorderSide(color: pro ? KojiColors.proBtn : (p.isDark ? p.line : KojiColors.fieldLine)),
     );
 
     final scheme = ColorScheme.fromSeed(
@@ -49,8 +61,8 @@ abstract final class KojiTheme {
     ).copyWith(
       primary: p.primary,
       onPrimary: p.onPrimary,
-      secondary: p.isDark ? KojiColors.cream : KojiColors.goldText,
-      onSecondary: p.isDark ? KojiColors.navy : Colors.white,
+      secondary: pro ? p.heading : (p.isDark ? KojiColors.cream : KojiColors.goldText),
+      onSecondary: pro ? p.surface : (p.isDark ? KojiColors.navy : Colors.white),
       surface: p.surface,
       onSurface: p.ink,
       outline: p.lineStrong,
@@ -84,7 +96,7 @@ abstract final class KojiTheme {
         margin: EdgeInsets.zero,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(r(18)),
           side: BorderSide(color: p.line),
         ),
       ),
@@ -98,7 +110,7 @@ abstract final class KojiTheme {
           minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(12))),
           textStyle: font(14, FontWeight.w700, p.onPrimary),
         ),
       ),
@@ -108,7 +120,7 @@ abstract final class KojiTheme {
           foregroundColor: p.onPrimary,
           minimumSize: const Size(0, 44),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(12))),
           textStyle: font(14, FontWeight.w700, p.onPrimary),
         ),
       ),
@@ -120,13 +132,13 @@ abstract final class KojiTheme {
           minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(12))),
           textStyle: font(14, FontWeight.w700, p.heading),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: p.isDark ? KojiColors.cream : KojiColors.navy,
+          foregroundColor: accent,
           textStyle: font(14, FontWeight.w700, p.heading),
         ),
       ),
@@ -134,7 +146,7 @@ abstract final class KojiTheme {
         backgroundColor: p.primary,
         foregroundColor: p.onPrimary,
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(16))),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -153,19 +165,19 @@ abstract final class KojiTheme {
         ),
       ),
       checkboxTheme: CheckboxThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(6))),
         side: BorderSide(color: p.lineStrong, width: 1.5),
         fillColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? p.primary : null,
+          (s) => s.contains(WidgetState.selected) ? selection : null,
         ),
-        checkColor: WidgetStatePropertyAll(p.onPrimary),
+        checkColor: WidgetStatePropertyAll(onSelection),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? p.onPrimary : p.surface,
+          (s) => s.contains(WidgetState.selected) ? onSelection : p.surface,
         ),
         trackColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? p.primary : p.lineStrong,
+          (s) => s.contains(WidgetState.selected) ? selection : p.lineStrong,
         ),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
@@ -174,21 +186,21 @@ abstract final class KojiTheme {
         linearTrackColor: p.navActiveBg,
       ),
       tabBarTheme: TabBarThemeData(
-        labelColor: p.onPrimary,
+        labelColor: onSelection,
         unselectedLabelColor: p.muted,
         dividerColor: Colors.transparent,
-        labelStyle: font(13, FontWeight.w700, p.onPrimary),
+        labelStyle: font(13, FontWeight.w700, onSelection),
         unselectedLabelStyle: font(13, FontWeight.w600, p.muted),
         indicator: BoxDecoration(
-          color: p.primary,
-          borderRadius: BorderRadius.circular(10),
+          color: selection,
+          borderRadius: BorderRadius.circular(r(10)),
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: p.surface,
-        selectedColor: p.primary,
+        selectedColor: selection,
         side: BorderSide(color: p.line),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(18))),
         labelStyle: font(13, FontWeight.w600, p.muted),
       ),
       listTileTheme: ListTileThemeData(
@@ -204,14 +216,14 @@ abstract final class KojiTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(r(24))),
         ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(18))),
         titleTextStyle: font(18, FontWeight.w800, p.heading),
         contentTextStyle: font(14, FontWeight.w400, p.inkSoft),
       ),
@@ -219,17 +231,18 @@ abstract final class KojiTheme {
         color: p.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(r(12)),
           side: BorderSide(color: p.line),
         ),
         textStyle: font(14, FontWeight.w600, p.ink),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor:
-            p.isDark ? KojiColors.darkSurfaceMuted : KojiColors.navy,
+        backgroundColor: pro
+            ? KojiColors.proGraphite
+            : (p.isDark ? KojiColors.darkSurfaceMuted : KojiColors.navy),
         contentTextStyle: font(14, FontWeight.w600, Colors.white),
-        actionTextColor: KojiColors.gold,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        actionTextColor: pro ? KojiColors.proYellow : KojiColors.gold,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(12))),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: p.surface,

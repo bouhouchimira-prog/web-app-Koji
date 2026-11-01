@@ -28,7 +28,7 @@ class KojiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.koji;
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(kojiRadius(radius)),
       side: BorderSide(color: borderColor ?? p.line),
     );
     return Material(
@@ -84,7 +84,7 @@ class KojiKpi extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     color: p.toneBg(tone),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(kojiRadius(10)),
                   ),
                   alignment: Alignment.center,
                   child: KojiIcon(icon, size: 17, color: fg, strokeWidth: 1.9),
@@ -180,12 +180,11 @@ class KojiPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
         color: p.toneBg(tone),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kojiRadius(12)),
       ),
       child: Text(
         label,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -282,7 +281,7 @@ class KojiSectionTitle extends StatelessWidget {
         if (action != null)
           InkWell(
             onTap: onAction,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(kojiRadius(8)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Text(
@@ -290,7 +289,10 @@ class KojiSectionTitle extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: p.isDark ? KojiColors.cream : KojiColors.info,
+                  color: kojiPro
+                      ? p.heading
+                      : (p.isDark ? KojiColors.cream : KojiColors.info),
+                  decoration: kojiPro ? TextDecoration.underline : null,
                 ),
               ),
             ),
@@ -337,8 +339,10 @@ class KojiButton extends StatelessWidget {
     final (Color bg, Color fg, Color? border, Gradient? gradient) =
         switch (variant) {
       KojiButtonVariant.primary => (p.primary, p.onPrimary, null, null),
-      KojiButtonVariant.secondary => (p.surface, p.heading, p.lineStrong, null),
-      KojiButtonVariant.light => (Colors.white, KojiColors.navy, null, null),
+      KojiButtonVariant.secondary => (p.surface, p.heading, kojiPro ? KojiColors.proBtn : p.lineStrong, null),
+      KojiButtonVariant.light => (Colors.white, kojiPro ? KojiColors.proGraphite : KojiColors.navy, null, null),
+      // Koji Pro : pas de dégradé doré, le jaune d'action à plat.
+      KojiButtonVariant.gold when kojiPro => (p.primary, p.onPrimary, null, null),
       KojiButtonVariant.gold => (
           KojiColors.gold,
           KojiColors.navy,
@@ -373,7 +377,9 @@ class KojiButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: height >= 52 ? 16 : 14,
-                fontWeight: height >= 52 ? FontWeight.w800 : FontWeight.w700,
+                fontWeight: kojiPro
+                    ? FontWeight.w600
+                    : (height >= 52 ? FontWeight.w800 : FontWeight.w700),
                 color: fg,
               ),
             ),
@@ -393,9 +399,9 @@ class KojiButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: gradient == null ? bg : null,
           gradient: gradient,
-          borderRadius: BorderRadius.circular(height >= 52 ? 14 : 12),
+          borderRadius: BorderRadius.circular(kojiRadius(height >= 52 ? 14 : 12)),
           border: border != null ? Border.all(color: border) : null,
-          boxShadow: variant == KojiButtonVariant.gold
+          boxShadow: variant == KojiButtonVariant.gold && !kojiPro
               ? [
                   BoxShadow(
                     color: KojiColors.goldDeep.withValues(alpha: 0.28),
@@ -409,7 +415,7 @@ class KojiButton extends StatelessWidget {
           type: MaterialType.transparency,
           child: InkWell(
             onTap: enabled ? onPressed : null,
-            borderRadius: BorderRadius.circular(height >= 52 ? 14 : 12),
+            borderRadius: BorderRadius.circular(kojiRadius(height >= 52 ? 14 : 12)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: content,
@@ -523,8 +529,9 @@ class KojiSegmented<T> extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 4 : 5),
       decoration: BoxDecoration(
-        color: p.isDark ? p.surfaceMuted : KojiColors.sand,
-        borderRadius: BorderRadius.circular(compact ? 13 : 15),
+        color: p.isDark || kojiPro ? p.surfaceMuted : KojiColors.sand,
+        borderRadius: BorderRadius.circular(kojiRadius(compact ? 13 : 15)),
+        border: kojiPro ? Border.all(color: p.line) : null,
       ),
       child: Row(
         children: [
@@ -539,8 +546,9 @@ class KojiSegmented<T> extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: e.key == value ? p.surface : Colors.transparent,
-                    borderRadius: BorderRadius.circular(compact ? 10 : 11),
-                    boxShadow: e.key == value
+                    borderRadius: BorderRadius.circular(kojiRadius(compact ? 10 : 11)),
+                    border: kojiPro && e.key == value ? Border.all(color: p.heading) : null,
+                    boxShadow: e.key == value && !kojiPro
                         ? [
                             BoxShadow(
                               color: KojiColors.navy.withValues(alpha: 0.10),
@@ -584,6 +592,10 @@ class KojiFilterChips<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.koji;
+    // Koji Pro : le jaune est réservé à l'action principale, l'onglet
+    // sélectionné est graphite (comme .wtabs sur le site).
+    final onBg = kojiPro ? p.heading : p.primary;
+    final onFg = kojiPro ? p.surface : p.onPrimary;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -591,14 +603,14 @@ class KojiFilterChips<T> extends StatelessWidget {
         for (final e in options.entries)
           InkWell(
             onTap: () => onChanged(e.key),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(kojiRadius(18)),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: e.key == value ? p.primary : p.surface,
-                borderRadius: BorderRadius.circular(18),
+                color: e.key == value ? onBg : p.surface,
+                borderRadius: BorderRadius.circular(kojiRadius(18)),
                 border: Border.all(
-                  color: e.key == value ? p.primary : p.line,
+                  color: e.key == value ? onBg : p.line,
                 ),
               ),
               child: Text(
@@ -606,7 +618,7 @@ class KojiFilterChips<T> extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: e.key == value ? p.onPrimary : p.muted,
+                  color: e.key == value ? onFg : p.muted,
                 ),
               ),
             ),
@@ -647,7 +659,7 @@ class KojiEmptyState extends StatelessWidget {
             height: compact ? 44 : 56,
             decoration: BoxDecoration(
               color: p.navActiveBg,
-              borderRadius: BorderRadius.circular(compact ? 13 : 16),
+              borderRadius: BorderRadius.circular(kojiRadius(compact ? 13 : 16)),
             ),
             alignment: Alignment.center,
             child: KojiIcon(icon, size: compact ? 20 : 24, color: p.heading),
@@ -748,13 +760,15 @@ class KojiProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.koji;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(height / 2),
+      borderRadius: BorderRadius.circular(kojiRadius(height / 2)),
       child: SizedBox(
         height: height,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ColoredBox(color: track ?? p.navActiveBg),
+            // Koji Pro : navActiveBg est le gris foncé du menu, trop proche
+            // du remplissage graphite ; piste claire comme sur le site.
+            ColoredBox(color: track ?? (kojiPro ? p.line : p.navActiveBg)),
             FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: value.clamp(0.0, 1.0),
@@ -765,96 +779,6 @@ class KojiProgressBar extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Circular progress donut with the percent centered inside ("ProgressRing"
-/// on the web, used by the home's "Mes chantiers" cards).
-class KojiProgressRing extends StatelessWidget {
-  const KojiProgressRing({
-    super.key,
-    required this.percent,
-    this.size = 72,
-    this.strokeWidth = 6,
-  });
-
-  /// 0-100.
-  final int percent;
-  final double size;
-  final double strokeWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.koji;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: _ProgressRingPainter(
-          percent: percent,
-          color: p.primary,
-          track: p.isDark ? p.surfaceMuted : const Color(0xFFE8EDF5),
-          strokeWidth: strokeWidth,
-        ),
-        child: Center(
-          child: Text(
-            '$percent%',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: p.heading,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProgressRingPainter extends CustomPainter {
-  _ProgressRingPainter({
-    required this.percent,
-    required this.color,
-    required this.track,
-    required this.strokeWidth,
-  });
-
-  final int percent;
-  final Color color;
-  final Color track;
-  final double strokeWidth;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final radius = (size.shortestSide - strokeWidth) / 2;
-    final center = Offset(size.width / 2, size.height / 2);
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = track
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth,
-    );
-
-    final sweep = 2 * 3.14159265358979 * (percent.clamp(0, 100) / 100);
-    canvas.drawArc(
-      rect,
-      -3.14159265358979 / 2,
-      sweep,
-      false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProgressRingPainter old) =>
-      old.percent != percent || old.color != color || old.track != track;
 }
 
 /// Soft tinted box for alerts ("À surveiller").
@@ -879,10 +803,10 @@ class KojiAlertBox extends StatelessWidget {
     final p = context.koji;
     return Material(
       color: p.toneBg(tone),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kojiRadius(12)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kojiRadius(12)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -935,8 +859,8 @@ class KojiPromoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
       decoration: BoxDecoration(
-        color: KojiColors.navy,
-        borderRadius: BorderRadius.circular(18),
+        color: kojiPro ? KojiColors.proGraphite : KojiColors.navy,
+        borderRadius: BorderRadius.circular(kojiRadius(18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

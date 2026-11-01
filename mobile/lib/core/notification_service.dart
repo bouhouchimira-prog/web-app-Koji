@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:koji/app/koji_pro_api.dart';
+import 'package:koji/features/factures/factures_logic.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 import 'package:koji/core/supabase_config.dart';
@@ -152,49 +154,29 @@ class NotificationService {
     }
   }
 
-  /// Scans the user's invoices for any that are past their échéance (due_date)
-  /// and not fully paid, then raises a single summary notification. Call on app
-  /// start and after creating/paying an invoice. No-op when nothing is overdue.
+  /// Raises a single summary notification for the invoices that are « En
+  /// retard » on the website (sent, échéance passed). Invoices live in
+  /// koji-web (/api/invoices), the backend shared with the site. Call on app
+  /// start and after an invoice changes. No-op when nothing is overdue.
   Future<void> notifyOverdueInvoices() async {
+    final api = KojiProApi(tokenProvider: supabaseAccessToken);
     try {
       if (!_initialised) await init();
       await _plugin.cancel(_invoiceOverdueId);
 
-      final userId = SupabaseConfig.client.auth.currentUser?.id;
-      if (userId == null) return;
+      if (SupabaseConfig.client.auth.currentUser == null) return;
 
-      final today = DateTime.now();
-      final todayStr = today.toIso8601String().substring(0, 10);
-
-      // Overdue = due_date strictly before today and not yet fully settled.
-      final rows = await SupabaseConfig.client
-          .from('invoices')
-          .select('reference, amount, paid_amount, due_date, client_name')
-          .eq('user_id', userId)
-          .lt('due_date', todayStr);
-
-      final overdue = (rows as List).where((r) {
-        final amount = (r['amount'] as num?)?.toDouble() ?? 0;
-        final paid = (r['paid_amount'] as num?)?.toDouble() ?? 0;
-        return amount - paid > 0.009;
-      }).toList();
-
+      final invoices = await api.list('/api/invoices', 'invoices');
+      final overdue = invoices.where((i) => isActive(i) && invoiceBucket(i) == 'Retard').toList();
       if (overdue.isEmpty) return;
 
-      final totalDue = overdue.fold<double>(
-        0,
-        (sum, r) =>
-            sum +
-            (((r['amount'] as num?)?.toDouble() ?? 0) -
-                ((r['paid_amount'] as num?)?.toDouble() ?? 0)),
-      );
-
+      final totalDue = overdue.fold<double>(0, (sum, i) => sum + amountOf(i));
       final count = overdue.length;
       final body = count == 1
-          ? 'La facture ${overdue.first['reference'] ?? ''} est en retard de '
-              'paiement (${totalDue.toStringAsFixed(0)} € dus).'
+          ? 'La facture ${overdue.first['invoiceNumber'] ?? ''} est en retard de '
+              'paiement (${euro(totalDue)} dus).'
           : '$count factures en retard de paiement '
-              '(${totalDue.toStringAsFixed(0)} € dus au total).';
+              '(${euro(totalDue)} dus au total).';
 
       await _plugin.show(
         _invoiceOverdueId,
@@ -214,6 +196,8 @@ class NotificationService {
       );
     } catch (e) {
       if (kDebugMode) debugPrint('notifyOverdueInvoices error: $e');
+    } finally {
+      api.dispose();
     }
   }
 

@@ -12,6 +12,9 @@ import 'package:koji/features/calendar/calendrier_screen.dart';
 import 'package:koji/features/calendar/data/calendar_event_model.dart';
 import 'package:koji/features/calendar/detail_planning_screen.dart';
 import 'package:koji/features/calendar/nouvel_evenement_screen.dart';
+import 'package:koji/features/factures/chantier_factures_screen.dart';
+import 'package:koji/features/factures/factures_screen.dart';
+import 'package:koji/features/factures/nouvelle_facture_screen.dart';
 import 'package:koji/features/fournitures/fournitures_screen.dart';
 import 'package:koji/features/help/help_screen.dart';
 import 'package:koji/features/home/home_screen.dart';
@@ -30,13 +33,10 @@ import 'package:koji/features/quote/chantier_creation_screen.dart';
 import 'package:koji/features/quote/chantier_dashboard_screen.dart';
 import 'package:koji/features/quote/chantier_devis_screen.dart';
 import 'package:koji/features/quote/chantier_documents_screen.dart';
-import 'package:koji/features/quote/chantier_facturation_screen.dart';
 import 'package:koji/features/quote/chantier_info_screen.dart';
 import 'package:koji/features/quote/chantier_rdv_screen.dart';
 import 'package:koji/features/quote/chantier_worker_activity_screen.dart';
 import 'package:koji/features/quote/client_details_screen.dart';
-import 'package:koji/features/quote/facturation_chantier_picker_screen.dart';
-import 'package:koji/features/quote/facturation_create_screen.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
 import 'package:koji/features/quote/quote_detail_screen.dart';
@@ -230,12 +230,14 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 );
               },
             ),
+            // Factures : mêmes données et mêmes règles que /facturation du
+            // site (API koji-web).
             GoRoute(
               path: '/facturation',
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const FacturationChantierPickerScreen(),
+                const FacturesScreen(),
               ),
             ),
             GoRoute(
@@ -245,7 +247,7 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 return _buildPageWithTransition(
                   context,
                   state,
-                  ChantierFacturationScreen(data: data),
+                  ChantierFacturesScreen(chantier: data),
                 );
               },
             ),
@@ -256,7 +258,7 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 return _buildPageWithTransition(
                   context,
                   state,
-                  FacturationCreateScreen(args: args),
+                  NouvelleFactureScreen(args: args),
                 );
               },
             ),
