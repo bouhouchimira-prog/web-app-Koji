@@ -17,7 +17,7 @@ const GROUPS = [
       { href: "/chantiers", label: "Chantiers", icon: "M4 20h16M6 20V9l6-4 6 4v11", match: ["/chantiers", "/chantier/"] },
       { href: "/devis", label: "Devis", icon: "M6 3h9l4 4v14H6zM9 12h6M9 16h6", match: ["/devis"] },
       { href: "/marketplace", label: "Radar", icon: SHOP, badge: "radar" },
-      { label: "Réseau pro", icon: PERSON, soon: true },
+      { href: "/reseau-pro", label: "Réseau pro", icon: PERSON },
       { href: "/calendrier", label: "Calendrier", icon: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4", match: ["/calendrier", "/planning"] }
     ]
   },

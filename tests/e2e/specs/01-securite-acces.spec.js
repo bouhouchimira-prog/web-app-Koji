@@ -16,7 +16,7 @@ const ENTREPRISE_PAGES = [
   "/chantiers", "/chantier/new", "/devis", "/devis-ia/new", "/avenant",
   "/facturation", "/fournitures", "/fournitures/catalogue", "/bibliotheque-ouvrages",
   "/comptabilite", "/contacts", "/clients", "/equipe", "/calendrier", "/archives",
-  "/corbeille", "/interventions", "/marketplace", "/notifications", "/profil",
+  "/corbeille", "/interventions", "/marketplace", "/reseau-pro", "/notifications", "/profil",
   "/profil/carte-de-visite", "/profil/site-web", "/parametres", "/parametres/abonnement",
   "/business-info", "/chiffre-affaires", "/planning", "/profession-selection"
 ];
@@ -45,7 +45,8 @@ const API_LIST_ROUTES = [
   { path: "/api/interventions", key: "interventions" },
   { path: "/api/notifications", key: "notifications" },
   { path: "/api/commandes", key: "commandes" },
-  { path: "/api/tasks", key: "tasks" }
+  { path: "/api/tasks", key: "tasks" },
+  { path: "/api/reseau", key: "besoins" }
 ];
 
 async function assertAnonymousSafe(path) {
