@@ -161,7 +161,7 @@ function ParticulierLogin({ L, sso }) {
             </button>
           </div>
         </div>
-        {error ? <p style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
+        {error ? <p role="alert" style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
         <button
           type="submit"
           className="btn btn-main"
@@ -329,7 +329,7 @@ function ParticulierSignup({ L, onBack, sso }) {
             autoComplete="new-password"
           />
         </div>
-        {error ? <p style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
+        {error ? <p role="alert" style={{ fontSize: 13, color: "#d32f2f", backgroundColor: "rgba(211, 47, 47, 0.08)", padding: "10px 12px", borderRadius: 2, margin: 0 }}>{error}</p> : null}
         <button type="submit" className="btn btn-main" disabled={loading}>
           {loading ? L.auth.creating : L.auth.createBtn}
         </button>

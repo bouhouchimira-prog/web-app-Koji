@@ -52,7 +52,7 @@ describe("Espace ouvrier et signature", function () {
   it("'/signature/login' : bouton de connexion desactive si les champs sont vides", async function () {
     await h.clearSession(driver);
     await h.goto(driver, "/signature/login");
-    const submitBtn = await h.waitVisible(driver, By.css("button.button.blue"));
+    const submitBtn = await h.waitVisible(driver, By.css("form button[type='submit']"));
     assert.strictEqual(await submitBtn.isEnabled(), false);
   });
 });

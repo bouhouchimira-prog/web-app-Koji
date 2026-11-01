@@ -18,16 +18,16 @@ describe("Espace public", function () {
     await h.captureOnFailure(this, driver);
   });
 
-  it("'/' affiche la landing visiteur (components/PublicLanding)", async function () {
+  it("'/' affiche la page de choix visiteur (app/ChoisissezVotreEspace)", async function () {
     await h.clearSession(driver);
     await h.goto(driver, "/");
-    await h.waitVisible(driver, By.css("main.ld"));
+    await h.waitVisible(driver, By.css("main.cv-split"));
     await h.assertNoAppError(driver);
   });
 
-  it("'/entreprise' affiche la landing Koji Pro (components/EntrepriseLanding)", async function () {
+  it("'/entreprise' affiche la landing Koji Pro (app/entreprise/EntrepriseLanding)", async function () {
     await h.goto(driver, "/entreprise");
-    await h.waitVisible(driver, By.css("main.ep"));
+    await h.waitVisible(driver, By.css(".kl h1"));
     await h.assertNoAppError(driver);
   });
 
@@ -35,45 +35,45 @@ describe("Espace public", function () {
     it("email invalide affiche une erreur a l'etape 1", async function () {
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=entreprise");
-      const emailInput = await h.waitClickable(driver, By.css("input[type='email'].auth-input-v2"));
+      const emailInput = await h.waitClickable(driver, By.css("input[type='email'].el-input"));
       await emailInput.sendKeys("test@koji");
-      await h.clickWhenReady(driver, By.css(".auth-btn-primary"));
-      const errorEl = await h.waitVisible(driver, By.css(".auth-error"));
+      await h.clickWhenReady(driver, By.css(".el-btn-primary"));
+      const errorEl = await h.waitVisible(driver, By.css(".el-error"));
       assert.ok((await errorEl.getText()).length > 0, "Un message d'erreur devrait s'afficher.");
     });
 
-    it("mauvais mot de passe affiche .auth-error a l'etape 2", async function () {
+    it("mauvais mot de passe affiche .el-error a l'etape 2", async function () {
       if (!config.hasEntreprise) return this.skip();
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=entreprise");
-      const emailInput = await h.waitClickable(driver, By.css("input[type='email'].auth-input-v2"));
+      const emailInput = await h.waitClickable(driver, By.css("input[type='email'].el-input"));
       await emailInput.sendKeys(config.entreprise.email);
-      await h.clickWhenReady(driver, By.css(".auth-btn-primary"));
+      await h.clickWhenReady(driver, By.css(".el-btn-primary"));
       const passwordInput = await h.waitClickable(driver, By.css("input[autocomplete='current-password']"));
       await passwordInput.sendKeys("un-mot-de-passe-definitivement-faux-123");
-      await h.clickWhenReady(driver, By.css(".auth-btn-primary"));
-      const errorEl = await h.waitVisible(driver, By.css(".auth-error"));
+      await h.clickWhenReady(driver, By.css(".el-btn-primary"));
+      const errorEl = await h.waitVisible(driver, By.css(".el-error"));
       assert.ok((await errorEl.getText()).length > 0);
     });
 
     it("l'onglet 'Créer un compte' mene a /signup?type=entreprise", async function () {
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=entreprise");
-      await h.clickWhenReady(driver, By.css("a.auth-mode-tab"));
+      await h.clickWhenReady(driver, By.css("a.el-tab"));
       await driver.wait(until.urlContains("/signup"), 15000);
     });
 
     it("carte de bascule de profil mene vers l'espace particulier", async function () {
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=entreprise");
-      await h.clickWhenReady(driver, By.css(".auth-switch-card"));
-      // Bascule en place (pas de navigation) : le badge "Espace particulier" apparait.
-      await h.waitVisible(driver, By.css(".auth-eyebrow-badge.particulier"));
+      await h.clickWhenReady(driver, By.css(".el-switch-card"));
+      // Bascule en place (pas de navigation) : le formulaire particulier (identifiant) apparait.
+      await h.waitVisible(driver, By.css("input[autocomplete='username']"));
     });
   });
 
   describe("Connexion particulier (/login?type=particulier)", function () {
-    it("mauvais mot de passe affiche .auth-error", async function () {
+    it("mauvais mot de passe affiche une erreur", async function () {
       if (!config.hasParticulier) return this.skip();
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=particulier");
@@ -81,24 +81,25 @@ describe("Espace public", function () {
       await identifierInput.sendKeys(config.particulier.email);
       const passwordInput = await h.waitClickable(driver, By.css("input[autocomplete='current-password']"));
       await passwordInput.sendKeys("un-mot-de-passe-definitivement-faux-123");
-      await h.clickWhenReady(driver, By.css(".auth-btn-primary"));
-      const errorEl = await h.waitVisible(driver, By.css(".auth-error"));
+      await h.clickWhenReady(driver, By.css("form button[type='submit']"));
+      const errorEl = await h.waitVisible(driver, By.css("form [role='alert']"));
       assert.ok((await errorEl.getText()).length > 0);
     });
 
     it("bouton de connexion desactive si les champs sont vides", async function () {
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=particulier");
-      const submitBtn = await h.waitVisible(driver, By.css(".auth-btn-primary"));
+      const submitBtn = await h.waitVisible(driver, By.css("form button[type='submit']"));
       assert.strictEqual(await submitBtn.isEnabled(), false);
     });
 
     it("onglet 'Créer un compte' (sur place) + mot de passe < 8 caracteres affiche une erreur", async function () {
       await h.clearSession(driver);
       await h.goto(driver, "/login?type=particulier");
-      const tabs = await driver.findElements(By.css(".auth-mode-tab"));
-      assert.ok(tabs.length >= 2, "Les 2 onglets Connexion/Creer un compte devraient etre presents.");
-      await tabs[1].click();
+      const loginTab = await driver.findElements(By.xpath("//button[normalize-space()='Connexion']"));
+      const signupTab = await driver.findElements(By.xpath("//button[normalize-space()='Créer un compte']"));
+      assert.ok(loginTab.length && signupTab.length, "Les 2 onglets Connexion/Creer un compte devraient etre presents.");
+      await signupTab[0].click();
       const nameInput = await h.waitClickable(driver, By.css("input[autocomplete='name']"));
       await nameInput.sendKeys("Test E2E");
       const emailInput = await driver.findElement(By.css("input[autocomplete='email']"));
@@ -106,8 +107,8 @@ describe("Espace public", function () {
       const passwordInputs = await driver.findElements(By.css("input[autocomplete='new-password']"));
       await passwordInputs[0].sendKeys("short1");
       await passwordInputs[1].sendKeys("short1");
-      await h.clickWhenReady(driver, By.css(".auth-btn-primary"));
-      const errorEl = await h.waitVisible(driver, By.css(".auth-error"));
+      await h.clickWhenReady(driver, By.css("form button[type='submit']"));
+      const errorEl = await h.waitVisible(driver, By.css("form [role='alert']"));
       assert.ok((await errorEl.getText()).length > 0);
     });
   });
@@ -142,7 +143,7 @@ describe("Espace public", function () {
 
   it("'/legal' affiche les mentions legales", async function () {
     await h.goto(driver, "/legal");
-    await h.waitVisible(driver, By.css("main.static-page"));
+    await h.waitVisible(driver, By.css(".public-pro .card"));
     await h.assertNoAppError(driver);
   });
 
@@ -162,7 +163,7 @@ describe("Espace public", function () {
 
   it("'/signature/login' affiche le formulaire d'acces signature", async function () {
     await h.goto(driver, "/signature/login");
-    await h.waitVisible(driver, By.css("button.button.blue"));
+    await h.waitVisible(driver, By.css("form button[type='submit']"));
   });
 
   it("'/signature/<token-bidon>' affiche un message d'erreur", async function () {
