@@ -563,6 +563,16 @@
 .pro .dv-steps li.done{border-top-color:var(--ink);color:var(--ink)}
 .pro .dv-steps li.done small{color:var(--grey)}
 .pro .dv-track-act{display:flex;justify-content:flex-end;margin-top:12px}
+.pro .dv-versions{display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.pro .dv-versions h3{margin:0;font-size:15px;font-weight:600}
+.pro .dv-versions > p{margin:0}
+.pro .dv-diff{display:flex;flex-direction:column;gap:4px;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:var(--radius)}
+.pro .dv-diff p{margin:0 0 4px}
+.pro .dv-diff-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:baseline;font-size:13px}
+.pro .dv-diff-row b{font-weight:600;white-space:nowrap}
+.pro .dv-diff-row.del .dv-diff-l{color:var(--grey);text-decoration:line-through}
+.pro .dv-diff-k{font-weight:700;text-align:center}
+.pro .dv-diff-l small{color:var(--grey)}
 .pro .dv-deposit{display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .pro .dv-deposit h3{margin:0;font-size:15px;font-weight:600}
 .pro .dv-deposit p{margin:0}

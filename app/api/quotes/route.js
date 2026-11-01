@@ -585,6 +585,25 @@ export async function PATCH(request) {
 
   const recalculated = applyQuoteTotals(quote);
   recalculated.updatedAt = now;
+  // PRO-03.6 : instantané de ce qui part chez le client, pour montrer les
+  // écarts entre versions (la version précédente reste consultable).
+  if (action === "send") {
+    const snapshot = {
+      number: recalculated.versionNumber,
+      sentAt: now,
+      totalHt: recalculated.totalHt,
+      totalTtc: recalculated.totalTtc,
+      lines: (recalculated.calculatedItems || []).map((item) => ({
+        id: String(item.id || ""),
+        label: fixText(item.label || item.name || item.designation || "Ligne"),
+        room: fixText(item.room || ""),
+        quantity: Number(item.quantity || 0),
+        unit: item.unit || "",
+        totalHt: Number(item.totalHt || 0)
+      }))
+    };
+    recalculated.versions = [...quote.versions.filter((version) => version.number !== snapshot.number), snapshot].slice(-10);
+  }
   const row = quoteToRow(recalculated, auth.userId);
   const { data: updatedRow, error: updateError } = await auth.supabase
     .from("quotes")

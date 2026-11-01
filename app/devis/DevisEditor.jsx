@@ -107,6 +107,21 @@ function trackDate(value) {
 
 const DEPOSIT_PERCENTS = [20, 30, 40, 50];
 
+// PRO-03.6 : écarts entre deux versions envoyées (lignes concernées seulement).
+function diffVersions(previous, next) {
+  const keyOf = (line) => line.id || `${line.room}|${line.label}`;
+  const before = new Map((previous?.lines || []).map((line) => [keyOf(line), line]));
+  const after = new Map((next?.lines || []).map((line) => [keyOf(line), line]));
+  const changes = [];
+  after.forEach((line, key) => {
+    const old = before.get(key);
+    if (!old) changes.push({ kind: "add", line });
+    else if (Math.abs(old.quantity - line.quantity) > 0.005 || Math.abs(old.totalHt - line.totalHt) > 0.005) changes.push({ kind: "mod", line, old });
+  });
+  before.forEach((line, key) => { if (!after.has(key)) changes.push({ kind: "del", line }); });
+  return changes;
+}
+
 function round2(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
@@ -1916,6 +1931,46 @@ export default function DevisEditor() {
     }
   }
 
+  function renderVersions(signed) {
+    const versions = Array.isArray(generatedQuote?.versions) ? generatedQuote.versions : [];
+    if (!versions.length) return null;
+    const latest = versions[versions.length - 1];
+    const previous = versions.length > 1 ? versions[versions.length - 2] : null;
+    const changes = previous ? diffVersions(previous, latest) : [];
+    const modifiedSince = !signed && Math.abs(Number(generatedQuote.totalHt || 0) - Number(latest.totalHt || 0)) > 0.005;
+    const nextNumber = String(parseInt(latest.number || "1", 10) + 1).padStart(3, "0");
+    return (
+      <div className="dv-versions">
+        <h3>Versions envoyées</h3>
+        {versions.slice().reverse().map((version) => (
+          <div className="kv" key={`${version.number}-${version.sentAt}`}>
+            <span>v{version.number} · envoyée le {trackDate(version.sentAt)}</span>
+            <b>{money(version.totalHt)} HT · {version === latest ? (signed ? "signée" : "chez le client") : "remplacée"}</b>
+          </div>
+        ))}
+        {modifiedSince ? (
+          <p className="notice">Modifié depuis l'envoi de la v{latest.number} : {money(latest.totalHt)} → {money(generatedQuote.totalHt)} HT. Renvoyer créera la v{nextNumber} ; la v{latest.number} ne pourra plus être signée.</p>
+        ) : null}
+        {previous ? (
+          <div className="dv-diff">
+            <p className="muted">Écarts v{previous.number} → v{latest.number} : {money(previous.totalHt)} → {money(latest.totalHt)} HT · {money(previous.totalTtc)} → {money(latest.totalTtc)} TTC</p>
+            {changes.length === 0 ? <p className="muted">Mêmes lignes, seul le total a pu changer (majorations, TVA).</p> : changes.map((change) => (
+              <div className={`dv-diff-row ${change.kind}`} key={`${change.kind}-${change.line.id}-${change.line.label}`}>
+                <span className="dv-diff-k" aria-label={change.kind === "add" ? "ajoutée" : change.kind === "del" ? "retirée" : "modifiée"}>{change.kind === "add" ? "+" : change.kind === "del" ? "−" : "~"}</span>
+                <span className="dv-diff-l">{change.line.label}{change.line.room ? <small> · {change.line.room}</small> : null}</span>
+                <b>
+                  {change.kind === "mod"
+                    ? `${change.old.quantity} → ${change.line.quantity} ${change.line.unit || ""} · ${money(change.old.totalHt)} → ${money(change.line.totalHt)}`
+                    : money(change.line.totalHt)}
+                </b>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   // PRO-03.3 / PRO-03.4 : suivi Envoyé → Vu → Signé → Chantier lancé, puis
   // facture d'acompte depuis le devis signé.
   function renderTracking() {
@@ -1941,6 +1996,7 @@ export default function DevisEditor() {
             </li>
           ))}
         </ol>
+        {renderVersions(signed)}
         {signed && generatedQuote.projectId ? (
           <div className="dv-track-act">
             <Link className="btn btn-sec" href={`/chantiers?project=${generatedQuote.projectId}`}>Voir le chantier</Link>
