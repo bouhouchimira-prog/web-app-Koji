@@ -964,6 +964,97 @@ class KojiLogo extends StatelessWidget {
   }
 }
 
+/// Circular progress indicator: ring with a percent label in the center.
+class KojiProgressRing extends StatelessWidget {
+  const KojiProgressRing({
+    super.key,
+    required this.percent,
+    this.size = 72,
+  });
+
+  final int percent;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.koji;
+    final radius = (size - 8) / 2;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(size, size),
+            painter: _RingPainter(
+              radius: radius,
+              percent: percent.clamp(0, 100),
+              color: p.primary,
+              trackColor: p.line,
+            ),
+          ),
+          Text(
+            '$percent%',
+            style: TextStyle(
+              fontSize: size * 0.35,
+              fontWeight: FontWeight.w700,
+              color: p.heading,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.radius,
+    required this.percent,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final double radius;
+  final int percent;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final track = Paint()
+      ..color = trackColor
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final fill = Paint()
+      ..color = color
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawCircle(center, radius, track);
+
+    final sweepAngle = (percent / 100) * 2 * 3.141592653589793;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.141592653589793 / 2,
+      sweepAngle,
+      false,
+      fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter oldDelegate) =>
+      oldDelegate.percent != percent ||
+      oldDelegate.color != color ||
+      oldDelegate.trackColor != trackColor;
+}
+
 /// Formats an amount the French way: "184 500 €".
 String kojiEuro(num value, {bool cents = false}) {
   final negative = value < 0;

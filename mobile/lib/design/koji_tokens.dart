@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'package:koji/app/koji_app_config.dart';
+
+/// Koji Pro (entreprise) suit la DA du site : coins à 2 px partout.
+bool get kojiPro => KojiAppConfig.isEntreprise;
+
+double kojiRadius(double legacy) => kojiPro ? 2 : legacy;
+
 /// Raw colour values taken from the koji web design canvas
 /// ("koji — Dashboards des outils"). Screens should read colours through
 /// [KojiPalette] (`context.koji`) so they follow light / dark mode; these
@@ -55,6 +62,25 @@ abstract final class KojiColors {
   static const darkLine = Color(0xFF2D3142);
   static const darkInk = Color(0xFFE5E7EB);
   static const darkMuted = Color(0xFF9CA3AF);
+
+  // ── Koji Pro (entreprise app) : mêmes valeurs que le site (app/home-pro.css) ──
+  static const proGraphite = Color(0xFF171B1E);
+  static const proYellow = Color(0xFFFFC400);
+  static const proGrey = Color(0xFF5B5F66);
+  static const proPage = Color(0xFFECECE7);
+  static const proSoft = Color(0xFFF5F5F2);
+  static const proLine = Color(0xFFD9D9D4);
+  static const proRule = Color(0xFFE3E3DE);
+  static const proFrame = Color(0xFFCFCFC9);
+  static const proBtn = Color(0xFF8A8F98);
+  static const proMenu = Color(0xFF2A3036);
+  static const proDarkBar = Color(0xFF0B0D0F);
+  static const proDarkPage = Color(0xFF121518);
+  static const proDarkCard = Color(0xFF1A1E23);
+  static const proDarkSoft = Color(0xFF1F252B);
+  static const proDarkLine = Color(0xFF2E333A);
+  static const proDarkInk = Color(0xFFF5F5F2);
+  static const proDarkGrey = Color(0xFFA7ABB2);
 }
 
 /// Semantic tone used by status pills, KPI tiles and alert boxes.
@@ -137,6 +163,48 @@ class KojiPalette extends ThemeExtension<KojiPalette> {
         isDark: false,
       );
 
+  /// Koji Pro : graphite, jaune réservé à l'action principale (site,
+  /// app/home-pro.css).
+  static const pro = KojiPalette(
+    page: KojiColors.proPage,
+    surface: Colors.white,
+    surfaceMuted: KojiColors.proSoft,
+    line: KojiColors.proLine,
+    lineSoft: KojiColors.proRule,
+    lineStrong: KojiColors.proFrame,
+    ink: KojiColors.proGraphite,
+    inkSoft: Color(0xFF3A3F44),
+    muted: KojiColors.proGrey,
+    faint: KojiColors.proBtn,
+    heading: KojiColors.proGraphite,
+    navActiveBg: KojiColors.proMenu,
+    navActiveFg: Colors.white,
+    primary: KojiColors.proYellow,
+    onPrimary: KojiColors.proGraphite,
+    topband: KojiColors.proGraphite,
+    isDark: false,
+  );
+
+  static const proDark = KojiPalette(
+    page: KojiColors.proDarkPage,
+    surface: KojiColors.proDarkCard,
+    surfaceMuted: KojiColors.proDarkSoft,
+    line: KojiColors.proDarkLine,
+    lineSoft: Color(0xFF2A2F35),
+    lineStrong: KojiColors.proDarkLine,
+    ink: KojiColors.proDarkInk,
+    inkSoft: Color(0xFFD5D8DE),
+    muted: KojiColors.proDarkGrey,
+    faint: Color(0xFF7A7F88),
+    heading: KojiColors.proDarkInk,
+    navActiveBg: Color(0xFF1F252B),
+    navActiveFg: Colors.white,
+    primary: KojiColors.proYellow,
+    onPrimary: KojiColors.proDarkBar,
+    topband: KojiColors.proDarkBar,
+    isDark: true,
+  );
+
   static const dark = KojiPalette(
     page: KojiColors.darkPage,
     surface: KojiColors.darkSurface,
@@ -159,6 +227,8 @@ class KojiPalette extends ThemeExtension<KojiPalette> {
 
   /// Foreground colour of a tone.
   Color toneFg(KojiTone tone) => switch (tone) {
+        // Koji Pro : pas de bleu, le neutre est graphite.
+        KojiTone.navy || KojiTone.info when kojiPro => heading,
         KojiTone.navy => isDark ? KojiColors.cream : KojiColors.navy,
         KojiTone.green => isDark ? const Color(0xFF4CC38A) : KojiColors.green,
         KojiTone.amber => isDark ? const Color(0xFFE2A94A) : KojiColors.amber,
@@ -169,6 +239,7 @@ class KojiPalette extends ThemeExtension<KojiPalette> {
 
   /// Soft background of a tone (pill fill, icon tile, alert box).
   Color toneBg(KojiTone tone) {
+    if (kojiPro && (tone == KojiTone.navy || tone == KojiTone.info)) return surfaceMuted;
     if (isDark) return toneFg(tone).withValues(alpha: 0.16);
     return switch (tone) {
       KojiTone.navy => KojiColors.navActive,
