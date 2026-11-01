@@ -106,6 +106,20 @@ function trackDate(value) {
 }
 
 const DEPOSIT_PERCENTS = [20, 30, 40, 50];
+const SURCHARGE_MODES = new Set(["excluded", "internal", "client"]);
+
+function accountSurchargesFrom(value) {
+  if (!Array.isArray(value)) return null;
+  return value
+    .filter((item) => item && String(item.label || "").trim())
+    .map((item, index) => ({
+      id: String(item.id || `sc-compte-${index}`),
+      label: String(item.label),
+      percent: Math.max(0, Number(item.percent) || 0),
+      mode: SURCHARGE_MODES.has(item.mode) ? item.mode : "excluded",
+      ...(item.calculationBase === "chiffrage_cumule" ? { calculationBase: "chiffrage_cumule" } : {})
+    }));
+}
 
 // PRO-03.6 : écarts entre deux versions envoyées (lignes concernées seulement).
 function diffVersions(previous, next) {
@@ -470,6 +484,7 @@ export default function DevisEditor() {
   // sensibilite de son ouvrage (voir lib/pricing.js::calculateTaskPrice).
   // Valeur par defaut 1 = modalite de reference, aucun effet — jamais
   // bloquant, coherent avec le reste du formulaire.
+  const accountSurchargesRef = useRef(null);
   const [situationFactors, setSituationFactors] = useState(() => ({ ...SITUATION_FACTOR_DEFAULTS }));
   // Acompte/Solde (decisions du 4 septembre pour le module Radar des
   // Chantiers, ouvert a tous les devis le 16 octobre — maquette
@@ -550,6 +565,11 @@ export default function DevisEditor() {
         if (!editQuoteIdFromUrl() && !vatManual && Number.isFinite(defaultVat) && defaultVat > 0) {
           setQuoteVatRate(defaultVat);
         }
+        // Majorations réglées dans Bibliothèque › Mes prix : même règle que la
+        // TVA, uniquement pour un devis tout neuf.
+        const accountSurcharges = accountSurchargesFrom(payload.user?.business?.defaultSurcharges);
+        accountSurchargesRef.current = accountSurcharges;
+        if (accountSurcharges && !editQuoteIdFromUrl()) setSurcharges(accountSurcharges);
       })
       .catch(() => {
         if (!quoteCompanyAppliedRef.current) setCompany(profileCompany(null));
@@ -2454,7 +2474,7 @@ export default function DevisEditor() {
     setRoomNotes([]);
     setGeneratedQuote(null);
     setSignatureDelivery(null);
-    setSurcharges([
+    setSurcharges(accountSurchargesRef.current || [
       { id: "sc-coord", label: "Coordination de chantier", percent: 10, mode: "excluded" },
       { id: "sc-alea", label: "Provision aléas de chantier", percent: 5, mode: "excluded" },
       { id: "sc-assur", label: "Assurance décennale", percent: 8, mode: "excluded", calculationBase: "chiffrage_cumule" }

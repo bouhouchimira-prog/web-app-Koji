@@ -305,6 +305,7 @@ export default function BibliothequeAccueilPage() {
           <span className="muted">{L.bibliotheque.chooseFamilyHint}</span>
         </div>
         <div className="acts">
+          <Link href="/bibliotheque-ouvrages/mes-prix" className="btn btn-sec">Mes prix</Link>
           <button type="button" className="btn btn-sec" onClick={() => setImportOpen(true)}>{L.bibliotheque.importSpreadsheet}</button>
           <button type="button" className="btn btn-main" onClick={() => openCreateModal("")}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>

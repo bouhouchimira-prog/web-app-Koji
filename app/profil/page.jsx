@@ -541,22 +541,11 @@ export default function ProfilPage() {
             {tab === "devis" ? (
               <>
                 <section className="card">
-                  <div className="card-h"><h2>{L.parametres.pricing}</h2><span className="sm2">utilisée par le Devis guidé et la Bibliothèque</span></div>
-                  <div className="fgrid pf-3">
-                    <label>{L.parametres.dailyRate}
-                      <input type="number" min="0" value={String(business.dailyRate ?? 0)} onChange={(event) => setField("dailyRate", event.target.value)} />
-                    </label>
-                    <label>{L.parametres.hoursPerDay}
-                      <input type="number" min="0" value={String(business.hoursPerDay ?? 7)} onChange={(event) => setField("hoursPerDay", event.target.value)} />
-                    </label>
-                    <label>Taux horaire
-                      <input type="text" value={`${hourlyCost.toFixed(2).replace(".", ",")} € / h`} disabled />
-                      <small className="muted">prix journée divisé par les heures par jour</small>
-                    </label>
-                    <label>TVA par défaut (%)
-                      <input type="number" min="0" value={String(business.defaultVatRate ?? 20)} onChange={(event) => setField("defaultVatRate", event.target.value)} placeholder="20" />
-                    </label>
-                  </div>
+                  <div className="card-h"><h2>{L.parametres.pricing}</h2></div>
+                  <div className="kv"><span>Taux horaire</span><b>{`${hourlyCost.toFixed(2).replace(".", ",")} € / h`}</b></div>
+                  <div className="kv"><span>TVA par défaut</span><b>{business.defaultVatRate ?? 20} %</b></div>
+                  <p className="muted">Vos prix se règlent dans la Bibliothèque, au même endroit que vos ouvrages.</p>
+                  <div><Link href="/bibliotheque-ouvrages/mes-prix" className="btn btn-sec">Ouvrir Mes prix</Link></div>
                 </section>
 
                 <section className="card">
