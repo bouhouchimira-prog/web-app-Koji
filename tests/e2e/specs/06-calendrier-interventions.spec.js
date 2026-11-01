@@ -49,9 +49,9 @@ describe("Calendrier et interventions (E2E_WRITE requis)", function () {
     await clientInput.sendKeys(client, Key.RETURN);
 
     // Ecran d'apercu -> "Générer le rapport".
-    await h.clickWhenReady(driver, By.xpath("//button[contains(@class,'mobile-primary') and contains(., 'Générer')]"));
+    await h.clickWhenReady(driver, By.xpath("//button[contains(@class,'btn-main') and contains(., 'Générer')]"));
 
-    const deleteBtn = await h.waitVisible(driver, By.css(".mini-danger"), 20000);
+    const deleteBtn = await h.waitVisible(driver, By.xpath("//aside[contains(@class,'iv-side')]//button[contains(., 'Supprimer')]"), 20000);
     await deleteBtn.click();
 
     await driver.wait(async () => {
