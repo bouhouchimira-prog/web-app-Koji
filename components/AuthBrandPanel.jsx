@@ -1,3 +1,6 @@
+import "./auth-hero-enterprise.css";
+import "./auth-pro.css";
+
 const letters = ["K", "O", "J", "I"];
 
 function CheckIcon({ color }) {

@@ -53,8 +53,8 @@ function SetPasswordScreen() {
   }
 
   return (
-    <main className="auth-screen">
-      <AuthBrandPanel />
+    <main className={`auth-screen${accountType === "entreprise" ? " auth-pro" : ""}`}>
+      <AuthBrandPanel profile={accountType} />
 
       <section className="auth-panel">
         <h2>{mode === "reset" ? L.auth.newPassword : L.auth.activateAccount}</h2>

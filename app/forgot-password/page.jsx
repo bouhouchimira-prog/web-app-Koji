@@ -34,8 +34,8 @@ function ForgotPasswordScreen() {
   }
 
   return (
-    <main className="auth-screen">
-      <AuthBrandPanel />
+    <main className={`auth-screen${accountType === "entreprise" ? " auth-pro" : ""}`}>
+      <AuthBrandPanel profile={accountType} />
 
       <section className="auth-panel">
         <div className="auth-switch">

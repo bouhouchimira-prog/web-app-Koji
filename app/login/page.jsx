@@ -9,7 +9,6 @@ import { LangSwitcher } from "../../components/LangSwitcher";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import "../home-pro.css";
-import "../../components/auth-hero-enterprise.css";
 
 const WORKER_SESSION_KEY = "koji-worker-session";
 

@@ -1,0 +1,190 @@
+/* Pages d'authentification Koji Pro (inscription, mot de passe oublié,
+   nouveau mot de passe, activation) : même DA que la connexion entreprise
+   (components/entreprise-login.css). Couvre les deux générations de
+   balisage (.auth-screen/.auth-panel et .auth-screen-v2/.auth-panel-v2). */
+
+.auth-pro {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  background: #ECECE6;
+  color: #171B1E;
+}
+
+.auth-pro > .auth-panel,
+.auth-pro > .auth-panel-v2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  padding: 40px 48px;
+  background: #ECECE6;
+}
+
+.auth-pro > .auth-panel > *,
+.auth-pro .auth-card {
+  width: 100%;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.auth-pro .auth-card {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.auth-pro h2,
+.auth-pro .auth-title {
+  margin: 0 0 6px;
+  color: #171B1E;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.auth-pro .auth-subtitle,
+.auth-pro .muted,
+.auth-pro .auth-confirm-sub,
+.auth-pro .auth-alt-link,
+.auth-pro .auth-confirm-hint {
+  color: #5B5F66;
+}
+
+.auth-pro .auth-pro-card-title {
+  display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
+  padding: 6px 12px;
+  background: #FFC400;
+  border-radius: 999px;
+  color: #171B1E;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.auth-pro .auth-field label {
+  color: #171B1E;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-pro .auth-input,
+.auth-pro .auth-input-v2 {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  background: #FFFFFF;
+  border: 1.5px solid #D6D6CF;
+  border-radius: 2px;
+  color: #171B1E;
+  font: inherit;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.auth-pro .auth-input:focus,
+.auth-pro .auth-input-v2:focus {
+  outline: none;
+  border-color: #171B1E;
+  background: #FFFFFF;
+}
+
+.auth-pro .auth-btn-primary,
+.auth-pro .button.blue {
+  display: block;
+  width: 100%;
+  height: 48px;
+  background: #FFC400;
+  border: 0;
+  border-radius: 2px;
+  box-shadow: none;
+  color: #171B1E;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 48px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.16s;
+}
+
+.auth-pro .auth-btn-primary:hover:not(:disabled),
+.auth-pro .button.blue:hover:not(:disabled) {
+  filter: brightness(0.96);
+  opacity: 1;
+  transform: none;
+  box-shadow: none;
+}
+
+.auth-pro .auth-btn-primary:disabled,
+.auth-pro .button.blue:disabled {
+  background: #FFFFFF;
+  border: 1.5px solid #8A8F98;
+  color: #5B5F66;
+  cursor: not-allowed;
+}
+
+.auth-pro .auth-link,
+.auth-pro .auth-text-btn {
+  color: #171B1E;
+  font-weight: 700;
+}
+
+.auth-pro .auth-email-badge {
+  background: #FFFFFF;
+  border: 1px solid #D6D6CF;
+  border-radius: 2px;
+  color: #171B1E;
+}
+
+.auth-pro .auth-error {
+  border-radius: 2px;
+}
+
+.auth-pro .auth-switch {
+  border-radius: 2px;
+  background: #FFFFFF;
+  border: 1px solid #D6D6CF;
+}
+
+.auth-pro .auth-switch a {
+  border-radius: 2px;
+}
+
+.auth-pro .auth-switch a.active {
+  background: #171B1E;
+  color: #FFFFFF;
+}
+
+.auth-pro .auth-confirm-icon {
+  background: #FFFFFF;
+  border: 1px solid #D6D6CF;
+  border-radius: 2px;
+}
+
+@media (max-width: 700px) {
+  .auth-pro {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-pro > .auth-hero-themed {
+    display: none;
+  }
+
+  .auth-pro > .auth-panel,
+  .auth-pro > .auth-panel-v2 {
+    padding: 28px 16px;
+  }
+}

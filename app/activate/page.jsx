@@ -64,8 +64,8 @@ function ActivateInner() {
   const iconBg = status === "ok" ? "#f0fdf4" : status === "error" ? "#fef2f2" : "#eff6ff";
 
   return (
-    <main className="auth-screen-v2">
-      <AuthBrandPanel />
+    <main className={`auth-screen-v2${accountType === "entreprise" ? " auth-pro" : ""}`}>
+      <AuthBrandPanel profile={accountType} />
       <section className="auth-panel-v2">
         <div className="auth-card">
           <div className="auth-confirm-card">

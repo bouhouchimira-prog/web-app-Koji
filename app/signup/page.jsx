@@ -102,8 +102,8 @@ function SignupScreen() {
 
   if (step === "ready") {
     return (
-      <main className="auth-screen-v2">
-        <AuthBrandPanel />
+      <main className="auth-screen-v2 auth-pro">
+        <AuthBrandPanel profile="entreprise" />
         <section className="auth-panel-v2">
           <div className="auth-confirm-card">
             <div className="auth-confirm-icon"><MailIcon /></div>
@@ -120,8 +120,8 @@ function SignupScreen() {
 
   if (step === "confirm") {
     return (
-      <main className="auth-screen-v2">
-        <AuthBrandPanel />
+      <main className="auth-screen-v2 auth-pro">
+        <AuthBrandPanel profile="entreprise" />
         <section className="auth-panel-v2">
           <div className="auth-confirm-card">
             <div className="auth-confirm-icon"><MailIcon /></div>
@@ -149,8 +149,8 @@ function SignupScreen() {
   }
 
   return (
-    <main className="auth-screen-v2">
-      <AuthBrandPanel />
+    <main className="auth-screen-v2 auth-pro">
+      <AuthBrandPanel profile="entreprise" />
       <section className="auth-panel-v2">
         <div className="auth-card">
 
