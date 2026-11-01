@@ -204,3 +204,96 @@ GRANT SELECT ON ai_conversations TO authenticated;
 DROP POLICY IF EXISTS "Admins can read AI conversations" ON ai_conversations;
 CREATE POLICY "Admins can read AI conversations" ON ai_conversations FOR SELECT
   USING (auth.jwt() ->> 'email' IN ('bouhouchimira@gmail.com', 'ablexpertrenov@gmail.com'));
+
+-- ── Réseau pro (1er novembre) ────────────────────────────────────────────
+-- Besoins de sous-traitance, annuaire et échanges entre entreprises
+-- (app/api/reseau/route.js). Une ligne par profil, besoin, échange et
+-- message, jamais dans koji_web_state : deux entreprises qui écrivent en
+-- même temps ne s'écrasent plus. Même posture que radar_offer_drafts :
+-- service_role uniquement ; la route vérifie l'identité (getVerifiedUserId)
+-- et ne renvoie jamais user_id, coordonnées ni dates de documents d'une
+-- autre entreprise.
+CREATE TABLE IF NOT EXISTS reseau_profils (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL UNIQUE,
+  company_name TEXT NOT NULL DEFAULT '',
+  visible BOOLEAN NOT NULL DEFAULT TRUE,
+  metiers TEXT[] NOT NULL DEFAULT '{}',
+  zone TEXT NOT NULL DEFAULT '',
+  available_from DATE,
+  availability_note TEXT NOT NULL DEFAULT '',
+  kbis_date DATE,
+  urssaf_until DATE,
+  decennale_until DATE,
+  zone_lat DOUBLE PRECISION,
+  zone_lon DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS reseau_besoins (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  company_name TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL,
+  metier TEXT NOT NULL,
+  start_date DATE,
+  end_date DATE,
+  budget_ht NUMERIC(12, 2),
+  fournitures TEXT NOT NULL DEFAULT 'moi' CHECK (fournitures IN ('moi', 'sous-traitant')),
+  city TEXT NOT NULL DEFAULT '',
+  message TEXT NOT NULL DEFAULT '',
+  hide_client BOOLEAN NOT NULL DEFAULT TRUE,
+  project_id TEXT NOT NULL DEFAULT '',
+  project_title TEXT NOT NULL DEFAULT '',
+  lot_label TEXT NOT NULL DEFAULT '',
+  zone_lat DOUBLE PRECISION,
+  zone_lon DOUBLE PRECISION,
+  status TEXT NOT NULL DEFAULT 'ouvert' CHECK (status IN ('ouvert', 'pourvu', 'ferme')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reseau_besoins_status_idx ON reseau_besoins(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS reseau_besoins_user_id_idx ON reseau_besoins(user_id);
+
+-- Un seul échange par paire d'entreprises et par besoin (besoin_id vide =
+-- contact direct depuis l'annuaire).
+CREATE TABLE IF NOT EXISTS reseau_echanges (
+  id TEXT PRIMARY KEY,
+  besoin_id TEXT NOT NULL DEFAULT '',
+  user_a TEXT NOT NULL,
+  user_b TEXT NOT NULL,
+  name_a TEXT NOT NULL DEFAULT '',
+  name_b TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'ouvert' CHECK (status IN ('ouvert', 'retenu')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (user_a <> user_b)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS reseau_echanges_pair_idx
+  ON reseau_echanges(besoin_id, LEAST(user_a, user_b), GREATEST(user_a, user_b));
+CREATE INDEX IF NOT EXISTS reseau_echanges_user_a_idx ON reseau_echanges(user_a);
+CREATE INDEX IF NOT EXISTS reseau_echanges_user_b_idx ON reseau_echanges(user_b);
+CREATE INDEX IF NOT EXISTS reseau_echanges_besoin_idx ON reseau_echanges(besoin_id);
+
+CREATE TABLE IF NOT EXISTS reseau_messages (
+  id TEXT PRIMARY KEY,
+  echange_id TEXT NOT NULL REFERENCES reseau_echanges(id) ON DELETE CASCADE,
+  from_user TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (char_length(text) BETWEEN 1 AND 2000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reseau_messages_echange_idx ON reseau_messages(echange_id, created_at);
+
+ALTER TABLE reseau_profils ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reseau_besoins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reseau_echanges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reseau_messages ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON reseau_profils FROM anon, authenticated;
+REVOKE ALL ON reseau_besoins FROM anon, authenticated;
+REVOKE ALL ON reseau_echanges FROM anon, authenticated;
+REVOKE ALL ON reseau_messages FROM anon, authenticated;
