@@ -51,6 +51,19 @@
 .pro .acct .chev svg{width:16px;height:16px;stroke-width:2}
 .pro .mbar,.pro .side-backdrop{display:none}
 
+/* Koji Assistant block (PRO-01) */
+.pro .kjh{display:grid;grid-template-columns:auto 1fr 360px;gap:16px;align-items:center;background:var(--bar);color:var(--txt);padding:18px 20px;border-radius:var(--radius)}
+.pro .kjh .kjs{display:grid;place-items:center;flex:none;width:44px;height:44px;background:var(--prim);border-radius:var(--radius)}
+.pro .kjh .kjs svg{width:24px;height:24px;stroke:var(--ptxt);fill:var(--ptxt);stroke-width:1.5}
+.pro .kjh-t{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pro .kjh-t b{font-size:15px;font-weight:700;color:var(--txt)}
+.pro .kjh-t>span{font-size:14px;color:var(--sec);line-height:1.4}
+.pro .kjh-c{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.pro .kjh-c a{display:inline-block;padding:8px 12px;background:var(--act);border-radius:var(--radius);color:var(--txt);font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;line-height:1.25;white-space:nowrap}
+.pro .kjh-c a:hover{background:var(--act2)}
+.pro .kjh-in{display:flex;justify-content:space-between;align-items:center;background:var(--card);color:var(--btn);padding:12px 14px;font-size:14px;border-radius:var(--radius);cursor:text}
+.pro .kjh-in svg{width:18px;height:18px;flex:none;stroke:var(--btn);stroke-width:1.5}
+
 /* Contenu */
 .pro main.wide{flex:1;min-width:0;display:flex;flex-direction:column;gap:24px;padding:40px 48px;background:var(--bg)}
 .pro .head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px}

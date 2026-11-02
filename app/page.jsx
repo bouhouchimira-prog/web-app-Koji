@@ -335,6 +335,29 @@ function DashboardHome() {
           <h1>{prenom ? `Bonjour, ${prenom}.` : "Bonjour."}</h1>
         </header>
 
+        <div className="kjh" onClick={() => window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { focus: true } }))}>
+          <span className="kjs">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" fill="currentColor" />
+            </svg>
+          </span>
+          <div className="kjh-t">
+            <b>Demandez à Koji</b>
+            <span>Un chiffre, un document, une action : Koji connaît vos chantiers, devis, factures et votre équipe.</span>
+            <div className="kjh-c">
+              <a onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: "Qu'est-ce qui m'attend aujourd'hui ?" } })); }}>Qu'est-ce qui m'attend aujourd'hui ?</a>
+              <a onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: "Qui me doit de l'argent ?" } })); }}>Qui me doit de l'argent ?</a>
+              <a onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: "Quels chantiers perdent de l'argent ?" } })); }}>Quels chantiers perdent de l'argent ?</a>
+            </div>
+          </div>
+          <div className="kjh-in">
+            Posez votre question…
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
+            </svg>
+          </div>
+        </div>
+
         {demarrage ? (
           <section className="kp-start" aria-label="Démarrage guidé">
             <div>

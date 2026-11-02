@@ -396,6 +396,28 @@ export function Shell({ children, variant }) {
     return () => document.removeEventListener("keydown", openOnCtrlK);
   }, [isPro]);
 
+  useEffect(() => {
+    if (!isPro) return undefined;
+    async function handleAssistantAsk(event) {
+      const { message, focus } = event.detail || {};
+      setKojiAssistantOpen(true);
+      try { window.localStorage.setItem("koji-assistant-open", "1"); } catch { /**/ }
+      if (focus) {
+        setTimeout(() => kojiAssistantInputRef.current?.focus(), 0);
+      } else if (message) {
+        // Pré-remplit le champ et envoie automatiquement
+        setKojiAssistantDraft(message);
+        setTimeout(() => {
+          // Attendre que le draft soit mis à jour avant d'envoyer
+          // On utilise une ref pour éviter les closures obsolètes
+          submitKojiAssistant(message);
+        }, 0);
+      }
+    }
+    window.addEventListener("koji-assistant-ask", handleAssistantAsk);
+    return () => window.removeEventListener("koji-assistant-ask", handleAssistantAsk);
+  }, [isPro, kojiAssistantBusy, kojiAssistantConversationId]);
+
   function toggleKojiAssistantMenu() {
     setKojiAssistantMenuOpen((prev) => {
       const next = !prev;
