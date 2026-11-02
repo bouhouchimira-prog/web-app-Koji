@@ -32,22 +32,22 @@ jobs:
       - name: Build Koji Pro (Entreprise) APK
         run: |
           cd mobile
-          flutter build apk --flavor entreprise -t lib/main_entreprise.dart -v
+          flutter build apk --flavor entreprise -t lib/main_entreprise.dart --no-watch-fs -v
 
       - name: Build Koji Pro (Entreprise) AAB
         run: |
           cd mobile
-          flutter build appbundle --flavor entreprise -t lib/main_entreprise.dart -v
+          flutter build appbundle --flavor entreprise -t lib/main_entreprise.dart --no-watch-fs -v
 
       - name: Build Koji (Client) APK
         run: |
           cd mobile
-          flutter build apk --flavor client -t lib/main_client.dart -v
+          flutter build apk --flavor client -t lib/main_client.dart --no-watch-fs -v
 
       - name: Build Koji (Client) AAB
         run: |
           cd mobile
-          flutter build appbundle --flavor client -t lib/main_client.dart -v
+          flutter build appbundle --flavor client -t lib/main_client.dart --no-watch-fs -v
 
       - name: Upload Koji Pro to Play Console
         uses: r0adkll/upload-google-play@v1
