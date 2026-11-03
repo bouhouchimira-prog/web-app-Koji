@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -23,6 +24,16 @@ import 'package:koji/features/notifications/push_service.dart';
 Future<void> runKojiApp(KojiAppKind kind) async {
   WidgetsFlutterBinding.ensureInitialized();
   KojiAppConfig.use(kind);
+
+  // Sentry (monitoring erreurs). Optionnel : si SENTRY_DSN n'est pas fourni
+  // via --dart-define, on saute l'initialisation (pas d'erreur).
+  const sentryDsn = String.fromEnvironment('SENTRY_DSN');
+  if (sentryDsn.isNotEmpty) {
+    await SentryFlutter.init((options) {
+      options.dsn = sentryDsn;
+      options.tracesSampleRate = kReleaseMode ? 0.1 : 1.0;
+    });
+  }
 
   await SupabaseConfig.initialize();
   await initializeDateFormatting();
