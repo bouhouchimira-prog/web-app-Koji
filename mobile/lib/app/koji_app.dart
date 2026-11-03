@@ -93,6 +93,16 @@ Future<void> runKojiApp(KojiAppKind kind) async {
       throw UnsupportedError('Methode HTTP non supportee: $method');
     }
   });
+  // Handlers dedies pour la creation de devis et de clients hors-ligne.
+  // Rejoues via l'API web (meme endpoints qu'en ligne).
+  SyncWorker.instance.registerHandler('create_quote', (payload) async {
+    final body = Map<String, dynamic>.from(payload['body'] as Map? ?? {});
+    await webApi.postJson('/api/quotes', body);
+  });
+  SyncWorker.instance.registerHandler('create_client', (payload) async {
+    final body = Map<String, dynamic>.from(payload['body'] as Map? ?? {});
+    await webApi.postJson('/api/clients', body);
+  });
   SyncWorker.instance.start();
 
   runApp(
