@@ -71,11 +71,27 @@ Future<void> runKojiApp(KojiAppKind kind) async {
 
   // Enregistrement des handlers de replay hors-ligne (SyncWorker).
   final quoteRepo = container.read(quoteRepositoryProvider);
+  final webApi = container.read(kojiWebApiClientProvider);
   SyncWorker.instance.registerHandler('update_quote_status', (payload) async {
     await quoteRepo.updateQuoteStatus(
       payload['quoteId'] as String,
       payload['status'] as String,
     );
+  });
+  // Handler generique pour les appels HTTP a l'API web (enqueue via
+  // OfflineQueue.enqueueApiCall). Permet de rejouer n'importe quel POST/PATCH
+  // sans ecrire un handler dedie par type d'action.
+  SyncWorker.instance.registerHandler('api_call', (payload) async {
+    final method = (payload['method'] as String? ?? 'POST').toUpperCase();
+    final path = payload['path'] as String;
+    final body = Map<String, dynamic>.from(payload['body'] as Map? ?? {});
+    if (method == 'POST') {
+      await webApi.postJson(path, body);
+    } else if (method == 'PATCH') {
+      await webApi.patchJson(path, body);
+    } else {
+      throw UnsupportedError('Methode HTTP non supportee: $method');
+    }
   });
   SyncWorker.instance.start();
 
