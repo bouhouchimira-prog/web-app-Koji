@@ -6,6 +6,7 @@ import { hashPassword as hashWorkerPassword, publicWorker, verifyWorkerPassword,
 import { issueWorkerToken } from "../../../../lib/worker-session";
 import { setSessionCookie } from "../../../../lib/session-cookies";
 import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt } from "../../../../lib/rate-limit";
+import { requestLogger } from "../../../../lib/logger";
 
 const SCOPE = "particulier-login";
 const GENERIC_ERROR = "Identifiant ou mot de passe incorrect.";
@@ -35,6 +36,8 @@ function findWorker(db, identifier) {
 // standalone routes too) rather than re-implementing it, to avoid the two
 // diverging over time.
 export async function POST(request) {
+  const log = requestLogger(request, "POST /api/auth/particulier-login");
+  try {
   const body = await request.json();
   const identifier = String(body.identifier || "").trim();
   const password = String(body.password || "").trim();
@@ -108,4 +111,8 @@ export async function POST(request) {
 
   await recordFailedAttempt(SCOPE, identifier);
   return badRequest(GENERIC_ERROR, 401);
+  } catch (err) {
+    log.fail(err);
+    return badRequest("Erreur serveur.", 500);
+  }
 }
