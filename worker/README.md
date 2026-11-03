@@ -1,4 +1,13 @@
-# Worker.Koji - Espace Ouvrier
+# Worker.Koji - Espace Ouvrier (DÉPRÉCIÉ)
+
+> ⚠️ **Cette sous-application est dépréciée.** Le portail ouvrier intégré au
+> main app (`app/worker`, `app/api/worker-portal`, `lib/worker-portal.js`)
+> est la version maintenue et sécurisée (cookies HttpOnly, scrypt, session
+> vérifiée). Voir `docs/WORKER_APP_AUDIT.md`.
+>
+> Cette sous-app sera supprimée après migration des utilisateurs.
+
+# Worker.Koji - Espace Ouvrier (legacy)
 
 Plateforme dédiée aux ouvriers pour gérer leurs interventions et tâches.
 
