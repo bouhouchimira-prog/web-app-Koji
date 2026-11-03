@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "mocha --config tests/e2e/.mocharc.cjs",
+    "migrate:workers": "node scripts/migrate-workers.mjs",
+    "migrate:workers:apply": "node scripts/migrate-workers.mjs --apply",
     "test:unit": "mocha --config tests/unit/.mocharc.cjs",
     "test": "npm run test:unit"
   },
