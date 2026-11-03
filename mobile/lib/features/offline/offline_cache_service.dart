@@ -1,0 +1,79 @@
+import 'package:hive_flutter/hive_flutter.dart';
+
+/// Read-only offline cache for the most consulted data (devis, clients).
+///
+/// Uses Hive (key-value, no native setup) so it works on all platforms.
+/// Write operations are NOT cached here — they go through the network and
+/// are queued separately (see OfflineQueue, to be implemented).
+class OfflineCacheService {
+  OfflineCacheService._();
+  static final OfflineCacheService instance = OfflineCacheService._();
+
+  static const _boxDevis = 'cache_devis';
+  static const _boxClients = 'cache_clients';
+  static const _boxMeta = 'cache_meta';
+
+  bool _initialized = false;
+
+  Future<void> initialize() async {
+    if (_initialized) return;
+    await Hive.initFlutter();
+    await Hive.openBox(_boxDevis);
+    await Hive.openBox(_boxClients);
+    await Hive.openBox(_boxMeta);
+    _initialized = true;
+  }
+
+  Box get _devisBox => Hive.box(_boxDevis);
+  Box get _clientsBox => Hive.box(_boxClients);
+  Box get _metaBox => Hive.box(_boxMeta);
+
+  // --- Devis ---
+
+  Future<void> cacheDevis(List<Map<String, dynamic>> devis) async {
+    await _devisBox.clear();
+    for (final d in devis) {
+      final id = d['id']?.toString();
+      if (id != null) await _devisBox.put(id, d);
+    }
+    await _metaBox.put('devis_cached_at', DateTime.now().toIso8601String());
+  }
+
+  List<Map<String, dynamic>> getCachedDevis() {
+    return _devisBox.values
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Map<String, dynamic>? getCachedDevisById(String id) {
+    final v = _devisBox.get(id);
+    return v == null ? null : Map<String, dynamic>.from(v as Map);
+  }
+
+  // --- Clients ---
+
+  Future<void> cacheClients(List<Map<String, dynamic>> clients) async {
+    await _clientsBox.clear();
+    for (final c in clients) {
+      final id = c['id']?.toString();
+      if (id != null) await _clientsBox.put(id, c);
+    }
+    await _metaBox.put('clients_cached_at', DateTime.now().toIso8601String());
+  }
+
+  List<Map<String, dynamic>> getCachedClients() {
+    return _clientsBox.values
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  // --- Meta ---
+
+  String? lastCachedAt(String key) => _metaBox.get('${key}_cached_at') as String?;
+
+  Future<void> clearAll() async {
+    await _devisBox.clear();
+    await _clientsBox.clear();
+    await _metaBox.clear();
+  }
+}
