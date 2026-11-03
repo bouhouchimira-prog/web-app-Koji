@@ -52,6 +52,35 @@ class OfflineCacheService {
     return v == null ? null : Map<String, dynamic>.from(v as Map);
   }
 
+  /// Merge server data with cache using last-write-wins (by updatedAt/createdAt).
+  /// Returns the merged list. Useful when reconnecting after offline edits.
+  Future<List<Map<String, dynamic>>> mergeDevis(List<Map<String, dynamic>> serverDevis) async {
+    await initialize();
+    final cached = getCachedDevis();
+    final byId = <String, Map<String, dynamic>>{};
+    for (final d in cached) {
+      final id = d['id']?.toString();
+      if (id != null) byId[id] = d;
+    }
+    for (final d in serverDevis) {
+      final id = d['id']?.toString();
+      if (id == null) continue;
+      final cached = byId[id];
+      if (cached == null) {
+        byId[id] = d;
+      } else {
+        final serverTs = DateTime.tryParse((d['updatedAt'] ?? d['createdAt'] ?? '').toString());
+        final cachedTs = DateTime.tryParse((cached['updatedAt'] ?? cached['createdAt'] ?? '').toString());
+        if (serverTs == null || cachedTs == null || !cachedTs.isAfter(serverTs)) {
+          byId[id] = d;
+        }
+      }
+    }
+    final merged = byId.values.toList();
+    await cacheDevis(merged);
+    return merged;
+  }
+
   // --- Clients ---
 
   Future<void> cacheClients(List<Map<String, dynamic>> clients) async {
