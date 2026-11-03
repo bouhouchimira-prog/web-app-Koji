@@ -32,6 +32,20 @@ class OfflineQueue {
     return id;
   }
 
+  /// Convenience: enqueue a generic HTTP call to the web API. The SyncWorker
+  /// replays it via the `api_call` handler (POST or PATCH).
+  Future<String> enqueueApiCall({
+    required String method,
+    required String path,
+    Map<String, dynamic>? body,
+  }) async {
+    return enqueue('api_call', {
+      'method': method.toUpperCase(),
+      'path': path,
+      'body': body ?? {},
+    });
+  }
+
   List<Map<String, dynamic>> pending() {
     return _q.values
         .map((e) => Map<String, dynamic>.from(e as Map))
