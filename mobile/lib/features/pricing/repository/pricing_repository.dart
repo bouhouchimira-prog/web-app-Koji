@@ -125,6 +125,38 @@ class PricingRepository {
       return null;
     }
   }
+
+  /// Lit le catalogue partage web <-> mobile (`koji_ouvrages`, migration 0002).
+  ///
+  /// Renvoie les ouvrages du socle commun (is_shared = true) convertis en
+  /// [SmartTask] pour etre utilisables par le moteur de prix. Retourne une
+  /// liste vide si la table est absente ou vide : les callers doivent alors
+  /// conserver leur comportement actuel (smart_tasks / JSON local).
+  Future<List<SmartTask>> getSharedOuvrages({String? metier}) async {
+    try {
+      var query = _supabase
+          .from('koji_ouvrages')
+          .select()
+          .eq('is_shared', true)
+          .eq('is_active', true);
+      if (metier != null && metier.isNotEmpty) {
+        query = query.eq('metier', metier);
+      }
+      final response = await query.order('label');
+      return (response as List).map((row) {
+        return SmartTask(
+          id: row['id'] as String,
+          label: (row['label'] ?? '') as String,
+          profession: (row['metier'] ?? row['famille'] ?? '') as String,
+          unit: (row['unite'] ?? 'u') as String,
+          normativeTime: ((row['temps_unitaire'] ?? 0) as num).toDouble(),
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error fetching shared ouvrages: $e');
+      return [];
+    }
+  }
 }
 
 // Providers for accessing pricing data
@@ -138,4 +170,10 @@ final smartTasksProvider =
     FutureProvider.family<List<SmartTask>, String>((ref, profession) async {
   final repo = ref.read(pricingRepositoryProvider);
   return await repo.getTasksForProfession(profession);
+});
+
+/// Catalogue partage web <-> mobile (koji_ouvrages), vide si non migre.
+final sharedOuvragesProvider = FutureProvider<List<SmartTask>>((ref) async {
+  final repo = ref.read(pricingRepositoryProvider);
+  return await repo.getSharedOuvrages();
 });
