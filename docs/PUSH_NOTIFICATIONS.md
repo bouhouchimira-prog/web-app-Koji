@@ -25,14 +25,14 @@
    notifications) dans Xcode.
 
 ### Backend (envoi réel)
-1. Ajouter `firebase-admin` aux dépendances du projet web.
+1. ~~Ajouter `firebase-admin` aux dépendances du projet web.~~ ✅ Fait (package.json).
 2. Configurer `FIREBASE_SERVICE_ACCOUNT` (JSON) dans `.env.local`.
-3. Implémenter l'envoi dans `/api/push/send` avec `admin.messaging().sendEachForMulticast`.
+3. ~~Implémenter l'envoi dans `/api/push/send`.~~ ✅ Fait (sendEachForMulticast + nettoyage tokens invalides).
 
 ## État actuel
 
 - Fondations posées : service mobile, endpoints backend, table DB, migration.
-- Envoi réel à brancher avec `firebase-admin` (dépendance à ajouter).
+- Envoi réel implémenté dans `/api/push/send` (mode dry-run si `FIREBASE_SERVICE_ACCOUNT` absent).
 - Initialisation FCM dans `main.dart` / `main_client.dart` à faire.
 - Tests sur appareil réel requis.
 
