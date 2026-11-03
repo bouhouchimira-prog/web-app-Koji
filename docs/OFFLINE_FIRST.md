@@ -9,10 +9,12 @@
 ## Fondations posées (PR Phase 4)
 
 - `mobile/lib/features/offline/offline_cache_service.dart` : cache read-only
-  Hive pour les devis et les clients (`cacheDevis`, `cacheClients`,
-  `getCachedDevis`, `getCachedClients`, `getCachedDevisById`, `clearAll`).
+  Hive pour les devis, clients et chantiers (`cacheDevis`, `cacheClients`,
+  `cacheChantiers`, `getCached*`, `mergeDevis`, `clearAll`).
 - `mobile/lib/features/offline/offline_queue.dart` : queue d'actions hors-ligne
   (enqueue, pending, remove, incrementRetry, clear).
+- `mobile/lib/features/offline/sync_worker.dart` : SyncWorker avec replay par
+  type d'action, retry (max 5), abandon, conflict resolution last-write-wins.
 
 ## Intégration (Phase 5)
 
