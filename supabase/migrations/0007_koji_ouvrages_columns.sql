@@ -8,5 +8,9 @@ ALTER TABLE koji_ouvrages ADD COLUMN IF NOT EXISTS original_id TEXT;
 ALTER TABLE koji_ouvrages ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(12,2);
 ALTER TABLE koji_ouvrages ADD COLUMN IF NOT EXISTS coefficient NUMERIC(8,4) DEFAULT 1;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_koji_ouvrages_code ON koji_ouvrages(code) WHERE code IS NOT NULL;
+-- Index unique COMPLET (pas de predicat WHERE) : requis pour que
+-- `upsert(..., { onConflict: "code" })` fonctionne. Un index unique partiel
+-- n'est pas reconnu par ON CONFLICT. Les NULL sont autorises en plusieurs
+-- exemplaires dans un index unique PostgreSQL.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_koji_ouvrages_code ON koji_ouvrages(code);
 CREATE INDEX IF NOT EXISTS idx_koji_ouvrages_original_id ON koji_ouvrages(original_id);
