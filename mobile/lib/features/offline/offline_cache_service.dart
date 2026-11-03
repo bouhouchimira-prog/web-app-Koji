@@ -11,6 +11,7 @@ class OfflineCacheService {
 
   static const _boxDevis = 'cache_devis';
   static const _boxClients = 'cache_clients';
+  static const _boxChantiers = 'cache_chantiers';
   static const _boxMeta = 'cache_meta';
 
   bool _initialized = false;
@@ -20,6 +21,7 @@ class OfflineCacheService {
     await Hive.initFlutter();
     await Hive.openBox(_boxDevis);
     await Hive.openBox(_boxClients);
+    await Hive.openBox(_boxChantiers);
     await Hive.openBox(_boxMeta);
     _initialized = true;
   }
@@ -63,6 +65,23 @@ class OfflineCacheService {
 
   List<Map<String, dynamic>> getCachedClients() {
     return _clientsBox.values
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Box get _chantiersBox => Hive.box(_boxChantiers);
+
+  Future<void> cacheChantiers(List<Map<String, dynamic>> chantiers) async {
+    await _chantiersBox.clear();
+    for (final c in chantiers) {
+      final id = c['id']?.toString();
+      if (id != null) await _chantiersBox.put(id, c);
+    }
+    await _metaBox.put('chantiers_cached_at', DateTime.now().toIso8601String());
+  }
+
+  List<Map<String, dynamic>> getCachedChantiers() {
+    return _chantiersBox.values
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
   }
