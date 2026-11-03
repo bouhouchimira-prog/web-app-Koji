@@ -42,6 +42,17 @@ pour toute modification.
   Réservé aux routes serveur qui en ont besoin (signature par lien, portail
   client, admin). Ne jamais l'importer dans du code client.
 
+## Rotation des secrets (checklist)
+
+1. Vérifier l'historique git : `git log --all -p -S "service_role"` et
+   `git log --all --full-history -- .env.local` (doit être vide).
+2. Révoquer/regénérer dans les dashboards : Supabase service_role, Stripe
+   secret key, Anthropic API key, Google OAuth secret, SMTP password.
+3. Mettre à jour `.env.local` (non commité) et les secrets GitHub Actions
+   (Settings → Secrets) pour CI mobile.
+4. Vérifier que `.env.local` reste gitignored et absent du remote.
+5. Documenter la date de rotation dans ce fichier.
+
 ## Signalement
 
 - Toute faille potentielle doit être signalée avant correction, avec son
