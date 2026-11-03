@@ -18,6 +18,25 @@ async function updateUserBilling(userId, patch) {
   await supabase.from("users").update({ business_info: businessInfo }).eq("id", userId);
 }
 
+// Unifie l'abonnement dans la table `subscriptions` (Option B, voir
+// docs/BILLING_DECISION.md). Ecriture additive : l'ancien stockage dans
+// business_info (_billingPlan, etc.) reste inchange pour compatibilite.
+async function upsertSubscription(userId, { plan, status, interval, externalId, currentPeriodEnd }) {
+  if (!userId) return;
+  const supabase = getSupabaseAdmin();
+  const row = {
+    user_id: userId,
+    plan: plan || "pro",
+    status: status || "active",
+    source: "stripe",
+    interval: interval || null,
+    external_id: externalId || null,
+    current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : null,
+    updated_at: new Date().toISOString()
+  };
+  await supabase.from("subscriptions").upsert(row, { onConflict: "user_id,source" });
+}
+
 export async function POST(request) {
   const signature = request.headers.get("stripe-signature") || "";
   const rawBody = await request.text();
@@ -41,6 +60,13 @@ export async function POST(request) {
             _billingPlan: session.metadata.plan || "pro",
             _billingInterval: session.metadata.interval || null,
             _billingStatus: "active"
+          });
+          await upsertSubscription(session.metadata.kojiUserId, {
+            plan: session.metadata.plan || "pro",
+            status: "active",
+            interval: session.metadata.interval || null,
+            externalId: session.subscription,
+            currentPeriodEnd: null
           });
         }
         if (session.mode === "payment" && session.metadata?.chantierPaiementId) {
@@ -69,6 +95,13 @@ export async function POST(request) {
             patch._billingInterval = resolved.interval;
           }
           await updateUserBilling(userId, patch);
+          await upsertSubscription(userId, {
+            plan: resolved?.plan || patch._billingPlan || "pro",
+            status: subscription.status,
+            interval: resolved?.interval || patch._billingInterval || null,
+            externalId: subscription.id,
+            currentPeriodEnd: subscription.current_period_end
+          });
         }
         break;
       }
@@ -79,6 +112,13 @@ export async function POST(request) {
           await updateUserBilling(userId, {
             _billingPlan: null,
             _billingStatus: "canceled"
+          });
+          await upsertSubscription(userId, {
+            plan: "pro",
+            status: "canceled",
+            interval: null,
+            externalId: subscription.id,
+            currentPeriodEnd: subscription.current_period_end
           });
         }
         break;
