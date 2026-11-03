@@ -333,7 +333,7 @@ function DashboardHome() {
 
   return (
     <>
-    <Shell variant="pro">
+    <Shell variant="pro" assistantWindowOpen={assistantWindowOpen}>
         <header className="kp-head">
           <span className="kp-eyebrow">{eyebrow}</span>
           <h1>{prenom ? `Bonjour, ${prenom}.` : "Bonjour."}</h1>

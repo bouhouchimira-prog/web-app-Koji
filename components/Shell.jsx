@@ -279,7 +279,7 @@ function Icon({ name, className = "" }) {
 
 // variant="pro" : nouvelle DA Koji Pro (sidebar de la maquette), pages
 // migrées une par une. Sans variant : ancienne mise en page.
-export function Shell({ children, variant }) {
+export function Shell({ children, variant, assistantWindowOpen }) {
   // Une seule mise en page : Koji Pro. L'ancienne (web-shell) est supprimée ; variant reste accepté pour compatibilité.
   const isPro = true;
   // "pro-focus" : plein écran sans menu (éditeur de devis, maquette PRO-03.1),
@@ -787,7 +787,7 @@ export function Shell({ children, variant }) {
         <KojiSymbol className="koji-assistant-bubble-icon" />
       </button>
 
-      {kojiAssistantOpen ? (
+      {kojiAssistantOpen && !assistantWindowOpen ? (
         <div className={`koji-assistant-panel ${kojiAssistantExpanded ? "koji-assistant-panel-expanded" : ""}`}>
           <div className="koji-assistant-panel-head">
             <div className="koji-assistant-menu" ref={kojiAssistantMenuRef}>
