@@ -11,6 +11,7 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0002_koji_ouvrages.sql | Table koji_ouvrages (catalogue partage web <-> mobile) |
 | 0003_device_tokens.sql | Table device_tokens (push notifications FCM/APNs) |
 | 0004_is_admin.sql | Colonne is_admin sur users (remplace la liste d'emails) |
+| 0005_storage_rls.sql | RLS Storage (buckets logos, photos, documents) |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
 Les fichiers SQL historiques restent dans `../admin/` et `../signature/` pour

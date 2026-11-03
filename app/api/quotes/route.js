@@ -3,6 +3,8 @@ import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getAuth } from "../../../lib/server-auth";
+import { isVerifiedUserAdmin } from "../../../lib/admin-account";
+import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
 import { randomChars, makeTemporaryPassword } from "../../../lib/secure-random";
@@ -205,11 +207,15 @@ export async function GET(request) {
   const year = new Date().getFullYear();
   if (!auth) return ok({ quotes: [], nextQuoteNumber: `${year}_1049` });
 
-  const { data, error } = await auth.supabase
-    .from("quotes")
-    .select("*")
-    .eq("user_id", auth.userId)
-    .order("created_at", { ascending: false });
+  // Admin bypass (2026-11) : un compte admin voit les devis de tous les
+  // utilisateurs, pas seulement les siens. RLS is_admin (migration 0004)
+  // autorise la lecture cote base ; ici on utilise le client admin pour
+  // court-circuiter le filtre user_id.
+  const isAdmin = await isVerifiedUserAdmin(auth.userId);
+  const client = isAdmin ? getSupabaseAdmin() : auth.supabase;
+  let query = client.from("quotes").select("*").order("created_at", { ascending: false });
+  if (!isAdmin) query = query.eq("user_id", auth.userId);
+  const { data, error } = await query;
   if (error) return badRequest(`Lecture des devis impossible: ${error.message}`, 500);
 
   const db = await readDb();

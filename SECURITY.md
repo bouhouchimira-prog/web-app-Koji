@@ -53,6 +53,20 @@ pour toute modification.
 4. Vérifier que `.env.local` reste gitignored et absent du remote.
 5. Documenter la date de rotation dans ce fichier.
 
+## Storage (buckets)
+
+- Les buckets `logos`, `photos`, `documents` doivent avoir des policies RLS
+  (voir `admin/supabase_storage_rls.sql`) : lecture publique pour les logos,
+  lecture/écriture par le propriétaire (prefixe = user_id) pour les photos et
+  documents, lecture admin pour tout.
+- Vérifier régulièrement : `SELECT policyname, cmd, qual FROM pg_policies WHERE schemaname = 'storage';`
+
+## ai_conversations
+
+- `GRANT SELECT` doit être accordé au rôle `authenticated` (voir
+  `admin/fix_ai_conversations_grant.sql`).
+- RLS activée, policy admin-read uniquement.
+
 ## Signalement
 
 - Toute faille potentielle doit être signalée avant correction, avec son
