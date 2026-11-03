@@ -265,12 +265,12 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.description_outlined,
+              Icon(Icons.description_outlined,
                   size: 18, color: Color(0xFF0F172A)),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'À faire',
                 style: TextStyle(
                   fontSize: 16,
@@ -374,8 +374,8 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.bar_chart_rounded, size: 18, color: Color(0xFF0F172A)),
                     SizedBox(width: 8),
                     Text(
@@ -389,7 +389,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   ],
                 ),
                 Text(
-                  'Total: ${totalReal}€ / $totalEst€',
+                  'Total: $totalReal€ / $totalEst€',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -431,7 +431,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               text: TextSpan(
                 children: [
                   TextSpan(
-                    text: '${actual}€ ',
+                    text: '$actual€ ',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -602,8 +602,8 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.folder_outlined,
                         size: 18, color: Color(0xFF0F172A)),
                     SizedBox(width: 8),
@@ -800,7 +800,7 @@ class _AddMenuSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       child: Column(

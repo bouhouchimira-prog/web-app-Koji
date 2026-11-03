@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:koji/design/koji_icons.dart';
-import 'package:koji/design/koji_tokens.dart';
-import 'package:koji/apps/entreprise/screens/entreprise_accueil_screen.dart';
-import 'package:koji/apps/entreprise/screens/entreprise_list_screens.dart';
-import 'package:koji/apps/entreprise/screens/entreprise_account_screens.dart';
 
 export 'entreprise_accueil_screen.dart';
 export 'entreprise_list_screens.dart';

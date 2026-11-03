@@ -1851,7 +1851,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: unite,
+                  initialValue: unite,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Unité'),
                   items: _uniteOptions

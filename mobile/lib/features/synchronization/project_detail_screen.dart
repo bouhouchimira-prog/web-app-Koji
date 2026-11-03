@@ -195,8 +195,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final darkBlue = const Color(0xFF0F3995);
-    final scaffoldBg = const Color(0xFFF5F8FF);
+    const darkBlue = Color(0xFF0F3995);
+    const scaffoldBg = Color(0xFFF5F8FF);
 
     if (_isLoading) {
       return Scaffold(
@@ -220,10 +220,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   ),
                 ],
               ),
-              child: Icon(Icons.chevron_left, color: darkBlue),
+              child: const Icon(Icons.chevron_left, color: darkBlue),
             ),
           ),
-          title: Text(
+          title: const Text(
             "Détails du chantier",
             style: TextStyle(
               fontSize: 20,
@@ -233,14 +233,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           ),
           centerTitle: true,
         ),
-        body: Center(child: CircularProgressIndicator(color: darkBlue)),
+        body: const Center(child: CircularProgressIndicator(color: darkBlue)),
       );
     }
 
     if (_project == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: scaffoldBg,
-        body: const Center(child: Text('Projet non trouvé')),
+        body: Center(child: Text('Projet non trouvé')),
       );
     }
 
@@ -265,10 +265,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 ),
               ],
             ),
-            child: Icon(Icons.chevron_left, color: darkBlue),
+            child: const Icon(Icons.chevron_left, color: darkBlue),
           ),
         ),
-        title: Text(
+        title: const Text(
           "Détails du chantier",
           style: TextStyle(
             fontSize: 20,
@@ -349,7 +349,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   Widget _buildProjectInfoCard() {
-    final darkBlue = const Color(0xFF0F3995);
+    const darkBlue = Color(0xFF0F3995);
 
     Color statusBg;
     Color statusText;
@@ -413,7 +413,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _project!.title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: darkBlue,
@@ -447,14 +447,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   Widget _buildSectionHeader(String title, int count) {
-    final darkBlue = const Color(0xFF0F3995);
+    const darkBlue = Color(0xFF0F3995);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: darkBlue,

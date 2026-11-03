@@ -78,7 +78,7 @@ class _QuoteListScreenState extends ConsumerState<QuoteListScreen> {
                   decoration: InputDecoration(
                     hintText: "Rechercher un devis...",
                     hintStyle:
-                        TextStyle( color: Colors.grey),
+                        const TextStyle( color: Colors.grey),
                     prefixIcon: const SizedBox
                         .shrink(), // No prefix icon used in design, search icon is suffix
                     suffixIcon:
@@ -154,12 +154,15 @@ class _QuoteListScreenState extends ConsumerState<QuoteListScreen> {
                   // Filter Match — use the shared classifier so quotes signed
                   // in the web app (status 'accepte' / signed_at set) land here.
                   bool matchesFilter = true;
-                  if (_selectedFilter == "En cours")
+                  if (_selectedFilter == "En cours") {
                     matchesFilter = QuoteStatus.isInProgress(quote);
-                  if (_selectedFilter == "Acceptés")
+                  }
+                  if (_selectedFilter == "Acceptés") {
                     matchesFilter = QuoteStatus.isSigned(quote);
-                  if (_selectedFilter == "Refusés")
+                  }
+                  if (_selectedFilter == "Refusés") {
                     matchesFilter = QuoteStatus.isRefused(quote);
+                  }
 
                   return matchesSearch && matchesFilter;
                 }).toList();
@@ -173,7 +176,7 @@ class _QuoteListScreenState extends ConsumerState<QuoteListScreen> {
                             size: 64,
                             color: AppTheme.textLight.withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
-                        Text("Aucun devis trouvé",
+                        const Text("Aucun devis trouvé",
                             style: TextStyle(
                                 fontSize: 18,
                                 color: AppTheme.textLight)),
@@ -315,10 +318,10 @@ class _QuoteListScreenState extends ConsumerState<QuoteListScreen> {
                       ),
                       child: Text(
                         _formatDateForBadge(dateStr),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFFA18B73),
+                          color: Color(0xFFA18B73),
                         ),
                       ),
                     )
@@ -328,7 +331,7 @@ class _QuoteListScreenState extends ConsumerState<QuoteListScreen> {
                 // Subtitle
                 Text(
                   "$projectType • $displayQuoteNumber",
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppTheme.textLight,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,

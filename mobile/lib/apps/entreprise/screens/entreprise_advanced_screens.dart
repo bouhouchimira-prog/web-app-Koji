@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:koji/design/koji_page.dart';
-import 'package:koji/design/koji_widgets.dart';
 
 // === PLANNING ===
 class EntreprisePlanningScreen extends StatelessWidget {
@@ -223,17 +222,17 @@ class EntrepriseComptabiliteScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(2),
           ),
           padding: const EdgeInsets.all(14),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Résumé financier',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _FinancialRow('Revenus', '€250,000'),
               _FinancialRow('Dépenses', '€80,000'),
               _FinancialRow('Bénéfice', '€170,000', isProfit: true),

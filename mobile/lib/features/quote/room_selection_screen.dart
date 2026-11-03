@@ -166,11 +166,11 @@ class _RoomSelectionScreenState extends ConsumerState<RoomSelectionScreen> {
                       ),
                       child: Column(
                         children: [
-                          Row(
+                          const Row(
                             children: [
-                              const Icon(Icons.input,
+                              Icon(Icons.input,
                                   size: 20, color: AppTheme.darkNavy),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               Text(
                                 "Ajouter une pièce ",
                                 style: TextStyle(
@@ -189,8 +189,8 @@ class _RoomSelectionScreenState extends ConsumerState<RoomSelectionScreen> {
                                   controller: _customRoomController,
                                   decoration: InputDecoration(
                                     hintText: 'Ex: Buanderie, Garage...',
-                                    hintStyle: TextStyle(
-                                      color: const Color(0xFF9CA3AF),
+                                    hintStyle: const TextStyle(
+                                      color: Color(0xFF9CA3AF),
                                       fontSize: 14,
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(
@@ -243,21 +243,21 @@ class _RoomSelectionScreenState extends ConsumerState<RoomSelectionScreen> {
                     const SizedBox(height: 32),
 
                     // Divider
-                    Row(
+                    const Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                             child: Divider(color: Color(0xFFE5E7EB))),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             "Suggestions Rapides",
                             style: TextStyle(
-                              color: const Color(0xFF9CA3AF),
+                              color: Color(0xFF9CA3AF),
                               fontSize: 14,
                             ),
                           ),
                         ),
-                        const Expanded(
+                        Expanded(
                             child: Divider(color: Color(0xFFE5E7EB))),
                       ],
                     ),
@@ -320,7 +320,7 @@ class _RoomSelectionScreenState extends ConsumerState<RoomSelectionScreen> {
                   children: [
                     Text(
                       'Continuer (${_selectedRoomIds.length} sélectionnés)',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),

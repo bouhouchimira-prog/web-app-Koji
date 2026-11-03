@@ -89,7 +89,7 @@ class _ChantierAddTaskScreenState extends ConsumerState<ChantierAddTaskScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.add, color: Theme.of(context).colorScheme.surface, size: 22),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'Ajouter une tâche',
                           style: TextStyle(

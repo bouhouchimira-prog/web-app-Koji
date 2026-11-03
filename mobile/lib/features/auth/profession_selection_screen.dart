@@ -17,7 +17,7 @@ class ProfessionSelectionScreen extends ConsumerStatefulWidget {
 
 class _ProfessionSelectionScreenState
     extends ConsumerState<ProfessionSelectionScreen> {
-  List<String> _selectedProfessions = [];
+  final List<String> _selectedProfessions = [];
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _professions = [
@@ -228,7 +228,7 @@ class _ProfessionSelectionScreenState
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
+                          const Text(
                             'Créer mon compte',
                             style: TextStyle(
                               fontSize: 16,

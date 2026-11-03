@@ -108,9 +108,13 @@ class BudgetHistoryScreen extends ConsumerWidget {
     }
 
     String categoryLabel = '';
-    if (category == 'main_oeuvre') categoryLabel = "Main d'œuvre";
-    else if (category == 'fourniture') categoryLabel = "Fourniture";
-    else if (category == 'divers') categoryLabel = "Divers";
+    if (category == 'main_oeuvre') {
+      categoryLabel = "Main d'œuvre";
+    } else if (category == 'fourniture') {
+      categoryLabel = "Fourniture";
+    } else if (category == 'divers') {
+      categoryLabel = "Divers";
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),

@@ -57,7 +57,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.add, color: Theme.of(context).colorScheme.surface, size: 22),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         'Ajouter un document',
                         style: TextStyle(
@@ -307,7 +307,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
                 if (uri == null ||
                     !await launchUrl(uri,
                         mode: LaunchMode.externalApplication)) {
-                  if (mounted) {
+                  if (mounted && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text("Impossible d'ouvrir le fichier"),
@@ -341,7 +341,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
                   await repo.deleteDocument(doc['id'], doc['file_url']);
                 } catch (e) {
                   debugPrint('Failed to delete document: $e');
-                  if (mounted) {
+                  if (mounted && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Erreur suppression: $e'))
                     );
@@ -508,11 +508,17 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
         // Infer MIME type from extension
         String type = 'application/octet-stream';
         final ext = name.split('.').last.toLowerCase();
-        if (ext == 'pdf') type = 'application/pdf';
-        else if (ext == 'doc' || ext == 'docx') type = 'application/msword';
-        else if (ext == 'xls' || ext == 'xlsx') type = 'application/vnd.ms-excel';
-        else if (ext == 'txt') type = 'text/plain';
-        else if (ext == 'csv') type = 'text/csv';
+        if (ext == 'pdf') {
+          type = 'application/pdf';
+        } else if (ext == 'doc' || ext == 'docx') {
+          type = 'application/msword';
+        } else if (ext == 'xls' || ext == 'xlsx') {
+          type = 'application/vnd.ms-excel';
+        } else if (ext == 'txt') {
+          type = 'text/plain';
+        } else if (ext == 'csv') {
+          type = 'text/csv';
+        }
 
         final repo = ref.read(documentRepositoryProvider);
         await repo.uploadDocument(chantierId, file, name, type, size);

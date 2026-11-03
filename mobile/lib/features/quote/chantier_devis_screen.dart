@@ -162,7 +162,7 @@ class ChantierDevisScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add, color: Theme.of(context).colorScheme.surface, size: 20),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     'Créer un devis',
                     style: TextStyle(

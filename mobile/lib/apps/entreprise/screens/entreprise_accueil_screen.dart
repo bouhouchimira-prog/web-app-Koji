@@ -16,7 +16,7 @@ class EntrepriseAccueilScreen extends ConsumerWidget {
       appBarOnPhone: true,
       main: [
         // KPIs section - 3 column layout
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -27,14 +27,14 @@ class EntrepriseAccueilScreen extends ConsumerWidget {
                     value: '5',
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _MobileKpiCard(
                     label: 'Chantiers',
                     value: '12',
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _MobileKpiCard(
                     label: 'Factures',

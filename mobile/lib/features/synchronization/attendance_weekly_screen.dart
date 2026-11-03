@@ -248,7 +248,7 @@ class _AttendanceWeeklyScreenState
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: type,
+                initialValue: type,
                 decoration: const InputDecoration(
                     labelText: 'Type', border: OutlineInputBorder()),
                 items: AttendanceType.values

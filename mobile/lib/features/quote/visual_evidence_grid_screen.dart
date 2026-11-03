@@ -156,11 +156,11 @@ class _VisualEvidenceGridScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(Icons.add_circle,
+                        Icon(Icons.add_circle,
                             color: Color(0xFF8B93A7), size: 20),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text(
                           'Ajouter des notes',
                           style: TextStyle(
@@ -177,8 +177,8 @@ class _VisualEvidenceGridScreenState
                       maxLines: 4,
                       decoration: InputDecoration(
                         hintText: 'Rajouter votre texte...',
-                        hintStyle: TextStyle(
-                          color: const Color(0xFF9CA3AF),
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF9CA3AF),
                           fontSize: 14,
                         ),
                         border: OutlineInputBorder(
@@ -266,7 +266,7 @@ class _VisualEvidenceGridScreenState
                   ),
                   elevation: 0,
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
@@ -276,8 +276,8 @@ class _VisualEvidenceGridScreenState
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, size: 20),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 20),
                   ],
                 ),
               ),
@@ -300,9 +300,7 @@ class _VisualEvidenceGridScreenState
           gap: 5.0,
           radius: 24.0,
         ),
-        child: Container(
-          // No solid border here, handled by CustomPainter
-          child: Column(
+        child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
@@ -316,17 +314,16 @@ class _VisualEvidenceGridScreenState
                     color: Theme.of(context).colorScheme.surface, size: 32),
               ),
               const SizedBox(height: 12),
-              Text(
+              const Text(
                 'Ajouter Photo',
                 style: TextStyle(
-                  color: const Color(0xFF9CA3AF),
+                  color: Color(0xFF9CA3AF),
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
               ),
             ],
           ),
-        ),
       ),
     );
   }

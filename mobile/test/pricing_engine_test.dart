@@ -7,7 +7,7 @@ void main() {
   group('Pricing Engine Verification - Child Bedroom', () {
     // 1. Setup Context
     // Access: Apartment (1.15), Condition: Medium (1.20) => 1.38
-    final context = RealityFactors(
+    const context = RealityFactors(
       access: 1.15,
       condition: 1.20,
       surface: 1.0,
@@ -23,55 +23,55 @@ void main() {
 
     // 2. Setup Products
     // Paint: 12€/L. Yield handled by task/engine interaction.
-    final paintProduct = Product(id: 'p1', name: 'Paint', priceHT: 12.0, unit: 'L', category: 'Peinture', imageUrl: '');
+    const paintProduct = Product(id: 'p1', name: 'Paint', priceHT: 12.0, unit: 'L', category: 'Peinture', imageUrl: '');
     // Primer: 10€/L.
-    final primerProduct = Product(id: 'p2', name: 'Primer', priceHT: 10.0, unit: 'L', category: 'Peinture', imageUrl: ''); // or 'Primaire' in Data
+    const primerProduct = Product(id: 'p2', name: 'Primer', priceHT: 10.0, unit: 'L', category: 'Peinture', imageUrl: ''); // or 'Primaire' in Data
     // Filler: 18€/Bag.
-    final fillerProduct = Product(id: 'p3', name: 'Filler', priceHT: 18.0, unit: 'Sac', category: 'Enduit', imageUrl: '');
+    const fillerProduct = Product(id: 'p3', name: 'Filler', priceHT: 18.0, unit: 'Sac', category: 'Enduit', imageUrl: '');
     // Consumables: Mock logic via task?
     
     // 3. Define Tasks (As per PricingData but locally for test precision)
     
     // Skimming (Ratissage) - Walls 35m2
     // Req: Filler 8m2/bag
-    final taskSkimming = SmartTask(
+    const taskSkimming = SmartTask(
       id: 'ratissage', label: 'Skim', profession: 'Peintre', unit: 'm2', normativeTime: 0.15,
       materialRequirements: [MaterialRequirement(taskId: 'ratissage', productCategory: 'Enduit', yield: 8.0, defaultPricePerUnit: 18.0)]
     );
 
     // Sanding - Walls 35m2
-    final taskSanding = SmartTask(
+    const taskSanding = SmartTask(
       id: 'poncage', label: 'Sand', profession: 'Peintre', unit: 'm2', normativeTime: 0.06,
       materialRequirements: [] // Consumables assumed separate or negligible for now
     );
 
     // Primer - Total 47m2 (Walls+Ceiling per prompt logic)
     // Req: Primer 8m2/L
-    final taskPrimer = SmartTask(
+    const taskPrimer = SmartTask(
       id: 'impression', label: 'Prime', profession: 'Peintre', unit: 'm2', normativeTime: 0.10,
       materialRequirements: [MaterialRequirement(taskId: 'impression', productCategory: 'Peinture', yield: 8.0, defaultPricePerUnit: 10.0)]
     );
 
     // Wall Painting (2 coats) - Walls 35m2
     // Req: Paint 10m2/L/coat -> 5m2/L total
-    final taskWallPaint = SmartTask(
+    const taskWallPaint = SmartTask(
       id: 'paint_murs', label: 'Paint Walls', profession: 'Peintre', unit: 'm2', normativeTime: 0.60,
       materialRequirements: [MaterialRequirement(taskId: 'paint_murs', productCategory: 'Peinture', yield: 5.0, defaultPricePerUnit: 12.0)]
     );
 
     // Ceiling Painting (2 coats) - Ceiling 12m2
     // Req: Paint 5m2/L
-    final taskCeilPaint = SmartTask(
+    const taskCeilPaint = SmartTask(
       id: 'paint_ceil', label: 'Paint Ceil', profession: 'Peintre', unit: 'm2', normativeTime: 0.70,
       materialRequirements: [MaterialRequirement(taskId: 'paint_ceil', productCategory: 'Peinture', yield: 5.0, defaultPricePerUnit: 12.0)]
     );
 
     // Protection - Fixed
-    final taskProt = SmartTask(
+    const taskProt = SmartTask(
       id: 'prot', label: 'Prot', profession: 'Peintre', unit: 'forfait', normativeTime: 2.50, isFixedTime: true,
       materialRequirements: [] 
     );
-    final taskClean = SmartTask(
+    const taskClean = SmartTask(
       id: 'clean', label: 'Clean', profession: 'Peintre', unit: 'forfait', normativeTime: 1.0, isFixedTime: true,
       materialRequirements: [] 
     );

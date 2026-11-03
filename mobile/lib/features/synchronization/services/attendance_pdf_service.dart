@@ -100,11 +100,11 @@ class AttendancePdfService {
                   pw.Expanded(
                       flex: 2,
                       child: pw.Text(DateFormat('dd/MM').format(e.date),
-                          style: pw.TextStyle(fontSize: 10, color: colorNavy))),
+                          style: const pw.TextStyle(fontSize: 10, color: colorNavy))),
                   pw.Expanded(
                       flex: 3,
                       child: pw.Text(AttendanceType.label(e.type),
-                          style: pw.TextStyle(fontSize: 10, color: colorNavy))),
+                          style: const pw.TextStyle(fontSize: 10, color: colorNavy))),
                   pw.Expanded(
                       flex: 2,
                       child: pw.Text('${(e.durationMinutes / 60).toStringAsFixed(1)} h',

@@ -602,11 +602,11 @@ class _WorkerOuvrageDetailScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: _red, size: 20),
-              const SizedBox(width: 8),
-              const Text('Alerte urgente',
+              Icon(Icons.warning_amber_rounded, color: _red, size: 20),
+              SizedBox(width: 8),
+              Text('Alerte urgente',
                   style: TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 15, color: _red)),
             ],

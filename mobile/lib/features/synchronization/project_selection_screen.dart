@@ -13,7 +13,7 @@ class ProjectSelectionScreen extends StatefulWidget {
 class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
   final ProjectRepository _repository = ProjectRepository();
   List<Project> _projects = [];
-  Set<String> _selectedProjectIds = {};
+  final Set<String> _selectedProjectIds = {};
   bool _isLoading = true;
   String _searchQuery = '';
 
@@ -168,7 +168,7 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
                         ),
                         border: InputBorder.none,
                         suffixIcon:
-                            Icon(Icons.search, color: const Color(0xFF2E65F3), size: 22),
+                            const Icon(Icons.search, color: Color(0xFF2E65F3), size: 22),
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 14),
                       ),

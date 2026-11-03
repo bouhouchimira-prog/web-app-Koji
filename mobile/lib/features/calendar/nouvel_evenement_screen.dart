@@ -710,7 +710,7 @@ class _NouvelEvenementScreenState extends State<NouvelEvenementScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Icon(Icons.arrow_forward, color: Theme.of(context).colorScheme.surface, size: 20),
                 ],
               ),

@@ -60,8 +60,8 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final darkBlue = const Color(0xFF0F3995);
-    final scaffoldBg = const Color(0xFFF5F8FF);
+    const darkBlue = Color(0xFF0F3995);
+    const scaffoldBg = Color(0xFFF5F8FF);
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -72,16 +72,16 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
             Container(
               padding: const EdgeInsets.only(
                   top: 60, bottom: 40, left: 24, right: 24),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    const Color(0xFF0F3995),
-                    const Color(0xFF1652C9),
+                    Color(0xFF0F3995),
+                    Color(0xFF1652C9),
                   ],
                 ),
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(32),
                   bottomRight: Radius.circular(32),
                 ),
@@ -285,7 +285,7 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                           child: LinearProgressIndicator(
                             value: 0.65,
                             backgroundColor: Colors.grey[200],
-                            valueColor: AlwaysStoppedAnimation<Color>(darkBlue),
+                            valueColor: const AlwaysStoppedAnimation<Color>(darkBlue),
                             minHeight: 8,
                           ),
                         ),

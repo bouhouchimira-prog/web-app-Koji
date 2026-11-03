@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/design/koji_page.dart';
@@ -90,7 +87,7 @@ class _EntrepriseDevisIaScreenState
       ).listen(
         (event) {
           setState(() {
-            if (event.data == '[DONE]') {
+            if (event.event == 'done') {
               _turns.add(_Turn(role: 'assistant', text: _streamingText));
               _streamingText = '';
               _phase = _Phase.recap;
@@ -271,9 +268,9 @@ class _EntrepriseDevisIaScreenState
           ),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             border: Border(
-              top: BorderSide(color: const Color(0xFFD9D9D4)),
+              top: BorderSide(color: Color(0xFFD9D9D4)),
             ),
           ),
           child: Row(
@@ -392,18 +389,18 @@ class _EntrepriseDevisIaScreenState
             borderRadius: BorderRadius.circular(2),
           ),
           padding: const EdgeInsets.all(16),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '✓ Devis créé avec succès!',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
+              SizedBox(height: 4),
+              Text(
                 'Vous pouvez maintenant envoyer le devis au client ou l\'éditer.',
                 style: TextStyle(
                   fontSize: 13,

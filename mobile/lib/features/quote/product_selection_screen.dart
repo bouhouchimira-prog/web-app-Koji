@@ -34,7 +34,7 @@ class _ProductSelectionScreenState
   String _searchQuery = '';
   String _activeFilter = 'Catégoris';
   String? _selectedGamme;
-  Set<String> _favorites = {};
+  final Set<String> _favorites = {};
 
   String _selectedCategory = 'Peinture';
   String _selectedUnit = 'u';
@@ -242,18 +242,18 @@ class _ProductSelectionScreenState
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              Row(
+              const Row(
                 children: [
                   Text(
                     'Tirer par',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF0A1227),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  const Icon(Icons.keyboard_arrow_down,
+                  SizedBox(width: 2),
+                  Icon(Icons.keyboard_arrow_down,
                       color: Color(0xFF0A1227), size: 18),
                 ],
               ),
@@ -490,14 +490,14 @@ class _ProductSelectionScreenState
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(Icons.tune,
+                            Icon(Icons.tune,
                                 size: 12, color: Color(0xFF8B95A5)),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4),
                             Text(
                               '10m²/L • 15L',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF8B95A5),
                               ),
@@ -582,7 +582,7 @@ class _ProductSelectionScreenState
                   _dialogField(_nameController, "Nom du produit*"),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _selectedCategory,
+                    initialValue: _selectedCategory,
                     decoration: const InputDecoration(
                         labelText: "Catégorie",
                         border: OutlineInputBorder()),
@@ -606,7 +606,7 @@ class _ProductSelectionScreenState
                       const SizedBox(width: 10),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedUnit,
+                          initialValue: _selectedUnit,
                           decoration: const InputDecoration(
                               labelText: "Unité",
                               border: OutlineInputBorder()),

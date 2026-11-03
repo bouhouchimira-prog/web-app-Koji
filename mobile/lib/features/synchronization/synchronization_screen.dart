@@ -58,8 +58,8 @@ class _SynchronizationScreenState extends ConsumerState<SynchronizationScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFFBE4D2).withOpacity(0.8),
-                    const Color(0xFFFBE4D2).withOpacity(0.0),
+                    const Color(0xFFFBE4D2).withValues(alpha: 0.8),
+                    const Color(0xFFFBE4D2).withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -74,7 +74,7 @@ class _SynchronizationScreenState extends ConsumerState<SynchronizationScreen> {
                 children: [
                   _buildHeader(context),
                   const SizedBox(height: 28),
-                  Text(
+                  const Text(
                     "Synchronisation",
                     style: TextStyle(
                       fontSize: 18,
@@ -114,7 +114,7 @@ class _SynchronizationScreenState extends ConsumerState<SynchronizationScreen> {
                     ],
                   ),
                   const SizedBox(height: 28),
-                  Text(
+                  const Text(
                     "Tâches par chantier",
                     style: TextStyle(
                       fontSize: 16,
@@ -214,7 +214,7 @@ class _SynchronizationScreenState extends ConsumerState<SynchronizationScreen> {
       ),
       child: Column(
         children: [
-          Icon(Icons.event_busy, size: 40, color: _greyText.withOpacity(0.6)),
+          Icon(Icons.event_busy, size: 40, color: _greyText.withValues(alpha: 0.6)),
           const SizedBox(height: 12),
           Text(title,
               textAlign: TextAlign.center,
@@ -251,7 +251,7 @@ class _SynchronizationScreenState extends ConsumerState<SynchronizationScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: _darkText.withOpacity(0.04),
+                  color: _darkText.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -290,7 +290,7 @@ class _SynchronizationScreenState extends ConsumerState<SynchronizationScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: _darkText.withOpacity(0.03),
+              color: _darkText.withValues(alpha: 0.03),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -352,7 +352,7 @@ class _ChantierGroupCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _darkText.withOpacity(0.04),
+            color: _darkText.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -419,9 +419,9 @@ class _TaskRow extends ConsumerWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: state.color.withOpacity(0.05),
+        color: state.color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: state.color.withOpacity(0.25), width: 1.2),
+        border: Border.all(color: state.color.withValues(alpha: 0.25), width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,7 +448,7 @@ class _TaskRow extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: state.color.withOpacity(0.12),
+                  color: state.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -692,7 +692,7 @@ class _TaskRow extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(9),
         ),
         child: Icon(icon, size: 17, color: color),

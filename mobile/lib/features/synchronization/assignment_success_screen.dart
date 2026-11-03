@@ -42,8 +42,8 @@ class AssignmentSuccessScreen extends StatelessWidget {
                   Container(
                     width: 140,
                     height: 140,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE3EDFF),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE3EDFF),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -112,7 +112,7 @@ class AssignmentSuccessScreen extends StatelessWidget {
                               color: Theme.of(context).colorScheme.surface,
                             ),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Icon(Icons.arrow_forward,
                               color: Theme.of(context).colorScheme.surface, size: 20),
                         ],
