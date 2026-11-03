@@ -19,6 +19,7 @@ import 'package:koji/features/offline/offline_cache_service.dart';
 import 'package:koji/features/offline/offline_queue.dart';
 import 'package:koji/features/offline/sync_worker.dart';
 import 'package:koji/features/notifications/push_service.dart';
+import 'package:koji/features/quote/repository/quote_repository.dart';
 
 /// Shared start-up for both apps. Each entrypoint only picks [kind].
 Future<void> runKojiApp(KojiAppKind kind) async {
@@ -42,7 +43,6 @@ Future<void> runKojiApp(KojiAppKind kind) async {
   // Pas bloquant pour l'UI : on n'attend pas le SyncWorker.
   await OfflineCacheService.instance.initialize();
   await OfflineQueue.instance.initialize();
-  SyncWorker.instance.start();
 
   // Push notifications distantes (FCM). Non bloquant et pas sur le web :
   // l'app demarre meme si Firebase n'est pas encore configure (le service
@@ -68,6 +68,16 @@ Future<void> runKojiApp(KojiAppKind kind) async {
   if (kind == KojiAppKind.client) {
     await container.read(kojiWebApiClientProvider).restoreSession();
   }
+
+  // Enregistrement des handlers de replay hors-ligne (SyncWorker).
+  final quoteRepo = container.read(quoteRepositoryProvider);
+  SyncWorker.instance.registerHandler('update_quote_status', (payload) async {
+    await quoteRepo.updateQuoteStatus(
+      payload['quoteId'] as String,
+      payload['status'] as String,
+    );
+  });
+  SyncWorker.instance.start();
 
   runApp(
     UncontrolledProviderScope(container: container, child: const KojiApp()),
