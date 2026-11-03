@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
+import { AssistantWindow } from "../components/AssistantWindow";
 import { ChoisissezVotreEspace } from "./ChoisissezVotreEspace";
 import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
 import { DEMARRAGE_SKIP_KEY, demarrageSteps, essentialsDone } from "../lib/demarrage";
@@ -131,6 +132,8 @@ function DashboardHome() {
   const [leadOuvert, setLeadOuvert] = useState(undefined); // undefined = le premier
   const [toutAfficher, setToutAfficher] = useState(false);
   const [demarrage, setDemarrage] = useState(null);
+  const [assistantWindowOpen, setAssistantWindowOpen] = useState(false);
+  const [assistantDraft, setAssistantDraft] = useState("");
 
   useEffect(() => {
     const user = readStoredUser();
@@ -329,13 +332,14 @@ function DashboardHome() {
   const aTraiterVisibles = toutAfficher ? aTraiter : aTraiter.slice(0, A_TRAITER_VISIBLES);
 
   return (
+    <>
     <Shell variant="pro">
         <header className="kp-head">
           <span className="kp-eyebrow">{eyebrow}</span>
           <h1>{prenom ? `Bonjour, ${prenom}.` : "Bonjour."}</h1>
         </header>
 
-        <div className="kjh" onClick={() => window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { focus: true } }))}>
+        <div className="kjh" onClick={() => setAssistantWindowOpen(true)}>
           <span className="kjs">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" fill="currentColor" />
@@ -345,9 +349,9 @@ function DashboardHome() {
             <b>Demandez à Koji</b>
             <span>Un chiffre, un document, une action : Koji connaît vos chantiers, devis, factures et votre équipe.</span>
             <div className="kjh-c">
-              <a onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: "Qu'est-ce qui m'attend aujourd'hui ?" } })); }}>Qu'est-ce qui m'attend aujourd'hui ?</a>
-              <a onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: "Qui me doit de l'argent ?" } })); }}>Qui me doit de l'argent ?</a>
-              <a onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: "Quels chantiers perdent de l'argent ?" } })); }}>Quels chantiers perdent de l'argent ?</a>
+              <a onClick={(e) => { e.stopPropagation(); setAssistantDraft("Qu'est-ce qui m'attend aujourd'hui ?"); setAssistantWindowOpen(true); }}>Qu'est-ce qui m'attend aujourd'hui ?</a>
+              <a onClick={(e) => { e.stopPropagation(); setAssistantDraft("Qui me doit de l'argent ?"); setAssistantWindowOpen(true); }}>Qui me doit de l'argent ?</a>
+              <a onClick={(e) => { e.stopPropagation(); setAssistantDraft("Quels chantiers perdent de l'argent ?"); setAssistantWindowOpen(true); }}>Quels chantiers perdent de l'argent ?</a>
             </div>
           </div>
           <div className="kjh-in">
@@ -551,6 +555,24 @@ function DashboardHome() {
 
             {info ? <div className="kp-toast" role="status">{info}</div> : null}
     </Shell>
+
+    <AssistantWindow
+      isOpen={assistantWindowOpen}
+      onClose={() => {
+        setAssistantWindowOpen(false);
+        setAssistantDraft("");
+      }}
+      onSubmit={(text) => {
+        // TODO: wire to actual assistant API when ready
+        console.log("Assistant query:", text);
+      }}
+      onFocus={() => {}}
+      isDraft={Boolean(assistantDraft)}
+      setDraft={setAssistantDraft}
+      draft={assistantDraft}
+      isBusy={false}
+    />
+    </>
   );
 }
 
