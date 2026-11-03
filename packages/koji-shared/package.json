@@ -1,0 +1,10 @@
+{
+  "name": "@koji/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.93.2"
+  }
+}
