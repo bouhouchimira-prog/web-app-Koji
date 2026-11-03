@@ -40,3 +40,9 @@
   plateformes (iOS, Android, web, desktop), API simple.
 - Cache read-only d'abord, puis queue d'écriture.
 - Pas de sync bidirectionnelle automatique dans cette phase.
+
+## SyncWorker handlers
+
+- update_quote_status : enregistre au demarrage (replay via QuoteRepository.updateQuoteStatus).
+- Ajouter un registerHandler pour chaque nouveau type d'action enqueuee.
+
