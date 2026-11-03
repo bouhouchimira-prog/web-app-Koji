@@ -14,6 +14,9 @@ import 'package:koji/core/notification_service.dart';
 import 'package:koji/core/supabase_config.dart';
 import 'package:koji/core/theme_provider.dart';
 import 'package:koji/design/koji_theme.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
+import 'package:koji/features/offline/offline_queue.dart';
+import 'package:koji/features/offline/sync_worker.dart';
 
 /// Shared start-up for both apps. Each entrypoint only picks [kind].
 Future<void> runKojiApp(KojiAppKind kind) async {
@@ -22,6 +25,12 @@ Future<void> runKojiApp(KojiAppKind kind) async {
 
   await SupabaseConfig.initialize();
   await initializeDateFormatting();
+
+  // Offline-first : initialiser le cache et la queue hors-ligne (Hive).
+  // Pas bloquant pour l'UI : on n'attend pas le SyncWorker.
+  await OfflineCacheService.instance.initialize();
+  await OfflineQueue.instance.initialize();
+  SyncWorker.instance.start();
 
   // Planning reminders and overdue-invoice alerts only concern the entreprise,
   // and local notifications are not available on the web. Not awaited: on
