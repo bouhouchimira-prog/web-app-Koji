@@ -13,6 +13,7 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0004_is_admin.sql | Colonne is_admin sur users (remplace la liste d'emails) |
 | 0005_storage_rls.sql | RLS Storage (buckets logos, photos, documents) |
 | 0006_users_typed_columns.sql | Colonnes typees sur users (unification source de verite) |
+| 0008_subscriptions.sql | Table subscriptions unifiee (billing) |
 | 0007_koji_ouvrages_columns.sql | Colonnes code/original_id/hourly_rate/coefficient sur koji_ouvrages |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
