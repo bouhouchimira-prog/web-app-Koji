@@ -46,6 +46,16 @@ class OfflineQueue {
     });
   }
 
+  /// Enqueue a quote creation to be replayed when online.
+  Future<String> enqueueCreateQuote(Map<String, dynamic> quoteBody) async {
+    return enqueue('create_quote', {'body': quoteBody});
+  }
+
+  /// Enqueue a client creation to be replayed when online.
+  Future<String> enqueueCreateClient(Map<String, dynamic> clientBody) async {
+    return enqueue('create_client', {'body': clientBody});
+  }
+
   List<Map<String, dynamic>> pending() {
     return _q.values
         .map((e) => Map<String, dynamic>.from(e as Map))
