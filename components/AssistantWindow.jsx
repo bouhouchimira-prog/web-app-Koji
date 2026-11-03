@@ -11,8 +11,6 @@ export function AssistantWindow({ isOpen, onClose, onSubmit, onFocus, isDraft, s
   const windowRef = useRef(null);
   const inputRef = useRef(null);
 
-  if (!isOpen) return null;
-
   const handleDragStart = (e) => {
     if (e.target.closest(".assistant-resize")) return;
     setIsDragging(true);
@@ -42,23 +40,6 @@ export function AssistantWindow({ isOpen, onClose, onSubmit, onFocus, isDraft, s
     setIsResizing(false);
   };
 
-  useEffect(() => {
-    if (isDragging || isResizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [isDragging, isResizing, dragOffset, position]);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey && !isBusy) {
       e.preventDefault();
@@ -66,7 +47,7 @@ export function AssistantWindow({ isOpen, onClose, onSubmit, onFocus, isDraft, s
     }
   };
 
-  return (
+  return isOpen ? (
     <div
       ref={windowRef}
       style={{
@@ -200,5 +181,5 @@ export function AssistantWindow({ isOpen, onClose, onSubmit, onFocus, isDraft, s
         }}
       />
     </div>
-  );
+  ) : null;
 }
