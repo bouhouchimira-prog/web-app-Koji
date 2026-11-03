@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { badRequest, ok } from "../../../lib/http";
 import { readDb } from "../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
-import { mergedOuvrages } from "../../../lib/ouvrages";
+import { mergedOuvrages, mergedOuvragesAsync } from "../../../lib/ouvrages";
 import { validateAiQuote, buildItemsFromAiQuote } from "../../../lib/ai-devis-shape";
 import { quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
@@ -141,7 +141,7 @@ export async function POST(request) {
   // fichier) — la bibliotheque utilisee est celle du compte admin
   // proprietaire administratif, en plus du socle commun Koji.
   const catalogOwnerId = await resolveAdminUserId();
-  const catalog = mergedOuvrages(db, catalogOwnerId || "").map((o) => ({
+  const catalog = (await mergedOuvragesAsync(db, catalogOwnerId || "")).map((o) => ({
     code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate, coefficient: o.coefficient
   }));
   const catalogText = catalog.length
