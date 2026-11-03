@@ -358,7 +358,7 @@ class _WorkerSuccessScreenState extends State<WorkerSuccessScreen> {
                               color: Theme.of(context).colorScheme.surface,
                             ),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Icon(Icons.arrow_forward,
                               color: Theme.of(context).colorScheme.surface, size: 20),
                         ],

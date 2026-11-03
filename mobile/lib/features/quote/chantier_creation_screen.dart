@@ -270,7 +270,7 @@ class _ChantierCreationScreenState
                                       color: Theme.of(context).colorScheme.surface,
                                     ),
                                   ),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Text(
                                     '→',
                                     style: TextStyle(

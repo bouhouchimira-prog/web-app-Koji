@@ -191,7 +191,7 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -301,7 +301,7 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
                 color: Theme.of(context).colorScheme.surface,
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
                     blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
@@ -505,11 +505,11 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFBFDBFE)),
           ),
-          child: Column(
+          child: const Column(
             children: [
-              const Icon(Icons.link, size: 40, color: Color(0xFF3B82F6)),
-              const SizedBox(height: 12),
-              const Text(
+              Icon(Icons.link, size: 40, color: Color(0xFF3B82F6)),
+              SizedBox(height: 12),
+              Text(
                 'Ajouter via un lien',
                 style: TextStyle(
                   fontSize: 18,
@@ -517,8 +517,8 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
                   color: AppTheme.darkNavy,
                 ),
               ),
-              const SizedBox(height: 6),
-              const Text(
+              SizedBox(height: 6),
+              Text(
                 'Collez le lien du produit depuis le site du fournisseur.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -677,7 +677,7 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: DropdownButtonFormField<String>(
-        value: _selectedFournisseur?.id,
+        initialValue: _selectedFournisseur?.id,
         decoration: const InputDecoration(
           border: InputBorder.none,
           labelText: 'Fournisseur (optionnel)',
@@ -780,7 +780,7 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           border: InputBorder.none,
           labelText: label,

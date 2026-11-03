@@ -22,7 +22,7 @@ class FormTextField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      style: TextStyle(
+      style: const TextStyle(
       ),
       decoration: InputDecoration(
         hintText: hint,

@@ -147,7 +147,7 @@ class _ChantierListScreenState extends ConsumerState<ChantierListScreen>
                               isSelected ? FontWeight.bold : FontWeight.w500,
                           color: isSelected
                               ? Theme.of(context).colorScheme.onPrimary
-                              : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -297,7 +297,7 @@ class _ChantierListScreenState extends ConsumerState<ChantierListScreen>
                       '${item['type']} • ${item['ref']}',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         fontWeight: FontWeight.w500,
                       ),
                     ),

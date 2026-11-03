@@ -94,7 +94,7 @@ class _TaskNotesThreadState extends ConsumerState<TaskNotesThread> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _audience,
+                initialValue: _audience,
                 isDense: true,
                 decoration: const InputDecoration(
                   isDense: true,

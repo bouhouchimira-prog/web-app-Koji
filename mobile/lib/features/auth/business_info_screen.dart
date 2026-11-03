@@ -201,7 +201,7 @@ class _BusinessInfoScreenState extends ConsumerState<BusinessInfoScreen> {
                 const SizedBox(height: 8),
 
                 // Logo
-                Center(
+                const Center(
                   child: Text(
                     'K Ô J I',
                     style: TextStyle(
@@ -380,7 +380,7 @@ class _BusinessInfoScreenState extends ConsumerState<BusinessInfoScreen> {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
+                            const Text(
                               'Créer mon compte',
                               style: TextStyle(
                                 fontSize: 16,
@@ -421,16 +421,16 @@ class _BusinessInfoScreenState extends ConsumerState<BusinessInfoScreen> {
                   child: GestureDetector(
                     onTap: () => context.go('/login'),
                     child: RichText(
-                      text: TextSpan(
+                      text: const TextSpan(
                         style: TextStyle(
                           fontSize: 14,
                           color: AppTheme.textLight,
                         ),
                         children: [
-                          const TextSpan(text: 'Déjà inscrit ? '),
+                          TextSpan(text: 'Déjà inscrit ? '),
                           TextSpan(
                             text: 'Se connecter',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppTheme.primaryBlue,
                               fontWeight: FontWeight.w600,
                             ),
@@ -466,13 +466,13 @@ class _BusinessInfoScreenState extends ConsumerState<BusinessInfoScreen> {
         controller: controller,
         keyboardType: keyboardType,
         onChanged: onChanged,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 16,
           color: AppTheme.darkNavy,
         ),
         decoration: InputDecoration(
           hintText: label,
-          hintStyle: TextStyle(
+          hintStyle: const TextStyle(
             fontSize: 16,
             color: AppTheme.textLight,
           ),

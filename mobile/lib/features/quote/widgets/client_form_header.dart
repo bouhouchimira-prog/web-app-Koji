@@ -40,10 +40,10 @@ class ClientFormHeader extends StatelessWidget {
         // Title
         Text(
           title,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF1E3A8A),
+            color: Color(0xFF1E3A8A),
           ),
           textAlign: TextAlign.center,
         ),
@@ -53,9 +53,9 @@ class ClientFormHeader extends StatelessWidget {
         // Description
         Text(
           description,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
-            color: const Color(0xFF6B7280),
+            color: Color(0xFF6B7280),
           ),
           textAlign: TextAlign.center,
         ),

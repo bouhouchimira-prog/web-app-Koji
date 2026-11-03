@@ -175,9 +175,9 @@ class EntrepriseParametresScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Theme section
-            Text(
+            const Text(
               'Thème',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
@@ -189,7 +189,7 @@ class EntrepriseParametresScreen extends ConsumerWidget {
                 border: Border.all(color: const Color(0xFFD9D9D4)),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: Column(
+              child: const Column(
                 children: [
                   _ParameterRow('Clair', true),
                   _ParameterRow('Sombre', false),
@@ -199,9 +199,9 @@ class EntrepriseParametresScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Notifications section
-            Text(
+            const Text(
               'Notifications',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
@@ -213,7 +213,7 @@ class EntrepriseParametresScreen extends ConsumerWidget {
                 border: Border.all(color: const Color(0xFFD9D9D4)),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: Column(
+              child: const Column(
                 children: [
                   _CheckboxRow('Nouveaux devis', true),
                   _CheckboxRow('Nouveaux messages', true),
@@ -223,9 +223,9 @@ class EntrepriseParametresScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Account section
-            Text(
+            const Text(
               'Compte',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
@@ -237,7 +237,7 @@ class EntrepriseParametresScreen extends ConsumerWidget {
                 border: Border.all(color: const Color(0xFFD9D9D4)),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: Column(
+              child: const Column(
                 children: [
                   _AccountRow('Abonnement', 'Koji Pro - Annuel'),
                   _AccountRow('Déconnexion', null),
@@ -261,10 +261,10 @@ class _ParameterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFD9D9D4),
+            color: Color(0xFFD9D9D4),
           ),
         ),
       ),
@@ -297,10 +297,10 @@ class _CheckboxRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFD9D9D4),
+            color: Color(0xFFD9D9D4),
           ),
         ),
       ),
@@ -331,10 +331,10 @@ class _AccountRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFD9D9D4),
+            color: Color(0xFFD9D9D4),
           ),
         ),
       ),

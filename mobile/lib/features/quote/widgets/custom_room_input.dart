@@ -55,10 +55,10 @@ class _CustomRoomInputState extends State<CustomRoomInput> {
       ),
       child: Column(
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.input, size: 20, color: AppTheme.darkNavy),
-              const SizedBox(width: 12),
+              Icon(Icons.input, size: 20, color: AppTheme.darkNavy),
+              SizedBox(width: 12),
               Text(
                 "Ajouter une pièce",
                 style: TextStyle(
@@ -77,8 +77,8 @@ class _CustomRoomInputState extends State<CustomRoomInput> {
                   controller: widget.controller,
                   decoration: InputDecoration(
                     hintText: 'Ex: Buanderie, Garage...',
-                    hintStyle: TextStyle(
-                      color: const Color(0xFF9CA3AF),
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF9CA3AF),
                       fontSize: 14,
                     ),
                     contentPadding: const EdgeInsets.symmetric(

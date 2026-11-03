@@ -225,10 +225,10 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
                   ),
                   const SizedBox(width: 10),
                   // Title
-                  Expanded(
+                  const Expanded(
                     child: Text(
                       "Sélectionner des\nparticipants",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: darkNavy,

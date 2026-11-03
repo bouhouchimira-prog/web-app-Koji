@@ -374,7 +374,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: SwitchListTile(
           value: isDark,
-          activeColor: const Color(0xFF1E3A8A),
+          activeThumbColor: const Color(0xFF1E3A8A),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
           secondary: Icon(
             isDark ? Icons.dark_mode : Icons.light_mode,

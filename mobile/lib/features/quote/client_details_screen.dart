@@ -118,12 +118,12 @@ class _ClientDetailsScreenState extends ConsumerState<ClientDetailsScreen> {
                 const SizedBox(height: 16),
 
                 // Title
-                Text(
+                const Text(
                   'Informations',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1E3A8A),
+                    color: Color(0xFF1E3A8A),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -131,7 +131,7 @@ class _ClientDetailsScreenState extends ConsumerState<ClientDetailsScreen> {
                 const SizedBox(height: 8),
 
                 // Description
-                Text(
+                const Text(
                   'Renseignez les coordonnées du client avant de procéder à l\'état des lieux',
                   style: TextStyle(
                     fontSize: 14,
@@ -195,7 +195,7 @@ class _ClientDetailsScreenState extends ConsumerState<ClientDetailsScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
@@ -205,8 +205,8 @@ class _ClientDetailsScreenState extends ConsumerState<ClientDetailsScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, size: 20),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward, size: 20),
                     ],
                   ),
                 ),
@@ -225,10 +225,10 @@ class _ClientDetailsScreenState extends ConsumerState<ClientDetailsScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF1F2937),
+          color: Color(0xFF1F2937),
         ),
       ),
     );

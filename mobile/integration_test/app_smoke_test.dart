@@ -20,9 +20,9 @@ const _testPassword = String.fromEnvironment('KOJI_TEST_PASSWORD');
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  final kind = _app == 'client' ? KojiAppKind.client : KojiAppKind.entreprise;
-  final isClient = kind == KojiAppKind.client;
-  final appName = isClient ? 'Koji' : 'Koji Pro';
+  const kind = _app == 'client' ? KojiAppKind.client : KojiAppKind.entreprise;
+  const isClient = kind == KojiAppKind.client;
+  const appName = isClient ? 'Koji' : 'Koji Pro';
 
   // One test body: runKojiApp initialises Supabase, which can only happen
   // once per process, and the test framework unmounts the app between tests.

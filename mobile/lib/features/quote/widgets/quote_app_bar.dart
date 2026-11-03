@@ -39,16 +39,16 @@ class QuoteAppBar extends StatelessWidget implements PreferredSizeWidget {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E3A8A),
+              color: Color(0xFF1E3A8A),
             ),
           ),
           if (stepText != null)
             Text(
               stepText!,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.textLight,
               ),

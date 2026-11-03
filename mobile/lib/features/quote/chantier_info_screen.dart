@@ -268,8 +268,8 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               ],
             )
           else
-            Row(
-              children: const [
+            const Row(
+              children: [
                 Icon(Icons.location_on_outlined,
                     size: 16, color: Color(0xFF64748B)),
                 SizedBox(width: 8),
@@ -337,8 +337,8 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: const [
+              const Row(
+                children: [
                   Icon(Icons.description_outlined,
                       size: 18, color: Color(0xFF0F172A)),
                   SizedBox(width: 8),
@@ -473,8 +473,8 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
+          const Row(
+            children: [
               Icon(Icons.group_outlined, size: 20, color: Color(0xFF0F172A)),
               SizedBox(width: 8),
               Text(

@@ -8,11 +8,11 @@ void main() {
     if (file is File && file.path.endsWith('.dart')) {
       String content = file.readAsStringSync();
       if (content.contains("fontFamily:")) {
-        content = content.replaceAll(RegExp(r"(\s*)fontFamily:\s*['" + '"' + r"]Outfit['" + '"' + r"],?"), "");
+        content = content.replaceAll(RegExp(r"(\s*)fontFamily:\s*['" '"' r"]Outfit['" '"' r"],?"), "");
         file.writeAsStringSync(content);
         count++;
       }
     }
   }
-  print('Removed Outfit from $count files');
+  stdout.writeln('Removed Outfit from $count files');
 }

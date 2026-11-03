@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_widgets.dart';
 
@@ -54,9 +52,9 @@ class EntrepriseDevisScreen extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
+                            const Text(
                               'Client Dupont',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
                               ),
@@ -94,17 +92,17 @@ class EntrepriseDevisDetailScreen extends ConsumerWidget {
             borderRadius: BorderRadius.circular(2),
           ),
           padding: const EdgeInsets.all(14),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Détails',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _DetailRow('Client', 'SARL Dupont'),
               _DetailRow('Montant', '€5,200'),
               _DetailRow('Statut', 'En attente'),
@@ -212,7 +210,7 @@ class EntrepriseClientDetailScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               _DetailRow('Nom', 'SARL $clientId'),
               _DetailRow('Email', 'contact@$clientId.com'),
-              _DetailRow('Téléphone', '+33 1 23 45 67 89'),
+              const _DetailRow('Téléphone', '+33 1 23 45 67 89'),
             ],
           ),
         ),
@@ -266,9 +264,9 @@ class EntrepriseEquipeScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        const Text(
                           'Rôle: Ouvrier',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey,
                           ),
@@ -316,8 +314,8 @@ class EntrepriseEquipeMemberScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               _DetailRow('Nom', 'Équipier $memberId'),
-              _DetailRow('Rôle', 'Ouvrier'),
-              _DetailRow('Email', 'member@koji.pro'),
+              const _DetailRow('Rôle', 'Ouvrier'),
+              const _DetailRow('Email', 'member@koji.pro'),
             ],
           ),
         ),

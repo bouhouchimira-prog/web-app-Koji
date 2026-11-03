@@ -33,7 +33,7 @@ class PhotoActionButton extends StatelessWidget {
         icon: Icon(icon, size: 24),
         label: Text(
           label,
-          style:TextStyle(
+          style:const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -54,7 +54,7 @@ class PhotoActionButton extends StatelessWidget {
         icon: Icon(icon, size: 24),
         label: Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),

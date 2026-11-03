@@ -90,7 +90,7 @@ class _FournituresScreenState extends ConsumerState<FournituresScreen>
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -272,7 +272,7 @@ class _RecentsTab extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Erreur: $e')),
       data: (items) {
         if (items.isEmpty) {
-          return _EmptyState(
+          return const _EmptyState(
             icon: Icons.history,
             title: 'Aucune fourniture récente',
             subtitle: 'Vos fournitures récemment ajoutées apparaîtront ici.',
@@ -311,7 +311,7 @@ class _DiversTab extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Erreur: $e')),
       data: (items) {
         if (items.isEmpty) {
-          return _EmptyState(
+          return const _EmptyState(
             icon: Icons.category_outlined,
             title: 'Aucune fourniture diverse',
             subtitle: 'Les fournitures sans fournisseur apparaîtront ici.',
@@ -350,7 +350,7 @@ class _AllFournituresTab extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Erreur: $e')),
       data: (items) {
         if (items.isEmpty) {
-          return _EmptyState(
+          return const _EmptyState(
             icon: Icons.inventory_2_outlined,
             title: 'Aucune fourniture',
             subtitle: 'Ajoutez vos fournitures via le bouton +.',
@@ -389,7 +389,7 @@ class _FournisseursTab extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Erreur: $e')),
       data: (fournisseurs) {
         if (fournisseurs.isEmpty) {
-          return _EmptyState(
+          return const _EmptyState(
             icon: Icons.store_outlined,
             title: 'Aucun fournisseur',
             subtitle: 'Ajoutez un fournisseur pour organiser vos fournitures.',
@@ -588,7 +588,7 @@ class _FournitureCard extends StatelessWidget {
             : null,
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.03),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -742,7 +742,7 @@ class _FournisseurCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.03),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),

@@ -160,8 +160,8 @@ class _NouveauContactScreenState extends State<NouveauContactScreen> {
                           child: Container(
                             width: 80,
                             height: 80,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE3EDFF),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE3EDFF),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -273,7 +273,7 @@ class _NouveauContactScreenState extends State<NouveauContactScreen> {
                           children: [
                             Icon(Icons.person_add_alt_1_outlined,
                                 color: Theme.of(context).colorScheme.surface, size: 20),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Text(
                               "Ajouter le contact",
                               style: TextStyle(
