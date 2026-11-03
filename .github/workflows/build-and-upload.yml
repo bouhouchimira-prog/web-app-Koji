@@ -1,0 +1,163 @@
+# Builds the Android apps from mobile/ and sends them to Google Play
+# (internal testing track, as a draft to roll out from Play Console).
+#
+#   client     → Koji      (com.koji.client, lib/main_client.dart)
+#   entreprise → Koji Pro  (com.koji.pro,    lib/main_entreprise.dart)
+#
+# Runs on every push to release/koji-flavors-v0.1 that touches mobile/, or
+# manually (Actions → "Android → Google Play" → Run workflow).
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64        the Play *upload* keystore (.jks), base64
+#   ANDROID_KEYSTORE_PASSWORD      its store password
+#   ANDROID_KEY_ALIAS              alias of the key inside it
+#   ANDROID_KEY_PASSWORD           password of that key
+#   SUPABASE_URL, SUPABASE_ANON_KEY compiled into the app (it refuses to start without them)
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PRO / _CLIENT
+#                                  service account keys; each account must be invited in
+#                                  Play Console → Users and permissions, and the
+#                                  "Google Play Android Developer API" enabled in Google Cloud.
+# base64 on Windows:  certutil -encode upload-keystore.jks out.txt  (drop the BEGIN/END lines).
+name: Android → Google Play
+
+on:
+  push:
+    branches:
+      - release/koji-flavors-v0.1
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-and-upload.yml'
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Application'
+        type: choice
+        options: [les-deux, client, entreprise]
+        default: les-deux
+      upload:
+        description: "Envoyer sur Google Play (sinon : AAB téléchargeable dans l'onglet Artifacts)"
+        type: boolean
+        default: true
+      build_number:
+        description: 'versionCode (vide = 56 + numéro du run)'
+        type: string
+        required: false
+
+concurrency:
+  group: android-play-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.38.5'
+
+jobs:
+  android:
+    name: ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.app == 'les-deux') && '["client","entreprise"]' || format('["{0}"]', inputs.app)) }}
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      APP: ${{ matrix.app }}
+      UPLOAD: ${{ github.event_name != 'workflow_dispatch' || inputs.upload }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier les secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PRO: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PRO }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CLIENT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CLIENT }}
+        run: |
+          missing=()
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD SUPABASE_URL SUPABASE_ANON_KEY; do
+            [ -n "${!v}" ] || missing+=("$v")
+          done
+          if [ "$UPLOAD" = true ]; then
+            if [ "$APP" = client ]; then [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CLIENT" ] || missing+=(GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CLIENT)
+            else [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PRO" ] || missing+=(GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PRO); fi
+          fi
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Secrets GitHub manquants : ${missing[*]}"
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # build.gradle.kts reads android/key.properties for the release signingConfig.
+      - name: Clé de signature (upload key)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode --ignore-garbage > "$RUNNER_TEMP/upload-keystore.jks"
+          cat > android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/upload-keystore.jks
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+
+      - name: Variables de l'app (dart-define)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          jq -n --arg u "$SUPABASE_URL" --arg k "$SUPABASE_ANON_KEY" \
+            '{SUPABASE_URL: $u, SUPABASE_ANON_KEY: $k}' > "$RUNNER_TEMP/defines.json"
+
+      - run: flutter pub get
+
+      - name: Construire l'AAB
+        env:
+          BUILD_NUMBER_INPUT: ${{ inputs.build_number }}
+        run: |
+          BUILD_NUMBER="${BUILD_NUMBER_INPUT:-$((56 + GITHUB_RUN_NUMBER))}"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          flutter build appbundle --release \
+            --flavor "$APP" -t "lib/main_$APP.dart" \
+            --build-number "$BUILD_NUMBER" \
+            --dart-define-from-file="$RUNNER_TEMP/defines.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: koji-${{ matrix.app }}-aab-${{ env.BUILD_NUMBER }}
+          path: mobile/build/app/outputs/bundle/${{ matrix.app }}Release/*.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Envoyer sur Google Play (tests internes, brouillon)
+        if: env.UPLOAD == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ matrix.app == 'client' && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CLIENT || secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PRO }}
+          packageName: ${{ matrix.app == 'client' && 'com.koji.client' || 'com.koji.pro' }}
+          releaseFiles: mobile/build/app/outputs/bundle/${{ matrix.app }}Release/app-${{ matrix.app }}-release.aab
+          track: internal
+          status: draft
+
+      - name: Nettoyage des éléments de signature
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/upload-keystore.jks" "$RUNNER_TEMP/defines.json"
