@@ -3,7 +3,7 @@ import { addHistory, makeToken, readDb, writeDb } from "../../../../../../lib/db
 import { getAuth, getVerifiedUserId } from "../../../../../../lib/server-auth";
 import { isRdvUnlockedForOffer, maskedCityPostal } from "../../../../../../lib/offer-privacy";
 import { buildWebUser } from "../../../../../../lib/user-profile";
-import { mergedOuvrages } from "../../../../../../lib/ouvrages";
+import { mergedOuvrages, mergedOuvragesAsync } from "../../../../../../lib/ouvrages";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../../../../lib/quote-calculations";
 import { buildItemsFromVisite } from "../../../../../../lib/visite-devis-shape";
@@ -54,7 +54,7 @@ export async function POST(request, context) {
   const worker = (db.workers || []).find((entry) => entry.id === workerId && entry.userId === auth.userId);
   if (!worker) return badRequest("Sélectionnez la personne qui a réalisé la visite.");
 
-  const catalog = mergedOuvrages(db, auth.userId);
+  const catalog = await mergedOuvragesAsync(db, auth.userId);
 
   const acceptedSuggestionIds = new Set(Array.isArray(body.acceptedSuggestionIds) ? body.acceptedSuggestionIds : []);
   const allSuggestions = pieces.flatMap((piece) =>
