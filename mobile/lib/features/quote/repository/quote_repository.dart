@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
 import 'package:koji/core/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -520,14 +521,26 @@ class QuoteRepository {
   /// Used as a fallback when the realtime channel fails to join (e.g.
   /// RealtimeSubscribeException timedOut on flaky networks).
   Future<List<Map<String, dynamic>>> getUserQuotesOnce(String userId) async {
-    final data = await _supabase
-        .from('quotes')
-        .select()
-        .eq('user_id', userId)
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(data)
-        .map(_mapQuoteListRow)
-        .toList();
+    await OfflineCacheService.instance.initialize();
+    try {
+      final data = await _supabase
+          .from('quotes')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      final result = List<Map<String, dynamic>>.from(data)
+          .map(_mapQuoteListRow)
+          .toList();
+      // Cache read-only pour le mode hors-ligne (fire-and-forget).
+      // ignore: unawaited_futures
+      OfflineCacheService.instance.cacheDevis(result.map((q) => Map<String, dynamic>.from(q)).toList());
+      return result;
+    } catch (e) {
+      // Fallback hors-ligne : renvoyer le cache si disponible.
+      final cached = OfflineCacheService.instance.getCachedDevis();
+      if (cached.isNotEmpty) return cached;
+      rethrow;
+    }
   }
 
   /// Update Quote Status

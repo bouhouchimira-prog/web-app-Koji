@@ -14,6 +14,13 @@
 - `mobile/lib/features/offline/offline_queue.dart` : queue d'actions hors-ligne
   (enqueue, pending, remove, incrementRetry, clear).
 
+## Intégration (Phase 5)
+
+- `QuoteRepository.getUserQuotesOnce` met maintenant en cache le résultat
+  après un fetch réseau réussi, et renvoie le cache en cas d'erreur réseau
+  (fallback hors-ligne). C'est la preuve de concept pour l'intégration
+  offline ; à étendre aux autres repositories (clients, chantiers).
+
 ## Prochaines étapes
 
 1. Initialiser `OfflineCacheService` et `OfflineQueue` au démarrage de l'app
