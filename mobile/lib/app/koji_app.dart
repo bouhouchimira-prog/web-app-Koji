@@ -17,6 +17,7 @@ import 'package:koji/design/koji_theme.dart';
 import 'package:koji/features/offline/offline_cache_service.dart';
 import 'package:koji/features/offline/offline_queue.dart';
 import 'package:koji/features/offline/sync_worker.dart';
+import 'package:koji/features/notifications/push_service.dart';
 
 /// Shared start-up for both apps. Each entrypoint only picks [kind].
 Future<void> runKojiApp(KojiAppKind kind) async {
@@ -31,6 +32,13 @@ Future<void> runKojiApp(KojiAppKind kind) async {
   await OfflineCacheService.instance.initialize();
   await OfflineQueue.instance.initialize();
   SyncWorker.instance.start();
+
+  // Push notifications distantes (FCM). Non bloquant et pas sur le web :
+  // l'app demarre meme si Firebase n'est pas encore configure (le service
+  // logue l'erreur et renvoie null).
+  if (!kIsWeb) {
+    unawaited(PushNotificationService.instance.initialize());
+  }
 
   // Planning reminders and overdue-invoice alerts only concern the entreprise,
   // and local notifications are not available on the web. Not awaited: on

@@ -33,14 +33,19 @@
 
 - Fondations posées : service mobile, endpoints backend, table DB, migration.
 - Envoi réel implémenté dans `/api/push/send` (mode dry-run si `FIREBASE_SERVICE_ACCOUNT` absent).
-- Initialisation FCM dans `main.dart` / `main_client.dart` à faire.
+- **Initialisation FCM faite** dans `koji_app.dart` (non bloquante, hors web) :
+  permission, récupération du token, refresh, écoute des messages foreground
+  (affichage via `NotificationService.notifyPush`), enregistrement automatique
+  du token sur `/api/push/register` dès qu'une session Supabase existe.
 - Tests sur appareil réel requis.
 
 ## Prochaines étapes
 
-- [ ] Ajouter `firebase-admin` aux dépendances web.
-- [ ] Implémenter l'envoi réel dans `/api/push/send`.
-- [ ] Initialiser `PushNotificationService` au démarrage de l'app.
-- [ ] Enregistrer le token après login (appeler `registerToken`).
-- [ ] Afficher les notifications foreground via `flutter_local_notifications`.
+- [x] Ajouter `firebase-admin` aux dépendances web.
+- [x] Implémenter l'envoi réel dans `/api/push/send`.
+- [x] Initialiser `PushNotificationService` au démarrage de l'app.
+- [x] Enregistrer le token après login (appeler `registerToken`).
+- [x] Afficher les notifications foreground via `flutter_local_notifications`.
+- [ ] Configurer `FIREBASE_SERVICE_ACCOUNT` dans `.env.local`.
+- [ ] Ajouter `google-services.json` et `GoogleService-Info.plist` + clé APNs.
 - [ ] Tester sur appareil réel (Android + iOS).

@@ -1,6 +1,14 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:koji/app/koji_web_api_config.dart';
+import 'package:koji/core/notification_service.dart';
+import 'package:koji/core/supabase_config.dart';
 
 /// Background message handler — must be a top-level function.
 @pragma('vm:entry-point')
@@ -22,11 +30,15 @@ class PushNotificationService {
   static final PushNotificationService instance = PushNotificationService._();
 
   String? _token;
+  bool _started = false;
 
   String? get token => _token;
 
-  /// Initialize FCM and request permission. Returns the device token (or null).
+  /// Initialize FCM, request permission, listen to foreground messages and
+  /// register the device token with the backend once the user is signed in.
   Future<String?> initialize() async {
+    if (_started) return _token;
+    _started = true;
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -45,17 +57,30 @@ class PushNotificationService {
       _token = await FirebaseMessaging.instance.getToken();
       debugPrint('FCM token: $_token');
 
-      // Listen for token refresh
+      // Refresh du token : on re-enregistre cote backend.
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         _token = newToken;
-        // TODO: send newToken to backend via /api/push/register
+        registerToken();
       });
 
-      // Foreground messages
+      // Message recu pendant que l'app est ouverte : notification locale.
       FirebaseMessaging.onMessage.listen((message) {
-        debugPrint('Foreground message: ${message.notification?.title}');
-        // TODO: show local notification
+        final notification = message.notification;
+        if (notification != null) {
+          NotificationService.instance.notifyPush(
+            title: notification.title ?? 'Koji',
+            body: notification.body ?? '',
+          );
+        }
       });
+
+      // Enregistre le token des qu'une session existe (login inclus).
+      SupabaseConfig.client.auth.onAuthStateChange.listen((event) {
+        if (event.session != null) registerToken();
+      });
+      if (SupabaseConfig.client.auth.currentSession != null) {
+        await registerToken();
+      }
 
       return _token;
     } catch (e) {
@@ -64,10 +89,31 @@ class PushNotificationService {
     }
   }
 
-  /// Register the current token with the backend.
-  Future<void> registerToken(String userId, String authToken) async {
-    if (_token == null) return;
-    // TODO: POST to /api/push/register with { userId, deviceToken: _token, platform }
-    debugPrint('Register token for $userId: $_token');
+  /// Enregistre le token courant aupres de /api/push/register (session
+  /// Supabase de l'utilisateur connecte). Sans effet si pas de session.
+  Future<void> registerToken() async {
+    final token = _token;
+    final session = SupabaseConfig.client.auth.currentSession;
+    if (token == null || session == null) return;
+    try {
+      final platform = Platform.isAndroid
+          ? 'android'
+          : Platform.isIOS
+              ? 'ios'
+              : 'web';
+      final response = await http.post(
+        Uri.parse('${KojiWebApiConfig.baseUrl}/api/push/register'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${session.accessToken}',
+        },
+        body: jsonEncode({'deviceToken': token, 'platform': platform}),
+      );
+      if (response.statusCode >= 300) {
+        debugPrint('Push register failed: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Push register error: $e');
+    }
   }
 }

@@ -250,4 +250,31 @@ class NotificationService {
       if (kDebugMode) debugPrint('scheduleTaskReminder error: $e');
     }
   }
+
+  /// Immediate notification raised when a remote push (FCM) arrives while the
+  /// app is in the foreground. Background/terminated pushes are displayed by
+  /// the OS itself.
+  Future<void> notifyPush({required String title, required String body}) async {
+    try {
+      if (!_initialised) await init();
+      final id = DateTime.now().millisecondsSinceEpoch % 100000;
+      await _plugin.show(
+        id,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: 'Notifications push distantes',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('notifyPush error: $e');
+    }
+  }
 }
