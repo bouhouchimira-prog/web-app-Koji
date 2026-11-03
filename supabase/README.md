@@ -20,7 +20,7 @@ Projet partagé : `https://hbgqbpyufaajqmedxodg.supabase.co`
 
 - Toujours exécuter dans le SQL Editor du projet partagé, jamais en prod sans
   sauvegarde.
-- Versionner toute nouvelle migration dans ce dossier (`supabase/migrations/`)
-  avec un préfixe numérique (`0001_…sql`).
+- Versionner toute nouvelle migration dans `supabase/migrations/` avec un
+  préfixe numérique (`0001_…sql`). Voir `supabase/migrations/README.md`.
 - Ne jamais modifier une migration déjà appliquée en prod : créer une nouvelle.
 - RLS doit rester activé sur toutes les tables exposées à `anon`.
