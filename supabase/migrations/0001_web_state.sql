@@ -1,0 +1,299 @@
+-- One-time setup for the koji web app (web-app-Koji-main).
+-- Run this in the Supabase SQL editor of the shared project
+-- (https://hbgqbpyufaajqmedxodg.supabase.co → SQL Editor → New query → Run).
+--
+-- The web app stores its whole application state as a single JSONB row,
+-- read/written through lib/db.js. This table is separate from the tables
+-- used by koji-admin and the koji-main Flutter app, so it does not
+-- interfere with them.
+
+CREATE TABLE IF NOT EXISTS koji_web_state (
+  id INT PRIMARY KEY,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- This table holds nearly every personal-data collection in the app (users,
+-- workers incl. their social security number, clients, quotes' plaintext
+-- portal passwords, mail/SMS outbox, ...). It used to have permissive
+-- USING (true) policies for the anon role, which is the key shipped to every
+-- browser (NEXT_PUBLIC_SUPABASE_ANON_KEY) — anyone holding it could read or
+-- overwrite the entire table directly against Supabase, bypassing the app's
+-- own scoping logic entirely.
+--
+-- The app now reads/writes this table exclusively server-side with the
+-- SUPABASE_SERVICE_ROLE_KEY (see lib/db.js), which bypasses RLS by design.
+-- So RLS here just needs to deny the anon/authenticated roles outright —
+-- enabling RLS with no policy for those roles does that by default; no
+-- policy is created for them.
+ALTER TABLE koji_web_state ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "koji_web_state_select" ON koji_web_state;
+DROP POLICY IF EXISTS "koji_web_state_insert" ON koji_web_state;
+DROP POLICY IF EXISTS "koji_web_state_update" ON koji_web_state;
+
+REVOKE ALL ON koji_web_state FROM anon, authenticated;
+
+-- ── particulier_users_state (4 octobre) ──────────────────────────────────
+-- Les comptes particuliers (Koji) vivaient jusqu'ici dans koji_web_state,
+-- au milieu de tout le reste (offres, devis, historique...) — un simple
+-- login devait donc transporter 1,27 Mo pour n'en utiliser que 21 Ko. Meme
+-- principe de table que koji_web_state, juste dediee aux comptes (voir
+-- lib/particulier-users.js), pour que les routes qui ne touchent QUE les
+-- comptes (connexion Google, activation, profil) sautent completement le
+-- gros bloc partage. Meme posture de securite : service_role uniquement.
+CREATE TABLE IF NOT EXISTS particulier_users_state (
+  id INT PRIMARY KEY,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE particulier_users_state ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON particulier_users_state FROM anon, authenticated;
+
+-- ── radar_offer_drafts (9 octobre) ───────────────────────────────────────
+-- Refonte du parcours de creation d'offre (Radar des Chantiers) en un seul
+-- chat pilote par l'IA avec tool use (lib/radar-offer-draft.js,
+-- app/api/radar-chat/route.js) : l'etat de l'offre en cours de collecte
+-- doit pouvoir etre ecrit plusieurs fois par message (un appel d'outil =
+-- une ecriture), donc PAS dans koji_web_state (1,27 Mo, reecrit en entier a
+-- chaque sauvegarde) — une ligne par brouillon d'offre, ecrite directement,
+-- jamais le gros blob partage. Meme posture de securite que les tables
+-- ci-dessus : service_role uniquement, jamais d'acces direct anon/authenticated
+-- (les comptes particuliers ne sont pas des comptes Supabase Auth).
+CREATE TABLE IF NOT EXISTS radar_offer_drafts (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  conversation_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'en_cours',
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS radar_offer_drafts_user_id_idx ON radar_offer_drafts(user_id);
+CREATE INDEX IF NOT EXISTS radar_offer_drafts_conversation_id_idx ON radar_offer_drafts(conversation_id);
+
+ALTER TABLE radar_offer_drafts ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON radar_offer_drafts FROM anon, authenticated;
+
+-- ── commandes (12 octobre) ───────────────────────────────────────────────
+-- Nouvelle page d'accueil de l'outil Fournitures (tableau de bord) : une
+-- commande passee aupres d'un fournisseur, pour un chantier, avec un
+-- statut (a_commander / confirmee / expediee / livree / en_retard) et une
+-- date de livraison. Table liee aux tables deja partagees avec l'app
+-- Flutter (fournisseurs, chantiers) — meme posture de securite : service_role
+-- uniquement.
+CREATE TABLE IF NOT EXISTS commandes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  fournisseur_id UUID REFERENCES fournisseurs(id),
+  chantier_id UUID REFERENCES chantiers(id),
+  items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  montant_ht NUMERIC NOT NULL DEFAULT 0,
+  date_livraison DATE,
+  statut TEXT NOT NULL DEFAULT 'a_commander',
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS commandes_user_id_idx ON commandes(user_id);
+
+ALTER TABLE commandes ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON commandes FROM anon, authenticated;
+
+-- Seuil d'alerte de stock bas, par article (fournitures n'avait jusque-la
+-- qu'une quantite, jamais de seuil a partir duquel la "recommander").
+-- 0 = jamais signale (article pas encore configure).
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS seuil_alerte NUMERIC NOT NULL DEFAULT 0;
+
+-- ── fournisseurs : champs de contact (14 octobre) ──────────────────────────
+-- Le formulaire "Fournisseur" (email/telephone/adresse/site/notes) existait
+-- deja cote UI mais n'etait jamais persiste cote serveur (voir
+-- app/api/suppliers/route.js) : la table ne stockait que name + logo_url.
+-- Necessaire pour la nouvelle vue "Par fournisseur" (fiche fournisseur avec
+-- coordonnees + statistiques).
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS address TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS website TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
+ALTER TABLE fournisseurs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- ── fournitures : achats "Divers" (14 octobre) ─────────────────────────────
+-- Onglet "Divers" du catalogue : petits achats ponctuels (bazars, grandes
+-- surfaces) sans fournisseur au catalogue, optionnellement rattaches a un
+-- chantier, avec un montant TTC (distinct du prix HT du catalogue) et une
+-- photo de ticket (stockee en data URL — l'app n'a pas de stockage fichier
+-- dedie aujourd'hui).
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS magasin TEXT DEFAULT '';
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS chantier_id UUID REFERENCES chantiers(id);
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS montant_ttc NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE fournitures ADD COLUMN IF NOT EXISTS ticket_photo TEXT DEFAULT '';
+
+-- ── users : verification d'email pour les comptes entreprise (16 octobre) ──
+-- Bug signale par Amira : un compte entreprise cree depuis /signup s'active
+-- immediatement (le toggle "Confirm email" de ce projet Supabase est
+-- desactive) et affichait quand meme un faux message "verifiez vos mails"
+-- (aucun email n'etait envoye). Plutot que de dependre de ce toggle Supabase
+-- (qui s'applique aussi a l'app mobile Flutter, partagee), on gere notre
+-- propre verification, cote site web uniquement : email_verified par
+-- defaut TRUE (aucun compte existant n'est affecte), mis a FALSE
+-- explicitement par app/api/auth/signup/route.js a la creation d'un compte
+-- entreprise, verifie par app/api/auth/login/route.js avant d'emettre le
+-- cookie de session de ce site — l'app mobile, qui parle a Supabase Auth
+-- directement, n'est pas concernee par ce champ.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_expires_at TIMESTAMPTZ;
+
+-- ── users : mot de passe oublie, comptes entreprise (16 octobre) ───────────
+-- Meme constat que email_verified ci-dessus : app/api/auth/forgot-password
+-- appelait supabase.auth.resetPasswordForEmail(), le meme service email
+-- Supabase peu fiable. Token maison, verifie et consomme cote serveur
+-- (service_role) dans app/api/auth/set-password/route.js.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;
+
+-- ── chantiers : date d'archivage (16 octobre, refonte Corbeille) ───────────
+-- Un chantier archive (statut "Archive") n'avait jamais de date enregistree
+-- -> impossible de calculer un vrai delai "suppression dans X jours" dans
+-- la Corbeille. archived_at est pose par app/api/projects/route.js a
+-- l'archivage, efface a la restauration.
+ALTER TABLE chantiers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+
+-- ── ai_conversations (25 octobre) ───────────────────────────────────────
+-- Journal lisible des conversations avec les assistants IA (Radar des
+-- Chantiers cote client + chat "Avec l'IA" cote devis entreprise), pour
+-- affichage dans koji-admin (https://github.com/FirasMzoughi/koji-admin,
+-- app/dashboard/conversations). Table dediee (pas le blob koji_web_state),
+-- meme principe que radar_offer_drafts : une ligne par conversation, mise
+-- a jour a chaque tour (voir lib/ai-chat-logs.js). koji-web ecrit via la
+-- cle service_role (contourne RLS) ; koji-admin lit avec sa cle anon, donc
+-- la policy de lecture ci-dessous est restreinte aux vrais comptes admin
+-- (lib/auth.js::ADMIN_EMAILS), pas "n'importe quel compte authentifie"
+-- comme le fait deja koji-admin pour users/quotes (ADMIN_ACCESS_ALL_DATA.sql,
+-- pas touche ici — hors perimetre de cette table).
+CREATE TABLE IF NOT EXISTS ai_conversations (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('radar', 'devis')),
+  conversation_id TEXT NOT NULL UNIQUE,
+  particulier_user_id UUID,
+  entreprise_user_id UUID,
+  draft_id TEXT,
+  quote_id TEXT,
+  turns JSONB NOT NULL DEFAULT '[]',
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_conversations_kind_idx ON ai_conversations(kind);
+CREATE INDEX IF NOT EXISTS ai_conversations_updated_idx ON ai_conversations(updated_at DESC);
+
+ALTER TABLE ai_conversations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON ai_conversations FROM anon, authenticated;
+-- Bug trouve le 26 oct (audit Selenium cote koji-admin) : REVOKE ALL retire
+-- aussi le privilege SELECT de base, qui est verifie par Postgres AVANT la
+-- policy RLS ci-dessous. Sans ce GRANT, meme un compte admin autorise par la
+-- policy recoit un 403 "permission denied" sur toute lecture via la cle anon
+-- (koji-admin) — la policy seule ne suffit jamais sans le GRANT qui l'accompagne.
+GRANT SELECT ON ai_conversations TO authenticated;
+DROP POLICY IF EXISTS "Admins can read AI conversations" ON ai_conversations;
+CREATE POLICY "Admins can read AI conversations" ON ai_conversations FOR SELECT
+  USING (auth.jwt() ->> 'email' IN ('bouhouchimira@gmail.com', 'ablexpertrenov@gmail.com'));
+
+-- ── Réseau pro (1er novembre) ────────────────────────────────────────────
+-- Besoins de sous-traitance, annuaire et échanges entre entreprises
+-- (app/api/reseau/route.js). Une ligne par profil, besoin, échange et
+-- message, jamais dans koji_web_state : deux entreprises qui écrivent en
+-- même temps ne s'écrasent plus. Même posture que radar_offer_drafts :
+-- service_role uniquement ; la route vérifie l'identité (getVerifiedUserId)
+-- et ne renvoie jamais user_id, coordonnées ni dates de documents d'une
+-- autre entreprise.
+CREATE TABLE IF NOT EXISTS reseau_profils (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL UNIQUE,
+  company_name TEXT NOT NULL DEFAULT '',
+  visible BOOLEAN NOT NULL DEFAULT TRUE,
+  metiers TEXT[] NOT NULL DEFAULT '{}',
+  zone TEXT NOT NULL DEFAULT '',
+  available_from DATE,
+  availability_note TEXT NOT NULL DEFAULT '',
+  kbis_date DATE,
+  urssaf_until DATE,
+  decennale_until DATE,
+  zone_lat DOUBLE PRECISION,
+  zone_lon DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS reseau_besoins (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  company_name TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL,
+  metier TEXT NOT NULL,
+  start_date DATE,
+  end_date DATE,
+  budget_ht NUMERIC(12, 2),
+  fournitures TEXT NOT NULL DEFAULT 'moi' CHECK (fournitures IN ('moi', 'sous-traitant')),
+  city TEXT NOT NULL DEFAULT '',
+  message TEXT NOT NULL DEFAULT '',
+  hide_client BOOLEAN NOT NULL DEFAULT TRUE,
+  project_id TEXT NOT NULL DEFAULT '',
+  project_title TEXT NOT NULL DEFAULT '',
+  lot_label TEXT NOT NULL DEFAULT '',
+  zone_lat DOUBLE PRECISION,
+  zone_lon DOUBLE PRECISION,
+  status TEXT NOT NULL DEFAULT 'ouvert' CHECK (status IN ('ouvert', 'pourvu', 'ferme')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reseau_besoins_status_idx ON reseau_besoins(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS reseau_besoins_user_id_idx ON reseau_besoins(user_id);
+
+-- Un seul échange par paire d'entreprises et par besoin (besoin_id vide =
+-- contact direct depuis l'annuaire).
+CREATE TABLE IF NOT EXISTS reseau_echanges (
+  id TEXT PRIMARY KEY,
+  besoin_id TEXT NOT NULL DEFAULT '',
+  user_a TEXT NOT NULL,
+  user_b TEXT NOT NULL,
+  name_a TEXT NOT NULL DEFAULT '',
+  name_b TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'ouvert' CHECK (status IN ('ouvert', 'retenu')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (user_a <> user_b)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS reseau_echanges_pair_idx
+  ON reseau_echanges(besoin_id, LEAST(user_a, user_b), GREATEST(user_a, user_b));
+CREATE INDEX IF NOT EXISTS reseau_echanges_user_a_idx ON reseau_echanges(user_a);
+CREATE INDEX IF NOT EXISTS reseau_echanges_user_b_idx ON reseau_echanges(user_b);
+CREATE INDEX IF NOT EXISTS reseau_echanges_besoin_idx ON reseau_echanges(besoin_id);
+
+CREATE TABLE IF NOT EXISTS reseau_messages (
+  id TEXT PRIMARY KEY,
+  echange_id TEXT NOT NULL REFERENCES reseau_echanges(id) ON DELETE CASCADE,
+  from_user TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (char_length(text) BETWEEN 1 AND 2000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reseau_messages_echange_idx ON reseau_messages(echange_id, created_at);
+
+ALTER TABLE reseau_profils ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reseau_besoins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reseau_echanges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reseau_messages ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON reseau_profils FROM anon, authenticated;
+REVOKE ALL ON reseau_besoins FROM anon, authenticated;
+REVOKE ALL ON reseau_echanges FROM anon, authenticated;
+REVOKE ALL ON reseau_messages FROM anon, authenticated;
