@@ -1,6 +1,6 @@
 # Worker App Deployment Guide
 
-Deploy worker app à ouvrier.kojibuild.com
+Deploy worker app à ouvrier.getkoji.io
 
 ## 🚀 Déploiement sur Vercel
 
@@ -27,10 +27,10 @@ SUPABASE_SERVICE_ROLE_KEY = eyJhbGc...
 ### 3. Configurer le sous-domaine
 
 1. Aller dans Vercel → Domains
-2. Ajouter domaine: `ouvrier.kojibuild.com`
+2. Ajouter domaine: `ouvrier.getkoji.io`
 3. Suivre les instructions de configuration DNS
 
-### 4. DNS Configuration (chez registrar kojibuild.com)
+### 4. DNS Configuration (chez registrar getkoji.io)
 
 Ajouter CNAME record:
 
@@ -67,7 +67,7 @@ Attendre 15-30 minutes pour propagation DNS.
 
 ## 🌐 Accès
 
-Production: https://ouvrier.kojibuild.com
+Production: https://ouvrier.getkoji.io
 Dev: http://localhost:3003 (ou port configuré)
 
 ## 📝 Environnement
@@ -109,6 +109,6 @@ echo $SUPABASE_SERVICE_ROLE_KEY
 
 ## 📞 Support
 
-- Frontend: ouvrier.kojibuild.com
+- Frontend: ouvrier.getkoji.io
 - Admin: koji-admin (gérer workers + assigner tâches)
-- Main app: kojibuild.com (gérer projets + créer tâches)
+- Main app: getkoji.io (gérer projets + créer tâches)
