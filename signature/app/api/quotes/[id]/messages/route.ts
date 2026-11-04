@@ -22,7 +22,7 @@ export async function GET(
 
     // 2. Generate Signed URLs for attachments
     const messagesWithSignedUrls = await Promise.all(
-      (messages || []).map(async (msg) => {
+      (messages || []).map(async (msg: any) => {
         const sensitiveAttachments = await Promise.all(
           (msg.quote_message_attachments || []).map(async (att: any) => {
             const { data, error } = await supabase
