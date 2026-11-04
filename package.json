@@ -19,7 +19,9 @@
     "migrate:koji-ouvrages": "node --env-file=.env.local scripts/migrate-koji-ouvrages.mjs",
     "migrate:koji-ouvrages:apply": "node --env-file=.env.local scripts/migrate-koji-ouvrages.mjs --apply",
     "migrate:subscriptions": "node --env-file=.env.local scripts/migrate-subscriptions.mjs",
-    "migrate:subscriptions:apply": "node --env-file=.env.local scripts/migrate-subscriptions.mjs --apply"
+    "migrate:subscriptions:apply": "node --env-file=.env.local scripts/migrate-subscriptions.mjs --apply",
+    "migrate:users": "node --env-file=.env.local scripts/migrate-users.mjs",
+    "migrate:users:apply": "node --env-file=.env.local scripts/migrate-users.mjs --apply"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
