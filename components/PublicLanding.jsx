@@ -238,7 +238,7 @@ export function PublicLanding() {
           <div className="ld-hero-window">
             <div className="ld-hero-window-bar">
               <span className="ld-dot ld-dot-red" /><span className="ld-dot ld-dot-yellow" /><span className="ld-dot ld-dot-green" />
-              <span className="ld-hero-window-url">particulier.kojibuild.com</span>
+              <span className="ld-hero-window-url">particulier.getkoji.io</span>
             </div>
             <div className="ld-hero-window-body">
               <div className="ld-hero-chat">
@@ -335,7 +335,7 @@ export function PublicLanding() {
           <span>Koji</span>
         </div>
         <div className="ld-footer-links">
-          <span>Découvrir</span> · <span>Fonctionnalités</span> · <Link href="/abonnement">Tarifs</Link> · <span>Blog</span> · <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
+          <span>Découvrir</span> · <span>Fonctionnalités</span> · <Link href="/abonnement">Tarifs</Link> · <span>Blog</span> · <a href="mailto:contact@getkoji.io">contact@getkoji.io</a>
         </div>
         <span className="ld-footer-copy">© {new Date().getFullYear()} koji</span>
       </footer>

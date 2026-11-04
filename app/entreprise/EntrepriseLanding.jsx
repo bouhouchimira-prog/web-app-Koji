@@ -8,7 +8,7 @@ import "./landing.css";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--f" });
 
 const SIGNUP = "/login?type=entreprise";
-const CONTACT = "mailto:contact@kojibuild.com";
+const CONTACT = "mailto:contact@getkoji.io";
 
 function Check() {
   return (

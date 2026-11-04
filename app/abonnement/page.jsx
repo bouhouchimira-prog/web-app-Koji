@@ -70,7 +70,7 @@ export default function AbonnementPage() {
 
       <footer style={{ borderTop: "1px solid var(--line)", padding: "32px 48px", backgroundColor: "var(--card)", textAlign: "center", fontSize: 13, color: "var(--grey)" }}>
         <p>Koji · Prix HT · Offres réservées aux professionnels · Conditions générales de vente applicables</p>
-        <p>kojibuild.com</p>
+        <p>getkoji.io</p>
       </footer>
     </div>
   );

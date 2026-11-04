@@ -14,20 +14,27 @@ const ACTIVATION_TTL_MS = 48 * 60 * 60 * 1000; // 48h, matches the signature-lin
 // bloque la requete avant meme qu'elle n'atteigne ce handler (erreur CORS,
 // pas une erreur applicative) — restreint a cette seule origine et ce seul
 // endpoint, pas un CORS global sur /api/*.
-const LANDING_ORIGIN = "https://koji-landing-particulier.vercel.app";
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": LANDING_ORIGIN,
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type"
-};
+// L'adresse vercel.app reste autorisee le temps du passage a getkoji.io.
+const LANDING_ORIGINS = new Set([
+  "https://particulier.getkoji.io",
+  "https://koji-landing-particulier.vercel.app"
+]);
 
-function withCors(response) {
-  for (const [key, value] of Object.entries(CORS_HEADERS)) response.headers.set(key, value);
+// Access-Control-Allow-Origin n'accepte qu'une origine : on renvoie celle de
+// la requete quand elle est dans la liste.
+function withCors(response, request) {
+  const origin = request.headers.get("origin");
+  if (LANDING_ORIGINS.has(origin)) {
+    response.headers.set("Access-Control-Allow-Origin", origin);
+    response.headers.set("Vary", "Origin");
+  }
+  response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
   return response;
 }
 
-export async function OPTIONS() {
-  return withCors(ok({}));
+export async function OPTIONS(request) {
+  return withCors(ok({}), request);
 }
 
 // Self-service signup for a "Koji" (particulier) account — the entry point
@@ -50,12 +57,12 @@ export async function POST(request) {
   const password = String(body.password || "");
   const name = fixText(body.name || "") || email.split("@")[0] || "Particulier";
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return withCors(badRequest("Adresse e-mail invalide."));
-  if (password.length < 8) return withCors(badRequest("Le mot de passe doit contenir au moins 8 caractères."));
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return withCors(badRequest("Adresse e-mail invalide."), request);
+  if (password.length < 8) return withCors(badRequest("Le mot de passe doit contenir au moins 8 caractères."), request);
 
   const db = await readDb();
   const existing = db.users.find((u) => u.accountType === "particulier" && normalizeEmail(u.email) === email);
-  if (existing) return withCors(badRequest("Un compte particulier existe déjà avec cet e-mail.", 409));
+  if (existing) return withCors(badRequest("Un compte particulier existe déjà avec cet e-mail.", 409), request);
 
   const { salt: passwordSalt, hash: passwordHash } = hashPassword(password);
   const now = new Date().toISOString();
@@ -101,5 +108,5 @@ export async function POST(request) {
       message: "Compte créé. Vérifiez votre boîte mail pour activer votre compte."
     },
     201
-  ));
+  ), request);
 }

@@ -86,7 +86,7 @@ export default function ClientAidePage() {
             <p>Guides, questions fréquentes et support pour vos travaux.</p>
           </div>
           <div className="fournitures-dashboard-head-actions">
-            <a href="mailto:contact@kojibuild.com" className="button blue">Contacter le support</a>
+            <a href="mailto:contact@getkoji.io" className="button blue">Contacter le support</a>
           </div>
         </header>
 
@@ -160,7 +160,7 @@ export default function ClientAidePage() {
             <div className="fournitures-sidebar-card">
               <strong className="title-chip">Contacter le support</strong>
               <p className="tool-muted" style={{ margin: "0 0 10px" }}>Réponse sous 24 à 48h par email.</p>
-              <a href="mailto:contact@kojibuild.com" className="button secondary profile-link-button">Écrire au support</a>
+              <a href="mailto:contact@getkoji.io" className="button secondary profile-link-button">Écrire au support</a>
             </div>
 
             <div className="fournitures-sidebar-card">

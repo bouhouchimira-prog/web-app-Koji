@@ -17,7 +17,7 @@ function KojiLogo() {
 export function ChoisissezVotreEspace() {
   const SIGNUP_PARTICULIER = "/login?type=particulier";
   const SIGNUP_ENTREPRISE = "/login?type=entreprise";
-  const CONTACT = "mailto:contact@kojibuild.com";
+  const CONTACT = "mailto:contact@getkoji.io";
 
   return (
     <div className={`cv ${dmSans.variable}`}>
@@ -87,7 +87,7 @@ export function ChoisissezVotreEspace() {
           <a href="#fonctions">Fonctionnalités</a>
           <a href="/profile/entreprise">Métiers</a>
           <a href="/entreprise#tarifs">Tarifs</a>
-          <a href={CONTACT}>contact@kojibuild.com</a>
+          <a href={CONTACT}>contact@getkoji.io</a>
         </nav>
         <span className="cv-fc">© 2026 koji · Marketplace BTP</span>
       </footer>
