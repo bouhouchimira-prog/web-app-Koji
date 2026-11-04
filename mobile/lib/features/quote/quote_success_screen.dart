@@ -9,7 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:typed_data'; // For Uint8List
+// For Uint8List
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -118,8 +118,9 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
     final rcs = company['rcs']?.toString() ?? '';
     final tva = company['tva']?.toString() ?? '';
 
-    if (name.isNotEmpty)
+    if (name.isNotEmpty) {
       parts.add(legalForm.isNotEmpty ? '$name ($legalForm)' : name);
+    }
     if (address.isNotEmpty) parts.add('Siège : $address');
     if (siret.isNotEmpty) parts.add('SIRET : $siret');
     if (rcs.isNotEmpty) parts.add('RCS/SIREN : $rcs');
@@ -188,8 +189,8 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
 
     final fontRegular = await PdfGoogleFonts.interRegular();
     final fontBold = await PdfGoogleFonts.interBold();
-    final colorNavy = PdfColor.fromInt(0xFF0F172A);
-    final colorAccent = PdfColor.fromInt(0xFFA18B73);
+    const colorNavy = PdfColor.fromInt(0xFF0F172A);
+    const colorAccent = PdfColor.fromInt(0xFFA18B73);
 
     // The legal footer (shared) renders the small Koji mark from these bytes.
     try {
@@ -315,14 +316,14 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
                   padding: const pw.EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromInt(0xFFFFF7ED),
+                    color: const PdfColor.fromInt(0xFFFFF7ED),
                     borderRadius: pw.BorderRadius.circular(6),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text("LISTE DE",
-                          style: pw.TextStyle(fontSize: 8, color: colorAccent)),
+                          style: const pw.TextStyle(fontSize: 8, color: colorAccent)),
                       pw.Text("FOURNITURES",
                           style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
@@ -365,7 +366,7 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
                             fontWeight: pw.FontWeight.bold,
                             color: colorAccent)),
                     pw.Text(client['name'] ?? '',
-                        style: pw.TextStyle(fontSize: 11, color: colorNavy)),
+                        style: const pw.TextStyle(fontSize: 11, color: colorNavy)),
                   ],
                 ),
               ],
@@ -440,7 +441,7 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
                         pw.Expanded(
                             flex: 4,
                             child: pw.Text(item['title'] ?? '',
-                                style: pw.TextStyle(
+                                style: const pw.TextStyle(
                                     fontSize: 10, color: colorNavy))),
                         pw.Expanded(
                             flex: 2,
@@ -460,9 +461,9 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
                                 textAlign: pw.TextAlign.right)),
                       ]),
                     );
-                  }).toList(),
+                  }),
                 ]);
-              }).toList(),
+              }),
 
             pw.SizedBox(height: 20),
 
@@ -506,8 +507,8 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
   Future<void> _openPdf(bool isDevis) async {
     final pdf = isDevis ? await _generatePdf() : await _generateFourniturePdf();
     final name = isDevis
-        ? 'Devis_${_quoteNumber}.pdf'
-        : 'Fournitures_${_quoteNumber}.pdf';
+        ? 'Devis_$_quoteNumber.pdf'
+        : 'Fournitures_$_quoteNumber.pdf';
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: name,
@@ -521,8 +522,8 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
       final pdf =
           isDevis ? await _generatePdf() : await _generateFourniturePdf();
       name = isDevis
-          ? 'Devis_${_quoteNumber}.pdf'
-          : 'Fournitures_${_quoteNumber}.pdf';
+          ? 'Devis_$_quoteNumber.pdf'
+          : 'Fournitures_$_quoteNumber.pdf';
       bytes = await pdf.save();
 
       // Best case: write straight to the public Downloads folder. This only
@@ -574,8 +575,8 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
   Future<void> _sharePdf(bool isDevis) async {
     final pdf = isDevis ? await _generatePdf() : await _generateFourniturePdf();
     final name = isDevis
-        ? 'Devis_${_quoteNumber}.pdf'
-        : 'Fournitures_${_quoteNumber}.pdf';
+        ? 'Devis_$_quoteNumber.pdf'
+        : 'Fournitures_$_quoteNumber.pdf';
     await Printing.sharePdf(bytes: await pdf.save(), filename: name);
   }
 
@@ -846,7 +847,7 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
       // Signature URL points to the login page: the client must enter the
       // Identifiant + Mot de passe (included below) to open the devis. The bare
       // link alone never grants access.
-      final signatureUrl = 'https://koji-signature.vercel.app/auth/login';
+      const signatureUrl = 'https://koji-signature.vercel.app/auth/login';
 
       // Credentials block — only included when we actually have them.
       final credentialsBlock = (accessCode.isNotEmpty && accessPassword.isNotEmpty)
@@ -887,7 +888,7 @@ Koji Rénovation
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).dialogBackgroundColor,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
@@ -897,8 +898,8 @@ Koji Rénovation
                     Container(
                       width: 60,
                       height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFF7ED),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -919,12 +920,12 @@ Koji Rénovation
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
+                    const Text(
                       'Choisissez comment envoyer le lien de signature',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: const Color(0xFF6B7280),
+                        color: Color(0xFF6B7280),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1038,12 +1039,12 @@ Koji Rénovation
                       style: TextButton.styleFrom(
                         minimumSize: const Size(double.infinity, 48),
                       ),
-                      child: Text(
+                      child: const Text(
                         'Annuler',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6B7280),
+                          color: Color(0xFF6B7280),
                         ),
                       ),
                     ),
@@ -1123,9 +1124,9 @@ Koji Rénovation
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
-                      color: const Color(0xFF6B7280),
+                      color: Color(0xFF6B7280),
                     ),
                   ),
                 ],
@@ -1241,7 +1242,7 @@ Koji Rénovation
                         ],
                       ),
                       const SizedBox(height: 24),
-                      Text(
+                      const Text(
                         "Devis prêt !",
                         style: TextStyle(
                           fontSize: 24,
@@ -1253,12 +1254,12 @@ Koji Rénovation
                       RichText(
                         textAlign: TextAlign.center,
                         text: TextSpan(
-                          style: TextStyle(
-                              fontSize: 14, color: const Color(0xFF6B7280)),
+                          style: const TextStyle(
+                              fontSize: 14, color: Color(0xFF6B7280)),
                           children: [
                             const TextSpan(text: "Le devis "),
                             TextSpan(
-                              text: "#${_quoteNumber}",
+                              text: "#$_quoteNumber",
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.darkNavy),
@@ -1273,16 +1274,16 @@ Koji Rénovation
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("PROGRESSION",
+                          const Text("PROGRESSION",
                               style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFFA18B73))),
+                                  color: Color(0xFFA18B73))),
                           Text(_isGenerating ? "90%" : "100%",
-                              style: TextStyle(
+                              style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF22C55E))),
+                                  color: Color(0xFF22C55E))),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -1304,7 +1305,7 @@ Koji Rénovation
                 if (!_isGenerating) ...[
                   const SizedBox(height: 16),
                   _buildDocumentCard(
-                    title: "Devis_Final_${_quoteNumber}.pdf",
+                    title: "Devis_Final_$_quoteNumber.pdf",
                     subtitle: "PDF Devis (A4)",
                     icon: Icons.picture_as_pdf,
                     iconColor: const Color(0xFFEF4444),
@@ -1319,7 +1320,7 @@ Koji Rénovation
 
                   // Fournitures PDF Section
                   _buildDocumentCard(
-                    title: "Fournitures_${_quoteNumber}.pdf",
+                    title: "Fournitures_$_quoteNumber.pdf",
                     subtitle: "Liste de Matériaux (A4)",
                     icon: Icons.inventory_2_outlined,
                     iconColor: const Color(0xFF3B82F6),
@@ -1345,7 +1346,7 @@ Koji Rénovation
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     textStyle:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
 
@@ -1447,7 +1448,7 @@ Koji Rénovation
                     ),
                     Text(
                       subtitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 10,
                         color: AppTheme.textLight,
                       ),
@@ -1478,7 +1479,7 @@ Koji Rénovation
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   textStyle:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -1495,7 +1496,7 @@ Koji Rénovation
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   textStyle:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

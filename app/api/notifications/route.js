@@ -4,6 +4,7 @@ import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { fixObjectText } from "../../../lib/text";
 import { sendClientAccessEmail } from "../../../lib/mailer";
 import { isEmail } from "../../../lib/validators";
+import { findUserById } from "../../../lib/users";
 
 // Notifications are read by both company/pro accounts (Supabase session) and
 // particulier client-portal accounts (signed portal token, see
@@ -27,20 +28,20 @@ function normalizeNotification(notification) {
 // Worker- and client-audience notifications share the company's userId for
 // multi-tenant scoping, so without this filter they'd leak into the owner's
 // own notification center even though they were sent BY that owner, not TO them.
-function isCompanyAccount(db, requesterId) {
-  const user = db.users.find((u) => u.id === requesterId);
+async function isCompanyAccount(db, requesterId) {
+  const user = await findUserById(db, requesterId);
   return !user || user.accountType !== "particulier";
 }
 
-function forRequester(items, db, requesterId) {
-  if (!isCompanyAccount(db, requesterId)) return items;
+async function forRequester(items, db, requesterId) {
+  if (!(await isCompanyAccount(db, requesterId))) return items;
   return items.filter((n) => n.audience !== "worker" && n.accountType !== "particulier");
 }
 
 export async function GET(request) {
   const db = await readDb();
   const userId = await resolveRequesterId(request, null, db);
-  const items = forRequester(scopedItems(db.notifications, userId), db, userId);
+  const items = await forRequester(scopedItems(db.notifications, userId), db, userId);
   return ok({ notifications: items.map(normalizeNotification) });
 }
 
@@ -51,7 +52,7 @@ export async function PATCH(request) {
   const now = new Date().toISOString();
 
   if (body.action === "read-all") {
-    const items = forRequester(scopedItems(db.notifications, userId), db, userId);
+    const items = await forRequester(scopedItems(db.notifications, userId), db, userId);
     items.forEach((n) => { n.read = true; n.updatedAt = now; });
     await writeDb(db);
     return ok({ updated: true });

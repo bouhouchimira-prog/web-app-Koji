@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
 
 class ChantierRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -150,12 +151,22 @@ class ChantierRepository {
   /// One-shot REST fetch — same rows as [streamChantiers]. Fallback for when
   /// the realtime channel fails to join (RealtimeSubscribeException timedOut).
   Future<List<Map<String, dynamic>>> getChantiersOnce(String userId) async {
-    final response = await _client
-        .from('chantiers')
-        .select()
-        .eq('user_id', userId)
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+    await OfflineCacheService.instance.initialize();
+    try {
+      final response = await _client
+          .from('chantiers')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      final result = List<Map<String, dynamic>>.from(response);
+      // ignore: unawaited_futures
+      OfflineCacheService.instance.cacheChantiers(result.map((c) => Map<String, dynamic>.from(c)).toList());
+      return result;
+    } catch (e) {
+      final cached = OfflineCacheService.instance.getCachedChantiers();
+      if (cached.isNotEmpty) return cached;
+      rethrow;
+    }
   }
 
   /// Stream all chantiers for the current user (real-time)

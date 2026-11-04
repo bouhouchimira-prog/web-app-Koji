@@ -33,8 +33,8 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
 
   @override
   Widget build(BuildContext context) {
-    final darkBlue = const Color(0xFF0F3995);
-    final scaffoldBg = const Color(0xFFF5F8FF);
+    const darkBlue = Color(0xFF0F3995);
+    const scaffoldBg = Color(0xFFF5F8FF);
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -51,18 +51,18 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(Icons.chevron_left, color: darkBlue),
+            child: const Icon(Icons.chevron_left, color: darkBlue),
           ),
         ),
         title: Text(
           widget.project.title,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: darkBlue,
@@ -76,7 +76,7 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 "Missions du chantier",
                 style: TextStyle(
                   fontSize: 18,
@@ -94,7 +94,7 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
                     }
                     final tasks = snapshot.data ?? [];
                     if (tasks.isEmpty) {
-                      return Center(
+                      return const Center(
                         child: Text(
                           "Aucune mission pour ce chantier",
                           style: TextStyle( color: Colors.grey),
@@ -136,7 +136,7 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
           ),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -159,7 +159,7 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
                 ),
                 Text(
                   duration,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Colors.grey,
                   ),
@@ -190,11 +190,11 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.meeting_room, size: 14, color: Colors.grey),
+                      const Icon(Icons.meeting_room, size: 14, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text(
                         task.roomName,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
                         ),
@@ -309,7 +309,7 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
                         workers.isEmpty 
                           ? const Text("Aucun ouvrier disponible")
                           : DropdownButtonFormField<String>(
-                              value: selectedWorkerId,
+                              initialValue: selectedWorkerId,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
                                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),

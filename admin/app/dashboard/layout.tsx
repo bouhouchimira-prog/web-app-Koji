@@ -45,14 +45,23 @@ export default async function DashboardLayout({
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Acces reserve a un seul compte (25 oct, demande d'Amira) - c'est la
-  // vraie barriere (verifiee a chaque page /dashboard/*, pas seulement a
-  // la connexion) ; la page de connexion fait deja un controle cote
-  // client, mais celui-ci est contournable (appel direct a l'API), donc
-  // la verification serveur ici reste necessaire. Les policies RLS (voir
-  // migration SQL fournie a part) sont la 3e barriere, au niveau de la
-  // base elle-meme.
-  if (!user || user.email !== 'ablexpertrenov@gmail.com') {
+  // Acces reserve aux comptes admin (flag is_admin, migration 0004).
+  // Fallback sur la liste d'emails historiques si la colonne n'existe pas
+  // encore (migration non appliquee).
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profile && typeof profile.is_admin === 'boolean') {
+      isAdmin = profile.is_admin;
+    } else {
+      isAdmin = user.email === 'ablexpertrenov@gmail.com' || user.email === 'bouhouchimira@gmail.com';
+    }
+  }
+  if (!user || !isAdmin) {
     if (user) await supabase.auth.signOut()
     redirect('/auth/login')
   }

@@ -444,7 +444,7 @@ class _AjouterRdvScreenState extends ConsumerState<AjouterRdvScreen> {
                                 color: Theme.of(context).colorScheme.surface,
                               ),
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Icon(Icons.arrow_forward,
                                 color: Theme.of(context).colorScheme.surface, size: 20),
                           ],
@@ -710,7 +710,7 @@ class _AjouterRdvScreenState extends ConsumerState<AjouterRdvScreen> {
                   _recomputeConflict();
                 },
                 child: Text(
-                  "${(_selectedHour + 1).toString().padLeft(2, '0')}",
+                  (_selectedHour + 1).toString().padLeft(2, '0'),
                   style: TextStyle(
                     fontSize: 16,
                     color: const Color(0xFF2E65F3).withValues(alpha: 0.5),

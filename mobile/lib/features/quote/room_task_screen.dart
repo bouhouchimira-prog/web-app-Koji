@@ -727,7 +727,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
           ),
           Switch(
             value: !hidden,
-            activeColor: const Color(0xFF22C55E),
+            activeThumbColor: const Color(0xFF22C55E),
             onChanged: (v) => setState(() => state.hideFournitures = !v),
           ),
         ],
@@ -751,7 +751,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
     final currentRoom = _roomIds[_selectedRoomTab];
 
     // Map trade chip label → famille values in DB (one trade can cover multiple familles)
-    List<String> _tradeFamilles(String trade) {
+    List<String> tradeFamilles(String trade) {
       const map = <String, List<String>>{
         'Peintre':        ['Peinture intérieure'],
         'Plombier':       ['Plomberie'],
@@ -773,7 +773,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
       return result.toList();
     }
 
-    final familles = _tradeFamilles(_selectedTrade);
+    final familles = tradeFamilles(_selectedTrade);
     final isAllTrades = _selectedTrade.toLowerCase().contains("tout corps");
 
     final famillesLower = familles.map((f) => f.toLowerCase()).toList();

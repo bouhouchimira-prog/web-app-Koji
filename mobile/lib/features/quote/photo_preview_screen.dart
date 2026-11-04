@@ -165,7 +165,7 @@ class _PhotoPreviewScreenState extends ConsumerState<PhotoPreviewScreen> {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
                   '${_currentIndex + 1}/${_images.length}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     color: AppTheme.textLight,
                   ),
@@ -181,7 +181,7 @@ class _PhotoPreviewScreenState extends ConsumerState<PhotoPreviewScreen> {
                       .setVisualEvidence(_images);
                   context.push('/quote/visual-evidence-grid', extra: _images);
                 },
-                child: Text(
+                child: const Text(
                   'Passer',
                   style: TextStyle(
                     fontSize: 14,
@@ -195,7 +195,7 @@ class _PhotoPreviewScreenState extends ConsumerState<PhotoPreviewScreen> {
             const SizedBox(height: 16),
             Expanded(
               child: _images.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Text("Aucune image",
                           style: TextStyle( color: AppTheme.textLight)))
                   : PageView.builder(
@@ -269,7 +269,7 @@ class _PhotoPreviewScreenState extends ConsumerState<PhotoPreviewScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
@@ -279,8 +279,8 @@ class _PhotoPreviewScreenState extends ConsumerState<PhotoPreviewScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, size: 20),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 20),
                   ],
                 ),
               ),
@@ -301,7 +301,7 @@ class _PhotoPreviewScreenState extends ConsumerState<PhotoPreviewScreen> {
                   },
                   icon: const Icon(Icons.camera_alt_outlined,
                       size: 18, color: AppTheme.textLight),
-                  label: Text(
+                  label: const Text(
                     'Reprendre la photo',
                     style: TextStyle(
                       fontSize: 14,

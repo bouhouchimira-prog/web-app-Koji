@@ -16,10 +16,10 @@ class FormLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF1F2937),
+          color: Color(0xFF1F2937),
         ),
       ),
     );

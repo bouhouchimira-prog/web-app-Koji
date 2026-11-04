@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:koji/features/fournitures/models/fourniture_model.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
 
 class FournitureRepository {
   final SupabaseClient _client;
@@ -62,11 +63,23 @@ class FournitureRepository {
   // ─── FOURNITURES ──────────────────────────
 
   Future<List<Fourniture>> getAllFournitures() async {
-    final data = await _client
-        .from('fournitures')
-        .select('*, fournisseurs(name)')
-        .order('created_at', ascending: false);
-    return (data as List).map((e) => Fourniture.fromMap(e)).toList();
+    await OfflineCacheService.instance.initialize();
+    try {
+      final data = await _client
+          .from('fournitures')
+          .select('*, fournisseurs(name)')
+          .order('created_at', ascending: false);
+      final raw = List<Map<String, dynamic>>.from(data);
+      // ignore: unawaited_futures
+      OfflineCacheService.instance.cacheFournitures(raw.map((e) => Map<String, dynamic>.from(e)).toList());
+      return raw.map((e) => Fourniture.fromMap(e)).toList();
+    } catch (e) {
+      final cached = OfflineCacheService.instance.getCachedFournitures();
+      if (cached.isNotEmpty) {
+        return cached.map((e) => Fourniture.fromMap(e)).toList();
+      }
+      rethrow;
+    }
   }
 
   Future<List<Fourniture>> getFournituresByFournisseur(String fournisseurId) async {

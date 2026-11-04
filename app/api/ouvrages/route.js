@@ -1,7 +1,7 @@
 import { ok, badRequest } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
-import { normalizeOuvrage, mergedOuvrages } from "../../../lib/ouvrages";
+import { normalizeOuvrage, mergedOuvrages, mergedOuvragesAsync } from "../../../lib/ouvrages";
 import { isVerifiedUserAdmin } from "../../../lib/admin-account";
 
 // Bibliotheque de prix (21 oct — avant cette date, PATCH/DELETE passaient
@@ -26,7 +26,7 @@ export async function GET(request) {
   const db = await readDb();
   const userId = await getVerifiedUserId(request);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
-  return ok({ ouvrages: mergedOuvrages(db, userId) });
+  return ok({ ouvrages: await mergedOuvragesAsync(db, userId) });
 }
 
 export async function POST(request) {
@@ -83,7 +83,7 @@ export async function POST(request) {
     entityType: "ouvrage"
   });
   await writeDb(db);
-  return ok({ ouvrage, ouvrages: mergedOuvrages(db, userId) }, 201);
+  return ok({ ouvrage, ouvrages: await mergedOuvragesAsync(db, userId) }, 201);
 }
 
 export async function PATCH(request) {
@@ -104,7 +104,7 @@ export async function PATCH(request) {
       db.kojiOuvrages[kojiIndex] = updated;
       addHistory(db, { userId, type: "ouvrage.koji_updated", label: `Ouvrage Koji modifie: ${updated.code}`, entityId: updated.id, entityType: "ouvrage" });
       await writeDb(db);
-      return ok({ ouvrage: updated, ouvrages: mergedOuvrages(db, userId) });
+      return ok({ ouvrage: updated, ouvrages: await mergedOuvragesAsync(db, userId) });
     }
     // Sinon : cree/met a jour une surcharge propre a cette entreprise, sans
     // jamais toucher au socle commun ni a ce que voient les autres comptes.
@@ -115,7 +115,7 @@ export async function PATCH(request) {
     else db.ouvrages[overrideIndex] = updated;
     addHistory(db, { userId, type: "ouvrage.updated", label: `Ouvrage modifie: ${updated.code}`, entityId: updated.id, entityType: "ouvrage" });
     await writeDb(db);
-    return ok({ ouvrage: updated, ouvrages: mergedOuvrages(db, userId) });
+    return ok({ ouvrage: updated, ouvrages: await mergedOuvragesAsync(db, userId) });
   }
 
   // Ouvrage propre a une entreprise (pas dans le socle Koji) — seul son
@@ -126,7 +126,7 @@ export async function PATCH(request) {
   db.ouvrages[index] = updated;
   addHistory(db, { userId, type: "ouvrage.updated", label: `Ouvrage modifie: ${updated.code}`, entityId: updated.id, entityType: "ouvrage" });
   await writeDb(db);
-  return ok({ ouvrage: updated, ouvrages: mergedOuvrages(db, userId) });
+  return ok({ ouvrage: updated, ouvrages: await mergedOuvragesAsync(db, userId) });
 }
 
 export async function DELETE(request) {
@@ -152,7 +152,7 @@ export async function DELETE(request) {
       addHistory(db, { userId, type: "ouvrage.hidden", label: `Ouvrage masque: ${existing.code}`, entityId: id, entityType: "ouvrage" });
     }
     await writeDb(db);
-    return ok({ ouvrages: mergedOuvrages(db, userId) });
+    return ok({ ouvrages: await mergedOuvragesAsync(db, userId) });
   }
 
   const index = db.ouvrages.findIndex((item) => item.id === id && (isAdmin || item.userId === userId));
@@ -161,5 +161,5 @@ export async function DELETE(request) {
   db.ouvrages.splice(index, 1);
   addHistory(db, { userId, type: "ouvrage.deleted", label: `Ouvrage supprime: ${existing.code}`, entityId: id, entityType: "ouvrage" });
   await writeDb(db);
-  return ok({ ouvrages: mergedOuvrages(db, userId) });
+  return ok({ ouvrages: await mergedOuvragesAsync(db, userId) });
 }

@@ -2,22 +2,38 @@
   "name": "koji-web",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "signature"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "mocha --config tests/e2e/.mocharc.cjs"
+    "test": "npm run test:unit",
+    "test:unit": "mocha --config tests/unit/.mocharc.cjs",
+    "test:e2e": "mocha --config tests/e2e/.mocharc.cjs",
+    "migrate:workers": "node --env-file=.env.local scripts/migrate-workers.mjs",
+    "migrate:workers:apply": "node --env-file=.env.local scripts/migrate-workers.mjs --apply",
+    "migrate:koji-ouvrages": "node --env-file=.env.local scripts/migrate-koji-ouvrages.mjs",
+    "migrate:koji-ouvrages:apply": "node --env-file=.env.local scripts/migrate-koji-ouvrages.mjs --apply",
+    "migrate:subscriptions": "node --env-file=.env.local scripts/migrate-subscriptions.mjs",
+    "migrate:subscriptions:apply": "node --env-file=.env.local scripts/migrate-subscriptions.mjs --apply",
+    "migrate:users": "node --env-file=.env.local scripts/migrate-users.mjs",
+    "migrate:users:apply": "node --env-file=.env.local scripts/migrate-users.mjs --apply"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
+    "@sentry/nextjs": "^11.0.0",
     "@supabase/supabase-js": "^2.93.2",
     "@vercel/postgres": "^0.10.0",
-    "next": "latest",
+    "firebase-admin": "^12.0.0",
+    "next": "16.3.0",
     "nodemailer": "^9.0.0",
     "qrcode": "^1.5.4",
-    "react": "latest",
-    "react-dom": "latest",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
     "stripe": "^22.5.0"
   },
   "devDependencies": {
@@ -25,9 +41,10 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
-    "eslint-config-next": "^15.1.3",
+    "eslint-config-next": "16.3.0",
     "mocha": "^12.0.3",
     "selenium-webdriver": "^4.51.0",
+    "turbo": "^2.0.0",
     "typescript": "^5.7.2"
   }
 }

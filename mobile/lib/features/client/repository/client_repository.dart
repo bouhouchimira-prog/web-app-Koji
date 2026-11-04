@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:koji/core/supabase_config.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
 import 'package:koji/features/signature/repository/signature_repository.dart';
 
 final clientRepositoryProvider = Provider<ClientRepository>((ref) {
@@ -43,7 +44,17 @@ class ClientRepository {
   Future<List<Map<String, dynamic>>> getQuotes() async {
     final uid = _uid;
     if (uid == null) return [];
-    return _userRepository.getClientQuotes(uid, email: clientEmail);
+    await OfflineCacheService.instance.initialize();
+    try {
+      final result = await _userRepository.getClientQuotes(uid, email: clientEmail);
+      // ignore: unawaited_futures
+      OfflineCacheService.instance.cacheDevis(result.map((q) => Map<String, dynamic>.from(q)).toList());
+      return result;
+    } catch (e) {
+      final cached = OfflineCacheService.instance.getCachedDevis();
+      if (cached.isNotEmpty) return cached;
+      rethrow;
+    }
   }
 
   /// Only the finalized devis (signed / accepted) — used for the Documents tab.

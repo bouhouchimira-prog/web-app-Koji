@@ -1,0 +1,3 @@
+-- Migration 0005 : RLS Storage (buckets logos, photos, documents)
+-- Voir admin/supabase_storage_rls.sql pour le script complet.
+-- Les policies sont appliquees sur storage.objects.

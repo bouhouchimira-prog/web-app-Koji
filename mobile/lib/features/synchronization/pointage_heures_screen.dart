@@ -249,7 +249,7 @@ class _PointageHeuresScreenState extends State<PointageHeuresScreen> {
                     children: [
                       Icon(Icons.person_add_alt_1_outlined,
                           color: Theme.of(context).colorScheme.surface, size: 20),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Text(
                         "Nouveau contact",
                         style: TextStyle(

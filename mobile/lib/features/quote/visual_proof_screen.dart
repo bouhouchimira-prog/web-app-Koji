@@ -98,7 +98,7 @@ class _VisualProofScreenState extends State<VisualProofScreen> {
               const SizedBox(height: 16),
 
               // Description
-              Text(
+              const Text(
                 'Ajoutez une nouvelle photo en utilisant votre appareil ou en sélectionnant une image existante dans votre galerie.',
                 style: TextStyle(
                   fontSize: 16,
@@ -122,7 +122,7 @@ class _VisualProofScreenState extends State<VisualProofScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.camera_alt_outlined, size: 24),
-                label: Text(
+                label: const Text(
                   'Prendre une photo',
                   style: TextStyle(
                     fontSize: 16,
@@ -150,7 +150,7 @@ class _VisualProofScreenState extends State<VisualProofScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.add_photo_alternate_outlined, size: 24),
-                label: Text(
+                label: const Text(
                   'Choisir depuis la galerie',
                   style: TextStyle(
                     fontSize: 16,
@@ -168,7 +168,7 @@ class _VisualProofScreenState extends State<VisualProofScreen> {
                     context
                         .push('/quote/visual-evidence-grid', extra: <String>[]);
                   },
-                  child: Text(
+                  child: const Text(
                     'Passer',
                     style: TextStyle(
                       fontSize: 16,

@@ -3,7 +3,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
 import { getAuth, getVerifiedUserId } from "../../../lib/server-auth";
 import { buildWebUser } from "../../../lib/user-profile";
-import { mergedOuvrages } from "../../../lib/ouvrages";
+import { mergedOuvrages, mergedOuvragesAsync } from "../../../lib/ouvrages";
 import { validateAiQuote, buildItemsFromAiQuote, buildMissingPriceNotes } from "../../../lib/ai-devis-shape";
 import { parseAiJson } from "../../../lib/ai-json";
 import { parsePhoto } from "../../../lib/ai-photo";
@@ -162,7 +162,7 @@ export async function POST(request) {
   }
 
   const db = await readDb();
-  const catalog = mergedOuvrages(db, auth.userId).map((o) => ({
+  const catalog = (await mergedOuvragesAsync(db, auth.userId)).map((o) => ({
     code: o.code, label: o.label, unit: o.unit, normativeTime: o.normativeTime, hourlyRate: o.hourlyRate, coefficient: o.coefficient
   }));
   const catalogText = catalog.length

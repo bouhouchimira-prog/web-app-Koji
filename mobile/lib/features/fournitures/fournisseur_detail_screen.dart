@@ -72,7 +72,7 @@ class FournisseurDetailScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0F2648).withOpacity(0.3),
+                    color: const Color(0xFF0F2648).withValues(alpha: 0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -84,7 +84,7 @@ class FournisseurDetailScreen extends ConsumerWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface.withOpacity(0.15),
+                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Center(
@@ -119,7 +119,7 @@ class FournisseurDetailScreen extends ConsumerWidget {
                             '${items.length} fournitures',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
                             ),
                           ),
                           loading: () => const SizedBox.shrink(),
@@ -392,7 +392,7 @@ class FournisseurDetailScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.03),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

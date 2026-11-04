@@ -19,7 +19,7 @@ class _WorkerAssignmentScreenState extends State<WorkerAssignmentScreen> {
   final ProjectRepository _projectRepo = ProjectRepository();
 
   List<Worker> _allWorkers = [];
-  Set<String> _selectedWorkerIds = {};
+  final Set<String> _selectedWorkerIds = {};
   String _selectedFilter = 'Tous';
   bool _isLoading = true;
   String _searchQuery = '';
