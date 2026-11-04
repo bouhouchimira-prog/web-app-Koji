@@ -3,18 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
-import 'package:koji/apps/entreprise/entreprise_dashboard.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
 import 'package:koji/apps/entreprise/entreprise_sidebar.dart';
+import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
+import 'package:koji/apps/entreprise/pro_home/pro_home.dart';
 import 'package:koji/core/theme.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/features/home/notifications/notifications_panel.dart';
-import 'package:koji/features/home/widgets/bottom_nav_item.dart';
-import 'package:koji/features/home/widgets/home_header.dart';
 import 'package:koji/features/quote/chantier_list_screen.dart';
 import 'package:koji/features/quote/quote_list_screen.dart';
 
-/// Entreprise home (`/home`): tableau de bord, devis and chantiers tabs.
+/// Entreprise home (`/home`): accueil (new Koji Pro DA), devis and chantiers
+/// tabs.
 ///
 /// The selected tab lives in [entrepriseHomeTabProvider] so the side menu of
 /// the web layout, the phone bottom bar and notifications can all switch it.
@@ -205,7 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         body: IndexedStack(
           index: selectedIndex.clamp(0, 2),
           children: [
-            const EntrepriseDashboard(),
+            const ProHome(),
             readable(const QuoteListScreen()),
             readable(const ChantierListScreen()),
           ],
@@ -229,78 +229,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           IndexedStack(
             index: selectedIndex.clamp(0, 2),
             children: [
-              Column(
-                children: [
-                  HomeHeader(
-                    onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                    onNotificationsTap: _openNotifications,
-                  ),
-                  const Expanded(
-                    // Leave room for the floating bottom bar.
-                    child: EntrepriseDashboard(bottomPadding: 120),
-                  ),
-                ],
+              ProHome(
+                onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                onNotifications: _openNotifications,
+                // Leave room for the bottom bar.
+                bottomPadding: 120,
               ),
               const QuoteListScreen(),
               const ChantierListScreen(),
             ],
           ),
-
-          // Bottom Navigation Bar
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.only(top: 16, bottom: 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                border: Border(top: BorderSide(color: context.koji.line)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  GestureDetector(
-                    onTap: () => _onItemTapped(0),
-                    child: BottomNavItem(
-                      icon: Icons.home_filled,
-                      label: 'Accueil',
-                      isActive: selectedIndex == 0,
-                      activeColor: context.koji.navActiveFg,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _onItemTapped(1),
-                    child: BottomNavItem(
-                      icon: Icons.description_outlined,
-                      label: 'Devis',
-                      isActive: selectedIndex == 1,
-                      activeColor: context.koji.navActiveFg,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _onItemTapped(2),
-                    child: BottomNavItem(
-                      icon: Icons.handyman_outlined,
-                      label: 'Chantier',
-                      isActive: selectedIndex == 2,
-                      activeColor: context.koji.navActiveFg,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _onItemTapped(3),
-                    child: BottomNavItem(
-                      icon: Icons.more_horiz,
-                      label: 'Plus',
-                      isActive: false,
-                      activeColor: context.koji.navActiveFg,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _ProTabBar(selected: selectedIndex, onTap: _onItemTapped),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Phone bottom bar in the Koji Pro DA: white, hairline on top, the active
+/// tab in graphite with a yellow rule above it.
+class _ProTabBar extends StatelessWidget {
+  const _ProTabBar({required this.selected, required this.onTap});
+
+  final int selected;
+  final ValueChanged<int> onTap;
+
+  static const _tabs = [
+    (Icons.home_outlined, Icons.home, 'Accueil'),
+    (Icons.description_outlined, Icons.description, 'Devis'),
+    (Icons.handyman_outlined, Icons.handyman, 'Chantier'),
+    (Icons.more_horiz, Icons.more_horiz, 'Plus'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final da = ProDa.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: da.card,
+        border: Border(top: BorderSide(color: da.line)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              for (final (i, (icon, iconOn, label)) in _tabs.indexed)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: i == selected,
+                    label: label,
+                    child: InkWell(
+                      onTap: () => onTap(i),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: i == selected
+                                  ? ProDa.prim
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(i == selected ? iconOn : icon,
+                                size: 22,
+                                color: i == selected ? da.ink : da.grey),
+                            const SizedBox(height: 3),
+                            Text(
+                              label,
+                              style: da.text(11,
+                                  weight: i == selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: i == selected ? da.ink : da.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
