@@ -1188,6 +1188,12 @@
       "theme": "Koji Pro - Refonte complète",
       "title": "Validation et tests de la refonte Koji Pro",
       "detail": "Tests Playwright pour le web : 16/16 pages PRO passent les validations (sélecteurs CSS, KPIs, listes, formulaires). Tests Flutter : 0 erreurs de compilation (flutter analyze). Tous les composants respectent la DA et les spécifications PRO-01 à PRO-17."
+    },
+    {
+      "category": "frontend",
+      "theme": "Nouveau domaine getkoji.io",
+      "title": "Passage du domaine kojibuild.com à getkoji.io",
+      "detail": "Toutes les adresses visibles par les utilisateurs utilisent désormais getkoji.io : contact du support (contact@getkoji.io), e-mails automatiques, sous-domaines entreprise.getkoji.io et particulier.getkoji.io, textes légaux et applications mobiles. Les identifiants des applications sur le Play Store et l'App Store ne changent pas. Les réglages des services externes (Vercel, Supabase, Google, Stripe, stores) restent à basculer à la main."
     }
   ]
 }

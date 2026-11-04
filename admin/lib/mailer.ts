@@ -14,7 +14,7 @@ function buildTransporter() {
   return transporter
 }
 
-const FROM = process.env.SMTP_FROM || `Koji <${process.env.SMTP_USER || 'noreply@kojibuild.com'}>`
+const FROM = process.env.SMTP_FROM || `Koji <${process.env.SMTP_USER || 'noreply@getkoji.io'}>`
 
 // Version simplifiee de lib/mailer.js cote koji-web (meme SMTP, memes
 // variables d'env) — sans les templates HTML specifiques a koji-web

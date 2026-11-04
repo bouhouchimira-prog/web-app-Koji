@@ -15,14 +15,14 @@ Ce document résume comment le Web (Next.js) et le Mobile (Flutter) restent coh�
 |---|---|---|---|
 | **Particulier / Client** | `app/marketplace/`, `app/chantiers/`, etc. | `mobile/lib/apps/client/` (`main_client.dart`) | Demande de travaux, réception de devis, suivi |
 | **Entreprise / Artisan** | `app/entreprise/`, `app/devis/`, `app/equipe/`, `app/facturation/` | `mobile/lib/apps/entreprise/` (`main_entreprise.dart`) | Gestion chantiers, devis, équipe, facturation |
-| **Ouvrier** | `app/worker/` + app dédiée `worker/` (`ouvrier.kojibuild.com`) | `mobile/lib/features/worker/` | Accès restreint aux tâches qui lui sont assignées |
+| **Ouvrier** | `app/worker/` + app dédiée `worker/` (`ouvrier.getkoji.io`) | `mobile/lib/features/worker/` | Accès restreint aux tâches qui lui sont assignées |
 
 ## 3) Approche hybride côté Mobile
 
 Le mobile combine deux approches :
 
 - **Accès direct Supabase** : Auth, lecture/écriture sur tables avec RLS (`supabase_flutter`)
-- **Koji Web API** : Pour certaines fonctionnalités (notamment marketplace particulier), le mobile passe par `KojiWebApiClient` vers `https://www.kojibuild.com/api/*` avec le cookie `koji_portal_session`
+- **Koji Web API** : Pour certaines fonctionnalités (notamment marketplace particulier), le mobile passe par `KojiWebApiClient` vers `https://getkoji.io/api/*` avec le cookie `koji_portal_session`
 
 Fichier clé : `mobile/lib/app/koji_web_api_client.dart`
 

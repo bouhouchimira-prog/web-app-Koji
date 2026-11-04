@@ -209,7 +209,7 @@ export function EntrepriseLanding() {
           <div className="ep-hero-window">
             <div className="ep-hero-window-bar">
               <span className="ep-dot ep-dot-red" /><span className="ep-dot ep-dot-yellow" /><span className="ep-dot ep-dot-green" />
-              <span className="ep-hero-window-url">entreprise.kojibuild.com</span>
+              <span className="ep-hero-window-url">entreprise.getkoji.io</span>
             </div>
             <div className="ep-hero-window-body">
               <div className="ep-hero-rail">
@@ -324,7 +324,7 @@ export function EntrepriseLanding() {
           <span>Koji</span>
         </div>
         <div className="ep-footer-links">
-          <span>Découvrir</span> · <span>Fonctionnalités</span> · <span>Tarifs</span> · <span>Blog</span> · <a href="mailto:contact@kojibuild.com">contact@kojibuild.com</a>
+          <span>Découvrir</span> · <span>Fonctionnalités</span> · <span>Tarifs</span> · <span>Blog</span> · <a href="mailto:contact@getkoji.io">contact@getkoji.io</a>
         </div>
         <span className="ep-footer-copy">© {new Date().getFullYear()} koji</span>
       </footer>

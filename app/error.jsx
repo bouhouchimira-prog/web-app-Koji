@@ -14,7 +14,7 @@ export default function Error({ reset }) {
         </div>
         <div className="hact">
           <button type="button" className="btn btn-main" onClick={() => reset()}>Réessayer</button>
-          <a className="btn btn-sec" href="mailto:contact@kojibuild.com">Prévenir le support</a>
+          <a className="btn btn-sec" href="mailto:contact@getkoji.io">Prévenir le support</a>
         </div>
       </div>
     </div>

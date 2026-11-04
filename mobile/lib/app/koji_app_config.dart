@@ -35,5 +35,5 @@ abstract final class KojiAppConfig {
   static String get otherAppUrl => isClient ? _proUrl : _clientUrl;
 
   /// Support address shown on the connexion and help pages.
-  static const supportEmail = 'contact@kojibuild.com';
+  static const supportEmail = 'contact@getkoji.io';
 }

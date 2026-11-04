@@ -121,7 +121,7 @@ export default function AidePage() {
           <section className="card">
             <div className="card-h"><h2>Parler à quelqu'un</h2></div>
             <p className="kj-p">Écrivez-nous, nous répondons sous 24 à 48 h.</p>
-            <a href="mailto:contact@kojibuild.com" className="btn btn-main">Écrire au support</a>
+            <a href="mailto:contact@getkoji.io" className="btn btn-main">Écrire au support</a>
           </section>
 
           <section className="card">

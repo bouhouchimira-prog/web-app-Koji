@@ -59,3 +59,15 @@ Remplacer progressivement :
 
 ## Effort estimé
 Plusieurs sessions de développement. À faire par étapes avec des PRs atomiques.
+
+## Contrainte architecturale (decouverte lors de la mise en oeuvre)
+
+La table Supabase users est liee a uth.users par une cle etrangere : son id est l'identifiant du compte Supabase Auth. Les comptes particuliers n'utilisent PAS Supabase Auth (ils ont leur propre systeme de session, voir lib/portal-session.js). Ecrire un particulier dans users sans creer de compte Supabase Auth echouerait sur la cle etrangere.
+
+### Consequence
+L'unification complete des particuliers dans users exige soit :
+- **Option A (recommandee)** : migrer les particuliers vers Supabase Auth (creation de comptes auth, migration des mots de passe), ce qui est un chantier produit a part entiere,
+- **Option B** : garder les particuliers dans particulier_users_state (blob) et ne migrer que les entreprises dans users.
+
+La decision produit doit etre prise avant de poursuivre les etapes 4 et 5.
+

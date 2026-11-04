@@ -230,7 +230,7 @@ export function SendQuoteFlow({ quote, quoteNumber, lotsCount, linesCount, total
         {(channelWhatsapp || channelSms) ? (
           <div className="sq-preview">
             <span className="flab">Aperçu · {channelWhatsapp ? "WhatsApp" : "SMS"}</span>
-            <p>{message} {includeSignatureLink ? "Lien : kojibuild.com/s/…" : ""}</p>
+            <p>{message} {includeSignatureLink ? "Lien : getkoji.io/s/…" : ""}</p>
             {includePdf ? <span className="tag tag-o">Devis_{quoteNumber}.pdf</span> : null}
           </div>
         ) : null}

@@ -224,7 +224,7 @@ function ThemedHero({ profile }) {
           )}
           <span>Koji</span>
         </div>
-        <span className="auth-hero-domain-pill">{isEntreprise ? "entreprise.kojibuild.com" : "particulier.kojibuild.com"}</span>
+        <span className="auth-hero-domain-pill">{isEntreprise ? "entreprise.getkoji.io" : "particulier.getkoji.io"}</span>
       </div>
       <div className="auth-hero-pitch">
         <p className="auth-hero-eyebrow">{isEntreprise ? "Espace entreprise · Koji Pro" : "Espace particulier"}</p>
