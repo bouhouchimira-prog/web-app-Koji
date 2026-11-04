@@ -4,6 +4,7 @@ import { fixObjectText } from "../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote } from "../../../../lib/quote-mapping";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
+import { findUserById } from "../../../../lib/users";
 
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
@@ -33,7 +34,7 @@ export async function PATCH(request) {
   const action = body.action || "validate";
 
   if (!userId) return badRequest("Session expiree. Reconnectez-vous.", 401);
-  const user = db.users.find((item) => item.id === userId);
+  const user = await findUserById(db, userId);
   if (!user) return badRequest("Client introuvable.", 403);
 
   const email = normalizeEmail(user.email);
