@@ -279,7 +279,7 @@ function Icon({ name, className = "" }) {
 
 // variant="pro" : nouvelle DA Koji Pro (sidebar de la maquette), pages
 // migrées une par une. Sans variant : ancienne mise en page.
-export function Shell({ children, variant }) {
+export function Shell({ children, variant, assistantWindowOpen, hideAssistantWidget }) {
   // Une seule mise en page : Koji Pro. L'ancienne (web-shell) est supprimée ; variant reste accepté pour compatibilité.
   const isPro = true;
   // "pro-focus" : plein écran sans menu (éditeur de devis, maquette PRO-03.1),
@@ -395,6 +395,28 @@ export function Shell({ children, variant }) {
     document.addEventListener("keydown", openOnCtrlK);
     return () => document.removeEventListener("keydown", openOnCtrlK);
   }, [isPro]);
+
+  useEffect(() => {
+    if (!isPro) return undefined;
+    async function handleAssistantAsk(event) {
+      const { message, focus } = event.detail || {};
+      setKojiAssistantOpen(true);
+      try { window.localStorage.setItem("koji-assistant-open", "1"); } catch { /**/ }
+      if (focus) {
+        setTimeout(() => kojiAssistantInputRef.current?.focus(), 0);
+      } else if (message) {
+        // Pré-remplit le champ et envoie automatiquement
+        setKojiAssistantDraft(message);
+        setTimeout(() => {
+          // Attendre que le draft soit mis à jour avant d'envoyer
+          // On utilise une ref pour éviter les closures obsolètes
+          submitKojiAssistant(message);
+        }, 0);
+      }
+    }
+    window.addEventListener("koji-assistant-ask", handleAssistantAsk);
+    return () => window.removeEventListener("koji-assistant-ask", handleAssistantAsk);
+  }, [isPro, kojiAssistantBusy, kojiAssistantConversationId]);
 
   function toggleKojiAssistantMenu() {
     setKojiAssistantMenuOpen((prev) => {
@@ -755,17 +777,19 @@ export function Shell({ children, variant }) {
         </div>
       )}
 
-      <button
-        type="button"
-        className="koji-assistant-bubble"
-        onClick={toggleKojiAssistant}
-        aria-label="Assistant koji"
-        aria-expanded={kojiAssistantOpen}
-      >
-        <KojiSymbol className="koji-assistant-bubble-icon" />
-      </button>
+      {!hideAssistantWidget ? (
+        <button
+          type="button"
+          className="koji-assistant-bubble"
+          onClick={toggleKojiAssistant}
+          aria-label="Assistant koji"
+          aria-expanded={kojiAssistantOpen}
+        >
+          <KojiSymbol className="koji-assistant-bubble-icon" />
+        </button>
+      ) : null}
 
-      {kojiAssistantOpen ? (
+      {!hideAssistantWidget && kojiAssistantOpen && !assistantWindowOpen ? (
         <div className={`koji-assistant-panel ${kojiAssistantExpanded ? "koji-assistant-panel-expanded" : ""}`}>
           <div className="koji-assistant-panel-head">
             <div className="koji-assistant-menu" ref={kojiAssistantMenuRef}>

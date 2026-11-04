@@ -533,6 +533,85 @@ export async function POST(request) {
   const photos = Array.isArray(body.photos) ? body.photos.slice(0, 8) : [];
   const onDevisPage = body.pageContext?.page === "devis";
 
+  // Analyse de données (2 nov) : les trois questions " Qu'est-ce qui m'attend aujourd'hui ?",
+  // "Qui me doit de l'argent ?" et "Quels chantiers perdent de l'argent ?" sont
+  // traitées avant la classification IA, en lisant directement les données de
+  // l'utilisatrice sans utiliser l'IA — plus rapide et plus précis.
+  const messageLower = message.toLowerCase().trim();
+  const isWhatToday = messageLower.includes("qu'est-ce") && messageLower.includes("aujourd'hui");
+  const isWhoOwes = messageLower.includes("qui") && (messageLower.includes("doit") || messageLower.includes("devoir"));
+  const isLosingMoney = (messageLower.includes("chantier") || messageLower.includes("projet")) && messageLower.includes("perd");
+
+  if (isWhatToday || isWhoOwes || isLosingMoney) {
+    try {
+      const quotes = scopedItems(db.quotes || [], auth.userId);
+      const invoices = scopedItems(db.invoices || [], auth.userId);
+      const projects = scopedItems(db.projects || [], auth.userId);
+      const tasks = scopedItems(db.tasks || [], auth.userId);
+
+      let analysisMessage = "";
+
+      if (isWhatToday) {
+        // Qu'est-ce qui m'attend aujourd'hui ?
+        const today = new Date().toISOString().split("T")[0];
+        const todayTasks = tasks.filter((t) => !t.done && t.dueDate && t.dueDate.split("T")[0] === today);
+        const upcomingQuotes = quotes.filter((q) => q.status === "Envoye");
+
+        const parts = [];
+        if (todayTasks.length > 0) {
+          parts.push(`${todayTasks.length} tâche${todayTasks.length > 1 ? "s" : ""} à faire aujourd'hui`);
+        }
+        if (upcomingQuotes.length > 0) {
+          parts.push(`${upcomingQuotes.length} devis en attente de signature`);
+        }
+
+        analysisMessage = parts.length
+          ? `Votre jour : ${parts.join(" · ")}`
+          : "Rien d'urgent pour aujourd'hui.";
+      } else if (isWhoOwes) {
+        // Qui me doit de l'argent ?
+        const unpaidInvoices = invoices.filter((i) => i.status === "Emise");
+        const totalUnpaid = unpaidInvoices.reduce((sum, i) => sum + (Number(i.amountTtc) || 0), 0);
+
+        if (unpaidInvoices.length === 0) {
+          analysisMessage = "Tous vos paiements sont à jour.";
+        } else {
+          analysisMessage = `${unpaidInvoices.length} facture${unpaidInvoices.length > 1 ? "s" : ""} impayée${unpaidInvoices.length > 1 ? "s" : ""}, ${totalUnpaid.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} à encaisser.`;
+        }
+      } else if (isLosingMoney) {
+        // Quels chantiers perdent de l'argent ?
+        const expensesByProject = {};
+        for (const expense of scopedItems(db.expenses || [], auth.userId)) {
+          if (!expense.projectId) continue;
+          expensesByProject[expense.projectId] = (expensesByProject[expense.projectId] || 0) + (Number(expense.totalHt ?? expense.total) || 0);
+        }
+
+        const losingProjects = projects.filter((p) => {
+          const expenses = expensesByProject[p.id] || 0;
+          const quoteRevenue = quotes
+            .filter((q) => q.projectId === p.id && q.status === "Signe")
+            .reduce((sum, q) => sum + (Number(q.totalHt) || 0), 0);
+          return expenses > quoteRevenue;
+        });
+
+        if (losingProjects.length === 0) {
+          analysisMessage = "Aucun chantier ne perd d'argent — bonne gestion !";
+        } else {
+          analysisMessage = `${losingProjects.length} chantier${losingProjects.length > 1 ? "s" : ""} en déficit.`;
+        }
+      }
+
+      const result = {
+        outcome: "success",
+        message: analysisMessage
+      };
+      after(() => logTurn(auth.userId, message, result, conversationId, "analyse-data"));
+      return ok({ ...result, conversationId });
+    } catch {
+      // En cas d'erreur, on continue vers la classification IA normale
+    }
+  }
+
   // Consignes admin (17 oct) : seuls bouhouchimira@gmail.com et
   // ablexpertrenov@gmail.com (lib/auth.js::isAdminEmail) peuvent donner une
   // consigne permanente a cet assistant. Contrairement aux 2 autres chats
