@@ -61,7 +61,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
       get().setUserFromSession(null);
     }
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((_event: any, session: any) => {
       get().setUserFromSession(session?.user ?? null);
     });
   },
