@@ -544,19 +544,18 @@ export async function POST(request) {
 
   if (isWhatToday || isWhoOwes || isLosingMoney) {
     try {
-      const quotes = scopedItems(db.devis || [], auth.userId) || [];
-      const invoices = scopedItems(db.factures || [], auth.userId) || [];
-      const projects = scopedItems(db.chantiers || [], auth.userId) || [];
-      const tasks = scopedItems(db.taches || [], auth.userId) || [];
+      const quotes = scopedItems(db.quotes || [], auth.userId);
+      const invoices = scopedItems(db.invoices || [], auth.userId);
+      const projects = scopedItems(db.projects || [], auth.userId);
+      const tasks = scopedItems(db.tasks || [], auth.userId);
 
       let analysisMessage = "";
 
       if (isWhatToday) {
         // Qu'est-ce qui m'attend aujourd'hui ?
         const today = new Date().toISOString().split("T")[0];
-        const todayTasks = tasks.filter((t) => t.dueDate && t.dueDate.split("T")[0] === today);
-        const upcomingQuotes = quotes.filter((q) => q.status === "sent");
-        const messageCounts = quotes.reduce((acc, q) => acc + (q.messageCount || 0), 0);
+        const todayTasks = tasks.filter((t) => !t.done && t.dueDate && t.dueDate.split("T")[0] === today);
+        const upcomingQuotes = quotes.filter((q) => q.status === "Envoye");
 
         const parts = [];
         if (todayTasks.length > 0) {
@@ -565,17 +564,14 @@ export async function POST(request) {
         if (upcomingQuotes.length > 0) {
           parts.push(`${upcomingQuotes.length} devis en attente de signature`);
         }
-        if (messageCounts > 0) {
-          parts.push(`${messageCounts} message${messageCounts > 1 ? "s" : ""} en attente`);
-        }
 
         analysisMessage = parts.length
           ? `Votre jour : ${parts.join(" · ")}`
           : "Rien d'urgent pour aujourd'hui.";
       } else if (isWhoOwes) {
         // Qui me doit de l'argent ?
-        const unpaidInvoices = invoices.filter((i) => i.status !== "paid");
-        const totalUnpaid = unpaidInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0);
+        const unpaidInvoices = invoices.filter((i) => i.status === "Emise");
+        const totalUnpaid = unpaidInvoices.reduce((sum, i) => sum + (Number(i.amountTtc) || 0), 0);
 
         if (unpaidInvoices.length === 0) {
           analysisMessage = "Tous vos paiements sont à jour.";
@@ -585,19 +581,16 @@ export async function POST(request) {
       } else if (isLosingMoney) {
         // Quels chantiers perdent de l'argent ?
         const expensesByProject = {};
-        (db.depenses || []).forEach((expense) => {
-          if (expense.userId === auth.userId || expense.owner === auth.userId) {
-            const pid = expense.projectId;
-            if (!expensesByProject[pid]) expensesByProject[pid] = 0;
-            expensesByProject[pid] += Number(expense.amount) || 0;
-          }
-        });
+        for (const expense of scopedItems(db.expenses || [], auth.userId)) {
+          if (!expense.projectId) continue;
+          expensesByProject[expense.projectId] = (expensesByProject[expense.projectId] || 0) + (Number(expense.totalHt ?? expense.total) || 0);
+        }
 
         const losingProjects = projects.filter((p) => {
           const expenses = expensesByProject[p.id] || 0;
           const quoteRevenue = quotes
-            .filter((q) => q.projectId === p.id && q.status === "signed")
-            .reduce((sum, q) => sum + (Number(q.estimatedCost) || 0), 0);
+            .filter((q) => q.projectId === p.id && q.status === "Signe")
+            .reduce((sum, q) => sum + (Number(q.totalHt) || 0), 0);
           return expenses > quoteRevenue;
         });
 
