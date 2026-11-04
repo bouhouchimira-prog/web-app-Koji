@@ -4,11 +4,11 @@
 /// memory/MEMORY.md for the architecture note behind this choice.
 abstract final class KojiWebApiConfig {
   // Overridable at build/run time:
-  //   flutter run --dart-define=KOJI_WEB_BASE_URL=https://www.kojibuild.com
+  //   flutter run --dart-define=KOJI_WEB_BASE_URL=https://getkoji.io
   static const String _override = String.fromEnvironment(
     'KOJI_WEB_BASE_URL',
   );
 
   static String get baseUrl =>
-      _override.isNotEmpty ? _override : 'https://www.kojibuild.com';
+      _override.isNotEmpty ? _override : 'https://getkoji.io';
 }

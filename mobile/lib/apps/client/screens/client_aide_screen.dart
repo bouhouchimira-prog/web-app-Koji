@@ -181,7 +181,7 @@ class _ClientAideScreenState extends ConsumerState<ClientAideScreen> {
         KojiButton(
           label: 'Contacter le support',
           onPressed: () =>
-              launchUrl(Uri.parse('mailto:contact@kojibuild.com')),
+              launchUrl(Uri.parse('mailto:contact@getkoji.io')),
         ),
       ],
       main: [
@@ -249,7 +249,7 @@ class _ClientAideScreenState extends ConsumerState<ClientAideScreen> {
                 label: 'Écrire au support',
                 variant: KojiButtonVariant.secondary,
                 onPressed: () =>
-                    launchUrl(Uri.parse('mailto:contact@kojibuild.com')),
+                    launchUrl(Uri.parse('mailto:contact@getkoji.io')),
               ),
             ],
           ),
