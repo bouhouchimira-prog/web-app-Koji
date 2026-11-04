@@ -1,5 +1,7 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+// aps-environment=production only matches the App Store profiles, so Debug keeps no entitlements.
+CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements
 // Written only by the iOS → TestFlight workflow (manual distribution signing
 // for the Runner target alone); absent locally, so Xcode keeps its own setup.
 #include? "ci-signing.xcconfig"

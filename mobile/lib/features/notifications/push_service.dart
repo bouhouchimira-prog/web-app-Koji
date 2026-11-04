@@ -7,13 +7,14 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:koji/app/koji_web_api_config.dart';
+import 'package:koji/core/firebase_options.dart';
 import 'package:koji/core/notification_service.dart';
 import 'package:koji/core/supabase_config.dart';
 
 /// Background message handler — must be a top-level function.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: KojiFirebaseOptions.currentPlatform);
   debugPrint('Background message: ${message.messageId}');
 }
 
@@ -40,7 +41,7 @@ class PushNotificationService {
     if (_started) return _token;
     _started = true;
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(options: KojiFirebaseOptions.currentPlatform);
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final settings = await FirebaseMessaging.instance.requestPermission(
