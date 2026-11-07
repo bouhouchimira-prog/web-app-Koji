@@ -504,7 +504,9 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     return [
       // google_sign_in needs a web client id on the web, which this project
       // doesn't configure yet, so the button is mobile-only for now.
-      if (!kIsWeb) ...[
+      // Hidden on iOS too: App Store guideline 4.8 requires "Sign in with
+      // Apple" next to any third-party login, which isn't set up yet.
+      if (!kIsWeb && defaultTargetPlatform != TargetPlatform.iOS) ...[
         _GoogleButton(
           label: isLogin ? 'Continuer avec Google' : "S'inscrire avec Google",
           onTap: loading ? null : _google,
