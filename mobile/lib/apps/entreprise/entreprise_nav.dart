@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_shell.dart';
+import 'package:koji/features/account/account_deletion.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 
 /// Tab shown by the entreprise home (`/home`): 0 tableau de bord, 1 devis,
@@ -63,6 +64,11 @@ const entrepriseNavGroups = [
         id: 'parametres', label: 'Paramètres', icon: KojiIcons.parametres),
     KojiNavItem(id: 'aide', label: 'Aide', icon: KojiIcons.aide),
     KojiNavItem(
+        id: 'supprimer-compte',
+        label: 'Supprimer mon compte',
+        icon: KojiIcons.corbeille,
+        destructive: true),
+    KojiNavItem(
         id: 'deconnexion',
         label: 'Déconnexion',
         icon: KojiIcons.deconnexion,
@@ -104,6 +110,10 @@ String? entrepriseActiveNav(String path, int homeTab) {
 Future<void> openEntrepriseNav(
     BuildContext context, WidgetRef ref, String id) async {
   final router = GoRouter.of(context);
+  if (id == 'supprimer-compte') {
+    await confirmAccountDeletion(context, ref, accountType: 'entreprise');
+    return;
+  }
   if (id == 'deconnexion') {
     await ref.read(authProvider.notifier).signOut();
     router.go('/login');

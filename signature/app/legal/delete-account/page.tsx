@@ -12,7 +12,7 @@ export default function DeleteAccountPage() {
           Suppression de votre compte Koji
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Application : <strong>Koji</strong> — Éditée par Koji.
+          Application : <strong>Koji</strong> — Éditée par ABL Expert Renov.
         </p>
 
         <section className="mt-10 space-y-4">
@@ -20,44 +20,35 @@ export default function DeleteAccountPage() {
             Comment demander la suppression de votre compte
           </h2>
           <p>
-            Vous pouvez demander la suppression de votre compte Koji et de
-            l&apos;ensemble des données associées en suivant l&apos;une des deux
-            procédures ci-dessous :
+            Vous pouvez demander à tout moment la suppression de votre compte
+            Koji et de l&apos;ensemble des données associées.
           </p>
 
           <div className="rounded-lg border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900">
-              1. Depuis l&apos;application
-            </h3>
-            <ol className="mt-2 list-decimal space-y-1 pl-5">
-              <li>Ouvrez l&apos;application Koji et connectez-vous.</li>
-              <li>
-                Accédez à <strong>Réglages</strong> → <strong>Compte</strong>.
-              </li>
-              <li>
-                Appuyez sur <strong>Supprimer mon compte</strong> et confirmez.
-              </li>
-            </ol>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900">2. Par e-mail</h3>
+            <h3 className="font-semibold text-gray-900">Par e-mail</h3>
             <p className="mt-2">
               Envoyez une demande de suppression à l&apos;adresse suivante depuis
               l&apos;adresse e-mail associée à votre compte :
             </p>
             <p className="mt-2">
               <a
-                href="mailto:firasmzoughi2001@gmail.com?subject=Suppression%20de%20compte%20Koji"
+                href="mailto:contact@getkoji.io?subject=Suppression%20de%20compte%20Koji"
                 className="font-medium text-blue-600 underline"
               >
-                firasmzoughi2001@gmail.com
+                contact@getkoji.io
               </a>
             </p>
             <p className="mt-2 text-sm text-gray-600">
-              Votre demande sera traitée sous 30 jours.
+              Votre demande sera traitée sous 30 jours. Nous vous confirmons la
+              suppression par e-mail.
             </p>
           </div>
+
+          <p className="text-sm text-gray-600">
+            Dans l&apos;application Koji, le bouton{" "}
+            <strong>Paramètres</strong> → <strong>Mes données</strong> →{" "}
+            <strong>Supprimer mon compte</strong> ouvre cette page.
+          </p>
         </section>
 
         <section className="mt-10 space-y-4">
@@ -88,7 +79,7 @@ export default function DeleteAccountPage() {
         </section>
 
         <p className="mt-12 text-sm text-gray-400">
-          Dernière mise à jour : 13 juin 2026
+          Dernière mise à jour : 7 novembre 2026
         </p>
       </div>
     </main>

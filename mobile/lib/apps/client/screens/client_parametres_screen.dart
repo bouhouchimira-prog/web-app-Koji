@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/account_provider.dart';
@@ -15,6 +16,7 @@ import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
+import 'package:koji/features/account/account_deletion.dart';
 import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
 
 /// "Paramètres" (components/SettingsPanel.jsx, variant="particulier", lu en
@@ -25,9 +27,11 @@ import 'package:koji/features/marketplace/repository/marketplace_repository.dart
 class ClientParametresScreen extends ConsumerStatefulWidget {
   const ClientParametresScreen({super.key});
 
-  /// Account deletion page of the koji signature site (Google Play policy).
+  /// Account deletion page of the koji signature site (Google Play policy),
+  /// only opened when nobody is signed in with an app account (see
+  /// _deleteAccount).
   static const _deleteAccountUrl =
-      'https://koji-signature.vercel.app/legal/delete-account';
+      'https://signature.getkoji.io/legal/delete-account';
 
   @override
   ConsumerState<ClientParametresScreen> createState() =>
@@ -37,6 +41,20 @@ class ClientParametresScreen extends ConsumerStatefulWidget {
 class _ClientParametresScreenState
     extends ConsumerState<ClientParametresScreen> {
   bool _exporting = false;
+
+  /// Deletion is requested from inside the app (App Store guideline
+  /// 5.1.1(v)) whenever an app account is signed in; the web page is only a
+  /// fallback for a session opened with a chantier access code.
+  Future<void> _deleteAccount() async {
+    if (Supabase.instance.client.auth.currentSession != null) {
+      await confirmAccountDeletion(context, ref, accountType: 'client');
+      return;
+    }
+    await launchUrl(
+      Uri.parse(ClientParametresScreen._deleteAccountUrl),
+      mode: LaunchMode.externalApplication,
+    );
+  }
 
   Future<void> _exportData() async {
     setState(() => _exporting = true);
@@ -281,10 +299,7 @@ class _ClientParametresScreenState
                 label: 'Supprimer mon compte',
                 variant: KojiButtonVariant.secondary,
                 leadingIcon: KojiIcons.corbeille,
-                onPressed: () => launchUrl(
-                  Uri.parse(ClientParametresScreen._deleteAccountUrl),
-                  mode: LaunchMode.externalApplication,
-                ),
+                onPressed: _deleteAccount,
               ),
             ],
           ),
