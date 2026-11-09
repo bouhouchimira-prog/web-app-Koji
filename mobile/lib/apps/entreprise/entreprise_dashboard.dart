@@ -14,9 +14,6 @@ import 'package:koji/features/home/widgets/home_today_tasks.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart';
-import 'package:koji/features/subscription/data/subscription_repository.dart';
-import 'package:koji/features/subscription/paywall_screen.dart';
-import 'package:koji/features/subscription/providers/subscription_provider.dart';
 
 enum _ChantierFilter { actifs, tous, termines }
 
@@ -684,30 +681,9 @@ class _WatchCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(subscriptionStatusProvider).valueOrNull;
-    void paywall() => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PaywallScreen()),
-        );
-
+    // No subscription alert: nothing is sold in the app (App Store 3.1.3(f)),
+    // the plan is only shown, never pushed (see the menu's account card).
     final alerts = <Widget>[
-      if (status?.state == AccessState.expired)
-        KojiAlertBox(
-          title: 'Essai terminé',
-          message:
-              'Abonnez-vous pour continuer à créer vos devis et chantiers.',
-          tone: KojiTone.coral,
-          onTap: paywall,
-        )
-      else if (status?.state == AccessState.trial)
-        KojiAlertBox(
-          title: status!.trialDaysLeft <= 1
-              ? "Dernier jour d'essai"
-              : 'Essai gratuit · ${status.trialDaysLeft} jours restants',
-          message: 'Choisissez votre offre pour garder l’accès à Koji Pro.',
-          tone: KojiTone.amber,
-          icon: KojiIcons.clock,
-          onTap: paywall,
-        ),
       if (staleQuotes > 0)
         KojiAlertBox(
           title: staleQuotes == 1

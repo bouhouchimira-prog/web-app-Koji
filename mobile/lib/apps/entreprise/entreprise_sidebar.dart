@@ -7,7 +7,6 @@ import 'package:koji/design/koji_shell.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/subscription/data/subscription_repository.dart';
-import 'package:koji/features/subscription/paywall_screen.dart';
 import 'package:koji/features/subscription/providers/subscription_provider.dart';
 
 /// Entreprise side menu: fixed on the web layout, inside the drawer on phones.
@@ -59,23 +58,13 @@ class _AccountCard extends ConsumerWidget {
     final status = ref.watch(subscriptionStatusProvider).valueOrNull;
     final name = account?.displayName ?? 'Mon entreprise';
 
-    final String plan;
-    var needsAction = false;
-    switch (status?.state) {
-      case AccessState.trial:
-        final days = status!.trialDaysLeft;
-        plan = days <= 1
-            ? "Essai gratuit · dernier jour"
-            : 'Essai gratuit · $days jours';
-        needsAction = true;
-      case AccessState.subscribed:
-        plan = 'Koji ${_planLabel(status!.plan)} · actif';
-      case AccessState.expired:
-        plan = 'Essai terminé · s’abonner';
-        needsAction = true;
-      default:
-        plan = 'Koji Pro';
-    }
+    // The plan is only displayed (nothing is sold in the app): the card
+    // always opens the company profile.
+    final String plan = switch (status?.state) {
+      AccessState.trial => 'Essai gratuit',
+      AccessState.subscribed => 'Koji ${_planLabel(status!.plan)} · actif',
+      _ => 'Koji Pro',
+    };
 
     return Material(
       color: p.surfaceMuted,
@@ -85,11 +74,7 @@ class _AccountCard extends ConsumerWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: needsAction
-            ? () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                )
-            : () => openEntrepriseNav(context, ref, 'profil'),
+        onTap: () => openEntrepriseNav(context, ref, 'profil'),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -122,13 +107,8 @@ class _AccountCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11.5,
-                        fontWeight:
-                            needsAction ? FontWeight.w700 : FontWeight.w500,
-                        color: needsAction
-                            ? p.toneFg(status?.state == AccessState.expired
-                                ? KojiTone.coral
-                                : KojiTone.amber)
-                            : p.muted,
+                        fontWeight: FontWeight.w500,
+                        color: p.muted,
                       ),
                     ),
                   ],
@@ -141,9 +121,9 @@ class _AccountCard extends ConsumerWidget {
     );
   }
 
+  /// Website plan ids (lib/plan.js): "business" is the only one named
+  /// differently, every other paid plan is shown as Koji Pro.
   static String _planLabel(String? plan) => switch (plan) {
-        'go' => 'Go',
-        'premium' => 'Premium',
         'business' => 'Business',
         _ => 'Pro',
       };

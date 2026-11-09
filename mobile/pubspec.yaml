@@ -32,9 +32,8 @@ dependencies:
   file_picker: ^10.3.10
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
-  # >=3.3.1 pulls in_app_purchase_android 0.5.x = Play Billing Library 8,
-  # required by Google Play since 31 Aug 2026 (7.x builds are rejected).
-  in_app_purchase: ^3.3.1
+  # No in_app_purchase: Koji Pro sells nothing in the app (2026-11-09), the
+  # subscription is taken on getkoji.io — see subscription_repository.dart.
   http: ^1.2.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0

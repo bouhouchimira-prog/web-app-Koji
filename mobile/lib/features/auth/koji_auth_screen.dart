@@ -407,7 +407,7 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     if (!isLogin) {
       subtitle = _isClient
           ? 'Créez votre espace pour suivre vos devis et vos travaux.'
-          : 'Commencez votre essai gratuit et créez vos premiers devis.';
+          : 'Créez votre compte et vos premiers devis.';
     } else if (isCode) {
       subtitle = _isClient
           ? "Saisissez l'identifiant et le mot de passe reçus de votre artisan."

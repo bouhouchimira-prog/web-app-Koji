@@ -19,7 +19,6 @@ import 'package:koji/features/fournitures/repository/fourniture_repository.dart'
 import 'package:koji/features/fournitures/models/fourniture_model.dart';
 import 'package:koji/features/fournitures/add_fourniture_screen.dart';
 import 'package:koji/features/subscription/providers/subscription_provider.dart';
-import 'package:koji/features/subscription/paywall_screen.dart';
 import 'package:intl/intl.dart';
 
 // ─── Data model for one editable line ─────────────────────────────────────────
@@ -616,23 +615,17 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         setState(() => _isSaving = false);
         await showDialog<void>(
           context: context,
+          // Neutral wording on purpose: nothing is sold in the app, so no
+          // invitation to buy a plan (App Store 3.1.3(f)). The server's own
+          // reason text may suggest upgrading, hence not shown here.
           builder: (ctx) => AlertDialog(
             title: const Text('Limite atteinte'),
-            content: Text(limitResult.reason ??
-                'Passez à une formule supérieure pour continuer.'),
+            content: const Text(
+                'Vous avez atteint la limite de votre formule actuelle pour cette action.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Fermer'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                  );
-                },
-                child: const Text('Voir les formules'),
               ),
             ],
           ),

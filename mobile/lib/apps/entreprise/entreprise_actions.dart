@@ -3,22 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:koji/features/quote/providers/quote_creation_provider.dart';
-import 'package:koji/features/subscription/data/subscription_repository.dart';
-import 'package:koji/features/subscription/paywall_screen.dart';
-import 'package:koji/features/subscription/providers/subscription_provider.dart';
 
-/// Runs [action] only while the entreprise has access (trial running or
-/// subscribed); once the trial has expired the paywall opens instead. Unknown
-/// / loading states never block.
+/// Entry point kept for the call sites (devis, chantier…). Nothing is sold in
+/// the app and no plan locks the app as a whole: like the website, the trial
+/// plan only has usage caps, checked server-side where the action happens
+/// (planLimitsProvider). So the action always runs.
 void guardEntrepriseAccess(
     BuildContext context, WidgetRef ref, VoidCallback action) {
-  final status = ref.read(subscriptionStatusProvider).valueOrNull;
-  if (status != null && status.state == AccessState.expired) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PaywallScreen()),
-    );
-    return;
-  }
   action();
 }
 

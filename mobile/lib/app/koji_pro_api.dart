@@ -69,8 +69,9 @@ class KojiProApi {
       // requise » on documents during the trial).
       throw KojiWebApiException(
         res.statusCode,
+        // Neutral wording: nothing is sold in the app (App Store 3.1.3(f)).
         res.statusCode == 402
-            ? 'Votre période d\'essai est terminée : passez à une formule Koji pour générer ce document.'
+            ? 'Ce document n\'est pas inclus dans votre formule actuelle.'
             : 'Réponse inattendue du serveur (${res.statusCode}).',
       );
     }
