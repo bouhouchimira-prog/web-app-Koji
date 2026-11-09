@@ -8,6 +8,7 @@ import { apiGet, apiSend } from "../lib/client-api";
 import { useLocale } from "../lib/i18n";
 import { useApi } from "../lib/use-api";
 import { ProSidebar } from "./ProSidebar";
+import KojiWordmark from "./KojiWordmark";
 import "./shell-layout.css";
 import "../app/home-pro.css";
 
@@ -725,7 +726,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
       ) : (
         <div className="app">
           <header className="mbar">
-            <Link href="/" className="brand">KOJI</Link>
+            <Link href="/" className="brand" aria-label="Koji, accueil"><KojiWordmark height={13} /></Link>
             <button type="button" onClick={() => setDrawerOpen(true)} aria-label={L.shell.openMenu}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>

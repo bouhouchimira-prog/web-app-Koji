@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment } from "react";
+import KojiWordmark from "./KojiWordmark";
 
 const PERSON = "M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0";
 const SHOP = "M4 9l1-5h14l1 5M5 9v11h14V9M9 20v-6h6v6";
@@ -81,7 +82,7 @@ export function ProSidebar({
 }) {
   return (
     <aside className={`side${open ? " open" : ""}`} aria-label="Navigation">
-      <Link href="/" className="brand">KOJI</Link>
+      <Link href="/" className="brand" aria-label="Koji, accueil"><KojiWordmark height={14} /></Link>
 
       <button type="button" className="sx kj" onClick={onAsk}>
         <span className="kjs">
