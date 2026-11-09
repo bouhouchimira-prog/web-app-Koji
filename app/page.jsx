@@ -10,6 +10,7 @@ import { DEMARRAGE_SKIP_KEY, demarrageSteps, essentialsDone } from "../lib/demar
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
 import { estNouveau, publication, titreCourt, villeSeule } from "../lib/radar-display";
+import { chiffresDuMois, periodesDisponibles } from "../lib/chiffres-du-mois";
 // Kept: /marketplace and /chiffre-affaires reuse its kd-/home- classes and
 // only get them through this import.
 import "./dashboard.css";
@@ -53,6 +54,19 @@ function IconTarget() {
 
 function pluriel(n, mot, motPluriel) {
   return `${n} ${n > 1 ? motPluriel || `${mot}s` : mot}`;
+}
+
+function resumeFacture({ factures, avoirs }) {
+  if (!factures && !avoirs) return "aucune facture émise";
+  return [factures ? pluriel(factures, "facture") : null, avoirs ? pluriel(avoirs, "avoir") : null].filter(Boolean).join(", ");
+}
+
+function resumeReste({ impayees, echues, retardMax }) {
+  if (!impayees) return "aucune facture en attente";
+  const base = pluriel(impayees, "facture");
+  if (!echues) return `${base}, aucune échue`;
+  if (echues === 1) return `${base}, 1 échue de ${pluriel(retardMax, "jour")}`;
+  return `${base}, ${echues} échues (jusqu'à ${pluriel(retardMax, "jour")})`;
 }
 
 function aujourdhui() {
@@ -121,6 +135,14 @@ function DashboardHome() {
   const { data: calendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: urgentAlerts } = useApi("/api/urgent-alerts", "alerts");
   const { data: offres, loading: offresLoading } = useApi("/api/marketplace/offres", "offres");
+  const { data: expenses } = useApi("/api/expenses", "expenses");
+  const periodes = useMemo(() => periodesDisponibles(new Date()), []);
+  const [periodeCle, setPeriodeCle] = useState(periodes[1].cle);
+  const periode = periodes.find((p) => p.cle === periodeCle) || periodes[1];
+  const chiffres = useMemo(
+    () => chiffresDuMois({ invoices, quotes, projects, expenses, periode }),
+    [invoices, quotes, projects, expenses, periode]
+  );
 
   const [prenom, setPrenom] = useState("");
   const [profileComplete, setProfileComplete] = useState(true);
@@ -412,6 +434,59 @@ function DashboardHome() {
               {nouveaux.length ? `${pluriel(nouveaux.length, "nouveau", "nouveaux")} sur le Radar` : "chantiers prêts à être pris"}
             </div>
           </Link>
+        </section>
+
+        <section className="kp-card" aria-label="Chiffres du mois">
+          <div className="kp-card-h">
+            <h2>{periode.titre}</h2>
+            <div className="kp-seg" role="group" aria-label="Période">
+              {periodes.map((p) => (
+                <button
+                  key={p.cle}
+                  type="button"
+                  className={p.cle === periode.cle ? "on" : ""}
+                  aria-pressed={p.cle === periode.cle}
+                  onClick={() => setPeriodeCle(p.cle)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="kp-ca-g">
+            <div>
+              <span>Facturé</span>
+              <b>{euro(chiffres.facture.total)}</b>
+              <small>HT · {resumeFacture(chiffres.facture)}</small>
+            </div>
+            <div>
+              <span>Encaissé</span>
+              <b>{euro(chiffres.encaisse.total)}</b>
+              <small>TTC · {chiffres.encaisse.paiements ? `${pluriel(chiffres.encaisse.paiements, "facture réglée", "factures réglées")}` : "aucun règlement"}</small>
+            </div>
+            <div>
+              <span>Reste à encaisser</span>
+              <b>{euro(chiffres.reste.total)}</b>
+              <small>TTC à ce jour · {resumeReste(chiffres.reste)}</small>
+            </div>
+          </div>
+          <div className="kp-ca-f">
+            <span>
+              Depuis janvier : {euro(chiffres.depuisJanvier)} HT facturés
+              {chiffres.marge ? (
+                <>
+                  {" · "}marge moyenne {Math.round(chiffres.marge.taux * 100)} %{" "}
+                  (<Link href="/comptabilite/chantiers">Coût des chantiers</Link>)
+                </>
+              ) : null}
+            </span>
+            <Link href="/facturation" className="kp-link">Voir les factures</Link>
+          </div>
+          {chiffres.facture.htEstimes ? (
+            <p className="kp-ca-n">
+              HT estimé avec une TVA à 20 % pour {pluriel(chiffres.facture.htEstimes, "facture", "factures")} sans devis rattaché.
+            </p>
+          ) : null}
         </section>
 
         <div className="kp-grid">

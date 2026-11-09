@@ -6,16 +6,13 @@ import { Shell } from "../../../components/Shell";
 import { useApi } from "../../../lib/use-api";
 import { euro } from "../../../lib/pricing";
 import { fixText } from "../../../lib/text";
+// Même devis de référence que la marge moyenne de l'accueil (PRO-01.2).
+import { devisDuChantier as quoteFor } from "../../../lib/chiffres-du-mois";
 
 const WATCH_RATIO = 0.8;
 
 function isSigned(quote) {
   return quote.status === "Signe" || quote.signatureStatus === "Signe";
-}
-
-function quoteFor(projectId, quotes) {
-  const linked = quotes.filter((quote) => quote.projectId === projectId);
-  return linked.find(isSigned) || linked.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
 }
 
 // PRO-09.1 : même calcul que l'onglet « Coût » de la fiche chantier

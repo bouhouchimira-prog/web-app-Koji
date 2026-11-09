@@ -182,6 +182,15 @@
 .pro .kp-seg button:hover{background:var(--seg-h)}
 .pro .kp-seg button.on{background:var(--card);box-shadow:inset 0 0 0 1px var(--seg-on);color:var(--ink);font-weight:700}
 .pro .kp-seg button b{margin-left:5px;font-weight:700}
+/* PRO-01.2 : chiffres du mois (Facturé HT · Encaissé TTC · Reste à encaisser) */
+.pro .kp-ca-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
+.pro .kp-ca-g>div{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 16px;background:var(--soft);border:1px solid var(--rule);border-radius:var(--r-struct)}
+.pro .kp-ca-g span{color:var(--grey);font-size:12px}
+.pro .kp-ca-g b{color:var(--ink);font-size:30px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}
+.pro .kp-ca-g small{color:var(--grey);font-size:12px}
+.pro .kp-ca-f{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;margin-top:12px;color:var(--tabtxt);font-size:13px}
+.pro .kp-ca-f a:not(.kp-link){color:inherit;text-decoration:underline;text-underline-offset:2px}
+.pro .kp-ca-n{margin:8px 0 0;color:var(--grey);font-size:12px}
 .pro .kp-rbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 4px}
 .pro .kp-sort{display:flex;align-items:center;gap:6px;margin-left:auto;color:var(--grey);font-size:13px}
 .pro .kp-sort select{height:32px;padding:0 8px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch);color:var(--ink);font:inherit;font-size:13px}
@@ -1461,4 +1470,9 @@
   .pro .kp-kpis,.pro .kp-grid{grid-template-columns:1fr}
   .pro .kp-kpi{border-top:1px solid var(--line);border-left:0}
   .pro .kp-kpi:first-child{border-top:0}
+  .pro .kp-ca-g{gap:8px}
+  .pro .kp-ca-g>div{padding:10px}
+  .pro .kp-ca-g b{font-size:18px}
+  .pro .kp-ca-g small{font-size:11px}
+  .pro .kp-card-h:has(.kp-seg){flex-wrap:wrap}
 }
