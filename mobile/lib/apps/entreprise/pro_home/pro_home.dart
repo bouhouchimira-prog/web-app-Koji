@@ -17,9 +17,6 @@ import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart'
     show userQuotesProvider;
-import 'package:koji/features/subscription/data/subscription_repository.dart';
-import 'package:koji/features/subscription/paywall_screen.dart';
-import 'package:koji/features/subscription/providers/subscription_provider.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 
@@ -202,9 +199,6 @@ class _ProHomeState extends ConsumerState<ProHome> {
         () => context.push('/quote/room-selection', extra: <String>[]),
       );
 
-  void _paywall() => Navigator.of(context)
-      .push(MaterialPageRoute(builder: (_) => const PaywallScreen()));
-
   /// The Radar conversation and offer detail live on the website for now.
   Future<void> _ouvrirSurLeSite(String offreId) => launchUrl(
         Uri.parse('${KojiWebApiConfig.baseUrl}/marketplace/$offreId'),
@@ -239,7 +233,6 @@ class _ProHomeState extends ConsumerState<ProHome> {
     required List<Map<String, dynamic>> factures,
     required List<Map<String, dynamic>> aSigner,
     required List<Map<String, dynamic>> chantiers,
-    required SubscriptionStatus? abonnement,
   }) {
     final items = <_ATraiter>[];
     final now = DateTime.now();
@@ -265,30 +258,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
       ));
     }
 
-    if (abonnement?.state == AccessState.expired) {
-      items.add(_ATraiter(
-        rang: 0,
-        titre: 'Essai terminé',
-        meta: 'Abonnez-vous pour continuer à créer vos devis et chantiers',
-        tag: 'Bloquant',
-        ton: ProTagTone.solid,
-        icon: Icons.lock_outline,
-        onTap: _paywall,
-      ));
-    } else if (abonnement?.state == AccessState.trial) {
-      final jours = abonnement!.trialDaysLeft;
-      items.add(_ATraiter(
-        rang: 1,
-        titre: jours <= 1
-            ? "Dernier jour d'essai"
-            : 'Essai gratuit, ${_pluriel(jours, 'jour')} restants',
-        meta: "Choisissez votre offre pour garder l'accès à Koji Pro",
-        tag: 'Échéance',
-        ton: ProTagTone.ink,
-        icon: Icons.schedule,
-        onTap: _paywall,
-      ));
-    }
+    // No subscription item in « À traiter »: nothing is sold in the app
+    // (App Store 3.1.3(f)); the plan is taken and managed on getkoji.io.
 
     for (final offre in prises) {
       if (offre.suivi?.clientARepondu != true) continue;
@@ -387,7 +358,6 @@ class _ProHomeState extends ConsumerState<ProHome> {
     final alertes = ref.watch(proUrgentAlertsProvider).valueOrNull ?? const [];
     final factures =
         ref.watch(proOverdueInvoicesProvider).valueOrNull ?? const [];
-    final abonnement = ref.watch(subscriptionStatusProvider).valueOrNull;
 
     final aSigner = quotes
         .where((q) => QuoteStatus.isInProgress(q) && !_estBrouillon(q))
@@ -419,7 +389,6 @@ class _ProHomeState extends ConsumerState<ProHome> {
       factures: factures,
       aSigner: aSigner,
       chantiers: chantiers,
-      abonnement: abonnement,
     );
 
     final radar = _radarCard(da, radarAsync, offres, prises, nouveaux);

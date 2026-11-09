@@ -67,9 +67,9 @@ class KojiHelpScreen extends StatelessWidget {
           "(acompte, intermédiaire ou finale) et suivre les paiements.",
     ),
     (
-      'Comment gérer mon abonnement ?',
-      "Le menu affiche l'état de votre essai ou de votre abonnement. "
-          "Touchez-le pour voir les offres et vous abonner.",
+      'Quelle est ma formule ?',
+      "Le menu affiche votre formule Koji. C'est la même sur l'application "
+          "et sur le site : pour toute question, écrivez-nous.",
     ),
   ];
 

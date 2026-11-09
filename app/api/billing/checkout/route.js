@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { getAuth } from "../../../../lib/server-auth";
 import { getStripe, priceIdFor } from "../../../../lib/stripe";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
 
 // Uses getAuth (Supabase Auth session cookie) on purpose: only entreprise
 // accounts authenticate that way, so particulier/ouvrier sessions (which use
@@ -48,7 +49,10 @@ export async function POST(request) {
         metadata: { kojiUserId: auth.userId }
       });
       customerId = customer.id;
-      const { error: saveError } = await auth.supabase
+      // Compte serveur : les champs de facturation (_stripeCustomerId,
+      // _billingPlan…) sont protégés en base contre toute écriture faite avec
+      // la session de l'utilisateur (supabase/migrations/0009).
+      const { error: saveError } = await getSupabaseAdmin()
         .from("users")
         .update({ business_info: { ...businessInfo, _stripeCustomerId: customerId } })
         .eq("id", auth.userId);

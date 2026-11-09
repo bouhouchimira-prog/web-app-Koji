@@ -1,125 +1,55 @@
-import 'dart:async';
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Store product ids for the entreprise subscription, one pair (monthly/
-/// yearly) per named plan tier — mirrors web's 3 plans (lib/plan.js:
-/// go/premium/business). These must be created (with the 14-day free trial)
-/// in App Store Connect and Google Play Console using EXACTLY these ids.
+import 'package:koji/app/koji_pro_api.dart';
+
+/// Access state of the signed-in entreprise.
 ///
-/// NOTE: this replaces the old single `koji_entreprise_monthly`/`_yearly`
-/// duo. Store product reconfiguration (3 tiers × monthly/yearly) has real
-/// review lead time outside engineering control — kick that off separately;
-/// this code change alone does not make the new products purchasable until
-/// they exist in both consoles.
-class SubscriptionProducts {
-  static const goMonthly = 'koji_go_monthly';
-  static const goYearly = 'koji_go_yearly';
-  static const premiumMonthly = 'koji_premium_monthly';
-  static const premiumYearly = 'koji_premium_yearly';
-  static const businessMonthly = 'koji_business_monthly';
-  static const businessYearly = 'koji_business_yearly';
-
-  static const all = <String>{
-    goMonthly,
-    goYearly,
-    premiumMonthly,
-    premiumYearly,
-    businessMonthly,
-    businessYearly,
-  };
-
-  /// Plan tier a product id belongs to, for grouping in the paywall UI.
-  static String planOf(String productId) => switch (productId) {
-        goMonthly || goYearly => 'go',
-        premiumMonthly || premiumYearly => 'premium',
-        businessMonthly || businessYearly => 'business',
-        _ => 'business',
-      };
-}
-
-/// Display metadata for the 3 named plans, mirroring web's PLAN_LIMITS
-/// (lib/plan.js) labels/quote limits so both apps present identical copy.
-class PlanInfo {
-  final String id;
-  final String label;
-  final int? quoteLimit; // null = unlimited
-  final List<String> features;
-
-  const PlanInfo({
-    required this.id,
-    required this.label,
-    this.quoteLimit,
-    this.features = const [],
-  });
-
-  static const go = PlanInfo(
-    id: 'go',
-    label: 'Koji GO',
-    quoteLimit: 4,
-    features: ['4 devis par mois', 'Gestion des chantiers', 'Signature en ligne'],
-  );
-  static const premium = PlanInfo(
-    id: 'premium',
-    label: 'Koji Premium',
-    quoteLimit: 30,
-    features: [
-      '30 devis par mois',
-      'Bibliothèque d\'ouvrages',
-      'Suivi des ouvriers',
-      'SMS aux clients',
-    ],
-  );
-  static const business = PlanInfo(
-    id: 'business',
-    label: 'Koji Business',
-    quoteLimit: null,
-    features: ['Devis illimités', 'Multi-utilisateurs', 'Toutes les fonctionnalités'],
-  );
-
-  static const values = [go, premium, business];
-}
-
-/// Resolved access state used by the gate.
+/// Koji Pro sells nothing inside the app (decided 2026-11-09, App Store
+/// guideline 3.1.3(f) "free stand-alone app" companion to the paid web
+/// service): the subscription is taken on getkoji.io (Stripe) and the app
+/// only reflects it. There is therefore no "expired" state that would lock
+/// the app — exactly like the website, an account without a paid plan stays
+/// on the trial plan, whose usage caps are enforced server-side.
 enum AccessState {
-  /// Free trial is still running.
+  /// No paid plan: the website's "trial" plan (usage caps, no time limit).
   trial,
 
-  /// Paid subscription is active.
+  /// Paid plan active on the website.
   subscribed,
 
-  /// Trial ended and no active subscription — show the paywall.
-  expired,
-
-  /// Couldn't determine yet (still loading).
+  /// Couldn't determine yet (still loading or offline).
   unknown,
 }
 
 class SubscriptionStatus {
   final AccessState state;
-  final DateTime? trialEndsAt;
-  final int trialDaysLeft;
-  final String? plan; // 'go' | 'premium' | 'business' | null (trial)
 
-  const SubscriptionStatus({
-    required this.state,
-    this.trialEndsAt,
-    this.trialDaysLeft = 0,
-    this.plan,
-  });
+  /// Plan id as computed by koji-web (lib/user-profile.js buildWebUser):
+  /// 'trial' | 'pro' | 'business' | … — null while unknown.
+  final String? plan;
 
-  bool get hasAccess =>
-      state == AccessState.trial || state == AccessState.subscribed;
+  const SubscriptionStatus({required this.state, this.plan});
+
+  bool get hasAccess => state != AccessState.unknown;
 
   static const unknown = SubscriptionStatus(state: AccessState.unknown);
+
+  /// Maps koji-web's plan id to the app's access state. Any plan other than
+  /// "trial" (or empty) is a paid one: the website grants full access to
+  /// "pro", "business" and to the legacy "premium" / "active" / "subscribed".
+  factory SubscriptionStatus.fromWebPlan(String? plan) {
+    final p = (plan ?? '').trim().toLowerCase();
+    if (p.isEmpty || p == 'trial') {
+      return const SubscriptionStatus(state: AccessState.trial, plan: 'trial');
+    }
+    return SubscriptionStatus(state: AccessState.subscribed, plan: p);
+  }
 }
 
 /// Result of a server-side plan-limit RPC check (see
-/// koji-main/supabase/migrations/0006_subscription_plans.sql). [allowed]
-/// mirrors web's lib/plan.js `{ allowed, reason }` shape.
+/// supabase/migrations/0006_subscription_plans.sql). [allowed] mirrors web's
+/// lib/plan.js `{ allowed, reason }` shape.
 class PlanLimitResult {
   final bool allowed;
   final String? reason;
@@ -127,76 +57,32 @@ class PlanLimitResult {
   const PlanLimitResult({required this.allowed, this.reason});
 }
 
-/// Single source of truth for the trial + subscription. Talks to Supabase for
-/// the persisted state and to the store (`in_app_purchase`) for buying.
+/// Reads the entreprise's plan from koji-web — the same value the website
+/// uses — and runs the trial usage-cap checks (Supabase RPCs shared with the
+/// web's lib/plan.js rules).
 class SubscriptionRepository {
-  SubscriptionRepository(this._supabase);
+  SubscriptionRepository(this._supabase, this._api);
 
   final SupabaseClient _supabase;
-  final InAppPurchase _iap = InAppPurchase.instance;
+  final KojiProApi _api;
 
-  // ── Trial / status from Supabase ──────────────────────────────────────────
-
-  /// Ensure a trial exists for this entreprise user and return the current
-  /// access status. Call this right after an entreprise logs in.
-  Future<SubscriptionStatus> resolveStatus(String userId) async {
+  /// Current access status, from GET /api/auth/profile (Bearer token): the
+  /// plan there is resolved by koji-web from the Stripe subscription
+  /// (business_info._billingPlan), the grandfathered flag or "trial".
+  Future<SubscriptionStatus> resolveStatus() async {
     try {
-      // Start the trial the first time (idempotent server-side).
-      await _supabase.rpc('start_trial_if_absent', params: {
-        'p_user_id': userId,
-      });
-
-      final row = await _supabase
-          .from('users')
-          .select(
-              'trial_ends_at, subscription_status, subscription_expires_at, plan')
-          .eq('id', userId)
-          .maybeSingle();
-
-      return _statusFromRow(row);
+      final body = await _api.get('/api/auth/profile');
+      final user = body['user'];
+      if (user is! Map) return SubscriptionStatus.unknown;
+      return SubscriptionStatus.fromWebPlan(user['plan'] as String?);
     } catch (e) {
       debugPrint('resolveStatus failed: $e');
-      // Fail OPEN during the trial window is impossible to know — fail to
-      // "unknown" so the UI can decide (we don't want to wrongly lock people
-      // out on a transient network error).
+      // Never lock anyone out on a network error: "unknown" is not gated.
       return SubscriptionStatus.unknown;
     }
   }
 
-  SubscriptionStatus _statusFromRow(Map<String, dynamic>? row) {
-    if (row == null) return SubscriptionStatus.unknown;
-
-    final status = (row['subscription_status'] as String?)?.toLowerCase();
-    final plan = row['plan'] as String?;
-    final now = DateTime.now();
-
-    // Active paid subscription (optionally still within its store expiry).
-    if (status == 'active') {
-      final exp = DateTime.tryParse(
-          (row['subscription_expires_at'] as String?) ?? '');
-      if (exp == null || exp.isAfter(now)) {
-        return SubscriptionStatus(state: AccessState.subscribed, plan: plan);
-      }
-    }
-
-    // Otherwise fall back to the trial window.
-    final trialEnds =
-        DateTime.tryParse((row['trial_ends_at'] as String?) ?? '');
-    if (trialEnds != null && trialEnds.isAfter(now)) {
-      final daysLeft = trialEnds.difference(now).inHours / 24;
-      return SubscriptionStatus(
-        state: AccessState.trial,
-        trialEndsAt: trialEnds,
-        trialDaysLeft: daysLeft.ceil(),
-        plan: plan,
-      );
-    }
-
-    return SubscriptionStatus(
-        state: AccessState.expired, trialEndsAt: trialEnds, plan: plan);
-  }
-
-  // ── Server-side plan limits (shared with web via the same RPCs) ────────
+  // ── Server-side trial usage caps (shared with web via the same RPCs) ─────
 
   /// Paid plans: gate at quote-creation time, counted per calendar month.
   /// Trial users and unlimited plans always return allowed=true.
@@ -242,80 +128,4 @@ class SubscriptionRepository {
     }
     return const PlanLimitResult(allowed: true);
   }
-
-  /// Persist a verified purchase result to Supabase.
-  Future<void> _persistActive(PurchaseDetails purchase) async {
-    final platform = Platform.isIOS ? 'ios' : 'android';
-    await _supabase.rpc('set_subscription_status', params: {
-      'p_status': 'active',
-      'p_platform': platform,
-      'p_product': purchase.productID,
-      // The store auto-renews; we don't always get an explicit expiry here.
-      // Leaving it null means "active until the store says otherwise"; a server
-      // webhook (future) can refine this.
-      'p_expires_at': null,
-    });
-  }
-
-  // ── In-App Purchase ───────────────────────────────────────────────────────
-
-  /// Whether the device store is available (e.g. false on an emulator without
-  /// Play services, or if IAP is restricted).
-  Future<bool> isStoreAvailable() => _iap.isAvailable();
-
-  /// Load the subscription products configured in the stores.
-  Future<List<ProductDetails>> loadProducts() async {
-    final response = await _iap.queryProductDetails(SubscriptionProducts.all);
-    if (response.error != null) {
-      debugPrint('queryProductDetails error: ${response.error}');
-    }
-    return response.productDetails;
-  }
-
-  /// Listen to the purchase stream. The caller must keep the subscription and
-  /// cancel it on dispose. For each successful/restored purchase we persist the
-  /// active status and complete the transaction.
-  StreamSubscription<List<PurchaseDetails>> listen({
-    required void Function() onActivated,
-    required void Function(String message) onError,
-  }) {
-    return _iap.purchaseStream.listen((purchases) async {
-      for (final p in purchases) {
-        switch (p.status) {
-          case PurchaseStatus.purchased:
-          case PurchaseStatus.restored:
-            try {
-              await _persistActive(p);
-              onActivated();
-            } catch (e) {
-              onError('Activation: $e');
-            }
-            break;
-          case PurchaseStatus.error:
-            onError(p.error?.message ?? 'Achat échoué');
-            break;
-          case PurchaseStatus.canceled:
-            onError('Achat annulé');
-            break;
-          case PurchaseStatus.pending:
-            // In progress — nothing to do; UI shows a spinner.
-            break;
-        }
-        if (p.pendingCompletePurchase) {
-          await _iap.completePurchase(p);
-        }
-      }
-    });
-  }
-
-  /// Start the buy flow for a subscription product.
-  Future<void> buy(ProductDetails product) async {
-    final param = PurchaseParam(productDetails: product);
-    // Subscriptions are non-consumable.
-    await _iap.buyNonConsumable(purchaseParam: param);
-  }
-
-  /// Restore previous purchases (App Store / Play). Results arrive on the
-  /// purchase stream as `restored`.
-  Future<void> restore() => _iap.restorePurchases();
 }

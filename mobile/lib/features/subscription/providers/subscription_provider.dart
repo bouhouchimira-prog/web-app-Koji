@@ -1,14 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/core/supabase_config.dart';
 import 'package:koji/features/subscription/data/subscription_repository.dart';
 
 final subscriptionRepositoryProvider =
     Provider<SubscriptionRepository>((ref) {
-  return SubscriptionRepository(SupabaseConfig.client);
+  return SubscriptionRepository(
+      SupabaseConfig.client, ref.watch(kojiProApiProvider));
 });
 
-/// Resolves and caches the current access status (trial / subscribed / expired)
-/// for the signed-in entreprise. Re-fetched after a purchase via [refresh].
+/// Resolves and caches the current plan (trial / subscribed) of the
+/// signed-in entreprise, as computed by koji-web. Re-read on resume (see
+/// entreprise_activity_watcher.dart) so a plan taken on the website shows up.
 class SubscriptionStatusNotifier
     extends StateNotifier<AsyncValue<SubscriptionStatus>> {
   SubscriptionStatusNotifier(this._repo)
@@ -24,15 +27,13 @@ class SubscriptionStatusNotifier
     }
     state = const AsyncValue.loading();
     try {
-      final status = await _repo.resolveStatus(userId);
+      final status = await _repo.resolveStatus();
       state = AsyncValue.data(status);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
-  /// After a purchase/restore is persisted, re-read the status so the gate
-  /// reopens immediately.
   Future<void> refresh() => load();
 }
 
@@ -42,21 +43,10 @@ final subscriptionStatusProvider = StateNotifierProvider<
       ref.watch(subscriptionRepositoryProvider));
 });
 
-/// Convenience: true when the entreprise may use gated features (trial active
-/// OR subscribed). Defaults to true while still loading/unknown so we never
-/// block on a transient state — the explicit `expired` state is what gates.
-final hasAccessProvider = Provider<bool>((ref) {
-  final async = ref.watch(subscriptionStatusProvider);
-  return async.maybeWhen(
-    data: (s) => s.state != AccessState.expired,
-    orElse: () => true,
-  );
-});
-
 /// Plan-limit checks (quote-count per plan, trial send/generate/edit caps).
 /// Call before quote creation/send/generate/manual-save; on `allowed: false`
-/// show `reason` in a blocking dialog (mirrors how hasAccessProvider/paywall
-/// gating already blocks screens).
+/// show a neutral blocking dialog (no purchase prompt: nothing is sold in the
+/// app).
 ///
 /// Wired in: quote_detail_screen.dart's _generateQuote() calls
 /// canCreateQuote()/canSaveQuote() before every save (new devis vs. manual
