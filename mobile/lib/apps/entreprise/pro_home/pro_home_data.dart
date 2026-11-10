@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/core/supabase_config.dart';
@@ -78,6 +79,10 @@ class ProKojiWebClient {
   Future<List<Map<String, dynamic>>> alertesUrgentes() async =>
       _list(await _send('GET', '/api/urgent-alerts'), 'alerts');
 
+  /// Any list route of the site (factures, devis, chantiers, dépenses).
+  Future<List<Map<String, dynamic>>> liste(String path, String key) async =>
+      _list(await _send('GET', path), key);
+
   static List<Map<String, dynamic>> _list(dynamic data, String key) {
     final raw = data is Map ? data[key] : null;
     if (raw is! List) return const [];
@@ -148,6 +153,56 @@ class RadarOffre {
   int? get delaiJours => (data['delaiEstimeJours'] as num?)?.toInt();
   DateTime? get publieeLe =>
       DateTime.tryParse('${data['createdAt'] ?? ''}')?.toLocal();
+
+  /// Prix recommandé calculé par le site avec la bibliothèque et le taux de
+  /// l'entreprise (lib/prix-recommande.js) : TTC arrondi à la centaine, null
+  /// quand aucun poste n'a pu être chiffré. Jamais montré au particulier.
+  Map<String, dynamic>? get _prix => data['prixRecommande'] is Map
+      ? Map<String, dynamic>.from(data['prixRecommande'] as Map)
+      : null;
+  int? get prixTtc => (_prix?['ttc'] as num?)?.round();
+  int get prixManquants => (_prix?['manquants'] as num?)?.toInt() ?? 0;
+  int get prixPostes => (_prix?['postes'] as num?)?.toInt() ?? 0;
+  bool get tauxManquant => _prix?['tauxManquant'] == true;
+
+  /// Prix calculé sur une partie des postes seulement.
+  bool get prixPartiel => prixTtc != null && prixManquants > 0;
+}
+
+final _euro =
+    NumberFormat.currency(locale: 'fr_FR', symbol: '€', decimalDigits: 0);
+
+/// « 6 000 € » ou « À chiffrer » (même texte que le site).
+String prixCourt(RadarOffre offre) =>
+    offre.prixTtc == null ? 'À chiffrer' : _euro.format(offre.prixTtc);
+
+/// Ce qui a servi au calcul et ce qui manque (lib/radar-display.js::notePrix).
+String notePrix(RadarOffre offre) {
+  final postes = offre.prixPostes;
+  if (postes == 0) return '';
+  final n = offre.prixManquants;
+  if (n > 0 && offre.tauxManquant) {
+    return "Renseignez votre taux de main-d'œuvre (Bibliothèque › Mes prix) : "
+        'sans lui, Koji ne chiffre pas les ouvrages au temps.';
+  }
+  if (offre.prixTtc == null) {
+    return "Aucun poste de ce chantier n'a de prix dans votre bibliothèque : "
+        "Koji n'invente pas de montant.";
+  }
+  if (n > 0) {
+    return '$n poste${n > 1 ? 's' : ''} sur $postes sans prix dans votre '
+        "bibliothèque : ${n > 1 ? 'ils ne sont pas comptés' : "il n'est pas compté"}.";
+  }
+  return 'Calculé avec vos prix sur $postes poste${postes > 1 ? 's' : ''}, '
+      'TTC arrondi à la centaine.';
+}
+
+/// Tri « Prix recommandé, du plus haut » ; sans prix en dernier, puis le
+/// plus récent.
+int comparerPrix(RadarOffre a, RadarOffre b) {
+  final prix = (b.prixTtc ?? 0).compareTo(a.prixTtc ?? 0);
+  if (prix != 0) return prix;
+  return (b.publieeLe ?? DateTime(0)).compareTo(a.publieeLe ?? DateTime(0));
 }
 
 final proKojiWebProvider =
@@ -183,26 +238,54 @@ final proUrgentAlertsProvider =
   }
 });
 
-/// Invoices past their due date and not fully paid (same query as the
-/// overdue-invoice notification).
+/// Données des chiffres du mois (PRO-01.2), lues sur le site comme la page
+/// Factures : factures, devis, chantiers et dépenses de l'entreprise.
+class ChiffresSource {
+  const ChiffresSource({
+    this.invoices = const [],
+    this.quotes = const [],
+    this.projects = const [],
+    this.expenses = const [],
+  });
+  final List<Map<String, dynamic>> invoices;
+  final List<Map<String, dynamic>> quotes;
+  final List<Map<String, dynamic>> projects;
+  final List<Map<String, dynamic>> expenses;
+}
+
+final proChiffresSourceProvider =
+    FutureProvider.autoDispose<ChiffresSource>((ref) async {
+  final api = ref.watch(proKojiWebProvider);
+  Future<List<Map<String, dynamic>>> lire(String path, String key) =>
+      api.liste(path, key).catchError((_) => <Map<String, dynamic>>[]);
+  final r = await Future.wait([
+    api.liste('/api/invoices', 'invoices'),
+    lire('/api/quotes', 'quotes'),
+    lire('/api/projects', 'projects'),
+    lire('/api/expenses', 'expenses'),
+  ]);
+  return ChiffresSource(
+      invoices: r[0], quotes: r[1], projects: r[2], expenses: r[3]);
+});
+
+/// Factures envoyées, échues et pas encore payées (mêmes règles que
+/// l'« À traiter » du site). Lues sur le site : c'est là que vivent les
+/// factures depuis le passage de Factures sur l'API (a2de5f5). Vide en cas
+/// d'erreur : l'accueil doit s'ouvrir même sans réseau.
 final proOverdueInvoicesProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final userId = SupabaseConfig.client.auth.currentUser?.id;
-  if (userId == null) return const [];
   try {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final rows = await SupabaseConfig.client
-        .from('invoices')
-        .select('id, reference, amount, paid_amount, due_date, client_name')
-        .eq('user_id', userId)
-        .lt('due_date', today);
-    return (rows as List)
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .where((r) {
-      final amount = (r['amount'] as num?)?.toDouble() ?? 0;
-      final paid = (r['paid_amount'] as num?)?.toDouble() ?? 0;
-      return amount - paid > 0.009;
+    final source = await ref.watch(proChiffresSourceProvider.future);
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return source.invoices.where((f) {
+      final echeance = '${f['dueDate'] ?? ''}';
+      return f['kind'] != 'avoir' &&
+          f['archived'] != true &&
+          (f['status'] == 'Emise' || f['status'] == 'Partielle') &&
+          echeance.length >= 10 &&
+          echeance.substring(0, 10).compareTo(today) < 0;
     }).toList();
   } catch (_) {
     return const [];

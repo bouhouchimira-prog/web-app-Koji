@@ -9,17 +9,17 @@ import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
 import { DEMARRAGE_SKIP_KEY, demarrageSteps, essentialsDone } from "../lib/demarrage";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
-import { estNouveau, publication, titreCourt, villeSeule } from "../lib/radar-display";
+import { comparerPrix, estNouveau, notePrix, prixCourt, prixPartiel, publication, titreCourt, villeSeule } from "../lib/radar-display";
 import { chiffresDuMois, periodesDisponibles } from "../lib/chiffres-du-mois";
 // Kept: /marketplace and /chiffre-affaires reuse its kd-/home- classes and
 // only get them through this import.
 import "./dashboard.css";
 
 // Accueil Koji Pro, nouvelle DA (maquette PRO-01, 30 oct). Données réelles
-// uniquement : la maquette montre aussi des fourchettes de prix, des jetons
-// et un nombre de positions par chantier, que l'API ne fournit pas (les
-// fourchettes ont été retirées le 17 oct, les jetons ne sont pas encore en
-// place côté serveur).
+// uniquement. Prix recommandé (10 nov) : un montant unique calculé avec la
+// bibliothèque et le taux de l'entreprise (lib/prix-recommande.js), jamais
+// de fourchette. Pas encore de jetons ni de nombre de positions par
+// chantier (non construits côté serveur).
 
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 
@@ -150,7 +150,7 @@ function DashboardHome() {
   const [suivis, setSuivis] = useState({}); // { [offreId]: { clientARepondu, visite } }
   const [info, setInfo] = useState("");
   const [radarFiltre, setRadarFiltre] = useState("tous");
-  const [radarTri, setRadarTri] = useState("recent");
+  const [radarTri, setRadarTri] = useState("prix");
   const [leadOuvert, setLeadOuvert] = useState(undefined); // undefined = le premier
   const [toutAfficher, setToutAfficher] = useState(false);
   const [demarrage, setDemarrage] = useState(null);
@@ -242,8 +242,8 @@ function DashboardHome() {
 
   let radarListe = radarFiltre === "nouveaux" ? nouveaux : radarFiltre === "prises" ? prises : offres;
   radarListe = [...radarListe].sort((a, b) => {
-    const ordre = String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-    return radarTri === "ancien" ? -ordre : ordre;
+    const recent = String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    return radarTri === "prix" ? comparerPrix(a, b) || recent : recent;
   });
   const radarVisibles = radarListe.slice(0, LEADS_VISIBLES);
   const idOuvert = leadOuvert === undefined ? radarVisibles[0]?.id : leadOuvert;
@@ -517,8 +517,8 @@ function DashboardHome() {
               <label className="kp-sort">
                 Trier
                 <select value={radarTri} onChange={(e) => { setRadarTri(e.target.value); setLeadOuvert(undefined); }}>
+                  <option value="prix">Prix recommandé, du plus haut</option>
                   <option value="recent">Plus récents</option>
-                  <option value="ancien">Plus anciens</option>
                 </select>
               </label>
             </div>
@@ -554,20 +554,22 @@ function DashboardHome() {
                           </span>
                         </span>
                         <span className="kp-lead-r">
-                          <span className="kp-pr">{offre.metier || "Chantier"}</span>
+                          <span className="kp-pr">{prixCourt(offre.prixRecommande)}</span>
                           <span className="kp-sub">
-                            {prise ? <><IconCheck /> Position prise</> : estNouveau(offre.createdAt) ? "Nouveau" : pluriel(offre.photosCount || 0, "photo")}
+                            {prixPartiel(offre.prixRecommande) && !prise ? `Partiel, ${offre.prixRecommande.manquants} sans prix` : prise ? <><IconCheck /> Position prise</> : [offre.metier, estNouveau(offre.createdAt) ? "Nouveau" : null].filter(Boolean).join(" · ") || pluriel(offre.photosCount || 0, "photo")}
                           </span>
                         </span>
                       </button>
                       {ouvert ? (
                         <div className="kp-lead-det">
                           <div className="kp-ld-line">
+                            <span>Prix recommandé <b>{prixCourt(offre.prixRecommande)}{prixPartiel(offre.prixRecommande) ? ", partiel" : ""}</b></span>
                             <span>Métier <b>{offre.metier || "Non précisé"}</b></span>
                             {offre.delaiEstimeJours ? <span>Délai estimé <b>{pluriel(offre.delaiEstimeJours, "jour")}</b></span> : null}
                             <span>Photos <b>{offre.photosCount || 0}</b></span>
                             {prise ? <span>Suivi <b>{libelleSuivi(suivis[offre.id])}</b></span> : null}
                           </div>
+                          {notePrix(offre.prixRecommande) ? <p className="kp-lead-note">{notePrix(offre.prixRecommande)}</p> : null}
                           <div className="kp-lead-act">
                             {prise ? (
                               <span className="kp-tag-val"><IconCheck /> Position prise</span>

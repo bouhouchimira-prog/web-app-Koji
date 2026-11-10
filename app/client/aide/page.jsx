@@ -23,7 +23,7 @@ const THEMES = [
 
 const ARTICLES = [
   { theme: "premiers-pas", title: "Découvrir l'espace particulier", body: "Accueil regroupe l'essentiel : vos demandes en cours et vos chantiers signés. Le menu donne accès à Mes demandes, Devis reçus, Mes chantiers et Messages." },
-  { theme: "publier", title: "Publier un chantier gratuitement", body: "Depuis \"+ Publier un chantier\", décrivez votre projet à l'assistant koji (avec des photos si besoin) : il prépare une fourchette de prix indicative et publie votre demande aux entreprises de votre secteur. C'est gratuit et illimité." },
+  { theme: "publier", title: "Publier un chantier gratuitement", body: "Depuis \"+ Publier un chantier\", décrivez votre projet à l'assistant koji (avec des photos si besoin) : il prépare le détail des travaux et publie votre demande aux entreprises de votre secteur. C'est gratuit et illimité." },
   { theme: "publier", title: "Comment une entreprise me contacte", body: "Dès qu'une entreprise s'intéresse à votre demande, elle vous écrit dans Messages. Vous retrouvez aussi la demande elle-même depuis Mes demandes, avec son statut." },
   { theme: "messages", title: "Répondre à une entreprise", body: "Chaque conversation est rattachée à une demande précise. Vous pouvez échanger librement, accepter ou refuser un rendez-vous proposé par l'entreprise, et choisir de débloquer vos photos du chantier pour elle." },
   { theme: "messages", title: "Mes échanges restent sur koji", body: "Tant qu'aucun rendez-vous n'est confirmé, vos coordonnées complètes ne sont pas partagées — la discussion se fait depuis Koji." },

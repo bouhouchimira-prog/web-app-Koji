@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet } from "../../lib/client-api";
-import { estNouveau, publication, titreCourt, villeSeule } from "../../lib/radar-display";
+import { comparerPrix, estNouveau, prixCourt, prixPartiel, publication, titreCourt, villeSeule } from "../../lib/radar-display";
 import { useApi } from "../../lib/use-api";
 
 // Radar des chantiers, maquette PRO-04 (DA Koji Pro, 30 oct) : liste des
@@ -57,7 +57,9 @@ export default function MarketplacePage() {
     const needle = query.trim().toLowerCase();
     return offres
       .filter((offre) => tab === "tous" || (tab === "nouveaux" ? estNouveau(offre.createdAt) : positions[offre.id]))
-      .filter((offre) => !needle || [offre.description, offre.metier, offre.address].some((v) => String(v || "").toLowerCase().includes(needle)));
+      .filter((offre) => !needle || [offre.description, offre.metier, offre.address].some((v) => String(v || "").toLowerCase().includes(needle)))
+      // Prix recommandé, du plus haut (maquette PRO-04) ; sans prix en dernier.
+      .sort((a, b) => comparerPrix(a, b) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   }, [offres, positions, tab, query]);
 
   const eyebrow = [
@@ -105,6 +107,7 @@ export default function MarketplacePage() {
               <thead>
                 <tr>
                   <th>Chantier</th>
+                  <th className="r">Prix recommandé</th>
                   <th>Ville</th>
                   <th>Publication</th>
                   <th className="r">Photos</th>
@@ -119,6 +122,7 @@ export default function MarketplacePage() {
                       <Link href={`/marketplace/${offre.id}`} className="rd-row-link">{titreCourt(offre.description)}</Link>
                       <div className="sm">{offre.metier || "Métier non précisé"}{offre.delaiEstimeJours ? ` · ${plural(offre.delaiEstimeJours, "jour")} estimés` : ""}</div>
                     </td>
+                    <td className="r"><b>{prixCourt(offre.prixRecommande)}</b>{prixPartiel(offre.prixRecommande) ? <div className="sm">partiel, {offre.prixRecommande.manquants} sans prix</div> : null}</td>
                     <td>{villeSeule(offre.address) || "—"}</td>
                     <td className="sm2">{publication(offre.createdAt)}</td>
                     <td className="r">{offre.photosCount || 0}</td>
@@ -139,7 +143,7 @@ export default function MarketplacePage() {
                   </div>
                   <Status taken={positions[offre.id]} fresh={estNouveau(offre.createdAt)} />
                 </div>
-                <div className="line">{[publication(offre.createdAt), plural(offre.photosCount || 0, "photo")].filter(Boolean).join(" · ")}</div>
+                <div className="line">{[`Prix recommandé ${prixCourt(offre.prixRecommande)}${prixPartiel(offre.prixRecommande) ? " (partiel)" : ""}`, publication(offre.createdAt), plural(offre.photosCount || 0, "photo")].filter(Boolean).join(" · ")}</div>
               </Link>
             ))}
           </div>

@@ -8,11 +8,13 @@ import 'package:koji/app/account_provider.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
+import 'package:koji/apps/entreprise/pro_home/chiffres_du_mois.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/design/koji_widgets.dart' show kojiEuro;
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/home/notifications/providers/notification_provider.dart';
+import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart'
@@ -20,10 +22,11 @@ import 'package:koji/features/quote/quote_list_screen.dart'
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 
-/// Koji Pro home in the new DA (mockup PRO-01). Real data only: the mockup
-/// also shows price bands, jetons, a per-offer position count and a map, which
-/// the API does not provide (price bands were removed on 17 Oct, jetons are not
-/// built server-side, offers carry no coordinates).
+/// Koji Pro home in the new DA (mockups PRO-01 and PRO-01.2). Real data only:
+/// the Radar shows the recommended price computed by koji-web with the pro's
+/// own library and rate (never invented, never shown to the client); the
+/// month figures come from the site's invoices. Not built yet: jetons and the
+/// per-offer position count (nothing server-side).
 class ProHome extends ConsumerStatefulWidget {
   const ProHome({
     super.key,
@@ -77,8 +80,18 @@ String _villeSeule(String adresse) {
 }
 
 const _coupures = [
-  ',', '.', ';', ' : ', ' - ', ' qui ', ' car ', ' dans ', ' pour ',
-  ' avec ', ' depuis ', ' et ',
+  ',',
+  '.',
+  ';',
+  ' : ',
+  ' - ',
+  ' qui ',
+  ' car ',
+  ' dans ',
+  ' pour ',
+  ' avec ',
+  ' depuis ',
+  ' et ',
 ];
 
 /// Short title from the client's description (offers have no title field).
@@ -151,7 +164,8 @@ bool _estBrouillon(Map<String, dynamic> q) =>
 List<Map<String, dynamic>> _devisUniques(List<Map<String, dynamic>> quotes) {
   final seen = <String>{};
   return quotes.where((q) {
-    final key = (q['quoteNumber'] ?? q['reference'] ?? q['id'] ?? '').toString();
+    final key =
+        (q['quoteNumber'] ?? q['reference'] ?? q['id'] ?? '').toString();
     return key.isEmpty || seen.add(key);
   }).toList();
 }
@@ -180,6 +194,8 @@ class _ATraiter {
 
 class _ProHomeState extends ConsumerState<ProHome> {
   String _filtre = 'tous';
+  final _periodes = periodesDisponibles(DateTime.now());
+  late String _periodeCle = _periodes[1].cle;
   String? _ouvert = _premier;
   bool _toutRadar = false;
   bool _toutTraiter = false;
@@ -247,9 +263,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
         rang: 0,
         titre:
             '${_urgentLabels[alerte['type']] ?? 'Alerte'}, ${alerte['projectTitle'] ?? 'chantier'}',
-        meta: ['$qui ${alerte['senderName'] ?? ''}'.trim(), _ilYa(alerte['createdAt'])]
-            .where((s) => s.isNotEmpty)
-            .join(' · '),
+        meta: [
+          '$qui ${alerte['senderName'] ?? ''}'.trim(),
+          _ilYa(alerte['createdAt'])
+        ].where((s) => s.isNotEmpty).join(' · '),
         tag: 'Bloquant',
         ton: ProTagTone.solid,
         icon: Icons.warning_amber_rounded,
@@ -300,15 +317,15 @@ class _ProHomeState extends ConsumerState<ProHome> {
     }
 
     for (final facture in factures) {
-      final reste = ((facture['amount'] as num?)?.toDouble() ?? 0) -
-          ((facture['paid_amount'] as num?)?.toDouble() ?? 0);
-      final echeance = _date(facture['due_date']);
+      final reste = (facture['amountTtc'] as num?)?.toDouble() ?? 0;
+      final echeance = _date(facture['dueDate']);
+      final numero = '${facture['invoiceNumber'] ?? ''}'.trim();
       items.add(_ATraiter(
         rang: 2,
         titre:
-            'Facture ${facture['reference'] ?? ''}, ${facture['client_name'] ?? 'client'}',
+            '${numero.isEmpty ? 'Facture' : 'Facture $numero'}, ${facture['client'] ?? facture['projectTitle'] ?? 'client'}',
         meta: [
-          '${kojiEuro(reste)} en attente',
+          '${kojiEuro(reste)} en attente de règlement',
           if (echeance != null)
             'échue le ${DateFormat('d MMM', 'fr_FR').format(echeance)}',
         ].join(' · '),
@@ -365,7 +382,12 @@ class _ProHomeState extends ConsumerState<ProHome> {
     final brouillons = quotes.where(_estBrouillon).toList();
     final chantiersActifs = chantiers.where(isChantierActive).length;
 
-    final offres = radarAsync.valueOrNull ?? const <RadarOffre>[];
+    // Offers the pro blocked are dropped everywhere (lists, counts, to-do).
+    final masquees =
+        ref.watch(moderationProvider.select((s) => s.hiddenOffers));
+    final offres = (radarAsync.valueOrNull ?? const <RadarOffre>[])
+        .where((o) => !masquees.contains(o.id))
+        .toList();
     final prises = offres.where(_prise).toList();
     final disponibles = offres.where((o) => !_prise(o)).toList();
     final nouveaux =
@@ -378,7 +400,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
             : account.displayName);
     final eyebrow = [
       _majuscule(DateFormat('EEEE d MMMM', 'fr_FR').format(DateTime.now())),
-      if (aSigner.isNotEmpty) '${_pluriel(aSigner.length, 'devis', 'devis')} à signer',
+      if (aSigner.isNotEmpty)
+        '${_pluriel(aSigner.length, 'devis', 'devis')} à signer',
       if (brouillons.isNotEmpty) _pluriel(brouillons.length, 'brouillon'),
     ].join(' · ');
 
@@ -391,9 +414,24 @@ class _ProHomeState extends ConsumerState<ProHome> {
       chantiers: chantiers,
     );
 
+    final source = ref.watch(proChiffresSourceProvider).valueOrNull;
+    final periode = _periodes.firstWhere((p) => p.cle == _periodeCle,
+        orElse: () => _periodes[1]);
+    final chiffres = source == null
+        ? null
+        : chiffresDuMois(
+            invoices: source.invoices,
+            quotes: source.quotes,
+            projects: source.projects,
+            expenses: source.expenses,
+            periode: periode,
+            aujourdhui: DateTime.now(),
+          );
+
     final radar = _radarCard(da, radarAsync, offres, prises, nouveaux);
     final traiter = _traiterCard(da, aTraiter);
-    final salut = prenom == null || prenom.isEmpty ? 'Bonjour.' : 'Bonjour, $prenom.';
+    final salut =
+        prenom == null || prenom.isEmpty ? 'Bonjour.' : 'Bonjour, $prenom.';
     final brouillon = brouillons.isEmpty ? null : brouillons.first;
 
     return ColoredBox(
@@ -413,6 +451,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
               const SizedBox(height: 24),
               _kpis(da, aSigner.length, chantiersActifs, disponibles.length,
                   nouveaux.length),
+              const SizedBox(height: 24),
+              _chiffresCard(da, periode, chiffres),
               const SizedBox(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,6 +480,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
             const SizedBox(height: 4),
             Text(salut,
                 style: da.text(26, weight: FontWeight.w700, height: 1.2)),
+            const SizedBox(height: 14),
+            // PRO-01.2 téléphone : les trois chiffres en tête de l'accueil,
+            // le détail du mois en un toucher.
+            _chiffresBande(da, chiffres, onTap: _ouvrirChiffres),
             const SizedBox(height: 14),
             ProPrimaryButton(
               label: 'Démarrer un devis guidé',
@@ -521,7 +565,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
       child: GestureDetector(
         onTap: () => openSavedQuote(context, ref, brouillon),
         child: Text(
-          'Brouillon ${_numeroDevis(brouillon)} à reprendre'.replaceAll('  ', ' '),
+          'Brouillon ${_numeroDevis(brouillon)} à reprendre'
+              .replaceAll('  ', ' '),
           style: da.text(13, weight: FontWeight.w500).copyWith(
                 decoration: TextDecoration.underline,
                 decorationColor: da.ink,
@@ -572,6 +617,116 @@ class _ProHomeState extends ConsumerState<ProHome> {
         ],
       ),
     );
+  }
+
+  // ---- PRO-01.2 : chiffres du mois ------------------------------------
+
+  /// Ordinateur / tablette : même bloc que le site (période, trois chiffres,
+  /// ligne « depuis janvier », lien vers les factures).
+  Widget _chiffresCard(ProDa da, Periode periode, ChiffresDuMois? c) {
+    Widget cellule(String label, double? montant, String detail) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: da.soft,
+              border: Border.all(color: da.rule),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: da.text(12, color: da.grey)),
+                const SizedBox(height: 2),
+                Text(montant == null ? '—' : kojiEuro(montant),
+                    style: da.text(30, weight: FontWeight.w600, height: 1.2)),
+                const SizedBox(height: 2),
+                Text(detail, style: da.text(12, color: da.grey)),
+              ],
+            ),
+          ),
+        );
+    final marge = c?.marge;
+    final reglees = c == null
+        ? ''
+        : c.paiements == 0
+            ? 'aucun règlement'
+            : _pluriel(c.paiements, 'facture réglée', 'factures réglées');
+    return ProCard(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ProCardHeader(
+            title: periode.titre,
+            action: ProSegmented<String>(
+              options: [for (final p in _periodes) (p.cle, p.label, -1)],
+              value: periode.cle,
+              onChanged: (cle) => setState(() => _periodeCle = cle),
+            ),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                cellule('Facturé', c?.facture.total,
+                    c == null ? 'HT' : 'HT · ${resumeFacture(c.facture)}'),
+                const SizedBox(width: 16),
+                cellule('Encaissé', c?.encaisse,
+                    c == null ? 'TTC' : 'TTC · $reglees'),
+                const SizedBox(width: 16),
+                cellule(
+                    'Reste à encaisser',
+                    c?.reste.total,
+                    c == null
+                        ? 'TTC'
+                        : 'TTC à ce jour · ${resumeReste(c.reste)}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  c == null
+                      ? 'Chargement des factures…'
+                      : 'Depuis janvier : ${kojiEuro(c.depuisJanvier)} HT facturés'
+                          '${marge == null ? '' : ' · marge moyenne ${(marge.taux * 100).round()} % (Coût des chantiers)'}',
+                  style: da.text(13),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ProPill(
+                label: 'Voir les factures',
+                onTap: () => context.push('/facturation'),
+              ),
+            ],
+          ),
+          if ((c?.facture.htEstimes ?? 0) > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'HT estimé avec une TVA à 20 % pour '
+              '${_pluriel(c!.facture.htEstimes, 'facture')} sans devis rattaché.',
+              style: da.text(12, color: da.grey),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Téléphone : la bande des trois chiffres du mois en cours ; un toucher
+  /// ouvre le détail du mois.
+  Widget _chiffresBande(ProDa da, ChiffresDuMois? c, {VoidCallback? onTap}) =>
+      Semantics(
+        button: true,
+        label: 'Chiffres du mois',
+        child: InkWell(onTap: onTap, child: _ChiffresBande(c: c)),
+      );
+
+  void _ouvrirChiffres() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _ChiffresMoisScreen(periode: _periodes[1]),
+    ));
   }
 
   Widget _kpis(ProDa da, int aSigner, int actifs, int zone, int nouveaux) {
@@ -640,13 +795,15 @@ class _ProHomeState extends ConsumerState<ProHome> {
     List<RadarOffre> prises,
     List<RadarOffre> nouveaux,
   ) {
-    final liste = switch (_filtre) {
-      'nouveaux' => nouveaux,
-      'prises' => prises,
-      _ => offres,
-    };
-    final visibles =
-        _toutRadar ? liste : liste.take(_leadsVisibles).toList();
+    // Prix recommandé, du plus haut (maquette PRO-01).
+    final liste = [
+      ...switch (_filtre) {
+        'nouveaux' => nouveaux,
+        'prises' => prises,
+        _ => offres,
+      }
+    ]..sort(comparerPrix);
+    final visibles = _toutRadar ? liste : liste.take(_leadsVisibles).toList();
     final idOuvert = _ouvert == _premier
         ? (visibles.isEmpty ? null : visibles.first.id)
         : _ouvert;
@@ -778,22 +935,24 @@ class _ProHomeState extends ConsumerState<ProHome> {
               ),
             ),
             const SizedBox(width: 8),
-            if (prise)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check, size: 14, color: da.ink),
-                  const SizedBox(width: 4),
-                  Text('Prise', style: da.text(12, weight: FontWeight.w700)),
-                ],
-              )
-            else
-              Text(
-                _estNouveau(offre.publieeLe)
-                    ? 'Nouveau'
-                    : _publication(offre.publieeLe),
-                style: da.text(12, color: da.grey),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(prixCourt(offre),
+                    style: da.text(14, weight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  prise
+                      ? 'Position prise'
+                      : offre.prixPartiel
+                          ? 'Partiel, ${offre.prixManquants} sans prix'
+                          : _estNouveau(offre.publieeLe)
+                              ? 'Nouveau'
+                              : _publication(offre.publieeLe),
+                  style: da.text(12, color: da.grey),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -836,19 +995,21 @@ class _ProHomeState extends ConsumerState<ProHome> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(_titreCourt(offre.description),
-                          style: da.text(15, weight: FontWeight.w700, height: 1.3)),
+                          style: da.text(15,
+                              weight: FontWeight.w700, height: 1.3)),
                       const SizedBox(height: 2),
                       Text(
-                        [_villeSeule(offre.adresse), _publication(offre.publieeLe)]
-                            .where((s) => s.isNotEmpty)
-                            .join(' · '),
+                        [
+                          _villeSeule(offre.adresse),
+                          _publication(offre.publieeLe)
+                        ].where((s) => s.isNotEmpty).join(' · '),
                         style: da.text(12, color: da.grey),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(offre.metier.isEmpty ? 'Chantier' : offre.metier,
+                Text(prixCourt(offre),
                     style: da.text(15, weight: FontWeight.w700)),
               ],
             ),
@@ -858,6 +1019,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
             spacing: 12,
             runSpacing: 4,
             children: [
+              kv('Prix recommandé',
+                  '${prixCourt(offre)}${offre.prixPartiel ? ', partiel' : ''}'),
               kv('Métier', offre.metier.isEmpty ? 'Non précisé' : offre.metier),
               if (offre.delaiJours != null)
                 kv('Délai estimé', _pluriel(offre.delaiJours!, 'jour')),
@@ -865,6 +1028,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
               if (prise) kv('Suivi', _libelleSuivi(offre.suivi)),
             ],
           ),
+          if (notePrix(offre).isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notePrix(offre), style: da.text(12, color: da.grey)),
+          ],
           const SizedBox(height: 12),
           if (prise)
             Row(
@@ -881,9 +1048,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
               icon: Icons.my_location,
               height: 44,
               expand: true,
-              onPressed: envoi || limiteAtteinte
-                  ? null
-                  : () => _positionner(offre.id),
+              onPressed:
+                  envoi || limiteAtteinte ? null : () => _positionner(offre.id),
             ),
           if (!prise && limiteAtteinte) ...[
             const SizedBox(height: 8),
@@ -897,9 +1063,53 @@ class _ProHomeState extends ConsumerState<ProHome> {
             const SizedBox(height: 8),
             Text(erreur, style: da.text(12, weight: FontWeight.w600)),
           ],
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () =>
+                    showReportDialog(context, ref, _cibleOffre(offre)),
+                icon: Icon(Icons.flag_outlined, size: 16, color: da.grey),
+                label: Text('Signaler',
+                    style:
+                        da.text(12, weight: FontWeight.w600, color: da.grey)),
+              ),
+              TextButton.icon(
+                onPressed: () => _bloquerOffre(offre),
+                icon: Icon(Icons.block, size: 16, color: da.grey),
+                label: Text('Bloquer',
+                    style:
+                        da.text(12, weight: FontWeight.w600, color: da.grey)),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  ReportTarget _cibleOffre(RadarOffre offre) => ReportTarget(
+        kind: 'offre_radar',
+        id: offre.id,
+        label: 'Annonce du Radar « ${_titreCourt(offre.description)} »'
+            '${offre.adresse.isEmpty ? '' : ' (${_villeSeule(offre.adresse)})'}',
+        excerpt: offre.description,
+      );
+
+  Future<void> _bloquerOffre(RadarOffre offre) async {
+    final moderation = ref.read(moderationProvider.notifier);
+    final bloquee = await confirmBlock(
+      context,
+      ref,
+      target: _cibleOffre(offre),
+      title: 'Bloquer cette annonce ?',
+      explanation:
+          'Elle disparaîtra de votre Radar et l\'équipe Koji sera prévenue '
+          'pour examiner son auteur.',
+      apply: () => moderation.setOfferHidden(offre.id, true),
+    );
+    if (bloquee && mounted) setState(() => _ouvert = _premier);
   }
 
   Widget _traiterCard(ProDa da, List<_ATraiter> items) {
@@ -968,6 +1178,195 @@ class _ProHomeState extends ConsumerState<ProHome> {
                   ),
                 ),
               ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bande des trois chiffres du mois (maquette PRO-01.2, téléphone).
+class _ChiffresBande extends StatelessWidget {
+  const _ChiffresBande({required this.c});
+  final ChiffresDuMois? c;
+
+  @override
+  Widget build(BuildContext context) {
+    final da = ProDa.of(context);
+    Widget cellule(String label, double? montant) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: da.text(11, color: da.grey)),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(montant == null ? '—' : kojiEuro(montant),
+                      style: da.text(18, weight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        );
+    return Container(
+      decoration: BoxDecoration(
+        color: da.card,
+        border: Border(
+          top: BorderSide(color: da.ink, width: 2),
+          left: BorderSide(color: da.frame),
+          right: BorderSide(color: da.frame),
+          bottom: BorderSide(color: da.frame),
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            cellule('Facturé HT', c?.facture.total),
+            VerticalDivider(width: 1, color: da.line),
+            cellule('Encaissé', c?.encaisse),
+            VerticalDivider(width: 1, color: da.line),
+            cellule('À encaisser', c?.reste.total),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Détail téléphone du mois en cours (maquette « Chiffres du mois, depuis
+/// l'accueil ») : la bande, puis « Ce mois » (factures émises, facture échue
+/// la plus ancienne, marge moyenne depuis janvier).
+class _ChiffresMoisScreen extends ConsumerWidget {
+  const _ChiffresMoisScreen({required this.periode});
+
+  final Periode periode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final da = ProDa.of(context);
+    final async = ref.watch(proChiffresSourceProvider);
+    final source = async.valueOrNull;
+    final c = source == null
+        ? null
+        : chiffresDuMois(
+            invoices: source.invoices,
+            quotes: source.quotes,
+            projects: source.projects,
+            expenses: source.expenses,
+            periode: periode,
+            aujourdhui: DateTime.now(),
+          );
+
+    Widget ligne(String titre, String detail,
+            {Widget? fin, VoidCallback? onTap}) =>
+        InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: da.rule)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titre, style: da.text(14, weight: FontWeight.w700)),
+                      if (detail.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(detail, style: da.text(12, color: da.grey)),
+                      ],
+                    ],
+                  ),
+                ),
+                fin ??
+                    (onTap == null
+                        ? const SizedBox.shrink()
+                        : Icon(Icons.chevron_right, size: 18, color: da.ink)),
+              ],
+            ),
+          ),
+        );
+
+    final echue = c?.reste.premiereEchue;
+    final marge = c?.marge;
+    final estimes = c?.facture.htEstimes ?? 0;
+    return Scaffold(
+      backgroundColor: da.page,
+      appBar: AppBar(
+        backgroundColor: da.card,
+        foregroundColor: da.ink,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Accueil', style: da.text(16, weight: FontWeight.w700)),
+            Text(periode.titre, style: da.text(12, color: da.grey)),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          _ChiffresBande(c: c),
+          const SizedBox(height: 14),
+          if (async.hasError && c == null)
+            Text('Factures indisponibles pour le moment.',
+                style: da.text(13, color: da.grey))
+          else
+            ProCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('Ce mois',
+                        style: da.text(15, weight: FontWeight.w700)),
+                  ),
+                  ligne(
+                    c == null
+                        ? 'Chargement…'
+                        : _majuscule(resumeFacture(c.facture)),
+                    c == null ? '' : '${kojiEuro(c.facture.total)} HT facturés',
+                    onTap: () => context.push('/facturation'),
+                  ),
+                  if (c != null && echue != null)
+                    ligne(
+                      c.reste.echues == 1
+                          ? '1 facture échue'
+                          : '${c.reste.echues} factures échues',
+                      [
+                        '${echue['client'] ?? echue['projectTitle'] ?? 'Client'}',
+                        _pluriel((echue['retard'] as int?) ?? 0, 'jour'),
+                      ].join(' · '),
+                      fin: const ProTag('À relancer', tone: ProTagTone.grey),
+                      onTap: () => context.push('/facturation'),
+                    ),
+                  if (marge != null)
+                    ligne('Marge moyenne',
+                        '${(marge.taux * 100).round()} % depuis janvier'),
+                  if (c != null)
+                    ligne('Depuis janvier',
+                        '${kojiEuro(c.depuisJanvier)} HT facturés'),
+                  if (estimes > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        'HT estimé avec une TVA à 20 % pour '
+                        '${_pluriel(estimes, 'facture')} sans devis rattaché.',
+                        style: da.text(12, color: da.grey),
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );

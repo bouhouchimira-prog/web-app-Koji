@@ -85,21 +85,6 @@ class MarketplaceRepository {
     return data;
   }
 
-  /// PATCH /api/expertise-koji/:id — the particulier fills in a price for
-  /// an ouvrage missing from koji's own price library. Returns the updated
-  /// missingPriceItems list.
-  Future<List<Map<String, dynamic>>> submitMissingPrices(
-    String expertiseId,
-    List<Map<String, dynamic>> prices,
-  ) async {
-    final data = await _api.patchJson(
-      '/api/expertise-koji/$expertiseId',
-      {'prices': prices},
-    ) as Map<String, dynamic>;
-    return (data['missingPriceItems'] as List? ?? const [])
-        .cast<Map<String, dynamic>>();
-  }
-
   /// POST /api/chantier-offres — publishes the offer for entreprises to see.
   Future<Map<String, dynamic>> publishOffer({
     required String expertiseId,
