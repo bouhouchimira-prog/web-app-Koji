@@ -97,7 +97,7 @@ export function ChoisissezVotreEspace() {
                 <li><b>Trouver</b><span>des chantiers près de chez vous</span></li>
                 <li><b>Chiffrer</b><span>un devis juste en dix minutes</span></li>
                 <li><b>Conduire</b><span>photos, équipe, fournitures</span></li>
-                <li><b>Encaisser</b><span>factures, acomptes, relances</span></li>
+                <li><b>Encaisser</b><span>factures, relances, facture électronique</span></li>
               </ul>
               {/* Lien principal : toute la moitié est cliquable (::after). */}
               <a className="g0-btn g0-main" href="/entreprise" onClick={() => retenir("pro")}>

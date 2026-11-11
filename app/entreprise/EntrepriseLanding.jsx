@@ -1,5 +1,6 @@
 import { DM_Sans } from '../fonts';
 import { Check, CONTACT, EndCta, PlansBlock, PlansFine, SIGNUP, SiteFooter, SiteHeader } from './SiteParts';
+import { metierHref } from './metiers/metiers-data';
 import './landing.css';
 
 // SITE-01 (maquette « KOJI Pro pages », v3) : page d'accueil publique pour les
@@ -302,10 +303,10 @@ export function EntrepriseLanding() {
               <span>Sur téléphone et ordinateur</span>
             </li>
           </ul>
-          {/* Les pages par métier (SITE-04) restent à créer : libellés seuls. */}
+          {/* Pages par métier (SITE-04) : lien dès que le contenu du métier est écrit. */}
           <div className="lp-met">
             <span>Fait pour</span>
-            {METIERS.map((metier) => <a key={metier}>{metier}</a>)}
+            {METIERS.map((metier) => <a key={metier} href={metierHref(metier)}>{metier}</a>)}
           </div>
         </div>
         <div className="lp-hr">

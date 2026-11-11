@@ -1,4 +1,5 @@
 import KojiWordmark from '../../components/KojiWordmark';
+import { metierHref } from './metiers/metiers-data';
 
 // Morceaux communs du site entreprises : SITE-01 (/entreprise) et SITE-03
 // (/entreprise/tarifs) — même en-tête, même bloc d'offres, même pied de
@@ -61,9 +62,11 @@ export const PLANS = [
   },
 ];
 
-// En-tête collant. `page` : 'accueil' (ancres de la page) ou 'tarifs'.
+// En-tête collant. `page` : 'accueil' (ancres de la page), 'tarifs' ou
+// 'metier'. « Questions » vise la FAQ de la page quand elle en a une.
 export function SiteHeader({ page = 'accueil' }) {
   const home = page === 'accueil' ? '' : '/entreprise';
+  const faq = page === 'metier' ? '/entreprise#lp-faq' : '#lp-faq';
   return (
     <header className="lp-h">
       <a href="/" className="lp-w" aria-label="Koji, accueil"><KojiWordmark height={16} /></a>
@@ -71,7 +74,7 @@ export function SiteHeader({ page = 'accueil' }) {
         <a href={`${home}#lp-tour`}>Fonctionnalités</a>
         <a href={`${home}#lp-tour`}>Radar des chantiers</a>
         <a href={TARIFS} aria-current={page === 'tarifs' ? 'page' : undefined}>Tarifs</a>
-        <a href="#lp-faq">Questions</a>
+        <a href={faq}>Questions</a>
       </nav>
       <a href={PARTICULIER} className="lp-cli">Vous avez un projet de travaux ?</a>
       <span className="lp-lg" aria-label="Langue : français">FR</span>
@@ -157,11 +160,10 @@ export function SiteFooter({ page = 'accueil' }) {
         </div>
         <div className="lp-fc">
           <b>Métiers</b>
-          <a>Plombier</a>
-          <a>Électricien</a>
-          <a>Carreleur</a>
-          <a>Peintre</a>
-          <a>Maçon</a>
+          {/* Lien seulement pour les métiers dont la page existe (SITE-04). */}
+          {['Plombier', 'Électricien', 'Carreleur', 'Peintre', 'Maçon'].map((nom) => (
+            <a key={nom} href={metierHref(nom)}>{nom}</a>
+          ))}
           <a>Tous les métiers</a>
         </div>
         <div className="lp-fc">

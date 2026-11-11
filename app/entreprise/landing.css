@@ -2209,3 +2209,243 @@
     text-align: left;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   SITE-04 · pages Métiers (/entreprise/metiers/<métier>)
+   --------------------------------------------------------------------------- */
+.lp-mt,
+.lp-mo,
+.lp-mm {
+  padding: 72px var(--g);
+}
+
+.lp-mx {
+  padding: 72px var(--g);
+  background: #FFFFFF;
+  border-top: 1px solid #CFCFC9;
+  border-bottom: 1px solid #CFCFC9;
+}
+
+.lp-mr {
+  padding: 72px var(--g);
+  background: #171B1E;
+  color: #FFFFFF;
+}
+
+.lp-mr .lp-sh p {
+  color: #C4C7CC;
+}
+
+.lp-mg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.lp-mc {
+  padding: 22px 24px;
+}
+
+.lp-mc b {
+  font-size: 18px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.lp-mc p {
+  margin: 0;
+  font-size: 15px;
+  color: #3A3F44;
+}
+
+.lp-mg3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+
+.lp-mg3 b {
+  display: block;
+  font-size: 20px;
+  margin: 12px 0 8px;
+}
+
+.lp-mg3 p {
+  margin: 0;
+  font-size: 16px;
+  color: #3A3F44;
+}
+
+.lp-n {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: #171B1E;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.lp-ot {
+  padding: 0 24px;
+}
+
+.lp-ot .h,
+.lp-ot .r {
+  display: grid;
+  grid-template-columns: 2fr 0.5fr 1fr;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #E6E6E1;
+  font-size: 15px;
+}
+
+.lp-ot .h {
+  border-top: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5B5F66;
+  padding-top: 16px;
+}
+
+.lp-ot .r span:last-child {
+  color: #5B5F66;
+}
+
+.lp-rl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+.lp-rl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  padding-top: 14px;
+}
+
+.lp-rl svg {
+  width: 18px;
+  height: 18px;
+  stroke: #FFC400;
+  fill: none;
+  stroke-width: 2.5;
+  margin-bottom: 4px;
+}
+
+.lp-rl b {
+  font-size: 16px;
+}
+
+.lp-rl span {
+  font-size: 14px;
+  color: #C4C7CC;
+}
+
+.lp-ml {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lp-ml a {
+  border: 1px solid #171B1E;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: var(--r-touch);
+  background: #FFFFFF;
+}
+
+.lp-ml a[href]:hover {
+  background: #F5F5F2;
+}
+
+.lp-ml a[aria-current='page'] {
+  background: #171B1E;
+  color: #FFFFFF;
+}
+
+/* Métier sans page pour l'instant : même forme, en retrait. */
+.lp-ml a:not([href]) {
+  border-color: #CFCFC9;
+  color: #8A8F98;
+}
+
+@media (max-width: 1100px) {
+  .lp-mg,
+  .lp-mg3 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .lp-rl {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .lp-mt,
+  .lp-mo,
+  .lp-mm,
+  .lp-mx,
+  .lp-mr {
+    padding: 40px var(--g);
+  }
+
+  .lp-mc {
+    padding: 16px;
+  }
+
+  .lp-mg3 > div {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    column-gap: 14px;
+  }
+
+  .lp-mg3 .lp-n {
+    grid-row: span 2;
+  }
+
+  .lp-mg3 b {
+    margin: 6px 0 4px;
+    font-size: 17px;
+  }
+
+  .lp-mg3 p {
+    font-size: 15px;
+  }
+
+  .lp-ot {
+    padding: 0 16px;
+  }
+
+  .lp-ot .h {
+    display: none;
+  }
+
+  .lp-ot .r {
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    font-size: 14px;
+  }
+
+  .lp-ot .r span:first-child {
+    grid-column: 1 / -1;
+    font-weight: 600;
+  }
+
+  .lp-rl {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .lp-ml a {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+}
