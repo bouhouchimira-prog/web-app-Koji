@@ -175,8 +175,8 @@ export function SiteFooter({ page = 'accueil' }) {
         </div>
         <div className="lp-fc">
           <b>Koji</b>
-          <a>À propos</a>
-          <a href={CONTACT}>Contact</a>
+          <a href="/a-propos">À propos</a>
+          <a href="/entreprise/contact">Contact</a>
           <a href="/legal">Mentions légales</a>
           <a href="/legal">Conditions d'utilisation</a>
           <a href="/legal">Confidentialité</a>

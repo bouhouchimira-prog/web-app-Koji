@@ -2826,3 +2826,237 @@ a.lp-bc:hover {
     font-size: 22px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   SITE-06 · Contact et démonstration (/entreprise/contact)
+   (la maquette nommait la grille .lp-ct, déjà pris par la comparaison)
+   --------------------------------------------------------------------------- */
+.lp-cto {
+  padding: 56px var(--g) 72px;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.lp-cf {
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lp-cf > b {
+  font-size: 20px;
+}
+
+.lp-fg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+select.lp-fi {
+  appearance: none;
+  background: #FFFFFF url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%23171B1E' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center / 16px;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+textarea.lp-fi.ta {
+  min-height: 96px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.lp-ck {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lp-ck input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: #171B1E;
+  flex: none;
+}
+
+.lp-cf .lp-y {
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 700;
+  border: 0;
+  cursor: pointer;
+}
+
+.lp-cf .lp-fine {
+  margin: 0;
+  text-align: left;
+}
+
+.lp-cf .lp-cerr {
+  margin: 0;
+  font-size: 14px;
+  color: #B3261E;
+}
+
+.lp-cf .lp-cok {
+  margin: 0;
+  font-size: 16px;
+  color: #2A2F33;
+}
+
+.lp-cs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.lp-cs .lp-card {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-cs b {
+  font-size: 17px;
+}
+
+.lp-cs p {
+  margin: 0;
+  font-size: 14px;
+  color: #3A3F44;
+  flex: 1;
+}
+
+.lp-cs .lp-sec {
+  align-self: flex-start;
+  font-size: 14px;
+}
+
+.lp-cs .lp-cc {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+
+.lp-cc span {
+  font-size: 14px;
+  color: #3A3F44;
+}
+
+/* ---------------------------------------------------------------------------
+   SITE-07 · À propos (/a-propos)
+   --------------------------------------------------------------------------- */
+.lp-ab2 {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 48px;
+  padding: 56px var(--g) 72px;
+  align-items: start;
+}
+
+.lp-abx h2 {
+  font-size: 28px;
+  margin: 0 0 10px;
+}
+
+.lp-abx h2 + p,
+.lp-abx ul {
+  margin: 0 0 32px;
+}
+
+.lp-abx p {
+  font-size: 17px;
+  line-height: 1.6;
+  color: #2A2F33;
+  max-width: 36em;
+}
+
+.lp-abl {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 16px;
+  color: #2A2F33;
+}
+
+.lp-abl li {
+  border-top: 1px solid #CFCFC9;
+  padding-top: 10px;
+}
+
+.lp-abs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lp-abs .lp-card {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-abs b {
+  font-size: 16px;
+}
+
+.lp-abs p {
+  margin: 0;
+  font-size: 14px;
+  color: #3A3F44;
+}
+
+.lp-abs .lp-sec {
+  align-self: flex-start;
+  font-size: 14px;
+}
+
+@media (max-width: 1100px) {
+  .lp-cto,
+  .lp-ab2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .lp-cto,
+  .lp-ab2 {
+    padding: 28px var(--g) 40px;
+    gap: 18px;
+  }
+
+  .lp-cf {
+    padding: 18px 16px;
+  }
+
+  .lp-fg,
+  .lp-cs {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-cf .lp-y {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .lp-abx h2 {
+    font-size: 24px;
+  }
+
+  .lp-abx p {
+    font-size: 16px;
+  }
+}

@@ -138,8 +138,8 @@ export function ChoisissezVotreEspace() {
       <footer className="g0-f">
         <span className="g0-dk">Un lien reçu par SMS ou e-mail (devis à signer, visite, message) vous emmène directement au bon endroit.</span>
         <nav aria-label="Informations">
-          <a href="/legal">À propos</a>
-          <a href="mailto:contact@getkoji.io">Contact</a>
+          <a href="/a-propos">À propos</a>
+          <a href="/entreprise/contact">Contact</a>
           <a href="/legal">Mentions légales</a>
           <a href="/legal">Confidentialité</a>
           <span aria-label="Langue : français">FR</span>

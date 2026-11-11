@@ -32,6 +32,9 @@ const PUBLIC_ROUTES: Array<{
   { path: "/entreprise/tarifs", changeFrequency: "monthly", priority: 0.8 },
   // Pages Métiers (SITE-04) : une par métier dont le contenu est écrit.
   { path: "/entreprise/metiers/plombier", changeFrequency: "monthly", priority: 0.7 },
+  // Contact et démonstration (SITE-06), À propos (SITE-07).
+  { path: "/entreprise/contact", changeFrequency: "yearly", priority: 0.5 },
+  { path: "/a-propos", changeFrequency: "yearly", priority: 0.4 },
   // Page d'accueil des particuliers (SITE-02).
   { path: "/particulier", changeFrequency: "weekly", priority: 0.9 },
   { path: "/login", changeFrequency: "monthly", priority: 0.8 },

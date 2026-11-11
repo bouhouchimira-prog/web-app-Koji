@@ -279,7 +279,7 @@ export function ParticulierLanding() {
         </div>
         <div className="lc-fc">
           <b>Koji</b>
-          <a>À propos</a>
+          <a href="/a-propos">À propos</a>
           <a href={CONTACT}>Contact</a>
           <a href="/legal">Mentions légales</a>
           <a href="/legal">Conditions particuliers</a>
