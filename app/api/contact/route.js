@@ -7,7 +7,7 @@ import { sendContactRequestEmail } from "../../../lib/mailer";
 // (db.contactRequests, avec la preuve du consentement) et envoyée à la boîte
 // de contact ; si l'e-mail ne part pas, elle reste enregistrée et la
 // personne voit quand même que c'est reçu.
-export const OBJETS = {
+const OBJETS = {
   demonstration: "Une démonstration",
   question: "Une question",
   reprise: "Reprendre mon existant",
