@@ -1,421 +1,706 @@
-"use client";
+import KojiWordmark from '../../components/KojiWordmark';
+import { DM_Sans } from '../fonts';
+import './landing.css';
 
-import Link from "next/link";
-import { DM_Sans } from "next/font/google";
-import { useState } from "react";
-import "./landing.css";
+// SITE-01 (maquette « KOJI Pro pages », v3) : page d'accueil publique pour les
+// artisans et entreprises, sur getkoji.io/entreprise. Une seule action :
+// créer son compte.
+//
+// Onglets de « Tout le métier » et choix Mensuel / Annuel : boutons radio et
+// CSS seulement (landing.css), comme la maquette — la page fonctionne sans
+// JavaScript et se rend côté serveur (référencement).
+//
+// Deux écarts voulus avec la maquette, dont la grille 0 / 29 / 59 € était une
+// hypothèse : les prix sont ceux de Stripe (components/PricingPlans.jsx,
+// 29 / 69 € par mois, 276 / 660 € par an) et l'offre Start annonce
+// « 5 devis avec l'IA par mois » (décision du 1er nov.), pas « illimités ».
 
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--f" });
-
-const SIGNUP = "/login?type=entreprise";
-const CONTACT = "mailto:contact@getkoji.io";
+const SIGNUP = '/signup?type=entreprise';
+const LOGIN = '/login?type=entreprise';
+const PARTICULIER = '/particulier';
+const CONTACT = 'mailto:contact@getkoji.io';
 
 function Check() {
   return (
-    <svg className="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
-  );
-}
-
-function RadarMap() {
-  return (
-    <svg viewBox="0 0 630 410">
-      <rect width="630" height="410" fill="#E6E6DF" />
-      <g fill="#D6D6CF" stroke="#171B1E" strokeWidth="2">
-        <rect x="22" y="22" width="102" height="66" /><rect x="168" y="34" width="90" height="56" />
-        <rect x="336" y="16" width="134" height="62" /><rect x="526" y="22" width="80" height="50" />
-        <rect x="34" y="168" width="78" height="66" /><rect x="368" y="168" width="66" height="60" />
-        <rect x="526" y="164" width="80" height="78" /><rect x="186" y="320" width="122" height="56" />
-        <rect x="370" y="330" width="134" height="52" />
-      </g>
-      <rect x="188" y="222" width="82" height="62" fill="#CFDCC4" stroke="#171B1E" strokeWidth="2" />
-      <g stroke="#FFFFFF" strokeWidth="10" fill="none">
-        <path d="M136 0v410M300 0l-6 410M-10 130h650M-10 240h650M-10 310h650M-10 205h650" />
-      </g>
-      <circle cx="314" cy="206" r="134" fill="none" stroke="#171B1E" strokeWidth="1.5" strokeDasharray="5 5" />
-      <circle cx="314" cy="206" r="8" fill="#171B1E" />
-      <g fontWeight="700" fontSize="19" textAnchor="middle">
-        <rect x="268" y="118" width="96" height="36" fill="#171B1E" /><text x="316" y="143" fill="#FFFFFF">6 000 €</text>
-        <rect x="482" y="168" width="96" height="36" fill="#171B1E" /><text x="530" y="193" fill="#FFFFFF">3 400 €</text>
-        <rect x="236" y="282" width="96" height="36" fill="#171B1E" /><text x="284" y="307" fill="#FFFFFF">1 500 €</text>
-        <rect x="490" y="300" width="104" height="36" fill="#FFFFFF" stroke="#171B1E" strokeWidth="1.5" strokeDasharray="4 3" /><text x="542" y="325" fill="#171B1E">12 800 €</text>
-      </g>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 12l5 5L20 6" />
     </svg>
   );
 }
 
-const TABS = [
-  {
-    label: "Trouver",
-    title: "Des chantiers près de chez vous, déjà décrits",
-    text: "Sur le Radar, chaque demande arrive avec des photos, un projet structuré et un prix recommandé que le client a déjà accepté. Vous voyez votre marge avant de vous positionner.",
-    checks: ["Zone et métiers choisis par vous", "Prix recommandé affiché avant de vous positionner", "Jetons débités seulement si le client confirme le rendez-vous"],
-    preview: null
-  },
-  {
-    label: "Chiffrer",
-    title: "Un devis guidé, prix tirés de vos factures",
-    text: "Ajoutez ouvrages, sous-ouvrages et fournitures. Les prix viennent de votre historique, métier par métier.",
-    checks: ["Sur place ou dans le camion, guidé par les questions de Koji", "TVA et mentions choisies et ajoutées par Koji"],
-    preview: "Aperçu de l'éditeur de devis"
-  },
-  {
-    label: "Conduire",
-    title: "Vos chantiers et votre planning, au même endroit",
-    text: "Suivez chaque chantier, son avancement et son calendrier.",
-    checks: ["Chantiers et calendrier", "Relances préparées, vous validez"],
-    preview: "Aperçu du calendrier"
-  },
-  {
-    label: "Encaisser",
-    title: "Facturer et encaisser sans relancer à la main",
-    text: "Factures, situations, avoirs et acomptes, avec signature en ligne.",
-    checks: ["Signature en ligne, acompte demandé dans la foulée", "Facture électronique prête"],
-    preview: "Aperçu des factures"
-  },
-  {
-    label: "Équipe",
-    title: "Votre équipe, son planning et ses heures",
-    text: "Répartissez les chantiers entre vos ouvriers et suivez les heures.",
-    checks: ["Équipe, planning et heures", "5 comptes (offre Business)"],
-    preview: "Aperçu de l'équipe"
-  }
+function Star() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" />
+    </svg>
+  );
+}
+
+const METIERS = ['Plombier', 'Électricien', 'Carreleur', 'Peintre', 'Plaquiste', 'Maçon', 'Menuisier', "Rénovation tous corps d'état"];
+
+const DEVIS_LIGNES = [
+  ['Lot 01', 'Déposer la baignoire et la faïence', '983,20 €'],
+  ['Lot 02', 'Poser le receveur extra-plat 90 × 120', '690,00 €'],
+  ['Lot 02', "Créer l'évacuation du receveur", '420,00 €'],
+  ['Lot 03', 'Poser la faïence toute hauteur, 19,4 m²', '1 707,20 €'],
+  ['Lot 04', "Créer le circuit de la salle d'eau", '380,00 €'],
 ];
 
-const FEATURE_MENU = [
-  { label: "Devis avec IA", tab: 1 },
-  { label: "Chantiers autour de vous", tab: 0 },
-  { label: "Factures", tab: 3 },
-  { label: "Équipe", tab: 4 },
-  { label: "Fournitures", tab: 1 }
+// Carte du Radar (onglet Trouver) : prix recommandés épinglés dans la zone.
+function RadarMap() {
+  const pin = (x, y, w, label, taken) => (
+    <g>
+      <path d={`M${x + w / 2 - 6} ${y + 29} l6 7 l6 -7z`} fill={taken ? '#5B5F66' : '#171B1E'} />
+      <rect
+        rx="4"
+        x={x}
+        y={y}
+        width={w}
+        height="30"
+        fill={taken ? '#FFFFFF' : '#171B1E'}
+        stroke="#171B1E"
+        strokeWidth="1.5"
+        strokeDasharray={taken ? '4 3' : undefined}
+      />
+      <text x={x + 10} y={y + 20} fontSize="15" fontWeight="700" fill={taken ? '#171B1E' : '#FFFFFF'}>{label}</text>
+    </g>
+  );
+  return (
+    <svg className="lp-map" viewBox="0 0 560 360" role="img" aria-label="Carte du Radar des chantiers">
+      <rect width="560" height="360" fill="#E4E3DC" />
+      <rect x="20" y="20" width="90" height="60" fill="#D9D8D0" />
+      <rect x="150" y="30" width="80" height="50" fill="#D9D8D0" />
+      <rect x="300" y="15" width="120" height="55" fill="#D9D8D0" />
+      <rect x="470" y="40" width="70" height="40" fill="#D9D8D0" />
+      <rect x="30" y="150" width="70" height="60" fill="#D9D8D0" />
+      <rect x="330" y="150" width="90" height="55" fill="#D9D8D0" />
+      <rect x="470" y="150" width="70" height="70" fill="#D9D8D0" />
+      <rect x="40" y="290" width="110" height="50" fill="#D9D8D0" />
+      <rect x="330" y="300" width="120" height="45" fill="#D9D8D0" />
+      <rect x="168" y="198" width="72.8" height="54" fill="#CFDCC4" />
+      <path d="M0 115.2 L560 90" stroke="#FFFFFF" strokeWidth="12" fill="none" />
+      <path d="M0 266.4 L560 288" stroke="#FFFFFF" strokeWidth="9" fill="none" />
+      <path d="M123.2 0 L156.8 360" stroke="#FFFFFF" strokeWidth="10" fill="none" />
+      <path d="M380.8 0 L336 360" stroke="#FFFFFF" strokeWidth="8" fill="none" />
+      <path d="M0 187.2 L560 169.2" stroke="#FFFFFF" strokeWidth="5" fill="none" />
+      <path d="M252 0 L263.2 360" stroke="#FFFFFF" strokeWidth="4" fill="none" />
+      <circle cx="257.6" cy="180" r="151.2" fill="none" stroke="#171B1E" strokeWidth="1.5" strokeDasharray="5 5" />
+      <circle cx="257.6" cy="180" r="9" fill="#171B1E" stroke="#FFFFFF" strokeWidth="3" />
+      {pin(110, 70, 83, '6 000 €')}
+      {pin(360, 105, 83, '3 400 €')}
+      {pin(170, 235, 83, '1 500 €')}
+      {pin(395, 240, 92, '12 800 €', true)}
+    </svg>
+  );
+}
+
+// Photo de chantier dessinée (onglet Conduire) ; `flip` = la vue « après ».
+function ChantierPhoto({ stamp, label, flip = false }) {
+  const mirror = flip ? { transform: 'scaleX(-1)' } : undefined;
+  return (
+    <div>
+      <div className={`ph-i${flip ? '' : ' dk'}`} style={mirror}>
+        <svg viewBox="0 0 260 180" preserveAspectRatio="xMidYMid slice" style={{ display: 'block', width: '100%', height: '100%' }} aria-hidden="true">
+          <rect width="260" height="180" fill="#C9C6C0" />
+          <rect y="133" width="260" height="47" fill="#8F8B85" />
+          <rect x="26" y="69" width="99" height="64" fill="#E3E0DA" stroke="#77736D" />
+          <path d="M143 30 l30 40 l-12 30" stroke="#77736D" fill="none" />
+          <rect x="161" y="87" width="47" height="46" fill="#D8D4CD" stroke="#77736D" />
+          <rect x="16" y="40" width="78" height="34" fill="#B5B1AA" />
+        </svg>
+        <span className="ph-st" style={mirror}>{stamp}</span>
+        <span className="ph-k" style={mirror}>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+const TOUR = [
+  {
+    num: '01',
+    title: 'Trouver',
+    heading: 'Des chantiers près de chez vous, déjà décrits',
+    description:
+      'Sur le Radar, chaque demande arrive avec des photos, un projet structuré et un prix recommandé que le client a déjà accepté. Vous voyez votre marge avant de vous positionner.',
+    items: [
+      'Zone et métiers choisis par vous',
+      'Prix recommandé affiché avant de vous positionner',
+      'Jetons débités seulement si le client confirme le rendez-vous',
+    ],
+    visual: (
+      <div className="lp-vis">
+        <RadarMap />
+      </div>
+    ),
+  },
+  {
+    num: '02',
+    title: 'Chiffrer',
+    heading: "Vos prix, pas ceux d'un catalogue",
+    description:
+      "Importez quelques factures : Koji calcule votre taux par métier et l'applique à chaque ligne. Il pose les questions qu'on oublie sur place, et vous validez chaque ligne.",
+    items: [
+      'Taux horaire tiré de vos factures',
+      'Fournitures au prix public, avec votre remise',
+      'TVA et mentions choisies selon le client et le logement',
+    ],
+    visual: (
+      <div className="lp-card lp-rates">
+        <div><span>Électricité</span><b>61 €/h</b><small>38 lignes lues</small></div>
+        <div><span>Carrelage, faïence</span><b>58 €/h</b><small>31 lignes lues</small></div>
+        <div><span>Plomberie</span><b>62 €/h</b><small>24 lignes lues</small></div>
+        <p>D'après 12 factures, 2025 et 2026</p>
+      </div>
+    ),
+  },
+  {
+    num: '03',
+    title: 'Conduire',
+    heading: 'Le chantier tenu, du premier coup de masse à la réception',
+    description:
+      'Planning, photos avant et après horodatées par votre équipe, réserves levées en photo, procès-verbal signé sur le téléphone. Votre client suit tout depuis son téléphone.',
+    items: [
+      'Journal de chantier en photos',
+      'Avenant signé avant de faire le travail en plus',
+      'Procès-verbal de réception signé sur place',
+    ],
+    visual: (
+      <div className="lp-ph">
+        <ChantierPhoto stamp="14/11 08:02 · Yanis K." label="Avant" />
+        <ChantierPhoto stamp="14/11 16:41 · Yanis K." label="Après" flip />
+        <div className="lp-ph-r">
+          <b>Réserves</b>
+          <span>2 levées sur 2 · procès-verbal signé le 20/11</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    num: '04',
+    title: 'Encaisser',
+    heading: 'Facturé le jour même, payé plus tôt',
+    description:
+      'Acompte à la signature, situations de travaux, facture de solde calculée à partir du devis. Koji prépare les relances, vous validez.',
+    items: [
+      'Acompte, situations, solde et avoirs',
+      'Relances préparées au bon moment',
+      'Factures électroniques et export pour le comptable',
+    ],
+    visual: (
+      <div className="lp-card lp-inv">
+        <div className="lp-inv-h">
+          <b>Factures · novembre</b>
+          <span>À encaisser : 14 074,00 €</span>
+        </div>
+        <div className="r"><em>F-2026-118</em><span>Salle de bain, Paris 10e</span><b>1 739,56 €</b><i className="ok">Payée</i></div>
+        <div className="r"><em>F-2026-121</em><span>Cuisine, Montreuil</span><b>4 210,00 €</b><i className="late">Échue depuis 12 j · relance prête</i></div>
+        <div className="r"><em>SIT-2026-07</em><span>Situation n° 2 · 85 %</span><b>9 864,00 €</b><i className="sent">Envoyée</i></div>
+        <div className="r"><em>AV-2026-003</em><span>Avoir sur F-2026-109</span><b>−240,00 €</b><i className="sent">Envoyé</i></div>
+        <p>Transmises au format électronique · copie au comptable chaque mois</p>
+      </div>
+    ),
+  },
+  {
+    num: '05',
+    title: 'Équipe',
+    heading: "Toute l'équipe sur la même page",
+    description:
+      'Chacun voit son planning, pointe ses heures et envoie ses photos depuis son téléphone. Les messages sont traduits dans la langue de chaque compagnon.',
+    items: [
+      'Planning de la semaine par compagnon',
+      'Heures et dépenses rattachées au chantier',
+      'Messages traduits : portugais, arabe, turc, roumain, polonais',
+    ],
+    visual: (
+      <div className="lp-card lp-eq">
+        <div className="g h"><span /><b>Lun.</b><b>Mar.</b><b>Mer.</b><b>Jeu.</b><b>Ven.</b></div>
+        {[
+          ['Yanis K.', 'Paris 18e', 'Paris 18e', 'Montreuil', 'Montreuil', null],
+          ['Sergiu P.', 'Paris 10e', 'Paris 10e', 'Paris 10e', 'Paris 18e', 'Paris 18e'],
+          ['Adem T.', 'Montreuil', 'Montreuil', null, 'Paris 10e', 'Paris 10e'],
+        ].map(([nom, ...jours]) => (
+          <div className="g" key={nom}>
+            <span>{nom}</span>
+            {jours.map((lieu, i) => (
+              <i key={i} className={lieu ? undefined : 'off'}>{lieu || '—'}</i>
+            ))}
+          </div>
+        ))}
+        <p>Heures pointées sur le téléphone · messages traduits en roumain et en turc</p>
+      </div>
+    ),
+  },
 ];
 
-const COMPARISON = [
-  ["Le devis", "Le soir, à partir d'un ancien fichier", "Sur place ou dans le camion, guidé par les questions de Koji"],
-  ["Les prix", "Recopiés d'un devis précédent", "Tirés de vos factures, métier par métier"],
-  ["TVA et mentions", "À vérifier à chaque fois", "Choisies et ajoutées par Koji, certifiées par le client en signant"],
-  ["La signature", "Imprimer, faire signer, scanner", "Signature en ligne, acompte demandé dans la foulée"],
-  ["Les impayés", "Un tableau à tenir à jour", "Relances préparées, vous validez"],
-  ["Les nouveaux chantiers", "Le bouche-à-oreille", "Le Radar des chantiers et votre page Koji"]
+const ALSO = [
+  ['Votre page Koji', 'Une vitrine avec vos réalisations et vos avis vérifiés, prête en dix minutes.'],
+  ['Le Réseau pro', 'Trouvez un sous-traitant ou un lot à prendre entre entreprises, sans commission.'],
+  ["Bibliothèque d'ouvrages", "Vos ouvrages types, réutilisés d'un devis à l'autre."],
+  ['Dépenses par chantier', 'Tickets et factures fournisseurs rangés, marge réelle à jour.'],
+];
+
+const COMPARE = [
+  ['Le devis', "Le soir, à partir d'un ancien fichier", 'Sur place ou dans le camion, guidé par les questions de Koji'],
+  ['Les prix', "Recopiés d'un devis précédent", 'Tirés de vos factures, métier par métier'],
+  ['TVA et mentions', 'À vérifier à chaque fois', 'Choisies et ajoutées par Koji, certifiées par le client en signant'],
+  ['La signature', 'Imprimer, faire signer, scanner', 'Signature en ligne, acompte demandé dans la foulée'],
+  ['Les impayés', 'Un tableau à tenir à jour', 'Relances préparées, vous validez'],
+  ['Les nouveaux chantiers', 'Le bouche-à-oreille', 'Le Radar des chantiers et votre page Koji'],
 ];
 
 const RULES = [
-  ["La bonne TVA", "10 % en rénovation, 5,5 % pour les travaux d'énergie, 20 % pour une société, autoliquidation en sous-traitance. Le client certifie la mention en signant."],
-  ["Les mentions obligatoires", "Assurance décennale, conditions de paiement, médiateur, numérotation sans trou : rien ne manque sur vos documents."],
-  ["Signature chez le client", "Délai de rétractation, formulaire joint, acompte demandé au bon moment : Koji suit la règle selon le lieu de signature."],
-  ["Corriger sans tricher", "Une facture se corrige par un avoir qui la référence, puis une nouvelle facture. Deux clics."]
+  ['La bonne TVA', "10 % en rénovation, 5,5 % pour les travaux d'énergie, 20 % pour une société, autoliquidation en sous-traitance. Le client certifie la mention en signant."],
+  ['Les mentions obligatoires', 'Assurance décennale, conditions de paiement, médiateur, numérotation sans trou : rien ne manque sur vos documents.'],
+  ['Signature chez le client', 'Délai de rétractation, formulaire joint, acompte demandé au bon moment : Koji suit la règle selon le lieu de signature.'],
+  ['Corriger sans tricher', 'Une facture se corrige par un avoir qui la référence, puis une nouvelle facture. Deux clics.'],
 ];
 
 const STEPS = [
-  ["Votre entreprise", "Saisissez votre SIREN : nom, adresse et numéro de TVA se remplissent seuls."],
-  ["Vos prix", "Envoyez trois à dix factures récentes. Koji en tire votre taux par métier."],
-  ["Vos clients et anciens devis", "Importez votre fichier Excel ou votre ancien logiciel. Ou envoyez-le nous, on s'en charge."],
-  ["Votre premier devis", "Décrivez le chantier, répondez aux questions, envoyez. Le client signe sur son téléphone."]
+  ['Votre entreprise', 'Saisissez votre SIREN : nom, adresse et numéro de TVA se remplissent seuls.'],
+  ['Vos prix', 'Envoyez trois à dix factures récentes. Koji en tire votre taux par métier.'],
+  ['Vos clients et anciens devis', "Importez votre fichier Excel ou votre ancien logiciel. Ou envoyez-le nous, on s'en charge."],
+  ['Votre premier devis', 'Décrivez le chantier, répondez aux questions, envoyez. Le client signe sur son téléphone.'],
 ];
 
-// Same figures as components/PricingPlans.jsx, which matches the live Stripe prices.
+// Prix : ceux de Stripe (components/PricingPlans.jsx). `annual` = montant
+// facturé une fois par an, `annualNote` = son équivalent mensuel.
 const PLANS = [
   {
-    name: "Start",
-    sub: "Pour l'artisan qui démarre ou veut essayer",
-    features: ["5 devis avec l'IA par mois", "Chantiers et calendrier", "Votre page Koji", "Radar des chantiers avec jetons"],
-    cta: "Créer mon compte gratuit",
-    primary: true
+    name: 'Start',
+    subtitle: "Pour l'artisan qui démarre ou veut essayer",
+    monthly: '0 €',
+    monthlyNote: 'pour commencer',
+    annual: '0 €',
+    annualNote: 'pour commencer',
+    features: ["5 devis avec l'IA par mois", 'Chantiers et calendrier', 'Votre page Koji', 'Radar des chantiers avec jetons'],
+    cta: 'Créer mon compte gratuit',
+    primary: true,
   },
   {
-    name: "Pro",
-    badge: "Conseillé",
-    sub: "Pour l'artisan qui devise et facture chaque semaine",
-    price: { month: 29, year: 23 },
-    features: ["Tout Start", "Factures, situations, avoirs", "Facture électronique", "Fournitures et bibliothèque", "Réseau pro entre entreprises"],
-    cta: "Essayer Pro"
+    name: 'Pro',
+    badge: 'Conseillé',
+    subtitle: "Pour l'artisan qui devise et facture chaque semaine",
+    monthly: '29 € HT',
+    monthlyNote: 'par mois',
+    annual: '276 € HT',
+    annualNote: 'par an, soit 23 € par mois',
+    features: ['Tout Start', 'Factures, situations, avoirs', 'Facture électronique', 'Fournitures et bibliothèque', 'Réseau pro entre entreprises'],
+    cta: 'Essayer Pro',
   },
   {
-    name: "Business",
-    sub: "Pour l'entreprise avec une équipe",
-    price: { month: 69, year: 55 },
-    features: ["Tout Pro", "Dépenses par chantier", "Équipe, planning et heures", "5 comptes"],
-    cta: "Essayer Business"
-  }
+    name: 'Business',
+    subtitle: "Pour l'entreprise avec une équipe",
+    monthly: '69 € HT',
+    monthlyNote: 'par mois',
+    annual: '660 € HT',
+    annualNote: 'par an, soit 55 € par mois',
+    features: ['Tout Pro', 'Dépenses par chantier', 'Équipe, planning et heures', '5 comptes'],
+    cta: 'Essayer Business',
+  },
 ];
 
-const TRUST = [
-  { title: "Données hébergées en France", text: "Sauvegardes chaque jour, accès chiffré.", icon: <><rect x="5" y="11" width="14" height="10" rx="1" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></> },
-  { title: "Vos données vous appartiennent", text: "Devis, factures, photos et contacts téléchargeables à tout moment.", icon: <path d="M12 4v12M6 11l6 6 6-6M4 20h16" /> },
-  { title: "Signature avec preuve", text: "Date, heure et identité du signataire conservées avec le document.", icon: <path d="M3 15c2-6 4-6 6 0s4 6 6 0 3-4 6-2" /> },
-  { title: "Un humain répond", text: "Par message ou par téléphone, du lundi au samedi.", icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></> }
+const SAFE = [
+  ['M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3', 'Données hébergées en France', 'Sauvegardes chaque jour, accès chiffré.'],
+  ['M12 4v11M7 10l5 5 5-5M5 20h14', 'Vos données vous appartiennent', 'Devis, factures, photos et contacts téléchargeables à tout moment.'],
+  ['M4 17c3-6 5-6 6-2s3 4 5-1 3-3 5 1M4 21h16', 'Signature avec preuve', 'Date, heure et identité du signataire conservées avec le document.'],
+  ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', 'Un humain répond', 'Par message ou par téléphone, du lundi au samedi.'],
 ];
 
 const FAQ = [
-  ["Combien coûte un chantier trouvé sur le Radar ?", "Le nombre de jetons est affiché avant de vous positionner. Ils ne sont débités que si le client confirme le rendez-vous ; sinon ils reviennent sur votre solde."],
-  ["Je n'ai pas le temps de remplir mes prix.", "Envoyez simplement trois à dix factures récentes. Koji en tire votre taux par métier."],
-  ["Mes clients doivent-ils installer quelque chose ?", "Non. Le client reçoit un lien par SMS ou email et signe directement sur son téléphone. Aucune installation, aucune application à télécharger."],
-  ["Je travaille surtout sur mon téléphone.", "Koji fonctionne parfaitement sur mobile : chiffrer un devis, ajouter une photo, valider une facture. L'interface s'adapte à l'écran."],
-  ["Et la facture électronique ?", "Koji génère les factures au format Factur-X, l'e-facture certifiée par l'État. Elles sont prêtes à envoyer à vos clients et à votre comptabilité."],
-  ["Mon comptable peut-il s'en servir ?", "Oui. Vous pouvez lui donner accès en lecture seule à vos factures. Il y récupère aussi tous les fichiers au format Excel ou PDF pour sa déclaration."],
-  ["J'ai déjà un logiciel de devis.", "On migre vos données. Envoyez-nous votre fichier ou votre accès : on importe vos clients, vos prix et vos anciens devis. Gratuit pour les 50 premiers devis."],
-  ["Je peux partir avec mes données ?", "Oui. Devis, factures, photos et contacts sont téléchargeables à tout moment."]
+  ['Combien coûte un chantier trouvé sur le Radar ?', 'Le nombre de jetons est affiché avant de vous positionner. Ils ne sont débités que si le client confirme le rendez-vous ; sinon ils reviennent sur votre solde.'],
+  ["Je n'ai pas le temps de remplir mes prix.", "Envoyez trois à dix factures récentes : Koji en déduit votre taux par métier. Vous validez, c'est tout."],
+  ['Mes clients doivent-ils installer quelque chose ?', 'Non. Ils reçoivent devis et factures par lien et signent en ligne. Ceux qui veulent suivre leur chantier peuvent ouvrir Koji Client.'],
+  ['Je travaille surtout sur mon téléphone.', "Tout se fait sur le téléphone : visite, devis, photos, signature du client, factures. L'ordinateur est un confort, pas une obligation."],
+  ['Et la facture électronique ?', 'Koji reçoit et transmet vos factures au format électronique par une plateforme agréée. Vous continuez à facturer comme avant.'],
+  ["Mon comptable peut-il s'en servir ?", "Oui. Vos dépenses sont rangées par chantier et vos factures s'envoient au comptable en un fichier, chaque mois."],
+  ["J'ai déjà un logiciel de devis.", "Importez vos clients, vos ouvrages et vos anciens devis depuis un fichier Excel. Si c'est plus simple, envoyez-le nous."],
+  ['Je peux partir avec mes données ?', 'Oui. Devis, factures, chantiers, contacts et photos se téléchargent à tout moment depuis votre compte.'],
 ];
 
 export function EntrepriseLanding() {
-  const [tab, setTab] = useState(0);
-  const [yearly, setYearly] = useState(false);
-  const active = TABS[tab];
-
   return (
-    <div className={`kl ${dmSans.variable}`}>
-      <header className="nav">
-        <div className="wrap">
-          <Link className="brand" href="/entreprise">KOJI</Link>
-          <ul>
-            <li><a href="#decouvrir">Découvrir</a></li>
-            <li className="dd">
-              <button type="button" className="dd-b">Fonctionnalités <span aria-hidden="true">▾</span></button>
-              <div className="dd-m">
-                {FEATURE_MENU.map((item) => (
-                  <a key={item.label} href="#fonctions" onClick={(e) => { setTab(item.tab); e.currentTarget.blur(); }}>{item.label}</a>
-                ))}
-              </div>
-            </li>
-            <li><a href="/profile/entreprise">Métiers</a></li>
-            <li><a href="#comparer">Comparer</a></li>
-            <li><a href="#tarifs">Tarifs</a></li>
-          </ul>
-          <span className="lang">FR</span>
-          <Link className="login" href={SIGNUP}>Se connecter</Link>
-          <Link className="btn btn-y" href={SIGNUP}>Créer mon compte</Link>
-        </div>
+    <div className={`lp ${DM_Sans.variable}`}>
+      {/* En-tête collant */}
+      <header className="lp-h">
+        <a href="/" className="lp-w" aria-label="Koji, accueil"><KojiWordmark height={16} /></a>
+        <nav aria-label="Navigation principale">
+          <a href="#lp-tour">Fonctionnalités</a>
+          <a href="#lp-tour">Radar des chantiers</a>
+          <a href="#lp-tarifs">Tarifs</a>
+          <a href="#lp-faq">Questions</a>
+        </nav>
+        <a href={PARTICULIER} className="lp-cli">Vous avez un projet de travaux ?</a>
+        <span className="lp-lg" aria-label="Langue : français">FR</span>
+        <a href={LOGIN} className="lp-in">Se connecter</a>
+        <a href={SIGNUP} className="lp-y">Créer mon compte</a>
       </header>
 
-      <section id="decouvrir" className="assist">
-        <div className="wrap">
-          <div>
-            <div className="spark" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>
-            </div>
-            <h1>Une question sur votre entreprise ? Demandez à Koji.</h1>
-            <p className="lead">Koji connaît vos chantiers, vos devis, vos factures et votre équipe. Il répond avec les chiffres, montre d'où ils viennent et prépare la suite : une relance, un avenant, un message. Rien ne part sans vous.</p>
-            <div className="qchips">
-              <span>Qui me doit de l'argent ?</span>
-              <span>Mon planning de la semaine</span>
-              <span>Combien j'ai dépensé en fournitures ce mois-ci ?</span>
-              <span>Relance le devis de M. Caron</span>
-            </div>
+      {/* Ouverture : la promesse à gauche, le produit lui-même à droite */}
+      <section className="lp-hero">
+        <div className="lp-hl">
+          <h1>
+            Décrivez le chantier.
+            <br />
+            Koji le chiffre.
+          </h1>
+          <p>
+            L'application des artisans et des entreprises du bâtiment : trouver des chantiers près de chez vous, envoyer un devis juste en dix minutes, suivre le chantier et encaisser.
+          </p>
+          <div className="lp-ctas">
+            <a href={SIGNUP} className="lp-y big">Créer mon compte gratuit</a>
+            <a className="lp-sec" href="#lp-tour">Voir comment ça marche</a>
           </div>
-          <div className="chat" aria-label="Exemple de conversation avec Koji">
-            <div className="bub-u">Quels chantiers perdent de l'argent ce mois-ci ?</div>
-            <div className="ans">
-              <small>Réponse de Koji, assistant IA · sources : devis 2026-033, 4 factures fournisseurs</small>
-              <p>Appartement Caulaincourt passe de 28 % à 21 % de marge : fournitures du carrelage à 5 400 € pour 3 100 € prévus, sans avenant.</p>
-              <span className="ob">Préparer l'avenant de 2 300 € HT</span>
+          <small>Offre Start gratuite, sans carte bancaire et sans engagement.</small>
+          <ul className="lp-trust">
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5" /></svg>
+              <span>Prêt pour la facture électronique</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 10h16M8 14h3" /></svg>
+              <span>Données hébergées en France</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v18H8zM11 18h2" /></svg>
+              <span>Sur téléphone et ordinateur</span>
+            </li>
+          </ul>
+          {/* Les pages par métier (SITE-04) restent à créer : libellés seuls. */}
+          <div className="lp-met">
+            <span>Fait pour</span>
+            {METIERS.map((metier) => <a key={metier}>{metier}</a>)}
+          </div>
+        </div>
+        <div className="lp-hr">
+          <div className="lp-doc">
+            <div className="lp-dt">
+              <b>Devis 2026-041</b>
+              <span>Salle de bain, Paris 10e</span>
             </div>
-            <div className="ask">
-              <span>Posez votre question, à l'écrit ou à la voix…</span>
-              <svg className="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+            <div className="lp-chat">
+              <div className="me">Salle de bain de 5,8 m², douche à l'italienne à la place de la baignoire, 4e sans ascenseur.</div>
+              <div className="kj">
+                <Star />
+                <span>L'évacuation actuelle peut-elle servir ? Je compte une demi-journée de plus pour les gravats par l'escalier.</span>
+              </div>
+            </div>
+            <div className="lp-ls">
+              {DEVIS_LIGNES.map(([lot, label, prix]) => (
+                <div className="l" key={label}><em>{lot}</em><span>{label}</span><b>{prix}</b></div>
+              ))}
+              <div className="l more"><em /><span>+ 6 lignes</span><b /></div>
+            </div>
+            <div className="lp-tot">
+              <span>Total TTC · TVA 10 % choisie par Koji</span>
+              <b>5 798,54 €</b>
+            </div>
+            <div className="lp-st">
+              <i className="on"><Check />Envoyé</i>
+              <i className="on"><Check />Vu</i>
+              <i className="on"><Check />Signé</i>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="fonctions" className="sec-white">
-        <div className="wrap">
-          <div className="sec-head">
-            <h2>Tout le métier, dans une seule application</h2>
-            <p>Du premier contact à la dernière facture, sans changer d'outil.</p>
+      {/* Koji, l'assistant */}
+      <section className="lp-koji" id="lp-koji">
+        <div className="lp-kl">
+          <span className="lp-ks"><Star /></span>
+          <h2>Une question sur votre entreprise ? Demandez à Koji.</h2>
+          <p>
+            Koji connaît vos chantiers, vos devis, vos factures et votre équipe. Il répond avec les chiffres, montre d'où ils viennent et prépare la suite : une relance, un avenant, un message. Rien ne part sans vous.
+          </p>
+          <div className="lp-kq">
+            <a>Qui me doit de l'argent ?</a>
+            <a>Mon planning de la semaine</a>
+            <a>Combien j'ai dépensé en fournitures ce mois-ci ?</a>
+            <a>Relance le devis de M. Caron</a>
           </div>
+        </div>
+        <div className="lp-kr">
+          <div className="q">Quels chantiers perdent de l'argent ce mois-ci ?</div>
+          <div className="a">
+            <small>Réponse de Koji, assistant IA · sources : devis 2026-033, 4 factures fournisseurs</small>
+            <p>Appartement Caulaincourt passe de 28 % à 21 % de marge : fournitures du carrelage à 5 400 € pour 3 100 € prévus, sans avenant.</p>
+            <span className="act">Préparer l'avenant de 2 300 € HT</span>
+          </div>
+          <div className="in">
+            Posez votre question, à l'écrit ou à la voix…
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
+            </svg>
+          </div>
+        </div>
+      </section>
 
-          <div className="tabs" role="tablist">
-            {TABS.map((t, i) => (
-              <button
-                key={t.label}
-                type="button"
-                role="tab"
-                aria-selected={i === tab}
-                className={i === tab ? "on" : undefined}
-                onClick={() => setTab(i)}
-              >
-                <small>{String(i + 1).padStart(2, "0")}</small> {t.label}
-              </button>
+      {/* Visite guidée à onglets */}
+      <section className="lp-tour" id="lp-tour">
+        <div className="lp-sh">
+          <h2>Tout le métier, dans une seule application</h2>
+          <p>Du premier contact à la dernière facture, sans changer d'outil.</p>
+        </div>
+        <div className="lp-tabs">
+          {TOUR.map((tab, idx) => (
+            <input key={tab.num} type="radio" name="lpt" id={`lpt${idx}`} defaultChecked={idx === 0} aria-label={tab.title} />
+          ))}
+          <div className="lp-tl">
+            {TOUR.map((tab, idx) => (
+              <label key={tab.num} htmlFor={`lpt${idx}`}>
+                <span>{tab.num}</span>
+                {tab.title}
+              </label>
             ))}
           </div>
-
-          <div className="tabpanel" role="tabpanel">
-            <div>
-              <h3>{active.title}</h3>
-              <p>{active.text}</p>
-              <ul className="checks">
-                {active.checks.map((c) => <li key={c}><Check />{c}</li>)}
-              </ul>
-            </div>
-            {active.preview
-              ? <div className="mapbox ph">{active.preview}</div>
-              : <div className="mapbox" aria-hidden="true"><RadarMap /></div>}
-          </div>
-
-          <div className="andaussi">
-            <div><h4>Et aussi</h4></div>
-            <div><h4>Votre page Koji</h4><p>Une vitrine avec vos réalisations et vos avis vérifiés, prête en dix minutes.</p></div>
-            <div><h4>Le Réseau pro</h4><p>Trouvez un sous-traitant ou un lot à prendre entre entreprises, sans commission.</p></div>
-            <div><h4>Bibliothèque d'ouvrages</h4><p>Vos ouvrages types, réutilisés d'un devis à l'autre.</p></div>
-            <div><h4>Dépenses par chantier</h4><p>Tickets et factures fournisseurs rangés, marge réelle à jour.</p></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="comparer" className="sec-white" style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <div className="sec-head">
-            <h2>Le soir, vous avez mieux à faire que des devis</h2>
-            <p>Ce qui change quand on passe du tableur à Koji.</p>
-          </div>
-          <div className="cmp">
-            <div className="cmp-row hd"><span></span><span>Avec un tableur et un traitement de texte</span><span>Avec Koji</span></div>
-            {COMPARISON.map(([k, old, next]) => (
-              <div className="cmp-row" key={k}>
-                <span className="k">{k}</span>
-                <span className="old">{old}</span>
-                <span className="new"><Check />{next}</span>
+          <div className="lp-tps">
+            {TOUR.map((tab, idx) => (
+              <div key={tab.num} className={`lp-tp p${idx}`}>
+                <div className="lp-tx">
+                  <h3>{tab.heading}</h3>
+                  <p>{tab.description}</p>
+                  <ul>
+                    {tab.items.map((item) => (
+                      <li key={item}><Check />{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                {tab.visual}
               </div>
             ))}
           </div>
         </div>
-      </section>
-
-      <section id="regles">
-        <div className="wrap">
-          <div className="sec-head">
-            <h2>Les règles du bâtiment, Koji s'en occupe</h2>
-            <p>Ce qui fait perdre du temps, ou de l'argent quand c'est oublié, est appliqué tout seul sur vos devis et factures.</p>
-          </div>
-          <div className="rules">
-            {RULES.map(([title, text]) => <div key={title}><h3>{title}</h3><p>{text}</p></div>)}
-          </div>
-          <div className="reform">
-            <div>
-              <span className="tagb">RÉFORME 2026-2027</span>
-              <h3>Facture électronique : vous êtes prêt</h3>
-              <p>Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du 1er septembre 2027, les TPE et PME devront aussi les émettre. Koji reçoit et transmet vos factures par une plateforme agréée, sans changer votre façon de travailler.</p>
-            </div>
-            <div className="dates">
-              <div><b>1er sept. 2026</b><span>Réception pour toutes les entreprises</span></div>
-              <div><b>1er sept. 2027</b><span>Émission pour les TPE et PME</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="sec-white">
-        <div className="wrap">
-          <div className="sec-head" style={{ marginBottom: 24 }}>
-            <h2>Démarrer prend une soirée</h2>
-            <p>Pas de formation, pas de rendez-vous commercial obligatoire.</p>
-          </div>
-          <div className="steps">
-            {STEPS.map(([title, text], i) => (
-              <div className="step" key={title}><div className="n">{i + 1}</div><h3>{title}</h3><p>{text}</p></div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="wrap temo">
-          <div>
-            <p className="quote">« Koji est né dans notre entreprise de rénovation, à Paris. Chaque écran a d'abord servi sur nos propres chantiers, de la visite au procès-verbal. Ce qui n'aidait pas a été retiré. »</p>
-            <div className="quote-by">
-              <div className="av">K</div>
-              <div><b>Le fondateur de Koji</b><small>Dirigeant d'une entreprise de rénovation</small></div>
-            </div>
-          </div>
-          <aside className="pion">
-            <span className="tagw">PROGRAMME PIONNIERS</span>
-            <h3>Construisez Koji avec nous</h3>
-            <ul>
-              <li><Check />L'offre Pro au prix de lancement, gardé tant que vous restez</li>
-              <li><Check />Une ligne directe avec l'équipe qui construit Koji</li>
-              <li><Check />Vos demandes passent en priorité dans les nouveautés</li>
-            </ul>
-            <Link className="btn btn-o" href={SIGNUP}>Rejoindre les pionniers</Link>
-          </aside>
-        </div>
-      </section>
-
-      <section id="tarifs" className="sec-white">
-        <div className="wrap">
-          <div className="sec-head">
-            <h2>Des offres simples, sans engagement</h2>
-            <p>Commencez gratuitement. Passez à Pro le jour où vous facturez avec Koji.</p>
-          </div>
-          <div className="toggle">
-            <button type="button" aria-pressed={!yearly} className={yearly ? undefined : "on"} onClick={() => setYearly(false)}>Mensuel</button>
-            <button type="button" aria-pressed={yearly} className={yearly ? "on" : undefined} onClick={() => setYearly(true)}>Annuel · 2 mois offerts</button>
-          </div>
-          <div className="plans">
-            {PLANS.map((plan, i) => (
-              <div className={i === 0 ? "plan first" : "plan"} key={plan.name}>
-                <div className="plan-h"><h3>{plan.name}</h3>{plan.badge && <span className="badge">{plan.badge}</span>}</div>
-                <p className="sub">{plan.sub}</p>
-                <div className="price">{plan.price ? `${yearly ? plan.price.year : plan.price.month} € HT` : "0 €"}</div>
-                <div className="per">{plan.price ? (yearly ? "par mois, facturé à l'année" : "par mois") : "pour commencer"}</div>
-                <ul>{plan.features.map((f) => <li key={f}><Check />{f}</li>)}</ul>
-                <Link className={plan.primary ? "btn btn-y" : "btn btn-o"} href={SIGNUP}>{plan.cta}</Link>
-              </div>
-            ))}
-          </div>
-          <p className="note">Radar des chantiers : des jetons, débités seulement quand un client confirme un rendez-vous avec vous. Prix hors taxes. Changez d'offre ou arrêtez à tout moment.</p>
-        </div>
-      </section>
-
-      <section style={{ paddingTop: 56, paddingBottom: 56 }}>
-        <div className="wrap trust">
-          {TRUST.map((t) => (
-            <div key={t.title}>
-              <svg className="i" viewBox="0 0 24 24" aria-hidden="true">{t.icon}</svg>
-              <h3>{t.title}</h3><p>{t.text}</p>
+        <div className="lp-also">
+          <b>Et aussi</b>
+          {ALSO.map(([title, text]) => (
+            <div key={title}>
+              <span>{title}</span>
+              <p>{text}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section id="faq" style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <div className="sec-head">
-            <h2>Questions fréquentes</h2>
-            <p>Une autre question ? <a href={CONTACT}>Écrivez-nous</a>, un humain répond.</p>
+      {/* Avant / avec */}
+      <section className="lp-cmp">
+        <div className="lp-sh">
+          <h2>Le soir, vous avez mieux à faire que des devis</h2>
+          <p>Ce qui change quand on passe du tableur à Koji.</p>
+        </div>
+        <div className="lp-ct">
+          <div className="hd">
+            <span />
+            <b>Avec un tableur et un traitement de texte</b>
+            <b className="k">Avec Koji</b>
           </div>
-          <div className="faq">
-            {FAQ.map(([q, a], i) => (
-              <details key={q} open={i === 0}><summary>{q}</summary><p>{a}</p></details>
+          {COMPARE.map(([sujet, avant, avec]) => (
+            <div className="r" key={sujet}>
+              <span>{sujet}</span>
+              <p>{avant}</p>
+              <p className="k"><Check />{avec}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Les règles du bâtiment + facture électronique */}
+      <section className="lp-rules">
+        <div className="lp-sh">
+          <h2>Les règles du bâtiment, Koji s'en occupe</h2>
+          <p>Ce qui fait perdre du temps, ou de l'argent quand c'est oublié, est appliqué tout seul sur vos devis et factures.</p>
+        </div>
+        <div className="lp-rg">
+          {RULES.map(([title, text]) => (
+            <div key={title}>
+              <b>{title}</b>
+              <p>{text}</p>
+            </div>
+          ))}
+        </div>
+        <div className="lp-fe">
+          <div className="lp-fe-t">
+            <span className="lp-tag">Réforme 2026-2027</span>
+            <b>Facture électronique : vous êtes prêt</b>
+            <p>
+              Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du 1er septembre 2027, les TPE et PME devront aussi les émettre. Koji reçoit et transmet vos factures par une plateforme agréée, sans changer votre façon de travailler.
+            </p>
+          </div>
+          <div className="lp-fe-d">
+            <div><em>1er sept. 2026</em><span>Réception pour toutes les entreprises</span></div>
+            <div><em>1er sept. 2027</em><span>Émission pour les TPE et PME</span></div>
+          </div>
+        </div>
+      </section>
+
+      {/* Démarrage */}
+      <section className="lp-steps">
+        <div className="lp-sh">
+          <h2>Démarrer prend une soirée</h2>
+          <p>Pas de formation, pas de rendez-vous commercial obligatoire.</p>
+        </div>
+        <ol>
+          {STEPS.map(([title, text], idx) => (
+            <li key={title}>
+              <span>{idx + 1}</span>
+              <b>{title}</b>
+              <p>{text}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* Qui est derrière : citation du fondateur et programme pionniers */}
+      <section className="lp-orig">
+        <div className="lp-q">
+          <p className="qt">
+            « Koji est né dans notre entreprise de rénovation, à Paris. Chaque écran a d'abord servi sur nos propres chantiers, de la visite au procès-verbal. Ce qui n'aidait pas a été retiré. »
+          </p>
+          <div className="sg">
+            <span className="av">B</span>
+            <div>
+              <b>Bilal A.</b>
+              <small>Fondateur de Koji, dirigeant d'une entreprise de rénovation</small>
+            </div>
+          </div>
+        </div>
+        <div className="lp-pio">
+          <span className="lp-tag">Programme pionniers</span>
+          <h3>Construisez Koji avec nous</h3>
+          <ul>
+            <li><Check />L'offre Pro au prix de lancement, gardé tant que vous restez</li>
+            <li><Check />Une ligne directe avec l'équipe qui construit Koji</li>
+            <li><Check />Vos demandes passent en priorité dans les nouveautés</li>
+          </ul>
+          <a href={SIGNUP} className="lp-sec">Rejoindre les pionniers</a>
+        </div>
+      </section>
+
+      {/* Offres */}
+      <section className="lp-plans" id="lp-tarifs">
+        <div className="lp-sh">
+          <h2>Des offres simples, sans engagement</h2>
+          <p>Commencez gratuitement. Passez à Pro le jour où vous facturez avec Koji.</p>
+        </div>
+        <div className="lp-bill">
+          <input type="radio" name="lpb" id="lpb0" defaultChecked aria-label="Prix mensuel" />
+          <input type="radio" name="lpb" id="lpb1" aria-label="Prix annuel" />
+          <div className="lp-sw">
+            <label htmlFor="lpb0">Mensuel</label>
+            <label htmlFor="lpb1">Annuel · 2 mois offerts</label>
+          </div>
+          <div className="lp-pg">
+            {PLANS.map((plan, idx) => (
+              <div key={plan.name} className={`lp-pl${idx === 0 ? ' first' : ''}`}>
+                <div className="lp-pn">
+                  <b>{plan.name}</b>
+                  {plan.badge ? <span className="lp-badge">{plan.badge}</span> : null}
+                </div>
+                <span className="lp-pw">{plan.subtitle}</span>
+                <div className="pr m">{plan.monthly}<small>{plan.monthlyNote}</small></div>
+                <div className="pr a">{plan.annual}<small>{plan.annualNote}</small></div>
+                <ul>
+                  {plan.features.map((feature) => (
+                    <li key={feature}><Check />{feature}</li>
+                  ))}
+                </ul>
+                <a href={SIGNUP} className={plan.primary ? 'lp-y' : 'lp-sec'}>{plan.cta}</a>
+              </div>
             ))}
           </div>
         </div>
+        <p className="lp-fine c">
+          Radar des chantiers : des jetons, débités seulement quand un client confirme un rendez-vous avec vous. Prix hors taxes. Changez d'offre ou arrêtez à tout moment.
+        </p>
       </section>
 
-      <section className="cta">
-        <div className="wrap">
-          <div>
-            <h2>Votre prochain devis peut partir ce soir.</h2>
-            <p>Gratuit pour commencer · iPhone, Android et ordinateur</p>
+      {/* Confiance */}
+      <section className="lp-safe">
+        {SAFE.map(([icon, title, text]) => (
+          <div key={title}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon} /></svg>
+            <b>{title}</b>
+            <p>{text}</p>
           </div>
-          <Link className="btn btn-y" href={SIGNUP}>Créer mon compte gratuit</Link>
+        ))}
+      </section>
+
+      {/* Questions */}
+      <section className="lp-faq" id="lp-faq">
+        <div className="lp-sh">
+          <h2>Questions fréquentes</h2>
+          <p>
+            Une autre question ? <a href={CONTACT} className="lp-ul">Écrivez-nous</a>, un humain répond.
+          </p>
+        </div>
+        <div className="lp-fq">
+          {FAQ.map(([question, answer], idx) => (
+            <details key={question} open={idx === 0 ? true : undefined}>
+              <summary>{question}</summary>
+              <p>{answer}</p>
+            </details>
+          ))}
         </div>
       </section>
 
-      <footer>
-        <div className="wrap">
-          <div className="fgrid">
-            <div>
-              <span className="brand">KOJI</span>
-              <p>Devis, chantiers et factures pour les artisans et entreprises du bâtiment.</p>
-              <Link className="part" href="/">Particulier avec un projet de travaux ? Koji Client</Link>
-            </div>
-            <div><h4>Produit</h4><ul><li>Devis guidé</li><li>Radar des chantiers</li><li>Factures</li><li>Équipe</li><li>Koji, l'assistant</li><li><a href="#tarifs">Tarifs</a></li></ul></div>
-            <div><h4>Métiers</h4><ul><li>Plombier</li><li>Électricien</li><li>Carreleur</li><li>Peintre</li><li>Maçon</li><li>Tous les métiers</li></ul></div>
-            <div><h4>Ressources</h4><ul><li><Link href="/aide">Aide</Link></li><li>Facture électronique 2026</li><li>TVA dans le bâtiment</li><li>Modèles de devis</li></ul></div>
-            <div><h4>Koji</h4><ul><li>À propos</li><li><a href={CONTACT}>Contact</a></li><li><Link href="/legal">Mentions légales</Link></li><li><Link href="/legal">Conditions d'utilisation</Link></li><li><Link href="/legal">Confidentialité</Link></li><li>Cookies</li></ul></div>
-          </div>
-          <div className="fbot"><span>© 2026 Koji</span><span>Fait à Paris</span></div>
+      {/* Action finale */}
+      <section className="lp-end">
+        <div>
+          <h2>Votre prochain devis peut partir ce soir.</h2>
+          <p>Gratuit pour commencer · iPhone, Android et ordinateur</p>
+        </div>
+        <a href={SIGNUP} className="lp-y big">Créer mon compte gratuit</a>
+      </section>
+
+      {/* Pied de page. Métiers et Ressources : pages à créer (SITE-04, SITE-05). */}
+      <footer className="lp-f">
+        <div className="lp-fb">
+          <span className="lp-w"><KojiWordmark height={16} /></span>
+          <p>Devis, chantiers et factures pour les artisans et entreprises du bâtiment.</p>
+          <a href={PARTICULIER} className="lp-cli f">Particulier avec un projet de travaux ? Koji Client</a>
+        </div>
+        <div className="lp-fc">
+          <b>Produit</b>
+          <a href="#lp-tour">Devis guidé</a>
+          <a href="#lp-tour">Radar des chantiers</a>
+          <a href="#lp-tour">Factures</a>
+          <a href="#lp-tour">Équipe</a>
+          <a href="#lp-koji">Koji, l'assistant</a>
+          <a href="#lp-tarifs">Tarifs</a>
+        </div>
+        <div className="lp-fc">
+          <b>Métiers</b>
+          <a>Plombier</a>
+          <a>Électricien</a>
+          <a>Carreleur</a>
+          <a>Peintre</a>
+          <a>Maçon</a>
+          <a>Tous les métiers</a>
+        </div>
+        <div className="lp-fc">
+          <b>Ressources</b>
+          <a href="/aide">Aide</a>
+          <a>Facture électronique 2026</a>
+          <a>TVA dans le bâtiment</a>
+          <a>Modèles de devis</a>
+        </div>
+        <div className="lp-fc">
+          <b>Koji</b>
+          <a>À propos</a>
+          <a href={CONTACT}>Contact</a>
+          <a href="/legal">Mentions légales</a>
+          <a href="/legal">Conditions d'utilisation</a>
+          <a href="/legal">Confidentialité</a>
+          <a href="/legal">Cookies</a>
+        </div>
+        <div className="lp-fl">
+          <span>© 2026 Koji</span>
+          <span>Fait à Paris</span>
         </div>
       </footer>
+
+      {/* Téléphone : l'action reste sous le pouce */}
+      <div className="lp-mbar">
+        <a href={SIGNUP} className="lp-y">Créer mon compte gratuit</a>
+      </div>
     </div>
   );
 }

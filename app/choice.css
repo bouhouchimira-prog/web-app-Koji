@@ -63,14 +63,6 @@
 .g0-rem .g0-btn{background:var(--gr);color:#FFFFFF}
 .g0-sw{align-self:flex-start;font-size:14px;text-decoration:underline!important;text-underline-offset:3px;margin-top:8px}
 
-/* app/globals.css impose font-weight 400/600 !important hors .pro : la
-   page d'entrée garde les graisses de la maquette. */
-.g0 .g0-ey,.g0 .g0-btn,.g0 .g0-ul b,.g0 .g0-half h2,.g0 .g0-rem h1{font-weight:700!important}
-.g0 .g0-half.g0-cli h2{font-weight:600!important}
-.g0 .g0-login{font-weight:600!important}
-.g0 .g0-dk,.g0 .g0-ph{font-weight:inherit!important}
-.g0 .g0-half p,.g0 .g0-ul span,.g0 .g0-ft,.g0 .g0-f,.g0 .g0-f a,.g0 .g0-sw,.g0 .g0-rem p{font-weight:400!important}
-
 /* Textes courts du téléphone */
 .g0-ph{display:none}
 
@@ -93,7 +85,7 @@
   .g0-half.g0-pro p{color:#C4C7CC}
   .g0-ul,.g0-ft{display:none}
   .g0-btn{font-size:15px;padding:13px 18px}
-  .g0-login,.g0 .g0-login{position:static;order:2;font-size:12px;font-weight:400!important;opacity:.75}
+  .g0-login{position:static;order:2;font-size:12px;font-weight:400;opacity:.75}
   .g0-f{justify-content:center;padding:10px 16px}
   .g0-f nav{justify-content:center;gap:14px}
   .g0-rem{padding:28px 22px}
