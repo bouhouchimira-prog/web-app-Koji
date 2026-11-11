@@ -9284,8 +9284,9 @@ p {
 
 /* :not(.pro *) sur les deux règles ci-dessous : les pages en DA Koji Pro
    (app/home-pro.css) gardent les graisses de la maquette. Même exception
-   pour le site public : porte d'entrée (.g0, app/choice.css) et page
-   d'accueil entreprises (.lp, app/entreprise/landing.css). */
+   pour le site public : porte d'entrée (.g0, app/choice.css), page
+   d'accueil entreprises (.lp, app/entreprise/landing.css) et page d'accueil
+   particuliers (.lc, app/particulier/landing.css). */
 body :where(
   a,
   b,
@@ -9302,7 +9303,7 @@ body :where(
   textarea,
   td,
   th
-):not(.pro *):not(.g0 *):not(.lp *) {
+):not(.pro *):not(.g0 *):not(.lp *):not(.lc *) {
   font-weight: 400 !important;
 }
 
@@ -9318,7 +9319,7 @@ body :where(
   .profile-header h1,
   .tool-topline h1,
   .wizard-top h1
-):not(.pro *):not(.g0 *):not(.lp *) {
+):not(.pro *):not(.g0 *):not(.lp *):not(.lc *) {
   font-weight: 600 !important;
 }
 

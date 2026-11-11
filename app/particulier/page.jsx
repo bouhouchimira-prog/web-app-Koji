@@ -1,8 +1,11 @@
-import { redirect } from "next/navigation";
+import { ParticulierLanding } from "./ParticulierLanding";
 
-// getkoji.io/particulier = page d'accueil des particuliers (maquette
-// SITE-02), à construire. En attendant, la porte d'entrée (SITE-00) y mène
-// et le particulier arrive sur l'entrée Koji actuelle.
-export default function Page() {
-  redirect("/login?type=particulier");
+// getkoji.io/particulier : page d'accueil des particuliers (maquette SITE-02).
+export const metadata = {
+  title: "Koji — Vos travaux, un prix juste, des entreprises vérifiées",
+  description: "Décrivez vos travaux en cinq minutes, avec des photos. Koji transmet votre projet à des entreprises vérifiées près de chez vous. Gratuit, sans engagement."
+};
+
+export default function ParticulierPage() {
+  return <ParticulierLanding />;
 }

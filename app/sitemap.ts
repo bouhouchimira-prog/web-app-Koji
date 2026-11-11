@@ -28,6 +28,8 @@ const PUBLIC_ROUTES: Array<{
   // Page d'accueil des entreprises (SITE-01) : c'est elle qui porte le
   // contenu, la racine ne fait que choisir entre les deux univers.
   { path: "/entreprise", changeFrequency: "weekly", priority: 0.9 },
+  // Page d'accueil des particuliers (SITE-02).
+  { path: "/particulier", changeFrequency: "weekly", priority: 0.9 },
   { path: "/login", changeFrequency: "monthly", priority: 0.8 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.8 },
   { path: "/worker", changeFrequency: "monthly", priority: 0.5 },
