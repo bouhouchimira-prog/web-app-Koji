@@ -1950,3 +1950,262 @@
     grid-column: 1 / -1;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   SITE-03 · page Tarifs (/entreprise/tarifs)
+   --------------------------------------------------------------------------- */
+.lp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.lp-h nav a[aria-current='page'] {
+  background: #171B1E;
+  color: #FFFFFF;
+}
+
+/* Titre de page (la maquette réutilisait .lp-ph, déjà pris par les photos) */
+.lp-pgh {
+  padding: 72px var(--g) 56px;
+  border-bottom: 1px solid #CFCFC9;
+}
+
+.lp-pgh h1 {
+  font-size: 50px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  max-width: 16em;
+  font-weight: 700;
+}
+
+.lp-pgh p {
+  margin: 0;
+  font-size: 20px;
+  color: #2A2F33;
+  max-width: 34em;
+}
+
+.lp-ey {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5B5F66;
+  margin-bottom: 14px;
+}
+
+/* Outil par outil */
+.lp-tc {
+  padding: 72px var(--g);
+}
+
+.lp-ttw {
+  overflow-x: auto;
+}
+
+.lp-tt {
+  width: 100%;
+  border-collapse: collapse;
+  background: #FFFFFF;
+  border: 1px solid #CFCFC9;
+  font-size: 15px;
+}
+
+.lp-tt th {
+  text-align: left;
+  padding: 18px 20px;
+  font-size: 18px;
+  font-weight: 700;
+  border-bottom: 2px solid #171B1E;
+  vertical-align: bottom;
+}
+
+.lp-tt th small {
+  display: block;
+  font-size: 13px;
+  color: #5B5F66;
+  font-weight: 500;
+}
+
+.lp-tt th:not(:first-child) {
+  text-align: center;
+  width: 16%;
+}
+
+.lp-tt td {
+  padding: 12px 20px;
+  border-bottom: 1px solid #E6E6E1;
+}
+
+.lp-tt td.c {
+  text-align: center;
+}
+
+.lp-tt td.c svg {
+  width: 18px;
+  height: 18px;
+  stroke: #171B1E;
+  fill: none;
+  stroke-width: 2.5;
+  vertical-align: middle;
+}
+
+.lp-tt td.c.t {
+  font-size: 13px;
+  color: #3A3F44;
+}
+
+.lp-tt .no {
+  color: #C4C7CC;
+}
+
+.lp-tt tr.g td {
+  background: #F5F5F2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5B5F66;
+  padding: 10px 20px;
+}
+
+/* Jetons du Radar */
+.lp-jet {
+  padding: 0 var(--g) 72px;
+}
+
+.lp-jg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.lp-jt {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 22px 24px;
+}
+
+.lp-jt > b {
+  font-size: 17px;
+  margin-bottom: 10px;
+}
+
+.lp-jt .r {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid #E6E6E1;
+  font-size: 15px;
+}
+
+.lp-jt .r b {
+  font-size: 15px;
+  text-align: right;
+}
+
+.lp-jt small {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .lp-jg {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .lp-pgh {
+    padding: 36px var(--g) 28px;
+  }
+
+  .lp-pgh h1 {
+    font-size: 32px;
+  }
+
+  .lp-pgh p {
+    font-size: 16px;
+  }
+
+  .lp-tc {
+    padding: 40px var(--g);
+  }
+
+  /* Une carte par outil : le libellé, puis les trois offres côte à côte,
+     chacune nommée (data-p). */
+  .lp-tt,
+  .lp-tt tbody {
+    display: block;
+    font-size: 14px;
+  }
+
+  .lp-tt thead {
+    display: none;
+  }
+
+  .lp-tt tr {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid #E6E6E1;
+  }
+
+  .lp-tt tr.g {
+    display: block;
+    border-bottom: 0;
+  }
+
+  .lp-tt tr.g td {
+    display: block;
+    padding: 10px 14px;
+  }
+
+  .lp-tt td {
+    border-bottom: 0;
+    padding: 4px 8px 10px;
+  }
+
+  .lp-tt td:first-child {
+    grid-column: 1 / -1;
+    padding: 12px 14px 6px;
+    font-weight: 600;
+  }
+
+  .lp-tt td.c {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .lp-tt td.c::before {
+    content: attr(data-p);
+    font-size: 11px;
+    color: #5B5F66;
+    font-weight: 600;
+  }
+
+  .lp-jet {
+    padding: 0 var(--g) 40px;
+  }
+
+  .lp-jt {
+    padding: 16px;
+  }
+
+  .lp-jt .r {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .lp-jt .r b {
+    text-align: left;
+  }
+}

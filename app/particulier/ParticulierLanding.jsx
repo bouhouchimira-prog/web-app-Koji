@@ -275,7 +275,7 @@ export function ParticulierLanding() {
           <b>Entreprises</b>
           <a href={ENTREPRISE}>Koji pour les professionnels</a>
           <a href="/signup?type=entreprise">Créer une page entreprise</a>
-          <a href="/entreprise#lp-tarifs">Tarifs</a>
+          <a href="/entreprise/tarifs">Tarifs</a>
         </div>
         <div className="lc-fc">
           <b>Koji</b>
