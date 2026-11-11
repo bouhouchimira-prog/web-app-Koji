@@ -5,6 +5,8 @@ import { hashPassword } from "../../../../lib/worker-auth";
 import { hashPassword as hashParticulierPassword } from "../../../../lib/password-hash";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { readUsers, writeUsers } from "../../../../lib/particulier-users";
+import { erreurMotDePasse } from "../../../../lib/password-rules";
+import { getSupabase } from "../../../../lib/supabase";
 
 // Supabase recovery links land on /set-password with session tokens in the URL
 // hash; the page forwards them as accessToken and the password is updated via
@@ -27,6 +29,36 @@ async function setSupabasePassword(accessToken, password) {
     throw new Error(data.msg || data.message || data.error_description || "Lien de reinitialisation invalide ou expire");
   }
   return data;
+}
+
+// Écran « Nouveau mot de passe » (maquette PRO-00.1) : avant la saisie,
+// la page affiche le compte concerné et l'heure limite du lien, ou l'écran
+// « Ce lien ne fonctionne plus ». Seulement pour les liens de
+// réinitialisation entreprise (jeton maison de la table users).
+export async function GET(request) {
+  const url = new URL(request.url);
+  const token = String(url.searchParams.get("token") || "").trim();
+  if (!token || url.searchParams.get("type") !== "entreprise") return badRequest("Lien invalide", 404);
+  const admin = getSupabaseAdmin();
+  const { data: row } = await admin.from("users").select("email, password_reset_expires_at").eq("password_reset_token", token).maybeSingle();
+  if (!row) return badRequest("Lien de réinitialisation invalide", 404);
+  if (row.password_reset_expires_at && new Date(row.password_reset_expires_at).getTime() < Date.now()) {
+    return badRequest("Lien de réinitialisation expiré", 410);
+  }
+  return ok({ email: row.email || "", expiresAt: row.password_reset_expires_at || null });
+}
+
+// Les autres appareils sont déconnectés à chaque changement de mot de passe
+// (maquette PRO-00.1) : une session ouverte avec le nouveau mot de passe sert
+// à révoquer toutes les sessions du compte, puis la page se connecte.
+async function deconnecterPartout(email, password) {
+  try {
+    const { data } = await getSupabase().auth.signInWithPassword({ email, password });
+    const jwt = data?.session?.access_token;
+    if (jwt) await getSupabaseAdmin().auth.admin.signOut(jwt, "global");
+  } catch (error) {
+    console.warn(`set-password: déconnexion des autres appareils impossible (${error.message})`);
+  }
 }
 
 export async function POST(request) {
@@ -64,9 +96,13 @@ export async function POST(request) {
     if (row.password_reset_expires_at && new Date(row.password_reset_expires_at).getTime() < Date.now()) {
       return badRequest("Lien de réinitialisation expiré", 410);
     }
+    const regle = erreurMotDePasse(password, row.email);
+    if (regle) return badRequest(regle);
     const { error: updateError } = await admin.auth.admin.updateUserById(row.id, { password });
     if (updateError) return badRequest(updateError.message || "Réinitialisation impossible", 400);
-    await admin.from("users").update({ password_reset_token: null, password_reset_expires_at: null }).eq("id", row.id);
+    // Le lien reçu par e-mail prouve l'adresse : le compte est aussi activé.
+    await admin.from("users").update({ password_reset_token: null, password_reset_expires_at: null, email_verified: true }).eq("id", row.id);
+    await deconnecterPartout(row.email, password);
     return ok({ message: "Mot de passe réinitialisé avec succès.", email: row.email || "" });
   }
 

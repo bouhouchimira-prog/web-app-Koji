@@ -18,6 +18,7 @@ import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:koji/features/auth/pro_auth_widgets.dart';
+import 'package:koji/features/auth/pro_forgot_password_screen.dart';
 import 'package:koji/features/quote/chantier_client_screen.dart';
 import 'package:koji/features/worker/worker_shell.dart';
 
@@ -240,6 +241,15 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
   }
 
   void _forgotPassword() {
+    // Koji Pro : écran de la maquette, lien envoyé par getkoji.io (ouvre
+    // /set-password). L'ancien lien Supabase visait koji://reset-password,
+    // adresse que l'app ne sait pas ouvrir.
+    if (!_isClient) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ProForgotPasswordScreen(initialEmail: _email.text.trim()),
+      ));
+      return;
+    }
     final emailCtrl = TextEditingController(text: _email.text.trim());
     var sending = false;
     showDialog<void>(

@@ -76,11 +76,24 @@ export function EntrepriseLogin({ L }) {
   const [loading, setLoading] = useState(false);
   const [resendStatus, setResendStatus] = useState("idle");
 
-  // Dernière adresse utilisée sur cet appareil, déjà remplie.
+  // Adresse déjà remplie : celle du lien (?email=, après une activation ou un
+  // nouveau mot de passe), sinon la dernière utilisée sur cet appareil.
   useEffect(() => {
+    let fromLink = "";
+    try { fromLink = new URLSearchParams(window.location.search).get("email") || ""; } catch { /* rien */ }
     const [last] = readKnownEmails();
-    if (last) setEmail(last);
+    if (fromLink || last) setEmail(fromLink || last);
   }, []);
+
+  // Destination après connexion (?next=/demarrage), seulement une page du site.
+  function destination() {
+    try {
+      const next = new URLSearchParams(window.location.search).get("next") || "";
+      return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    } catch {
+      return "/";
+    }
+  }
 
   const needsActivation = /non activ/i.test(error);
 
@@ -110,7 +123,7 @@ export function EntrepriseLogin({ L }) {
       const data = await apiSend("/api/auth/login", { email: trimmed, password, accountType: "entreprise" });
       saveKnownEmail(data.user?.email || trimmed);
       window.localStorage.setItem("koji-user", JSON.stringify(data.user));
-      router.push("/");
+      router.push(destination());
     } catch (err) {
       setError(err.message);
       setLoading(false);

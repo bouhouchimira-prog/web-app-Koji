@@ -5,7 +5,8 @@ import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 import { sendPasswordResetEmail } from "../../../../lib/mailer";
 import { checkRateLimit, recordFailedAttempt } from "../../../../lib/rate-limit";
 
-const RESET_TTL_MS = 2 * 60 * 60 * 1000; // 2h — plus court qu'une activation de compte
+// 30 minutes (maquette PRO-00.1) — bien plus court qu'une activation de compte.
+const RESET_TTL_MS = 30 * 60 * 1000;
 const RATE_SCOPE = "forgot-password";
 
 // Reinitialisation de mot de passe (16 oct, meme correctif que le signup :
