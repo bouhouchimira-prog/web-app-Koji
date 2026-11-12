@@ -4,7 +4,31 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/core/supabase_config.dart';
+
+/// Shown when sign-up is attempted with an address that already has an
+/// account (see [signUpAddressTaken]).
+const accountExistsMessage =
+    'Un compte existe déjà avec cette adresse. Connectez-vous, ou touchez '
+    '« Mot de passe oublié ? » pour choisir un nouveau mot de passe.';
+
+/// True when Supabase answered a sign-up for an address that is already
+/// registered: no error, but a user without any identity, and no e-mail sent.
+bool signUpAddressTaken(AuthResponse response) {
+  final identities = response.user?.identities;
+  return identities != null && identities.isEmpty;
+}
+
+/// Google sign-in failed (Google itself, missing tokens, or Supabase refusing
+/// the token). Kept apart so the message can point to e-mail + password.
+class GoogleSignInFailure implements Exception {
+  const GoogleSignInFailure(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'GoogleSignInFailure($cause)';
+}
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   // Pass via --dart-define=GOOGLE_WEB_CLIENT_ID=...
@@ -57,10 +81,21 @@ class AuthRepository {
       final result = await _supabase.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: 'https://koji-admin-three.vercel.app/auth/confirm',
+        // Le lien de confirmation ramène sur getkoji.io (avant : koji-admin,
+        // l'outil d'administration, qui n'a rien à montrer à un utilisateur).
+        emailRedirectTo: isPro
+            ? '${KojiWebApiConfig.baseUrl}/login?type=entreprise'
+            : '${KojiWebApiConfig.baseUrl}/',
         // Pass isPro in user metadata so the DB trigger can read it
         data: {'is_pro': isPro},
       );
+      // Adresse déjà inscrite : Supabase ne renvoie pas d'erreur (pour ne pas
+      // révéler qui est inscrit) mais un compte sans identité, et n'envoie
+      // aucun e-mail. L'app affichait « Vérifiez votre e-mail » pour rien.
+      if (signUpAddressTaken(result)) {
+        throw const AuthException(accountExistsMessage,
+            code: 'user_already_exists');
+      }
       _logger.i('✅ [AuthRepository] Supabase signUp successful');
       return result;
     } catch (e) {
@@ -69,6 +104,8 @@ class AuthRepository {
     }
   }
 
+  /// Errors are rethrown as [GoogleSignInFailure], so the screen can say that
+  /// Google failed instead of a generic « Une erreur est survenue ».
   Future<AuthResponse?> signInWithGoogle() async {
     _logger.i('🔍 [AuthRepository] Starting Google Sign-In flow');
     try {
@@ -100,7 +137,7 @@ class AuthRepository {
       return result;
     } catch (e) {
       _logger.e('❌ [AuthRepository] Google Sign-In failed', error: e);
-      rethrow;
+      throw GoogleSignInFailure(e);
     }
   }
 
@@ -328,20 +365,6 @@ class AuthRepository {
   /// Public URL for a stored object in the worker-uploads bucket.
   String workerUploadUrl(String storagePath) =>
       _supabase.storage.from('worker-uploads').getPublicUrl(storagePath);
-
-  Future<void> resetPassword({required String email}) async {
-    _logger.i('🔑 [AuthRepository] Sending password reset email to $email');
-    try {
-      await _supabase.auth.resetPasswordForEmail(
-        email,
-        redirectTo: 'koji://reset-password',
-      );
-      _logger.i('✅ [AuthRepository] Password reset email sent');
-    } catch (e) {
-      _logger.e('❌ [AuthRepository] Password reset failed', error: e);
-      rethrow;
-    }
-  }
 
   Future<void> signOut() async {
     _logger.i('🚪 [AuthRepository] Signing out from Supabase and Google');

@@ -244,9 +244,11 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
   }
 
   void _forgotPassword() {
-    // Koji Pro : écran de la maquette, lien envoyé par getkoji.io (ouvre
-    // /set-password). L'ancien lien Supabase visait koji://reset-password,
-    // adresse que l'app ne sait pas ouvrir.
+    // Les deux apps passent par getkoji.io (lien qui ouvre /set-password,
+    // valable 30 minutes). L'ancien lien Supabase visait
+    // koji://reset-password, adresse que l'app ne sait pas ouvrir : le lien
+    // reçu ne menait nulle part. Koji Pro a l'écran de la maquette ; Koji
+    // garde sa boîte de dialogue jusqu'à CLI-05.
     if (!_isClient) {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) =>
@@ -289,18 +291,18 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
               loading: sending,
               height: 40,
               onPressed: () async {
-                final email = emailCtrl.text.trim();
+                final email = emailCtrl.text.trim().toLowerCase();
                 if (email.isEmpty) return;
                 setDs(() => sending = true);
                 try {
-                  await ref
-                      .read(authRepositoryProvider)
-                      .resetPassword(email: email);
+                  await envoyerLienKojiPro(email);
                   if (ctx.mounted) Navigator.pop(ctx);
-                  _snack('E-mail envoyé ! Vérifiez votre boîte de réception.');
-                } catch (e) {
+                  _snack('Si un compte existe pour cette adresse, un lien '
+                      'valable 30 minutes vient de vous être envoyé.');
+                } catch (_) {
                   setDs(() => sending = false);
-                  _snack(authErrorMessage(e));
+                  _snack('Envoi impossible pour le moment. Vérifiez la '
+                      'connexion puis réessayez.');
                 }
               },
             ),

@@ -4,9 +4,20 @@ import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Shown when Google sign-in fails. Before, those errors (PlatformException,
+/// missing tokens) fell through to « Une erreur est survenue », with no way
+/// out for an account created with Google on the site.
+const googleSignInFailedMessage =
+    'La connexion avec Google n\'a pas abouti. Connectez-vous avec votre '
+    'e-mail et un mot de passe ; si vous n\'en avez pas encore, touchez '
+    '« Mot de passe oublié ? » pour en créer un.';
+
 String authErrorMessage(Object error) {
+  if (error is GoogleSignInFailure) return googleSignInFailedMessage;
+
   final rawMessage = error.toString();
   final message = error is AuthException ? error.message : rawMessage;
+  final code = error is AuthException ? (error.code ?? '') : '';
   final normalized = message.toLowerCase();
   final rawNormalized = rawMessage.toLowerCase();
 
@@ -16,6 +27,21 @@ String authErrorMessage(Object error) {
 
   if (normalized.contains('email not confirmed')) {
     return 'Veuillez confirmer votre adresse e-mail avant de vous connecter.';
+  }
+
+  if (code == 'user_already_exists' ||
+      normalized.contains('user already registered')) {
+    return accountExistsMessage;
+  }
+
+  if (code == 'over_email_send_rate_limit' ||
+      normalized.contains('email rate limit exceeded')) {
+    return "Trop d'e-mails envoyés à cette adresse. Réessayez dans une heure.";
+  }
+
+  if (normalized.contains('error sending')) {
+    return "L'e-mail n'a pas pu partir. Réessayez plus tard, ou écrivez à "
+        'contact@getkoji.io.';
   }
 
   if (rawNormalized.contains('authretryablefetchexception') ||
