@@ -533,11 +533,15 @@ class QuoteRepository {
           .toList();
       // Cache read-only pour le mode hors-ligne (fire-and-forget).
       // ignore: unawaited_futures
-      OfflineCacheService.instance.cacheDevis(result.map((q) => Map<String, dynamic>.from(q)).toList());
+      OfflineCacheService.instance.cacheDevis(
+        result.map((q) => Map<String, dynamic>.from(q)).toList(),
+        accountId: userId,
+      );
       return result;
     } catch (e) {
-      // Fallback hors-ligne : renvoyer le cache si disponible.
-      final cached = OfflineCacheService.instance.getCachedDevis();
+      // Fallback hors-ligne : renvoyer le cache si disponible (et seulement
+      // s'il appartient à ce compte).
+      final cached = OfflineCacheService.instance.getCachedDevis(accountId: userId);
       if (cached.isNotEmpty) return cached;
       rethrow;
     }

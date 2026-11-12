@@ -64,6 +64,8 @@ class FournitureRepository {
 
   Future<List<Fourniture>> getAllFournitures() async {
     await OfflineCacheService.instance.initialize();
+    // Le cache hors-ligne est rangé par compte (voir OfflineCacheService).
+    final accountId = _client.auth.currentUser?.id ?? '';
     try {
       final data = await _client
           .from('fournitures')
@@ -71,10 +73,13 @@ class FournitureRepository {
           .order('created_at', ascending: false);
       final raw = List<Map<String, dynamic>>.from(data);
       // ignore: unawaited_futures
-      OfflineCacheService.instance.cacheFournitures(raw.map((e) => Map<String, dynamic>.from(e)).toList());
+      OfflineCacheService.instance.cacheFournitures(
+        raw.map((e) => Map<String, dynamic>.from(e)).toList(),
+        accountId: accountId,
+      );
       return raw.map((e) => Fourniture.fromMap(e)).toList();
     } catch (e) {
-      final cached = OfflineCacheService.instance.getCachedFournitures();
+      final cached = OfflineCacheService.instance.getCachedFournitures(accountId: accountId);
       if (cached.isNotEmpty) {
         return cached.map((e) => Fourniture.fromMap(e)).toList();
       }

@@ -160,10 +160,13 @@ class ChantierRepository {
           .order('created_at', ascending: false);
       final result = List<Map<String, dynamic>>.from(response);
       // ignore: unawaited_futures
-      OfflineCacheService.instance.cacheChantiers(result.map((c) => Map<String, dynamic>.from(c)).toList());
+      OfflineCacheService.instance.cacheChantiers(
+        result.map((c) => Map<String, dynamic>.from(c)).toList(),
+        accountId: userId,
+      );
       return result;
     } catch (e) {
-      final cached = OfflineCacheService.instance.getCachedChantiers();
+      final cached = OfflineCacheService.instance.getCachedChantiers(accountId: userId);
       if (cached.isNotEmpty) return cached;
       rethrow;
     }

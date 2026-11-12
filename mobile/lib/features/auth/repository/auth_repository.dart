@@ -6,6 +6,7 @@ import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/core/supabase_config.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
 
 /// Shown when sign-up is attempted with an address that already has an
 /// account (see [signUpAddressTaken]).
@@ -368,6 +369,14 @@ class AuthRepository {
 
   Future<void> signOut() async {
     _logger.i('🚪 [AuthRepository] Signing out from Supabase and Google');
+    // Données hors-ligne du compte (devis, chantiers, fournitures, actions en
+    // attente) : effacées en premier, même si la déconnexion réseau échoue
+    // ensuite — sinon le compte suivant sur ce téléphone pouvait les voir.
+    try {
+      await OfflineCacheService.instance.clearAll();
+    } catch (e) {
+      _logger.e('❌ [AuthRepository] Offline cache clear failed', error: e);
+    }
     try {
       await Future.wait([
         _supabase.auth.signOut(),

@@ -48,10 +48,13 @@ class ClientRepository {
     try {
       final result = await _userRepository.getClientQuotes(uid, email: clientEmail);
       // ignore: unawaited_futures
-      OfflineCacheService.instance.cacheDevis(result.map((q) => Map<String, dynamic>.from(q)).toList());
+      OfflineCacheService.instance.cacheDevis(
+        result.map((q) => Map<String, dynamic>.from(q)).toList(),
+        accountId: uid,
+      );
       return result;
     } catch (e) {
-      final cached = OfflineCacheService.instance.getCachedDevis();
+      final cached = OfflineCacheService.instance.getCachedDevis(accountId: uid);
       if (cached.isNotEmpty) return cached;
       rethrow;
     }
