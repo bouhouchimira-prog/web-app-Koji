@@ -5,6 +5,7 @@ import { distanceKm } from "../../../../lib/geo";
 import { fixText } from "../../../../lib/text";
 import { maskedCityPostal } from "../../../../lib/offer-privacy";
 import { prixRecommandesPour } from "../../../../lib/prix-recommande-server";
+import { positionApprochee, zoneDeTravail } from "../../../../lib/radar-position";
 
 // Cote entreprise (Koji Pro) de Radar des Chantiers : liste des offres
 // publiees par des particuliers. Diffusion par zone/metier (cahier des
@@ -31,7 +32,10 @@ function publicMarketplaceOffer(offer, prixRecommande = null) {
     createdAt: offer.createdAt,
     // Calculé avec la bibliothèque et le taux de CETTE entreprise
     // (lib/prix-recommande.js) ; null quand rien n'a pu être chiffré.
-    prixRecommande
+    prixRecommande,
+    // Carte du Radar : centre d'une maille de ~2 km, jamais l'adresse
+    // géocodée (lib/radar-position.js) ; null sans géocodage.
+    position: positionApprochee(offer.lat, offer.lon)
   };
 }
 
@@ -72,6 +76,10 @@ export async function GET(request) {
   const prix = await prixRecommandesPour({ db, userId: entreprise.userId, business, offres })
     .catch(() => new Map());
 
-  return ok({ offres: offres.map((offre) => publicMarketplaceOffer(offre, prix.get(offre.id) || null)) });
+  return ok({
+    offres: offres.map((offre) => publicMarketplaceOffer(offre, prix.get(offre.id) || null)),
+    // Pour centrer et légender la carte : la zone de travail de l'entreprise.
+    zone: zoneDeTravail(business)
+  });
 }
 

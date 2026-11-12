@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { AssistantWindow } from "../components/AssistantWindow";
+import { RadarMap } from "../components/RadarMap";
 import { ChoisissezVotreEspace } from "./ChoisissezVotreEspace";
 import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
 import { DEMARRAGE_SKIP_KEY, demarrageSteps, essentialsDone } from "../lib/demarrage";
@@ -18,8 +19,9 @@ import "./dashboard.css";
 // Accueil Koji Pro, nouvelle DA (maquette PRO-01, 30 oct). Données réelles
 // uniquement. Prix recommandé (10 nov) : un montant unique calculé avec la
 // bibliothèque et le taux de l'entreprise (lib/prix-recommande.js), jamais
-// de fourchette. Pas encore de jetons ni de nombre de positions par
-// chantier (non construits côté serveur).
+// de fourchette. Carte (12 nov) : chaque chantier au centre de sa maille
+// de ~2 km, jamais l'adresse (lib/radar-position.js). Pas encore de jetons
+// ni de nombre de positions par chantier (non construits côté serveur).
 
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 
@@ -134,7 +136,9 @@ function DashboardHome() {
   const { data: tasks } = useApi("/api/tasks", "tasks");
   const { data: calendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: urgentAlerts } = useApi("/api/urgent-alerts", "alerts");
-  const { data: offres, loading: offresLoading } = useApi("/api/marketplace/offres", "offres");
+  const [radar, setRadar] = useState({ offres: [], zone: null, loading: true });
+  const offres = radar.offres;
+  const offresLoading = radar.loading;
   const { data: expenses } = useApi("/api/expenses", "expenses");
   const periodes = useMemo(() => periodesDisponibles(new Date()), []);
   const [periodeCle, setPeriodeCle] = useState(periodes[1].cle);
@@ -156,6 +160,15 @@ function DashboardHome() {
   const [demarrage, setDemarrage] = useState(null);
   const [assistantWindowOpen, setAssistantWindowOpen] = useState(false);
   const [assistantDraft, setAssistantDraft] = useState("");
+
+  // Offres et zone de travail (centre et légende de la carte) en un appel.
+  useEffect(() => {
+    let alive = true;
+    apiGet("/api/marketplace/offres")
+      .then((data) => { if (alive) setRadar({ offres: data?.offres || [], zone: data?.zone || null, loading: false }); })
+      .catch(() => { if (alive) setRadar((prev) => ({ ...prev, loading: false })); });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     const user = readStoredUser();
@@ -245,8 +258,29 @@ function DashboardHome() {
     const recent = String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
     return radarTri === "prix" ? comparerPrix(a, b) || recent : recent;
   });
+  const idOuvert = leadOuvert === undefined ? radarListe[0]?.id : leadOuvert;
+  // Un chantier choisi sur la carte au-delà des premières lignes reste
+  // visible dans la liste.
   const radarVisibles = radarListe.slice(0, LEADS_VISIBLES);
-  const idOuvert = leadOuvert === undefined ? radarVisibles[0]?.id : leadOuvert;
+  const choisiCache = radarListe.find((o, i) => o.id === idOuvert && i >= LEADS_VISIBLES);
+  if (choisiCache) radarVisibles.push(choisiCache);
+  const pointsCarte = radarListe
+    .filter((o) => o.position && Number.isFinite(o.position.lat) && Number.isFinite(o.position.lon))
+    .map((o) => ({ id: o.id, lat: o.position.lat, lon: o.position.lon, label: prixCourt(o.prixRecommande), taken: estPrise(o) }));
+  const horsCarte = radarListe.length - pointsCarte.length;
+  const legendeCarte = [
+    radar.zone ? `${radar.zone.ville || "Votre zone"} et ${radar.zone.radiusKm} km autour` : null,
+    pluriel(pointsCarte.length, "chantier"),
+    horsCarte ? `${horsCarte} sans lieu précis` : null
+  ].filter(Boolean).join(" · ");
+  const chiffresDispo = disponibles.filter((o) => o.prixRecommande?.ttc).length;
+
+  function choisirSurCarte(id) {
+    setLeadOuvert(id);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`lead-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }
 
   const aTraiter = useMemo(() => {
     const items = [];
@@ -428,10 +462,10 @@ function DashboardHome() {
             <div className="s">{aPlanifier ? `${aPlanifier} à planifier` : "en cours ou en attente"}</div>
           </Link>
           <Link href="/marketplace" className="kp-kpi">
-            <div className="l">Dans votre zone</div>
+            <div className="l">Koji dans la zone</div>
             <div className="v">{disponibles.length}</div>
             <div className="s">
-              {nouveaux.length ? `${pluriel(nouveaux.length, "nouveau", "nouveaux")} sur le Radar` : "chantiers prêts à être pris"}
+              {chiffresDispo === disponibles.length ? "chiffrés, prêts à être pris" : `${chiffresDispo} chiffrés, prêts à être pris`}
             </div>
           </Link>
         </section>
@@ -523,6 +557,17 @@ function DashboardHome() {
               </label>
             </div>
 
+            {offres.length ? (
+              <RadarMap
+                points={pointsCarte}
+                selectedId={idOuvert}
+                onSelect={choisirSurCarte}
+                zone={radar.zone}
+                caption={legendeCarte}
+                legende={{ nouveaux: nouveaux.length, prises: prises.length }}
+              />
+            ) : null}
+
             {offresLoading ? (
               <div className="kp-empty">Chargement…</div>
             ) : offres.length === 0 ? (
@@ -539,7 +584,7 @@ function DashboardHome() {
                   const ouvert = idOuvert === offre.id;
                   const etat = positions[offre.id];
                   return (
-                    <div key={offre.id} className={`kp-lead${ouvert ? " open" : ""}`}>
+                    <div key={offre.id} id={`lead-${offre.id}`} className={`kp-lead${ouvert ? " open" : ""}`}>
                       <button
                         type="button"
                         className="kp-lead-row"

@@ -8,9 +8,11 @@ import 'package:koji/app/account_provider.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
+import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/chiffres_du_mois.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/design/koji_widgets.dart' show kojiEuro;
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/home/notifications/providers/notification_provider.dart';
@@ -25,8 +27,11 @@ import 'package:koji/features/synchronization/data/scheduled_task_repository.dar
 /// Koji Pro home in the new DA (mockups PRO-01 and PRO-01.2). Real data only:
 /// the Radar shows the recommended price computed by koji-web with the pro's
 /// own library and rate (never invented, never shown to the client); the
-/// month figures come from the site's invoices. Not built yet: jetons and the
-/// per-offer position count (nothing server-side).
+/// month figures come from the site's invoices. Phone: the Radar map fills
+/// the screen and the home sits in a sheet over it (mockup « mapview »,
+/// three heights); each chantier sits at the centre of its ~2 km cell, never
+/// at its address. Not built yet: jetons and the per-offer position count
+/// (nothing server-side).
 class ProHome extends ConsumerStatefulWidget {
   const ProHome({
     super.key,
@@ -199,6 +204,13 @@ class _ProHomeState extends ConsumerState<ProHome> {
   String? _ouvert = _premier;
   bool _toutRadar = false;
   bool _toutTraiter = false;
+  final _feuille = DraggableScrollableController();
+
+  @override
+  void dispose() {
+    _feuille.dispose();
+    super.dispose();
+  }
 
   /// Position being sent ('') or its error message, per offer id.
   final Map<String, String> _envoi = {};
@@ -239,6 +251,51 @@ class _ProHomeState extends ConsumerState<ProHome> {
       setState(() => _envoi[offreId] = e is ProKojiWebException
           ? e.message
           : "Le positionnement n'a pas pu être envoyé.");
+    }
+  }
+
+  /// Radar list for the current filter, recommended price first.
+  List<RadarOffre> _radarListe(List<RadarOffre> offres, List<RadarOffre> prises,
+          List<RadarOffre> nouveaux) =>
+      [
+        ...switch (_filtre) {
+          'nouveaux' => nouveaux,
+          'prises' => prises,
+          _ => offres,
+        }
+      ]..sort(comparerPrix);
+
+  String? _idOuvert(List<RadarOffre> liste) =>
+      _ouvert == _premier ? (liste.isEmpty ? null : liste.first.id) : _ouvert;
+
+  List<RadarPoint> _points(List<RadarOffre> liste) => [
+        for (final o in liste)
+          if (o.position != null)
+            RadarPoint(
+              id: o.id,
+              lat: o.position!.lat,
+              lon: o.position!.lon,
+              label: prixCourt(o),
+              taken: _prise(o),
+            ),
+      ];
+
+  /// « Paris et 15 km autour · 4 chantiers · 1 sans lieu précis ».
+  String _legende(RadarZone? zone, int surCarte, int total) => [
+        if (zone != null)
+          '${zone.ville.isEmpty ? 'Votre zone' : zone.ville} et '
+              '${zone.radiusKm.round()} km autour',
+        _pluriel(surCarte, 'chantier'),
+        if (total > surCarte) '${total - surCarte} sans lieu précis',
+      ].join(' · ');
+
+  /// Touching a price on the map opens that chantier in the list; on the
+  /// phone the sheet rises to half height so the open row shows.
+  void _choisirSurCarte(String id) {
+    setState(() => _ouvert = id);
+    if (_feuille.isAttached && _feuille.size < 0.5) {
+      _feuille.animateTo(0.55,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
     }
   }
 
@@ -428,7 +485,26 @@ class _ProHomeState extends ConsumerState<ProHome> {
             aujourdhui: DateTime.now(),
           );
 
-    final radar = _radarCard(da, radarAsync, offres, prises, nouveaux);
+    final zone = ref.watch(proRadarZoneProvider);
+    final liste = _radarListe(offres, prises, nouveaux);
+    final points = _points(liste);
+    final idOuvert = _idOuvert(liste);
+    Widget carte({bool plein = false, EdgeInsets? marges}) => RadarCarte(
+          points: points,
+          selectedId: idOuvert,
+          onSelect: _choisirSurCarte,
+          zone: zone,
+          caption: _legende(zone, points.length, liste.length),
+          nouveaux: nouveaux.length,
+          prises: prises.length,
+          plein: plein,
+          marges: marges ?? const EdgeInsets.fromLTRB(44, 92, 64, 60),
+        );
+    final avecFeuille = widget.onMenu != null;
+    final radar = _radarCard(da, radarAsync, offres, prises, nouveaux,
+        carte: avecFeuille || offres.isEmpty
+            ? null
+            : SizedBox(height: 300, child: carte()));
     final traiter = _traiterCard(da, aTraiter);
     final salut =
         prenom == null || prenom.isEmpty ? 'Bonjour.' : 'Bonjour, $prenom.';
@@ -450,7 +526,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
               _hero(da, brouillon),
               const SizedBox(height: 24),
               _kpis(da, aSigner.length, chantiersActifs, disponibles.length,
-                  nouveaux.length),
+                  disponibles.where((o) => o.prixTtc != null).length),
               const SizedBox(height: 24),
               _chiffresCard(da, periode, chiffres),
               const SizedBox(height: 24),
@@ -466,23 +542,29 @@ class _ProHomeState extends ConsumerState<ProHome> {
           );
         }
 
-        final top = widget.onMenu == null
-            ? 20.0
-            : MediaQuery.paddingOf(context).top + 12;
+        if (avecFeuille) {
+          return _accueilCarte(
+            da,
+            c,
+            carte: carte,
+            salut: salut,
+            eyebrow: eyebrow,
+            brouillon: brouillon,
+            chiffres: chiffres,
+            radar: radar,
+            traiter: traiter,
+          );
+        }
+
+        // Tablette étroite, sans menu propre : la carte dans la carte Radar.
         return ListView(
-          padding: EdgeInsets.fromLTRB(16, top, 16, widget.bottomPadding),
+          padding: EdgeInsets.fromLTRB(16, 20, 16, widget.bottomPadding),
           children: [
-            if (widget.onMenu != null) ...[
-              _entete(da),
-              const SizedBox(height: 18),
-            ],
             Text(eyebrow, style: da.text(12, color: da.grey)),
             const SizedBox(height: 4),
             Text(salut,
                 style: da.text(26, weight: FontWeight.w700, height: 1.2)),
             const SizedBox(height: 14),
-            // PRO-01.2 téléphone : les trois chiffres en tête de l'accueil,
-            // le détail du mois en un toucher.
             _chiffresBande(da, chiffres, onTap: _ouvrirChiffres),
             const SizedBox(height: 14),
             ProPrimaryButton(
@@ -505,38 +587,137 @@ class _ProHomeState extends ConsumerState<ProHome> {
     );
   }
 
-  Widget _entete(ProDa da) {
+  /// Téléphone (maquette PRO-01 « Téléphone · tous les états ») : la carte
+  /// du Radar plein écran, recherche et menu flottants, et l'accueil dans une
+  /// feuille à trois hauteurs (ouverture, mi-hauteur, liste et à traiter).
+  Widget _accueilCarte(
+    ProDa da,
+    BoxConstraints c, {
+    required Widget Function({bool plein, EdgeInsets? marges}) carte,
+    required String salut,
+    required String eyebrow,
+    required Map<String, dynamic>? brouillon,
+    required ChiffresDuMois? chiffres,
+    required Widget radar,
+    required Widget traiter,
+  }) {
+    final hauteur = c.maxHeight;
+    final haut = MediaQuery.paddingOf(context).top + 14;
+    final bas = widget.bottomPadding;
+    // Ouverture : 176 px de feuille au-dessus de la barre du bas.
+    final ouverture = ((176 + bas) / hauteur).clamp(0.15, 0.6).toDouble();
+    // Ouverte en grand : sous les boutons flottants.
+    final grand =
+        ((hauteur - haut - 54) / hauteur).clamp(ouverture, 1.0).toDouble();
+    final milieu = 0.55.clamp(ouverture, grand).toDouble();
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: carte(
+            plein: true,
+            marges: EdgeInsets.fromLTRB(36, haut + 44 + 48, 36, 176 + bas + 16),
+          ),
+        ),
+        Positioned(top: haut, left: 14, right: 14, child: _boutonsCarte(da)),
+        DraggableScrollableSheet(
+          controller: _feuille,
+          initialChildSize: ouverture,
+          minChildSize: ouverture,
+          maxChildSize: grand,
+          snap: true,
+          snapSizes: [if (milieu > ouverture && milieu < grand) milieu],
+          builder: (context, scroll) => DecoratedBox(
+            decoration: BoxDecoration(
+              color: da.page,
+              border: const Border(top: BorderSide(color: Color(0xFFCFCFC9))),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              child: ListView(
+                controller: scroll,
+                padding: EdgeInsets.fromLTRB(14, 8, 14, bas),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8A8F98),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(salut,
+                      style: da.text(20, weight: FontWeight.w700, height: 1.2)),
+                  const SizedBox(height: 4),
+                  Text(eyebrow, style: da.text(12, color: da.grey)),
+                  const SizedBox(height: 10),
+                  ProPrimaryButton(
+                    label: 'Démarrer un devis guidé',
+                    icon: Icons.add,
+                    height: 46,
+                    expand: true,
+                    onPressed: _devisGuide,
+                  ),
+                  if (brouillon != null) ...[
+                    const SizedBox(height: 10),
+                    _lienBrouillon(da, brouillon),
+                  ],
+                  const SizedBox(height: 12),
+                  _chiffresBande(da, chiffres, onTap: _ouvrirChiffres),
+                  const SizedBox(height: 10),
+                  radar,
+                  const SizedBox(height: 10),
+                  traiter,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Boutons flottants sur la carte (maquette « mtop ») : recherche, menu,
+  /// et les notifications à droite.
+  Widget _boutonsCarte(ProDa da) {
     final unread = ref.watch(unreadNotificationsCountProvider);
-    Widget carre(IconData icon, String label, VoidCallback? onTap) => Semantics(
+    Widget bouton(IconData icon, String label, VoidCallback? onTap) =>
+        Semantics(
           button: true,
           label: label,
           child: Material(
-            color: da.card,
+            color: Colors.white,
             shape: RoundedRectangleBorder(
-              side: BorderSide(color: da.line),
-              borderRadius: BorderRadius.circular(2),
+              side: const BorderSide(color: Color(0xFFD9D9D4)),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: InkWell(
               onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 width: 44,
                 height: 44,
-                child: Icon(icon, size: 20, color: da.ink),
+                child: Icon(icon, size: 20, color: const Color(0xFF171B1E)),
               ),
             ),
           ),
         );
     return Row(
       children: [
-        carre(Icons.menu, 'Menu', widget.onMenu),
-        const SizedBox(width: 12),
-        Text('KOJI',
-            style: da.text(16, weight: FontWeight.w700, letterSpacing: 1.9)),
+        bouton(Icons.search, 'Rechercher',
+            () => showEntrepriseSearch(context, ref)),
+        const SizedBox(width: 8),
+        bouton(Icons.menu, 'Menu', widget.onMenu),
         const Spacer(),
         Stack(
           clipBehavior: Clip.none,
           children: [
-            carre(Icons.notifications_none, 'Notifications',
+            bouton(Icons.notifications_none, 'Notifications',
                 widget.onNotifications),
             if (unread > 0)
               Positioned(
@@ -729,7 +910,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
     ));
   }
 
-  Widget _kpis(ProDa da, int aSigner, int actifs, int zone, int nouveaux) {
+  Widget _kpis(ProDa da, int aSigner, int actifs, int zone, int chiffres) {
     Widget kpi(String label, int value, String sub, VoidCallback? onTap) =>
         Expanded(
           child: InkWell(
@@ -775,11 +956,11 @@ class _ProHomeState extends ConsumerState<ProHome> {
                 () => _ongletAccueil(2)),
             VerticalDivider(width: 1, color: da.line),
             kpi(
-              'Dans votre zone',
+              'Koji dans la zone',
               zone,
-              nouveaux > 0
-                  ? '${_pluriel(nouveaux, 'nouveau', 'nouveaux')} sur le Radar'
-                  : 'chantiers prêts à être pris',
+              chiffres == zone
+                  ? 'chiffrés, prêts à être pris'
+                  : '$chiffres chiffrés, prêts à être pris',
               null,
             ),
           ],
@@ -793,20 +974,18 @@ class _ProHomeState extends ConsumerState<ProHome> {
     AsyncValue<List<RadarOffre>> radarAsync,
     List<RadarOffre> offres,
     List<RadarOffre> prises,
-    List<RadarOffre> nouveaux,
-  ) {
+    List<RadarOffre> nouveaux, {
+    Widget? carte,
+  }) {
     // Prix recommandé, du plus haut (maquette PRO-01).
-    final liste = [
-      ...switch (_filtre) {
-        'nouveaux' => nouveaux,
-        'prises' => prises,
-        _ => offres,
-      }
-    ]..sort(comparerPrix);
+    final liste = _radarListe(offres, prises, nouveaux);
+    final idOuvert = _idOuvert(liste);
     final visibles = _toutRadar ? liste : liste.take(_leadsVisibles).toList();
-    final idOuvert = _ouvert == _premier
-        ? (visibles.isEmpty ? null : visibles.first.id)
-        : _ouvert;
+    // Un chantier choisi sur la carte au-delà des premières lignes reste
+    // visible dans la liste.
+    for (final o in liste.skip(_leadsVisibles)) {
+      if (!_toutRadar && o.id == idOuvert) visibles.add(o);
+    }
     final limiteAtteinte = prises.length >= _maxPositions;
 
     Widget message(String titre, [String? detail]) => Padding(
@@ -893,6 +1072,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
               }),
             ),
           ),
+          if (carte != null) ...[
+            const SizedBox(height: 12),
+            carte,
+          ],
           const SizedBox(height: 8),
           ...contenu,
           const SizedBox(height: 8),

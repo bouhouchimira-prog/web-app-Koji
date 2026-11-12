@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import 'package:koji/app/koji_web_api_config.dart';
+import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/core/supabase_config.dart';
 
 /// Data of the Koji Pro home that lives on koji-web rather than in Supabase
@@ -57,8 +58,14 @@ class ProKojiWebClient {
     return data;
   }
 
-  Future<List<Map<String, dynamic>>> offres() async =>
-      _list(await _send('GET', '/api/marketplace/offres'), 'offres');
+  /// Zone de travail renvoyée avec la dernière liste d'offres (carte).
+  RadarZone? zone;
+
+  Future<List<Map<String, dynamic>>> offres() async {
+    final data = await _send('GET', '/api/marketplace/offres');
+    zone = RadarZone.fromJson(data is Map ? data['zone'] : null);
+    return _list(data, 'offres');
+  }
 
   Future<bool> estPositionne(String offreId) async {
     final data =
@@ -167,6 +174,17 @@ class RadarOffre {
 
   /// Prix calculé sur une partie des postes seulement.
   bool get prixPartiel => prixTtc != null && prixManquants > 0;
+
+  /// Centre de la maille de ~2 km du chantier (jamais l'adresse), null sans
+  /// géocodage : le chantier reste dans la liste, pas sur la carte.
+  ({double lat, double lon})? get position {
+    final p = data['position'];
+    if (p is! Map) return null;
+    final lat = (p['lat'] as num?)?.toDouble();
+    final lon = (p['lon'] as num?)?.toDouble();
+    if (lat == null || lon == null) return null;
+    return (lat: lat, lon: lon);
+  }
 }
 
 final _euro =
@@ -225,6 +243,13 @@ final proRadarProvider =
         .catchError((_) => const RadarSuivi());
     return RadarOffre(data: data, prise: true, suivi: suivi);
   }));
+});
+
+/// Zone de travail de l'entreprise, lue avec les offres (centre et légende
+/// de la carte du Radar).
+final proRadarZoneProvider = Provider.autoDispose<RadarZone?>((ref) {
+  ref.watch(proRadarProvider);
+  return ref.watch(proKojiWebProvider).zone;
 });
 
 /// Urgent alerts raised by clients or workers on the pro's chantiers. Empty on
