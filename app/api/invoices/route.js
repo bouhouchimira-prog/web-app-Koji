@@ -54,8 +54,17 @@ function activeInvoicesFor(db, quoteId, projectId, userId) {
   });
 }
 
+// Avenants signés : ils s'ajoutent aux travaux à facturer (facture de solde,
+// PRO-02.4), sinon le solde d'un chantier avec avenant dépasserait le reste.
+function signedAvenantsTtc(db, quote) {
+  if (!quote?.id) return 0;
+  return (db.avenants || [])
+    .filter((avenant) => avenant.quoteId === quote.id && avenant.status === "Signe")
+    .reduce((sum, avenant) => sum + Number(avenant.totalTtcDelta || 0), 0);
+}
+
 function buildBillingSummary(db, quote, project, userId) {
-  const totalQuoteTtc = quoteTotal(quote, project);
+  const totalQuoteTtc = toAmount(quoteTotal(quote, project) + signedAvenantsTtc(db, quote));
   const invoices = activeInvoicesFor(db, quote?.id, project?.id, userId);
   const alreadyInvoiced = toAmount(invoices.reduce((sum, invoice) => sum + Number(invoice.amountTtc || 0), 0));
   const remaining = toAmount(Math.max(0, totalQuoteTtc - alreadyInvoiced));

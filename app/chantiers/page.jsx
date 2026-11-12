@@ -9,6 +9,8 @@ import { LancerChantier } from "../../components/LancerChantier";
 import { demarragePropose, joursOuvresEntre, lotsDuDevis } from "../../lib/planning-chantier";
 import { LIBELLE_ETAT_PHOTOS, PHASES_RESERVE, horodatage, photosDuLot } from "../../lib/photos-chantier";
 import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreReserve, statutReserve } from "../../lib/reserves";
+import { PvReception } from "../../components/PvReception";
+import { bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -346,6 +348,10 @@ export default function ProjectsTrackingPage() {
   const [reserveOuverte, setReserveOuverte] = useState(null);
   const [nouvelleReserve, setNouvelleReserve] = useState({ titre: "", lieu: "", attribueeA: "", pourLe: "" });
   const [reserveEnvoi, setReserveEnvoi] = useState(false);
+  const [cloture, setCloture] = useState(null);
+  const [avenantsDevis, setAvenantsDevis] = useState([]);
+  const [pvOuvert, setPvOuvert] = useState(false);
+  const [clotureEnvoi, setClotureEnvoi] = useState(false);
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -400,6 +406,28 @@ export default function ProjectsTrackingPage() {
       .then((data) => setReserves(Array.isArray(data.reserves) ? data.reserves : []))
       .catch(() => setReserves([]));
   }, [selectedProjectId]);
+
+  // Clôture du chantier (PRO-02.4) : PV, retenue, avis.
+  useEffect(() => {
+    setPvOuvert(false);
+    if (!selectedProjectId) { setCloture(null); return; }
+    apiGet(`/api/cloture?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setCloture(data.cloture || null))
+      .catch(() => setCloture(null));
+  }, [selectedProjectId]);
+
+  async function majCloture(action, extra = {}) {
+    setClotureEnvoi(true);
+    try {
+      const data = await apiSend("/api/cloture", { projectId: selectedProjectId, action, ...extra }, "PATCH");
+      setCloture(data.cloture);
+      setMessage(action === "rappel" ? "Rappel ajouté au calendrier." : action === "avis" ? (extra.programme ? "Demande d'avis programmée avec la facture de solde." : "Demande d'avis retirée.") : "Retenue de garantie mise à jour.");
+    } catch (error) {
+      setMessage(error.message || "La clôture n'a pas pu être mise à jour.");
+    } finally {
+      setClotureEnvoi(false);
+    }
+  }
 
   async function actionReserve(id, action, extra = {}) {
     setReserveEnvoi(true);
@@ -500,6 +528,16 @@ export default function ProjectsTrackingPage() {
       || quotes.find((quote) => quote.project === selectedProject.title)
       || null;
   }, [quotes, selectedProject]);
+
+  // Avenants du devis : signés, ils s'ajoutent aux travaux de la facture de
+  // solde (PRO-02.4).
+  const selectedQuoteId = selectedQuote?.id || "";
+  useEffect(() => {
+    if (!selectedQuoteId) { setAvenantsDevis([]); return; }
+    apiGet(`/api/avenants?quoteId=${encodeURIComponent(selectedQuoteId)}`)
+      .then((data) => setAvenantsDevis(Array.isArray(data.avenants) ? data.avenants : []))
+      .catch(() => setAvenantsDevis([]));
+  }, [selectedQuoteId]);
 
   const projectTasks = useMemo(() => {
     if (!selectedProject) return [];
@@ -1361,6 +1399,16 @@ export default function ProjectsTrackingPage() {
     const reserveChoisie = reserves.find((r) => r.id === reserveOuverte) || null;
     const photoReserve = (r, phase) => photosChantier.filter((p) => p.reserveId === r?.id && p.phase === phase).at(-1) || null;
 
+    // Clôture (maquette PRO-02.4, lib/cloture-chantier.js).
+    const idsCloture = { projectId: selectedProject.id, quoteId: selectedQuote?.id };
+    const facturesCloture = facturesDuChantier(invoices, idsCloture);
+    const factureSolde = factureDeSolde(invoices, idsCloture);
+    const factureRetenue = factureDeRetenue(invoices, idsCloture);
+    const solde = montantsSolde({ devis: selectedQuote, avenants: avenantsDevis, factures: facturesCloture, tauxRetenue: cloture?.retenue?.taux || 0 });
+    const etapes = etapesCloture({ cloture, reserves, solde, factureSolde, factureRetenue, aujourdhui: today });
+    const bilan = bilanChantier({ solde, depenses: linkedExpenses, budgetEstime: budgetTotal.estimated, taches: projectTasks, devis: selectedQuote, receptionLe: cloture?.pv?.signeLe || "", aujourdhui: today });
+    const garantiesChantier = garanties(cloture?.pv?.signeLe || "");
+
     const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
     const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
     const sousTitreAvancement = !demarre && plannedStart
@@ -1412,8 +1460,35 @@ export default function ProjectsTrackingPage() {
       { id: "documents", label: "Documents", count: autresDocuments.length + (selectedQuote ? 1 : 0) },
       { id: "photos", label: "Photos", count: nbPhotos },
       { id: "reserves", label: "Réserves", count: comptesReserves.badge },
+      { id: "cloture", label: "Clôture" },
       { id: "cout", label: "Coût" }
     ];
+
+    function ouvrirFacture(invoice) {
+      if (invoice.sourceType === "quote-transform" && invoice.quoteId) window.open(`/api/quotes/${invoice.quoteId}/documents?type=facture&format=pdf`, "_blank");
+      else window.open(`/api/invoices/pdf?id=${encodeURIComponent(invoice.id)}&userId=${encodeURIComponent(readStoredUser()?.id || "")}`, "_blank");
+    }
+
+    function actionCloture(action) {
+      switch (action?.id) {
+        case "signer_pv": setPvOuvert(true); break;
+        case "voir_pv": window.open(`/api/cloture?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1`, "_blank"); break;
+        case "reserves": setFicheTab("reserves"); break;
+        case "emettre_solde":
+          router.push(`/facturation?quoteId=${encodeURIComponent(selectedQuote?.id || "")}&type=solde&montant=${solde.soldeTtc}&note=${encodeURIComponent(noteSolde(solde, cloture?.pv?.signeLe))}`);
+          break;
+        case "facture": if (factureSolde) ouvrirFacture(factureSolde); break;
+        case "facture_retenue": if (factureRetenue) ouvrirFacture(factureRetenue); break;
+        case "facturer_retenue": router.push(`/facturation?quoteId=${encodeURIComponent(selectedQuote?.id || "")}&type=retenue`); break;
+        case "dossier": setFicheTab("documents"); break;
+        case "avis_on": majCloture("avis", { programme: true }); break;
+        case "avis_off": majCloture("avis", { programme: false }); break;
+        case "retenue_on": majCloture("retenue", { taux: 5 }); break;
+        case "retenue_off": majCloture("retenue", { taux: 0 }); break;
+        case "rappel": majCloture("rappel"); break;
+        default: break;
+      }
+    }
 
     function openTraiter(entry) {
       if (entry.lineKey) setOpenLineKey(entry.lineKey);
@@ -1828,6 +1903,43 @@ export default function ProjectsTrackingPage() {
               </div>
             ) : null}
 
+            {ficheTab === "cloture" ? (
+              <div className="card cl-steps">
+                <div className="card-h">
+                  <h2>Clôturer le chantier</h2>
+                  <span className="sm2">Koji prépare chaque étape</span>
+                </div>
+                {etapes.map((e, index) => (
+                  <div className={`cl-st ${e.etat}`} key={e.id}>
+                    <span className="cl-n">{e.etat === "ok" ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : e.etat === "cur" ? index + 1 : null}</span>
+                    <div>
+                      <strong>{e.titre}</strong>
+                      <small>{e.detail}</small>
+                    </div>
+                    {e.action ? (
+                      e.action.id === null
+                        ? <span className="cl-lab">{e.action.label}</span>
+                        : e.action.principal && e.etat === "cur"
+                          ? <button type="button" className="btn btn-main" disabled={clotureEnvoi} onClick={() => actionCloture(e.action)}>{e.action.label}</button>
+                          : <button type="button" className="link" disabled={clotureEnvoi} onClick={() => actionCloture(e.action)}>{e.action.label}</button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {pvOuvert ? (
+              <PvReception
+                project={selectedProject}
+                quote={selectedQuote}
+                reserves={reserves}
+                solde={solde}
+                travaux={travauxReceptionnes(selectedQuote, lotsFiche.length, solde.avenants)}
+                onClose={() => setPvOuvert(false)}
+                onSigned={(c) => { setCloture(c); setPvOuvert(false); setMessage(`Procès-verbal ${c.pv?.numero || ""} signé. Les garanties partent d'aujourd'hui.`); }}
+              />
+            ) : null}
+
             {ficheTab === "documents" ? (
               <div className="card">
                 <div className="card-h"><h2>{L.chantiers.documents}</h2></div>
@@ -1918,6 +2030,40 @@ export default function ProjectsTrackingPage() {
           </div>
 
           <div className="fiche-side">
+            {ficheTab === "cloture" ? (
+              <>
+                <div className="card">
+                  <div className="card-h"><h2>Bilan</h2></div>
+                  {bilan.lignes.map((l) => <div className="kv" key={l.id}><span>{l.label}</span><b>{l.valeur}</b></div>)}
+                  {bilan.appris ? (
+                    <div className="cl-kj">
+                      <span className="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg></span>
+                      <div>
+                        <strong>Ce que Koji a appris</strong>
+                        <small>{bilan.appris}</small>
+                      </div>
+                      <Link className="link" href="/bibliotheque-ouvrages/mes-prix">Voir</Link>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Garanties</h2>
+                    <span className="sm2">à partir de la réception</span>
+                  </div>
+                  <div className="cl-gs">
+                    {garantiesChantier.map((g) => (
+                      <div className="cl-g" key={g.id}>
+                        <b>{g.titre}</b>
+                        <span>{g.duree}</span>
+                        <small>{g.jusqua}<br />{g.objet}</small>
+                      </div>
+                    ))}
+                  </div>
+                  <small className="sm2 cl-gn">Si la cliente signale un désordre dans Koji Client, il arrive ici comme une réserve.</small>
+                </div>
+              </>
+            ) : null}
             {ficheTab === "reserves" && reserveChoisie ? (
               <aside className="card rs-pan" aria-label={`Réserve ${reserveChoisie.numero}`}>
                 <div className="rs-ph">

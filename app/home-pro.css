@@ -1639,3 +1639,53 @@
   .pro .rs-tab td:nth-child(3),.pro .rs-tab td:nth-child(4){grid-column:2;font-size:12px}
   .pro .rs-tab td:nth-child(5){grid-column:3;grid-row:1}
 }
+
+/* Réception et clôture (maquette PRO-02.4) : six étapes, bilan, garanties,
+   procès-verbal signé sur place. */
+.pro .cl-st{display:flex;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}
+.pro .cl-st:last-child{border-bottom:0}
+.pro .cl-n{width:28px;height:28px;border-radius:50%;border:1.5px solid #8A8F98;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--grey);flex:none}
+.pro .cl-st.ok .cl-n{background:#171B1E;border-color:#171B1E}
+.pro .cl-st.ok .cl-n svg{width:13px;height:13px;stroke:#FFFFFF;fill:none;stroke-width:3}
+.pro .cl-st.cur{background:#FAFAF7;box-shadow:inset 3px 0 0 #FFC400;padding-left:12px;margin-left:-12px}
+.pro .cl-st.cur .cl-n{border-color:#171B1E;color:#171B1E}
+.pro .cl-st > div{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pro .cl-st strong{font-size:15px}
+.pro .cl-st small{font-size:12px;color:var(--grey);line-height:1.45}
+.pro .cl-st.ok strong{font-weight:500}
+.pro .cl-st .btn-main{height:42px;font-size:14px;flex:none}
+.pro .cl-st .link{font-size:12px;white-space:nowrap}
+.pro .cl-lab{font-size:12px;color:var(--grey);white-space:nowrap}
+.pro .cl-kj{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:10px 12px;border:1px solid #171B1E;border-radius:2px}
+.pro .cl-kj .ic svg{width:16px;height:16px;stroke:#171B1E;fill:none;stroke-width:1.8;display:block}
+.pro .cl-kj div{flex:1;display:flex;flex-direction:column}
+.pro .cl-kj strong{font-size:13px}
+.pro .cl-kj small{font-size:12px;color:var(--grey);line-height:1.45}
+.pro .cl-kj .link{font-size:12px}
+.pro .cl-gs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pro .cl-g{border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pro .cl-g b{font-size:13px}
+.pro .cl-g span{font-size:20px;font-weight:600}
+.pro .cl-g small{font-size:11px;color:var(--grey);line-height:1.4}
+.pro .cl-gn{display:block;margin-top:8px}
+.pro .cl-pv .rs-card{background:#FFFFFF;border:1px solid #CFCFC9;border-left:3px solid #171B1E;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.pro .cl-pv .rs-card strong{font-size:14px}
+.pro .cl-pv .rs-card small{font-size:12px;color:var(--grey)}
+.pro .cl-who,.pro .cl-sign-h{display:flex;flex-direction:column;gap:6px}
+.pro .cl-sign-h{flex-direction:row;justify-content:space-between;align-items:center}
+.pro .cl-who .lab,.pro .cl-sign .lab{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5B5F66;font-weight:600}
+.pro .cl-who input{width:100%;height:44px;padding:0 12px;border:1px solid #CFCFC9;background:#FFFFFF;font:inherit;font-size:15px;border-radius:var(--r-touch,4px)}
+.pro .cl-sign{position:relative;background:#FFFFFF;border:1px solid #CFCFC9;padding:8px 12px}
+.pro .cl-sign canvas{display:block;width:100%;height:120px;touch-action:none;cursor:crosshair}
+.pro .cl-sign-ph{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);color:#A3A39D;font-size:13px;pointer-events:none}
+.pro .cl-pv-n{font-size:12px;margin:0}
+.pro .cl-err{color:#B42318;font-size:13px;margin:0}
+@media (max-width:900px){
+  .pro .cl-gs{grid-template-columns:1fr}
+  .pro .cl-st{flex-wrap:wrap}
+  .pro .cl-st .btn-main{width:100%}
+}
+/* Panneau latéral ouvert (PV, lancer le chantier) : la bulle Koji ne cache
+   plus le bouton du bas. */
+body:has(.env-panel) .koji-assistant-bubble{display:none!important}
+.pro .cl-g b{hyphens:auto;overflow-wrap:break-word}

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_cloture_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_reserves_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/reserves.dart';
@@ -305,6 +306,8 @@ class _ProFicheChantierScreenState
           const SizedBox(height: 12),
         ],
         _ligneReserves(da, d),
+        const SizedBox(height: 8),
+        _ligneCloture(da, d),
         const SizedBox(height: 12),
         _onglets(da, onglets),
         const SizedBox(height: 10),
@@ -358,6 +361,40 @@ class _ProFicheChantierScreenState
                     ? 'aucune'
                     : '${c['badge']} à traiter sur ${c['toutes']}',
                 style: da.text(13, color: da.grey)),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right, size: 18, color: da.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Clôture (PRO-02.4) : réception, solde, dossier, avis.
+  Widget _ligneCloture(ProDa da, DonneesFiche d) {
+    return InkWell(
+      onTap: () async {
+        final suite = await Navigator.of(context).push<String>(
+            MaterialPageRoute(
+                builder: (_) => ProClotureScreen(
+                    projectId: widget.projectId,
+                    titreChantier: _s(d.projet['title']))));
+        if (suite == 'docs' && mounted) setState(() => _onglet = 'docs');
+        _recharger();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: da.card,
+          border: Border.all(color: da.frame),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child:
+                  Text('Clôture', style: da.text(14, weight: FontWeight.w600)),
+            ),
+            Text('réception, solde, avis', style: da.text(13, color: da.grey)),
             const SizedBox(width: 6),
             Icon(Icons.chevron_right, size: 18, color: da.grey),
           ],

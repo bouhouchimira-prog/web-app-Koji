@@ -227,6 +227,48 @@ class ProKojiWebClient {
     return r is Map ? Map<String, dynamic>.from(r) : {};
   }
 
+  /// Clôture du chantier (PRO-02.4) : PV signé, retenue, avis.
+  Future<Map<String, dynamic>?> cloture(String projectId) async {
+    final data = await _send('GET',
+        '/api/cloture?projectId=${Uri.encodeQueryComponent(projectId)}');
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// Procès-verbal signé sur place : deux signatures PNG ; le serveur fige
+  /// la date, le numéro et les réserves non levées.
+  Future<Map<String, dynamic>?> signerPv({
+    required String projectId,
+    required String signataire,
+    required List<int> signatureClient,
+    required List<int> signaturePro,
+  }) async {
+    String png(List<int> o) => 'data:image/png;base64,${base64Encode(o)}';
+    final data = await _send('POST', '/api/cloture', {
+      'projectId': projectId,
+      'signataire': signataire,
+      'signatureClient': png(signatureClient),
+      'signaturePro': png(signaturePro),
+      'source': 'app',
+    });
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// action : retenue (taux 0 | 5) | rappel | avis (programme).
+  Future<Map<String, dynamic>?> majCloture(String projectId, String action,
+      [Map<String, dynamic> extra = const {}]) async {
+    final data = await _send('PATCH', '/api/cloture',
+        {'projectId': projectId, 'action': action, ...extra});
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  Future<List<Map<String, dynamic>>> avenants(String quoteId) async => _list(
+      await _send('GET',
+          '/api/avenants?quoteId=${Uri.encodeQueryComponent(quoteId)}'),
+      'avenants');
+
   /// Accès Koji Client du chantier (null s'il n'existe pas encore).
   Future<Map<String, dynamic>?> accesClient(String projectId) async {
     final data = await _send('GET',
