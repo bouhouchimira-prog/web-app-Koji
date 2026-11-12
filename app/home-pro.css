@@ -214,7 +214,7 @@
 .pro .kp-lead-det{padding:0 8px 16px 48px}
 .pro .kp-ld-line{display:flex;flex-wrap:wrap;gap:4px 16px;padding-top:16px;border-top:1px solid var(--line);color:var(--grey);font-size:13px}
 .pro .kp-ld-line b{color:var(--ink);font-weight:600}
-.pro .kp-lead-act{display:flex;align-items:center;gap:12px;margin-top:16px}
+.pro .kp-lead-act{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:16px}
 .pro .kp-lead-act .kp-btn{height:44px;font-size:14px}
 .pro .kp-tag-val{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700}
 .pro .kp-lead-note{margin:10px 0 0;color:var(--grey);font-size:13px}
