@@ -406,7 +406,7 @@ export default function ProjectsTrackingPage() {
     try {
       const { reserve } = await apiSend("/api/reserves", { id, action, ...extra }, "PATCH");
       setReserves((liste) => liste.map((r) => (r.id === reserve.id ? reserve : r)));
-      setMessage(action === "valider" ? `${reserve.numero} levée.` : action === "refuser" ? `${reserve.numero} à refaire : l'intervenant est prévenu dans l'app.` : "Réserve mise à jour.");
+      setMessage(action === "valider" ? `${reserve.numero} levée.` : action === "refuser" ? `${reserve.numero} repasse à faire.` : "Réserve mise à jour.");
     } catch (error) {
       setMessage(error.message || "La réserve n'a pas pu être mise à jour.");
     } finally {
