@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
+import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/providers/quote_message_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart';
 import 'package:koji/features/quote/repositories/quote_message_repository.dart';
@@ -232,10 +233,14 @@ class _InboxListState extends ConsumerState<_InboxList> {
   }
 
   Widget _buildTile(QuoteMessageSummary s, String clientName) {
-    final unread = _isUnread(s);
-    final preview = s.lastText.trim().isEmpty
-        ? '📎 Pièce jointe'
-        : '${s.lastFromCompany ? 'Vous : ' : ''}${s.lastText.trim()}';
+    final blocked = ref.watch(
+        moderationProvider.select((m) => m.blockedQuotes.contains(s.quoteId)));
+    final unread = !blocked && _isUnread(s);
+    final preview = blocked
+        ? 'Client bloqué'
+        : s.lastText.trim().isEmpty
+            ? '📎 Pièce jointe'
+            : '${s.lastFromCompany ? 'Vous : ' : ''}${s.lastText.trim()}';
 
     return InkWell(
       onTap: () {
