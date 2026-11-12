@@ -64,7 +64,20 @@ throw Exception("Test Sentry mobile - ${DateTime.now()}");
 
 ## Ce qui est déjà fait (code)
 
-- `sentry.client.config.js`, `sentry.server.config.js`, `sentry.edge.config.js` : configuration conditionnelle
+- 12 nov : avant cette date, rien n'était branché côté web (aucun fichier
+  `instrumentation`, `sentry.client.config.js` jamais chargé par Next 16) —
+  même avec un DSN, aucune erreur ne partait. Désormais :
+  - `instrumentation.js` : charge `sentry.server.config.js` / `sentry.edge.config.js`
+    au démarrage du serveur et envoie les erreurs de rendu/route (`onRequestError`).
+  - `instrumentation-client.js` : charge le SDK navigateur **seulement si**
+    `NEXT_PUBLIC_SENTRY_DSN` est défini au build (sinon 0 octet ajouté aux pages).
+  - `next.config.mjs` : l'hôte d'ingestion du DSN est ajouté au `connect-src`
+    de la CSP quand le DSN existe (sinon le navigateur bloquerait l'envoi).
+  - Pas encore de `withSentryConfig` : les traces navigateur restent minifiées
+    tant que l'upload des source maps (`SENTRY_AUTH_TOKEN`) n'est pas configuré.
+  - Le DSN doit être défini **au build** sur Vercel (variable d'environnement
+    Production), puis redéployer.
+- `sentry.server.config.js`, `sentry.edge.config.js` : configuration conditionnelle
 - `@sentry/nextjs` dans package.json
 - `sentry_flutter` dans pubspec.yaml
 - `SentryFlutter.init` dans `koji_app.dart` (conditionnel sur `SENTRY_DSN`)
