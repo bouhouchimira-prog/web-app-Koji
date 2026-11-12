@@ -95,7 +95,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'  # maplibre_gl (carte du Radar) compile en Java 21
 
       - uses: subosito/flutter-action@v2
         with:

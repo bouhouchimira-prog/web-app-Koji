@@ -22,7 +22,9 @@ plugins {
     // START: FlutterFire Configuration
     id("com.google.gms.google-services") version("4.3.15") apply false
     // END: FlutterFire Configuration
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    // 2.3 : la carte du Radar (maplibre_gl) dépend de bibliothèques Google
+    // compilées avec Kotlin 2.3, illisibles par un compilateur 2.1.
+    id("org.jetbrains.kotlin.android") version "2.3.21" apply false
 }
 
 include(":app")

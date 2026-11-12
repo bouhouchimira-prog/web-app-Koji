@@ -18,10 +18,19 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Cible JVM du code Kotlin de l'app (l'ancien bloc kotlinOptions est
+// refusé par les versions récentes de Kotlin).
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
 android {
     namespace = "com.koji.pro"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    // NDK demandé par maplibre_gl et integration_test (rétrocompatible).
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -30,9 +39,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
 
     defaultConfig {
         applicationId = "com.koji.pro"
