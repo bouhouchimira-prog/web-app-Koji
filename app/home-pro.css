@@ -1534,3 +1534,48 @@
   .pro .kp-ca-g small{font-size:11px}
   .pro .kp-card-h:has(.kp-seg){flex-wrap:wrap}
 }
+/* Lancer le chantier (maquette PRO-02.1, panneau « env-panel wide ») */
+.pro .env-scrim{position:fixed;inset:0;z-index:80;background:rgba(23,27,30,.45)}
+.pro .env-panel{position:fixed;top:0;right:0;bottom:0;z-index:81;display:flex;flex-direction:column;gap:16px;width:min(560px,100%);padding:24px 28px 0;overflow:auto;background:var(--bg);border-left:1px solid var(--line)}
+.pro .env-panel.wide{width:min(720px,100%)}
+.pro .env-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.pro .env-h h2{margin:0;font-size:22px;font-weight:700}
+.pro .env-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.pro .env-grid .ed span:not(.ed-l){color:var(--grey);font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}
+.pro .selv{display:flex;align-items:center;height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);color:var(--ink);font-size:14px;font-weight:400;letter-spacing:0;text-transform:none}
+.pro .lots .lr{display:grid;grid-template-columns:56px minmax(0,1fr) 92px 200px 170px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
+.pro .lots .lr:last-child{border-bottom:0}
+.pro .lr .lr-c{color:var(--grey);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pro .lr .lr-n{font-size:14px;font-weight:500}
+.pro .lr .lr-n small{display:block;color:var(--grey);font-size:12px;font-weight:400}
+.pro .lr .lr-a{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.pro .lr .lr-d{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pro .lr .lr-d svg{width:14px;height:14px;fill:none;stroke:var(--grey);stroke-width:1.8;flex:none}
+.pro .lr .lr-d small{margin-left:4px;color:var(--grey)}
+.pro .lr .lr-j{width:52px;height:30px;padding:0 6px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:13px;text-align:right}
+.pro .lr .lr-t{overflow:hidden;color:var(--grey);font-size:12px;text-align:right;text-overflow:ellipsis;white-space:nowrap}
+.pro .lr .lr-sel{height:34px;min-width:0;padding:0 8px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:13px}
+.pro .env-ch{display:flex;flex-direction:column;gap:8px}
+.pro .env-ch .lab{color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pro .ck{position:relative;display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch);font-size:14px;cursor:pointer}
+.pro .ck input{position:absolute;opacity:0;pointer-events:none}
+.pro .ck svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.5;flex:none}
+.pro .ck.on{border-color:var(--ink);font-weight:600}
+.pro .ck:not(.on){padding-left:38px;color:var(--grey)}
+.pro .ck.off{cursor:default}
+.pro .ck:focus-within{outline:2px solid var(--ink);outline-offset:1px}
+.pro .env-act{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:10px;margin-top:auto;padding:12px 0 20px;background:var(--bg);border-top:1px solid var(--line)}
+.pro .env-act .btn-main{height:48px;padding:0 22px}
+.pro .env-act .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+.pro .lancer-card{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:20px;padding:16px 20px;background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:var(--r-struct)}
+.pro .lancer-card > div{display:flex;flex:1 1 320px;flex-direction:column;gap:4px}
+.pro .lancer-card strong{font-size:16px}
+.pro .lancer-card p{margin:0;color:var(--grey);font-size:13px}
+@media (max-width:760px){
+  .pro .env-panel{padding:18px 16px 0}
+  .pro .env-sum,.pro .env-grid{grid-template-columns:1fr}
+  .pro .lots .lr{grid-template-columns:48px minmax(0,1fr) 84px;row-gap:4px}
+  .pro .lots .lr .lr-d,.pro .lots .lr .lr-t,.pro .lots .lr .lr-sel{grid-column:2/4;text-align:left}
+  .pro .env-act{flex-direction:column-reverse}
+  .pro .env-act .btn{width:100%}
+}

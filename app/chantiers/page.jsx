@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend } from "../../lib/client-api";
+import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
+import { LancerChantier } from "../../components/LancerChantier";
+import { demarragePropose, lotsDuDevis } from "../../lib/planning-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -251,6 +253,12 @@ function formatDate(value) {
   }
 }
 
+// « 17 novembre » (phrases : pas de point d'abréviation en fin de phrase).
+function jourEtMois(iso) {
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+  return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(d) : "";
+}
+
 // Étiquette de la liste (lib/chantiers-liste.js) → classes de la DA.
 function classeEtiquette({ ton }) {
   return { b: "tag tag-b", o: "tag tag-o", e: "tag tag-e", w: "tag tag-e tag-w", dim: "tag tag-o dim" }[ton] || "tag";
@@ -327,6 +335,7 @@ export default function ProjectsTrackingPage() {
   const [ouvrageAddOpen, setOuvrageAddOpen] = useState(false);
   const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
   const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
+  const [lancerOuvert, setLancerOuvert] = useState(false);
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -625,6 +634,23 @@ export default function ProjectsTrackingPage() {
       note: planForm.supplyNote || "",
       status: "A commander"
     }];
+  }
+
+  // Lancer le chantier (PRO-02.1) : les tâches créées remplacent les
+  // anciennes, puis l'avancement et l'accès client sont relus.
+  async function apresLancement({ taches, planning, partiel }) {
+    const ids = new Set(taches.map((t) => t.id));
+    const nextTasks = [...taches, ...tasks.filter((t) => !ids.has(t.id))];
+    setTasks(nextTasks);
+    await refreshProjectProgress(nextTasks).catch(() => null);
+    apiGet(`/api/client-portal-info?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setClientPortalAccess(data.access || null))
+      .catch(() => null);
+    if (!partiel) setLancerOuvert(false);
+    const fmt = jourEtMois;
+    setMessage(partiel
+      ? `${taches.length} ligne${taches.length > 1 ? "s" : ""} planifiée${taches.length > 1 ? "s" : ""} : relancez pour finir.`
+      : `Chantier lancé : ${planning.lots.length} lot${planning.lots.length > 1 ? "s" : ""} planifié${planning.lots.length > 1 ? "s" : ""} du ${fmt(planning.debut)} au ${fmt(planning.fin)}.`);
   }
 
   async function refreshProjectProgress(nextTasks) {
@@ -1221,6 +1247,10 @@ export default function ProjectsTrackingPage() {
     const plannedStart = startDates[0] || selectedProject.startDate || "";
     const upcomingEvents = projectEvents.filter((event) => String(event.startAt || "") >= nowIso);
     const unplannedCount = trackingLines.filter((line) => !line.task || (!line.task.startDate && !line.task.endDate && !line.task.dueDate)).length;
+    // Rien de planifié sur un devis signé : la fiche propose de lancer le
+    // chantier (planning par lot, maquette PRO-02.1).
+    const lotsLancer = lotsDuDevis(selectedQuote).length;
+    const lancerPossible = lotsLancer > 0 && trackingLines.length > 0 && unplannedCount === trackingLines.length;
     const lineProgress = (task) => ({ debut: 0, encours: 50, termine: 100, valide: 100 })[ouvrageStatusKey(task)];
     const archived = Boolean(selectedProject.archiveId || linkedArchive);
     const archiveSummary = selectedProject.archiveSummary || linkedArchive?.summary || null;
@@ -1292,6 +1322,33 @@ export default function ProjectsTrackingPage() {
 
         {!projectReady ? <p className="notice">{L.chantiers.trackingActive}</p> : null}
         {message ? <p className="notice" role="status">{message}</p> : null}
+
+        {quoteSigned && lancerPossible ? (
+          <section className="lancer-card" aria-label="Lancer le chantier">
+            <div>
+              <strong>Lancer le chantier</strong>
+              <p>
+                Koji crée le chantier avec {lotsLancer} lot{lotsLancer > 1 ? "s" : ""} du devis{clientPortalAccess ? "" : ", le client en suivi"},
+                {" "}et propose un planning à partir du {jourEtMois(demarragePropose(today))} : vous pourrez ajuster avant de confirmer.
+              </p>
+            </div>
+            <button type="button" className="btn btn-main" onClick={() => setLancerOuvert(true)}>Lancer le chantier</button>
+          </section>
+        ) : null}
+
+        {lancerOuvert && selectedQuote ? (
+          <LancerChantier
+            project={selectedProject}
+            quote={selectedQuote}
+            tasks={projectTasks}
+            workers={workers}
+            hoursPerDay={Number(readStoredUser()?.business?.hoursPerDay) || 7}
+            clientPortalAccess={clientPortalAccess}
+            invoices={linkedInvoices}
+            onClose={() => setLancerOuvert(false)}
+            onDone={apresLancement}
+          />
+        ) : null}
 
         <div className="kpis">
           <div>

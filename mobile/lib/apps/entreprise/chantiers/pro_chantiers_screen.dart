@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:koji/app/account_provider.dart';
 import 'package:koji/apps/entreprise/chantiers/chantiers_liste.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
@@ -60,8 +61,19 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
     super.dispose();
   }
 
-  void _ouvrir(LigneChantier l) =>
+  /// Devis signé, rien de planifié : « Lancer le chantier » (PRO-02.1) ;
+  /// sinon la fiche du chantier.
+  Future<void> _ouvrir(LigneChantier l) async {
+    if (!l.aLancer) {
       context.push('/chantier/dashboard', extra: {'id': l.id});
+      return;
+    }
+    final lance = await Navigator.of(context, rootNavigator: true).push<bool>(
+      MaterialPageRoute(
+          builder: (_) => ProLancerChantierScreen(projectId: l.id)),
+    );
+    if (lance == true) ref.invalidate(proChantiersProvider);
+  }
 
   @override
   Widget build(BuildContext context) {

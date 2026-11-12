@@ -47,6 +47,7 @@ class LigneChantier {
     required this.ville,
     required this.client,
     required this.onglet,
+    this.aLancer = false,
     required this.etiquette,
     required this.ton,
     required this.avancement,
@@ -61,6 +62,9 @@ class LigneChantier {
   final String ville;
   final String client;
   final String onglet;
+
+  /// Devis signé, rien de planifié ni facturé : « Lancer le chantier ».
+  final bool aLancer;
   final String etiquette;
   final TonEtiquette ton;
   final Avancement? avancement;
@@ -236,7 +240,17 @@ List<LigneChantier> lignesChantiers({
     final finPrevue = fins.isNotEmpty
         ? fins.last
         : (_s(p['endDate']).isNotEmpty ? _s(p['endDate']) : _s(p['dueDate']));
-    final statut = statutChantier(progression, signe, finPrevue, aujourdhui);
+    // Devis signé, rien de planifié ni facturé (hors acompte) : « À
+    // planifier » jusqu'au lancement (maquette PRO-02.1).
+    final factureHorsAcompte = invoices.any((f) =>
+        _s(f['projectId']) == id &&
+        f['kind'] != 'acompte' &&
+        f['status'] != 'Brouillon');
+    final aLancer =
+        signe && lots.lignes > 0 && taches.isEmpty && !factureHorsAcompte;
+    final statut = aLancer
+        ? 'a_planifier'
+        : statutChantier(progression, signe, finPrevue, aujourdhui);
 
     final avancement = lots.total > 0
         ? Avancement(lots.faits, lots.total, 'lots')
@@ -325,6 +339,8 @@ List<LigneChantier> lignesChantiers({
     } else if (echeanceProche) {
       (etiquette, ton) = ('Échéance', TonEtiquette.encre);
       if (jalon.isEmpty) jalon = 'Démarrage à planifier, ${_jourCourt(debut)}';
+    } else if (aLancer) {
+      if (jalon.isEmpty) jalon = 'Chantier à lancer : planning à valider';
     } else if (statut == 'a_planifier' && !signe) {
       detail = 'Devis pas encore signé';
     }
@@ -338,6 +354,7 @@ List<LigneChantier> lignesChantiers({
       ville: villeDe(_s(p['address'])),
       client: client,
       onglet: _ongletDuStatut[statut]!,
+      aLancer: aLancer,
       etiquette: etiquette,
       ton: ton,
       avancement: avancement,

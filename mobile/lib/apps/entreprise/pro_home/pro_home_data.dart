@@ -134,6 +134,31 @@ class ProKojiWebClient {
     };
   }
 
+  // ---- Lancer le chantier (PRO-02.1) -------------------------------------
+
+  /// Crée (sans id) ou met à jour une tâche du chantier.
+  Future<Map<String, dynamic>> enregistrerTache(Map<String, dynamic> tache,
+      {String? id}) async {
+    final data = id == null
+        ? await _send('POST', '/api/tasks', tache)
+        : await _send('PATCH', '/api/tasks', {'id': id, ...tache});
+    final task = data is Map ? data['task'] : null;
+    return task is Map ? Map<String, dynamic>.from(task) : {...tache};
+  }
+
+  /// Accès Koji Client du chantier (null s'il n'existe pas encore).
+  Future<Map<String, dynamic>?> accesClient(String projectId) async {
+    final data = await _send('GET',
+        '/api/client-portal-info?projectId=${Uri.encodeQueryComponent(projectId)}');
+    final access = data is Map ? data['access'] : null;
+    return access is Map ? Map<String, dynamic>.from(access) : null;
+  }
+
+  Future<void> activerSuiviClient(
+          String projectId, String email, String phone) =>
+      _send('POST', '/api/client-portal-info',
+          {'projectId': projectId, 'email': email, 'phone': phone});
+
   /// Any list route of the site (factures, devis, chantiers, dépenses).
   Future<List<Map<String, dynamic>>> liste(String path, String key) async =>
       _list(await _send('GET', path), key);

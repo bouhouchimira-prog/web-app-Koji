@@ -76,6 +76,20 @@ describe("lib/chantiers-liste (PRO-02)", () => {
     assert.strictEqual(resumeChantiers(comptes), "3 en cours · 1 à planifier");
   });
 
+  it("garde un chantier signé mais pas lancé dans « À planifier »", () => {
+    const [l] = lignesChantiers({
+      aujourdhui: AUJ,
+      maintenant: MAINTENANT,
+      projects: [{ id: "c9", title: "Salle de bain" }],
+      quotes: [devisSigne("c9")],
+      tasks: []
+    });
+    assert.strictEqual(l.onglet, "a_planifier");
+    assert.strictEqual(l.aLancer, true);
+    assert.strictEqual(l.jalon, "Chantier à lancer : planning à valider");
+    assert.deepStrictEqual(l.etiquette, { label: "À planifier", ton: "o" });
+  });
+
   it("garde la ville seule", () => {
     assert.strictEqual(villeDe("12 rue des Vinaigriers, 75010 Paris"), "Paris");
     assert.strictEqual(villeDe("Saint-Ouen"), "Saint-Ouen");
