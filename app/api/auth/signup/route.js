@@ -4,6 +4,7 @@ import { makeToken } from "../../../../lib/db";
 import { sendEntrepriseVerificationEmail } from "../../../../lib/mailer";
 import { checkRateLimit, recordFailedAttempt, rateLimitMessage } from "../../../../lib/rate-limit";
 import { chercherEntreprise, normaliserSiren } from "../../../../lib/sirene";
+import { ensureProfileRow } from "../../../../lib/ensure-profile";
 
 const ACTIVATION_TTL_MS = 48 * 60 * 60 * 1000; // 48h, same convention as particulier-signup
 const RATE_SCOPE = "entreprise-signup";
@@ -84,7 +85,10 @@ export async function POST(request) {
   let updateError = null;
   try {
     const admin = getSupabaseAdmin();
-    const { data: profil } = await admin.from("users").select("business_info").eq("id", data.user.id).maybeSingle();
+    // La ligne n'est plus créée par le trigger en prod (voir
+    // lib/ensure-profile.js) : sans elle, l'update ci-dessous ne touchait
+    // rien et le lien d'activation envoyé était invalide.
+    const profil = await ensureProfileRow(admin, data.user, { isProFallback: true });
     const { error: dbError } = await admin.from("users").update({
       email_verified: false,
       email_verify_token: activationToken,

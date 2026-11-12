@@ -39,6 +39,11 @@ async function activateEntreprise(token) {
   }
 
   await admin.from("users").update({ email_verified: true, email_verify_token: null, email_verify_expires_at: null }).eq("id", row.id);
+  // « Confirm email » est de nouveau actif dans Supabase (constaté le 12 nov) :
+  // sans cette confirmation, Supabase refusait encore la connexion (« Email
+  // not confirmed ») alors que l'utilisateur avait cliqué notre lien.
+  const { error: confirmError } = await admin.auth.admin.updateUserById(row.id, { email_confirm: true });
+  if (confirmError) console.warn(`activate: confirmation Supabase impossible (${confirmError.message})`);
   return { activated: true, alreadyActive: false, message: "Compte active avec succes.", accountType: "entreprise", email: row.email || "" };
 }
 

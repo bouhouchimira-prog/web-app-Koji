@@ -98,7 +98,9 @@ export async function POST(request) {
     }
     const regle = erreurMotDePasse(password, row.email);
     if (regle) return badRequest(regle);
-    const { error: updateError } = await admin.auth.admin.updateUserById(row.id, { password });
+    // email_confirm : le lien reçu prouve l'adresse, Supabase doit le savoir
+    // aussi (sinon « Email not confirmed » à la connexion).
+    const { error: updateError } = await admin.auth.admin.updateUserById(row.id, { password, email_confirm: true });
     if (updateError) return badRequest(updateError.message || "Réinitialisation impossible", 400);
     // Le lien reçu par e-mail prouve l'adresse : le compte est aussi activé.
     await admin.from("users").update({ password_reset_token: null, password_reset_expires_at: null, email_verified: true }).eq("id", row.id);

@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { nowIso } from "../../../../lib/auth";
-import { getSupabase, getSupabaseForToken } from "../../../../lib/supabase";
+import { getSupabase, getSupabaseAdmin, getSupabaseForToken } from "../../../../lib/supabase";
+import { ensureProfileRow } from "../../../../lib/ensure-profile";
 import { buildWebUser } from "../../../../lib/user-profile";
 import { setSessionCookie } from "../../../../lib/session-cookies";
 import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt } from "../../../../lib/rate-limit";
@@ -55,6 +56,16 @@ export async function POST(request) {
     profile = row || null;
   } catch {
     // Profile row is optional — the account itself is what matters.
+  }
+  if (!profile) {
+    // Compte sans ligne `users` (trigger d'inscription absent en prod, voir
+    // lib/ensure-profile.js) : on la crée maintenant, pour que le profil,
+    // « Mot de passe oublié » et koji-admin fonctionnent ensuite.
+    try {
+      profile = await ensureProfileRow(getSupabaseAdmin(), authUser, { isProFallback: accountType === "entreprise" });
+    } catch (error) {
+      console.warn(`login: création du profil impossible (${error.message})`);
+    }
   }
 
   // Email non confirme (16 oct) : gate propre a ce site, independant du
