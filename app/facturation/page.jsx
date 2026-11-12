@@ -167,9 +167,12 @@ function FacturationContent() {
   const [tab, setTab] = useState("toutes");
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState("");
+  // « Situation de travaux » depuis la fiche chantier (maquette PRO-02.1) :
+  // facture intermédiaire au pourcentage d'avancement.
+  const situation = searchParams.get("type") === "situation";
   const [form, setForm] = useState({
-    type: "Acompte initial",
-    amountMode: "deposit",
+    type: situation ? "Facture intermédiaire" : "Acompte initial",
+    amountMode: situation ? "percent" : "deposit",
     fixedAmount: "",
     percent: 30,
     depositPercent: 30,

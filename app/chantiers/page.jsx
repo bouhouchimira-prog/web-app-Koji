@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
 import { LancerChantier } from "../../components/LancerChantier";
-import { demarragePropose, lotsDuDevis } from "../../lib/planning-chantier";
+import { demarragePropose, joursOuvresEntre, lotsDuDevis } from "../../lib/planning-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -336,6 +336,7 @@ export default function ProjectsTrackingPage() {
   const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
   const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
   const [lancerOuvert, setLancerOuvert] = useState(false);
+  const [lotOuvert, setLotOuvert] = useState(null);
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -828,14 +829,14 @@ export default function ProjectsTrackingPage() {
     setMessage("Rendez-vous ajoute.");
   }
 
-  async function addDocument(event) {
+  async function addDocument(event, typeForce = "") {
     event.preventDefault();
     if (!selectedProject || !documentForm.title.trim()) return;
     const { projectDocument } = await apiSend("/api/project-documents", {
       projectId: selectedProject.id,
       quoteId: selectedQuote?.id || "",
       title: documentForm.title,
-      type: documentForm.type,
+      type: typeForce || documentForm.type,
       amount: documentForm.amount,
       category: documentForm.category,
       location: documentForm.location,
@@ -1251,6 +1252,56 @@ export default function ProjectsTrackingPage() {
     // chantier (planning par lot, maquette PRO-02.1).
     const lotsLancer = lotsDuDevis(selectedQuote).length;
     const lancerPossible = lotsLancer > 0 && trackingLines.length > 0 && unplannedCount === trackingLines.length;
+
+    // Lots de la fiche (maquette PRO-02.1) : les lignes du devis regroupées
+    // par pièce / lot, dans l'ordre du devis ; les tâches hors devis à part.
+    const lotsFiche = [];
+    for (const line of trackingLines) {
+      const nom = String((line.quoteLine || line.task || {}).room || "Chantier").trim() || "Chantier";
+      let lot = lotsFiche.find((l) => l.nom === nom);
+      if (!lot) { lot = { nom, lignes: [] }; lotsFiche.push(lot); }
+      lot.lignes.push(line);
+    }
+    lotsFiche.forEach((lot, index) => {
+      const taches = lot.lignes.map((l) => l.task).filter(Boolean);
+      const debuts = taches.map((t) => t.startDate).filter(Boolean).sort();
+      const fins = taches.map((t) => t.endDate || t.dueDate).filter(Boolean).sort();
+      const equipes = [...new Set(taches
+        .filter((t) => t.assignedTo && t.assignedTo !== "Equipe")
+        .map((t) => `${t.assignedTo}${t.participantType === "Sous-traitants" ? " · sous-traitant" : ""}`))];
+      const faites = lot.lignes.filter((l) => l.task?.done).length;
+      const aCommander = supplyNeeds.filter((need) => need.status === "A commander" && lot.lignes.some((l) => (l.task?.label || l.quoteLine?.label) === need.taskLabel));
+      lot.numero = String(index + 1).padStart(2, "0");
+      lot.montant = lot.lignes.reduce((n, l) => n + Number(l.quoteLine?.totalHt || 0), 0);
+      lot.debut = debuts[0] || "";
+      lot.fin = fins.at(-1) || "";
+      lot.equipe = equipes.join(", ") || (taches.length ? "Équipe" : L.chantiers.notAssigned);
+      lot.pourcent = lot.lignes.length ? Math.round((faites / lot.lignes.length) * 100) : 0;
+      lot.etat = faites === lot.lignes.length && faites > 0
+        ? "Terminé"
+        : taches.some((t) => ouvrageStatusKey(t) === "encours" || t.done)
+          ? `En cours · ${faites} / ${lot.lignes.length} ouvrage${lot.lignes.length > 1 ? "s" : ""} fait${faites > 1 ? "s" : ""}`
+          : lot.debut ? `À démarrer le ${formatDate(lot.debut)}` : "Pas encore planifié";
+      lot.fournitures = aCommander.length
+        ? `Fournitures à commander : ${aCommander.map((n) => `${n.name} ${n.quantity} ${n.unit || ""}`.trim()).join(", ")}`
+        : "";
+    });
+
+    const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
+    const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
+    const sousTitreAvancement = !demarre && plannedStart
+      ? `démarrage le ${formatDate(plannedStart)}`
+      : lotsFiche.length
+        ? `${lotsFaits} lot${lotsFaits > 1 ? "s" : ""} terminé${lotsFaits > 1 ? "s" : ""} sur ${lotsFiche.length}`
+        : "aucune tâche planifiée";
+    const acomptes = issuedInvoices.filter((f) => f.kind === "acompte" || /acompte/i.test(f.type || ""));
+    const sousTitreFacture = issuedInvoices.length === 0
+      ? "aucune facture envoyée"
+      : acomptes.length === issuedInvoices.length && quoteTtc > 0
+        ? `acompte ${Math.round((invoicedTtc / quoteTtc) * 100)} %, ${unpaidTtc > 0 ? "non réglé" : "réglé"}`
+        : unpaidTtc > 0 ? `${euro(unpaidTtc)} non réglé` : "tout est réglé";
+    const photos = linkedDocuments.filter((d) => d.type === "Photo");
+    const autresDocuments = linkedDocuments.filter((d) => d.type !== "Photo");
     const lineProgress = (task) => ({ debut: 0, encours: 50, termine: 100, valide: 100 })[ouvrageStatusKey(task)];
     const archived = Boolean(selectedProject.archiveId || linkedArchive);
     const archiveSummary = selectedProject.archiveSummary || linkedArchive?.summary || null;
@@ -1272,11 +1323,15 @@ export default function ProjectsTrackingPage() {
       ...(unplannedCount > 0 ? [{ id: "unplanned", title: `${unplannedCount} ouvrage${unplannedCount > 1 ? "s" : ""} à planifier`, meta: "sans date ni équipe", tag: "À planifier", tone: "tag tag-o", tab: "lots" }] : [])
     ];
 
+    // Onglets de la maquette PRO-02.1 (Messages : pas encore sur le site),
+    // plus « Coût » (budget et dépenses du chantier).
     const ficheTabs = [
-      { id: "lots", label: "Ouvrages", count: trackingLines.length },
+      { id: "lots", label: "Lots", count: lotsFiche.length },
       { id: "planning", label: "Planning", count: upcomingTasks.length + upcomingEvents.length },
       { id: "fournitures", label: "Fournitures", count: supplyNeeds.length },
-      { id: "documents", label: "Documents", count: linkedDocuments.length + linkedInvoices.length + (selectedQuote ? 1 : 0) },
+      { id: "situations", label: "Situations", count: linkedInvoices.length },
+      { id: "documents", label: "Documents", count: autresDocuments.length + (selectedQuote ? 1 : 0) },
+      { id: "photos", label: "Photos", count: photos.length },
       { id: "cout", label: "Coût" }
     ];
 
@@ -1312,9 +1367,9 @@ export default function ProjectsTrackingPage() {
             <Link href="/planning" className="btn btn-sec">Planning</Link>
             {selectedQuote ? <Link href={`/avenant?quoteId=${selectedQuote.id}`} className="btn btn-sec">Avenant</Link> : null}
             {selectedQuote && quoteSigned ? (
-              <Link href={`/facturation?quoteId=${selectedQuote.id}`} className="btn btn-main">
+              <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="btn btn-main">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                Nouvelle facture
+                Situation de travaux
               </Link>
             ) : null}
           </div>
@@ -1354,22 +1409,22 @@ export default function ProjectsTrackingPage() {
           <div>
             <div className="l">Avancement</div>
             <div className="v">{progress} %</div>
-            <div className="s">{projectTasks.length ? `${doneCount} / ${projectTasks.length} tâches faites` : "aucune tâche planifiée"}</div>
+            <div className="s">{sousTitreAvancement}</div>
           </div>
           <div>
             <div className="l">Facturé</div>
             <div className="v">{euro(invoicedTtc)}</div>
-            <div className="s">{issuedInvoices.length === 0 ? "aucune facture envoyée" : unpaidTtc > 0 ? `${euro(unpaidTtc)} non réglé` : "tout est réglé"}</div>
+            <div className="s">{sousTitreFacture}</div>
           </div>
           <div>
             <div className="l">Reste à facturer</div>
             <div className="v">{quoteTtc ? euro(Math.max(0, quoteTtc - invoicedTtc)) : "—"}</div>
-            <div className="s">TTC</div>
+            <div className="s">TTC, par situations</div>
           </div>
           <div>
             <div className="l">Fin prévue</div>
             <div className="v">{plannedEnd ? formatDate(plannedEnd) : "—"}</div>
-            <div className="s">{plannedStart ? `début le ${formatDate(plannedStart)}` : "pas encore planifié"}</div>
+            <div className="s">{plannedStart && plannedEnd ? `${joursOuvresEntre(plannedStart, plannedEnd)} jours ouvrés` : "pas encore planifié"}</div>
           </div>
         </div>
 
@@ -1393,12 +1448,41 @@ export default function ProjectsTrackingPage() {
             {ficheTab === "lots" ? (
               <div className="card">
                 <div className="card-h">
-                  <h2>Ouvrages</h2>
-                  {selectedQuote?.id ? <Link href={`/devis?id=${selectedQuote.id}`} className="link">Modifier le devis</Link> : null}
+                  <h2>Lots</h2>
+                  {quoteSigned && lotsLancer > 0 ? (
+                    <button type="button" className="link" onClick={() => setLancerOuvert(true)}>Modifier</button>
+                  ) : selectedQuote?.id ? <Link href={`/devis?id=${selectedQuote.id}`} className="link">Modifier le devis</Link> : null}
                 </div>
-                {trackingLines.length === 0 ? (
+                {lotsFiche.length === 0 ? (
                   <p className="empty">{L.chantiers.noQuoteLines}</p>
-                ) : trackingLines.map((line) => {
+                ) : lotsFiche.map((lot) => {
+                  const ouvert = lotOuvert === lot.nom;
+                  return (
+                    <div key={lot.nom} className={`lot-f${ouvert ? " open" : ""}`}>
+                      <div
+                        className="lf"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={ouvert}
+                        onClick={() => setLotOuvert(ouvert ? null : lot.nom)}
+                        onKeyDown={(event) => { if (event.key === "Enter") setLotOuvert(ouvert ? null : lot.nom); }}
+                      >
+                        <div className="lf-h">
+                          <span className="lc">Lot {lot.numero}</span>
+                          <strong>{lot.nom}</strong>
+                          <span className="lf-w">{lot.equipe}</span>
+                          <span className="lf-d">{lot.debut && lot.fin ? `${formatDate(lot.debut)} → ${formatDate(lot.fin)}` : "Non planifié"}</span>
+                          <span className="lf-a">{lot.montant > 0 ? euro(lot.montant) : ""}</span>
+                        </div>
+                        <div className="bar"><i style={{ width: `${lot.pourcent}%` }} /></div>
+                        <div className="lf-s">
+                          <span>{lot.fournitures || lot.etat}</span>
+                          <span className="lf-n">{lot.lignes.length} ouvrage{lot.lignes.length > 1 ? "s" : ""} {ouvert ? "▴" : "▾"}</span>
+                        </div>
+                      </div>
+                      {ouvert ? (
+                        <div className="lot-l">
+                          {lot.lignes.map((line) => {
                   const lineItem = line.quoteLine || line.task || {};
                   const task = line.task;
                   const amount = Number(line.quoteLine?.totalHt || 0);
@@ -1442,6 +1526,11 @@ export default function ProjectsTrackingPage() {
                           <button type="button" className="btn btn-sec" onClick={(event) => { event.stopPropagation(); openPlanner(line); }}>{L.chantiers.plan}</button>
                         </span>
                       </div>
+                    </div>
+                  );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -1522,6 +1611,43 @@ export default function ProjectsTrackingPage() {
               </div>
             ) : null}
 
+            {ficheTab === "situations" ? (
+              <div className="card">
+                <div className="card-h">
+                  <h2>Situations et factures</h2>
+                  {selectedQuote && quoteSigned ? <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="link">Situation de travaux</Link> : null}
+                </div>
+                {linkedInvoices.length === 0 ? (
+                  <p className="empty">Aucune facture pour ce chantier. L'acompte et les situations de travaux apparaissent ici.</p>
+                ) : linkedInvoices.map((invoice) => (
+                  <Link className="row" key={invoice.id} href="/facturation">
+                    <div className="t"><strong>{invoice.invoiceNumber || "Facture"}</strong><small>{[invoice.type || "Facture", `${euro(invoice.amountTtc)} TTC`, invoice.dueDate ? `échéance ${formatDate(invoice.dueDate)}` : ""].filter(Boolean).join(" · ")}</small></div>
+                    {invoiceTag(invoice)}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+
+            {ficheTab === "photos" ? (
+              <div className="card">
+                <div className="card-h"><h2>Photos</h2></div>
+                {photos.length === 0 ? <p className="empty">Aucune photo pour le moment. Ajoutez le lien d'une photo du chantier ci-dessous.</p> : photos.map((document) => (
+                  <div className="row" key={document.id}>
+                    <div className="t">
+                      <strong>{document.title}</strong>
+                      <small>{[document.category, document.location, formatDate(document.createdAt)].filter((v) => v && v !== "-").join(" · ")}</small>
+                    </div>
+                    {document.url ? <a className="link" href={document.url} target="_blank" rel="noreferrer">Voir</a> : null}
+                  </div>
+                ))}
+                <form className="pform" onSubmit={(event) => addDocument(event, "Photo")}>
+                  <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder="Titre de la photo" aria-label="Titre de la photo" />
+                  <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder={L.chantiers.fileLink} aria-label={L.chantiers.fileLink} />
+                  <button type="submit" className="btn btn-sec">Ajouter la photo</button>
+                </form>
+              </div>
+            ) : null}
+
             {ficheTab === "documents" ? (
               <div className="card">
                 <div className="card-h"><h2>{L.chantiers.documents}</h2></div>
@@ -1531,13 +1657,7 @@ export default function ProjectsTrackingPage() {
                     <span className="tag tag-o">Devis</span>
                   </a>
                 ) : null}
-                {linkedInvoices.map((invoice) => (
-                  <div className="row" key={invoice.id}>
-                    <div className="t"><strong>{invoice.invoiceNumber}</strong><small>{invoice.type || "Facture"} · {euro(invoice.amountTtc)} TTC</small></div>
-                    {invoiceTag(invoice)}
-                  </div>
-                ))}
-                {linkedDocuments.map((document) => (
+                {autresDocuments.map((document) => (
                   <div className="row" key={document.id}>
                     <div className="t">
                       <strong>{document.title}</strong>
@@ -1546,7 +1666,7 @@ export default function ProjectsTrackingPage() {
                     {document.url ? <a className="link" href={document.url} target="_blank" rel="noreferrer">Ouvrir</a> : null}
                   </div>
                 ))}
-                {!selectedQuote && linkedInvoices.length === 0 && linkedDocuments.length === 0 ? <p className="empty">Aucun document pour le moment.</p> : null}
+                {!selectedQuote && autresDocuments.length === 0 ? <p className="empty">Aucun document pour le moment.</p> : null}
                 <form className="pform" onSubmit={addDocument}>
                   <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.docNameOrPhoto} aria-label={L.chantiers.docNameOrPhoto} />
                   <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))} aria-label="Type">
@@ -1643,6 +1763,7 @@ export default function ProjectsTrackingPage() {
                 {selectedQuote ? <a className="link" href={quoteDocumentUrl(selectedQuote.id)} target="_blank" rel="noreferrer">PDF du devis</a> : null}
               </div>
               <div className="kv"><span>Client</span><b>{clientName}</b></div>
+              <div className="kv"><span>Suivi Koji Client</span><b>{portalId ? "Activé" : "Non activé"}</b></div>
               {clientPortalAccess?.email ? <div className="kv"><span>Email</span><b>{clientPortalAccess.email}</b></div> : null}
               {portalId ? (
                 <>

@@ -1579,3 +1579,14 @@
   .pro .env-act{flex-direction:column-reverse}
   .pro .env-act .btn{width:100%}
 }
+/* Fiche chantier, onglet Lots (maquette PRO-02.1) : un lot s'ouvre sur ses ouvrages. */
+.pro .lot-f + .lot-f .lf{border-top:1px solid var(--line)}
+.pro .lot-f:first-of-type .lf{border-top:0}
+.pro .lf-s .lf-n{color:var(--grey);font-size:12px;white-space:nowrap}
+.pro .lot-f.open > .lf{background:var(--soft);margin:0 -24px;padding:16px 24px}
+.pro .lot-l{margin:0 0 8px;padding-left:16px;border-left:2px solid var(--ink)}
+.pro .lot-l .lf{padding:12px 0}
+.pro .lot-l .lf-h{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 150px 90px}
+.pro .lot-l .lf-h .lc{display:none}
+@media (max-width:900px){.pro .lot-f.open > .lf{margin:0 -16px;padding:16px}}
+@media (max-width:900px){.pro .lot-l .lf-h{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}}

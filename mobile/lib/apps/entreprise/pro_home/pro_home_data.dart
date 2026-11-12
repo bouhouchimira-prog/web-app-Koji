@@ -146,6 +146,14 @@ class ProKojiWebClient {
     return task is Map ? Map<String, dynamic>.from(task) : {...tache};
   }
 
+  /// « Marquer fait » / « Rouvrir » une tâche (même action que le site).
+  Future<Map<String, dynamic>> basculerTache(String id) async {
+    final data =
+        await _send('PATCH', '/api/tasks', {'id': id, 'action': 'toggle'});
+    final task = data is Map ? data['task'] : null;
+    return task is Map ? Map<String, dynamic>.from(task) : {'id': id};
+  }
+
   /// Accès Koji Client du chantier (null s'il n'existe pas encore).
   Future<Map<String, dynamic>?> accesClient(String projectId) async {
     final data = await _send('GET',

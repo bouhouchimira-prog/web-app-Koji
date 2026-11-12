@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_fiche_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_shell.dart';
 import 'package:koji/core/route_args.dart';
 import 'package:koji/features/archives/archives_screen.dart';
@@ -164,8 +165,21 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 const ChantierCreationScreen(),
               ),
             ),
+            // Fiche chantier (maquette PRO-02.1) ; l'ancien tableau de bord
+            // (budget, dépenses, suivi des ouvriers) reste sous /chantier/outils.
             GoRoute(
               path: '/chantier/dashboard',
+              pageBuilder: (context, state) {
+                final data = state.extra as Map<String, dynamic>? ?? {};
+                return _buildPageWithTransition(
+                  context,
+                  state,
+                  ProFicheChantierScreen(projectId: '${data['id'] ?? ''}'),
+                );
+              },
+            ),
+            GoRoute(
+              path: '/chantier/outils',
               pageBuilder: (context, state) {
                 final data = state.extra as Map<String, dynamic>? ?? {};
                 return _buildPageWithTransition(
