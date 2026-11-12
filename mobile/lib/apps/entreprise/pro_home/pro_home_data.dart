@@ -42,9 +42,13 @@ class ProKojiWebClient {
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
     };
-    final res = method == 'POST'
-        ? await _http.post(uri, headers: headers, body: jsonEncode(body))
-        : await _http.get(uri, headers: headers);
+    final res = switch (method) {
+      'POST' => await _http.post(uri, headers: headers, body: jsonEncode(body)),
+      'PATCH' =>
+        await _http.patch(uri, headers: headers, body: jsonEncode(body)),
+      'PUT' => await _http.put(uri, headers: headers, body: jsonEncode(body)),
+      _ => await _http.get(uri, headers: headers),
+    };
     dynamic data;
     try {
       data = res.body.isEmpty ? null : jsonDecode(res.body);
@@ -85,6 +89,50 @@ class ProKojiWebClient {
 
   Future<List<Map<String, dynamic>>> alertesUrgentes() async =>
       _list(await _send('GET', '/api/urgent-alerts'), 'alerts');
+
+  // ---- Démarrage guidé (PRO-01.1) : mêmes routes que le site ----------
+
+  /// Profil au format du site : business, professions, logoUrl.
+  Future<Map<String, dynamic>> profil() async {
+    final data = await _send('GET', '/api/auth/profile');
+    final user = data is Map ? data['user'] : null;
+    if (user is! Map) throw const ProKojiWebException('Profil introuvable.');
+    return Map<String, dynamic>.from(user);
+  }
+
+  Future<Map<String, dynamic>> majProfil(Map<String, dynamic> body) async {
+    final data = await _send('PATCH', '/api/auth/profile', body);
+    final user = data is Map ? data['user'] : null;
+    return user is Map ? Map<String, dynamic>.from(user) : await profil();
+  }
+
+  /// Fiche de l'annuaire des entreprises, sans rien enregistrer.
+  Future<Map<String, dynamic>> ficheSiren(String siren) async {
+    final data = await _send('GET',
+        '/api/entreprise/fiche-siren?siren=${Uri.encodeQueryComponent(siren)}');
+    final fiche = data is Map ? data['fiche'] : null;
+    if (fiche is! Map) {
+      throw const ProKojiWebException(
+          "Aucune entreprise trouvée pour ce SIREN dans l'annuaire.");
+    }
+    return Map<String, dynamic>.from(fiche);
+  }
+
+  /// Taux horaires par métier (€ HT/h).
+  Future<Map<String, num>> tauxMetiers() async =>
+      _taux(await _send('GET', '/api/entreprise/taux'));
+
+  Future<Map<String, num>> enregistrerTaux(Map<String, num?> taux) async =>
+      _taux(await _send('PUT', '/api/entreprise/taux', {'taux': taux}));
+
+  static Map<String, num> _taux(dynamic data) {
+    final taux = data is Map ? data['taux'] : null;
+    if (taux is! Map) return const {};
+    return {
+      for (final e in taux.entries)
+        if (e.value is num) '${e.key}': e.value as num,
+    };
+  }
 
   /// Any list route of the site (factures, devis, chantiers, dépenses).
   Future<List<Map<String, dynamic>>> liste(String path, String key) async =>

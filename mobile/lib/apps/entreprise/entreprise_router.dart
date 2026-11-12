@@ -9,6 +9,7 @@ import 'package:koji/features/auth/business_info_screen.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/auth/profession_selection_screen.dart';
 import 'package:koji/features/calendar/calendrier_screen.dart';
+import 'package:koji/features/demarrage/demarrage_screen.dart';
 import 'package:koji/features/calendar/data/calendar_event_model.dart';
 import 'package:koji/features/calendar/detail_planning_screen.dart';
 import 'package:koji/features/calendar/nouvel_evenement_screen.dart';
@@ -121,6 +122,16 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
             context,
             state,
             const BusinessInfoScreen(),
+          ),
+        ),
+        // Démarrage guidé (maquette PRO-01.1) : remplace l'accueil tant que
+        // les étapes 1 à 3 ne sont pas faites (voir SplashScreen).
+        GoRoute(
+          path: '/demarrage',
+          pageBuilder: (context, state) => _buildPageWithTransition(
+            context,
+            state,
+            const DemarrageScreen(),
           ),
         ),
         GoRoute(

@@ -19,6 +19,7 @@ import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:koji/features/auth/pro_auth_widgets.dart';
 import 'package:koji/features/auth/pro_forgot_password_screen.dart';
+import 'package:koji/features/demarrage/demarrage_logic.dart';
 import 'package:koji/features/quote/chantier_client_screen.dart';
 import 'package:koji/features/worker/worker_shell.dart';
 
@@ -158,7 +159,7 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     if (!_isClient && user != null) await _enregistrerFicheEntreprise(siren);
     if (!mounted) return;
     if (user != null) {
-      context.go(_isClient ? '/client-home' : '/profession-selection');
+      context.go(_isClient ? '/client-home' : '/demarrage');
     }
   }
 
@@ -230,11 +231,13 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
         return;
       }
       final data = await ref.read(userRepositoryProvider).getUser(user.id);
+      final passe = await demarragePasse();
       if (!mounted) return;
-      final complete = data?['is_profile_complete'] == true;
-      context.go(complete ? '/home' : '/profession-selection');
+      // Démarrage guidé (PRO-01.1) tant que les étapes 1 à 3 manquent.
+      context.go(
+          essentielsFaitsDepuisLigne(data) || passe ? '/home' : '/demarrage');
     } catch (_) {
-      if (mounted) context.go('/profession-selection');
+      if (mounted) context.go('/demarrage');
     } finally {
       _navigating = false;
     }
@@ -246,7 +249,8 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     // adresse que l'app ne sait pas ouvrir.
     if (!_isClient) {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ProForgotPasswordScreen(initialEmail: _email.text.trim()),
+        builder: (_) =>
+            ProForgotPasswordScreen(initialEmail: _email.text.trim()),
       ));
       return;
     }

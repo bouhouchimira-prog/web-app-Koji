@@ -8,6 +8,7 @@ import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/design/koji_theme.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
+import 'package:koji/features/demarrage/demarrage_logic.dart';
 
 /// Écran de démarrage de chaque app (maquettes PRO-00.1 et CLI-05) : pas de
 /// porte d'entrée commune sur mobile, chaque application a la sienne.
@@ -138,18 +139,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           unawaited(userRepository.setIsPro(user.id, true));
         }
 
-        // ENTREPRISE — check onboarding completion. Either a real logo or
-        // an explicit "skipped" flag is enough to bypass /business-info.
-        if (!hasBusinessLogo && !isBusinessInfoComplete) {
-          if (mounted) context.go('/business-info');
-        } else if (!isProfileComplete) {
-          if (mounted) context.go('/profession-selection');
+        // ENTREPRISE — démarrage guidé (maquette PRO-01.1) tant que
+        // l'entreprise, les métiers et la zone, et les prix ne sont pas
+        // renseignés, sauf si l'artisan a choisi « Plus tard ».
+        if (!essentielsFaitsDepuisLigne(userData) && !await demarragePasse()) {
+          if (mounted) context.go('/demarrage');
         } else {
           if (mounted) context.go('/home');
         }
       } catch (e) {
-        // Error fetching user data - go to business info to be safe
-        if (mounted) context.go('/business-info');
+        // Profil illisible : le démarrage guidé sait réessayer ou passer.
+        if (mounted) context.go('/demarrage');
       }
     }
   }
