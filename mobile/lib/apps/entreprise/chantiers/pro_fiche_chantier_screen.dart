@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,6 +20,7 @@ class DonneesFiche {
     this.rdv = const [],
     this.alertes = const [],
     this.documents = const [],
+    this.photos = const [],
     this.acces,
   });
 
@@ -29,6 +31,9 @@ class DonneesFiche {
   final List<Map<String, dynamic>> rdv;
   final List<Map<String, dynamic>> alertes;
   final List<Map<String, dynamic>> documents;
+
+  /// Photos avant / après / pendant (PRO-02.2).
+  final List<PhotoChantier> photos;
   final Map<String, dynamic>? acces;
 }
 
@@ -51,6 +56,9 @@ final proFicheChantierProvider = FutureProvider.autoDispose
   if (projets.isEmpty) return null;
   final devis = r[1].where(duChantier);
   final acces = await api.accesClient(projectId).catchError((_) => null);
+  final photos = await api
+      .photosChantier(projectId)
+      .catchError((_) => <Map<String, dynamic>>[]);
   return DonneesFiche(
     projet: projets.first,
     devis: devis.isEmpty ? null : devis.first,
@@ -59,6 +67,7 @@ final proFicheChantierProvider = FutureProvider.autoDispose
     rdv: r[4].where(duChantier).toList(),
     alertes: r[5].where(duChantier).toList(),
     documents: r[6].where(duChantier).toList(),
+    photos: photos.map(PhotoChantier.fromJson).toList(),
     acces: acces,
   );
 });
@@ -83,6 +92,36 @@ class _ProFicheChantierScreenState
   String _onglet = 'lots';
   String? _lotOuvert;
   final Set<String> _envoi = {};
+
+  /// Lot dont une photo part (« lot|phase »).
+  String? _photoEnCours;
+
+  /// Photo prise à l'appareil photo (jamais depuis la galerie) ; le serveur
+  /// pose la date, l'heure et l'auteur.
+  Future<void> _prendrePhoto(String lot, String phase) async {
+    final image = await ImagePicker().pickImage(
+        source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
+    if (image == null || !mounted) return;
+    setState(() => _photoEnCours = '$lot|$phase');
+    try {
+      await ref.read(proKojiWebProvider).envoyerPhoto(
+            projectId: widget.projectId,
+            lot: lot,
+            phase: phase,
+            octets: await image.readAsBytes(),
+          );
+      _recharger();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e is ProKojiWebException
+                ? e.message
+                : "La photo n'a pas pu être envoyée.")));
+      }
+    } finally {
+      if (mounted) setState(() => _photoEnCours = null);
+    }
+  }
 
   String _s(dynamic v) => v == null ? '' : '$v';
 
@@ -262,7 +301,7 @@ class _ProFicheChantierScreenState
           'planning' => _planning(da, d, aujourdhui),
           'traiter' => _traiter(da, aTraiter),
           'docs' => _docs(da, d),
-          _ => _lots(da, lots),
+          _ => _lots(da, lots, d.photos),
         },
         const SizedBox(height: 18),
         Center(
@@ -368,96 +407,191 @@ class _ProFicheChantierScreenState
         child: Text(texte, style: da.text(13, color: da.grey)),
       );
 
-  List<Widget> _lots(ProDa da, List<LotFiche> lots) {
+  List<Widget> _lots(
+      ProDa da, List<LotFiche> lots, List<PhotoChantier> photos) {
     if (lots.isEmpty) {
       return [_vide(da, 'Pas encore de devis rattaché à ce chantier.')];
     }
     return [
       for (final lot in lots) ...[
-        GestureDetector(
-          onTap: () => setState(
-              () => _lotOuvert = _lotOuvert == lot.nom ? null : lot.nom),
-          behavior: HitTestBehavior.opaque,
-          child: ProCard(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Lot ${lot.numero} · ${lot.nom}',
-                              style: da.text(14, weight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('${lot.dates} · ${lot.equipe}',
-                              style: da.text(12, color: da.grey)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(eurosFiche(lot.montant),
-                            style: da.text(13, weight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        ProTag(lot.etat,
-                            tone: lot.etat == 'Terminé'
-                                ? ProTagTone.grey
-                                : ProTagTone.ink),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRect(
-                  child: LinearProgressIndicator(
-                    value: lot.pourcent / 100,
-                    minHeight: 4,
-                    color: da.ink,
-                    backgroundColor: const Color(0xFFE2E2DB),
-                  ),
-                ),
-                if (_lotOuvert == lot.nom) ...[
-                  const SizedBox(height: 8),
-                  for (final l in lot.lignes)
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                          border: Border(top: BorderSide(color: da.line))),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(l.label,
-                                style: da.text(13,
-                                    color: l.faite ? da.grey : null)),
-                          ),
-                          if (l.tache != null)
-                            TextButton(
-                              onPressed: _envoi.contains(_s(l.tache!['id']))
-                                  ? null
-                                  : () => _basculer(l.tache!),
-                              child: Text(l.faite ? 'Rouvrir' : 'Marquer fait',
-                                  style: da.text(12, weight: FontWeight.w600)),
-                            )
-                          else
-                            Text('non planifié',
-                                style: da.text(12, color: da.grey)),
-                        ],
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
+        () {
+          final ph = photosDuLot(photos, lot.nom,
+              faites: lot.lignes.where((l) => l.faite).length,
+              total: lot.lignes.length);
+          return _carteLot(da, lot, ph);
+        }(),
         const SizedBox(height: 8),
       ],
     ];
+  }
+
+  Widget _vignette(ProDa da, LotFiche lot, PhotoChantier? photo, String phase,
+      {bool manquante = false}) {
+    final libelle = phase == 'avant' ? 'Avant' : 'Après';
+    final envoi = _photoEnCours == '${lot.nom}|$phase';
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 4 / 3,
+            child: Container(
+              decoration: BoxDecoration(
+                color: da.soft,
+                border: Border.all(color: manquante ? da.ink : da.line),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: photo != null && photo.url.isNotEmpty
+                  ? Image.network(photo.url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                          child: Text(libelle,
+                              style: da.text(12, color: da.grey))))
+                  : Center(
+                      child: envoi
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : TextButton(
+                              onPressed: () => _prendrePhoto(lot.nom, phase),
+                              child: Text(
+                                  phase == 'avant'
+                                      ? 'Photo avant'
+                                      : 'Prendre la photo après',
+                                  textAlign: TextAlign.center,
+                                  style: da.text(12, weight: FontWeight.w600)),
+                            ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(libelle, style: da.text(12, weight: FontWeight.w700)),
+          Text(
+              photo != null
+                  ? '${horodatage(photo.takenAt)} · ${photo.author}'
+                  : phase == 'apres'
+                      ? (manquante
+                          ? 'obligatoire pour terminer le lot'
+                          : 'à la fin du lot')
+                      : 'au début du lot',
+              style: da.text(11, color: da.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _carteLot(ProDa da, LotFiche lot,
+      ({PhotoChantier? avant, PhotoChantier? apres, String etat}) ph) {
+    final etat =
+        ph.etat == 'apres_manquante' ? 'Photo après manquante' : lot.etat;
+    return GestureDetector(
+      onTap: () =>
+          setState(() => _lotOuvert = _lotOuvert == lot.nom ? null : lot.nom),
+      behavior: HitTestBehavior.opaque,
+      child: ProCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Lot ${lot.numero} · ${lot.nom}',
+                          style: da.text(14, weight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text('${lot.dates} · ${lot.equipe}',
+                          style: da.text(12, color: da.grey)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(eurosFiche(lot.montant),
+                        style: da.text(13, weight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    ProTag(etat,
+                        tone: ph.etat == 'apres_manquante'
+                            ? ProTagTone.solid
+                            : lot.etat == 'Terminé'
+                                ? ProTagTone.grey
+                                : ProTagTone.ink),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRect(
+              child: LinearProgressIndicator(
+                value: lot.pourcent / 100,
+                minHeight: 4,
+                color: da.ink,
+                backgroundColor: const Color(0xFFE2E2DB),
+              ),
+            ),
+            if (_lotOuvert == lot.nom) ...[
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _vignette(da, lot, ph.avant, 'avant'),
+                  const SizedBox(width: 10),
+                  _vignette(da, lot, ph.apres, 'apres',
+                      manquante: ph.etat == 'apres_manquante'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final l in lot.lignes)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: da.line))),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(l.label,
+                            style:
+                                da.text(13, color: l.faite ? da.grey : null)),
+                      ),
+                      if (l.tache != null)
+                        TextButton(
+                          onPressed: _envoi.contains(_s(l.tache!['id']))
+                              ? null
+                              : () {
+                                  final restantes =
+                                      lot.lignes.where((x) => !x.faite).length;
+                                  if (!l.faite &&
+                                      restantes == 1 &&
+                                      ph.apres == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                "Prenez d'abord la photo après : elle est obligatoire pour terminer le lot.")));
+                                    return;
+                                  }
+                                  _basculer(l.tache!);
+                                },
+                          child: Text(l.faite ? 'Rouvrir' : 'Marquer fait',
+                              style: da.text(12, weight: FontWeight.w600)),
+                        )
+                      else
+                        Text('non planifié',
+                            style: da.text(12, color: da.grey)),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   List<Widget> _planning(ProDa da, DonneesFiche d, String aujourdhui) {

@@ -1590,3 +1590,24 @@
 .pro .lot-l .lf-h .lc{display:none}
 @media (max-width:900px){.pro .lot-f.open > .lf{margin:0 -16px;padding:16px}}
 @media (max-width:900px){.pro .lot-l .lf-h{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}}
+/* Photos avant / après (maquette PRO-02.2) */
+.pro .ph-note{display:flex;flex-direction:column;gap:2px;margin-bottom:16px;padding:12px 16px;background:var(--card);border:1px solid var(--frame);border-left:3px solid var(--ink)}
+.pro .ph-note strong{font-size:14px}
+.pro .ph-note small{color:var(--grey);font-size:12px}
+.pro .ph-lot{padding:14px 0;border-top:1px solid var(--line)}
+.pro .card-h + .ph-lot{border-top:0}
+.pro .ph-lot-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:10px}
+.pro .ph-lot-h strong{font-size:15px}
+.pro .ph-lot-h span{color:var(--grey);font-size:13px}
+.pro .ph-etat{margin-left:auto;padding:2px 8px;border:1px solid var(--grey);border-radius:var(--r-touch);font-size:12px;font-weight:600}
+.pro .ph-etat.termine{border-color:var(--ink);color:var(--ink)}
+.pro .ph-etat.apres_manquante{background:var(--fill);border-color:var(--fill);color:var(--filltxt)}
+.pro .ph-paire{display:grid;grid-template-columns:repeat(2,minmax(0,240px));gap:12px}
+.pro .ph-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,180px));gap:12px}
+.pro .ph-v{display:flex;flex-direction:column;gap:6px;margin:0}
+.pro .ph-v img,.pro .ph-vide{display:grid;place-items:center;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--soft);border:1px solid var(--line);border-radius:var(--r-touch);color:var(--grey);font-size:13px;text-align:center}
+.pro .ph-vide{border-style:dashed;padding:8px}
+.pro .ph-v figcaption{display:flex;flex-direction:column;gap:1px}
+.pro .ph-v figcaption b{font-size:13px}
+.pro .ph-v figcaption small{color:var(--grey);font-size:12px}
+@media (max-width:560px){.pro .ph-paire{grid-template-columns:1fr 1fr;gap:8px}}

@@ -7,6 +7,7 @@ import { Shell } from "../../components/Shell";
 import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
 import { LancerChantier } from "../../components/LancerChantier";
 import { demarragePropose, joursOuvresEntre, lotsDuDevis } from "../../lib/planning-chantier";
+import { LIBELLE_ETAT_PHOTOS, horodatage, photosDuLot } from "../../lib/photos-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -337,6 +338,8 @@ export default function ProjectsTrackingPage() {
   const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
   const [lancerOuvert, setLancerOuvert] = useState(false);
   const [lotOuvert, setLotOuvert] = useState(null);
+  const [photosChantier, setPhotosChantier] = useState([]);
+  const [filtrePhotos, setFiltrePhotos] = useState("tous");
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -374,6 +377,14 @@ export default function ProjectsTrackingPage() {
     setOpenLineKey(null);
     setStartChoiceMade(false);
   }
+
+  // Photos avant / après du chantier (PRO-02.2).
+  useEffect(() => {
+    if (!selectedProjectId) { setPhotosChantier([]); return; }
+    apiGet(`/api/chantier-photos?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setPhotosChantier(Array.isArray(data.photos) ? data.photos : []))
+      .catch(() => setPhotosChantier([]));
+  }, [selectedProjectId]);
 
   useEffect(() => {
     if (!selectedProjectId) { setClientPortalAccess(null); return; }
@@ -1287,6 +1298,13 @@ export default function ProjectsTrackingPage() {
         : "";
     });
 
+    // Photos par lot : avant, après, ce qui manque (lib/photos-chantier.js).
+    lotsFiche.forEach((lot) => {
+      lot.photos = photosDuLot(photosChantier, lot.nom, { faites: lot.lignes.filter((l) => l.task?.done).length, total: lot.lignes.length });
+      if (lot.photos.etat === "apres_manquante") lot.etat = "Ouvrages faits · photo après manquante, le lot ne peut pas être clôturé";
+    });
+    const photosPendant = photosChantier.filter((p) => !p.lot || p.phase === "pendant");
+
     const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
     const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
     const sousTitreAvancement = !demarre && plannedStart
@@ -1301,12 +1319,17 @@ export default function ProjectsTrackingPage() {
         ? `acompte ${Math.round((invoicedTtc / quoteTtc) * 100)} %, ${unpaidTtc > 0 ? "non réglé" : "réglé"}`
         : unpaidTtc > 0 ? `${euro(unpaidTtc)} non réglé` : "tout est réglé";
     const photos = linkedDocuments.filter((d) => d.type === "Photo");
+    const nbPhotos = photosChantier.length + photos.length;
     const autresDocuments = linkedDocuments.filter((d) => d.type !== "Photo");
     const lineProgress = (task) => ({ debut: 0, encours: 50, termine: 100, valide: 100 })[ouvrageStatusKey(task)];
     const archived = Boolean(selectedProject.archiveId || linkedArchive);
     const archiveSummary = selectedProject.archiveSummary || linkedArchive?.summary || null;
 
+    const aTraiterPhotos = lotsFiche
+      .filter((lot) => lot.photos?.etat === "apres_manquante")
+      .map((lot) => ({ id: `photo-${lot.nom}`, title: `Lot ${lot.numero} : photo après manquante`, meta: "à prendre dans l'app Koji Pro avant la clôture", tag: "À faire", tone: "tag tag-e tag-w", tab: "photos" }));
     const aTraiter = [
+      ...aTraiterPhotos,
       ...upcomingTasks
         .filter((task) => !task.pendingValidation && (task.endDate || task.dueDate || "") && (task.endDate || task.dueDate) < today)
         .map((task) => ({ id: `late-${task.id}`, title: task.label, meta: `prévu le ${formatDate(task.endDate || task.dueDate)} · ${task.assignedTo || "équipe non assignée"}`, tag: "En retard", tone: "tag tag-b", lineKey: task.quoteItemId || task.id })),
@@ -1331,7 +1354,7 @@ export default function ProjectsTrackingPage() {
       { id: "fournitures", label: "Fournitures", count: supplyNeeds.length },
       { id: "situations", label: "Situations", count: linkedInvoices.length },
       { id: "documents", label: "Documents", count: autresDocuments.length + (selectedQuote ? 1 : 0) },
-      { id: "photos", label: "Photos", count: photos.length },
+      { id: "photos", label: "Photos", count: nbPhotos },
       { id: "cout", label: "Coût" }
     ];
 
@@ -1629,23 +1652,71 @@ export default function ProjectsTrackingPage() {
             ) : null}
 
             {ficheTab === "photos" ? (
-              <div className="card">
-                <div className="card-h"><h2>Photos</h2></div>
-                {photos.length === 0 ? <p className="empty">Aucune photo pour le moment. Ajoutez le lien d'une photo du chantier ci-dessous.</p> : photos.map((document) => (
-                  <div className="row" key={document.id}>
-                    <div className="t">
-                      <strong>{document.title}</strong>
-                      <small>{[document.category, document.location, formatDate(document.createdAt)].filter((v) => v && v !== "-").join(" · ")}</small>
+              <>
+                <div className="ph-note">
+                  <strong>Chaque lot commence par une photo avant et se termine par une photo après, prises dans l'application.</strong>
+                  <small>Date, heure et auteur enregistrés par Koji au moment de la prise · non modifiables</small>
+                </div>
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Avant et après, par lot</h2>
+                    <div className="kp-seg" role="group" aria-label="Filtrer les photos">
+                      {[["tous", "Tous"], ["avap", "Avant / après"], ["pendant", "Pendant"]].map(([id, label]) => (
+                        <button key={id} type="button" className={filtrePhotos === id ? "on" : ""} aria-pressed={filtrePhotos === id} onClick={() => setFiltrePhotos(id)}>{label}</button>
+                      ))}
                     </div>
-                    {document.url ? <a className="link" href={document.url} target="_blank" rel="noreferrer">Voir</a> : null}
                   </div>
-                ))}
-                <form className="pform" onSubmit={(event) => addDocument(event, "Photo")}>
-                  <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder="Titre de la photo" aria-label="Titre de la photo" />
-                  <input value={documentForm.url} onChange={(event) => setDocumentForm((current) => ({ ...current, url: event.target.value }))} placeholder={L.chantiers.fileLink} aria-label={L.chantiers.fileLink} />
-                  <button type="submit" className="btn btn-sec">Ajouter la photo</button>
-                </form>
-              </div>
+                  {filtrePhotos !== "pendant" ? (lotsFiche.length === 0 ? <p className="empty">Pas encore de lots : les photos se rangent par lot du devis.</p> : lotsFiche.map((lot) => {
+                    const ph = lot.photos;
+                    const vignette = (photo, libelle) => (
+                      <figure className="ph-v">
+                        {photo?.url ? <a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`${libelle}, lot ${lot.numero}`} loading="lazy" /></a> : <span className="ph-vide">{libelle === "Après" ? (ph.etat === "apres_manquante" ? "Photo après manquante" : "Pas encore de photo après") : "Pas encore de photo avant"}</span>}
+                        <figcaption>
+                          <b>{libelle}</b>
+                          {photo ? <small>{horodatage(photo.takenAt)} · {photo.author}</small> : libelle === "Après" && ph.etat === "apres_manquante" ? <small>le lot ne peut pas être clôturé sans elle</small> : <small>à prendre dans l'app Koji Pro</small>}
+                        </figcaption>
+                      </figure>
+                    );
+                    return (
+                      <div className="ph-lot" key={lot.nom}>
+                        <div className="ph-lot-h">
+                          <strong>Lot {lot.numero} · {lot.nom}</strong>
+                          <span>{lot.equipe}</span>
+                          <span className={`ph-etat ${ph.etat}`}>{LIBELLE_ETAT_PHOTOS[ph.etat]}</span>
+                        </div>
+                        <div className="ph-paire">
+                          {vignette(ph.avant, "Avant")}
+                          {vignette(ph.apres, "Après")}
+                        </div>
+                      </div>
+                    );
+                  })) : null}
+                  {filtrePhotos !== "avap" && (photosPendant.length || photos.length) ? (
+                    <div className="ph-lot">
+                      <div className="ph-lot-h"><strong>Pendant les travaux</strong><span>{photosPendant.length + photos.length} photo{photosPendant.length + photos.length > 1 ? "s" : ""}</span></div>
+                      <div className="ph-grille">
+                        {photosPendant.map((photo) => (
+                          <figure className="ph-v" key={photo.id}>
+                            {photo.url ? <a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={photo.caption || photo.taskTitle || "Photo du chantier"} loading="lazy" /></a> : <span className="ph-vide">Photo</span>}
+                            <figcaption><b>{photo.caption || photo.taskTitle || "Pendant"}</b><small>{horodatage(photo.takenAt)} · {photo.author}</small></figcaption>
+                          </figure>
+                        ))}
+                        {photos.map((document) => (
+                          <figure className="ph-v" key={document.id}>
+                            {document.url ? <a href={document.url} target="_blank" rel="noreferrer"><span className="ph-vide">Ouvrir le lien</span></a> : <span className="ph-vide">Photo</span>}
+                            <figcaption><b>{document.title}</b><small>lien ajouté à la main</small></figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                    </div>
+                  ) : filtrePhotos === "pendant" ? <p className="empty">Aucune photo prise pendant les travaux.</p> : null}
+                </div>
+                <div className="card">
+                  <div className="card-h"><h2>Partage avec la cliente</h2></div>
+                  <div className="kv"><span>Photos après de chaque lot</span><b>à partager avec la situation (Koji Client, à venir)</b></div>
+                  <div className="kv"><span>Photos avant et pendant</span><b>gardées pour vous, preuve en cas de litige</b></div>
+                </div>
+              </>
             ) : null}
 
             {ficheTab === "documents" ? (

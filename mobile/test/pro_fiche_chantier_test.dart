@@ -117,6 +117,38 @@ void main() {
     ]);
   });
 
+  test('photos : ce qui manque à chaque lot (règles du site)', () {
+    final photos = [
+      const PhotoChantier(
+          id: 'a',
+          lot: 'Plomberie',
+          phase: 'avant',
+          takenAt: '2026-11-17T07:10:00Z',
+          author: 'Rui C.'),
+      const PhotoChantier(
+          id: 'b',
+          lot: 'Plomberie',
+          phase: 'apres',
+          takenAt: '2026-11-19T14:22:00Z',
+          author: 'Rui C.'),
+      const PhotoChantier(
+          id: 'c',
+          lot: 'Électricité',
+          phase: 'avant',
+          takenAt: '2026-11-28T07:30:00Z',
+          author: 'Benarab'),
+    ];
+    expect(
+        photosDuLot(photos, 'Plomberie', faites: 3, total: 3).etat, 'termine');
+    expect(photosDuLot(photos, 'Électricité', faites: 1, total: 1).etat,
+        'apres_manquante');
+    expect(photosDuLot(photos, 'Électricité', faites: 0, total: 1).etat,
+        'en_cours');
+    expect(photosDuLot(photos, 'Dépose', faites: 0, total: 2).etat, 'a_faire');
+    expect(PhotoChantier.fromJson({'phase': '', 'caption': 'mur posé'}).phase,
+        'pendant');
+  });
+
   testWidgets('écran téléphone', (tester) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
@@ -146,8 +178,19 @@ void main() {
     await expectLater(find.byType(ProFicheChantierScreen),
         matchesGoldenFile('goldens/pro_fiche_chantier.png'));
 
+    // Lot 01 : tout est fait, mais pas de photo après.
+    expect(find.text('Photo après manquante'), findsOneWidget);
+
     await tester.tap(find.text('Lot 02 · Plomberie'));
     await tester.pumpAndSettle();
-    expect(find.text('Marquer fait'), findsOneWidget);
+    expect(find.text('Photo avant'), findsOneWidget);
+    expect(find.text('Prendre la photo après'), findsOneWidget);
+    await expectLater(find.byType(ProFicheChantierScreen),
+        matchesGoldenFile('goldens/pro_fiche_chantier_lot.png'));
+    // Dernier ouvrage du lot sans photo après : refusé.
+    await tester.tap(find.text('Marquer fait'));
+    await tester.pump();
+    expect(
+        find.textContaining('obligatoire pour terminer le lot'), findsWidgets);
   });
 }

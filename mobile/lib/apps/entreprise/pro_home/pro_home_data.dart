@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:intl/intl.dart';
 
 import 'package:koji/app/koji_web_api_config.dart';
@@ -152,6 +153,51 @@ class ProKojiWebClient {
         await _send('PATCH', '/api/tasks', {'id': id, 'action': 'toggle'});
     final task = data is Map ? data['task'] : null;
     return task is Map ? Map<String, dynamic>.from(task) : {'id': id};
+  }
+
+  /// Photos avant / après / pendant du chantier (PRO-02.2).
+  Future<List<Map<String, dynamic>>> photosChantier(String projectId) async =>
+      _list(
+          await _send('GET',
+              '/api/chantier-photos?projectId=${Uri.encodeQueryComponent(projectId)}'),
+          'photos');
+
+  /// Envoie une photo prise dans l'app ; le serveur pose date, heure et
+  /// auteur (non modifiables).
+  Future<Map<String, dynamic>> envoyerPhoto({
+    required String projectId,
+    required String lot,
+    required String phase,
+    required List<int> octets,
+    String type = 'image/jpeg',
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final requete = http.MultipartRequest(
+        'POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/chantier-photos'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['projectId'] = projectId
+      ..fields['lot'] = lot
+      ..fields['phase'] = phase
+      ..files.add(http.MultipartFile.fromBytes('file', octets,
+          filename: 'photo.${type == 'image/png' ? 'png' : 'jpg'}',
+          contentType: MediaType.parse(type)));
+    final reponse = await http.Response.fromStream(await _http.send(requete));
+    dynamic data;
+    try {
+      data = jsonDecode(reponse.body);
+    } on FormatException {
+      data = null;
+    }
+    if (reponse.statusCode >= 400) {
+      throw ProKojiWebException(
+          (data is Map ? data['error']?.toString() : null) ??
+              'Erreur ${reponse.statusCode}');
+    }
+    final photo = data is Map ? data['photo'] : null;
+    return photo is Map ? Map<String, dynamic>.from(photo) : {};
   }
 
   /// Accès Koji Client du chantier (null s'il n'existe pas encore).

@@ -256,3 +256,66 @@ List<ATraiterFiche> aTraiterFiche({
                 'En retard',
                 false),
     ];
+
+/// Photo avant / après / pendant (maquette PRO-02.2), lue sur le site :
+/// date, heure et auteur posés par le serveur à la prise.
+class PhotoChantier {
+  const PhotoChantier({
+    required this.id,
+    required this.lot,
+    required this.phase,
+    required this.takenAt,
+    required this.author,
+    this.url = '',
+    this.legende = '',
+  });
+
+  factory PhotoChantier.fromJson(Map<String, dynamic> j) => PhotoChantier(
+        id: _s(j['id']),
+        lot: _s(j['lot']),
+        phase: _s(j['phase']).isEmpty ? 'pendant' : _s(j['phase']),
+        takenAt: _s(j['takenAt']),
+        author: _s(j['author']),
+        url: _s(j['url']),
+        legende: _s(j['caption'] ?? j['taskTitle']),
+      );
+
+  final String id;
+  final String lot;
+
+  /// « avant », « pendant » ou « apres ».
+  final String phase;
+  final String takenAt;
+  final String author;
+  final String url;
+  final String legende;
+}
+
+/// « 14/11 08:02 » à l'heure du téléphone.
+String horodatage(String iso) {
+  final d = DateTime.tryParse(iso);
+  return d == null ? '' : DateFormat('dd/MM HH:mm').format(d.toLocal());
+}
+
+/// Photos d'un lot et ce qui manque (mêmes règles que lib/photos-chantier.js).
+({PhotoChantier? avant, PhotoChantier? apres, String etat}) photosDuLot(
+    List<PhotoChantier> photos, String lot,
+    {required int faites, required int total}) {
+  final duLot = photos.where((p) => p.lot == lot).toList()
+    ..sort((a, b) => a.takenAt.compareTo(b.takenAt));
+  PhotoChantier? avant;
+  PhotoChantier? apres;
+  for (final p in duLot) {
+    if (p.phase == 'avant') avant ??= p;
+    if (p.phase == 'apres') apres = p;
+  }
+  final termine = total > 0 && faites == total;
+  final etat = termine && apres != null
+      ? 'termine'
+      : termine
+          ? 'apres_manquante'
+          : (avant != null || faites > 0)
+              ? 'en_cours'
+              : 'a_faire';
+  return (avant: avant, apres: apres, etat: etat);
+}
