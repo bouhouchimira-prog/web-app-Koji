@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { AssistantWindow } from "../components/AssistantWindow";
@@ -130,6 +131,7 @@ function libelleSuivi(suivi) {
 }
 
 function DashboardHome() {
+  const router = useRouter();
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
@@ -157,7 +159,6 @@ function DashboardHome() {
   const [radarTri, setRadarTri] = useState("prix");
   const [leadOuvert, setLeadOuvert] = useState(undefined); // undefined = le premier
   const [toutAfficher, setToutAfficher] = useState(false);
-  const [demarrage, setDemarrage] = useState(null);
   const [assistantWindowOpen, setAssistantWindowOpen] = useState(false);
   const [assistantDraft, setAssistantDraft] = useState("");
 
@@ -177,14 +178,10 @@ function DashboardHome() {
     setProfileComplete(Boolean(user.profileComplete && user.businessInfoComplete));
     let skipped = false;
     try { skipped = Boolean(window.localStorage.getItem(DEMARRAGE_SKIP_KEY)); } catch {}
-    const steps = demarrageSteps(user);
-    if (!skipped && !essentialsDone(steps)) setDemarrage({ done: steps.filter((step) => step.done).length });
-  }, []);
-
-  function passerDemarrage() {
-    try { window.localStorage.setItem(DEMARRAGE_SKIP_KEY, new Date().toISOString()); } catch {}
-    setDemarrage(null);
-  }
+    // Maquette PRO-01.1 : le démarrage guidé remplace l'accueil tant que
+    // les étapes 1 à 3 ne sont pas faites, sauf si l'artisan l'a passé.
+    if (!skipped && !essentialsDone(demarrageSteps(user))) router.replace("/demarrage");
+  }, [router]);
 
   // Statut « déjà positionné » de chaque chantier (pas de route qui liste
   // tous les positionnements d'une entreprise).
@@ -417,17 +414,6 @@ function DashboardHome() {
             </svg>
           </div>
         </div>
-
-        {demarrage ? (
-          <section className="kp-start" aria-label="Démarrage guidé">
-            <div>
-              <strong>Démarrage guidé · {demarrage.done} étape{demarrage.done > 1 ? "s" : ""} sur 6</strong>
-              <small>Entreprise, métiers et prix : trois étapes pour envoyer votre premier devis.</small>
-            </div>
-            <button type="button" className="link" onClick={passerDemarrage}>Passer</button>
-            <Link href="/demarrage" className="btn btn-sec">Continuer</Link>
-          </section>
-        ) : null}
 
         <section className="kp-hero" aria-label="Devis guidé">
           <div>

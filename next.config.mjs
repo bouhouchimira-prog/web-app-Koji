@@ -14,6 +14,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // connect-src needs it; its worker is served from /carte on this origin.
 const supabaseOrigin = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
 const mapTilesOrigin = "https://tiles.openfreemap.org";
+// Address autocomplete (profile work zone, guided start) calls the free
+// national address API (BAN) from the browser.
+const addressApiOrigin = "https://api-adresse.data.gouv.fr";
 // Turbopack's dev server (HMR, React error-overlay stack reconstruction) uses
 // eval() and breaks under this CSP without it. Production never needs or gets
 // 'unsafe-eval' — React itself never calls eval() outside development.
@@ -24,7 +27,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ""} ${mapTilesOrigin}`,
+  `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ""} ${mapTilesOrigin} ${addressApiOrigin}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

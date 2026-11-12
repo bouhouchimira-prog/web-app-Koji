@@ -10,6 +10,19 @@ import { chercherEntreprise, normaliserSiren } from "../../../../lib/sirene";
 // si un SIREN est donné, la fiche entreprise remplie depuis l'annuaire.
 // Ne touche que business_info de l'appelant ; n'écrase pas une fiche déjà
 // remplie (raison sociale, adresse…) par une valeur de l'annuaire.
+
+// Démarrage guidé (PRO-01.1, étape 1) : la fiche de l'annuaire, sans rien
+// enregistrer, pour que l'artisan la confirme (« C'est bien moi »).
+export async function GET(request) {
+  const userId = await getVerifiedUserId(request);
+  if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
+  const siren = normaliserSiren(new URL(request.url).searchParams.get("siren") || "");
+  if (!siren) return badRequest("Ce SIREN n'est pas valide : 9 chiffres, sans espace.");
+  const fiche = await chercherEntreprise(siren);
+  if (!fiche) return badRequest("Aucune entreprise trouvée pour ce SIREN dans l'annuaire.", 404);
+  return ok({ fiche });
+}
+
 export async function POST(request) {
   let body;
   try {
