@@ -10,6 +10,7 @@ import { demarragePropose, joursOuvresEntre, lotsDuDevis } from "../../lib/plann
 import { LIBELLE_ETAT_PHOTOS, PHASES_RESERVE, horodatage, photosDuLot } from "../../lib/photos-chantier";
 import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreReserve, statutReserve } from "../../lib/reserves";
 import { PvReception } from "../../components/PvReception";
+import { conseilsEntretien, elementsDossier, photosChoisies, resumeDossier } from "../../lib/dossier-fin";
 import { bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
@@ -352,6 +353,13 @@ export default function ProjectsTrackingPage() {
   const [avenantsDevis, setAvenantsDevis] = useState([]);
   const [pvOuvert, setPvOuvert] = useState(false);
   const [clotureEnvoi, setClotureEnvoi] = useState(false);
+  const [vueCloture, setVueCloture] = useState("etapes");
+  const [dossierFin, setDossierFin] = useState({ remisLe: "", envoyeA: "", pieces: [] });
+  const [decennale, setDecennale] = useState(null);
+  const [dossierEnvoi, setDossierEnvoi] = useState(false);
+  const [conseilsOuverts, setConseilsOuverts] = useState(false);
+  const noticeRef = useRef(null);
+  const planRef = useRef(null);
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -415,6 +423,63 @@ export default function ProjectsTrackingPage() {
       .then((data) => setCloture(data.cloture || null))
       .catch(() => setCloture(null));
   }, [selectedProjectId]);
+
+  // Dossier de fin de chantier (PRO-02.5).
+  useEffect(() => {
+    setVueCloture("etapes");
+    setConseilsOuverts(false);
+    if (!selectedProjectId) { setDossierFin({ remisLe: "", envoyeA: "", pieces: [] }); setDecennale(null); return; }
+    apiGet(`/api/dossier-fin?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => { setDossierFin(data.dossier || { remisLe: "", envoyeA: "", pieces: [] }); setDecennale(data.decennale || null); })
+      .catch(() => { setDossierFin({ remisLe: "", envoyeA: "", pieces: [] }); setDecennale(null); });
+  }, [selectedProjectId]);
+
+  async function ajouterPieceDossier(kind, file) {
+    if (!file || !selectedProjectId) return;
+    setDossierEnvoi(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("projectId", selectedProjectId);
+      form.append("kind", kind);
+      const res = await fetch("/api/dossier-fin", { method: "POST", body: form, credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Le fichier n'a pas pu être ajouté.");
+      setDossierFin(data.dossier);
+      setMessage(kind === "plan" ? "Schéma des réseaux ajouté au dossier." : "Notice ajoutée au dossier.");
+    } catch (error) {
+      setMessage(error.message || "Le fichier n'a pas pu être ajouté.");
+    } finally {
+      setDossierEnvoi(false);
+    }
+  }
+
+  async function retirerPieceDossier(pieceId) {
+    setDossierEnvoi(true);
+    try {
+      const data = await apiSend("/api/dossier-fin", { projectId: selectedProjectId, action: "retirer", pieceId }, "PATCH");
+      setDossierFin(data.dossier);
+    } catch (error) {
+      setMessage(error.message || "La pièce n'a pas pu être retirée.");
+    } finally {
+      setDossierEnvoi(false);
+    }
+  }
+
+  async function envoyerDossier(destinataire) {
+    if (!window.confirm(`Envoyer le dossier de fin de chantier à ${destinataire} ?`)) return;
+    setDossierEnvoi(true);
+    try {
+      const data = await apiSend("/api/dossier-fin", { projectId: selectedProjectId, action: "envoyer" });
+      setCloture(data.cloture);
+      setDossierFin((d) => ({ ...d, remisLe: data.cloture?.dossier?.remisLe || "", envoyeA: data.cloture?.dossier?.envoyeA || "" }));
+      setMessage(`Dossier envoyé à ${destinataire}. Il est aussi dans son espace Koji Client.`);
+    } catch (error) {
+      setMessage(error.message || "Le dossier n'a pas pu être envoyé.");
+    } finally {
+      setDossierEnvoi(false);
+    }
+  }
 
   async function majCloture(action, extra = {}) {
     setClotureEnvoi(true);
@@ -1408,6 +1473,10 @@ export default function ProjectsTrackingPage() {
     const etapes = etapesCloture({ cloture, reserves, solde, factureSolde, factureRetenue, aujourdhui: today });
     const bilan = bilanChantier({ solde, depenses: linkedExpenses, budgetEstime: budgetTotal.estimated, taches: projectTasks, devis: selectedQuote, receptionLe: cloture?.pv?.signeLe || "", aujourdhui: today });
     const garantiesChantier = garanties(cloture?.pv?.signeLe || "");
+    const conseils = conseilsEntretien(selectedQuote?.items || []);
+    const choixPhotos = photosChoisies(photosChantier);
+    const elementsDuDossier = elementsDossier({ pv: cloture?.pv, photos: photosChantier, factures: facturesCloture, factureSolde, decennale, pieces: dossierFin.pieces || [], conseils, aujourdhui: today });
+    const emailClient = selectedQuote?.clientEmail || selectedProject.clientEmail || "";
 
     const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
     const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
@@ -1480,12 +1549,26 @@ export default function ProjectsTrackingPage() {
         case "facture": if (factureSolde) ouvrirFacture(factureSolde); break;
         case "facture_retenue": if (factureRetenue) ouvrirFacture(factureRetenue); break;
         case "facturer_retenue": router.push(`/facturation?quoteId=${encodeURIComponent(selectedQuote?.id || "")}&type=retenue`); break;
-        case "dossier": setFicheTab("documents"); break;
+        case "dossier": setVueCloture("dossier"); break;
         case "avis_on": majCloture("avis", { programme: true }); break;
         case "avis_off": majCloture("avis", { programme: false }); break;
         case "retenue_on": majCloture("retenue", { taux: 5 }); break;
         case "retenue_off": majCloture("retenue", { taux: 0 }); break;
         case "rappel": majCloture("rappel"); break;
+        default: break;
+      }
+    }
+
+    function actionDossier(action) {
+      switch (action?.id) {
+        case "voir_pv": window.open(`/api/cloture?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1`, "_blank"); break;
+        case "signer_pv": setPvOuvert(true); break;
+        case "photos": setFicheTab("photos"); break;
+        case "factures": setFicheTab("situations"); break;
+        case "profil": router.push("/demarrage"); break;
+        case "notice": noticeRef.current?.click(); break;
+        case "plan": planRef.current?.click(); break;
+        case "conseils": setConseilsOuverts((v) => !v); break;
         default: break;
       }
     }
@@ -1903,7 +1986,54 @@ export default function ProjectsTrackingPage() {
               </div>
             ) : null}
 
-            {ficheTab === "cloture" ? (
+            {ficheTab === "cloture" && vueCloture === "dossier" ? (
+              <div className="card df-card">
+                <button type="button" className="link df-back" onClick={() => setVueCloture("etapes")}>← Étapes de clôture</button>
+                <div className="card-h">
+                  <h2>Dossier de fin de chantier</h2>
+                  <span className="sm2">{resumeDossier(elementsDuDossier)}</span>
+                </div>
+                {elementsDuDossier.map((e) => (
+                  <div key={e.id}>
+                    <div className={`df-it ${e.ok ? "ok" : "todo"}`}>
+                      <span className="ic">{e.ok ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : "+"}</span>
+                      <div>
+                        <strong>{e.titre}</strong>
+                        <small>{e.detail}</small>
+                      </div>
+                      {e.action ? <button type="button" className="link" disabled={dossierEnvoi} onClick={() => actionDossier(e.action)}>{e.id === "conseils" && conseilsOuverts ? "Masquer" : e.action.label}</button> : null}
+                    </div>
+                    {e.id === "conseils" && conseilsOuverts ? (
+                      <ul className="df-cons">
+                        {conseils.map((c) => <li key={c.id}><b>{c.titre}</b> {c.texte}</li>)}
+                      </ul>
+                    ) : null}
+                    {(e.id === "notices" || e.id === "plan") ? (dossierFin.pieces || []).filter((p) => p.kind === (e.id === "plan" ? "plan" : "notice")).map((p) => (
+                      <div className="df-pc" key={p.id}>
+                        <a href={p.url} target="_blank" rel="noreferrer">{p.titre}</a>
+                        <button type="button" className="link" disabled={dossierEnvoi} onClick={() => retirerPieceDossier(p.id)}>Retirer</button>
+                      </div>
+                    )) : null}
+                  </div>
+                ))}
+                <input ref={noticeRef} type="file" hidden accept="application/pdf,image/jpeg,image/png" onChange={(event) => { ajouterPieceDossier("notice", event.target.files?.[0]); event.target.value = ""; }} />
+                <input ref={planRef} type="file" hidden accept="application/pdf,image/jpeg,image/png" onChange={(event) => { ajouterPieceDossier("plan", event.target.files?.[0]); event.target.value = ""; }} />
+                <div className="df-send">
+                  <div className="kv"><span>Envoi</span><b>Koji Client et e-mail avec le PDF</b></div>
+                  <div className="kv"><span>Avec</span><b>{factureSolde ? `la facture de solde ${factureSolde.invoiceNumber}` : "la facture de solde, une fois émise"}</b></div>
+                  {dossierFin.remisLe ? <div className="kv"><span>Envoyé</span><b>le {formatDate(dossierFin.remisLe)} à {dossierFin.envoyeA}</b></div> : null}
+                  {!emailClient ? <p className="cl-err">Pas d'e-mail client sur ce chantier : ajoutez-le au devis pour envoyer le dossier.</p> : null}
+                  <div className="df-act">
+                    <a className="link" href={`/api/dossier-fin?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1`} target="_blank" rel="noreferrer">Aperçu du PDF</a>
+                    <button type="button" className="btn btn-main" disabled={dossierEnvoi || !emailClient} onClick={() => envoyerDossier(emailClient)}>
+                      {dossierEnvoi ? "Envoi…" : dossierFin.remisLe ? "Renvoyer le dossier" : `Envoyer à ${clientName}`}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {ficheTab === "cloture" && vueCloture === "etapes" ? (
               <div className="card cl-steps">
                 <div className="card-h">
                   <h2>Clôturer le chantier</h2>
@@ -2030,7 +2160,42 @@ export default function ProjectsTrackingPage() {
           </div>
 
           <div className="fiche-side">
-            {ficheTab === "cloture" ? (
+            {ficheTab === "cloture" && vueCloture === "dossier" ? (
+              <div className="card df-prev">
+                <div className="card-h">
+                  <h2>Aperçu · 4 pages</h2>
+                  <a className="link" href={`/api/dossier-fin?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1&download=1`}>Télécharger</a>
+                </div>
+                <div className="df-pgs">
+                  <div className="df-pg">
+                    <div className="df-ph"><b>{selectedProject.title}</b><small>{selectedProject.address}</small></div>
+                    <div className="df-img">{choixPhotos.couverture?.url ? <img src={choixPhotos.couverture.url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}<span className="df-k">Après</span></div>
+                    <div className="df-l" /><div className="df-l s" /><div className="df-l" />
+                  </div>
+                  <div className="df-pg">
+                    <div className="df-ph"><b>Avant / après</b></div>
+                    {(choixPhotos.paires.length ? choixPhotos.paires : [{ lot: "-" }]).slice(0, 3).map((paire) => (
+                      <div className="df-ab" key={paire.lot}>
+                        <div className="df-img">{paire.avant?.url ? <img src={paire.avant.url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</div>
+                        <div className="df-img">{paire.apres?.url ? <img src={paire.apres.url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="df-pg">
+                    <div className="df-ph"><b>Équipements et entretien</b></div>
+                    {(conseils.length ? conseils : [{ id: "vide" }]).slice(0, 5).map((c) => <div className="df-l" key={c.id} />)}
+                    <div className="df-l s" />
+                  </div>
+                  <div className="df-pg">
+                    <div className="df-ph"><b>Garanties et documents</b></div>
+                    <div className="df-gr"><i>1 an</i><i>2 ans</i><i>10 ans</i></div>
+                    <div className="df-l" /><div className="df-l" /><div className="df-l s" /><div className="df-l" />
+                  </div>
+                </div>
+                <small className="sm2 cl-gn">Le client le retrouve à tout moment dans son espace Koji Client ; il peut alimenter le carnet d'information du logement.</small>
+              </div>
+            ) : null}
+            {ficheTab === "cloture" && vueCloture === "etapes" ? (
               <>
                 <div className="card">
                   <div className="card-h"><h2>Bilan</h2></div>

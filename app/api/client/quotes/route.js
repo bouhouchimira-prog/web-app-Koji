@@ -79,7 +79,9 @@ export async function GET(request) {
       quote,
       projectsById.get(quote.projectId),
       (db.tasks || []).filter((task) => task.quoteId === quote.id || task.projectId === quote.projectId),
-    ));
+    ))
+    // Dossier de fin de chantier remis par l'entreprise (PRO-02.5).
+    .map((quote) => ({ ...quote, dossierFinLe: (db.clotures || []).find((c) => c.projectId && c.projectId === quote.projectId && c.dossier?.remisLe)?.dossier?.remisLe || "" }));
 
   if (id) {
     const quote = clientQuotes.find((entry) => entry.id === id);

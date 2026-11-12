@@ -235,7 +235,7 @@ List<EtapeCloture> etapesCloture({
       titre: 'Dossier de fin de chantier',
       ok: _s(dossier['remisLe']).isNotEmpty,
       court: _s(dossier['remisLe']).isNotEmpty ? 'remis' : 'à préparer',
-      action: 'Voir les documents',
+      action: _s(dossier['remisLe']).isNotEmpty ? '' : 'Préparer le dossier',
     ),
     EtapeCloture(
       id: 'avis',

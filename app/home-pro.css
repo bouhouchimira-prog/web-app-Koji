@@ -1689,3 +1689,41 @@
    plus le bouton du bas. */
 body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .cl-g b{hyphens:auto;overflow-wrap:break-word}
+
+/* Dossier de fin de chantier (maquette PRO-02.5). */
+.pro .df-back{font-size:12px;align-self:flex-start;margin-bottom:4px}
+.pro .df-it{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.pro .df-it .ic{width:24px;height:24px;border-radius:50%;background:#171B1E;display:grid;place-items:center;flex:none;color:#FFFFFF;font-weight:700}
+.pro .df-it .ic svg{width:12px;height:12px;stroke:#FFFFFF;fill:none;stroke-width:3}
+.pro .df-it.todo .ic{background:#FFFFFF;border:1.5px dashed #171B1E;color:#171B1E}
+.pro .df-it > div{flex:1;display:flex;flex-direction:column;min-width:0}
+.pro .df-it strong{font-size:14px}
+.pro .df-it small{font-size:12px;color:var(--grey)}
+.pro .df-it .link{font-size:12px;white-space:nowrap}
+.pro .df-cons{margin:6px 0 10px 36px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:12.5px;line-height:1.5}
+.pro .df-cons b{font-weight:600;margin-right:4px}
+.pro .df-pc{display:flex;justify-content:space-between;gap:10px;margin-left:36px;padding:6px 0;font-size:12.5px;border-bottom:1px dashed var(--line)}
+.pro .df-pc a{color:inherit;text-decoration:underline;overflow-wrap:anywhere}
+.pro .df-send{margin-top:12px;padding-top:4px}
+.pro .df-act{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:12px}
+.pro .df-act .link{margin-right:auto;font-size:12px}
+.pro .df-act .btn-main{height:44px;font-size:14px}
+.pro .df-pgs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pro .df-pg{aspect-ratio:210/297;background:#FFFFFF;border:1px solid #CFCFC9;padding:10px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.pro .df-ph{border-bottom:1.5px solid #171B1E;padding-bottom:4px;display:flex;flex-direction:column}
+.pro .df-ph b{font-size:11px}
+.pro .df-ph small{font-size:9px;color:var(--grey)}
+.pro .df-pg:first-child .df-ph{background:#171B1E;color:#FFFFFF;margin:-10px -10px 0;padding:10px}
+.pro .df-pg:first-child .df-ph small{color:#C4C8CD}
+.pro .df-l{height:5px;background:#ECECE7;flex:none}
+.pro .df-l.s{width:60%}
+.pro .df-ab{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.pro .df-img{position:relative;aspect-ratio:4/3;background:#ECECE7;overflow:hidden}
+.pro .df-img img{display:block;width:100%;height:100%;object-fit:cover}
+.pro .df-k{position:absolute;left:4px;bottom:4px;font-size:8px;font-weight:700;padding:2px 4px;background:#171B1E;color:#FFFFFF}
+.pro .df-gr{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.pro .df-gr i{font-style:normal;font-size:10px;font-weight:700;border:1px solid #CFCFC9;padding:6px 2px;text-align:center}
+@media (max-width:900px){
+  .pro .df-act{flex-direction:column-reverse;align-items:stretch}
+  .pro .df-act .link{margin:0 auto}
+}

@@ -264,6 +264,57 @@ class ProKojiWebClient {
     return c is Map ? Map<String, dynamic>.from(c) : null;
   }
 
+  /// Dossier de fin de chantier (PRO-02.5) : { dossier, decennale }.
+  Future<Map<String, dynamic>> dossierFin(String projectId) async {
+    final data = await _send('GET',
+        '/api/dossier-fin?projectId=${Uri.encodeQueryComponent(projectId)}');
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// Envoie le dossier au client (e-mail avec le PDF, la facture de solde
+  /// et les notices ; visible dans Koji Client).
+  Future<Map<String, dynamic>?> envoyerDossier(String projectId) async {
+    final data = await _send(
+        'POST', '/api/dossier-fin', {'projectId': projectId, 'action': 'envoyer'});
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// Ajoute une pièce au dossier (kind : notice | plan), ici une photo.
+  Future<void> ajouterPieceDossier({
+    required String projectId,
+    required String kind,
+    required List<int> octets,
+    String type = 'image/jpeg',
+    String titre = '',
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final requete = http.MultipartRequest(
+        'POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/dossier-fin'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['projectId'] = projectId
+      ..fields['kind'] = kind
+      ..fields['titre'] = titre
+      ..files.add(http.MultipartFile.fromBytes('file', octets,
+          filename: 'piece.${type == 'image/png' ? 'png' : 'jpg'}',
+          contentType: MediaType.parse(type)));
+    final reponse = await http.Response.fromStream(await _http.send(requete));
+    if (reponse.statusCode >= 400) {
+      dynamic data;
+      try {
+        data = jsonDecode(reponse.body);
+      } on FormatException {
+        data = null;
+      }
+      throw ProKojiWebException(
+          (data is Map ? data['error']?.toString() : null) ??
+              'Erreur ${reponse.statusCode}');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> avenants(String quoteId) async => _list(
       await _send('GET',
           '/api/avenants?quoteId=${Uri.encodeQueryComponent(quoteId)}'),

@@ -373,12 +373,10 @@ class _ProFicheChantierScreenState
   Widget _ligneCloture(ProDa da, DonneesFiche d) {
     return InkWell(
       onTap: () async {
-        final suite = await Navigator.of(context).push<String>(
-            MaterialPageRoute(
-                builder: (_) => ProClotureScreen(
-                    projectId: widget.projectId,
-                    titreChantier: _s(d.projet['title']))));
-        if (suite == 'docs' && mounted) setState(() => _onglet = 'docs');
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ProClotureScreen(
+                projectId: widget.projectId,
+                titreChantier: _s(d.projet['title']))));
         _recharger();
       },
       child: Container(

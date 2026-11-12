@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:koji/apps/entreprise/chantiers/cloture.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_dossier_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_reserves_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/reserves.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
@@ -123,7 +124,11 @@ class _ProClotureScreenState extends ConsumerState<ProClotureScreen> {
         });
         _recharger();
       case 'dossier':
-        Navigator.of(context).pop('docs');
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ProDossierScreen(
+                projectId: widget.projectId,
+                titreChantier: widget.titreChantier)));
+        _recharger();
       case 'avis':
         setState(() => _envoi = true);
         try {

@@ -4,7 +4,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { getSupabaseAdmin } from "../../../lib/supabase";
-import { mapQuote } from "../../../lib/quote-mapping";
+import { BUCKET_CHANTIER as BUCKET, chantierAMoi, clotureDe, clotureOuNouvelle, devisDuChantier, sansChemins, telechargerDataUrl as telecharger } from "../../../lib/cloture-db";
 import { lotsDuDevis } from "../../../lib/planning-chantier";
 import { reservesNonLevees } from "../../../lib/reserves";
 import { TAUX_RETENUE, TYPE_FACTURE_SOLDE, euro, jourDeParis, montantsSolde, plusAns, travauxReceptionnes } from "../../../lib/cloture-chantier";
@@ -18,19 +18,7 @@ import { buildPvReceptionPdf, pvReceptionFilename } from "../../../lib/document-
 // (taux 0 | 5) | rappel | avis (programme) }. db.clotures ; signatures dans
 // le bucket privé, comme les photos du chantier.
 
-const BUCKET = "quote_attachments";
 const FACTURES_ACTIVES = new Set(["Brouillon", "Emise", "Payee"]);
-
-async function chantierAMoi(projectId, userId) {
-  const { data } = await getSupabaseAdmin().from("chantiers").select("*").eq("id", projectId).maybeSingle();
-  return data && data.user_id === userId ? data : null;
-}
-
-async function devisDuChantier(projectId) {
-  const { data } = await getSupabaseAdmin().from("quotes").select("*").eq("chantier_id", projectId).order("created_at", { ascending: false });
-  const devis = (data || []).map(mapQuote);
-  return devis.find((q) => q.status === "Signe" || q.signatureStatus === "Signe") || devis[0] || null;
-}
 
 function texte(v, max) {
   return String(v || "").trim().slice(0, max);
@@ -42,20 +30,6 @@ function pngDe(dataUrl) {
   const octets = Buffer.from(m[1], "base64");
   if (octets.length < 100 || octets.length > 400 * 1024 || octets.readUInt32BE(0) !== 0x89504e47) return null;
   return octets;
-}
-
-function clotureDe(db, projectId, userId) {
-  return (db.clotures || []).find((c) => c.projectId === projectId && c.userId === userId) || null;
-}
-
-function nouvelleCloture(userId, projectId) {
-  return { id: randomUUID(), userId, projectId, pv: null, retenue: { taux: 0, rappelId: "", libereeLe: "" }, avis: { programme: false, demandeLe: "" }, dossier: { remisLe: "" }, creeLe: new Date().toISOString() };
-}
-
-function sansChemins(cloture) {
-  if (!cloture?.pv) return cloture;
-  const { signatureClient, signaturePro, ...pv } = cloture.pv;
-  return { ...cloture, pv: { ...pv, signe: Boolean(signatureClient) } };
 }
 
 function factureSoldeExiste(db, projectId) {
@@ -82,13 +56,6 @@ async function creerRappel(cloture, chantier) {
   }).select("id").single();
   if (error) throw new Error(error.message);
   return data.id;
-}
-
-async function telecharger(chemin) {
-  if (!chemin) return "";
-  const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).download(chemin);
-  if (error || !data) return "";
-  return `data:image/png;base64,${Buffer.from(await data.arrayBuffer()).toString("base64")}`;
 }
 
 export async function GET(request) {
@@ -139,12 +106,8 @@ export async function POST(request) {
   if (!chantier) return badRequest("Chantier introuvable.", 404);
 
   const db = await readDb();
-  let cloture = clotureDe(db, projectId, userId);
-  if (cloture?.pv?.signeLe) return badRequest("Le procès-verbal de ce chantier est déjà signé.", 409);
-  if (!cloture) {
-    cloture = nouvelleCloture(userId, projectId);
-    db.clotures = [...(db.clotures || []), cloture];
-  }
+  if (clotureDe(db, projectId, userId)?.pv?.signeLe) return badRequest("Le procès-verbal de ce chantier est déjà signé.", 409);
+  const cloture = clotureOuNouvelle(db, projectId, userId);
 
   const devis = await devisDuChantier(projectId);
   const avenants = (db.avenants || []).filter((a) => devis && a.quoteId === devis.id);
@@ -200,11 +163,7 @@ export async function PATCH(request) {
   if (!chantier) return badRequest("Chantier introuvable.", 404);
 
   const db = await readDb();
-  let cloture = clotureDe(db, projectId, userId);
-  if (!cloture) {
-    cloture = nouvelleCloture(userId, projectId);
-    db.clotures = [...(db.clotures || []), cloture];
-  }
+  const cloture = clotureOuNouvelle(db, projectId, userId);
   cloture.retenue = cloture.retenue || { taux: 0, rappelId: "", libereeLe: "" };
   cloture.avis = cloture.avis || { programme: false, demandeLe: "" };
 
