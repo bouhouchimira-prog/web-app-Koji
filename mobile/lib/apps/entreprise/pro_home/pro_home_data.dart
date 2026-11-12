@@ -156,11 +156,13 @@ class ProKojiWebClient {
   }
 
   /// Photos avant / après / pendant du chantier (PRO-02.2).
-  Future<List<Map<String, dynamic>>> photosChantier(String projectId) async =>
-      _list(
-          await _send('GET',
-              '/api/chantier-photos?projectId=${Uri.encodeQueryComponent(projectId)}'),
-          'photos');
+  Future<
+      List<
+          Map<String,
+              dynamic>>> photosChantier(String projectId) async => _list(
+      await _send('GET',
+          '/api/chantier-photos?projectId=${Uri.encodeQueryComponent(projectId)}'),
+      'photos');
 
   /// Envoie une photo prise dans l'app ; le serveur pose date, heure et
   /// auteur (non modifiables).
@@ -170,6 +172,7 @@ class ProKojiWebClient {
     required String phase,
     required List<int> octets,
     String type = 'image/jpeg',
+    String reserveId = '',
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -181,6 +184,7 @@ class ProKojiWebClient {
       ..fields['projectId'] = projectId
       ..fields['lot'] = lot
       ..fields['phase'] = phase
+      ..fields['reserveId'] = reserveId
       ..files.add(http.MultipartFile.fromBytes('file', octets,
           filename: 'photo.${type == 'image/png' ? 'png' : 'jpg'}',
           contentType: MediaType.parse(type)));
@@ -198,6 +202,29 @@ class ProKojiWebClient {
     }
     final photo = data is Map ? data['photo'] : null;
     return photo is Map ? Map<String, dynamic>.from(photo) : {};
+  }
+
+  // ---- Réserves (PRO-02.3) ---------------------------------------------
+
+  Future<List<Map<String, dynamic>>> reserves(String projectId) async => _list(
+      await _send('GET',
+          '/api/reserves?projectId=${Uri.encodeQueryComponent(projectId)}'),
+      'reserves');
+
+  Future<Map<String, dynamic>> creerReserve(
+      Map<String, dynamic> reserve) async {
+    final data = await _send('POST', '/api/reserves', reserve);
+    final r = data is Map ? data['reserve'] : null;
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// action : faite | valider | refuser | attribuer.
+  Future<Map<String, dynamic>> actionReserve(String id, String action,
+      [Map<String, dynamic> extra = const {}]) async {
+    final data = await _send(
+        'PATCH', '/api/reserves', {'id': id, 'action': action, ...extra});
+    final r = data is Map ? data['reserve'] : null;
+    return r is Map ? Map<String, dynamic>.from(r) : {};
   }
 
   /// Accès Koji Client du chantier (null s'il n'existe pas encore).

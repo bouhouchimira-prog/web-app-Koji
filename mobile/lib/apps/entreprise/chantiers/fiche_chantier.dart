@@ -268,6 +268,7 @@ class PhotoChantier {
     required this.author,
     this.url = '',
     this.legende = '',
+    this.reserveId = '',
   });
 
   factory PhotoChantier.fromJson(Map<String, dynamic> j) => PhotoChantier(
@@ -278,6 +279,7 @@ class PhotoChantier {
         author: _s(j['author']),
         url: _s(j['url']),
         legende: _s(j['caption'] ?? j['taskTitle']),
+        reserveId: _s(j['reserveId']),
       );
 
   final String id;
@@ -289,6 +291,9 @@ class PhotoChantier {
   final String author;
   final String url;
   final String legende;
+
+  /// Photo d'une réserve (phase « reserve » ou « levee », PRO-02.3).
+  final String reserveId;
 }
 
 /// « 14/11 08:02 » à l'heure du téléphone.

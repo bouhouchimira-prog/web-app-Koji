@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_reserves_screen.dart';
+import 'package:koji/apps/entreprise/chantiers/reserves.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 
@@ -21,6 +23,7 @@ class DonneesFiche {
     this.alertes = const [],
     this.documents = const [],
     this.photos = const [],
+    this.reserves = const [],
     this.acces,
   });
 
@@ -34,6 +37,9 @@ class DonneesFiche {
 
   /// Photos avant / après / pendant (PRO-02.2).
   final List<PhotoChantier> photos;
+
+  /// Réserves (PRO-02.3).
+  final List<Reserve> reserves;
   final Map<String, dynamic>? acces;
 }
 
@@ -59,6 +65,8 @@ final proFicheChantierProvider = FutureProvider.autoDispose
   final photos = await api
       .photosChantier(projectId)
       .catchError((_) => <Map<String, dynamic>>[]);
+  final reserves =
+      await api.reserves(projectId).catchError((_) => <Map<String, dynamic>>[]);
   return DonneesFiche(
     projet: projets.first,
     devis: devis.isEmpty ? null : devis.first,
@@ -68,6 +76,7 @@ final proFicheChantierProvider = FutureProvider.autoDispose
     alertes: r[5].where(duChantier).toList(),
     documents: r[6].where(duChantier).toList(),
     photos: photos.map(PhotoChantier.fromJson).toList(),
+    reserves: reserves.map(Reserve.new).toList(),
     acces: acces,
   );
 });
@@ -295,6 +304,8 @@ class _ProFicheChantierScreenState
           ),
           const SizedBox(height: 12),
         ],
+        _ligneReserves(da, d),
+        const SizedBox(height: 12),
         _onglets(da, onglets),
         const SizedBox(height: 10),
         ...switch (_onglet) {
@@ -315,6 +326,43 @@ class _ProFicheChantierScreenState
           ),
         ),
       ],
+    );
+  }
+
+  /// Réserves (PRO-02.3) : nombre à traiter, ouvre l'écran des réserves.
+  Widget _ligneReserves(ProDa da, DonneesFiche d) {
+    final c = compterReserves(d.reserves);
+    return InkWell(
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ProReservesScreen(
+                projectId: widget.projectId,
+                titreChantier: _s(d.projet['title']))));
+        _recharger();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: da.card,
+          border: Border.all(color: da.frame),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child:
+                  Text('Réserves', style: da.text(14, weight: FontWeight.w600)),
+            ),
+            Text(
+                c['toutes'] == 0
+                    ? 'aucune'
+                    : '${c['badge']} à traiter sur ${c['toutes']}',
+                style: da.text(13, color: da.grey)),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right, size: 18, color: da.grey),
+          ],
+        ),
+      ),
     );
   }
 

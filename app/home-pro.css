@@ -1611,3 +1611,31 @@
 .pro .ph-v figcaption b{font-size:13px}
 .pro .ph-v figcaption small{color:var(--grey);font-size:12px}
 @media (max-width:560px){.pro .ph-paire{grid-template-columns:1fr 1fr;gap:8px}}
+/* Réserves (maquette PRO-02.3) */
+.pro .rs-t .kp-seg b{margin-left:4px;font-weight:700}
+.pro .rs-tab{width:100%;border-collapse:collapse;font-size:13px}
+.pro .rs-tab th{padding:10px 8px;border-bottom:1px solid var(--ink);color:var(--grey);font-size:11px;font-weight:600;letter-spacing:.06em;text-align:left;text-transform:uppercase}
+.pro .rs-tab td{padding:12px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.pro .rs-tab tr{cursor:pointer}
+.pro .rs-tab tbody tr:hover td,.pro .rs-tab tr.on td{background:var(--soft)}
+.pro .rs-tab tr.on td:first-child{box-shadow:inset 3px 0 0 #FFC400}
+.pro .rs-n{color:var(--grey);font-weight:700}
+.pro .rs-ti{font-size:14px;font-weight:600}
+.pro .rs-sm{color:var(--grey);font-size:12px}
+.pro .rs-ok{display:inline-flex;align-items:center;gap:6px;color:#2F6B3A;font-size:12px;font-weight:600}
+.pro .rs-pr{display:inline-block;padding:3px 8px;border:1px dashed var(--ink);border-radius:var(--r-touch);font-size:12px}
+.pro .rs-pv{margin:12px 0 0;padding:10px 12px;background:var(--soft);border-left:3px solid var(--ink);color:var(--ink);font-size:13px}
+.pro .rs-pan{display:flex;flex-direction:column;gap:14px;border-top-color:#FFC400}
+.pro .rs-ph{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pro .rs-ph h2{margin:4px 0 0;font-size:17px}
+.pro .rs-ab{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pro .rs-note .lab{color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pro .rs-note p{margin:4px 0 0;font-size:14px}
+.pro .rs-act{display:flex;justify-content:space-between;align-items:center;gap:10px}
+@media (max-width:760px){
+  .pro .rs-tab thead{display:none}
+  .pro .rs-tab tr{display:grid;grid-template-columns:40px 1fr auto;gap:2px 8px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .pro .rs-tab td{padding:0;border:0}
+  .pro .rs-tab td:nth-child(3),.pro .rs-tab td:nth-child(4){grid-column:2;font-size:12px}
+  .pro .rs-tab td:nth-child(5){grid-column:3;grid-row:1}
+}

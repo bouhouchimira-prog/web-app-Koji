@@ -43,7 +43,7 @@ export async function GET(request) {
     : { data: [] };
   const parChemin = new Map((liens || []).map((l) => [l.path, l.signedUrl]));
   const photos = propres.map((p) => ({
-    id: p.id, lot: p.lot || "", taskId: p.taskId || "", phase: p.phase, takenAt: p.takenAt,
+    id: p.id, lot: p.lot || "", taskId: p.taskId || "", reserveId: p.reserveId || "", phase: p.phase, takenAt: p.takenAt,
     author: p.author, source: "pro", url: parChemin.get(p.path) || ""
   }));
 
@@ -90,7 +90,9 @@ export async function POST(request) {
   const lot = String(form.get("lot") || "").trim().slice(0, 120);
   const phase = String(form.get("phase") || "");
   const taskId = String(form.get("taskId") || "").slice(0, 120);
-  if (!projectId || !lot) return badRequest("Chantier ou lot manquant.");
+  const reserveId = String(form.get("reserveId") || "").slice(0, 120);
+  // Une photo de réserve (PRO-02.3) n'a pas de lot ; les autres en ont un.
+  if (!projectId || (!lot && !reserveId)) return badRequest("Chantier ou lot manquant.");
   if (!PHASES.includes(phase)) return badRequest("Phase inconnue : avant, pendant ou après.");
   if (!fichier || typeof fichier === "string") return badRequest("Photo manquante.");
   const extension = TYPES[fichier.type];
@@ -106,7 +108,7 @@ export async function POST(request) {
   if (error) return badRequest("La photo n'a pas pu être enregistrée.", 500);
 
   const photo = {
-    id, userId, projectId, lot, taskId, phase, path,
+    id, userId, projectId, lot, taskId, reserveId, phase, path,
     takenAt: new Date().toISOString(),
     author: await nomAuteur(admin, userId).catch(() => "Vous")
   };
@@ -115,5 +117,5 @@ export async function POST(request) {
   await writeDb(db);
 
   const { data: lien } = await admin.storage.from(BUCKET).createSignedUrl(path, DUREE_LIEN);
-  return ok({ photo: { id, lot, taskId, phase, takenAt: photo.takenAt, author: photo.author, source: "pro", url: lien?.signedUrl || "" } }, 201);
+  return ok({ photo: { id, lot, taskId, reserveId, phase, takenAt: photo.takenAt, author: photo.author, source: "pro", url: lien?.signedUrl || "" } }, 201);
 }

@@ -7,7 +7,8 @@ import { Shell } from "../../components/Shell";
 import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
 import { LancerChantier } from "../../components/LancerChantier";
 import { demarragePropose, joursOuvresEntre, lotsDuDevis } from "../../lib/planning-chantier";
-import { LIBELLE_ETAT_PHOTOS, horodatage, photosDuLot } from "../../lib/photos-chantier";
+import { LIBELLE_ETAT_PHOTOS, PHASES_RESERVE, horodatage, photosDuLot } from "../../lib/photos-chantier";
+import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreReserve, statutReserve } from "../../lib/reserves";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -340,6 +341,11 @@ export default function ProjectsTrackingPage() {
   const [lotOuvert, setLotOuvert] = useState(null);
   const [photosChantier, setPhotosChantier] = useState([]);
   const [filtrePhotos, setFiltrePhotos] = useState("tous");
+  const [reserves, setReserves] = useState([]);
+  const [filtreReserves, setFiltreReserves] = useState("toutes");
+  const [reserveOuverte, setReserveOuverte] = useState(null);
+  const [nouvelleReserve, setNouvelleReserve] = useState({ titre: "", lieu: "", attribueeA: "", pourLe: "" });
+  const [reserveEnvoi, setReserveEnvoi] = useState(false);
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -385,6 +391,52 @@ export default function ProjectsTrackingPage() {
       .then((data) => setPhotosChantier(Array.isArray(data.photos) ? data.photos : []))
       .catch(() => setPhotosChantier([]));
   }, [selectedProjectId]);
+
+  // Réserves du chantier (PRO-02.3).
+  useEffect(() => {
+    setReserveOuverte(null);
+    if (!selectedProjectId) { setReserves([]); return; }
+    apiGet(`/api/reserves?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setReserves(Array.isArray(data.reserves) ? data.reserves : []))
+      .catch(() => setReserves([]));
+  }, [selectedProjectId]);
+
+  async function actionReserve(id, action, extra = {}) {
+    setReserveEnvoi(true);
+    try {
+      const { reserve } = await apiSend("/api/reserves", { id, action, ...extra }, "PATCH");
+      setReserves((liste) => liste.map((r) => (r.id === reserve.id ? reserve : r)));
+      setMessage(action === "valider" ? `${reserve.numero} levée.` : action === "refuser" ? `${reserve.numero} à refaire : l'intervenant est prévenu dans l'app.` : "Réserve mise à jour.");
+    } catch (error) {
+      setMessage(error.message || "La réserve n'a pas pu être mise à jour.");
+    } finally {
+      setReserveEnvoi(false);
+    }
+  }
+
+  async function creerReserve(event) {
+    event.preventDefault();
+    if (!nouvelleReserve.titre.trim() || !selectedProjectId) return;
+    setReserveEnvoi(true);
+    try {
+      const worker = workers.find((w) => w.id === nouvelleReserve.attribueeA);
+      const { reserve } = await apiSend("/api/reserves", {
+        projectId: selectedProjectId,
+        titre: nouvelleReserve.titre,
+        lieu: nouvelleReserve.lieu,
+        attribueeA: nouvelleReserve.attribueeA,
+        attribueeNom: nouvelleReserve.attribueeA === "moi" ? "Vous" : worker ? `${worker.name}${worker.type === "Sous-traitant" ? " · sous-traitant" : ""}` : "",
+        pourLe: nouvelleReserve.pourLe
+      });
+      setReserves((liste) => [...liste, reserve]);
+      setNouvelleReserve({ titre: "", lieu: "", attribueeA: "", pourLe: "" });
+      setMessage(`${reserve.numero} créée. La photo se prend dans l'app Koji Pro.`);
+    } catch (error) {
+      setMessage(error.message || "La réserve n'a pas pu être créée.");
+    } finally {
+      setReserveEnvoi(false);
+    }
+  }
 
   useEffect(() => {
     if (!selectedProjectId) { setClientPortalAccess(null); return; }
@@ -1303,7 +1355,11 @@ export default function ProjectsTrackingPage() {
       lot.photos = photosDuLot(photosChantier, lot.nom, { faites: lot.lignes.filter((l) => l.task?.done).length, total: lot.lignes.length });
       if (lot.photos.etat === "apres_manquante") lot.etat = "Ouvrages faits · photo après manquante, le lot ne peut pas être clôturé";
     });
-    const photosPendant = photosChantier.filter((p) => !p.lot || p.phase === "pendant");
+    const photosPendant = photosChantier.filter((p) => !PHASES_RESERVE.includes(p.phase) && (!p.lot || p.phase === "pendant"));
+    const comptesReserves = compterReserves(reserves);
+    const reservesVisibles = reserves.filter((r) => filtreReserves === "toutes" || r.statut === filtreReserves);
+    const reserveChoisie = reserves.find((r) => r.id === reserveOuverte) || null;
+    const photoReserve = (r, phase) => photosChantier.filter((p) => p.reserveId === r?.id && p.phase === phase).at(-1) || null;
 
     const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
     const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
@@ -1355,6 +1411,7 @@ export default function ProjectsTrackingPage() {
       { id: "situations", label: "Situations", count: linkedInvoices.length },
       { id: "documents", label: "Documents", count: autresDocuments.length + (selectedQuote ? 1 : 0) },
       { id: "photos", label: "Photos", count: nbPhotos },
+      { id: "reserves", label: "Réserves", count: comptesReserves.badge },
       { id: "cout", label: "Coût" }
     ];
 
@@ -1719,6 +1776,58 @@ export default function ProjectsTrackingPage() {
               </>
             ) : null}
 
+            {ficheTab === "reserves" ? (
+              <div className="card rs-t">
+                <div className="card-h">
+                  <h2>Réserves</h2>
+                  <div className="kp-seg" role="group" aria-label="Filtrer les réserves">
+                    {FILTRES_RESERVES.map((f) => (
+                      <button key={f.id} type="button" className={filtreReserves === f.id ? "on" : ""} aria-pressed={filtreReserves === f.id} onClick={() => setFiltreReserves(f.id)}>
+                        {f.label} <b>{comptesReserves[f.id]}</b>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {reservesVisibles.length === 0 ? (
+                  <p className="empty">{reserves.length ? "Aucune réserve dans ce filtre." : "Aucune réserve. Prenez-les en photo dans l'app Koji Pro, ou ajoutez-les ci-dessous."}</p>
+                ) : (
+                  <table className="rs-tab">
+                    <thead><tr><th aria-label="Numéro" /><th>Réserve</th><th>Attribuée à</th><th>Pour le</th><th>Statut</th></tr></thead>
+                    <tbody>
+                      {reservesVisibles.map((r) => {
+                        const st = statutReserve(r, today);
+                        return (
+                          <tr key={r.id} className={reserveOuverte === r.id ? "on" : ""} tabIndex={0} onClick={() => setReserveOuverte(r.id)} onKeyDown={(event) => { if (event.key === "Enter") setReserveOuverte(r.id); }}>
+                            <td className="rs-n">{r.numero}</td>
+                            <td><div className="rs-ti">{r.titre}</div><div className="rs-sm">{sousTitreReserve(r)}</div></td>
+                            <td>{r.attribueeNom || <span className="rs-sm">à attribuer</span>}</td>
+                            <td className="rs-sm">{pourLeReserve(r)}</td>
+                            <td>
+                              {st.ton === "ok" ? <span className="rs-ok"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>{st.label}</span>
+                                : st.ton === "pr" ? <span className="rs-pr">{st.label}</span>
+                                : <span className={st.ton === "b" ? "tag tag-b" : st.ton === "e" ? "tag tag-e" : "tag tag-o"}>{st.label}</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                <p className="rs-pv">À la réception, Koji inscrit les réserves non levées au procès-verbal.</p>
+                <form className="pform" onSubmit={creerReserve}>
+                  <input value={nouvelleReserve.titre} onChange={(event) => setNouvelleReserve((r) => ({ ...r, titre: event.target.value }))} placeholder="Nouvelle réserve : carreau fêlé derrière le WC" aria-label="Réserve" maxLength={200} />
+                  <input value={nouvelleReserve.lieu} onChange={(event) => setNouvelleReserve((r) => ({ ...r, lieu: event.target.value }))} placeholder="Où : mur WC" aria-label="Lieu" maxLength={120} />
+                  <select value={nouvelleReserve.attribueeA} onChange={(event) => setNouvelleReserve((r) => ({ ...r, attribueeA: event.target.value }))} aria-label="Attribuée à">
+                    <option value="">À attribuer</option>
+                    <option value="moi">Vous</option>
+                    {workers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.type === "Sous-traitant" ? " · sous-traitant" : ""}</option>)}
+                  </select>
+                  <input type="date" value={nouvelleReserve.pourLe} onChange={(event) => setNouvelleReserve((r) => ({ ...r, pourLe: event.target.value }))} aria-label="Pour le" />
+                  <button type="submit" className="btn btn-sec" disabled={reserveEnvoi || !nouvelleReserve.titre.trim()}>Ajouter la réserve</button>
+                </form>
+              </div>
+            ) : null}
+
             {ficheTab === "documents" ? (
               <div className="card">
                 <div className="card-h"><h2>{L.chantiers.documents}</h2></div>
@@ -1809,6 +1918,41 @@ export default function ProjectsTrackingPage() {
           </div>
 
           <div className="fiche-side">
+            {ficheTab === "reserves" && reserveChoisie ? (
+              <aside className="card rs-pan" aria-label={`Réserve ${reserveChoisie.numero}`}>
+                <div className="rs-ph">
+                  <div>
+                    <span className="eyebrow">{[reserveChoisie.numero, reserveChoisie.lieu, reserveChoisie.attribueeNom ? `attribuée à ${reserveChoisie.attribueeNom}` : "à attribuer"].filter(Boolean).join(" · ")}</span>
+                    <h2>{reserveChoisie.titre}</h2>
+                  </div>
+                  <button type="button" className="link" onClick={() => setReserveOuverte(null)}>Fermer</button>
+                </div>
+                <div className="rs-ab">
+                  {[["reserve", "Réserve"], ["levee", "Levée"]].map(([phase, libelle]) => {
+                    const photo = photoReserve(reserveChoisie, phase);
+                    return (
+                      <figure className="ph-v" key={phase}>
+                        {photo?.url ? <a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`${libelle} ${reserveChoisie.numero}`} /></a> : <span className="ph-vide">{phase === "reserve" ? "Pas de photo" : "Pas encore de photo de levée"}</span>}
+                        <figcaption><b>{libelle}</b><small>{photo ? `${horodatage(photo.takenAt)} · ${photo.author}` : phase === "levee" ? "prise dans l'app par l'intervenant" : ""}</small></figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+                {reserveChoisie.note ? (
+                  <div className="rs-note"><span className="lab">Note de l'intervenant</span><p>« {reserveChoisie.note} »</p></div>
+                ) : null}
+                {reserveChoisie.statut === "faite" ? (
+                  <div className="rs-act">
+                    <button type="button" className="link" disabled={reserveEnvoi} onClick={() => actionReserve(reserveChoisie.id, "refuser")}>Refuser, à refaire</button>
+                    <button type="button" className="btn btn-main" disabled={reserveEnvoi} onClick={() => actionReserve(reserveChoisie.id, "valider")}>Valider la levée</button>
+                  </div>
+                ) : reserveChoisie.statut === "levee" ? (
+                  <p className="muted">{statutReserve(reserveChoisie).label}.</p>
+                ) : (
+                  <p className="muted">La levée se photographie dans l'app Koji Pro ; vous la validez ensuite ici.</p>
+                )}
+              </aside>
+            ) : null}
             <div className="card">
               <div className="card-h">
                 <h2>À traiter{aTraiter.length ? <span className="kcnt">{aTraiter.length}</span> : null}</h2>
