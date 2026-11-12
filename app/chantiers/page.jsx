@@ -8,6 +8,7 @@ import { apiGet, apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
+import { ONGLETS_CHANTIERS, compterOnglets, lignesChantiers } from "../../lib/chantiers-liste";
 
 function TaskMessageThread({ task, projectDocuments, workers }) {
   const { L } = useLocale();
@@ -250,59 +251,11 @@ function formatDate(value) {
   }
 }
 
-// Liste des chantiers, maquette PRO-02 (DA Koji Pro, 30 oct). Le statut du
-// chantier n'est pas un champ stocke, il est derive a la volee (devis signe,
-// progression des taches, fin prevue) par computeChantierStatus.
-const CHANTIER_STATUS_TAG = {
-  retard: { label: "En retard", className: "tag tag-b" },
-  a_planifier: { label: "À planifier", className: "tag tag-o" },
-  en_cours: { label: "En cours", className: "tag tag-e" },
-  finitions: { label: "Finitions", className: "tag tag-e" },
-  termine: { label: "Clôturé", className: "tag tag-o dim" }
-};
-
-const CHANTIER_TAB_OF = { en_cours: "en_cours", finitions: "en_cours", retard: "en_cours", a_planifier: "a_planifier", termine: "termine" };
-
-const CHANTIER_TABS = [
-  { id: "en_cours", label: "En cours" },
-  { id: "a_planifier", label: "À planifier" },
-  { id: "termine", label: "Clôturés" },
-  { id: "tous", label: "Tous" }
-];
-
-// Adresse "rue, code postal, ville" (app/api/projects mapChantier) : la
-// liste n'affiche que la ville.
-function cityOf(address) {
-  const parts = String(address || "").split(",").map((p) => p.trim()).filter(Boolean);
-  return parts.length > 1 ? parts[parts.length - 1] : parts[0] || "";
+// Étiquette de la liste (lib/chantiers-liste.js) → classes de la DA.
+function classeEtiquette({ ton }) {
+  return { b: "tag tag-b", o: "tag tag-o", e: "tag tag-e", w: "tag tag-e tag-w", dim: "tag tag-o dim" }[ton] || "tag";
 }
 
-function dayLabel(date) {
-  const d = new Date(`${date}T00:00:00`);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((d - today) / 86400000);
-  if (diff === 0) return "aujourd'hui";
-  if (diff === 1) return "demain";
-  return new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(d);
-}
-
-function milestoneLabel({ label, date, time }) {
-  const [h, m] = String(time || "").split(":");
-  const hour = h ? ` ${Number(h)} h${m && m !== "00" ? ` ${m}` : ""}` : "";
-  return `${label}, ${dayLabel(date)}${hour}`;
-}
-
-function computeChantierStatus(progress, signed, dueDate) {
-  if (progress >= 100) return "termine";
-  if (!signed) return "a_planifier";
-  if (dueDate) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const due = new Date(`${dueDate}T00:00:00`);
-    if (!Number.isNaN(due.getTime()) && due < today) return "retard";
-  }
-  if (progress >= 85) return "finitions";
-  return "en_cours";
-}
 
 const emptyPlan = {
   startDate: "",
@@ -350,6 +303,7 @@ export default function ProjectsTrackingPage() {
   const { data: projectArchives } = useApi("/api/project-archives", "projectArchives");
   const { data: history } = useApi("/api/history", "history");
   const { data: expenses, setData: setExpenses } = useApi("/api/expenses", "expenses");
+  const { data: urgentAlerts } = useApi("/api/urgent-alerts", "alerts");
 
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [startChoiceMade, setStartChoiceMade] = useState(false);
@@ -449,76 +403,22 @@ export default function ProjectsTrackingPage() {
   // resolve which chantier is open, so a chantier can be viewed/edited before
   // its devis is signed (not just for the signed-only tracking list below).
   const nonArchivedProjects = useMemo(() => projects.filter((project) => !isArchived(project)), [projects]);
-  // Signed-only subset, for the "Suivi des chantiers" tracking list/count.
-  const activeProjects = useMemo(() => {
-    return nonArchivedProjects.filter((project) => {
-      const linkedQuote = quotes.find((q) => q.projectId === project.id);
-      if (!linkedQuote) return false;
-      return linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe";
-    });
-  }, [nonArchivedProjects, quotes]);
-
-  // Tableau de bord (15 oct) — chaque chantier non archive, avec sa
-  // progression (meme calcul que la fiche de suivi : taches terminees /
-  // total, ou le champ progress stocke s'il n'y a pas encore de taches) et
-  // son statut derive (voir computeChantierStatus plus haut).
-  const chantiersDashboard = useMemo(() => {
-    return nonArchivedProjects.map((project) => {
-      const linkedQuote = quotes.find((q) => q.projectId === project.id);
-      const signed = linkedQuote ? (linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe") : false;
-      const projectTasks = tasks.filter((t) => t.projectId === project.id);
-      const doneCount = projectTasks.filter((t) => t.done).length;
-      const progress = projectTasks.length === 0 ? Number(project.progress || 0) : Math.round((doneCount / projectTasks.length) * 100);
-      // project.endDate/dueDate ne sont jamais persistes cote serveur (voir
-      // app/api/projects/route.js PATCH) — on recalcule la fin prevue a la
-      // volee depuis les taches, comme le fait deja la fiche de suivi.
-      const taskDueDates = projectTasks.map((t) => t.endDate || t.dueDate).filter(Boolean).sort();
-      const dueDate = taskDueDates.at(-1) || project.endDate || project.dueDate || "";
-      const status = computeChantierStatus(progress, signed, dueDate);
-      return { ...project, progress, status, dueDate, linkedQuote };
-    });
-  }, [nonArchivedProjects, quotes, tasks]);
-
-  const chantierCounts = useMemo(() => {
-    const counts = { en_cours: 0, a_planifier: 0, termine: 0, tous: chantiersDashboard.length };
-    chantiersDashboard.forEach((p) => { counts[CHANTIER_TAB_OF[p.status]] += 1; });
-    return counts;
-  }, [chantiersDashboard]);
+  // Liste (maquette PRO-02) : lib/chantiers-liste.js, le même calcul que
+  // l'app Koji Pro — lots du devis faits, prochain jalon, ce qui demande une
+  // action (Bloquant, À relancer, En retard, Échéance).
+  const lignesListe = useMemo(
+    () => lignesChantiers({ projects, quotes, tasks, calendarEvents, invoices, alerts: urgentAlerts }),
+    [projects, quotes, tasks, calendarEvents, invoices, urgentAlerts]
+  );
+  const chantierCounts = useMemo(() => compterOnglets(lignesListe), [lignesListe]);
   // Onglet "En cours" par defaut comme la maquette, sauf s'il est vide.
   const activeChantierTab = chantierTab ?? (chantierCounts.en_cours > 0 ? "en_cours" : "tous");
-
   const chantierRows = useMemo(() => {
     const needle = chantierQuery.trim().toLowerCase();
-    const now = Date.now();
-    const today = new Date().toISOString().slice(0, 10);
-    return chantiersDashboard
-      .filter((p) => activeChantierTab === "tous" || CHANTIER_TAB_OF[p.status] === activeChantierTab)
-      .filter((p) => !needle || [p.title, p.linkedQuote?.client, p.client, p.address].some((v) => String(v || "").toLowerCase().includes(needle)))
-      .map((p) => {
-        const projectTasks = tasks.filter((t) => t.projectId === p.id);
-        // Prochain jalon : la plus proche tache non faite ou le plus proche
-        // RDV du calendrier rattache a ce chantier.
-        const upcoming = [
-          ...projectTasks
-            .filter((t) => !t.done && (t.dueDate || "") >= today)
-            .map((t) => ({ label: t.label, date: t.dueDate, time: "" })),
-          ...calendarEvents
-            .filter((e) => e.projectId === p.id && new Date(e.startAt || "").getTime() >= now)
-            .map((e) => ({ label: e.title, date: String(e.startAt).slice(0, 10), time: String(e.startAt).slice(11, 16) }))
-        ].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-        let blocker = "";
-        if (p.status === "retard") blocker = `Fin prévue dépassée (${shortDate(p.dueDate)})`;
-        else if (p.status === "a_planifier") blocker = "Devis pas encore signé";
-        return {
-          ...p,
-          taskCount: projectTasks.length,
-          taskDone: projectTasks.filter((t) => t.done).length,
-          next: upcoming[0] || null,
-          blocker,
-          amount: Number(p.linkedQuote?.totalHt || p.budgetHt || 0)
-        };
-      });
-  }, [chantiersDashboard, activeChantierTab, chantierQuery, tasks, calendarEvents]);
+    return lignesListe
+      .filter((l) => activeChantierTab === "tous" || l.onglet === activeChantierTab)
+      .filter((l) => !needle || l.recherche.includes(needle));
+  }, [lignesListe, activeChantierTab, chantierQuery]);
 
   const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
   const selectedQuote = useMemo(() => {
@@ -1766,7 +1666,7 @@ export default function ProjectsTrackingPage() {
 
       <div className="tbar">
         <div className="wtabs" role="tablist" aria-label="Filtrer les chantiers">
-          {CHANTIER_TABS.map((tab) => (
+          {ONGLETS_CHANTIERS.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -1796,7 +1696,7 @@ export default function ProjectsTrackingPage() {
           <div className="empty">
             {chantierQuery.trim()
               ? "Aucun chantier ne correspond à cette recherche."
-              : chantiersDashboard.length === 0
+              : lignesListe.length === 0
                 ? "Aucun chantier pour le moment. Créez-en un avec « Nouveau chantier » ou depuis un devis."
                 : "Aucun chantier dans cet onglet."}
           </div>
@@ -1809,79 +1709,72 @@ export default function ProjectsTrackingPage() {
               <tr>
                 <th>Chantier</th>
                 <th>Client</th>
-                <th>Tâches</th>
+                <th>Lots</th>
                 <th>Prochain jalon</th>
                 <th className="r">Montant HT</th>
                 <th>Statut</th>
               </tr>
             </thead>
             <tbody>
-              {chantierRows.map((project) => {
-                const tag = CHANTIER_STATUS_TAG[project.status];
-                const city = cityOf(project.address);
-                return (
-                  <tr
-                    key={project.id}
-                    tabIndex={0}
-                    onClick={() => selectProject(project.id)}
-                    onKeyDown={(event) => { if (event.key === "Enter") selectProject(project.id); }}
-                  >
-                    <td>
-                      <div className="n">{project.title}</div>
-                      {city ? <div className="sm">{city}</div> : null}
-                    </td>
-                    <td>{project.linkedQuote?.client || project.client}</td>
-                    <td className="lots">
-                      {project.taskCount > 0 ? (
-                        <>
-                          <b>{project.taskDone} / {project.taskCount} tâches</b>
-                          <div className="bar"><i style={{ width: `${project.progress}%` }} /></div>
-                        </>
-                      ) : (
-                        <span className="sm2">Aucune tâche</span>
-                      )}
-                    </td>
-                    <td>
-                      {project.next ? <div>{milestoneLabel(project.next)}</div> : <div className="sm2">Rien de prévu</div>}
-                      {project.blocker ? <div className="blk">{project.blocker}</div> : null}
-                    </td>
-                    <td className="r">{project.amount > 0 ? `${euro(project.amount)} HT` : "—"}</td>
-                    <td><span className={tag.className}>{tag.label}</span></td>
-                  </tr>
-                );
-              })}
+              {chantierRows.map((ligne) => (
+                <tr
+                  key={ligne.id}
+                  tabIndex={0}
+                  onClick={() => selectProject(ligne.id)}
+                  onKeyDown={(event) => { if (event.key === "Enter") selectProject(ligne.id); }}
+                >
+                  <td>
+                    <div className="n">{ligne.titre}</div>
+                    {ligne.ville ? <div className="sm">{ligne.ville}</div> : null}
+                  </td>
+                  <td>{ligne.client || "—"}</td>
+                  <td className="lots">
+                    {ligne.avancement ? (
+                      <>
+                        <b>{ligne.avancement.faits} / {ligne.avancement.total} {ligne.avancement.unite}</b>
+                        <div className="bar"><i style={{ width: `${ligne.avancement.pourcent}%` }} /></div>
+                      </>
+                    ) : (
+                      <span className="sm2">Pas encore de devis</span>
+                    )}
+                  </td>
+                  <td>
+                    {ligne.jalon ? <div>{ligne.jalon}</div> : <div className="sm2">Rien de prévu</div>}
+                    {ligne.detail ? <div className="blk">{ligne.detail}</div> : null}
+                  </td>
+                  <td className="r">{ligne.montant.texte || "—"}</td>
+                  <td><span className={classeEtiquette(ligne.etiquette)}>{ligne.etiquette.label}</span></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
 
         <div className="mlist">
-          {chantierRows.map((project) => {
-            const tag = CHANTIER_STATUS_TAG[project.status];
-            return (
-              <button type="button" className="m-card" key={project.id} onClick={() => selectProject(project.id)}>
-                <div className="top2">
-                  <div>
-                    <div className="nm">{project.title}</div>
-                    <div className="meta">{project.linkedQuote?.client || project.client}</div>
-                  </div>
-                  <span className={tag.className}>{tag.label}</span>
+          {chantierRows.map((ligne) => (
+            <button type="button" className="m-card" key={ligne.id} onClick={() => selectProject(ligne.id)}>
+              <div className="top2">
+                <div>
+                  <div className="nm">{ligne.titre}</div>
+                  <div className="meta">{ligne.client || ligne.ville}</div>
                 </div>
-                <div className="m-f">
-                  <b>{project.taskCount > 0 ? `${project.taskDone} / ${project.taskCount} tâches` : "Aucune tâche"}</b>
-                  <b>{project.amount > 0 ? `${euro(project.amount)} HT` : ""}</b>
-                </div>
-                {project.taskCount > 0 ? <div className="bar"><i style={{ width: `${project.progress}%` }} /></div> : null}
-                <div className="line">{project.next ? milestoneLabel(project.next) : "Rien de prévu"}</div>
-                {project.blocker ? <div className="meta">{project.blocker}</div> : null}
-              </button>
-            );
-          })}
+                <span className={classeEtiquette(ligne.etiquette)}>{ligne.etiquette.label}</span>
+              </div>
+              <div className="m-f">
+                <b>{ligne.avancement ? `${ligne.avancement.faits} / ${ligne.avancement.total} ${ligne.avancement.unite}` : "Pas encore de devis"}</b>
+                <b>{ligne.montant.texte}</b>
+              </div>
+              {ligne.avancement ? <div className="bar"><i style={{ width: `${ligne.avancement.pourcent}%` }} /></div> : null}
+              <div className="line">{ligne.jalon || "Rien de prévu"}</div>
+              {ligne.detail ? <div className="meta">{ligne.detail}</div> : null}
+            </button>
+          ))}
         </div>
         </>
       )}
 
       <p className="foot-note">
-        {chantierRows.length} chantier{chantierRows.length > 1 ? "s" : ""} affiché{chantierRows.length > 1 ? "s" : ""} sur {chantiersDashboard.length}
+        {chantierRows.length} chantier{chantierRows.length > 1 ? "s" : ""} affiché{chantierRows.length > 1 ? "s" : ""} sur {lignesListe.length}
       </p>
     </Shell>
   );

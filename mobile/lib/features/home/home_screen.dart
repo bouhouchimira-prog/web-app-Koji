@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
 import 'package:koji/apps/entreprise/entreprise_sidebar.dart';
@@ -10,7 +11,6 @@ import 'package:koji/apps/entreprise/pro_home/pro_home.dart';
 import 'package:koji/core/theme.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/features/home/notifications/notifications_panel.dart';
-import 'package:koji/features/quote/chantier_list_screen.dart';
 import 'package:koji/features/quote/quote_list_screen.dart';
 
 /// Entreprise home (`/home`): accueil (new Koji Pro DA), devis and chantiers
@@ -207,7 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             const ProHome(),
             readable(const QuoteListScreen()),
-            readable(const ChantierListScreen()),
+            readable(const ProChantiersScreen(barre: false)),
           ],
         ),
       );
@@ -236,7 +236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 bottomPadding: 120,
               ),
               const QuoteListScreen(),
-              const ChantierListScreen(),
+              const ProChantiersScreen(),
             ],
           ),
           Positioned(
