@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 
@@ -83,10 +84,19 @@ void main() {
           authErrorMessage(const AuthException('email rate limit exceeded',
               code: 'over_email_send_rate_limit')),
           contains('Réessayez dans une heure'));
-      expect(
-          authErrorMessage(
-              const AuthException('Error sending confirmation email')),
-          contains('contact@getkoji.io'));
+    });
+
+    // Service client (12 nov) : chaque app renvoie vers sa propre boîte.
+    test("e-mail non parti : l'adresse du service client de l'app", () {
+      const err = AuthException('Error sending confirmation email');
+      addTearDown(() => KojiAppConfig.use(KojiAppKind.entreprise));
+
+      KojiAppConfig.use(KojiAppKind.client);
+      expect(authErrorMessage(err), contains('contact@getkoji.io'));
+
+      KojiAppConfig.use(KojiAppKind.entreprise);
+      expect(authErrorMessage(err), contains('entreprise@getkoji.io'));
+      expect(authErrorMessage(err), isNot(contains('contact@getkoji.io')));
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/app/koji_web_api_client.dart' show KojiWebApiException;
 
@@ -83,7 +84,7 @@ Future<bool> confirmAccountDeletion(
     messenger?.showSnackBar(SnackBar(
       content: Text(err is KojiWebApiException
           ? err.message
-          : 'Impossible d\'envoyer la demande. Réessayez ou écrivez à contact@getkoji.io.'),
+          : 'Impossible d\'envoyer la demande. Réessayez ou écrivez à ${KojiAppConfig.supportEmail}.'),
     ));
     return false;
   }

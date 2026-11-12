@@ -34,6 +34,10 @@ abstract final class KojiAppConfig {
 
   static String get otherAppUrl => isClient ? _proUrl : _clientUrl;
 
-  /// Support address shown on the connexion and help pages.
-  static const supportEmail = 'contact@getkoji.io';
+  /// Service client (12 nov) : Koji (particuliers) → contact@getkoji.io,
+  /// Koji Pro (entreprises) → entreprise@getkoji.io. Shown on the connexion
+  /// and help pages and in error messages that invite the user to write.
+  static const supportEmailClient = 'contact@getkoji.io';
+  static const supportEmailPro = 'entreprise@getkoji.io';
+  static String get supportEmail => isClient ? supportEmailClient : supportEmailPro;
 }

@@ -9,7 +9,8 @@ export const SIGNUP = '/signup?type=entreprise';
 export const LOGIN = '/login?type=entreprise';
 export const PARTICULIER = '/particulier';
 export const TARIFS = '/entreprise/tarifs';
-export const CONTACT = 'mailto:contact@getkoji.io';
+// Service client Koji Pro (12 nov) : entreprise@ ; contact@ reste celui des particuliers.
+export const CONTACT = 'mailto:entreprise@getkoji.io';
 
 export function Check() {
   return (

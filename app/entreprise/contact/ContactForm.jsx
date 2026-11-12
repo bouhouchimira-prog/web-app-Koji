@@ -37,7 +37,7 @@ export function ContactForm() {
         body: JSON.stringify({ ...form, consent, website: event.target.website?.value || '' }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Votre message n'a pas pu partir. Écrivez-nous à contact@getkoji.io.");
+      if (!response.ok) throw new Error(data.error || "Votre message n'a pas pu partir. Écrivez-nous à entreprise@getkoji.io.");
       setState({ status: 'done', message: '' });
     } catch (error) {
       setState({ status: 'error', message: error.message });
