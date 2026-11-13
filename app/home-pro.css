@@ -1795,3 +1795,13 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .dv-rel-m textarea{width:100%;padding:10px 12px;border:1px solid #D9D9D4;background:#FFFFFF;font:inherit;font-size:14px;line-height:1.5;color:var(--ink);border-radius:var(--r-touch,4px);resize:vertical}
 /* Badge Devis de la barre du bas (maquette PRO-03). */
 .pro .pro-tabbar .tbd{position:absolute;top:2px;left:calc(50% + 6px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--ink);color:var(--card);font-style:normal;font-size:10px;font-weight:700;line-height:16px;text-align:center}
+
+/* Ligne du devis ouverte (maquette PRO-03.1) : main-d'œuvre, variante. */
+.pro .dl-mo{display:flex;flex-direction:column;gap:6px}
+.pro .dl-mo .lab{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--grey)}
+.pro .dl-mo-r{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--grey)}
+.pro .dl-mo-r input{width:84px;height:38px;padding:0 10px;border:1px solid var(--btn);background:var(--card);font:inherit;font-size:14px;color:var(--ink);border-radius:var(--r-touch)}
+.pro .dl-mo-r b{color:var(--ink);font-size:14px}
+.pro .fl-h .link{text-transform:none;letter-spacing:0;font-size:12px}
+.pro .dl-var{margin-left:8px;font-size:11px;vertical-align:middle}
+.pro .ed-act .btn.on{background:var(--fill);border-color:var(--fill);color:var(--filltxt)}
