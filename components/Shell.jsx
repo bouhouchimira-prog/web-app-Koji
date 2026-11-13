@@ -627,6 +627,15 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
   // (radar.expertise_publiee, creee par app/api/chantier-offres/route.js a
   // chaque nouvelle offre publiee) plutot qu'un nouveau systeme separe.
   const hasNewMarketplaceOffers = notifications.some((n) => n.type === "radar.expertise_publiee" && !n.read && !n.archived);
+  // Badge Devis (maquette PRO-03) : brouillons à reprendre + devis à relancer.
+  const [devisBadge, setDevisBadge] = useState(0);
+  useEffect(() => {
+    let vivant = true;
+    apiGet("/api/quotes?compteurs=1")
+      .then((data) => { if (vivant) setDevisBadge(Number(data?.compteurs?.badge) || 0); })
+      .catch(() => {});
+    return () => { vivant = false; };
+  }, [pathname]);
   const recentNotifications = useMemo(() => {
     return [...notifications]
       .filter((n) => !n.archived)
@@ -737,6 +746,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
             open={drawerOpen}
             isLocked={(href) => premiumLocked && PREMIUM_PATHS.some((p) => href.startsWith(p))}
             hasNewMarketplaceOffers={hasNewMarketplaceOffers}
+            devisBadge={devisBadge}
             onAsk={() => { setDrawerOpen(false); toggleKojiAssistant(); }}
             account={{
               name: avatarLabel,
@@ -765,6 +775,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
               return (
                 <Link key={item.href} href={locked ? "/parametres/abonnement" : item.href} className={`${active ? "on" : ""}${item.home ? " home" : ""}`} aria-current={active ? "page" : undefined}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d={item.icon} /></svg>
+                  {item.href === "/devis" && devisBadge > 0 ? <em className="tbd" aria-label={`${devisBadge} devis à reprendre ou relancer`}>{devisBadge}</em> : null}
                   <span>{item.label}</span>
                 </Link>
               );

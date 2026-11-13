@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart';
+import 'package:koji/apps/entreprise/devis/devis_liste.dart';
+import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
 import 'package:koji/apps/entreprise/entreprise_sidebar.dart';
@@ -11,7 +14,6 @@ import 'package:koji/apps/entreprise/pro_home/pro_home.dart';
 import 'package:koji/core/theme.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/features/home/notifications/notifications_panel.dart';
-import 'package:koji/features/quote/quote_list_screen.dart';
 
 /// Entreprise home (`/home`): accueil (new Koji Pro DA), devis and chantiers
 /// tabs.
@@ -206,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           index: selectedIndex.clamp(0, 2),
           children: [
             const ProHome(),
-            readable(const QuoteListScreen()),
+            readable(const ProDevisScreen(barre: false)),
             readable(const ProChantiersScreen(barre: false)),
           ],
         ),
@@ -235,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // Leave room for the bottom bar.
                 bottomPadding: 120,
               ),
-              const QuoteListScreen(),
+              const ProDevisScreen(),
               const ProChantiersScreen(),
             ],
           ),
@@ -253,7 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 /// Phone bottom bar in the Koji Pro DA: white, hairline on top, the active
 /// tab in graphite with a yellow rule above it.
-class _ProTabBar extends StatelessWidget {
+class _ProTabBar extends ConsumerWidget {
   const _ProTabBar({required this.selected, required this.onTap});
 
   final int selected;
@@ -267,8 +269,13 @@ class _ProTabBar extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final da = ProDa.of(context);
+    // Badge Devis (maquette PRO-03) : brouillons à reprendre + à relancer.
+    final devis = ref.watch(proDevisProvider).valueOrNull?.devis;
+    final badge = devis == null
+        ? 0
+        : compterDevis(devis, DateFormat('yyyy-MM-dd').format(DateTime.now()))['badge'] ?? 0;
     return Container(
       decoration: BoxDecoration(
         color: da.card,
@@ -302,9 +309,15 @@ class _ProTabBar extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(i == selected ? iconOn : icon,
-                                size: 22,
-                                color: i == selected ? da.ink : da.grey),
+                            Badge(
+                              isLabelVisible: label == 'Devis' && badge > 0,
+                              label: Text('$badge'),
+                              backgroundColor: da.ink,
+                              textColor: da.card,
+                              child: Icon(i == selected ? iconOn : icon,
+                                  size: 22,
+                                  color: i == selected ? da.ink : da.grey),
+                            ),
                             const SizedBox(height: 3),
                             Text(
                               label,

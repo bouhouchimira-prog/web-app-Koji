@@ -16,7 +16,7 @@ const GROUPS = [
     items: [
       { href: "/", label: "Accueil", icon: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" },
       { href: "/chantiers", label: "Chantiers", icon: "M4 20h16M6 20V9l6-4 6 4v11", match: ["/chantiers", "/chantier/"] },
-      { href: "/devis", label: "Devis", icon: "M6 3h9l4 4v14H6zM9 12h6M9 16h6", match: ["/devis"] },
+      { href: "/devis", label: "Devis", icon: "M6 3h9l4 4v14H6zM9 12h6M9 16h6", match: ["/devis"], badge: "devis" },
       { href: "/marketplace", label: "Radar", icon: SHOP, badge: "radar" },
       { href: "/reseau-pro", label: "Réseau pro", icon: PERSON },
       { href: "/calendrier", label: "Calendrier", icon: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4", match: ["/calendrier", "/planning"] }
@@ -73,6 +73,7 @@ export function ProSidebar({
   open,
   isLocked,
   hasNewMarketplaceOffers,
+  devisBadge = 0,
   onAsk,
   account,
   menuOpen,
@@ -120,6 +121,9 @@ export function ProSidebar({
                     <span className="lkt" title="Inclus dans Koji Premium" aria-label="Koji Premium">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3" /></svg>
                     </span>
+                  ) : null}
+                  {!locked && item.badge === "devis" && devisBadge > 0 ? (
+                    <span className="cnt" aria-label={`${devisBadge} devis à reprendre ou relancer`}>{devisBadge}</span>
                   ) : null}
                   {!locked && item.badge === "radar" && hasNewMarketplaceOffers ? (
                     <span className="cnt" aria-label="Nouvelles offres">Nouveau</span>

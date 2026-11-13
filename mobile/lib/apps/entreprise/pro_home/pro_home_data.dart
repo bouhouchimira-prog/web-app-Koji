@@ -315,6 +315,27 @@ class ProKojiWebClient {
     }
   }
 
+  /// Relance d'un devis envoyé (PRO-03) : e-mail avec le lien de signature.
+  Future<Map<String, dynamic>> relancerDevis(String id, String message) async {
+    final data = await _send(
+        'PATCH', '/api/quotes', {'id': id, 'action': 'relancer', 'message': message});
+    final q = data is Map ? data['quote'] : null;
+    return q is Map ? Map<String, dynamic>.from(q) : {};
+  }
+
+  /// Duplique un devis expiré ou refusé : nouveau brouillon, nouveau numéro.
+  Future<Map<String, dynamic>> dupliquerDevis(Map<String, dynamic> devis) async {
+    const champs = ['client', 'clientReference', 'clientEmail', 'clientPhone', 'clientType', 'clientFirstName', 'clientLastName', 'clientCompanyName', 'project', 'projectId', 'projectReference', 'contactId', 'chantierAddress', 'chantierAddressDetails', 'workDescription', 'expectedDuration', 'company', 'rooms', 'items', 'notes', 'surcharges', 'situationFactors', 'vatRate', 'totalHt', 'totalTtc'];
+    final data = await _send('POST', '/api/quotes', {
+      for (final k in champs)
+        if (devis[k] != null) k: devis[k],
+      'status': 'Brouillon',
+      'quoteDate': DateTime.now().toIso8601String().substring(0, 10),
+    });
+    final q = data is Map ? data['quote'] : null;
+    return q is Map ? Map<String, dynamic>.from(q) : {};
+  }
+
   /// Avis du chantier (PRO-02.6) : { avis, stats, site, accesClient }.
   Future<Map<String, dynamic>> avis(String projectId) async {
     final data = await _send(
