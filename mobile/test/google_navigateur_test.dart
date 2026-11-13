@@ -1,0 +1,83 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:koji/features/auth/provider/auth_provider.dart';
+import 'package:koji/features/auth/repository/auth_repository.dart';
+
+// « Continuer avec Google » par le navigateur (13 nov) : le couple
+// com.koji.pro + empreinte Play est bloqué dans un ancien projet Google
+// inaccessible, la connexion native ne peut pas marcher.
+User _user(Map<String, dynamic> appMetadata) => User(
+      id: 'u1',
+      appMetadata: appMetadata,
+      userMetadata: const {},
+      aud: 'authenticated',
+      createdAt: '2026-11-13T00:00:00Z',
+    );
+
+void main() {
+  test('une adresse de retour par app, jamais la même', () {
+    expect(googleRedirectFor(isPro: true), 'com.koji.pro://login-callback');
+    expect(
+        googleRedirectFor(isPro: false), 'com.koji.client://login-callback');
+  });
+
+  test('Android sait ouvrir ces adresses (schéma = identifiant de l\'app)',
+      () {
+    final manifest =
+        File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    expect(
+        manifest,
+        contains(
+            '<data android:scheme="\${applicationId}" android:host="login-callback" />'));
+    final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+    for (final id in ['com.koji.pro', 'com.koji.client']) {
+      expect(gradle, contains('applicationId = "$id"'));
+    }
+  });
+
+  group('profil après Google', () {
+    test('pas de ligne : on la crée', () {
+      expect(googleProfileAction(null, true), GoogleProfileAction.create);
+    });
+
+    test('type différent de l\'app : on l\'aligne', () {
+      expect(googleProfileAction({'is_pro': true}, false),
+          GoogleProfileAction.setIsPro);
+      expect(googleProfileAction({'is_pro': false}, true),
+          GoogleProfileAction.setIsPro);
+      expect(googleProfileAction(<String, dynamic>{}, true),
+          GoogleProfileAction.setIsPro);
+    });
+
+    test('déjà bon : rien', () {
+      expect(googleProfileAction({'is_pro': true}, true),
+          GoogleProfileAction.none);
+      expect(googleProfileAction({'is_pro': false}, false),
+          GoogleProfileAction.none);
+    });
+  });
+
+  test('compte avec une identité Google', () {
+    expect(
+        hasGoogleIdentity(_user({
+          'provider': 'email',
+          'providers': ['email', 'google']
+        })),
+        isTrue);
+    expect(hasGoogleIdentity(_user({'provider': 'google'})), isTrue);
+    expect(
+        hasGoogleIdentity(_user({
+          'provider': 'email',
+          'providers': ['email']
+        })),
+        isFalse);
+  });
+
+  test('échec à l\'ouverture : message qui propose l\'e-mail', () {
+    expect(authErrorMessage(GoogleSignInFailure(Exception('x'))),
+        googleSignInFailedMessage);
+  });
+}

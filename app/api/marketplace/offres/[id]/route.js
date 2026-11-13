@@ -5,6 +5,9 @@ import { hasConfirmedRdv } from "../../../../../lib/rdv";
 import { hasPhotoAccess } from "../../../../../lib/photo-access";
 import { fixText } from "../../../../../lib/text";
 import { clientContactFields } from "../../../../../lib/offer-privacy";
+import { getSupabaseAdmin } from "../../../../../lib/supabase";
+import { buildWebUser } from "../../../../../lib/user-profile";
+import { prixRecommandesPour } from "../../../../../lib/prix-recommande-server";
 
 // Detail cote entreprise (Koji Pro) d'une offre Radar des Chantiers.
 // Regle unique (decisions du 4 septembre) : aucune coordonnee visible
@@ -43,5 +46,14 @@ export async function GET(request, context) {
 
   const rdvUnlocked = hasConfirmedRdv(db.chantierOffreMessages, id, userId);
   const photosUnlocked = hasPhotoAccess(db.chantierOffreMessages, id, userId);
-  return ok({ offre: detailOffer(offre, rdvUnlocked, photosUnlocked) });
+  // Prix recommandé avec les prix de l'entreprise qui consulte (jamais
+  // envoyé au particulier, voir lib/prix-recommande.js).
+  let prixRecommande = null;
+  try {
+    const { data: profile } = await getSupabaseAdmin().from("users").select("*").eq("id", userId).maybeSingle();
+    const business = buildWebUser({ id: userId, email: profile?.email || "", profile }).business || {};
+    const prix = await prixRecommandesPour({ db, userId, business, offres: [offre] });
+    prixRecommande = prix.get(offre.id) || null;
+  } catch { /* le détail s'affiche sans prix */ }
+  return ok({ offre: { ...detailOffer(offre, rdvUnlocked, photosUnlocked), prixRecommande } });
 }

@@ -62,6 +62,8 @@
 	<string>Nous avons besoin d'accéder à votre caméra pour prendre des photos de preuves visuelles.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Nous avons besoin d'accéder à votre galerie pour sélectionner des photos de preuves visuelles.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Koji ne demande pas votre position. La carte du Radar, qui l'exige techniquement, montre seulement les chantiers de votre zone de travail.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>sms</string>

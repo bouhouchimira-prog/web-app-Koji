@@ -4,10 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiGet, apiSend } from "../../lib/client-api";
+import { apiGet, apiSend, readStoredUser } from "../../lib/client-api";
+import { LancerChantier } from "../../components/LancerChantier";
+import { demarragePropose, joursOuvresEntre, lotsDuDevis } from "../../lib/planning-chantier";
+import { LIBELLE_ETAT_PHOTOS, PHASES_RESERVE, horodatage, photosDuLot } from "../../lib/photos-chantier";
+import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreReserve, statutReserve } from "../../lib/reserves";
+import { PvReception } from "../../components/PvReception";
+import { conseilsEntretien, elementsDossier, photosChoisies, resumeDossier } from "../../lib/dossier-fin";
+import { CRITERES, moyenneTexte, realisationProposee, reponseProposee } from "../../lib/avis";
+import { etatTache, ligneTache, tachesParLot } from "../../lib/taches-chantier";
+import { jourDeParis, bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
+import { ONGLETS_CHANTIERS, compterOnglets, lignesChantiers } from "../../lib/chantiers-liste";
 
 function TaskMessageThread({ task, projectDocuments, workers }) {
   const { L } = useLocale();
@@ -241,6 +251,16 @@ function isReadyForTracking(project) {
   return status.includes("cours") || status.includes("signe") || status.includes("accept") || status.includes("planifier");
 }
 
+const ETOILE = "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.8l6.1-.9z";
+
+function Etoiles({ note, big = false }) {
+  return (
+    <span className={`av-st${big ? " big" : ""}`} role="img" aria-label={`${note} sur 5`}>
+      {[1, 2, 3, 4, 5].map((i) => <i key={i} className={i <= note ? "on" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={ETOILE} /></svg></i>)}
+    </span>
+  );
+}
+
 function formatDate(value) {
   if (!value) return "-";
   try {
@@ -250,59 +270,17 @@ function formatDate(value) {
   }
 }
 
-// Liste des chantiers, maquette PRO-02 (DA Koji Pro, 30 oct). Le statut du
-// chantier n'est pas un champ stocke, il est derive a la volee (devis signe,
-// progression des taches, fin prevue) par computeChantierStatus.
-const CHANTIER_STATUS_TAG = {
-  retard: { label: "En retard", className: "tag tag-b" },
-  a_planifier: { label: "À planifier", className: "tag tag-o" },
-  en_cours: { label: "En cours", className: "tag tag-e" },
-  finitions: { label: "Finitions", className: "tag tag-e" },
-  termine: { label: "Clôturé", className: "tag tag-o dim" }
-};
-
-const CHANTIER_TAB_OF = { en_cours: "en_cours", finitions: "en_cours", retard: "en_cours", a_planifier: "a_planifier", termine: "termine" };
-
-const CHANTIER_TABS = [
-  { id: "en_cours", label: "En cours" },
-  { id: "a_planifier", label: "À planifier" },
-  { id: "termine", label: "Clôturés" },
-  { id: "tous", label: "Tous" }
-];
-
-// Adresse "rue, code postal, ville" (app/api/projects mapChantier) : la
-// liste n'affiche que la ville.
-function cityOf(address) {
-  const parts = String(address || "").split(",").map((p) => p.trim()).filter(Boolean);
-  return parts.length > 1 ? parts[parts.length - 1] : parts[0] || "";
+// « 17 novembre » (phrases : pas de point d'abréviation en fin de phrase).
+function jourEtMois(iso) {
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+  return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(d) : "";
 }
 
-function dayLabel(date) {
-  const d = new Date(`${date}T00:00:00`);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((d - today) / 86400000);
-  if (diff === 0) return "aujourd'hui";
-  if (diff === 1) return "demain";
-  return new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(d);
+// Étiquette de la liste (lib/chantiers-liste.js) → classes de la DA.
+function classeEtiquette({ ton }) {
+  return { b: "tag tag-b", o: "tag tag-o", e: "tag tag-e", w: "tag tag-e tag-w", dim: "tag tag-o dim" }[ton] || "tag";
 }
 
-function milestoneLabel({ label, date, time }) {
-  const [h, m] = String(time || "").split(":");
-  const hour = h ? ` ${Number(h)} h${m && m !== "00" ? ` ${m}` : ""}` : "";
-  return `${label}, ${dayLabel(date)}${hour}`;
-}
-
-function computeChantierStatus(progress, signed, dueDate) {
-  if (progress >= 100) return "termine";
-  if (!signed) return "a_planifier";
-  if (dueDate) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const due = new Date(`${dueDate}T00:00:00`);
-    if (!Number.isNaN(due.getTime()) && due < today) return "retard";
-  }
-  if (progress >= 85) return "finitions";
-  return "en_cours";
-}
 
 const emptyPlan = {
   startDate: "",
@@ -350,6 +328,7 @@ export default function ProjectsTrackingPage() {
   const { data: projectArchives } = useApi("/api/project-archives", "projectArchives");
   const { data: history } = useApi("/api/history", "history");
   const { data: expenses, setData: setExpenses } = useApi("/api/expenses", "expenses");
+  const { data: urgentAlerts } = useApi("/api/urgent-alerts", "alerts");
 
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [startChoiceMade, setStartChoiceMade] = useState(false);
@@ -373,6 +352,32 @@ export default function ProjectsTrackingPage() {
   const [ouvrageAddOpen, setOuvrageAddOpen] = useState(false);
   const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
   const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
+  const [lancerOuvert, setLancerOuvert] = useState(false);
+  const [lotOuvert, setLotOuvert] = useState(null);
+  const [photosChantier, setPhotosChantier] = useState([]);
+  const [filtrePhotos, setFiltrePhotos] = useState("tous");
+  const [reserves, setReserves] = useState([]);
+  const [filtreReserves, setFiltreReserves] = useState("toutes");
+  const [reserveOuverte, setReserveOuverte] = useState(null);
+  const [nouvelleReserve, setNouvelleReserve] = useState({ titre: "", lieu: "", attribueeA: "", pourLe: "" });
+  const [reserveEnvoi, setReserveEnvoi] = useState(false);
+  const [cloture, setCloture] = useState(null);
+  const [avenantsDevis, setAvenantsDevis] = useState([]);
+  const [pvOuvert, setPvOuvert] = useState(false);
+  const [clotureEnvoi, setClotureEnvoi] = useState(false);
+  const [vueCloture, setVueCloture] = useState("etapes");
+  const [dossierFin, setDossierFin] = useState({ remisLe: "", envoyeA: "", pieces: [] });
+  const [decennale, setDecennale] = useState(null);
+  const [dossierEnvoi, setDossierEnvoi] = useState(false);
+  const [conseilsOuverts, setConseilsOuverts] = useState(false);
+  const [avisData, setAvisData] = useState(null);
+  const [reponseAvis, setReponseAvis] = useState(null);
+  const [realForm, setRealForm] = useState(null);
+  const [avisEnvoi, setAvisEnvoi] = useState(false);
+  const [nouvelleTache, setNouvelleTache] = useState({ label: "", lot: "", qui: "", jour: "" });
+  const [tacheEnvoi, setTacheEnvoi] = useState(false);
+  const noticeRef = useRef(null);
+  const planRef = useRef(null);
 
 
   // Restores exactly where the user was (chantier / ouvrage / past the "start
@@ -409,6 +414,165 @@ export default function ProjectsTrackingPage() {
     setSelectedProjectId("");
     setOpenLineKey(null);
     setStartChoiceMade(false);
+  }
+
+  // Photos avant / après du chantier (PRO-02.2).
+  useEffect(() => {
+    if (!selectedProjectId) { setPhotosChantier([]); return; }
+    apiGet(`/api/chantier-photos?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setPhotosChantier(Array.isArray(data.photos) ? data.photos : []))
+      .catch(() => setPhotosChantier([]));
+  }, [selectedProjectId]);
+
+  // Réserves du chantier (PRO-02.3).
+  useEffect(() => {
+    setReserveOuverte(null);
+    if (!selectedProjectId) { setReserves([]); return; }
+    apiGet(`/api/reserves?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setReserves(Array.isArray(data.reserves) ? data.reserves : []))
+      .catch(() => setReserves([]));
+  }, [selectedProjectId]);
+
+  // Clôture du chantier (PRO-02.4) : PV, retenue, avis.
+  useEffect(() => {
+    setPvOuvert(false);
+    if (!selectedProjectId) { setCloture(null); return; }
+    apiGet(`/api/cloture?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setCloture(data.cloture || null))
+      .catch(() => setCloture(null));
+  }, [selectedProjectId]);
+
+  // Dossier de fin de chantier (PRO-02.5).
+  useEffect(() => {
+    setVueCloture("etapes");
+    setConseilsOuverts(false);
+    if (!selectedProjectId) { setDossierFin({ remisLe: "", envoyeA: "", pieces: [] }); setDecennale(null); return; }
+    apiGet(`/api/dossier-fin?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => { setDossierFin(data.dossier || { remisLe: "", envoyeA: "", pieces: [] }); setDecennale(data.decennale || null); })
+      .catch(() => { setDossierFin({ remisLe: "", envoyeA: "", pieces: [] }); setDecennale(null); });
+  }, [selectedProjectId]);
+
+  // Avis et réalisation (PRO-02.6).
+  useEffect(() => {
+    setReponseAvis(null);
+    setRealForm(null);
+    if (!selectedProjectId) { setAvisData(null); return; }
+    apiGet(`/api/avis?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setAvisData(data))
+      .catch(() => setAvisData(null));
+  }, [selectedProjectId]);
+
+  async function actionAvis(action, extra = {}, messageOk = "") {
+    setAvisEnvoi(true);
+    try {
+      const data = await apiSend("/api/avis", { projectId: selectedProjectId, action, ...extra });
+      if (data.cloture) setCloture(data.cloture);
+      if (data.avis) setAvisData((d) => ({ ...(d || {}), avis: data.avis, site: data.site || d?.site }));
+      setMessage(messageOk);
+      return true;
+    } catch (error) {
+      setMessage(error.message || "L'action n'a pas abouti.");
+      return false;
+    } finally {
+      setAvisEnvoi(false);
+    }
+  }
+
+  async function ajouterPieceDossier(kind, file) {
+    if (!file || !selectedProjectId) return;
+    setDossierEnvoi(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("projectId", selectedProjectId);
+      form.append("kind", kind);
+      const res = await fetch("/api/dossier-fin", { method: "POST", body: form, credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Le fichier n'a pas pu être ajouté.");
+      setDossierFin(data.dossier);
+      setMessage(kind === "plan" ? "Schéma des réseaux ajouté au dossier." : "Notice ajoutée au dossier.");
+    } catch (error) {
+      setMessage(error.message || "Le fichier n'a pas pu être ajouté.");
+    } finally {
+      setDossierEnvoi(false);
+    }
+  }
+
+  async function retirerPieceDossier(pieceId) {
+    setDossierEnvoi(true);
+    try {
+      const data = await apiSend("/api/dossier-fin", { projectId: selectedProjectId, action: "retirer", pieceId }, "PATCH");
+      setDossierFin(data.dossier);
+    } catch (error) {
+      setMessage(error.message || "La pièce n'a pas pu être retirée.");
+    } finally {
+      setDossierEnvoi(false);
+    }
+  }
+
+  async function envoyerDossier(destinataire) {
+    if (!window.confirm(`Envoyer le dossier de fin de chantier à ${destinataire} ?`)) return;
+    setDossierEnvoi(true);
+    try {
+      const data = await apiSend("/api/dossier-fin", { projectId: selectedProjectId, action: "envoyer" });
+      setCloture(data.cloture);
+      setDossierFin((d) => ({ ...d, remisLe: data.cloture?.dossier?.remisLe || "", envoyeA: data.cloture?.dossier?.envoyeA || "" }));
+      setMessage(`Dossier envoyé à ${destinataire}. Il est aussi dans son espace Koji Client.`);
+    } catch (error) {
+      setMessage(error.message || "Le dossier n'a pas pu être envoyé.");
+    } finally {
+      setDossierEnvoi(false);
+    }
+  }
+
+  async function majCloture(action, extra = {}) {
+    setClotureEnvoi(true);
+    try {
+      const data = await apiSend("/api/cloture", { projectId: selectedProjectId, action, ...extra }, "PATCH");
+      setCloture(data.cloture);
+      setMessage(action === "rappel" ? "Rappel ajouté au calendrier." : action === "avis" ? (extra.programme ? "Demande d'avis programmée avec la facture de solde." : "Demande d'avis retirée.") : "Retenue de garantie mise à jour.");
+    } catch (error) {
+      setMessage(error.message || "La clôture n'a pas pu être mise à jour.");
+    } finally {
+      setClotureEnvoi(false);
+    }
+  }
+
+  async function actionReserve(id, action, extra = {}) {
+    setReserveEnvoi(true);
+    try {
+      const { reserve } = await apiSend("/api/reserves", { id, action, ...extra }, "PATCH");
+      setReserves((liste) => liste.map((r) => (r.id === reserve.id ? reserve : r)));
+      setMessage(action === "valider" ? `${reserve.numero} levée.` : action === "refuser" ? `${reserve.numero} repasse à faire.` : "Réserve mise à jour.");
+    } catch (error) {
+      setMessage(error.message || "La réserve n'a pas pu être mise à jour.");
+    } finally {
+      setReserveEnvoi(false);
+    }
+  }
+
+  async function creerReserve(event) {
+    event.preventDefault();
+    if (!nouvelleReserve.titre.trim() || !selectedProjectId) return;
+    setReserveEnvoi(true);
+    try {
+      const worker = workers.find((w) => w.id === nouvelleReserve.attribueeA);
+      const { reserve } = await apiSend("/api/reserves", {
+        projectId: selectedProjectId,
+        titre: nouvelleReserve.titre,
+        lieu: nouvelleReserve.lieu,
+        attribueeA: nouvelleReserve.attribueeA,
+        attribueeNom: nouvelleReserve.attribueeA === "moi" ? "Vous" : worker ? `${worker.name}${worker.type === "Sous-traitant" ? " · sous-traitant" : ""}` : "",
+        pourLe: nouvelleReserve.pourLe
+      });
+      setReserves((liste) => [...liste, reserve]);
+      setNouvelleReserve({ titre: "", lieu: "", attribueeA: "", pourLe: "" });
+      setMessage(`${reserve.numero} créée. La photo se prend dans l'app Koji Pro.`);
+    } catch (error) {
+      setMessage(error.message || "La réserve n'a pas pu être créée.");
+    } finally {
+      setReserveEnvoi(false);
+    }
   }
 
   useEffect(() => {
@@ -449,76 +613,22 @@ export default function ProjectsTrackingPage() {
   // resolve which chantier is open, so a chantier can be viewed/edited before
   // its devis is signed (not just for the signed-only tracking list below).
   const nonArchivedProjects = useMemo(() => projects.filter((project) => !isArchived(project)), [projects]);
-  // Signed-only subset, for the "Suivi des chantiers" tracking list/count.
-  const activeProjects = useMemo(() => {
-    return nonArchivedProjects.filter((project) => {
-      const linkedQuote = quotes.find((q) => q.projectId === project.id);
-      if (!linkedQuote) return false;
-      return linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe";
-    });
-  }, [nonArchivedProjects, quotes]);
-
-  // Tableau de bord (15 oct) — chaque chantier non archive, avec sa
-  // progression (meme calcul que la fiche de suivi : taches terminees /
-  // total, ou le champ progress stocke s'il n'y a pas encore de taches) et
-  // son statut derive (voir computeChantierStatus plus haut).
-  const chantiersDashboard = useMemo(() => {
-    return nonArchivedProjects.map((project) => {
-      const linkedQuote = quotes.find((q) => q.projectId === project.id);
-      const signed = linkedQuote ? (linkedQuote.status === "Signe" || linkedQuote.signatureStatus === "Signe") : false;
-      const projectTasks = tasks.filter((t) => t.projectId === project.id);
-      const doneCount = projectTasks.filter((t) => t.done).length;
-      const progress = projectTasks.length === 0 ? Number(project.progress || 0) : Math.round((doneCount / projectTasks.length) * 100);
-      // project.endDate/dueDate ne sont jamais persistes cote serveur (voir
-      // app/api/projects/route.js PATCH) — on recalcule la fin prevue a la
-      // volee depuis les taches, comme le fait deja la fiche de suivi.
-      const taskDueDates = projectTasks.map((t) => t.endDate || t.dueDate).filter(Boolean).sort();
-      const dueDate = taskDueDates.at(-1) || project.endDate || project.dueDate || "";
-      const status = computeChantierStatus(progress, signed, dueDate);
-      return { ...project, progress, status, dueDate, linkedQuote };
-    });
-  }, [nonArchivedProjects, quotes, tasks]);
-
-  const chantierCounts = useMemo(() => {
-    const counts = { en_cours: 0, a_planifier: 0, termine: 0, tous: chantiersDashboard.length };
-    chantiersDashboard.forEach((p) => { counts[CHANTIER_TAB_OF[p.status]] += 1; });
-    return counts;
-  }, [chantiersDashboard]);
+  // Liste (maquette PRO-02) : lib/chantiers-liste.js, le même calcul que
+  // l'app Koji Pro — lots du devis faits, prochain jalon, ce qui demande une
+  // action (Bloquant, À relancer, En retard, Échéance).
+  const lignesListe = useMemo(
+    () => lignesChantiers({ projects, quotes, tasks, calendarEvents, invoices, alerts: urgentAlerts }),
+    [projects, quotes, tasks, calendarEvents, invoices, urgentAlerts]
+  );
+  const chantierCounts = useMemo(() => compterOnglets(lignesListe), [lignesListe]);
   // Onglet "En cours" par defaut comme la maquette, sauf s'il est vide.
   const activeChantierTab = chantierTab ?? (chantierCounts.en_cours > 0 ? "en_cours" : "tous");
-
   const chantierRows = useMemo(() => {
     const needle = chantierQuery.trim().toLowerCase();
-    const now = Date.now();
-    const today = new Date().toISOString().slice(0, 10);
-    return chantiersDashboard
-      .filter((p) => activeChantierTab === "tous" || CHANTIER_TAB_OF[p.status] === activeChantierTab)
-      .filter((p) => !needle || [p.title, p.linkedQuote?.client, p.client, p.address].some((v) => String(v || "").toLowerCase().includes(needle)))
-      .map((p) => {
-        const projectTasks = tasks.filter((t) => t.projectId === p.id);
-        // Prochain jalon : la plus proche tache non faite ou le plus proche
-        // RDV du calendrier rattache a ce chantier.
-        const upcoming = [
-          ...projectTasks
-            .filter((t) => !t.done && (t.dueDate || "") >= today)
-            .map((t) => ({ label: t.label, date: t.dueDate, time: "" })),
-          ...calendarEvents
-            .filter((e) => e.projectId === p.id && new Date(e.startAt || "").getTime() >= now)
-            .map((e) => ({ label: e.title, date: String(e.startAt).slice(0, 10), time: String(e.startAt).slice(11, 16) }))
-        ].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-        let blocker = "";
-        if (p.status === "retard") blocker = `Fin prévue dépassée (${shortDate(p.dueDate)})`;
-        else if (p.status === "a_planifier") blocker = "Devis pas encore signé";
-        return {
-          ...p,
-          taskCount: projectTasks.length,
-          taskDone: projectTasks.filter((t) => t.done).length,
-          next: upcoming[0] || null,
-          blocker,
-          amount: Number(p.linkedQuote?.totalHt || p.budgetHt || 0)
-        };
-      });
-  }, [chantiersDashboard, activeChantierTab, chantierQuery, tasks, calendarEvents]);
+    return lignesListe
+      .filter((l) => activeChantierTab === "tous" || l.onglet === activeChantierTab)
+      .filter((l) => !needle || l.recherche.includes(needle));
+  }, [lignesListe, activeChantierTab, chantierQuery]);
 
   const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
   const selectedQuote = useMemo(() => {
@@ -527,6 +637,16 @@ export default function ProjectsTrackingPage() {
       || quotes.find((quote) => quote.project === selectedProject.title)
       || null;
   }, [quotes, selectedProject]);
+
+  // Avenants du devis : signés, ils s'ajoutent aux travaux de la facture de
+  // solde (PRO-02.4).
+  const selectedQuoteId = selectedQuote?.id || "";
+  useEffect(() => {
+    if (!selectedQuoteId) { setAvenantsDevis([]); return; }
+    apiGet(`/api/avenants?quoteId=${encodeURIComponent(selectedQuoteId)}`)
+      .then((data) => setAvenantsDevis(Array.isArray(data.avenants) ? data.avenants : []))
+      .catch(() => setAvenantsDevis([]));
+  }, [selectedQuoteId]);
 
   const projectTasks = useMemo(() => {
     if (!selectedProject) return [];
@@ -727,6 +847,23 @@ export default function ProjectsTrackingPage() {
     }];
   }
 
+  // Lancer le chantier (PRO-02.1) : les tâches créées remplacent les
+  // anciennes, puis l'avancement et l'accès client sont relus.
+  async function apresLancement({ taches, planning, partiel }) {
+    const ids = new Set(taches.map((t) => t.id));
+    const nextTasks = [...taches, ...tasks.filter((t) => !ids.has(t.id))];
+    setTasks(nextTasks);
+    await refreshProjectProgress(nextTasks).catch(() => null);
+    apiGet(`/api/client-portal-info?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setClientPortalAccess(data.access || null))
+      .catch(() => null);
+    if (!partiel) setLancerOuvert(false);
+    const fmt = jourEtMois;
+    setMessage(partiel
+      ? `${taches.length} ligne${taches.length > 1 ? "s" : ""} planifiée${taches.length > 1 ? "s" : ""} : relancez pour finir.`
+      : `Chantier lancé : ${planning.lots.length} lot${planning.lots.length > 1 ? "s" : ""} planifié${planning.lots.length > 1 ? "s" : ""} du ${fmt(planning.debut)} au ${fmt(planning.fin)}.`);
+  }
+
   async function refreshProjectProgress(nextTasks) {
     if (!selectedProject) return;
     const linked = nextTasks.filter((task) => task.projectId === selectedProject.id || task.project === selectedProject.title);
@@ -809,6 +946,48 @@ export default function ProjectsTrackingPage() {
     const nextTasks = tasks.map((item) => item.id === updatedTask.id ? updatedTask : item);
     setTasks(nextTasks);
     await refreshProjectProgress(nextTasks);
+  }
+
+  // Tâches du chantier (PRO-02.7) : bloquer / débloquer, ajouter.
+  async function bloquerTache(task) {
+    const raison = task.bloquant?.raison ? "" : window.prompt(`Qu'est-ce qui bloque « ${task.label} » ? (livraison, réserve…)`);
+    if (!task.bloquant?.raison && !raison?.trim()) return;
+    try {
+      const { task: maj } = await apiSend("/api/tasks", task.bloquant?.raison ? { id: task.id, action: "debloquer" } : { id: task.id, action: "bloquer", raison }, "PATCH");
+      setTasks((liste) => liste.map((t) => (t.id === maj.id ? maj : t)));
+      setMessage(maj.bloquant ? "Tâche bloquée : elle remonte sur l'accueil." : "Tâche débloquée.");
+    } catch (error) {
+      setMessage(error.message || "La tâche n'a pas pu être mise à jour.");
+    }
+  }
+
+  async function ajouterTache(event) {
+    event.preventDefault();
+    if (!selectedProject || !nouvelleTache.label.trim()) return;
+    setTacheEnvoi(true);
+    try {
+      const worker = workers.find((w) => w.id === nouvelleTache.qui);
+      const { task } = await apiSend("/api/tasks", {
+        projectId: selectedProject.id,
+        project: selectedProject.title,
+        quoteId: selectedQuote?.id || "",
+        label: nouvelleTache.label.trim(),
+        room: nouvelleTache.lot || "Autres tâches",
+        startDate: nouvelleTache.jour,
+        endDate: nouvelleTache.jour,
+        dueDate: nouvelleTache.jour || undefined,
+        workerIds: worker ? [worker.id] : [],
+        assignedTo: worker ? worker.name : "À affecter",
+        participantType: worker?.type === "Sous-traitant" ? "Sous-traitants" : "Ouvriers"
+      });
+      setTasks((liste) => [task, ...liste]);
+      setNouvelleTache((t) => ({ ...t, label: "" }));
+      setMessage(worker ? `Tâche ajoutée : ${worker.name} la voit dans sa journée.` : "Tâche ajoutée, à affecter.");
+    } catch (error) {
+      setMessage(error.message || "La tâche n'a pas pu être ajoutée.");
+    } finally {
+      setTacheEnvoi(false);
+    }
   }
 
   async function validateTask(task) {
@@ -902,14 +1081,14 @@ export default function ProjectsTrackingPage() {
     setMessage("Rendez-vous ajoute.");
   }
 
-  async function addDocument(event) {
+  async function addDocument(event, typeForce = "") {
     event.preventDefault();
     if (!selectedProject || !documentForm.title.trim()) return;
     const { projectDocument } = await apiSend("/api/project-documents", {
       projectId: selectedProject.id,
       quoteId: selectedQuote?.id || "",
       title: documentForm.title,
-      type: documentForm.type,
+      type: typeForce || documentForm.type,
       amount: documentForm.amount,
       category: documentForm.category,
       location: documentForm.location,
@@ -1321,11 +1500,102 @@ export default function ProjectsTrackingPage() {
     const plannedStart = startDates[0] || selectedProject.startDate || "";
     const upcomingEvents = projectEvents.filter((event) => String(event.startAt || "") >= nowIso);
     const unplannedCount = trackingLines.filter((line) => !line.task || (!line.task.startDate && !line.task.endDate && !line.task.dueDate)).length;
+    // Rien de planifié sur un devis signé : la fiche propose de lancer le
+    // chantier (planning par lot, maquette PRO-02.1).
+    const lotsLancer = lotsDuDevis(selectedQuote).length;
+    const lancerPossible = lotsLancer > 0 && trackingLines.length > 0 && unplannedCount === trackingLines.length;
+
+    // Lots de la fiche (maquette PRO-02.1) : les lignes du devis regroupées
+    // par pièce / lot, dans l'ordre du devis ; les tâches hors devis à part.
+    const lotsFiche = [];
+    for (const line of trackingLines) {
+      const nom = String((line.quoteLine || line.task || {}).room || "Chantier").trim() || "Chantier";
+      let lot = lotsFiche.find((l) => l.nom === nom);
+      if (!lot) { lot = { nom, lignes: [] }; lotsFiche.push(lot); }
+      lot.lignes.push(line);
+    }
+    lotsFiche.forEach((lot, index) => {
+      const taches = lot.lignes.map((l) => l.task).filter(Boolean);
+      const debuts = taches.map((t) => t.startDate).filter(Boolean).sort();
+      const fins = taches.map((t) => t.endDate || t.dueDate).filter(Boolean).sort();
+      const equipes = [...new Set(taches
+        .filter((t) => t.assignedTo && t.assignedTo !== "Equipe")
+        .map((t) => `${t.assignedTo}${t.participantType === "Sous-traitants" ? " · sous-traitant" : ""}`))];
+      const faites = lot.lignes.filter((l) => l.task?.done).length;
+      const aCommander = supplyNeeds.filter((need) => need.status === "A commander" && lot.lignes.some((l) => (l.task?.label || l.quoteLine?.label) === need.taskLabel));
+      lot.numero = String(index + 1).padStart(2, "0");
+      lot.montant = lot.lignes.reduce((n, l) => n + Number(l.quoteLine?.totalHt || 0), 0);
+      lot.debut = debuts[0] || "";
+      lot.fin = fins.at(-1) || "";
+      lot.equipe = equipes.join(", ") || (taches.length ? "Équipe" : L.chantiers.notAssigned);
+      lot.pourcent = lot.lignes.length ? Math.round((faites / lot.lignes.length) * 100) : 0;
+      lot.etat = faites === lot.lignes.length && faites > 0
+        ? "Terminé"
+        : taches.some((t) => ouvrageStatusKey(t) === "encours" || t.done)
+          ? `En cours · ${faites} / ${lot.lignes.length} ouvrage${lot.lignes.length > 1 ? "s" : ""} fait${faites > 1 ? "s" : ""}`
+          : lot.debut ? `À démarrer le ${formatDate(lot.debut)}` : "Pas encore planifié";
+      lot.fournitures = aCommander.length
+        ? `Fournitures à commander : ${aCommander.map((n) => `${n.name} ${n.quantity} ${n.unit || ""}`.trim()).join(", ")}`
+        : "";
+    });
+
+    // Photos par lot : avant, après, ce qui manque (lib/photos-chantier.js).
+    lotsFiche.forEach((lot) => {
+      lot.photos = photosDuLot(photosChantier, lot.nom, { faites: lot.lignes.filter((l) => l.task?.done).length, total: lot.lignes.length });
+      if (lot.photos.etat === "apres_manquante") lot.etat = "Ouvrages faits · photo après manquante, le lot ne peut pas être clôturé";
+    });
+    const photosPendant = photosChantier.filter((p) => !PHASES_RESERVE.includes(p.phase) && (!p.lot || p.phase === "pendant"));
+    const comptesReserves = compterReserves(reserves);
+    const reservesVisibles = reserves.filter((r) => filtreReserves === "toutes" || r.statut === filtreReserves);
+    const reserveChoisie = reserves.find((r) => r.id === reserveOuverte) || null;
+    const photoReserve = (r, phase) => photosChantier.filter((p) => p.reserveId === r?.id && p.phase === phase).at(-1) || null;
+
+    // Clôture (maquette PRO-02.4, lib/cloture-chantier.js).
+    const idsCloture = { projectId: selectedProject.id, quoteId: selectedQuote?.id };
+    const facturesCloture = facturesDuChantier(invoices, idsCloture);
+    const factureSolde = factureDeSolde(invoices, idsCloture);
+    const factureRetenue = factureDeRetenue(invoices, idsCloture);
+    const solde = montantsSolde({ devis: selectedQuote, avenants: avenantsDevis, factures: facturesCloture, tauxRetenue: cloture?.retenue?.taux || 0 });
+    const avisRecu = avisData?.avis || null;
+    const etapes = etapesCloture({ cloture, reserves, solde, factureSolde, factureRetenue, avisRecu, aujourdhui: today });
+    const bilan = bilanChantier({ solde, depenses: linkedExpenses, budgetEstime: budgetTotal.estimated, taches: projectTasks, devis: selectedQuote, receptionLe: cloture?.pv?.signeLe || "", aujourdhui: today });
+    const garantiesChantier = garanties(cloture?.pv?.signeLe || "");
+    const conseils = conseilsEntretien(selectedQuote?.items || []);
+    const choixPhotos = photosChoisies(photosChantier);
+    const elementsDuDossier = elementsDossier({ pv: cloture?.pv, photos: photosChantier, factures: facturesCloture, factureSolde, decennale, pieces: dossierFin.pieces || [], conseils, aujourdhui: today });
+    const emailClient = selectedQuote?.clientEmail || selectedProject.clientEmail || "";
+    const debutChantier = projectTasks.map((t) => String(t.startDate || "").slice(0, 10)).filter(Boolean).sort()[0] || "";
+    const joursChantier = debutChantier && cloture?.pv?.signeLe ? joursOuvresEntre(debutChantier, jourDeParis(cloture.pv.signeLe)) : 0;
+    const realisationDefaut = realisationProposee({ titre: selectedProject.title, lots: lotsFiche.map((l) => l.nom), jours: joursChantier });
+    const real = realForm || { titre: avisRecu?.realisation?.titre || realisationDefaut.titre, texte: avisRecu?.realisation?.texte || realisationDefaut.texte };
+    const reponseTexte = reponseAvis ?? (avisRecu?.reponse?.texte || (avisRecu ? reponseProposee({ client: clientName, note: avisRecu.note }) : ""));
+    const pairePhotos = choixPhotos.paires.find((x) => x.avant && x.apres) || choixPhotos.paires[0] || {};
+
+    const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
+    const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
+    const sousTitreAvancement = !demarre && plannedStart
+      ? `démarrage le ${formatDate(plannedStart)}`
+      : lotsFiche.length
+        ? `${lotsFaits} lot${lotsFaits > 1 ? "s" : ""} terminé${lotsFaits > 1 ? "s" : ""} sur ${lotsFiche.length}`
+        : "aucune tâche planifiée";
+    const acomptes = issuedInvoices.filter((f) => f.kind === "acompte" || /acompte/i.test(f.type || ""));
+    const sousTitreFacture = issuedInvoices.length === 0
+      ? "aucune facture envoyée"
+      : acomptes.length === issuedInvoices.length && quoteTtc > 0
+        ? `acompte ${Math.round((invoicedTtc / quoteTtc) * 100)} %, ${unpaidTtc > 0 ? "non réglé" : "réglé"}`
+        : unpaidTtc > 0 ? `${euro(unpaidTtc)} non réglé` : "tout est réglé";
+    const photos = linkedDocuments.filter((d) => d.type === "Photo");
+    const nbPhotos = photosChantier.length + photos.length;
+    const autresDocuments = linkedDocuments.filter((d) => d.type !== "Photo");
     const lineProgress = (task) => ({ debut: 0, encours: 50, termine: 100, valide: 100 })[ouvrageStatusKey(task)];
     const archived = Boolean(selectedProject.archiveId || linkedArchive);
     const archiveSummary = selectedProject.archiveSummary || linkedArchive?.summary || null;
 
+    const aTraiterPhotos = lotsFiche
+      .filter((lot) => lot.photos?.etat === "apres_manquante")
+      .map((lot) => ({ id: `photo-${lot.nom}`, title: `Lot ${lot.numero} : photo après manquante`, meta: "à prendre dans l'app Koji Pro avant la clôture", tag: "À faire", tone: "tag tag-e tag-w", tab: "photos" }));
     const aTraiter = [
+      ...aTraiterPhotos,
       ...upcomingTasks
         .filter((task) => !task.pendingValidation && (task.endDate || task.dueDate || "") && (task.endDate || task.dueDate) < today)
         .map((task) => ({ id: `late-${task.id}`, title: task.label, meta: `prévu le ${formatDate(task.endDate || task.dueDate)} · ${task.assignedTo || "équipe non assignée"}`, tag: "En retard", tone: "tag tag-b", lineKey: task.quoteItemId || task.id })),
@@ -1342,13 +1612,62 @@ export default function ProjectsTrackingPage() {
       ...(unplannedCount > 0 ? [{ id: "unplanned", title: `${unplannedCount} ouvrage${unplannedCount > 1 ? "s" : ""} à planifier`, meta: "sans date ni équipe", tag: "À planifier", tone: "tag tag-o", tab: "lots" }] : [])
     ];
 
+    // Onglets de la maquette PRO-02.1 (Messages : pas encore sur le site),
+    // plus « Coût » (budget et dépenses du chantier).
     const ficheTabs = [
-      { id: "lots", label: "Ouvrages", count: trackingLines.length },
+      { id: "lots", label: "Lots", count: lotsFiche.length },
+      { id: "taches", label: "Tâches", count: projectTasks.length },
       { id: "planning", label: "Planning", count: upcomingTasks.length + upcomingEvents.length },
       { id: "fournitures", label: "Fournitures", count: supplyNeeds.length },
-      { id: "documents", label: "Documents", count: linkedDocuments.length + linkedInvoices.length + (selectedQuote ? 1 : 0) },
+      { id: "situations", label: "Situations", count: linkedInvoices.length },
+      { id: "documents", label: "Documents", count: autresDocuments.length + (selectedQuote ? 1 : 0) },
+      { id: "photos", label: "Photos", count: nbPhotos },
+      { id: "reserves", label: "Réserves", count: comptesReserves.badge },
+      { id: "cloture", label: "Clôture" },
       { id: "cout", label: "Coût" }
     ];
+
+    function ouvrirFacture(invoice) {
+      if (invoice.sourceType === "quote-transform" && invoice.quoteId) window.open(`/api/quotes/${invoice.quoteId}/documents?type=facture&format=pdf`, "_blank");
+      else window.open(`/api/invoices/pdf?id=${encodeURIComponent(invoice.id)}&userId=${encodeURIComponent(readStoredUser()?.id || "")}`, "_blank");
+    }
+
+    function actionCloture(action) {
+      switch (action?.id) {
+        case "signer_pv": setPvOuvert(true); break;
+        case "voir_pv": window.open(`/api/cloture?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1`, "_blank"); break;
+        case "reserves": setFicheTab("reserves"); break;
+        case "emettre_solde":
+          router.push(`/facturation?quoteId=${encodeURIComponent(selectedQuote?.id || "")}&type=solde&montant=${solde.soldeTtc}&note=${encodeURIComponent(noteSolde(solde, cloture?.pv?.signeLe))}`);
+          break;
+        case "facture": if (factureSolde) ouvrirFacture(factureSolde); break;
+        case "facture_retenue": if (factureRetenue) ouvrirFacture(factureRetenue); break;
+        case "facturer_retenue": router.push(`/facturation?quoteId=${encodeURIComponent(selectedQuote?.id || "")}&type=retenue`); break;
+        case "dossier": setVueCloture("dossier"); break;
+        case "avis_on": majCloture("avis", { programme: true }); break;
+        case "avis_voir": setVueCloture("avis"); break;
+        case "avis_demander": actionAvis("demander", {}, `Avis demandé à ${emailClient}.`); break;
+        case "avis_off": majCloture("avis", { programme: false }); break;
+        case "retenue_on": majCloture("retenue", { taux: 5 }); break;
+        case "retenue_off": majCloture("retenue", { taux: 0 }); break;
+        case "rappel": majCloture("rappel"); break;
+        default: break;
+      }
+    }
+
+    function actionDossier(action) {
+      switch (action?.id) {
+        case "voir_pv": window.open(`/api/cloture?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1`, "_blank"); break;
+        case "signer_pv": setPvOuvert(true); break;
+        case "photos": setFicheTab("photos"); break;
+        case "factures": setFicheTab("situations"); break;
+        case "profil": router.push("/demarrage"); break;
+        case "notice": noticeRef.current?.click(); break;
+        case "plan": planRef.current?.click(); break;
+        case "conseils": setConseilsOuverts((v) => !v); break;
+        default: break;
+      }
+    }
 
     function openTraiter(entry) {
       if (entry.lineKey) setOpenLineKey(entry.lineKey);
@@ -1382,9 +1701,9 @@ export default function ProjectsTrackingPage() {
             <Link href="/planning" className="btn btn-sec">Planning</Link>
             {selectedQuote ? <Link href={`/avenant?quoteId=${selectedQuote.id}`} className="btn btn-sec">Avenant</Link> : null}
             {selectedQuote && quoteSigned ? (
-              <Link href={`/facturation?quoteId=${selectedQuote.id}`} className="btn btn-main">
+              <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="btn btn-main">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                Nouvelle facture
+                Situation de travaux
               </Link>
             ) : null}
           </div>
@@ -1393,26 +1712,53 @@ export default function ProjectsTrackingPage() {
         {!projectReady ? <p className="notice">{L.chantiers.trackingActive}</p> : null}
         {message ? <p className="notice" role="status">{message}</p> : null}
 
+        {quoteSigned && lancerPossible ? (
+          <section className="lancer-card" aria-label="Lancer le chantier">
+            <div>
+              <strong>Lancer le chantier</strong>
+              <p>
+                Koji crée le chantier avec {lotsLancer} lot{lotsLancer > 1 ? "s" : ""} du devis{clientPortalAccess ? "" : ", le client en suivi"},
+                {" "}et propose un planning à partir du {jourEtMois(demarragePropose(today))} : vous pourrez ajuster avant de confirmer.
+              </p>
+            </div>
+            <button type="button" className="btn btn-main" onClick={() => setLancerOuvert(true)}>Lancer le chantier</button>
+          </section>
+        ) : null}
+
+        {lancerOuvert && selectedQuote ? (
+          <LancerChantier
+            project={selectedProject}
+            quote={selectedQuote}
+            tasks={projectTasks}
+            workers={workers}
+            hoursPerDay={Number(readStoredUser()?.business?.hoursPerDay) || 7}
+            clientPortalAccess={clientPortalAccess}
+            invoices={linkedInvoices}
+            onClose={() => setLancerOuvert(false)}
+            onDone={apresLancement}
+          />
+        ) : null}
+
         <div className="kpis">
           <div>
             <div className="l">Avancement</div>
             <div className="v">{progress} %</div>
-            <div className="s">{projectTasks.length ? `${doneCount} / ${projectTasks.length} tâches faites` : "aucune tâche planifiée"}</div>
+            <div className="s">{sousTitreAvancement}</div>
           </div>
           <div>
             <div className="l">Facturé</div>
             <div className="v">{euro(invoicedTtc)}</div>
-            <div className="s">{issuedInvoices.length === 0 ? "aucune facture envoyée" : unpaidTtc > 0 ? `${euro(unpaidTtc)} non réglé` : "tout est réglé"}</div>
+            <div className="s">{sousTitreFacture}</div>
           </div>
           <div>
             <div className="l">Reste à facturer</div>
             <div className="v">{quoteTtc ? euro(Math.max(0, quoteTtc - invoicedTtc)) : "—"}</div>
-            <div className="s">TTC</div>
+            <div className="s">TTC, par situations</div>
           </div>
           <div>
             <div className="l">Fin prévue</div>
             <div className="v">{plannedEnd ? formatDate(plannedEnd) : "—"}</div>
-            <div className="s">{plannedStart ? `début le ${formatDate(plannedStart)}` : "pas encore planifié"}</div>
+            <div className="s">{plannedStart && plannedEnd ? `${joursOuvresEntre(plannedStart, plannedEnd)} jours ouvrés` : "pas encore planifié"}</div>
           </div>
         </div>
 
@@ -1436,12 +1782,41 @@ export default function ProjectsTrackingPage() {
             {ficheTab === "lots" ? (
               <div className="card">
                 <div className="card-h">
-                  <h2>Ouvrages</h2>
-                  {selectedQuote?.id ? <Link href={`/devis?id=${selectedQuote.id}`} className="link">Modifier le devis</Link> : null}
+                  <h2>Lots</h2>
+                  {quoteSigned && lotsLancer > 0 ? (
+                    <button type="button" className="link" onClick={() => setLancerOuvert(true)}>Modifier</button>
+                  ) : selectedQuote?.id ? <Link href={`/devis?id=${selectedQuote.id}`} className="link">Modifier le devis</Link> : null}
                 </div>
-                {trackingLines.length === 0 ? (
+                {lotsFiche.length === 0 ? (
                   <p className="empty">{L.chantiers.noQuoteLines}</p>
-                ) : trackingLines.map((line) => {
+                ) : lotsFiche.map((lot) => {
+                  const ouvert = lotOuvert === lot.nom;
+                  return (
+                    <div key={lot.nom} className={`lot-f${ouvert ? " open" : ""}`}>
+                      <div
+                        className="lf"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={ouvert}
+                        onClick={() => setLotOuvert(ouvert ? null : lot.nom)}
+                        onKeyDown={(event) => { if (event.key === "Enter") setLotOuvert(ouvert ? null : lot.nom); }}
+                      >
+                        <div className="lf-h">
+                          <span className="lc">Lot {lot.numero}</span>
+                          <strong>{lot.nom}</strong>
+                          <span className="lf-w">{lot.equipe}</span>
+                          <span className="lf-d">{lot.debut && lot.fin ? `${formatDate(lot.debut)} → ${formatDate(lot.fin)}` : "Non planifié"}</span>
+                          <span className="lf-a">{lot.montant > 0 ? euro(lot.montant) : ""}</span>
+                        </div>
+                        <div className="bar"><i style={{ width: `${lot.pourcent}%` }} /></div>
+                        <div className="lf-s">
+                          <span>{lot.fournitures || lot.etat}</span>
+                          <span className="lf-n">{lot.lignes.length} ouvrage{lot.lignes.length > 1 ? "s" : ""} {ouvert ? "▴" : "▾"}</span>
+                        </div>
+                      </div>
+                      {ouvert ? (
+                        <div className="lot-l">
+                          {lot.lignes.map((line) => {
                   const lineItem = line.quoteLine || line.task || {};
                   const task = line.task;
                   const amount = Number(line.quoteLine?.totalHt || 0);
@@ -1485,6 +1860,11 @@ export default function ProjectsTrackingPage() {
                           <button type="button" className="btn btn-sec" onClick={(event) => { event.stopPropagation(); openPlanner(line); }}>{L.chantiers.plan}</button>
                         </span>
                       </div>
+                    </div>
+                  );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -1565,6 +1945,307 @@ export default function ProjectsTrackingPage() {
               </div>
             ) : null}
 
+            {ficheTab === "situations" ? (
+              <div className="card">
+                <div className="card-h">
+                  <h2>Situations et factures</h2>
+                  {selectedQuote && quoteSigned ? <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="link">Situation de travaux</Link> : null}
+                </div>
+                {linkedInvoices.length === 0 ? (
+                  <p className="empty">Aucune facture pour ce chantier. L'acompte et les situations de travaux apparaissent ici.</p>
+                ) : linkedInvoices.map((invoice) => (
+                  <Link className="row" key={invoice.id} href="/facturation">
+                    <div className="t"><strong>{invoice.invoiceNumber || "Facture"}</strong><small>{[invoice.type || "Facture", `${euro(invoice.amountTtc)} TTC`, invoice.dueDate ? `échéance ${formatDate(invoice.dueDate)}` : ""].filter(Boolean).join(" · ")}</small></div>
+                    {invoiceTag(invoice)}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+
+            {ficheTab === "photos" ? (
+              <>
+                <div className="ph-note">
+                  <strong>Chaque lot commence par une photo avant et se termine par une photo après, prises dans l'application.</strong>
+                  <small>Date, heure et auteur enregistrés par Koji au moment de la prise · non modifiables</small>
+                </div>
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Avant et après, par lot</h2>
+                    <div className="kp-seg" role="group" aria-label="Filtrer les photos">
+                      {[["tous", "Tous"], ["avap", "Avant / après"], ["pendant", "Pendant"]].map(([id, label]) => (
+                        <button key={id} type="button" className={filtrePhotos === id ? "on" : ""} aria-pressed={filtrePhotos === id} onClick={() => setFiltrePhotos(id)}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {filtrePhotos !== "pendant" ? (lotsFiche.length === 0 ? <p className="empty">Pas encore de lots : les photos se rangent par lot du devis.</p> : lotsFiche.map((lot) => {
+                    const ph = lot.photos;
+                    const vignette = (photo, libelle) => (
+                      <figure className="ph-v">
+                        {photo?.url ? <a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`${libelle}, lot ${lot.numero}`} loading="lazy" /></a> : <span className="ph-vide">{libelle === "Après" ? (ph.etat === "apres_manquante" ? "Photo après manquante" : "Pas encore de photo après") : "Pas encore de photo avant"}</span>}
+                        <figcaption>
+                          <b>{libelle}</b>
+                          {photo ? <small>{horodatage(photo.takenAt)} · {photo.author}</small> : libelle === "Après" && ph.etat === "apres_manquante" ? <small>le lot ne peut pas être clôturé sans elle</small> : <small>à prendre dans l'app Koji Pro</small>}
+                        </figcaption>
+                      </figure>
+                    );
+                    return (
+                      <div className="ph-lot" key={lot.nom}>
+                        <div className="ph-lot-h">
+                          <strong>Lot {lot.numero} · {lot.nom}</strong>
+                          <span>{lot.equipe}</span>
+                          <span className={`ph-etat ${ph.etat}`}>{LIBELLE_ETAT_PHOTOS[ph.etat]}</span>
+                        </div>
+                        <div className="ph-paire">
+                          {vignette(ph.avant, "Avant")}
+                          {vignette(ph.apres, "Après")}
+                        </div>
+                      </div>
+                    );
+                  })) : null}
+                  {filtrePhotos !== "avap" && (photosPendant.length || photos.length) ? (
+                    <div className="ph-lot">
+                      <div className="ph-lot-h"><strong>Pendant les travaux</strong><span>{photosPendant.length + photos.length} photo{photosPendant.length + photos.length > 1 ? "s" : ""}</span></div>
+                      <div className="ph-grille">
+                        {photosPendant.map((photo) => (
+                          <figure className="ph-v" key={photo.id}>
+                            {photo.url ? <a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={photo.caption || photo.taskTitle || "Photo du chantier"} loading="lazy" /></a> : <span className="ph-vide">Photo</span>}
+                            <figcaption><b>{photo.caption || photo.taskTitle || "Pendant"}</b><small>{horodatage(photo.takenAt)} · {photo.author}</small></figcaption>
+                          </figure>
+                        ))}
+                        {photos.map((document) => (
+                          <figure className="ph-v" key={document.id}>
+                            {document.url ? <a href={document.url} target="_blank" rel="noreferrer"><span className="ph-vide">Ouvrir le lien</span></a> : <span className="ph-vide">Photo</span>}
+                            <figcaption><b>{document.title}</b><small>lien ajouté à la main</small></figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                    </div>
+                  ) : filtrePhotos === "pendant" ? <p className="empty">Aucune photo prise pendant les travaux.</p> : null}
+                </div>
+                <div className="card">
+                  <div className="card-h"><h2>Partage avec la cliente</h2></div>
+                  <div className="kv"><span>Photos après de chaque lot</span><b>à partager avec la situation (Koji Client, à venir)</b></div>
+                  <div className="kv"><span>Photos avant et pendant</span><b>gardées pour vous, preuve en cas de litige</b></div>
+                </div>
+              </>
+            ) : null}
+
+            {ficheTab === "reserves" ? (
+              <div className="card rs-t">
+                <div className="card-h">
+                  <h2>Réserves</h2>
+                  <div className="kp-seg" role="group" aria-label="Filtrer les réserves">
+                    {FILTRES_RESERVES.map((f) => (
+                      <button key={f.id} type="button" className={filtreReserves === f.id ? "on" : ""} aria-pressed={filtreReserves === f.id} onClick={() => setFiltreReserves(f.id)}>
+                        {f.label} <b>{comptesReserves[f.id]}</b>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {reservesVisibles.length === 0 ? (
+                  <p className="empty">{reserves.length ? "Aucune réserve dans ce filtre." : "Aucune réserve. Prenez-les en photo dans l'app Koji Pro, ou ajoutez-les ci-dessous."}</p>
+                ) : (
+                  <table className="rs-tab">
+                    <thead><tr><th aria-label="Numéro" /><th>Réserve</th><th>Attribuée à</th><th>Pour le</th><th>Statut</th></tr></thead>
+                    <tbody>
+                      {reservesVisibles.map((r) => {
+                        const st = statutReserve(r, today);
+                        return (
+                          <tr key={r.id} className={reserveOuverte === r.id ? "on" : ""} tabIndex={0} onClick={() => setReserveOuverte(r.id)} onKeyDown={(event) => { if (event.key === "Enter") setReserveOuverte(r.id); }}>
+                            <td className="rs-n">{r.numero}</td>
+                            <td><div className="rs-ti">{r.titre}</div><div className="rs-sm">{sousTitreReserve(r)}</div></td>
+                            <td>{r.attribueeNom || <span className="rs-sm">à attribuer</span>}</td>
+                            <td className="rs-sm">{pourLeReserve(r)}</td>
+                            <td>
+                              {st.ton === "ok" ? <span className="rs-ok"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>{st.label}</span>
+                                : st.ton === "pr" ? <span className="rs-pr">{st.label}</span>
+                                : <span className={st.ton === "b" ? "tag tag-b" : st.ton === "e" ? "tag tag-e" : "tag tag-o"}>{st.label}</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                <p className="rs-pv">À la réception, Koji inscrit les réserves non levées au procès-verbal.</p>
+                <form className="pform" onSubmit={creerReserve}>
+                  <input value={nouvelleReserve.titre} onChange={(event) => setNouvelleReserve((r) => ({ ...r, titre: event.target.value }))} placeholder="Nouvelle réserve : carreau fêlé derrière le WC" aria-label="Réserve" maxLength={200} />
+                  <input value={nouvelleReserve.lieu} onChange={(event) => setNouvelleReserve((r) => ({ ...r, lieu: event.target.value }))} placeholder="Où : mur WC" aria-label="Lieu" maxLength={120} />
+                  <select value={nouvelleReserve.attribueeA} onChange={(event) => setNouvelleReserve((r) => ({ ...r, attribueeA: event.target.value }))} aria-label="Attribuée à">
+                    <option value="">À attribuer</option>
+                    <option value="moi">Vous</option>
+                    {workers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.type === "Sous-traitant" ? " · sous-traitant" : ""}</option>)}
+                  </select>
+                  <input type="date" value={nouvelleReserve.pourLe} onChange={(event) => setNouvelleReserve((r) => ({ ...r, pourLe: event.target.value }))} aria-label="Pour le" />
+                  <button type="submit" className="btn btn-sec" disabled={reserveEnvoi || !nouvelleReserve.titre.trim()}>Ajouter la réserve</button>
+                </form>
+              </div>
+            ) : null}
+
+            {ficheTab === "cloture" && vueCloture === "dossier" ? (
+              <div className="card df-card">
+                <button type="button" className="link df-back" onClick={() => setVueCloture("etapes")}>← Étapes de clôture</button>
+                <div className="card-h">
+                  <h2>Dossier de fin de chantier</h2>
+                  <span className="sm2">{resumeDossier(elementsDuDossier)}</span>
+                </div>
+                {elementsDuDossier.map((e) => (
+                  <div key={e.id}>
+                    <div className={`df-it ${e.ok ? "ok" : "todo"}`}>
+                      <span className="ic">{e.ok ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : "+"}</span>
+                      <div>
+                        <strong>{e.titre}</strong>
+                        <small>{e.detail}</small>
+                      </div>
+                      {e.action ? <button type="button" className="link" disabled={dossierEnvoi} onClick={() => actionDossier(e.action)}>{e.id === "conseils" && conseilsOuverts ? "Masquer" : e.action.label}</button> : null}
+                    </div>
+                    {e.id === "conseils" && conseilsOuverts ? (
+                      <ul className="df-cons">
+                        {conseils.map((c) => <li key={c.id}><b>{c.titre}</b> {c.texte}</li>)}
+                      </ul>
+                    ) : null}
+                    {(e.id === "notices" || e.id === "plan") ? (dossierFin.pieces || []).filter((p) => p.kind === (e.id === "plan" ? "plan" : "notice")).map((p) => (
+                      <div className="df-pc" key={p.id}>
+                        <a href={p.url} target="_blank" rel="noreferrer">{p.titre}</a>
+                        <button type="button" className="link" disabled={dossierEnvoi} onClick={() => retirerPieceDossier(p.id)}>Retirer</button>
+                      </div>
+                    )) : null}
+                  </div>
+                ))}
+                <input ref={noticeRef} type="file" hidden accept="application/pdf,image/jpeg,image/png" onChange={(event) => { ajouterPieceDossier("notice", event.target.files?.[0]); event.target.value = ""; }} />
+                <input ref={planRef} type="file" hidden accept="application/pdf,image/jpeg,image/png" onChange={(event) => { ajouterPieceDossier("plan", event.target.files?.[0]); event.target.value = ""; }} />
+                <div className="df-send">
+                  <div className="kv"><span>Envoi</span><b>Koji Client et e-mail avec le PDF</b></div>
+                  <div className="kv"><span>Avec</span><b>{factureSolde ? `la facture de solde ${factureSolde.invoiceNumber}` : "la facture de solde, une fois émise"}</b></div>
+                  {dossierFin.remisLe ? <div className="kv"><span>Envoyé</span><b>le {formatDate(dossierFin.remisLe)} à {dossierFin.envoyeA}</b></div> : null}
+                  {!emailClient ? <p className="cl-err">Pas d'e-mail client sur ce chantier : ajoutez-le au devis pour envoyer le dossier.</p> : null}
+                  <div className="df-act">
+                    <a className="link" href={`/api/dossier-fin?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1`} target="_blank" rel="noreferrer">Aperçu du PDF</a>
+                    <button type="button" className="btn btn-main" disabled={dossierEnvoi || !emailClient} onClick={() => envoyerDossier(emailClient)}>
+                      {dossierEnvoi ? "Envoi…" : dossierFin.remisLe ? "Renvoyer le dossier" : `Envoyer à ${clientName}`}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {ficheTab === "cloture" && vueCloture === "avis" ? (
+              <div className="stack" style={{ gap: 20 }}>
+                <button type="button" className="link df-back" onClick={() => setVueCloture("etapes")}>← Étapes de clôture</button>
+                {avisRecu ? (
+                  <div className="card av-rev">
+                    <div className="card-h">
+                      <h2>Avis de {clientName}</h2>
+                      <span className="sm2">{[`reçu le ${formatDate(avisRecu.creeLe)}`, avisRecu.verifie ? "avis vérifié : chantier terminé et facturé dans Koji" : "chantier pas encore facturé dans Koji"].join(" · ")}</span>
+                    </div>
+                    <div className="av-top"><Etoiles note={avisRecu.note} big /><b>{avisRecu.note} sur 5</b></div>
+                    {avisRecu.texte ? <div className="av-q">« {avisRecu.texte} »</div> : null}
+                    <div className="av-cr">
+                      {CRITERES.filter((c) => avisRecu.criteres?.[c.id]).map((c) => <span key={c.id}>{c.label} <Etoiles note={avisRecu.criteres[c.id]} /></span>)}
+                    </div>
+                    <div className="av-rep">
+                      <span className="lab">Votre réponse{avisRecu.reponse?.texte ? ` · publiée le ${formatDate(avisRecu.reponse.publieeLe)}` : " · proposée par Koji"}</span>
+                      <textarea className="av-ta" rows={4} value={reponseTexte} maxLength={1500} onChange={(event) => setReponseAvis(event.target.value)} aria-label="Votre réponse" />
+                      <div className="av-act">
+                        {reponseAvis !== null ? <button type="button" className="link" onClick={() => setReponseAvis(null)}>Revenir au texte de Koji</button> : <span />}
+                        <button type="button" className="btn btn-main" disabled={avisEnvoi || !reponseTexte.trim()} onClick={() => actionAvis("repondre", { texte: reponseTexte }, "Réponse publiée sur votre KojiPage.").then((okR) => okR && setReponseAvis(null))}>
+                          {avisRecu.reponse?.texte ? "Mettre à jour ma réponse" : "Publier ma réponse"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="card">
+                    <div className="card-h"><h2>Avis du client</h2></div>
+                    <p className="muted">{cloture?.avis?.demandeLe ? `Avis demandé le ${formatDate(cloture.avis.demandeLe)}${cloture.avis.demandeA ? ` à ${cloture.avis.demandeA}` : ""}. Il arrive ici dès que le client le publie dans Koji Client.` : "Le client n'a pas encore donné son avis."}</p>
+                    {!avisData?.accesClient ? <p className="cl-err">Le client n'a pas encore d'accès Koji Client : créez-le depuis la carte Client pour lui demander son avis.</p> : null}
+                    {!cloture?.avis?.demandeLe ? (
+                      <div className="av-act"><span /><button type="button" className="btn btn-main" disabled={avisEnvoi || !avisData?.accesClient} onClick={() => actionAvis("demander", {}, `Avis demandé à ${emailClient}.`)}>Demander l'avis maintenant</button></div>
+                    ) : null}
+                  </div>
+                )}
+                <div className="card">
+                  <div className="card-h"><h2>Avis sur votre KojiPage</h2></div>
+                  {avisData?.stats?.nombre ? (
+                    <div className="av-sum">
+                      <b>{moyenneTexte(avisData.stats.moyenne)}</b>
+                      <Etoiles note={Math.round(avisData.stats.moyenne)} />
+                      <small>{avisData.stats.nombre} avis vérifié{avisData.stats.nombre > 1 ? "s" : ""} · {avisData.stats.recommandent} % recommandent</small>
+                    </div>
+                  ) : <p className="muted">Pas encore d'avis vérifié.</p>}
+                  <small className="sm2">Tous les avis sont publiés, positifs comme négatifs ; vous pouvez répondre, pas supprimer.</small>
+                </div>
+              </div>
+            ) : null}
+
+            {ficheTab === "cloture" && vueCloture === "etapes" ? (
+              <div className="card cl-steps">
+                <div className="card-h">
+                  <h2>Clôturer le chantier</h2>
+                  <span className="sm2">Koji prépare chaque étape</span>
+                </div>
+                {etapes.map((e, index) => (
+                  <div className={`cl-st ${e.etat}`} key={e.id}>
+                    <span className="cl-n">{e.etat === "ok" ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : e.etat === "cur" ? index + 1 : null}</span>
+                    <div>
+                      <strong>{e.titre}</strong>
+                      <small>{e.detail}</small>
+                    </div>
+                    {e.action ? (
+                      e.action.id === null
+                        ? <span className="cl-lab">{e.action.label}</span>
+                        : e.action.principal && e.etat === "cur"
+                          ? <button type="button" className="btn btn-main" disabled={clotureEnvoi} onClick={() => actionCloture(e.action)}>{e.action.label}</button>
+                          : <button type="button" className="link" disabled={clotureEnvoi} onClick={() => actionCloture(e.action)}>{e.action.label}</button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {pvOuvert ? (
+              <PvReception
+                project={selectedProject}
+                quote={selectedQuote}
+                reserves={reserves}
+                solde={solde}
+                travaux={travauxReceptionnes(selectedQuote, lotsFiche.length, solde.avenants)}
+                onClose={() => setPvOuvert(false)}
+                onSigned={(c) => { setCloture(c); setPvOuvert(false); setMessage(`Procès-verbal ${c.pv?.numero || ""} signé. Les garanties partent d'aujourd'hui.`); }}
+              />
+            ) : null}
+
+            {ficheTab === "taches" ? (
+              <div className="tk-l">
+                <div className="tk-hd">
+                  <span className="muted">{projectTasks.filter((t) => t.done).length} faite{projectTasks.filter((t) => t.done).length > 1 ? "s" : ""} sur {projectTasks.length}</span>
+                  <a className="btn btn-sec" href={`/api/taches-chantier?projectId=${encodeURIComponent(selectedProject.id)}`} target="_blank" rel="noreferrer">Imprimer la liste</a>
+                </div>
+                {projectTasks.length === 0 ? <p className="empty">Aucune tâche : lancez le chantier pour que Koji propose les tâches du devis, ou ajoutez-en une.</p> : null}
+                {tachesParLot(projectTasks, selectedQuote).map((lot) => (
+                  <div className="tk-lot" key={lot.nom}>
+                    <div className="tk-lh"><b>{lot.titre}</b><span>{lot.faites} / {lot.taches.length} faites</span></div>
+                    {lot.taches.map((t) => {
+                      const etat = etatTache(t, today);
+                      return (
+                        <div className={`tk-r${t.done ? " ok" : ""}`} key={t.id}>
+                          <button type="button" className={`kj-cb${t.done ? " on" : ""}`} aria-pressed={Boolean(t.done)} aria-label={t.done ? `Rouvrir ${t.label}` : `Marquer fait ${t.label}`} onClick={() => toggleDone(t)}>
+                            {t.done ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : null}
+                          </button>
+                          <div className="tk-b"><b>{t.label}</b><small>{ligneTache(t, today)}</small></div>
+                          {etat.id === "fait" ? <span className="tag-val"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>Fait</span>
+                            : etat.id === "bloquant" ? <button type="button" className="tag tag-b" title="Débloquer" onClick={() => bloquerTache(t)}>Bloquant</button>
+                            : etat.id === "retard" ? <span className="tag tag-o">En retard</span>
+                            : etat.id === "a_valider" ? <span className="tag tag-e">À valider</span> : null}
+                          {!t.done && !t.bloquant?.raison ? <button type="button" className="link tk-bl" onClick={() => bloquerTache(t)}>Bloquer</button> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {ficheTab === "documents" ? (
               <div className="card">
                 <div className="card-h"><h2>{L.chantiers.documents}</h2></div>
@@ -1574,13 +2255,7 @@ export default function ProjectsTrackingPage() {
                     <span className="tag tag-o">Devis</span>
                   </a>
                 ) : null}
-                {linkedInvoices.map((invoice) => (
-                  <div className="row" key={invoice.id}>
-                    <div className="t"><strong>{invoice.invoiceNumber}</strong><small>{invoice.type || "Facture"} · {euro(invoice.amountTtc)} TTC</small></div>
-                    {invoiceTag(invoice)}
-                  </div>
-                ))}
-                {linkedDocuments.map((document) => (
+                {autresDocuments.map((document) => (
                   <div className="row" key={document.id}>
                     <div className="t">
                       <strong>{document.title}</strong>
@@ -1589,7 +2264,7 @@ export default function ProjectsTrackingPage() {
                     {document.url ? <a className="link" href={document.url} target="_blank" rel="noreferrer">Ouvrir</a> : null}
                   </div>
                 ))}
-                {!selectedQuote && linkedInvoices.length === 0 && linkedDocuments.length === 0 ? <p className="empty">Aucun document pour le moment.</p> : null}
+                {!selectedQuote && autresDocuments.length === 0 ? <p className="empty">Aucun document pour le moment.</p> : null}
                 <form className="pform" onSubmit={addDocument}>
                   <input value={documentForm.title} onChange={(event) => setDocumentForm((current) => ({ ...current, title: event.target.value }))} placeholder={L.chantiers.docNameOrPhoto} aria-label={L.chantiers.docNameOrPhoto} />
                   <select value={documentForm.type} onChange={(event) => setDocumentForm((current) => ({ ...current, type: event.target.value }))} aria-label="Type">
@@ -1661,6 +2336,186 @@ export default function ProjectsTrackingPage() {
           </div>
 
           <div className="fiche-side">
+            {ficheTab === "taches" ? (
+              <>
+                <form className="card tk-add" onSubmit={ajouterTache}>
+                  <div className="card-h"><h2>Ajouter une tâche</h2></div>
+                  <label><span>Tâche</span><input value={nouvelleTache.label} maxLength={160} onChange={(event) => setNouvelleTache({ ...nouvelleTache, label: event.target.value })} placeholder="Poser les plinthes carrelées" required /></label>
+                  <label><span>Lot</span>
+                    <select value={nouvelleTache.lot} onChange={(event) => setNouvelleTache({ ...nouvelleTache, lot: event.target.value })}>
+                      <option value="">Autres tâches</option>
+                      {lotsFiche.map((l) => <option key={l.nom} value={l.nom}>{l.numero} · {l.nom}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Compagnon</span>
+                    <select value={nouvelleTache.qui} onChange={(event) => setNouvelleTache({ ...nouvelleTache, qui: event.target.value })}>
+                      <option value="">À affecter</option>
+                      {workers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.type === "Sous-traitant" ? " · sous-traitant" : ""}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Jour</span><input type="date" value={nouvelleTache.jour} onChange={(event) => setNouvelleTache({ ...nouvelleTache, jour: event.target.value })} /></label>
+                  <button type="submit" className="btn btn-main" disabled={tacheEnvoi || !nouvelleTache.label.trim()}>Ajouter</button>
+                </form>
+                <div className="card">
+                  <div className="card-h"><h2>Comment Koji remplit cette liste</h2></div>
+                  <ul className="nf-ul">
+                    <li>Chaque ouvrage du devis donne sa tâche au lancement du chantier ; vous gardez, cochez, ajoutez.</li>
+                    <li>Une tâche = un lot, un compagnon, un jour ; elle apparaît dans le planning.</li>
+                    <li>« Fait » vient du compagnon ou de vous ; vous pouvez corriger.</li>
+                    <li>Une tâche bloquée (livraison, réserve) remonte sur l'accueil.</li>
+                  </ul>
+                </div>
+              </>
+            ) : null}
+            {ficheTab === "cloture" && vueCloture === "avis" ? (
+              <div className="card av-real">
+                <div className="card-h">
+                  <h2>Réalisation pour votre KojiPage</h2>
+                  <span className="sm2">préparée par Koji</span>
+                </div>
+                <div className="av-ab">
+                  {[["avant", "Avant"], ["apres", "Après"]].map(([cle, libelle]) => (
+                    <div className="df-img" key={cle}>{pairePhotos[cle]?.url ? <img src={pairePhotos[cle].url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}<span className="df-k">{libelle}</span></div>
+                  ))}
+                </div>
+                <label className="kv"><span>Titre</span><input value={real.titre} maxLength={120} onChange={(event) => setRealForm({ ...real, titre: event.target.value })} /></label>
+                <label className="kv"><span>Texte</span><textarea rows={2} value={real.texte} maxLength={300} onChange={(event) => setRealForm({ ...real, texte: event.target.value })} /></label>
+                <div className="kv"><span>Avis lié</span><b>{avisRecu ? `${avisRecu.auteur} · ${avisRecu.note} sur 5` : "en attente de l'avis du client"}</b></div>
+                {avisRecu?.accordPhotos ? (
+                  <div className="av-ok">
+                    <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg></span>
+                    <div><strong>Accord de {clientName} pour les photos</strong><small>donné le {formatDate(avisRecu.accordLe)} dans Koji Client · adresse et visages jamais publiés</small></div>
+                  </div>
+                ) : <p className="muted">{avisRecu ? "Le client n'a pas donné son accord pour publier les photos : la réalisation reste privée." : "La réalisation se publie avec l'accord du client, donné avec son avis."}</p>}
+                {!avisData?.site ? <p className="cl-err">Créez d'abord votre KojiPage (Profil › KojiPage).</p> : null}
+                <div className="av-act">
+                  {avisRecu?.realisation?.publieeLe && avisData?.site ? <a className="link" href={`/site/${avisData.site.slug}#realisations`} target="_blank" rel="noreferrer">Voir sur la KojiPage</a> : <span />}
+                  <button type="button" className="btn btn-main" disabled={avisEnvoi || !avisRecu?.accordPhotos || !avisData?.site || !real.titre.trim()} onClick={() => actionAvis("realisation", real, "Réalisation publiée sur votre KojiPage.").then((okR) => okR && setRealForm(null))}>
+                    {avisRecu?.realisation?.publieeLe ? "Mettre à jour la réalisation" : "Publier la réalisation"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {ficheTab === "cloture" && vueCloture === "dossier" ? (
+              <div className="card df-prev">
+                <div className="card-h">
+                  <h2>Aperçu · 4 pages</h2>
+                  <a className="link" href={`/api/dossier-fin?projectId=${encodeURIComponent(selectedProject.id)}&pdf=1&download=1`}>Télécharger</a>
+                </div>
+                <div className="df-pgs">
+                  <div className="df-pg">
+                    <div className="df-ph"><b>{selectedProject.title}</b><small>{selectedProject.address}</small></div>
+                    <div className="df-img">{choixPhotos.couverture?.url ? <img src={choixPhotos.couverture.url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}<span className="df-k">Après</span></div>
+                    <div className="df-l" /><div className="df-l s" /><div className="df-l" />
+                  </div>
+                  <div className="df-pg">
+                    <div className="df-ph"><b>Avant / après</b></div>
+                    {(choixPhotos.paires.length ? choixPhotos.paires : [{ lot: "-" }]).slice(0, 3).map((paire) => (
+                      <div className="df-ab" key={paire.lot}>
+                        <div className="df-img">{paire.avant?.url ? <img src={paire.avant.url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</div>
+                        <div className="df-img">{paire.apres?.url ? <img src={paire.apres.url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="df-pg">
+                    <div className="df-ph"><b>Équipements et entretien</b></div>
+                    {(conseils.length ? conseils : [{ id: "vide" }]).slice(0, 5).map((c) => <div className="df-l" key={c.id} />)}
+                    <div className="df-l s" />
+                  </div>
+                  <div className="df-pg">
+                    <div className="df-ph"><b>Garanties et documents</b></div>
+                    <div className="df-gr"><i>1 an</i><i>2 ans</i><i>10 ans</i></div>
+                    <div className="df-l" /><div className="df-l" /><div className="df-l s" /><div className="df-l" />
+                  </div>
+                </div>
+                <small className="sm2 cl-gn">Le client le retrouve à tout moment dans son espace Koji Client ; il peut alimenter le carnet d'information du logement.</small>
+              </div>
+            ) : null}
+            {ficheTab === "cloture" && vueCloture === "etapes" ? (
+              <>
+                <div className="card">
+                  <div className="card-h"><h2>Bilan</h2></div>
+                  {bilan.lignes.map((l) => <div className="kv" key={l.id}><span>{l.label}</span><b>{l.valeur}</b></div>)}
+                  {bilan.appris ? (
+                    <div className="cl-kj">
+                      <span className="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg></span>
+                      <div>
+                        <strong>Ce que Koji a appris</strong>
+                        <small>{bilan.appris}</small>
+                      </div>
+                      <Link className="link" href="/bibliotheque-ouvrages/mes-prix">Voir</Link>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Garanties</h2>
+                    <span className="sm2">à partir de la réception</span>
+                  </div>
+                  <div className="cl-gs">
+                    {garantiesChantier.map((g) => (
+                      <div className="cl-g" key={g.id}>
+                        <b>{g.titre}</b>
+                        <span>{g.duree}</span>
+                        <small>{g.jusqua}<br />{g.objet}</small>
+                      </div>
+                    ))}
+                  </div>
+                  <small className="sm2 cl-gn">Si la cliente signale un désordre dans Koji Client, il arrive ici comme une réserve.</small>
+                </div>
+              </>
+            ) : null}
+            {ficheTab === "reserves" && reserveChoisie ? (
+              <aside className="card rs-pan" aria-label={`Réserve ${reserveChoisie.numero}`}>
+                <div className="rs-ph">
+                  <div>
+                    <span className="eyebrow">{[reserveChoisie.numero, reserveChoisie.lieu, reserveChoisie.attribueeNom ? `attribuée à ${reserveChoisie.attribueeNom}` : "à attribuer"].filter(Boolean).join(" · ")}</span>
+                    <h2>{reserveChoisie.titre}</h2>
+                  </div>
+                  <button type="button" className="link" onClick={() => setReserveOuverte(null)}>Fermer</button>
+                </div>
+                <div className="rs-ab">
+                  {[["reserve", "Réserve"], ["levee", "Levée"]].map(([phase, libelle]) => {
+                    const photo = photoReserve(reserveChoisie, phase);
+                    return (
+                      <figure className="ph-v" key={phase}>
+                        {photo?.url ? <a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`${libelle} ${reserveChoisie.numero}`} /></a> : <span className="ph-vide">{phase === "reserve" ? "Pas de photo" : "Pas encore de photo de levée"}</span>}
+                        <figcaption><b>{libelle}</b><small>{photo ? `${horodatage(photo.takenAt)} · ${photo.author}` : phase === "levee" ? "prise dans l'app par l'intervenant" : ""}</small></figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+                {reserveChoisie.note ? (
+                  <div className="rs-note"><span className="lab">Note de l'intervenant</span><p>« {reserveChoisie.note} »</p></div>
+                ) : null}
+                {reserveChoisie.statut === "faite" ? (
+                  <div className="rs-act">
+                    <button type="button" className="link" disabled={reserveEnvoi} onClick={() => actionReserve(reserveChoisie.id, "refuser")}>Refuser, à refaire</button>
+                    <button type="button" className="btn btn-main" disabled={reserveEnvoi} onClick={() => actionReserve(reserveChoisie.id, "valider")}>Valider la levée</button>
+                  </div>
+                ) : reserveChoisie.statut === "levee" ? (
+                  <p className="muted">{statutReserve(reserveChoisie).label}.</p>
+                ) : reserveChoisie.statut === "proposee" ? (
+                  <form className="rs-acc" onSubmit={(event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    const qui = String(form.get("qui") || "");
+                    const w = workers.find((x) => x.id === qui);
+                    actionReserve(reserveChoisie.id, "attribuer", { attribueeA: qui, attribueeNom: qui === "moi" ? "Vous" : w ? `${w.name}${w.type === "Sous-traitant" ? " · sous-traitant" : ""}` : "", pourLe: String(form.get("pourLe") || "") });
+                  }}>
+                    <p className="muted">Signalée par {reserveChoisie.signaleePar || "le client"} dans Koji Client. Acceptez-la pour l'attribuer ; elle passe « À faire ».</p>
+                    <select name="qui" defaultValue="moi" aria-label="Attribuée à">
+                      <option value="moi">Vous</option>
+                      {workers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.type === "Sous-traitant" ? " · sous-traitant" : ""}</option>)}
+                    </select>
+                    <input type="date" name="pourLe" aria-label="Pour le" />
+                    <button type="submit" className="btn btn-main" disabled={reserveEnvoi}>Accepter la réserve</button>
+                  </form>
+                ) : (
+                  <p className="muted">La levée se photographie dans l'app Koji Pro ; vous la validez ensuite ici.</p>
+                )}
+              </aside>
+            ) : null}
             <div className="card">
               <div className="card-h">
                 <h2>À traiter{aTraiter.length ? <span className="kcnt">{aTraiter.length}</span> : null}</h2>
@@ -1686,6 +2541,7 @@ export default function ProjectsTrackingPage() {
                 {selectedQuote ? <a className="link" href={quoteDocumentUrl(selectedQuote.id)} target="_blank" rel="noreferrer">PDF du devis</a> : null}
               </div>
               <div className="kv"><span>Client</span><b>{clientName}</b></div>
+              <div className="kv"><span>Suivi Koji Client</span><b>{portalId ? "Activé" : "Non activé"}</b></div>
               {clientPortalAccess?.email ? <div className="kv"><span>Email</span><b>{clientPortalAccess.email}</b></div> : null}
               {portalId ? (
                 <>
@@ -1766,7 +2622,7 @@ export default function ProjectsTrackingPage() {
 
       <div className="tbar">
         <div className="wtabs" role="tablist" aria-label="Filtrer les chantiers">
-          {CHANTIER_TABS.map((tab) => (
+          {ONGLETS_CHANTIERS.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -1796,7 +2652,7 @@ export default function ProjectsTrackingPage() {
           <div className="empty">
             {chantierQuery.trim()
               ? "Aucun chantier ne correspond à cette recherche."
-              : chantiersDashboard.length === 0
+              : lignesListe.length === 0
                 ? "Aucun chantier pour le moment. Créez-en un avec « Nouveau chantier » ou depuis un devis."
                 : "Aucun chantier dans cet onglet."}
           </div>
@@ -1809,79 +2665,72 @@ export default function ProjectsTrackingPage() {
               <tr>
                 <th>Chantier</th>
                 <th>Client</th>
-                <th>Tâches</th>
+                <th>Lots</th>
                 <th>Prochain jalon</th>
                 <th className="r">Montant HT</th>
                 <th>Statut</th>
               </tr>
             </thead>
             <tbody>
-              {chantierRows.map((project) => {
-                const tag = CHANTIER_STATUS_TAG[project.status];
-                const city = cityOf(project.address);
-                return (
-                  <tr
-                    key={project.id}
-                    tabIndex={0}
-                    onClick={() => selectProject(project.id)}
-                    onKeyDown={(event) => { if (event.key === "Enter") selectProject(project.id); }}
-                  >
-                    <td>
-                      <div className="n">{project.title}</div>
-                      {city ? <div className="sm">{city}</div> : null}
-                    </td>
-                    <td>{project.linkedQuote?.client || project.client}</td>
-                    <td className="lots">
-                      {project.taskCount > 0 ? (
-                        <>
-                          <b>{project.taskDone} / {project.taskCount} tâches</b>
-                          <div className="bar"><i style={{ width: `${project.progress}%` }} /></div>
-                        </>
-                      ) : (
-                        <span className="sm2">Aucune tâche</span>
-                      )}
-                    </td>
-                    <td>
-                      {project.next ? <div>{milestoneLabel(project.next)}</div> : <div className="sm2">Rien de prévu</div>}
-                      {project.blocker ? <div className="blk">{project.blocker}</div> : null}
-                    </td>
-                    <td className="r">{project.amount > 0 ? `${euro(project.amount)} HT` : "—"}</td>
-                    <td><span className={tag.className}>{tag.label}</span></td>
-                  </tr>
-                );
-              })}
+              {chantierRows.map((ligne) => (
+                <tr
+                  key={ligne.id}
+                  tabIndex={0}
+                  onClick={() => selectProject(ligne.id)}
+                  onKeyDown={(event) => { if (event.key === "Enter") selectProject(ligne.id); }}
+                >
+                  <td>
+                    <div className="n">{ligne.titre}</div>
+                    {ligne.ville ? <div className="sm">{ligne.ville}</div> : null}
+                  </td>
+                  <td>{ligne.client || "—"}</td>
+                  <td className="lots">
+                    {ligne.avancement ? (
+                      <>
+                        <b>{ligne.avancement.faits} / {ligne.avancement.total} {ligne.avancement.unite}</b>
+                        <div className="bar"><i style={{ width: `${ligne.avancement.pourcent}%` }} /></div>
+                      </>
+                    ) : (
+                      <span className="sm2">Pas encore de devis</span>
+                    )}
+                  </td>
+                  <td>
+                    {ligne.jalon ? <div>{ligne.jalon}</div> : <div className="sm2">Rien de prévu</div>}
+                    {ligne.detail ? <div className="blk">{ligne.detail}</div> : null}
+                  </td>
+                  <td className="r">{ligne.montant.texte || "—"}</td>
+                  <td><span className={classeEtiquette(ligne.etiquette)}>{ligne.etiquette.label}</span></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
 
         <div className="mlist">
-          {chantierRows.map((project) => {
-            const tag = CHANTIER_STATUS_TAG[project.status];
-            return (
-              <button type="button" className="m-card" key={project.id} onClick={() => selectProject(project.id)}>
-                <div className="top2">
-                  <div>
-                    <div className="nm">{project.title}</div>
-                    <div className="meta">{project.linkedQuote?.client || project.client}</div>
-                  </div>
-                  <span className={tag.className}>{tag.label}</span>
+          {chantierRows.map((ligne) => (
+            <button type="button" className="m-card" key={ligne.id} onClick={() => selectProject(ligne.id)}>
+              <div className="top2">
+                <div>
+                  <div className="nm">{ligne.titre}</div>
+                  <div className="meta">{ligne.client || ligne.ville}</div>
                 </div>
-                <div className="m-f">
-                  <b>{project.taskCount > 0 ? `${project.taskDone} / ${project.taskCount} tâches` : "Aucune tâche"}</b>
-                  <b>{project.amount > 0 ? `${euro(project.amount)} HT` : ""}</b>
-                </div>
-                {project.taskCount > 0 ? <div className="bar"><i style={{ width: `${project.progress}%` }} /></div> : null}
-                <div className="line">{project.next ? milestoneLabel(project.next) : "Rien de prévu"}</div>
-                {project.blocker ? <div className="meta">{project.blocker}</div> : null}
-              </button>
-            );
-          })}
+                <span className={classeEtiquette(ligne.etiquette)}>{ligne.etiquette.label}</span>
+              </div>
+              <div className="m-f">
+                <b>{ligne.avancement ? `${ligne.avancement.faits} / ${ligne.avancement.total} ${ligne.avancement.unite}` : "Pas encore de devis"}</b>
+                <b>{ligne.montant.texte}</b>
+              </div>
+              {ligne.avancement ? <div className="bar"><i style={{ width: `${ligne.avancement.pourcent}%` }} /></div> : null}
+              <div className="line">{ligne.jalon || "Rien de prévu"}</div>
+              {ligne.detail ? <div className="meta">{ligne.detail}</div> : null}
+            </button>
+          ))}
         </div>
         </>
       )}
 
       <p className="foot-note">
-        {chantierRows.length} chantier{chantierRows.length > 1 ? "s" : ""} affiché{chantierRows.length > 1 ? "s" : ""} sur {chantiersDashboard.length}
+        {chantierRows.length} chantier{chantierRows.length > 1 ? "s" : ""} affiché{chantierRows.length > 1 ? "s" : ""} sur {lignesListe.length}
       </p>
     </Shell>
   );

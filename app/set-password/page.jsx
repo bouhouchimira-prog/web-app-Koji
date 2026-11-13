@@ -6,8 +6,12 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
+import { EntrepriseAuthLayout } from "../../components/EntrepriseAuthLayout";
+import { NouveauMotDePasse } from "../../components/EntrepriseAccountScreens";
 
-function SetPasswordScreen() {
+// Espace particulier, liens d'activation des anciens comptes et liens
+// Supabase (#access_token) : écran d'origine.
+function SetPasswordLegacy() {
   const { L } = useLocale();
   const params = useSearchParams();
   const token = params.get("token") || "";
@@ -90,6 +94,18 @@ function SetPasswordScreen() {
         </p>
       </section>
     </main>
+  );
+}
+
+// Koji Pro, lien « Mot de passe oublié » : maquette PRO-00.1.
+function SetPasswordScreen() {
+  const params = useSearchParams();
+  const entrepriseReset = params.get("type") !== "particulier" && params.get("mode") === "reset" && params.get("token");
+  if (!entrepriseReset) return <SetPasswordLegacy />;
+  return (
+    <EntrepriseAuthLayout>
+      <NouveauMotDePasse token={params.get("token")} />
+    </EntrepriseAuthLayout>
   );
 }
 

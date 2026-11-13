@@ -8,11 +8,15 @@ import 'package:koji/app/account_provider.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
+import 'package:koji/apps/entreprise/entreprise_search.dart';
+import 'package:koji/apps/entreprise/pro_home/chiffres_du_mois.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/design/koji_widgets.dart' show kojiEuro;
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/home/notifications/providers/notification_provider.dart';
+import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart'
@@ -20,10 +24,14 @@ import 'package:koji/features/quote/quote_list_screen.dart'
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 
-/// Koji Pro home in the new DA (mockup PRO-01). Real data only: the mockup
-/// also shows price bands, jetons, a per-offer position count and a map, which
-/// the API does not provide (price bands were removed on 17 Oct, jetons are not
-/// built server-side, offers carry no coordinates).
+/// Koji Pro home in the new DA (mockups PRO-01 and PRO-01.2). Real data only:
+/// the Radar shows the recommended price computed by koji-web with the pro's
+/// own library and rate (never invented, never shown to the client); the
+/// month figures come from the site's invoices. Phone: the Radar map fills
+/// the screen and the home sits in a sheet over it (mockup « mapview »,
+/// three heights); each chantier sits at the centre of its ~2 km cell, never
+/// at its address. Not built yet: jetons and the per-offer position count
+/// (nothing server-side).
 class ProHome extends ConsumerStatefulWidget {
   const ProHome({
     super.key,
@@ -77,8 +85,18 @@ String _villeSeule(String adresse) {
 }
 
 const _coupures = [
-  ',', '.', ';', ' : ', ' - ', ' qui ', ' car ', ' dans ', ' pour ',
-  ' avec ', ' depuis ', ' et ',
+  ',',
+  '.',
+  ';',
+  ' : ',
+  ' - ',
+  ' qui ',
+  ' car ',
+  ' dans ',
+  ' pour ',
+  ' avec ',
+  ' depuis ',
+  ' et ',
 ];
 
 /// Short title from the client's description (offers have no title field).
@@ -151,7 +169,8 @@ bool _estBrouillon(Map<String, dynamic> q) =>
 List<Map<String, dynamic>> _devisUniques(List<Map<String, dynamic>> quotes) {
   final seen = <String>{};
   return quotes.where((q) {
-    final key = (q['quoteNumber'] ?? q['reference'] ?? q['id'] ?? '').toString();
+    final key =
+        (q['quoteNumber'] ?? q['reference'] ?? q['id'] ?? '').toString();
     return key.isEmpty || seen.add(key);
   }).toList();
 }
@@ -180,9 +199,18 @@ class _ATraiter {
 
 class _ProHomeState extends ConsumerState<ProHome> {
   String _filtre = 'tous';
+  final _periodes = periodesDisponibles(DateTime.now());
+  late String _periodeCle = _periodes[1].cle;
   String? _ouvert = _premier;
   bool _toutRadar = false;
   bool _toutTraiter = false;
+  final _feuille = DraggableScrollableController();
+
+  @override
+  void dispose() {
+    _feuille.dispose();
+    super.dispose();
+  }
 
   /// Position being sent ('') or its error message, per offer id.
   final Map<String, String> _envoi = {};
@@ -226,6 +254,51 @@ class _ProHomeState extends ConsumerState<ProHome> {
     }
   }
 
+  /// Radar list for the current filter, recommended price first.
+  List<RadarOffre> _radarListe(List<RadarOffre> offres, List<RadarOffre> prises,
+          List<RadarOffre> nouveaux) =>
+      [
+        ...switch (_filtre) {
+          'nouveaux' => nouveaux,
+          'prises' => prises,
+          _ => offres,
+        }
+      ]..sort(comparerPrix);
+
+  String? _idOuvert(List<RadarOffre> liste) =>
+      _ouvert == _premier ? (liste.isEmpty ? null : liste.first.id) : _ouvert;
+
+  List<RadarPoint> _points(List<RadarOffre> liste) => [
+        for (final o in liste)
+          if (o.position != null)
+            RadarPoint(
+              id: o.id,
+              lat: o.position!.lat,
+              lon: o.position!.lon,
+              label: prixCourt(o),
+              taken: _prise(o),
+            ),
+      ];
+
+  /// « Paris et 15 km autour · 4 chantiers · 1 sans lieu précis ».
+  String _legende(RadarZone? zone, int surCarte, int total) => [
+        if (zone != null)
+          '${zone.ville.isEmpty ? 'Votre zone' : zone.ville} et '
+              '${zone.radiusKm.round()} km autour',
+        _pluriel(surCarte, 'chantier'),
+        if (total > surCarte) '${total - surCarte} sans lieu précis',
+      ].join(' · ');
+
+  /// Touching a price on the map opens that chantier in the list; on the
+  /// phone the sheet rises to half height so the open row shows.
+  void _choisirSurCarte(String id) {
+    setState(() => _ouvert = id);
+    if (_feuille.isAttached && _feuille.size < 0.5) {
+      _feuille.animateTo(0.55,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
+  }
+
   List<_ATraiter> _aTraiter({
     required List<Map<String, dynamic>> alertes,
     required List<RadarOffre> prises,
@@ -247,9 +320,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
         rang: 0,
         titre:
             '${_urgentLabels[alerte['type']] ?? 'Alerte'}, ${alerte['projectTitle'] ?? 'chantier'}',
-        meta: ['$qui ${alerte['senderName'] ?? ''}'.trim(), _ilYa(alerte['createdAt'])]
-            .where((s) => s.isNotEmpty)
-            .join(' · '),
+        meta: [
+          '$qui ${alerte['senderName'] ?? ''}'.trim(),
+          _ilYa(alerte['createdAt'])
+        ].where((s) => s.isNotEmpty).join(' · '),
         tag: 'Bloquant',
         ton: ProTagTone.solid,
         icon: Icons.warning_amber_rounded,
@@ -300,15 +374,15 @@ class _ProHomeState extends ConsumerState<ProHome> {
     }
 
     for (final facture in factures) {
-      final reste = ((facture['amount'] as num?)?.toDouble() ?? 0) -
-          ((facture['paid_amount'] as num?)?.toDouble() ?? 0);
-      final echeance = _date(facture['due_date']);
+      final reste = (facture['amountTtc'] as num?)?.toDouble() ?? 0;
+      final echeance = _date(facture['dueDate']);
+      final numero = '${facture['invoiceNumber'] ?? ''}'.trim();
       items.add(_ATraiter(
         rang: 2,
         titre:
-            'Facture ${facture['reference'] ?? ''}, ${facture['client_name'] ?? 'client'}',
+            '${numero.isEmpty ? 'Facture' : 'Facture $numero'}, ${facture['client'] ?? facture['projectTitle'] ?? 'client'}',
         meta: [
-          '${kojiEuro(reste)} en attente',
+          '${kojiEuro(reste)} en attente de règlement',
           if (echeance != null)
             'échue le ${DateFormat('d MMM', 'fr_FR').format(echeance)}',
         ].join(' · '),
@@ -365,7 +439,12 @@ class _ProHomeState extends ConsumerState<ProHome> {
     final brouillons = quotes.where(_estBrouillon).toList();
     final chantiersActifs = chantiers.where(isChantierActive).length;
 
-    final offres = radarAsync.valueOrNull ?? const <RadarOffre>[];
+    // Offers the pro blocked are dropped everywhere (lists, counts, to-do).
+    final masquees =
+        ref.watch(moderationProvider.select((s) => s.hiddenOffers));
+    final offres = (radarAsync.valueOrNull ?? const <RadarOffre>[])
+        .where((o) => !masquees.contains(o.id))
+        .toList();
     final prises = offres.where(_prise).toList();
     final disponibles = offres.where((o) => !_prise(o)).toList();
     final nouveaux =
@@ -378,7 +457,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
             : account.displayName);
     final eyebrow = [
       _majuscule(DateFormat('EEEE d MMMM', 'fr_FR').format(DateTime.now())),
-      if (aSigner.isNotEmpty) '${_pluriel(aSigner.length, 'devis', 'devis')} à signer',
+      if (aSigner.isNotEmpty)
+        '${_pluriel(aSigner.length, 'devis', 'devis')} à signer',
       if (brouillons.isNotEmpty) _pluriel(brouillons.length, 'brouillon'),
     ].join(' · ');
 
@@ -391,9 +471,43 @@ class _ProHomeState extends ConsumerState<ProHome> {
       chantiers: chantiers,
     );
 
-    final radar = _radarCard(da, radarAsync, offres, prises, nouveaux);
+    final source = ref.watch(proChiffresSourceProvider).valueOrNull;
+    final periode = _periodes.firstWhere((p) => p.cle == _periodeCle,
+        orElse: () => _periodes[1]);
+    final chiffres = source == null
+        ? null
+        : chiffresDuMois(
+            invoices: source.invoices,
+            quotes: source.quotes,
+            projects: source.projects,
+            expenses: source.expenses,
+            periode: periode,
+            aujourdhui: DateTime.now(),
+          );
+
+    final zone = ref.watch(proRadarZoneProvider);
+    final liste = _radarListe(offres, prises, nouveaux);
+    final points = _points(liste);
+    final idOuvert = _idOuvert(liste);
+    Widget carte({bool plein = false, EdgeInsets? marges}) => RadarCarte(
+          points: points,
+          selectedId: idOuvert,
+          onSelect: _choisirSurCarte,
+          zone: zone,
+          caption: _legende(zone, points.length, liste.length),
+          nouveaux: nouveaux.length,
+          prises: prises.length,
+          plein: plein,
+          marges: marges ?? const EdgeInsets.fromLTRB(44, 92, 64, 60),
+        );
+    final avecFeuille = widget.onMenu != null;
+    final radar = _radarCard(da, radarAsync, offres, prises, nouveaux,
+        carte: avecFeuille || offres.isEmpty
+            ? null
+            : SizedBox(height: 300, child: carte()));
     final traiter = _traiterCard(da, aTraiter);
-    final salut = prenom == null || prenom.isEmpty ? 'Bonjour.' : 'Bonjour, $prenom.';
+    final salut =
+        prenom == null || prenom.isEmpty ? 'Bonjour.' : 'Bonjour, $prenom.';
     final brouillon = brouillons.isEmpty ? null : brouillons.first;
 
     return ColoredBox(
@@ -412,7 +526,9 @@ class _ProHomeState extends ConsumerState<ProHome> {
               _hero(da, brouillon),
               const SizedBox(height: 24),
               _kpis(da, aSigner.length, chantiersActifs, disponibles.length,
-                  nouveaux.length),
+                  disponibles.where((o) => o.prixTtc != null).length),
+              const SizedBox(height: 24),
+              _chiffresCard(da, periode, chiffres),
               const SizedBox(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,20 +542,30 @@ class _ProHomeState extends ConsumerState<ProHome> {
           );
         }
 
-        final top = widget.onMenu == null
-            ? 20.0
-            : MediaQuery.paddingOf(context).top + 12;
+        if (avecFeuille) {
+          return _accueilCarte(
+            da,
+            c,
+            carte: carte,
+            salut: salut,
+            eyebrow: eyebrow,
+            brouillon: brouillon,
+            chiffres: chiffres,
+            radar: radar,
+            traiter: traiter,
+          );
+        }
+
+        // Tablette étroite, sans menu propre : la carte dans la carte Radar.
         return ListView(
-          padding: EdgeInsets.fromLTRB(16, top, 16, widget.bottomPadding),
+          padding: EdgeInsets.fromLTRB(16, 20, 16, widget.bottomPadding),
           children: [
-            if (widget.onMenu != null) ...[
-              _entete(da),
-              const SizedBox(height: 18),
-            ],
             Text(eyebrow, style: da.text(12, color: da.grey)),
             const SizedBox(height: 4),
             Text(salut,
                 style: da.text(26, weight: FontWeight.w700, height: 1.2)),
+            const SizedBox(height: 14),
+            _chiffresBande(da, chiffres, onTap: _ouvrirChiffres),
             const SizedBox(height: 14),
             ProPrimaryButton(
               label: 'Démarrer un devis guidé',
@@ -461,38 +587,137 @@ class _ProHomeState extends ConsumerState<ProHome> {
     );
   }
 
-  Widget _entete(ProDa da) {
+  /// Téléphone (maquette PRO-01 « Téléphone · tous les états ») : la carte
+  /// du Radar plein écran, recherche et menu flottants, et l'accueil dans une
+  /// feuille à trois hauteurs (ouverture, mi-hauteur, liste et à traiter).
+  Widget _accueilCarte(
+    ProDa da,
+    BoxConstraints c, {
+    required Widget Function({bool plein, EdgeInsets? marges}) carte,
+    required String salut,
+    required String eyebrow,
+    required Map<String, dynamic>? brouillon,
+    required ChiffresDuMois? chiffres,
+    required Widget radar,
+    required Widget traiter,
+  }) {
+    final hauteur = c.maxHeight;
+    final haut = MediaQuery.paddingOf(context).top + 14;
+    final bas = widget.bottomPadding;
+    // Ouverture : 176 px de feuille au-dessus de la barre du bas.
+    final ouverture = ((176 + bas) / hauteur).clamp(0.15, 0.6).toDouble();
+    // Ouverte en grand : sous les boutons flottants.
+    final grand =
+        ((hauteur - haut - 54) / hauteur).clamp(ouverture, 1.0).toDouble();
+    final milieu = 0.55.clamp(ouverture, grand).toDouble();
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: carte(
+            plein: true,
+            marges: EdgeInsets.fromLTRB(36, haut + 44 + 48, 36, 176 + bas + 16),
+          ),
+        ),
+        Positioned(top: haut, left: 14, right: 14, child: _boutonsCarte(da)),
+        DraggableScrollableSheet(
+          controller: _feuille,
+          initialChildSize: ouverture,
+          minChildSize: ouverture,
+          maxChildSize: grand,
+          snap: true,
+          snapSizes: [if (milieu > ouverture && milieu < grand) milieu],
+          builder: (context, scroll) => DecoratedBox(
+            decoration: BoxDecoration(
+              color: da.page,
+              border: const Border(top: BorderSide(color: Color(0xFFCFCFC9))),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              child: ListView(
+                controller: scroll,
+                padding: EdgeInsets.fromLTRB(14, 8, 14, bas),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8A8F98),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(salut,
+                      style: da.text(20, weight: FontWeight.w700, height: 1.2)),
+                  const SizedBox(height: 4),
+                  Text(eyebrow, style: da.text(12, color: da.grey)),
+                  const SizedBox(height: 10),
+                  ProPrimaryButton(
+                    label: 'Démarrer un devis guidé',
+                    icon: Icons.add,
+                    height: 46,
+                    expand: true,
+                    onPressed: _devisGuide,
+                  ),
+                  if (brouillon != null) ...[
+                    const SizedBox(height: 10),
+                    _lienBrouillon(da, brouillon),
+                  ],
+                  const SizedBox(height: 12),
+                  _chiffresBande(da, chiffres, onTap: _ouvrirChiffres),
+                  const SizedBox(height: 10),
+                  radar,
+                  const SizedBox(height: 10),
+                  traiter,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Boutons flottants sur la carte (maquette « mtop ») : recherche, menu,
+  /// et les notifications à droite.
+  Widget _boutonsCarte(ProDa da) {
     final unread = ref.watch(unreadNotificationsCountProvider);
-    Widget carre(IconData icon, String label, VoidCallback? onTap) => Semantics(
+    Widget bouton(IconData icon, String label, VoidCallback? onTap) =>
+        Semantics(
           button: true,
           label: label,
           child: Material(
-            color: da.card,
+            color: Colors.white,
             shape: RoundedRectangleBorder(
-              side: BorderSide(color: da.line),
-              borderRadius: BorderRadius.circular(2),
+              side: const BorderSide(color: Color(0xFFD9D9D4)),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: InkWell(
               onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 width: 44,
                 height: 44,
-                child: Icon(icon, size: 20, color: da.ink),
+                child: Icon(icon, size: 20, color: const Color(0xFF171B1E)),
               ),
             ),
           ),
         );
     return Row(
       children: [
-        carre(Icons.menu, 'Menu', widget.onMenu),
-        const SizedBox(width: 12),
-        Text('KOJI',
-            style: da.text(16, weight: FontWeight.w700, letterSpacing: 1.9)),
+        bouton(Icons.search, 'Rechercher',
+            () => showEntrepriseSearch(context, ref)),
+        const SizedBox(width: 8),
+        bouton(Icons.menu, 'Menu', widget.onMenu),
         const Spacer(),
         Stack(
           clipBehavior: Clip.none,
           children: [
-            carre(Icons.notifications_none, 'Notifications',
+            bouton(Icons.notifications_none, 'Notifications',
                 widget.onNotifications),
             if (unread > 0)
               Positioned(
@@ -521,7 +746,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
       child: GestureDetector(
         onTap: () => openSavedQuote(context, ref, brouillon),
         child: Text(
-          'Brouillon ${_numeroDevis(brouillon)} à reprendre'.replaceAll('  ', ' '),
+          'Brouillon ${_numeroDevis(brouillon)} à reprendre'
+              .replaceAll('  ', ' '),
           style: da.text(13, weight: FontWeight.w500).copyWith(
                 decoration: TextDecoration.underline,
                 decorationColor: da.ink,
@@ -574,7 +800,117 @@ class _ProHomeState extends ConsumerState<ProHome> {
     );
   }
 
-  Widget _kpis(ProDa da, int aSigner, int actifs, int zone, int nouveaux) {
+  // ---- PRO-01.2 : chiffres du mois ------------------------------------
+
+  /// Ordinateur / tablette : même bloc que le site (période, trois chiffres,
+  /// ligne « depuis janvier », lien vers les factures).
+  Widget _chiffresCard(ProDa da, Periode periode, ChiffresDuMois? c) {
+    Widget cellule(String label, double? montant, String detail) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: da.soft,
+              border: Border.all(color: da.rule),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: da.text(12, color: da.grey)),
+                const SizedBox(height: 2),
+                Text(montant == null ? '—' : kojiEuro(montant),
+                    style: da.text(30, weight: FontWeight.w600, height: 1.2)),
+                const SizedBox(height: 2),
+                Text(detail, style: da.text(12, color: da.grey)),
+              ],
+            ),
+          ),
+        );
+    final marge = c?.marge;
+    final reglees = c == null
+        ? ''
+        : c.paiements == 0
+            ? 'aucun règlement'
+            : _pluriel(c.paiements, 'facture réglée', 'factures réglées');
+    return ProCard(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ProCardHeader(
+            title: periode.titre,
+            action: ProSegmented<String>(
+              options: [for (final p in _periodes) (p.cle, p.label, -1)],
+              value: periode.cle,
+              onChanged: (cle) => setState(() => _periodeCle = cle),
+            ),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                cellule('Facturé', c?.facture.total,
+                    c == null ? 'HT' : 'HT · ${resumeFacture(c.facture)}'),
+                const SizedBox(width: 16),
+                cellule('Encaissé', c?.encaisse,
+                    c == null ? 'TTC' : 'TTC · $reglees'),
+                const SizedBox(width: 16),
+                cellule(
+                    'Reste à encaisser',
+                    c?.reste.total,
+                    c == null
+                        ? 'TTC'
+                        : 'TTC à ce jour · ${resumeReste(c.reste)}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  c == null
+                      ? 'Chargement des factures…'
+                      : 'Depuis janvier : ${kojiEuro(c.depuisJanvier)} HT facturés'
+                          '${marge == null ? '' : ' · marge moyenne ${(marge.taux * 100).round()} % (Coût des chantiers)'}',
+                  style: da.text(13),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ProPill(
+                label: 'Voir les factures',
+                onTap: () => context.push('/facturation'),
+              ),
+            ],
+          ),
+          if ((c?.facture.htEstimes ?? 0) > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'HT estimé avec une TVA à 20 % pour '
+              '${_pluriel(c!.facture.htEstimes, 'facture')} sans devis rattaché.',
+              style: da.text(12, color: da.grey),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Téléphone : la bande des trois chiffres du mois en cours ; un toucher
+  /// ouvre le détail du mois.
+  Widget _chiffresBande(ProDa da, ChiffresDuMois? c, {VoidCallback? onTap}) =>
+      Semantics(
+        button: true,
+        label: 'Chiffres du mois',
+        child: InkWell(onTap: onTap, child: _ChiffresBande(c: c)),
+      );
+
+  void _ouvrirChiffres() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _ChiffresMoisScreen(periode: _periodes[1]),
+    ));
+  }
+
+  Widget _kpis(ProDa da, int aSigner, int actifs, int zone, int chiffres) {
     Widget kpi(String label, int value, String sub, VoidCallback? onTap) =>
         Expanded(
           child: InkWell(
@@ -620,11 +956,11 @@ class _ProHomeState extends ConsumerState<ProHome> {
                 () => _ongletAccueil(2)),
             VerticalDivider(width: 1, color: da.line),
             kpi(
-              'Dans votre zone',
+              'Koji dans la zone',
               zone,
-              nouveaux > 0
-                  ? '${_pluriel(nouveaux, 'nouveau', 'nouveaux')} sur le Radar'
-                  : 'chantiers prêts à être pris',
+              chiffres == zone
+                  ? 'chiffrés, prêts à être pris'
+                  : '$chiffres chiffrés, prêts à être pris',
               null,
             ),
           ],
@@ -638,18 +974,18 @@ class _ProHomeState extends ConsumerState<ProHome> {
     AsyncValue<List<RadarOffre>> radarAsync,
     List<RadarOffre> offres,
     List<RadarOffre> prises,
-    List<RadarOffre> nouveaux,
-  ) {
-    final liste = switch (_filtre) {
-      'nouveaux' => nouveaux,
-      'prises' => prises,
-      _ => offres,
-    };
-    final visibles =
-        _toutRadar ? liste : liste.take(_leadsVisibles).toList();
-    final idOuvert = _ouvert == _premier
-        ? (visibles.isEmpty ? null : visibles.first.id)
-        : _ouvert;
+    List<RadarOffre> nouveaux, {
+    Widget? carte,
+  }) {
+    // Prix recommandé, du plus haut (maquette PRO-01).
+    final liste = _radarListe(offres, prises, nouveaux);
+    final idOuvert = _idOuvert(liste);
+    final visibles = _toutRadar ? liste : liste.take(_leadsVisibles).toList();
+    // Un chantier choisi sur la carte au-delà des premières lignes reste
+    // visible dans la liste.
+    for (final o in liste.skip(_leadsVisibles)) {
+      if (!_toutRadar && o.id == idOuvert) visibles.add(o);
+    }
     final limiteAtteinte = prises.length >= _maxPositions;
 
     Widget message(String titre, [String? detail]) => Padding(
@@ -736,6 +1072,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
               }),
             ),
           ),
+          if (carte != null) ...[
+            const SizedBox(height: 12),
+            carte,
+          ],
           const SizedBox(height: 8),
           ...contenu,
           const SizedBox(height: 8),
@@ -778,22 +1118,24 @@ class _ProHomeState extends ConsumerState<ProHome> {
               ),
             ),
             const SizedBox(width: 8),
-            if (prise)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check, size: 14, color: da.ink),
-                  const SizedBox(width: 4),
-                  Text('Prise', style: da.text(12, weight: FontWeight.w700)),
-                ],
-              )
-            else
-              Text(
-                _estNouveau(offre.publieeLe)
-                    ? 'Nouveau'
-                    : _publication(offre.publieeLe),
-                style: da.text(12, color: da.grey),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(prixCourt(offre),
+                    style: da.text(14, weight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  prise
+                      ? 'Position prise'
+                      : offre.prixPartiel
+                          ? 'Partiel, ${offre.prixManquants} sans prix'
+                          : _estNouveau(offre.publieeLe)
+                              ? 'Nouveau'
+                              : _publication(offre.publieeLe),
+                  style: da.text(12, color: da.grey),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -836,19 +1178,21 @@ class _ProHomeState extends ConsumerState<ProHome> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(_titreCourt(offre.description),
-                          style: da.text(15, weight: FontWeight.w700, height: 1.3)),
+                          style: da.text(15,
+                              weight: FontWeight.w700, height: 1.3)),
                       const SizedBox(height: 2),
                       Text(
-                        [_villeSeule(offre.adresse), _publication(offre.publieeLe)]
-                            .where((s) => s.isNotEmpty)
-                            .join(' · '),
+                        [
+                          _villeSeule(offre.adresse),
+                          _publication(offre.publieeLe)
+                        ].where((s) => s.isNotEmpty).join(' · '),
                         style: da.text(12, color: da.grey),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(offre.metier.isEmpty ? 'Chantier' : offre.metier,
+                Text(prixCourt(offre),
                     style: da.text(15, weight: FontWeight.w700)),
               ],
             ),
@@ -858,6 +1202,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
             spacing: 12,
             runSpacing: 4,
             children: [
+              kv('Prix recommandé',
+                  '${prixCourt(offre)}${offre.prixPartiel ? ', partiel' : ''}'),
               kv('Métier', offre.metier.isEmpty ? 'Non précisé' : offre.metier),
               if (offre.delaiJours != null)
                 kv('Délai estimé', _pluriel(offre.delaiJours!, 'jour')),
@@ -865,6 +1211,10 @@ class _ProHomeState extends ConsumerState<ProHome> {
               if (prise) kv('Suivi', _libelleSuivi(offre.suivi)),
             ],
           ),
+          if (notePrix(offre).isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notePrix(offre), style: da.text(12, color: da.grey)),
+          ],
           const SizedBox(height: 12),
           if (prise)
             Row(
@@ -881,9 +1231,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
               icon: Icons.my_location,
               height: 44,
               expand: true,
-              onPressed: envoi || limiteAtteinte
-                  ? null
-                  : () => _positionner(offre.id),
+              onPressed:
+                  envoi || limiteAtteinte ? null : () => _positionner(offre.id),
             ),
           if (!prise && limiteAtteinte) ...[
             const SizedBox(height: 8),
@@ -897,9 +1246,53 @@ class _ProHomeState extends ConsumerState<ProHome> {
             const SizedBox(height: 8),
             Text(erreur, style: da.text(12, weight: FontWeight.w600)),
           ],
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () =>
+                    showReportDialog(context, ref, _cibleOffre(offre)),
+                icon: Icon(Icons.flag_outlined, size: 16, color: da.grey),
+                label: Text('Signaler',
+                    style:
+                        da.text(12, weight: FontWeight.w600, color: da.grey)),
+              ),
+              TextButton.icon(
+                onPressed: () => _bloquerOffre(offre),
+                icon: Icon(Icons.block, size: 16, color: da.grey),
+                label: Text('Bloquer',
+                    style:
+                        da.text(12, weight: FontWeight.w600, color: da.grey)),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  ReportTarget _cibleOffre(RadarOffre offre) => ReportTarget(
+        kind: 'offre_radar',
+        id: offre.id,
+        label: 'Annonce du Radar « ${_titreCourt(offre.description)} »'
+            '${offre.adresse.isEmpty ? '' : ' (${_villeSeule(offre.adresse)})'}',
+        excerpt: offre.description,
+      );
+
+  Future<void> _bloquerOffre(RadarOffre offre) async {
+    final moderation = ref.read(moderationProvider.notifier);
+    final bloquee = await confirmBlock(
+      context,
+      ref,
+      target: _cibleOffre(offre),
+      title: 'Bloquer cette annonce ?',
+      explanation:
+          'Elle disparaîtra de votre Radar et l\'équipe Koji sera prévenue '
+          'pour examiner son auteur.',
+      apply: () => moderation.setOfferHidden(offre.id, true),
+    );
+    if (bloquee && mounted) setState(() => _ouvert = _premier);
   }
 
   Widget _traiterCard(ProDa da, List<_ATraiter> items) {
@@ -968,6 +1361,195 @@ class _ProHomeState extends ConsumerState<ProHome> {
                   ),
                 ),
               ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bande des trois chiffres du mois (maquette PRO-01.2, téléphone).
+class _ChiffresBande extends StatelessWidget {
+  const _ChiffresBande({required this.c});
+  final ChiffresDuMois? c;
+
+  @override
+  Widget build(BuildContext context) {
+    final da = ProDa.of(context);
+    Widget cellule(String label, double? montant) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: da.text(11, color: da.grey)),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(montant == null ? '—' : kojiEuro(montant),
+                      style: da.text(18, weight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        );
+    return Container(
+      decoration: BoxDecoration(
+        color: da.card,
+        border: Border(
+          top: BorderSide(color: da.ink, width: 2),
+          left: BorderSide(color: da.frame),
+          right: BorderSide(color: da.frame),
+          bottom: BorderSide(color: da.frame),
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            cellule('Facturé HT', c?.facture.total),
+            VerticalDivider(width: 1, color: da.line),
+            cellule('Encaissé', c?.encaisse),
+            VerticalDivider(width: 1, color: da.line),
+            cellule('À encaisser', c?.reste.total),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Détail téléphone du mois en cours (maquette « Chiffres du mois, depuis
+/// l'accueil ») : la bande, puis « Ce mois » (factures émises, facture échue
+/// la plus ancienne, marge moyenne depuis janvier).
+class _ChiffresMoisScreen extends ConsumerWidget {
+  const _ChiffresMoisScreen({required this.periode});
+
+  final Periode periode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final da = ProDa.of(context);
+    final async = ref.watch(proChiffresSourceProvider);
+    final source = async.valueOrNull;
+    final c = source == null
+        ? null
+        : chiffresDuMois(
+            invoices: source.invoices,
+            quotes: source.quotes,
+            projects: source.projects,
+            expenses: source.expenses,
+            periode: periode,
+            aujourdhui: DateTime.now(),
+          );
+
+    Widget ligne(String titre, String detail,
+            {Widget? fin, VoidCallback? onTap}) =>
+        InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: da.rule)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titre, style: da.text(14, weight: FontWeight.w700)),
+                      if (detail.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(detail, style: da.text(12, color: da.grey)),
+                      ],
+                    ],
+                  ),
+                ),
+                fin ??
+                    (onTap == null
+                        ? const SizedBox.shrink()
+                        : Icon(Icons.chevron_right, size: 18, color: da.ink)),
+              ],
+            ),
+          ),
+        );
+
+    final echue = c?.reste.premiereEchue;
+    final marge = c?.marge;
+    final estimes = c?.facture.htEstimes ?? 0;
+    return Scaffold(
+      backgroundColor: da.page,
+      appBar: AppBar(
+        backgroundColor: da.card,
+        foregroundColor: da.ink,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Accueil', style: da.text(16, weight: FontWeight.w700)),
+            Text(periode.titre, style: da.text(12, color: da.grey)),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          _ChiffresBande(c: c),
+          const SizedBox(height: 14),
+          if (async.hasError && c == null)
+            Text('Factures indisponibles pour le moment.',
+                style: da.text(13, color: da.grey))
+          else
+            ProCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('Ce mois',
+                        style: da.text(15, weight: FontWeight.w700)),
+                  ),
+                  ligne(
+                    c == null
+                        ? 'Chargement…'
+                        : _majuscule(resumeFacture(c.facture)),
+                    c == null ? '' : '${kojiEuro(c.facture.total)} HT facturés',
+                    onTap: () => context.push('/facturation'),
+                  ),
+                  if (c != null && echue != null)
+                    ligne(
+                      c.reste.echues == 1
+                          ? '1 facture échue'
+                          : '${c.reste.echues} factures échues',
+                      [
+                        '${echue['client'] ?? echue['projectTitle'] ?? 'Client'}',
+                        _pluriel((echue['retard'] as int?) ?? 0, 'jour'),
+                      ].join(' · '),
+                      fin: const ProTag('À relancer', tone: ProTagTone.grey),
+                      onTap: () => context.push('/facturation'),
+                    ),
+                  if (marge != null)
+                    ligne('Marge moyenne',
+                        '${(marge.taux * 100).round()} % depuis janvier'),
+                  if (c != null)
+                    ligne('Depuis janvier',
+                        '${kojiEuro(c.depuisJanvier)} HT facturés'),
+                  if (estimes > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        'HT estimé avec une TVA à 20 % pour '
+                        '${_pluriel(estimes, 'facture')} sans devis rattaché.',
+                        style: da.text(12, color: da.grey),
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );

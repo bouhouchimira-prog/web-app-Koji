@@ -1,24 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../components/Shell";
 import { AssistantWindow } from "../components/AssistantWindow";
+import { RadarMap } from "../components/RadarMap";
 import { ChoisissezVotreEspace } from "./ChoisissezVotreEspace";
 import { apiGet, apiSend, readStoredUser } from "../lib/client-api";
 import { DEMARRAGE_SKIP_KEY, demarrageSteps, essentialsDone } from "../lib/demarrage";
 import { euro, shortDate } from "../lib/pricing";
 import { useApi } from "../lib/use-api";
-import { estNouveau, publication, titreCourt, villeSeule } from "../lib/radar-display";
+import { comparerPrix, estNouveau, notePrix, prixCourt, prixPartiel, publication, titreCourt, villeSeule } from "../lib/radar-display";
+import { chiffresDuMois, periodesDisponibles } from "../lib/chiffres-du-mois";
 // Kept: /marketplace and /chiffre-affaires reuse its kd-/home- classes and
 // only get them through this import.
 import "./dashboard.css";
 
 // Accueil Koji Pro, nouvelle DA (maquette PRO-01, 30 oct). Données réelles
-// uniquement : la maquette montre aussi des fourchettes de prix, des jetons
-// et un nombre de positions par chantier, que l'API ne fournit pas (les
-// fourchettes ont été retirées le 17 oct, les jetons ne sont pas encore en
-// place côté serveur).
+// uniquement. Prix recommandé (10 nov) : un montant unique calculé avec la
+// bibliothèque et le taux de l'entreprise (lib/prix-recommande.js), jamais
+// de fourchette. Carte (12 nov) : chaque chantier au centre de sa maille
+// de ~2 km, jamais l'adresse (lib/radar-position.js). Pas encore de jetons
+// ni de nombre de positions par chantier (non construits côté serveur).
 
 const URGENT_LABELS = { degat: "Dégât", fuite: "Fuite", urgence: "Urgence", incendie: "Incendie", autre: "Alerte" };
 
@@ -53,6 +57,19 @@ function IconTarget() {
 
 function pluriel(n, mot, motPluriel) {
   return `${n} ${n > 1 ? motPluriel || `${mot}s` : mot}`;
+}
+
+function resumeFacture({ factures, avoirs }) {
+  if (!factures && !avoirs) return "aucune facture émise";
+  return [factures ? pluriel(factures, "facture") : null, avoirs ? pluriel(avoirs, "avoir") : null].filter(Boolean).join(", ");
+}
+
+function resumeReste({ impayees, echues, retardMax }) {
+  if (!impayees) return "aucune facture en attente";
+  const base = pluriel(impayees, "facture");
+  if (!echues) return `${base}, aucune échue`;
+  if (echues === 1) return `${base}, 1 échue de ${pluriel(retardMax, "jour")}`;
+  return `${base}, ${echues} échues (jusqu'à ${pluriel(retardMax, "jour")})`;
 }
 
 function aujourdhui() {
@@ -114,13 +131,24 @@ function libelleSuivi(suivi) {
 }
 
 function DashboardHome() {
+  const router = useRouter();
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: quotes } = useApi("/api/quotes", "quotes");
   const { data: invoices } = useApi("/api/invoices", "invoices");
   const { data: tasks } = useApi("/api/tasks", "tasks");
   const { data: calendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: urgentAlerts } = useApi("/api/urgent-alerts", "alerts");
-  const { data: offres, loading: offresLoading } = useApi("/api/marketplace/offres", "offres");
+  const [radar, setRadar] = useState({ offres: [], zone: null, loading: true });
+  const offres = radar.offres;
+  const offresLoading = radar.loading;
+  const { data: expenses } = useApi("/api/expenses", "expenses");
+  const periodes = useMemo(() => periodesDisponibles(new Date()), []);
+  const [periodeCle, setPeriodeCle] = useState(periodes[1].cle);
+  const periode = periodes.find((p) => p.cle === periodeCle) || periodes[1];
+  const chiffres = useMemo(
+    () => chiffresDuMois({ invoices, quotes, projects, expenses, periode }),
+    [invoices, quotes, projects, expenses, periode]
+  );
 
   const [prenom, setPrenom] = useState("");
   const [profileComplete, setProfileComplete] = useState(true);
@@ -128,12 +156,20 @@ function DashboardHome() {
   const [suivis, setSuivis] = useState({}); // { [offreId]: { clientARepondu, visite } }
   const [info, setInfo] = useState("");
   const [radarFiltre, setRadarFiltre] = useState("tous");
-  const [radarTri, setRadarTri] = useState("recent");
+  const [radarTri, setRadarTri] = useState("prix");
   const [leadOuvert, setLeadOuvert] = useState(undefined); // undefined = le premier
   const [toutAfficher, setToutAfficher] = useState(false);
-  const [demarrage, setDemarrage] = useState(null);
   const [assistantWindowOpen, setAssistantWindowOpen] = useState(false);
   const [assistantDraft, setAssistantDraft] = useState("");
+
+  // Offres et zone de travail (centre et légende de la carte) en un appel.
+  useEffect(() => {
+    let alive = true;
+    apiGet("/api/marketplace/offres")
+      .then((data) => { if (alive) setRadar({ offres: data?.offres || [], zone: data?.zone || null, loading: false }); })
+      .catch(() => { if (alive) setRadar((prev) => ({ ...prev, loading: false })); });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     const user = readStoredUser();
@@ -142,14 +178,10 @@ function DashboardHome() {
     setProfileComplete(Boolean(user.profileComplete && user.businessInfoComplete));
     let skipped = false;
     try { skipped = Boolean(window.localStorage.getItem(DEMARRAGE_SKIP_KEY)); } catch {}
-    const steps = demarrageSteps(user);
-    if (!skipped && !essentialsDone(steps)) setDemarrage({ done: steps.filter((step) => step.done).length });
-  }, []);
-
-  function passerDemarrage() {
-    try { window.localStorage.setItem(DEMARRAGE_SKIP_KEY, new Date().toISOString()); } catch {}
-    setDemarrage(null);
-  }
+    // Maquette PRO-01.1 : le démarrage guidé remplace l'accueil tant que
+    // les étapes 1 à 3 ne sont pas faites, sauf si l'artisan l'a passé.
+    if (!skipped && !essentialsDone(demarrageSteps(user))) router.replace("/demarrage");
+  }, [router]);
 
   // Statut « déjà positionné » de chaque chantier (pas de route qui liste
   // tous les positionnements d'une entreprise).
@@ -220,11 +252,32 @@ function DashboardHome() {
 
   let radarListe = radarFiltre === "nouveaux" ? nouveaux : radarFiltre === "prises" ? prises : offres;
   radarListe = [...radarListe].sort((a, b) => {
-    const ordre = String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
-    return radarTri === "ancien" ? -ordre : ordre;
+    const recent = String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    return radarTri === "prix" ? comparerPrix(a, b) || recent : recent;
   });
+  const idOuvert = leadOuvert === undefined ? radarListe[0]?.id : leadOuvert;
+  // Un chantier choisi sur la carte au-delà des premières lignes reste
+  // visible dans la liste.
   const radarVisibles = radarListe.slice(0, LEADS_VISIBLES);
-  const idOuvert = leadOuvert === undefined ? radarVisibles[0]?.id : leadOuvert;
+  const choisiCache = radarListe.find((o, i) => o.id === idOuvert && i >= LEADS_VISIBLES);
+  if (choisiCache) radarVisibles.push(choisiCache);
+  const pointsCarte = radarListe
+    .filter((o) => o.position && Number.isFinite(o.position.lat) && Number.isFinite(o.position.lon))
+    .map((o) => ({ id: o.id, lat: o.position.lat, lon: o.position.lon, label: prixCourt(o.prixRecommande), taken: estPrise(o) }));
+  const horsCarte = radarListe.length - pointsCarte.length;
+  const legendeCarte = [
+    radar.zone ? `${radar.zone.ville || "Votre zone"} et ${radar.zone.radiusKm} km autour` : null,
+    pluriel(pointsCarte.length, "chantier"),
+    horsCarte ? `${horsCarte} sans lieu précis` : null
+  ].filter(Boolean).join(" · ");
+  const chiffresDispo = disponibles.filter((o) => o.prixRecommande?.ttc).length;
+
+  function choisirSurCarte(id) {
+    setLeadOuvert(id);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`lead-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }
 
   const aTraiter = useMemo(() => {
     const items = [];
@@ -239,6 +292,21 @@ function DashboardHome() {
         ton: "b",
         href: alert.projectId ? `/chantiers?project=${alert.projectId}` : "/chantiers",
         tri: alert.createdAt
+      });
+    }
+    // Tâches bloquées (PRO-02.7) : livraison attendue, réserve…
+    for (const tache of tasks) {
+      if (tache.done || !tache.bloquant?.raison) continue;
+      const chantier = projects.find((p) => p.id === tache.projectId);
+      items.push({
+        id: `tache-${tache.id}`,
+        rang: 0,
+        titre: `${tache.label}, ${chantier?.title || tache.project || "chantier"}`,
+        meta: `bloquant : ${tache.bloquant.raison}`,
+        tag: "Bloquant",
+        ton: "b",
+        href: tache.projectId ? `/chantiers?project=${tache.projectId}` : "/chantiers",
+        tri: tache.bloquant.depuis || ""
       });
     }
     for (const offre of offres) {
@@ -327,7 +395,7 @@ function DashboardHome() {
       });
     }
     return items.sort((a, b) => a.rang - b.rang || String(a.tri || "").localeCompare(String(b.tri || "")));
-  }, [urgentAlerts, offres, positions, suivis, calendarEvents, tasks, invoices, quotes, profileComplete, today]);
+  }, [urgentAlerts, offres, positions, suivis, calendarEvents, tasks, projects, invoices, quotes, profileComplete, today]);
 
   const aTraiterVisibles = toutAfficher ? aTraiter : aTraiter.slice(0, A_TRAITER_VISIBLES);
 
@@ -362,17 +430,6 @@ function DashboardHome() {
           </div>
         </div>
 
-        {demarrage ? (
-          <section className="kp-start" aria-label="Démarrage guidé">
-            <div>
-              <strong>Démarrage guidé · {demarrage.done} étape{demarrage.done > 1 ? "s" : ""} sur 6</strong>
-              <small>Entreprise, métiers et prix : trois étapes pour envoyer votre premier devis.</small>
-            </div>
-            <button type="button" className="link" onClick={passerDemarrage}>Passer</button>
-            <Link href="/demarrage" className="btn btn-sec">Continuer</Link>
-          </section>
-        ) : null}
-
         <section className="kp-hero" aria-label="Devis guidé">
           <div>
             <div className="kp-hero-k">Devis guidé</div>
@@ -406,12 +463,65 @@ function DashboardHome() {
             <div className="s">{aPlanifier ? `${aPlanifier} à planifier` : "en cours ou en attente"}</div>
           </Link>
           <Link href="/marketplace" className="kp-kpi">
-            <div className="l">Dans votre zone</div>
+            <div className="l">Koji dans la zone</div>
             <div className="v">{disponibles.length}</div>
             <div className="s">
-              {nouveaux.length ? `${pluriel(nouveaux.length, "nouveau", "nouveaux")} sur le Radar` : "chantiers prêts à être pris"}
+              {chiffresDispo === disponibles.length ? "chiffrés, prêts à être pris" : `${chiffresDispo} chiffrés, prêts à être pris`}
             </div>
           </Link>
+        </section>
+
+        <section className="kp-card" aria-label="Chiffres du mois">
+          <div className="kp-card-h">
+            <h2>{periode.titre}</h2>
+            <div className="kp-seg" role="group" aria-label="Période">
+              {periodes.map((p) => (
+                <button
+                  key={p.cle}
+                  type="button"
+                  className={p.cle === periode.cle ? "on" : ""}
+                  aria-pressed={p.cle === periode.cle}
+                  onClick={() => setPeriodeCle(p.cle)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="kp-ca-g">
+            <div>
+              <span>Facturé</span>
+              <b>{euro(chiffres.facture.total)}</b>
+              <small>HT · {resumeFacture(chiffres.facture)}</small>
+            </div>
+            <div>
+              <span>Encaissé</span>
+              <b>{euro(chiffres.encaisse.total)}</b>
+              <small>TTC · {chiffres.encaisse.paiements ? `${pluriel(chiffres.encaisse.paiements, "facture réglée", "factures réglées")}` : "aucun règlement"}</small>
+            </div>
+            <div>
+              <span>Reste à encaisser</span>
+              <b>{euro(chiffres.reste.total)}</b>
+              <small>TTC à ce jour · {resumeReste(chiffres.reste)}</small>
+            </div>
+          </div>
+          <div className="kp-ca-f">
+            <span>
+              Depuis janvier : {euro(chiffres.depuisJanvier)} HT facturés
+              {chiffres.marge ? (
+                <>
+                  {" · "}marge moyenne {Math.round(chiffres.marge.taux * 100)} %{" "}
+                  (<Link href="/comptabilite/chantiers">Coût des chantiers</Link>)
+                </>
+              ) : null}
+            </span>
+            <Link href="/facturation" className="kp-link">Voir les factures</Link>
+          </div>
+          {chiffres.facture.htEstimes ? (
+            <p className="kp-ca-n">
+              HT estimé avec une TVA à 20 % pour {pluriel(chiffres.facture.htEstimes, "facture", "factures")} sans devis rattaché.
+            </p>
+          ) : null}
         </section>
 
         <div className="kp-grid">
@@ -442,11 +552,22 @@ function DashboardHome() {
               <label className="kp-sort">
                 Trier
                 <select value={radarTri} onChange={(e) => { setRadarTri(e.target.value); setLeadOuvert(undefined); }}>
+                  <option value="prix">Prix recommandé, du plus haut</option>
                   <option value="recent">Plus récents</option>
-                  <option value="ancien">Plus anciens</option>
                 </select>
               </label>
             </div>
+
+            {offres.length ? (
+              <RadarMap
+                points={pointsCarte}
+                selectedId={idOuvert}
+                onSelect={choisirSurCarte}
+                zone={radar.zone}
+                caption={legendeCarte}
+                legende={{ nouveaux: nouveaux.length, prises: prises.length }}
+              />
+            ) : null}
 
             {offresLoading ? (
               <div className="kp-empty">Chargement…</div>
@@ -464,7 +585,7 @@ function DashboardHome() {
                   const ouvert = idOuvert === offre.id;
                   const etat = positions[offre.id];
                   return (
-                    <div key={offre.id} className={`kp-lead${ouvert ? " open" : ""}`}>
+                    <div key={offre.id} id={`lead-${offre.id}`} className={`kp-lead${ouvert ? " open" : ""}`}>
                       <button
                         type="button"
                         className="kp-lead-row"
@@ -479,20 +600,22 @@ function DashboardHome() {
                           </span>
                         </span>
                         <span className="kp-lead-r">
-                          <span className="kp-pr">{offre.metier || "Chantier"}</span>
+                          <span className="kp-pr">{prixCourt(offre.prixRecommande)}</span>
                           <span className="kp-sub">
-                            {prise ? <><IconCheck /> Position prise</> : estNouveau(offre.createdAt) ? "Nouveau" : pluriel(offre.photosCount || 0, "photo")}
+                            {prixPartiel(offre.prixRecommande) && !prise ? `Partiel, ${offre.prixRecommande.manquants} sans prix` : prise ? <><IconCheck /> Position prise</> : [offre.metier, estNouveau(offre.createdAt) ? "Nouveau" : null].filter(Boolean).join(" · ") || pluriel(offre.photosCount || 0, "photo")}
                           </span>
                         </span>
                       </button>
                       {ouvert ? (
                         <div className="kp-lead-det">
                           <div className="kp-ld-line">
+                            <span>Prix recommandé <b>{prixCourt(offre.prixRecommande)}{prixPartiel(offre.prixRecommande) ? ", partiel" : ""}</b></span>
                             <span>Métier <b>{offre.metier || "Non précisé"}</b></span>
                             {offre.delaiEstimeJours ? <span>Délai estimé <b>{pluriel(offre.delaiEstimeJours, "jour")}</b></span> : null}
                             <span>Photos <b>{offre.photosCount || 0}</b></span>
                             {prise ? <span>Suivi <b>{libelleSuivi(suivis[offre.id])}</b></span> : null}
                           </div>
+                          {notePrix(offre.prixRecommande) ? <p className="kp-lead-note">{notePrix(offre.prixRecommande)}</p> : null}
                           <div className="kp-lead-act">
                             {prise ? (
                               <span className="kp-tag-val"><IconCheck /> Position prise</span>

@@ -1,0 +1,197 @@
+/* Carte du Radar (maquette PRO-01 : .wmap, .wpin, .wchip, .wlegend, .wzoom). */
+.rm {
+  position: relative;
+  height: 300px;
+  margin: 12px 0 4px;
+  overflow: hidden;
+  background: #ECEAE3;
+  border: 1px solid var(--line, #D9D9D4);
+  border-radius: 2px;
+  font-family: inherit;
+}
+
+.rm.big {
+  height: 600px;
+}
+
+.rm-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.rm .maplibregl-canvas:focus-visible {
+  outline: 2px solid #171B1E;
+  outline-offset: -2px;
+}
+
+.rm-off {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #5B5F66;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Étiquette de prix : 4 px, pointe qui accroche le lieu. */
+.rm-pin {
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.rm-pin span {
+  position: relative;
+  display: block;
+  padding: 5px 9px;
+  background: #171B1E;
+  border: 1px solid #171B1E;
+  border-radius: 4px;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.rm-pin span::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom: 0;
+  border-top-color: #171B1E;
+}
+
+.rm-pin.done span {
+  background: #FFFFFF;
+  border-style: dashed;
+  border-color: #5B5F66;
+  color: #5B5F66;
+}
+
+.rm-pin.done span::after {
+  border-top-color: #5B5F66;
+}
+
+.rm-pin.sel span {
+  outline: 2px solid #171B1E;
+  outline-offset: 2px;
+}
+
+.rm-pin:focus-visible span {
+  outline: 2px solid #FFC400;
+  outline-offset: 2px;
+}
+
+.rm-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  padding: 5px 9px;
+  overflow: hidden;
+  background: #FFFFFF;
+  border: 1px solid var(--line, #D9D9D4);
+  border-radius: 2px;
+  color: #171B1E;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rm-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 14px;
+  padding: 6px 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--line, #D9D9D4);
+  border-radius: 2px;
+  color: #171B1E;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rm-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rm-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.rm-legend .dot {
+  background: #171B1E;
+}
+
+.rm-legend .ring {
+  border: 1.5px solid #171B1E;
+}
+
+.rm-zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  border: 1px solid var(--line, #D9D9D4);
+  border-radius: 2px;
+}
+
+.rm-zoom button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: #171B1E;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rm-zoom button + button {
+  border-top: 1px solid var(--line, #D9D9D4);
+}
+
+.rm-zoom button:hover {
+  background: #F5F5F2;
+}
+
+/* Crédits OpenStreetMap obligatoires : repliés au-dessus du zoom. */
+.rm .maplibregl-ctrl-bottom-right {
+  bottom: 74px;
+}
+
+.rm .maplibregl-ctrl-attrib.maplibregl-compact {
+  margin: 0 12px 0 0;
+}
+
+@media (max-width: 560px) {
+  .rm-legend {
+    gap: 10px;
+    font-size: 12px;
+  }
+}

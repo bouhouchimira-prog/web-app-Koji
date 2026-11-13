@@ -1,18 +1,25 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/koji_app_config.dart';
+import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
+import 'package:koji/features/auth/pro_auth_widgets.dart';
+import 'package:koji/features/auth/pro_forgot_password_screen.dart';
+import 'package:koji/features/demarrage/demarrage_logic.dart';
 import 'package:koji/features/quote/chantier_client_screen.dart';
 import 'package:koji/features/worker/worker_shell.dart';
 
@@ -40,6 +47,9 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
   final _password = TextEditingController();
   final _code = TextEditingController();
   final _codePassword = TextEditingController();
+  // Koji Pro (maquette PRO-00) : SIREN facultatif et case des conditions.
+  final _siren = TextEditingController();
+  bool _acceptedTerms = false;
 
   late KojiAuthTab _tab = widget.initialTab;
   _LoginMode _mode = _LoginMode.email;
@@ -60,6 +70,7 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     _password.dispose();
     _code.dispose();
     _codePassword.dispose();
+    _siren.dispose();
     super.dispose();
   }
 
@@ -88,8 +99,20 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
 
   Future<void> _signup() async {
     if (!_emailFormValid) return;
-    if (_password.text.length < 6) {
-      _snack('Le mot de passe doit contenir au moins 6 caractères.');
+    // Koji Pro : mêmes règles que le site (8 caractères, SIREN de 9 chiffres
+    // s'il est donné, conditions acceptées).
+    final minLength = _isClient ? 6 : 8;
+    if (_password.text.length < minLength) {
+      _snack('Le mot de passe doit contenir au moins $minLength caractères.');
+      return;
+    }
+    final siren = _siren.text.replaceAll(RegExp(r'[\s.]'), '');
+    if (!_isClient && siren.isNotEmpty && !RegExp(r'^\d{9}$').hasMatch(siren)) {
+      _snack('Le SIREN fait 9 chiffres. Vous pouvez aussi le laisser vide.');
+      return;
+    }
+    if (!_isClient && !_acceptedTerms) {
+      _snack("Cochez la case pour accepter les conditions d'utilisation.");
       return;
     }
     // Block the auth listener while the sign-up resolves: with e-mail
@@ -133,8 +156,33 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
 
     setState(() => _awaitingEmailConfirmation = false);
     final user = ref.read(authProvider).valueOrNull;
+    if (!_isClient && user != null) await _enregistrerFicheEntreprise(siren);
+    if (!mounted) return;
     if (user != null) {
-      context.go(_isClient ? '/client-home' : '/profession-selection');
+      context.go(_isClient ? '/client-home' : '/demarrage');
+    }
+  }
+
+  /// Koji Pro : enregistre l'acceptation des conditions et, si un SIREN est
+  /// donné, la fiche entreprise remplie depuis l'annuaire (même règle que
+  /// l'inscription web, app/api/entreprise/fiche-siren). Ne bloque jamais
+  /// l'inscription : en cas d'échec, la fiche se complète ensuite.
+  Future<void> _enregistrerFicheEntreprise(String siren) async {
+    final token = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (token == null) return;
+    try {
+      await http
+          .post(
+            Uri.parse('${KojiWebApiConfig.baseUrl}/api/entreprise/fiche-siren'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'siren': siren, 'acceptedTerms': true}),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Réseau indisponible : la fiche se remplit au démarrage guidé.
     }
   }
 
@@ -183,17 +231,31 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
         return;
       }
       final data = await ref.read(userRepositoryProvider).getUser(user.id);
+      final passe = await demarragePasse();
       if (!mounted) return;
-      final complete = data?['is_profile_complete'] == true;
-      context.go(complete ? '/home' : '/profession-selection');
+      // Démarrage guidé (PRO-01.1) tant que les étapes 1 à 3 manquent.
+      context.go(
+          essentielsFaitsDepuisLigne(data) || passe ? '/home' : '/demarrage');
     } catch (_) {
-      if (mounted) context.go('/profession-selection');
+      if (mounted) context.go('/demarrage');
     } finally {
       _navigating = false;
     }
   }
 
   void _forgotPassword() {
+    // Les deux apps passent par getkoji.io (lien qui ouvre /set-password,
+    // valable 30 minutes). L'ancien lien Supabase visait
+    // koji://reset-password, adresse que l'app ne sait pas ouvrir : le lien
+    // reçu ne menait nulle part. Koji Pro a l'écran de la maquette ; Koji
+    // garde sa boîte de dialogue jusqu'à CLI-05.
+    if (!_isClient) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) =>
+            ProForgotPasswordScreen(initialEmail: _email.text.trim()),
+      ));
+      return;
+    }
     final emailCtrl = TextEditingController(text: _email.text.trim());
     var sending = false;
     showDialog<void>(
@@ -229,18 +291,18 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
               loading: sending,
               height: 40,
               onPressed: () async {
-                final email = emailCtrl.text.trim();
+                final email = emailCtrl.text.trim().toLowerCase();
                 if (email.isEmpty) return;
                 setDs(() => sending = true);
                 try {
-                  await ref
-                      .read(authRepositoryProvider)
-                      .resetPassword(email: email);
+                  await envoyerLienKojiPro(email);
                   if (ctx.mounted) Navigator.pop(ctx);
-                  _snack('E-mail envoyé ! Vérifiez votre boîte de réception.');
-                } catch (e) {
+                  _snack('Si un compte existe pour cette adresse, un lien '
+                      'valable 30 minutes vient de vous être envoyé.');
+                } catch (_) {
                   setDs(() => sending = false);
-                  _snack(authErrorMessage(e));
+                  _snack('Envoi impossible pour le moment. Vérifiez la '
+                      'connexion puis réessayez.');
                 }
               },
             ),
@@ -257,8 +319,10 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
+    // Le nouveau message remplace le précédent au lieu d'attendre derrière.
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ── Build ──────────────────────────────────────────────────────────────
@@ -280,8 +344,246 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
 
     return LayoutBuilder(builder: (context, c) {
       final wide = c.maxWidth >= KojiBreakpoints.wide && c.maxHeight >= 640;
+      if (!_isClient) return _proLayout(context, wide);
       return wide ? _wideLayout(context) : _narrowLayout(context);
     });
+  }
+
+  // ── Koji Pro : maquette PRO-00 ───────────────────────────────────────────
+  // Téléphone : bandeau graphite puis formulaire sur fond blanc. Tablette :
+  // panneau graphite à gauche, formulaire à droite. Connexion par e-mail et
+  // mot de passe, Google (Android), accès ouvrier par identifiant. Pas encore
+  // dans l'app : code par SMS, Apple, Microsoft.
+
+  Widget _proLayout(BuildContext context, bool wide) {
+    final form = SingleChildScrollView(
+      padding: wide
+          ? const EdgeInsets.fromLTRB(64, 72, 64, 40)
+          : const EdgeInsets.fromLTRB(20, 24, 20, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: _proForm(context),
+        ),
+      ),
+    );
+    if (wide) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Row(
+          children: [
+            const Expanded(child: ProAuthPanel()),
+            Expanded(child: SafeArea(child: form)),
+          ],
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [const ProAuthBand(), Expanded(child: form)],
+      ),
+    );
+  }
+
+  Widget _proForm(BuildContext context) {
+    final loading = ref.watch(authProvider).isLoading && _authAttempted;
+    final isLogin = _tab == KojiAuthTab.login;
+    final isCode = isLogin && _mode == _LoginMode.code;
+    const gap = SizedBox(height: 14);
+
+    Widget eye() => IconButton(
+          tooltip: _obscure ? 'Afficher' : 'Masquer',
+          onPressed: () => setState(() => _obscure = !_obscure),
+          icon: KojiIcon(_obscure ? KojiIcons.eye : KojiIcons.eyeOff,
+              size: 19, color: ProAuth.grey),
+        );
+
+    final showGoogle = !kIsWeb && defaultTargetPlatform != TargetPlatform.iOS;
+    final providers = <Widget>[
+      if (showGoogle) ...[
+        const ProAuthOr(),
+        gap,
+        ProAuthProviderButton(
+          logo: SvgPicture.string(_GoogleButton._logo, width: 18, height: 18),
+          label: 'Continuer avec Google',
+          onTap: loading ? null : _google,
+        ),
+        gap,
+      ],
+    ];
+
+    final children = <Widget>[
+      ProAuthTabs(
+        login: isLogin,
+        onChanged: (login) => setState(() {
+          _tab = login ? KojiAuthTab.login : KojiAuthTab.signup;
+          _mode = _LoginMode.email;
+        }),
+      ),
+      const SizedBox(height: 20),
+    ];
+
+    if (isCode) {
+      children.addAll([
+        Text('Espace ouvrier',
+            style: ProAuth.text(20, weight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text("L'identifiant et le mot de passe fournis par votre entreprise.",
+            style: ProAuth.text(14, color: ProAuth.grey, height: 1.45)),
+        gap,
+        ProAuthField(
+          label: 'Identifiant',
+          controller: _code,
+          hint: 'Ex. OUV-123456',
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        gap,
+        ProAuthField(
+          label: 'Mot de passe',
+          controller: _codePassword,
+          obscure: _obscure,
+          suffix: eye(),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _codeLogin(),
+        ),
+        const SizedBox(height: 18),
+        ProAuthPrimaryButton(
+          label: 'Accéder à mon espace ouvrier',
+          loading: _codeLoading,
+          onPressed: _codeFormValid ? _codeLogin : null,
+        ),
+        gap,
+        ProAuthPill(
+          label: 'Retour à la connexion entreprise',
+          onTap: () => setState(() => _mode = _LoginMode.email),
+        ),
+      ]);
+    } else if (isLogin) {
+      children.addAll([
+        ProAuthField(
+          label: 'E-mail',
+          controller: _email,
+          hint: 'vous@exemple.fr',
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          onChanged: (_) => setState(() {}),
+        ),
+        gap,
+        ProAuthField(
+          label: 'Mot de passe',
+          controller: _password,
+          obscure: _obscure,
+          suffix: eye(),
+          autofillHints: const [AutofillHints.password],
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _login(),
+        ),
+        gap,
+        ProAuthPill(label: 'Mot de passe oublié ?', onTap: _forgotPassword),
+        const SizedBox(height: 18),
+        ProAuthPrimaryButton(
+          label: 'Se connecter',
+          loading: loading,
+          onPressed: _emailFormValid ? _login : null,
+        ),
+        gap,
+        ...providers,
+        GestureDetector(
+          onTap: () => setState(() => _mode = _LoginMode.code),
+          child: Text.rich(
+            TextSpan(children: [
+              const TextSpan(text: 'Compagnon ou ouvrier ? '),
+              TextSpan(
+                text: 'Entrer avec mon identifiant',
+                style: ProAuth.text(13,
+                    weight: FontWeight.w600, color: ProAuth.graphite),
+              ),
+            ]),
+            style: ProAuth.text(13, color: ProAuth.grey, height: 1.45),
+          ),
+        ),
+      ]);
+    } else {
+      children.addAll([
+        Text('Compte entreprise, gratuit',
+            style: ProAuth.text(20, weight: FontWeight.w700)),
+        gap,
+        ProAuthField(
+          label: 'E-mail',
+          controller: _email,
+          hint: 'vous@exemple.fr',
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          onChanged: (_) => setState(() {}),
+        ),
+        gap,
+        ProAuthField(
+          label: 'Mot de passe',
+          controller: _password,
+          hint: '8 caractères minimum',
+          obscure: _obscure,
+          suffix: eye(),
+          autofillHints: const [AutofillHints.newPassword],
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        gap,
+        ProAuthField(
+          label: 'SIREN · facultatif maintenant',
+          controller: _siren,
+          hint: 'Koji remplit votre fiche entreprise',
+          keyboardType: TextInputType.number,
+          maxLength: 14,
+        ),
+        gap,
+        ProAuthCheck(
+          value: _acceptedTerms,
+          onChanged: (v) => setState(() => _acceptedTerms = v),
+          title: GestureDetector(
+            onTap: () => _openUrl('${KojiWebApiConfig.baseUrl}/legal'),
+            child: Text.rich(
+                TextSpan(children: [
+                  const TextSpan(text: "J'accepte les "),
+                  TextSpan(
+                    text: "conditions d'utilisation",
+                    style: ProAuth.text(14, weight: FontWeight.w700)
+                        .copyWith(decoration: TextDecoration.underline),
+                  ),
+                ]),
+                style: ProAuth.text(14, weight: FontWeight.w700)),
+          ),
+          detail: Text(
+            "et j'ai lu la politique de confidentialité. Vos données servent "
+            'à votre compte Koji ; ABL Expert Renov, éditeur de Koji, en est '
+            'responsable.',
+            style: ProAuth.text(12, color: ProAuth.grey, height: 1.4),
+          ),
+        ),
+        const SizedBox(height: 18),
+        ProAuthPrimaryButton(
+          label: 'Créer mon compte',
+          loading: loading,
+          onPressed: _emailFormValid ? _signup : null,
+        ),
+        gap,
+        ...providers,
+        Text('Ensuite : démarrage guidé, 10 minutes.',
+            style: ProAuth.text(13, color: ProAuth.grey)),
+      ]);
+    }
+
+    return AutofillGroup(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
+    );
   }
 
   Widget _wideLayout(BuildContext context) {
@@ -502,10 +804,10 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     final p = context.koji;
     final isLogin = _tab == KojiAuthTab.login;
     return [
-      // google_sign_in needs a web client id on the web, which this project
-      // doesn't configure yet, so the button is mobile-only for now.
-      // Hidden on iOS too: App Store guideline 4.8 requires "Sign in with
-      // Apple" next to any third-party login, which isn't set up yet.
+      // Google opens in the browser and comes back to the app (see
+      // AuthRepository.signInWithGoogle). Mobile only: the website has its
+      // own Google button. Hidden on iOS: App Store guideline 4.8 requires
+      // "Sign in with Apple" next to any third-party login, not set up yet.
       if (!kIsWeb && defaultTargetPlatform != TargetPlatform.iOS) ...[
         _GoogleButton(
           label: isLogin ? 'Continuer avec Google' : "S'inscrire avec Google",

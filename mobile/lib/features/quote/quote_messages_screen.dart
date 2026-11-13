@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
+import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/providers/quote_message_provider.dart';
 import 'package:koji/features/quote/repositories/quote_message_repository.dart';
 
@@ -149,16 +150,72 @@ class _QuoteMessagesScreenState extends ConsumerState<QuoteMessagesScreen> {
     );
   }
 
+  String get _conversationLabel {
+    final name = widget.clientName?.trim() ?? '';
+    return name.isEmpty
+        ? 'Conversation du devis ${widget.quoteId}'
+        : 'Conversation du devis avec $name';
+  }
+
+  /// Text of the client's messages, newest last, for the report e-mail.
+  String _clientExcerpt() {
+    final messages =
+        ref.read(quoteMessagesProvider(widget.quoteId)).valueOrNull ?? const [];
+    return messages
+        .where((m) => !QuoteMessageRepository.isFromCompany(
+            (m['author_email'] as String?) ?? '', _companyEmail))
+        .map((m) => (m['text'] as String?)?.trim() ?? '')
+        .where((t) => t.isNotEmpty)
+        .toList()
+        .reversed
+        .take(5)
+        .toList()
+        .reversed
+        .join(' / ');
+  }
+
+  ReportTarget get _reportTarget => ReportTarget(
+        kind: 'message_devis',
+        id: widget.quoteId,
+        label: _conversationLabel,
+        excerpt: _clientExcerpt(),
+      );
+
+  Future<void> _onMenu(String action) async {
+    final moderation = ref.read(moderationProvider.notifier);
+    switch (action) {
+      case 'report':
+        await showReportDialog(context, ref, _reportTarget);
+      case 'block':
+        await confirmBlock(
+          context,
+          ref,
+          target: _reportTarget,
+          title: 'Bloquer ce client ?',
+          explanation:
+              'Ses messages sur ce devis seront masqués et vous ne recevrez '
+              'plus de notification de sa part. L\'équipe Koji est prévenue. '
+              'Vous pourrez le débloquer depuis cet écran.',
+          apply: () => moderation.setQuoteBlocked(widget.quoteId, true),
+        );
+      case 'unblock':
+        await moderation.setQuoteBlocked(widget.quoteId, false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(quoteMessagesProvider(widget.quoteId));
+    final blocked = ref.watch(
+        moderationProvider.select((s) => s.blockedQuotes.contains(widget.quoteId)));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F0EB),
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(),
+            _buildAppBar(blocked),
+            if (blocked) _buildBlockedBanner(),
             Expanded(
               child: messagesAsync.when(
                 loading: () =>
@@ -170,19 +227,53 @@ class _QuoteMessagesScreenState extends ConsumerState<QuoteMessagesScreen> {
                         textAlign: TextAlign.center),
                   ),
                 ),
-                data: (messages) => messages.isEmpty
-                    ? _buildEmptyState()
-                    : _buildMessageList(messages),
+                data: (all) {
+                  // A blocked client's messages are hidden; ours stay.
+                  final messages = blocked
+                      ? all
+                          .where((m) => QuoteMessageRepository.isFromCompany(
+                              (m['author_email'] as String?) ?? '',
+                              _companyEmail))
+                          .toList()
+                      : all;
+                  return messages.isEmpty
+                      ? _buildEmptyState()
+                      : _buildMessageList(messages);
+                },
               ),
             ),
-            _buildComposer(),
+            if (!blocked) _buildComposer(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildBlockedBanner() {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFFF7ED),
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      child: Row(
+        children: [
+          const Icon(Icons.block, size: 18, color: _navy),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Vous avez bloqué ce client : ses messages sont masqués.',
+              style: TextStyle(fontSize: 13, color: _navy),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _onMenu('unblock'),
+            child: const Text('Débloquer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppBar(bool blocked) {
     final title = (widget.clientName?.trim().isNotEmpty == true)
         ? widget.clientName!.trim()
         : 'Discussion';
@@ -216,6 +307,29 @@ class _QuoteMessagesScreenState extends ConsumerState<QuoteMessagesScreen> {
                 ),
               ],
             ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Signaler ou bloquer',
+            icon: const Icon(Icons.more_vert, color: _navy),
+            onSelected: _onMenu,
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'report',
+                child: ListTile(
+                  leading: Icon(Icons.flag_outlined),
+                  title: Text('Signaler la conversation'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: blocked ? 'unblock' : 'block',
+                child: ListTile(
+                  leading: const Icon(Icons.block),
+                  title: Text(blocked ? 'Débloquer ce client' : 'Bloquer ce client'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),

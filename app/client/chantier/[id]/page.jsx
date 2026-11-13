@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
+import { ClientFinChantier } from "../../../../components/ClientFinChantier";
+import "../../../../components/client-fin-chantier.css";
 import { useEffect, useRef, useState } from "react";
 import { euro, shortDate } from "../../../../lib/pricing";
 import { useLocale } from "../../../../lib/i18n";
@@ -361,7 +363,11 @@ export default function ClientChantierPage() {
                 <p className="ccd-client">{quote.client}</p>
               </div>
               {isSigned ? (
-                <a className="ghost-button" href={`/api/client/quotes/${quote.id}/pdf`} target="_blank" rel="noreferrer">{L.clientSpace.downloadPdf}</a>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <a className="ghost-button" href={`/api/client/quotes/${quote.id}/pdf`} target="_blank" rel="noreferrer">{L.clientSpace.downloadPdf}</a>
+                  {/* Dossier de fin de chantier remis par l'entreprise (PRO-02.5). */}
+                  {quote.dossierFinLe ? <a className="ghost-button" href={`/api/client/quotes/${quote.id}/dossier`} target="_blank" rel="noreferrer">Dossier de fin de chantier</a> : null}
+                </div>
               ) : null}
             </div>
 
@@ -382,6 +388,8 @@ export default function ClientChantierPage() {
               <div className="ccd-progress-bar"><div style={{ width: `${percent}%` }} /></div>
             </div>
           </div>
+
+          <ClientFinChantier quote={quote} entreprise={quote.company?.name || quote.companyName || ""} />
 
           <div className="ccd-general-urgence">
             {genUrgSent ? (

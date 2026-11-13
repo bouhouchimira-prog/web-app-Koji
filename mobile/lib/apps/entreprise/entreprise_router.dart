@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_fiche_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_shell.dart';
 import 'package:koji/core/route_args.dart';
 import 'package:koji/features/archives/archives_screen.dart';
@@ -9,6 +10,7 @@ import 'package:koji/features/auth/business_info_screen.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/auth/profession_selection_screen.dart';
 import 'package:koji/features/calendar/calendrier_screen.dart';
+import 'package:koji/features/demarrage/demarrage_screen.dart';
 import 'package:koji/features/calendar/data/calendar_event_model.dart';
 import 'package:koji/features/calendar/detail_planning_screen.dart';
 import 'package:koji/features/calendar/nouvel_evenement_screen.dart';
@@ -123,6 +125,16 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
             const BusinessInfoScreen(),
           ),
         ),
+        // Démarrage guidé (maquette PRO-01.1) : remplace l'accueil tant que
+        // les étapes 1 à 3 ne sont pas faites (voir SplashScreen).
+        GoRoute(
+          path: '/demarrage',
+          pageBuilder: (context, state) => _buildPageWithTransition(
+            context,
+            state,
+            const DemarrageScreen(),
+          ),
+        ),
         GoRoute(
           path: '/profession-selection',
           pageBuilder: (context, state) => _buildPageWithTransition(
@@ -153,8 +165,21 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 const ChantierCreationScreen(),
               ),
             ),
+            // Fiche chantier (maquette PRO-02.1) ; l'ancien tableau de bord
+            // (budget, dépenses, suivi des ouvriers) reste sous /chantier/outils.
             GoRoute(
               path: '/chantier/dashboard',
+              pageBuilder: (context, state) {
+                final data = state.extra as Map<String, dynamic>? ?? {};
+                return _buildPageWithTransition(
+                  context,
+                  state,
+                  ProFicheChantierScreen(projectId: '${data['id'] ?? ''}'),
+                );
+              },
+            ),
+            GoRoute(
+              path: '/chantier/outils',
               pageBuilder: (context, state) {
                 final data = state.extra as Map<String, dynamic>? ?? {};
                 return _buildPageWithTransition(

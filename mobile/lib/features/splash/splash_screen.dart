@@ -3,14 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:koji/design/koji_theme.dart';
 import 'package:koji/app/koji_app_config.dart';
-import 'package:koji/core/responsive_helper.dart';
-import 'package:koji/design/koji_tokens.dart';
+import 'package:koji/design/koji_brand_marks.dart';
+import 'package:koji/design/koji_theme.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
+import 'package:koji/features/demarrage/demarrage_logic.dart';
 
+/// Écran de démarrage de chaque app (maquettes PRO-00.1 et CLI-05) : pas de
+/// porte d'entrée commune sur mobile, chaque application a la sienne.
+/// - Koji Pro : mot-symbole blanc sur graphite, « Décrivez le chantier. Koji
+///   le chiffre. », étoile jaune de Koji pendant le chargement.
+/// - Koji : mot-symbole sable sur marine, « Votre projet, suivi simplement. »,
+///   pas d'étoile (l'assistant n'est pas l'identité côté particulier).
+/// Une seconde au plus, jamais de publicité ni de numéro de version.
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -18,23 +24,55 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
+/// Couleurs de la charte v2 (mêmes valeurs que le site, SITE-00).
+class SplashPalette {
+  const SplashPalette({
+    required this.fond,
+    required this.motSymbole,
+    required this.phrase,
+    required this.chargement,
+    required this.texte,
+    required this.texteChargement,
+    required this.etoile,
+  });
+
+  final Color fond;
+  final Color motSymbole;
+  final Color phrase;
+  final Color chargement;
+  final String texte;
+  final String texteChargement;
+  final bool etoile;
+
+  static const pro = SplashPalette(
+    fond: Color(0xFF171B1E),
+    motSymbole: Color(0xFFFFFFFF),
+    phrase: Color(0xFFC4C7CC),
+    chargement: Color(0xFF8A8F98),
+    texte: 'Décrivez le chantier. Koji le chiffre.',
+    texteChargement: 'Chargement de vos chantiers…',
+    etoile: true,
+  );
+
+  static const client = SplashPalette(
+    fond: Color(0xFF101529),
+    motSymbole: Color(0xFFE7D8C5),
+    phrase: Color(0xFFC9CDE0),
+    chargement: Color(0xFF8A90AA),
+    texte: 'Votre projet, suivi simplement.',
+    texteChargement: 'Chargement…',
+    etoile: false,
+  );
+
+  static SplashPalette get courante => KojiAppConfig.isClient ? client : pro;
+}
+
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
-  // Brand palette: cream wordmark on the navy of the koji design.
-  static const _navy = KojiColors.navy;
-  static const _cream = KojiColors.cream;
-
-  // One controller drives the whole intro; each element reads its own slice of
-  // the 0→1 timeline via Interval so the logo lands first, then "Kôji" rises in,
-  // then the accent underline draws across.
-  late final AnimationController _controller;
-
-  late final Animation<double> _logoFade;
-  late final Animation<double> _logoScale;
-  late final Animation<double> _wordFade;
-  late final Animation<double> _wordSlide; // px upward
-  late final Animation<double> _wordSpacing; // letter-spacing settle
-  late final Animation<double> _underline; // 0→1 width factor
+  late final AnimationController _fondu = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 250),
+  )..forward();
 
   bool _isAnimationDone = false;
   bool _hasNavigated = false;
@@ -42,65 +80,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1700),
-      vsync: this,
-    );
-
-    // ── Logo: fade + gentle scale-up, first third of the timeline ──
-    _logoFade = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.40, curve: Curves.easeOut),
-    );
-    _logoScale = Tween<double>(begin: 0.80, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.45, curve: Curves.easeOutBack),
-      ),
-    );
-
-    // ── "Kôji" wordmark: rises up + fades in, with letter-spacing settling
-    //    from wide to tight for a polished reveal ──
-    _wordFade = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.40, 0.75, curve: Curves.easeOut),
-    );
-    _wordSlide = Tween<double>(begin: 18.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.40, 0.80, curve: Curves.easeOutCubic),
-      ),
-    );
-    _wordSpacing = Tween<double>(begin: 10.0, end: 2.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.40, 0.85, curve: Curves.easeOut),
-      ),
-    );
-
-    // ── Accent underline draws across last, tying it together ──
-    _underline = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.70, 1.0, curve: Curves.easeInOut),
-    );
-
-    _controller.forward();
-
-    // Hold the finished intro briefly before navigating away.
-    Future.delayed(const Duration(milliseconds: 1900), () {
-      if (mounted) {
-        setState(() {
-          _isAnimationDone = true;
-        });
-        _attemptNavigation();
-      }
+    // Le temps de lire la phrase ; la navigation part dès que la session est
+    // connue (au plus une seconde d'écran au total).
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      _isAnimationDone = true;
+      _attemptNavigation();
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _fondu.dispose();
     super.dispose();
   }
 
@@ -148,18 +139,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           unawaited(userRepository.setIsPro(user.id, true));
         }
 
-        // ENTREPRISE — check onboarding completion. Either a real logo or
-        // an explicit "skipped" flag is enough to bypass /business-info.
-        if (!hasBusinessLogo && !isBusinessInfoComplete) {
-          if (mounted) context.go('/business-info');
-        } else if (!isProfileComplete) {
-          if (mounted) context.go('/profession-selection');
+        // ENTREPRISE — démarrage guidé (maquette PRO-01.1) tant que
+        // l'entreprise, les métiers et la zone, et les prix ne sont pas
+        // renseignés, sauf si l'artisan a choisi « Plus tard ».
+        if (!essentielsFaitsDepuisLigne(userData) && !await demarragePasse()) {
+          if (mounted) context.go('/demarrage');
         } else {
           if (mounted) context.go('/home');
         }
       } catch (e) {
-        // Error fetching user data - go to business info to be safe
-        if (mounted) context.go('/business-info');
+        // Profil illisible : le démarrage guidé sait réessayer ou passer.
+        if (mounted) context.go('/demarrage');
       }
     }
   }
@@ -172,100 +162,109 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       }
     });
 
-    final responsive = context.responsive;
-    // Sizes follow the phone width but stop growing on tablets / the web.
-    final logoSize = responsive.width(34.0).clamp(0.0, 140.0);
-    final wordSize = responsive.width(11).clamp(0.0, 46.0);
+    return FadeTransition(
+      opacity: _fondu,
+      child: SplashView(palette: SplashPalette.courante),
+    );
+  }
+}
+
+/// Partie visuelle de l'écran de démarrage (testée seule, sans session).
+class SplashView extends StatelessWidget {
+  const SplashView({super.key, required this.palette});
+
+  final SplashPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+    TextStyle style(double size, Color color) => TextStyle(
+          fontFamily: KojiTheme.proFontFamily, // DM Sans, charte v2
+          fontSize: size,
+          color: color,
+          height: 1.3,
+        );
 
     return Scaffold(
-      backgroundColor: _navy,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [KojiColors.navyDeep, KojiColors.navy, KojiColors.navySoft],
-          ),
-        ),
-        child: Center(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Column(
+      backgroundColor: p.fond,
+      body: Stack(
+        children: [
+          Align(
+            alignment: const Alignment(0, -0.12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Logo ──
-                  Opacity(
-                    opacity: _logoFade.value,
-                    child: Transform.scale(
-                      scale: _logoScale.value,
-                      child: SvgPicture.asset(
-                        'assets/icons/LOGO.svg',
-                        width: logoSize,
-                        height: logoSize,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: logoSize * 0.15),
-
-                  // ── "Koji" wordmark: fade + rise + letter-spacing settle ──
-                  Opacity(
-                    opacity: _wordFade.value,
-                    child: Transform.translate(
-                      offset: Offset(0, _wordSlide.value),
-                      child: Text(
-                        KojiAppConfig.appName,
-                        style: TextStyle(
-                          fontFamily: KojiTheme.fontFamily,
-                          color: Colors.white,
-                          fontSize: wordSize,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: _wordSpacing.value - 2,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: logoSize * 0.1),
-
-                  // ── Accent underline that draws across under the wordmark ──
-                  Opacity(
-                    opacity: _underline.value.clamp(0.0, 1.0),
-                    child: Container(
-                      width: logoSize * 0.65 * _underline.value,
-                      height: 2.5,
-                      decoration: BoxDecoration(
-                        color: KojiColors.gold,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-
+                  KojiWordmark(height: 34, color: p.motSymbole),
                   const SizedBox(height: 14),
-
-                  // ── Which space this app opens ──
-                  Opacity(
-                    opacity: _underline.value.clamp(0.0, 1.0),
-                    child: Text(
-                      KojiAppConfig.espaceLabel.toUpperCase(),
-                      style: const TextStyle(
-                        fontFamily: KojiTheme.fontFamily,
-                        color: _cream,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.8,
-                      ),
-                    ),
-                  ),
+                  Text(p.texte,
+                      textAlign: TextAlign.center, style: style(14, p.phrase)),
                 ],
-              );
-            },
+              ),
+            ),
           ),
-        ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 56 + MediaQuery.paddingOf(context).bottom,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (p.etoile) ...[
+                  const _EtoileKoji(),
+                  const SizedBox(height: 10),
+                ],
+                Text(p.texteChargement, style: style(12, p.chargement)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// L'étoile jaune de Koji, toujours sur du graphite (charte v2).
+class _EtoileKoji extends StatelessWidget {
+  const _EtoileKoji();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2F33),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: CustomPaint(
+        size: const Size(20, 20),
+        painter: _EtoilePainter(),
+      ),
+    );
+  }
+}
+
+class _EtoilePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Même tracé que l'icône de Koji sur le site (viewBox 24 × 24).
+    final k = size.width / 24;
+    final path = Path()
+      ..moveTo(12 * k, 3 * k)
+      ..lineTo(14.2 * k, 8.8 * k)
+      ..lineTo(20 * k, 11 * k)
+      ..lineTo(14.2 * k, 13.2 * k)
+      ..lineTo(12 * k, 19 * k)
+      ..lineTo(9.8 * k, 13.2 * k)
+      ..lineTo(4 * k, 11 * k)
+      ..lineTo(9.8 * k, 8.8 * k)
+      ..close();
+    canvas.drawPath(path, Paint()..color = const Color(0xFFFFC400));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

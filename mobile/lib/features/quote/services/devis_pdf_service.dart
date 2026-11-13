@@ -554,6 +554,7 @@ class DevisPdfService {
     final fntLines = <pw.Widget>[];
     final chargeLines = <Map<String, dynamic>>[];
     final attenteLines = <Map<String, dynamic>>[];
+    final varianteLines = <Map<String, dynamic>>[];
 
     for (final item in items) {
       // Commentaire / note libre : annotation interne, JAMAIS rendue sur le
@@ -566,6 +567,11 @@ class DevisPdfService {
       }
       if (type == 'attente') {
         attenteLines.add(item);
+        continue;
+      }
+      // Variante (PRO-03.1) : proposée au client, hors total.
+      if (type == 'variante' || item['variante'] == true) {
+        varianteLines.add(item);
         continue;
       }
       final qty = _num(item['quantity']);
@@ -646,7 +652,8 @@ class DevisPdfService {
     if (moLines.isEmpty &&
         fntLines.isEmpty &&
         chargeLines.isEmpty &&
-        attenteLines.isEmpty) {
+        attenteLines.isEmpty &&
+        varianteLines.isEmpty) {
       return <pw.Widget>[];
     }
 
@@ -662,6 +669,8 @@ class DevisPdfService {
           const PdfColor.fromInt(0xFFFFF7ED),
           const PdfColor.fromInt(0xFFB45309)),
       noteBlock('EN ATTENTE DE VOTRE DÉCISION', attenteLines,
+          const PdfColor.fromInt(0xFFF1F5F9), PdfColors.grey700),
+      noteBlock('VARIANTE · NON COMPRISE DANS LE TOTAL', varianteLines,
           const PdfColor.fromInt(0xFFF1F5F9), PdfColors.grey700),
     ];
   }

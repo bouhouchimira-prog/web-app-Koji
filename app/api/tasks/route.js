@@ -115,6 +115,14 @@ export async function PATCH(request) {
       task.validatedAt = new Date().toISOString();
       task.validatedBy = "patron";
     }
+  } else if (body.action === "bloquer") {
+    // Tâche bloquée (livraison, réserve…), maquette PRO-02.7 : remonte sur
+    // l'accueil et dans la liste des chantiers.
+    const raison = fixText(String(body.raison || "").trim().slice(0, 200));
+    if (!raison) return badRequest("Dites ce qui bloque la tâche.");
+    task.bloquant = { raison, depuis: new Date().toISOString() };
+  } else if (body.action === "debloquer") {
+    task.bloquant = null;
   } else if (body.action === "validate") {
     task.done = true;
     task.pendingValidation = false;

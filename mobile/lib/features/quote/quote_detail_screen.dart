@@ -59,7 +59,10 @@ class _DevisLine {
 
   bool get isCharge => lineType == 'charge';
   bool get isAttente => lineType == 'attente';
-  bool get isBillable => lineType == 'normal';
+  // Variante (maquette PRO-03.1) : chiffrée comme une ligne normale, montrée
+  // au client, mais jamais dans le total du lot ni du devis.
+  bool get isVariante => lineType == 'variante';
+  bool get isBillable => lineType == 'normal' || lineType == 'variante';
 
   // Free-form commentaire shown under the line (devis & PDF). Editable from the
   // recap so the entrepreneur can detail the prestation without leaving the page.
@@ -98,6 +101,8 @@ class _DevisLine {
       ? fournituresUnitPrice * billedFournituresQty
       : 0.0;
   double get totalLigne => totalMO + totalFournitures;
+  // Ce qui compte dans les totaux : rien pour une variante.
+  double get totalCompte => isVariante ? 0.0 : totalLigne;
 
   _DevisLine({
     required this.taskId,
@@ -380,7 +385,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
           forfaitEnabled: forfaitEnabled,
           forfaitPrice: forfaitPrice,
           hideFournitures: td['hideFournitures'] == true,
-          lineType: td['lineType']?.toString() ?? 'normal',
+          lineType: td['lineType']?.toString() ??
+              (td['variante'] == true ? 'variante' : 'normal'),
           commentaire: td['commentaire']?.toString() ??
               inputs['commentaire']?.toString() ??
               '',
@@ -508,7 +514,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
             forfaitEnabled: forfaitEnabled,
             forfaitPrice: forfaitPrice,
             hideFournitures: inputs['hideFournitures'] == true,
-            lineType: inputs['lineType']?.toString() ?? 'normal',
+            lineType: inputs['lineType']?.toString() ??
+                (inputs['variante'] == true ? 'variante' : 'normal'),
             commentaire: inputs['commentaire']?.toString() ?? '',
             fournisseurId: inputs['fournisseurId']?.toString() ?? '',
             fournisseurName: inputs['fournisseurName']?.toString() ?? '',
@@ -558,17 +565,20 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   }
 
   // ── Totals ───────────────────────────────────────────────────────────────────
-  double get _grandTotalMO =>
-      _linesByRoom.values.expand((l) => l).fold(0.0, (s, l) => s + l.totalMO);
+  double get _grandTotalMO => _linesByRoom.values
+      .expand((l) => l)
+      .where((l) => !l.isVariante)
+      .fold(0.0, (s, l) => s + l.totalMO);
 
   double get _grandTotalFournitures => _linesByRoom.values
       .expand((l) => l)
+      .where((l) => !l.isVariante)
       .fold(0.0, (s, l) => s + l.totalFournitures);
 
   /// HT of a single lot (room) = its MO + billed fournitures (charge/attente
   /// lines contribute 0 via the line getters).
   double _lotTotalHT(String roomId) =>
-      (_linesByRoom[roomId] ?? const []).fold(0.0, (s, l) => s + l.totalLigne);
+      (_linesByRoom[roomId] ?? const []).fold(0.0, (s, l) => s + l.totalCompte);
 
   /// Sum of all lot totals (before global %).
   double get _subtotalLots => _grandTotalMO + _grandTotalFournitures;
@@ -701,6 +711,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                 'isFourniture': l.isFourniture,
                 'hideFournitures': l.hideFournitures,
                 'lineType': l.lineType,
+                'variante': l.isVariante,
                 'commentaire': l.commentaire,
                 'fournisseurId': l.fournisseurId,
                 'fournisseurName': l.fournisseurName,
@@ -758,6 +769,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                 'fournituresTotal': l.totalFournitures,
                 'hideFournitures': l.hideFournitures,
                 'lineType': l.lineType,
+                'variante': l.isVariante,
                 'commentaire': l.commentaire,
                 'fournisseurId': l.fournisseurId,
                 'fournisseurName': l.fournisseurName,
@@ -770,6 +782,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
               'famille': l.famille,
               'parentTaskId': l.parentTaskId,
               'lineType': l.lineType,
+                'variante': l.isVariante,
               'commentaire': l.commentaire,
               'fournisseurId': l.fournisseurId,
               'fournisseurName': l.fournisseurName,
@@ -2201,7 +2214,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
 
   Widget _buildRoomSection(String roomId) {
     final lines = _linesByRoom[roomId] ?? [];
-    final roomTotal = lines.fold(0.0, (s, l) => s + l.totalLigne);
+    final roomTotal = lines.fold(0.0, (s, l) => s + l.totalCompte);
 
     // Split sous-ouvrages from top-level lines: a line whose parentTaskId
     // matches another line of this room is rendered indented under that parent
@@ -2474,7 +2487,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                   ),
                   child: Text(
                     line.isBillable
-                        ? '${displayTotal.toStringAsFixed(2)} €'
+                        ? '${displayTotal.toStringAsFixed(2)} €${line.isVariante ? ' · variante' : ''}'
                         : (line.isCharge ? 'À charge' : 'En attente'),
                     style: TextStyle(
                       fontSize: 12,
@@ -2496,6 +2509,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                       case 'normal':
                       case 'charge':
                       case 'attente':
+                      case 'variante':
                         setState(() =>
                             _linesByRoom[roomId]![lineIndex].lineType = v);
                         break;
@@ -2531,6 +2545,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                     const PopupMenuItem(
                         value: 'attente',
                         child: Text('En attente de votre décision')),
+                    const PopupMenuItem(
+                        value: 'variante',
+                        child: Text('Variante (hors total)')),
                     const PopupMenuDivider(),
                     const PopupMenuItem(
                         value: 'delete',

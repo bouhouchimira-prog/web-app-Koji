@@ -4,6 +4,8 @@ import { resolveEntreprise, loadEntrepriseProfile } from "../../../../lib/entrep
 import { distanceKm } from "../../../../lib/geo";
 import { fixText } from "../../../../lib/text";
 import { maskedCityPostal } from "../../../../lib/offer-privacy";
+import { prixRecommandesPour } from "../../../../lib/prix-recommande-server";
+import { positionApprochee, zoneDeTravail } from "../../../../lib/radar-position";
 
 // Cote entreprise (Koji Pro) de Radar des Chantiers : liste des offres
 // publiees par des particuliers. Diffusion par zone/metier (cahier des
@@ -18,7 +20,7 @@ import { maskedCityPostal } from "../../../../lib/offer-privacy";
 // app/api/marketplace/offres/[id]/route.js) : seule ville + code postal,
 // jusqu'au RDV confirme (12 oct, bug remonte par Amira — l'adresse complete
 // fuyait ici malgre le commentaire d'origine qui pretendait le contraire).
-function publicMarketplaceOffer(offer) {
+function publicMarketplaceOffer(offer, prixRecommande = null) {
   return {
     id: offer.id,
     photosCount: Array.isArray(offer.photos) ? offer.photos.length : 0,
@@ -27,7 +29,13 @@ function publicMarketplaceOffer(offer) {
     address: maskedCityPostal(offer),
     delaiEstimeJours: offer.delaiEstimeJours || null,
     status: offer.status,
-    createdAt: offer.createdAt
+    createdAt: offer.createdAt,
+    // Calculé avec la bibliothèque et le taux de CETTE entreprise
+    // (lib/prix-recommande.js) ; null quand rien n'a pu être chiffré.
+    prixRecommande,
+    // Carte du Radar : centre d'une maille de ~2 km, jamais l'adresse
+    // géocodée (lib/radar-position.js) ; null sans géocodage.
+    position: positionApprochee(offer.lat, offer.lon)
   };
 }
 
@@ -64,8 +72,14 @@ export async function GET(request) {
   const offres = (db.chantierOffres || [])
     .filter((offre) => offre.status === "Publiee")
     .filter((offre) => matchesZoneAndMetier(offre, zone, professions))
-    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
-    .map(publicMarketplaceOffer);
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const prix = await prixRecommandesPour({ db, userId: entreprise.userId, business, offres })
+    .catch(() => new Map());
 
-  return ok({ offres });
+  return ok({
+    offres: offres.map((offre) => publicMarketplaceOffer(offre, prix.get(offre.id) || null)),
+    // Pour centrer et légender la carte : la zone de travail de l'entreprise.
+    zone: zoneDeTravail(business)
+  });
 }
+

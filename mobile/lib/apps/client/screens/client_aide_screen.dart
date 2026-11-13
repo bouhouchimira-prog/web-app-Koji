@@ -29,8 +29,8 @@ const _articles = [
     'publier',
     'Publier un chantier gratuitement',
     'Depuis "+ Publier un chantier", décrivez votre projet à l\'assistant '
-        "koji (avec des photos si besoin) : il prépare une fourchette de "
-        "prix indicative et publie votre demande aux entreprises de votre "
+        "koji (avec des photos si besoin) : il prépare une le détail des "
+        "travaux et publie votre demande aux entreprises de votre "
         "secteur. C'est gratuit et illimité.",
   ),
   (

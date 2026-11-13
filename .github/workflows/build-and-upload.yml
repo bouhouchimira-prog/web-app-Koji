@@ -95,7 +95,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'  # maplibre_gl (carte du Radar) compile en Java 21
 
       - uses: subosito/flutter-action@v2
         with:
@@ -124,6 +124,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        # Google se connecte par le navigateur (13 nov) : plus besoin de
+        # GOOGLE_WEB_CLIENT_ID ni d'empreinte SHA-1 pour l'app.
         run: |
           jq -n --arg u "$SUPABASE_URL" --arg k "$SUPABASE_ANON_KEY" \
             '{SUPABASE_URL: $u, SUPABASE_ANON_KEY: $k}' > "$RUNNER_TEMP/defines.json"

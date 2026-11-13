@@ -25,6 +25,18 @@ const PUBLIC_ROUTES: Array<{
   priority: number;
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
+  // Page d'accueil des entreprises (SITE-01) : c'est elle qui porte le
+  // contenu, la racine ne fait que choisir entre les deux univers.
+  { path: "/entreprise", changeFrequency: "weekly", priority: 0.9 },
+  // Page Tarifs (SITE-03).
+  { path: "/entreprise/tarifs", changeFrequency: "monthly", priority: 0.8 },
+  // Pages Métiers (SITE-04) : une par métier dont le contenu est écrit.
+  { path: "/entreprise/metiers/plombier", changeFrequency: "monthly", priority: 0.7 },
+  // Contact et démonstration (SITE-06), À propos (SITE-07).
+  { path: "/entreprise/contact", changeFrequency: "yearly", priority: 0.5 },
+  { path: "/a-propos", changeFrequency: "yearly", priority: 0.4 },
+  // Page d'accueil des particuliers (SITE-02).
+  { path: "/particulier", changeFrequency: "weekly", priority: 0.9 },
   { path: "/login", changeFrequency: "monthly", priority: 0.8 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.8 },
   { path: "/worker", changeFrequency: "monthly", priority: 0.5 },

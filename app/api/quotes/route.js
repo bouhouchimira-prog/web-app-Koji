@@ -15,7 +15,8 @@ import { recordEstimationAccuracy } from "../../../lib/estimation-accuracy";
 import { recordIaDevisOutcome } from "../../../lib/ia-devis-outcomes";
 import { checkTrialSendLimit, checkTrialEditLimit, persistTrialPatch } from "../../../lib/plan";
 import { buildWebUser } from "../../../lib/user-profile";
-import { sendQuoteToClientEmail } from "../../../lib/mailer";
+import { sendClientMessageEmail, sendQuoteToClientEmail } from "../../../lib/mailer";
+import { compterDevis, messageRelance } from "../../../lib/devis-liste";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -227,6 +228,13 @@ export async function GET(request) {
   const quotes = (data || [])
     .map((row) => withClientPortalAccess(mapQuote(row), db))
     .filter((quote) => !quote.internalOnly);
+
+  // Badge Devis du menu (PRO-03) : seulement les compteurs, sur ses propres
+  // devis (même pour un compte admin).
+  if (new URL(request.url).searchParams.get("compteurs") === "1") {
+    const miens = quotes.filter((q) => q.userId === auth.userId && q.status !== "Archive");
+    return ok({ compteurs: compterDevis(miens, new Date().toISOString().slice(0, 10)) });
+  }
   const nextQuoteNumber = await nextQuoteNumberFor(auth);
 
   return ok({ quotes, nextQuoteNumber });
@@ -512,6 +520,29 @@ export async function PATCH(request) {
     quote.status = "Refuse";
     quote.refusedAt = now;
     quote.refusalReason = fixText(body.refusalReason || "");
+  }
+
+  // Relance d'un devis envoyé sans réponse (maquette PRO-03) : e-mail au
+  // client avec le lien de signature ; le mot de passe reste celui du premier
+  // envoi (il n'est jamais stocké en clair).
+  if (action === "relancer") {
+    if (quote.status !== "Envoye" || quote.signatureStatus === "Signe") return badRequest("Seul un devis envoyé, pas encore signé, se relance.");
+    if (!quote.clientEmail) return badRequest("Pas d'e-mail client sur ce devis.");
+    if (!quote.signatureUrl) return badRequest("Lien de signature introuvable : renvoyez le devis.");
+    const message = fixText(String(body.message || "").trim()) || messageRelance(quote, { entreprise: quote.company?.name || "" });
+    const lien = [
+      "",
+      `Consulter et signer le devis : ${quote.signatureUrl}`,
+      quote.signatureAccessIdentifier ? `Identifiant : ${quote.signatureAccessIdentifier} (mot de passe reçu avec le premier envoi).` : ""
+    ].filter((l, i) => l || i === 0).join("\n");
+    const envoi = await sendClientMessageEmail({
+      to: quote.clientEmail,
+      subject: `Votre devis ${quote.quoteNumber}`,
+      message: `${message}\n${lien}`,
+      replyTo: quote.company?.email || undefined
+    });
+    if (!envoi.ok) return badRequest(`La relance n'est pas partie : ${envoi.error}`, 502);
+    quote.relances = [...(quote.relances || []), { le: now, canal: "email" }];
   }
 
   if (action === "archive") {

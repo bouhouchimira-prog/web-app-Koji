@@ -1,393 +1,505 @@
-/* Scoped under .el: EntrepriseLogin refactored with KOJI Pro design system */
+/* Écrans de compte Koji Pro : maquettes PRO-00 (connexion, inscription) et
+   PRO-00.1 (mot de passe, activation). Gabarit .ea (panneau + formulaire),
+   formulaire .el. Charte v2 : DM Sans, graphite #171B1E, un seul jaune
+   (#FFC400) par zone, arrondis 4 px pour ce qu'on touche. */
 
-.el {
-  --paper: #ECECE6;
-  --card: #FFFFFF;
+.ea {
   --ink: #171B1E;
   --grey: #5B5F66;
-  --line: #D6D6CF;
+  --line: #CFCFC9;
+  --field: #8A8F98;
   --yellow: #FFC400;
-  --radius: 2px;
-
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  background: #FFFFFF;
+  color: var(--ink);
+  font-family: var(--lp-font), "DM Sans", Arial, sans-serif;
 }
 
-.el-badge {
-  display: inline-flex;
+.ea *,
+.ea *::before,
+.ea *::after {
+  box-sizing: border-box;
+}
+
+.ea-form {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--yellow);
+  padding: 72px 64px;
+  background: #FFFFFF;
+}
+
+.ea-in {
+  width: 100%;
+  max-width: 440px;
+}
+
+.ea-aside {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
+/* Sélecteur de langue (components/LangSwitcher.jsx, pensé pour un fond
+   sombre) : version claire. */
+.ea-aside .topbar-lang-btn {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #F5F5F2;
   color: var(--ink);
-  width: fit-content;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.ea-aside .topbar-lang-btn:hover {
+  background: #E2E2DB;
+  border-color: var(--line);
+}
+
+.ea-aside .topbar-lang-dropdown {
+  border-radius: 8px;
+}
+
+/* Formulaire */
+.el {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.el a {
+  color: inherit;
 }
 
 .el-tabs {
   display: flex;
+  gap: 3px;
   border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
 }
 
 .el-tab {
-  flex: 1 1 0;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   margin-bottom: -1px;
+  padding: 9px 16px;
+  background: #DEDED6;
+  border: 1px solid var(--line);
+  border-top: 3px solid transparent;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  color: #3A3F44;
   font-size: 15px;
   font-weight: 600;
-  color: var(--grey);
   text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: color 0.16s, border-color 0.16s;
 }
 
-.el-tab:hover {
+a.el-tab:hover {
+  background: #D2D2C9;
   color: var(--ink);
 }
 
 .el-tab.on {
+  position: relative;
+  z-index: 1;
+  background: #FFFFFF;
+  border-top-color: var(--yellow);
   color: var(--ink);
   font-weight: 700;
-  border-bottom-color: var(--ink);
 }
 
-.el-title {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--ink);
+.el-h {
+  margin: 6px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.el-p {
   margin: 0;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
-}
-
-.el-subtitle {
-  font-size: 16px;
-  color: var(--grey);
-  margin: 0 0 8px;
+  font-size: 15px;
   line-height: 1.5;
-}
-
-.el-sso {
-  margin-bottom: 8px;
+  color: #3A3F44;
 }
 
 .el-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .el-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .el-field label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: 0.02em;
-}
-
-.el-field-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  font-size: 12px;
+  color: var(--grey);
 }
 
 .el-input {
   width: 100%;
-  height: 48px;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
+  height: 46px;
   padding: 0 12px;
-  font-size: 15px;
+  background: #FFFFFF;
+  border: 1px solid var(--field);
+  border-radius: 4px;
   color: var(--ink);
-  background: var(--card);
-  font-family: inherit;
-  transition: border-color 0.15s, background 0.15s;
-  box-sizing: border-box;
-}
-
-.el-input:focus {
-  outline: none;
-  border-color: var(--ink);
-  background: var(--card);
+  font: inherit;
+  font-size: 15px;
 }
 
 .el-input::placeholder {
-  color: var(--grey);
-  opacity: 0.6;
+  color: var(--field);
+}
+
+.el-input:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
 }
 
 .el-input-wrap {
   position: relative;
-  display: flex;
 }
 
 .el-input-wrap .el-input {
-  padding-right: 42px;
+  padding-right: 44px;
 }
 
 .el-eye-btn {
   position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 46px;
+  display: grid;
+  place-items: center;
   background: none;
-  border: none;
+  border: 0;
   color: var(--grey);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  transition: color 0.15s;
-}
-
-.el-eye-btn:hover {
-  color: var(--ink);
-}
-
-.el-btn-primary {
-  width: 100%;
-  height: 48px;
-  background: var(--yellow);
-  color: var(--ink);
-  border: none;
-  border-radius: var(--radius);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: filter 0.15s, transform 0.12s;
-  font-family: inherit;
-}
-
-.el-btn-primary:hover:not(:disabled) {
-  filter: brightness(0.95);
-  transform: translateY(-1px);
-}
-
-.el-btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.el-email-badge {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--paper);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 14px;
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.el-text-btn {
-  background: none;
-  border: none;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-  transition: opacity 0.15s;
-}
-
-.el-text-btn:hover {
-  opacity: 0.7;
-}
-
-.el-text-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .el-link {
-  color: var(--ink);
+  align-self: flex-start;
+  padding: 5px 10px;
+  background: #E2E2DB;
+  border-radius: 4px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
-  transition: opacity 0.15s;
 }
 
 .el-link:hover {
-  opacity: 0.7;
+  background: #D2D2C9;
 }
 
-.el-error {
-  font-size: 13px;
-  color: #d32f2f;
-  background: rgba(211, 47, 47, 0.08);
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  margin: 0;
-}
-
-/* Known emails (login shortcut) */
-.el-known {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 4px;
-}
-
-.el-known-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--grey);
-  text-transform: uppercase;
-  margin: 0 0 4px;
-}
-
-.el-known-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  background: var(--card);
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  text-align: left;
+.el-btn-primary,
+.el-btn-sec {
   width: 100%;
-  font-family: inherit;
-}
-
-.el-known-item:hover {
-  border-color: var(--ink);
-  background: var(--paper);
-}
-
-.el-known-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--card);
-  font-size: 13px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.el-known-email {
-  flex: 1;
-  font-size: 14px;
-  color: var(--ink);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.el-known-item svg {
-  color: var(--grey);
-  flex-shrink: 0;
-}
-
-.el-known-divider {
-  font-size: 12px;
-  color: var(--grey);
-  text-align: center;
-  padding: 8px 0;
-  margin: 4px 0;
-}
-
-/* Switch card to Particulier */
-.el-switch-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  background: var(--card);
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-top: 8px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
-}
-
-.el-switch-card:hover {
-  border-color: var(--ink);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(23, 27, 30, 0.08);
-}
-
-.el-switch-label {
-  font-size: 14px;
-  color: var(--grey);
-  font-weight: 600;
-}
-
-.el-switch-cta {
+  height: 46px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-/* SSO buttons (Google/Apple) customized for KOJI Pro */
-.el .auth-sso-group {
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.el .auth-sso-row {
-  display: flex;
-  gap: 10px;
-}
-
-.el .auth-sso-row .auth-sso-btn {
-  flex: 1;
-  height: 48px;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  color: var(--ink);
-  font-weight: 700;
+  border-radius: 4px;
+  font: inherit;
   font-size: 15px;
-  transition: border-color 0.15s, background 0.15s;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.el .auth-sso-row .auth-sso-btn:hover:not(:disabled) {
-  border-color: var(--ink);
-  background: var(--paper);
+.el-btn-primary {
+  background: var(--yellow);
+  border: 0;
+  color: var(--ink);
 }
 
-.el .auth-sso-divider {
-  margin: 8px 0;
+.el-btn-primary:hover {
+  background: #F2B900;
 }
 
-.el .auth-sso-divider::before {
+.el-btn-sec {
+  background: #FFFFFF;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+}
+
+.el-btn-sec:hover {
+  background: #F5F5F2;
+}
+
+.el-btn-primary:disabled,
+.el-btn-sec:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.el-text-btn {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.el-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--field);
+  font-size: 13px;
+}
+
+.el-or::before,
+.el-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
   background: var(--line);
 }
 
-.el .auth-sso-divider span {
-  background: var(--card);
-  color: var(--grey);
+.el-soc {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.el-soc button {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--field);
+  border-radius: 4px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.el-soc button:hover {
+  border-color: var(--ink);
+}
+
+.el-soc svg {
+  width: 18px;
+  height: 18px;
+}
+
+.el-ck {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.el-ck input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ink);
+}
+
+.el-ck span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.el-ck b {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.el-ck small {
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  line-height: 1.4;
+  color: var(--grey);
+}
+
+.el-ck a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.el-error {
+  margin: 0;
+  padding: 10px 12px;
+  background: #FBEAE9;
+  border-left: 3px solid #B3261E;
+  color: #8C1D18;
+  font-size: 14px;
+}
+
+.el-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--grey);
+}
+
+.el-done {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.el-ico {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  border-radius: 50%;
+}
+
+.el-ico svg {
+  width: 24px;
+  height: 24px;
+  stroke: #FFFFFF;
+  fill: none;
+  stroke-width: 2.5;
+}
+
+/* Téléphone : bandeau graphite en haut, formulaire dessous */
+@media (max-width: 900px) {
+  .ea {
+    flex-direction: column;
+  }
+
+  .ea-form {
+    align-items: flex-start;
+    padding: 24px 20px 40px;
+  }
+
+  .ea-in {
+    max-width: none;
+  }
+
+  .el-soc button {
+    height: 48px;
+  }
+}
+
+/* Maquette PRO-00.1 : retour, règles du mot de passe, envoi confirmé,
+   icône d'alerte (lien expiré). */
+.el-back {
+  align-self: flex-start;
+  padding: 5px 10px;
+  background: #E2E2DB;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.el-back:hover {
+  background: #D2D2C9;
+}
+
+.el-center-link {
+  align-self: center;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.el-rules {
+  list-style: none;
+  margin: -4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--grey);
+}
+
+.el-rules li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.el-rules svg {
+  width: 13px;
+  height: 13px;
+  stroke: #CFCFC9;
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.el-rules li.ok {
+  color: #2F6B3A;
+}
+
+.el-rules li.ok svg {
+  stroke: #2F6B3A;
+}
+
+.el-sent {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: #FAFAF7;
+  border: 1px solid var(--ink);
+}
+
+.el-sent svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  stroke: #2F6B3A;
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.el-sent div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.el-sent b {
+  font-size: 14px;
+}
+
+.el-sent small {
+  font-size: 12px;
+  color: var(--grey);
+}
+
+.el-ico.warn {
+  background: #FFFFFF;
+  border: 2px solid var(--ink);
+}
+
+.el-ico.warn svg {
+  stroke: var(--ink);
+  stroke-linecap: round;
+}
+
+.el-done .el-form {
+  margin-top: 4px;
 }

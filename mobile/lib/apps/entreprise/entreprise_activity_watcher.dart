@@ -13,6 +13,7 @@ import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:koji/features/home/notifications/models/notification_model.dart';
 import 'package:koji/features/home/notifications/providers/notification_provider.dart';
 import 'package:koji/features/home/notifications/repositories/notification_repository.dart';
+import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/quote_message_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart';
@@ -299,9 +300,11 @@ class _EntrepriseActivityWatcherState
     // client's, so we'd wrongly notify on outbound messages. Wait for it.
     if (_companyEmail.trim().isEmpty) return;
 
+    // No notification for conversations the pro has blocked.
+    final blocked = await readBlockedQuotes();
     final quoteIds = quotes
         .map((q) => (q['id'] ?? '').toString())
-        .where((id) => id.isNotEmpty)
+        .where((id) => id.isNotEmpty && !blocked.contains(id))
         .toList();
     if (quoteIds.isEmpty) return;
 

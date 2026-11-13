@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../../../lib/http";
 import { nowIso } from "../../../../../lib/auth";
-import { getSupabaseForToken } from "../../../../../lib/supabase";
+import { getSupabaseAdmin, getSupabaseForToken } from "../../../../../lib/supabase";
+import { ensureProfileRow } from "../../../../../lib/ensure-profile";
 import { buildWebUser } from "../../../../../lib/user-profile";
 import { setSessionCookie } from "../../../../../lib/session-cookies";
 
@@ -29,6 +30,15 @@ export async function POST(request) {
     profile = row || null;
   } catch {
     // Profile row is optional — the account itself is what matters.
+  }
+  if (!profile) {
+    // Le trigger évoqué plus haut n'existe plus en prod (voir
+    // lib/ensure-profile.js) : un compte Google arrivait ici sans profil.
+    try {
+      profile = await ensureProfileRow(getSupabaseAdmin(), authUser, { isProFallback: true });
+    } catch (error) {
+      console.warn(`google/finish: création du profil impossible (${error.message})`);
+    }
   }
 
   const user = {

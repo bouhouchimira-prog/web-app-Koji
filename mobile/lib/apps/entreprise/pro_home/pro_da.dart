@@ -345,13 +345,16 @@ class ProSegmented<T> extends StatelessWidget {
                   child: Text.rich(
                     TextSpan(children: [
                       TextSpan(text: label),
-                      TextSpan(
-                        text: '  $count',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
+                      // Compteur négatif = pas de compteur (sélecteur de période).
+                      if (count >= 0)
+                        TextSpan(
+                          text: '  $count',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                     ]),
                     style: da.text(13,
-                        weight: key == value ? FontWeight.w700 : FontWeight.w600,
+                        weight:
+                            key == value ? FontWeight.w700 : FontWeight.w600,
                         color: key == value ? da.ink : da.grey),
                   ),
                 ),

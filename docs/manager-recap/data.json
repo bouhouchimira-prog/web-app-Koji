@@ -1194,6 +1194,12 @@
       "theme": "Nouveau domaine getkoji.io",
       "title": "Passage du domaine kojibuild.com à getkoji.io",
       "detail": "Toutes les adresses visibles par les utilisateurs utilisent désormais getkoji.io : contact du support (contact@getkoji.io), e-mails automatiques, sous-domaines entreprise.getkoji.io et particulier.getkoji.io, textes légaux et applications mobiles. Les identifiants des applications sur le Play Store et l'App Store ne changent pas. Les réglages des services externes (Vercel, Supabase, Google, Stripe, stores) restent à basculer à la main."
+    },
+    {
+      "category": "backend",
+      "theme": "Connexion et comptes",
+      "title": "Connexion, inscription et mot de passe oublié réparés (retour testeur du 12 novembre)",
+      "detail": "Un testeur ne pouvait ni se connecter, ni créer de compte, ni réinitialiser son mot de passe dans les apps. Cause principale : depuis un ancien script, la création d’un compte n’enregistrait plus la fiche de l’utilisateur (5 comptes sur 24 concernés), si bien que l’e-mail de mot de passe oublié ne partait pas et que le lien d’activation du site ne marchait pas. Désormais la fiche manquante est recréée automatiquement (connexion, inscription, mot de passe oublié), et un script de base de données remet en place la création automatique. Dans les apps : mot de passe oublié passe par getkoji.io (l’ancien lien ne menait nulle part), message clair si l’adresse a déjà un compte ou si la connexion Google échoue, au lieu de « Une erreur est survenue »."
     }
   ]
 }

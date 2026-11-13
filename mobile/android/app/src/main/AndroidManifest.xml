@@ -40,6 +40,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="koji" android:host="login-callback" />
             </intent-filter>
+
+            <!-- Retour de la connexion Google (navigateur) : une adresse par
+                 app, com.koji.pro://login-callback ou com.koji.client://…,
+                 pour qu'Android ne demande jamais « ouvrir avec Koji ou Koji
+                 Pro ? ». Voir googleRedirectFor (auth_repository.dart). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}" android:host="login-callback" />
+            </intent-filter>
         </activity>
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"

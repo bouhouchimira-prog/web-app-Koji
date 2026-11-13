@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
+import 'package:intl/intl.dart';
 
 import 'package:koji/app/koji_web_api_config.dart';
+import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/core/supabase_config.dart';
 
 /// Data of the Koji Pro home that lives on koji-web rather than in Supabase
@@ -40,9 +43,13 @@ class ProKojiWebClient {
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
     };
-    final res = method == 'POST'
-        ? await _http.post(uri, headers: headers, body: jsonEncode(body))
-        : await _http.get(uri, headers: headers);
+    final res = switch (method) {
+      'POST' => await _http.post(uri, headers: headers, body: jsonEncode(body)),
+      'PATCH' =>
+        await _http.patch(uri, headers: headers, body: jsonEncode(body)),
+      'PUT' => await _http.put(uri, headers: headers, body: jsonEncode(body)),
+      _ => await _http.get(uri, headers: headers),
+    };
     dynamic data;
     try {
       data = res.body.isEmpty ? null : jsonDecode(res.body);
@@ -56,8 +63,14 @@ class ProKojiWebClient {
     return data;
   }
 
-  Future<List<Map<String, dynamic>>> offres() async =>
-      _list(await _send('GET', '/api/marketplace/offres'), 'offres');
+  /// Zone de travail renvoyée avec la dernière liste d'offres (carte).
+  RadarZone? zone;
+
+  Future<List<Map<String, dynamic>>> offres() async {
+    final data = await _send('GET', '/api/marketplace/offres');
+    zone = RadarZone.fromJson(data is Map ? data['zone'] : null);
+    return _list(data, 'offres');
+  }
 
   Future<bool> estPositionne(String offreId) async {
     final data =
@@ -77,6 +90,288 @@ class ProKojiWebClient {
 
   Future<List<Map<String, dynamic>>> alertesUrgentes() async =>
       _list(await _send('GET', '/api/urgent-alerts'), 'alerts');
+
+  // ---- Démarrage guidé (PRO-01.1) : mêmes routes que le site ----------
+
+  /// Profil au format du site : business, professions, logoUrl.
+  Future<Map<String, dynamic>> profil() async {
+    final data = await _send('GET', '/api/auth/profile');
+    final user = data is Map ? data['user'] : null;
+    if (user is! Map) throw const ProKojiWebException('Profil introuvable.');
+    return Map<String, dynamic>.from(user);
+  }
+
+  Future<Map<String, dynamic>> majProfil(Map<String, dynamic> body) async {
+    final data = await _send('PATCH', '/api/auth/profile', body);
+    final user = data is Map ? data['user'] : null;
+    return user is Map ? Map<String, dynamic>.from(user) : await profil();
+  }
+
+  /// Fiche de l'annuaire des entreprises, sans rien enregistrer.
+  Future<Map<String, dynamic>> ficheSiren(String siren) async {
+    final data = await _send('GET',
+        '/api/entreprise/fiche-siren?siren=${Uri.encodeQueryComponent(siren)}');
+    final fiche = data is Map ? data['fiche'] : null;
+    if (fiche is! Map) {
+      throw const ProKojiWebException(
+          "Aucune entreprise trouvée pour ce SIREN dans l'annuaire.");
+    }
+    return Map<String, dynamic>.from(fiche);
+  }
+
+  /// Taux horaires par métier (€ HT/h).
+  Future<Map<String, num>> tauxMetiers() async =>
+      _taux(await _send('GET', '/api/entreprise/taux'));
+
+  Future<Map<String, num>> enregistrerTaux(Map<String, num?> taux) async =>
+      _taux(await _send('PUT', '/api/entreprise/taux', {'taux': taux}));
+
+  static Map<String, num> _taux(dynamic data) {
+    final taux = data is Map ? data['taux'] : null;
+    if (taux is! Map) return const {};
+    return {
+      for (final e in taux.entries)
+        if (e.value is num) '${e.key}': e.value as num,
+    };
+  }
+
+  // ---- Lancer le chantier (PRO-02.1) -------------------------------------
+
+  /// Crée (sans id) ou met à jour une tâche du chantier.
+  Future<Map<String, dynamic>> enregistrerTache(Map<String, dynamic> tache,
+      {String? id}) async {
+    final data = id == null
+        ? await _send('POST', '/api/tasks', tache)
+        : await _send('PATCH', '/api/tasks', {'id': id, ...tache});
+    final task = data is Map ? data['task'] : null;
+    return task is Map ? Map<String, dynamic>.from(task) : {...tache};
+  }
+
+  /// « Marquer fait » / « Rouvrir » une tâche (même action que le site).
+  Future<Map<String, dynamic>> basculerTache(String id) async {
+    final data =
+        await _send('PATCH', '/api/tasks', {'id': id, 'action': 'toggle'});
+    final task = data is Map ? data['task'] : null;
+    return task is Map ? Map<String, dynamic>.from(task) : {'id': id};
+  }
+
+  /// Photos avant / après / pendant du chantier (PRO-02.2).
+  Future<
+      List<
+          Map<String,
+              dynamic>>> photosChantier(String projectId) async => _list(
+      await _send('GET',
+          '/api/chantier-photos?projectId=${Uri.encodeQueryComponent(projectId)}'),
+      'photos');
+
+  /// Envoie une photo prise dans l'app ; le serveur pose date, heure et
+  /// auteur (non modifiables).
+  Future<Map<String, dynamic>> envoyerPhoto({
+    required String projectId,
+    required String lot,
+    required String phase,
+    required List<int> octets,
+    String type = 'image/jpeg',
+    String reserveId = '',
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final requete = http.MultipartRequest(
+        'POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/chantier-photos'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['projectId'] = projectId
+      ..fields['lot'] = lot
+      ..fields['phase'] = phase
+      ..fields['reserveId'] = reserveId
+      ..files.add(http.MultipartFile.fromBytes('file', octets,
+          filename: 'photo.${type == 'image/png' ? 'png' : 'jpg'}',
+          contentType: MediaType.parse(type)));
+    final reponse = await http.Response.fromStream(await _http.send(requete));
+    dynamic data;
+    try {
+      data = jsonDecode(reponse.body);
+    } on FormatException {
+      data = null;
+    }
+    if (reponse.statusCode >= 400) {
+      throw ProKojiWebException(
+          (data is Map ? data['error']?.toString() : null) ??
+              'Erreur ${reponse.statusCode}');
+    }
+    final photo = data is Map ? data['photo'] : null;
+    return photo is Map ? Map<String, dynamic>.from(photo) : {};
+  }
+
+  // ---- Réserves (PRO-02.3) ---------------------------------------------
+
+  Future<List<Map<String, dynamic>>> reserves(String projectId) async => _list(
+      await _send('GET',
+          '/api/reserves?projectId=${Uri.encodeQueryComponent(projectId)}'),
+      'reserves');
+
+  Future<Map<String, dynamic>> creerReserve(
+      Map<String, dynamic> reserve) async {
+    final data = await _send('POST', '/api/reserves', reserve);
+    final r = data is Map ? data['reserve'] : null;
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// action : faite | valider | refuser | attribuer.
+  Future<Map<String, dynamic>> actionReserve(String id, String action,
+      [Map<String, dynamic> extra = const {}]) async {
+    final data = await _send(
+        'PATCH', '/api/reserves', {'id': id, 'action': action, ...extra});
+    final r = data is Map ? data['reserve'] : null;
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// Clôture du chantier (PRO-02.4) : PV signé, retenue, avis.
+  Future<Map<String, dynamic>?> cloture(String projectId) async {
+    final data = await _send('GET',
+        '/api/cloture?projectId=${Uri.encodeQueryComponent(projectId)}');
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// Procès-verbal signé sur place : deux signatures PNG ; le serveur fige
+  /// la date, le numéro et les réserves non levées.
+  Future<Map<String, dynamic>?> signerPv({
+    required String projectId,
+    required String signataire,
+    required List<int> signatureClient,
+    required List<int> signaturePro,
+  }) async {
+    String png(List<int> o) => 'data:image/png;base64,${base64Encode(o)}';
+    final data = await _send('POST', '/api/cloture', {
+      'projectId': projectId,
+      'signataire': signataire,
+      'signatureClient': png(signatureClient),
+      'signaturePro': png(signaturePro),
+      'source': 'app',
+    });
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// action : retenue (taux 0 | 5) | rappel | avis (programme).
+  Future<Map<String, dynamic>?> majCloture(String projectId, String action,
+      [Map<String, dynamic> extra = const {}]) async {
+    final data = await _send('PATCH', '/api/cloture',
+        {'projectId': projectId, 'action': action, ...extra});
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// Dossier de fin de chantier (PRO-02.5) : { dossier, decennale }.
+  Future<Map<String, dynamic>> dossierFin(String projectId) async {
+    final data = await _send('GET',
+        '/api/dossier-fin?projectId=${Uri.encodeQueryComponent(projectId)}');
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// Envoie le dossier au client (e-mail avec le PDF, la facture de solde
+  /// et les notices ; visible dans Koji Client).
+  Future<Map<String, dynamic>?> envoyerDossier(String projectId) async {
+    final data = await _send(
+        'POST', '/api/dossier-fin', {'projectId': projectId, 'action': 'envoyer'});
+    final c = data is Map ? data['cloture'] : null;
+    return c is Map ? Map<String, dynamic>.from(c) : null;
+  }
+
+  /// Ajoute une pièce au dossier (kind : notice | plan), ici une photo.
+  Future<void> ajouterPieceDossier({
+    required String projectId,
+    required String kind,
+    required List<int> octets,
+    String type = 'image/jpeg',
+    String titre = '',
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final requete = http.MultipartRequest(
+        'POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/dossier-fin'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['projectId'] = projectId
+      ..fields['kind'] = kind
+      ..fields['titre'] = titre
+      ..files.add(http.MultipartFile.fromBytes('file', octets,
+          filename: 'piece.${type == 'image/png' ? 'png' : 'jpg'}',
+          contentType: MediaType.parse(type)));
+    final reponse = await http.Response.fromStream(await _http.send(requete));
+    if (reponse.statusCode >= 400) {
+      dynamic data;
+      try {
+        data = jsonDecode(reponse.body);
+      } on FormatException {
+        data = null;
+      }
+      throw ProKojiWebException(
+          (data is Map ? data['error']?.toString() : null) ??
+              'Erreur ${reponse.statusCode}');
+    }
+  }
+
+  /// Relance d'un devis envoyé (PRO-03) : e-mail avec le lien de signature.
+  Future<Map<String, dynamic>> relancerDevis(String id, String message) async {
+    final data = await _send(
+        'PATCH', '/api/quotes', {'id': id, 'action': 'relancer', 'message': message});
+    final q = data is Map ? data['quote'] : null;
+    return q is Map ? Map<String, dynamic>.from(q) : {};
+  }
+
+  /// Duplique un devis expiré ou refusé : nouveau brouillon, nouveau numéro.
+  Future<Map<String, dynamic>> dupliquerDevis(Map<String, dynamic> devis) async {
+    const champs = ['client', 'clientReference', 'clientEmail', 'clientPhone', 'clientType', 'clientFirstName', 'clientLastName', 'clientCompanyName', 'project', 'projectId', 'projectReference', 'contactId', 'chantierAddress', 'chantierAddressDetails', 'workDescription', 'expectedDuration', 'company', 'rooms', 'items', 'notes', 'surcharges', 'situationFactors', 'vatRate', 'totalHt', 'totalTtc'];
+    final data = await _send('POST', '/api/quotes', {
+      for (final k in champs)
+        if (devis[k] != null) k: devis[k],
+      'status': 'Brouillon',
+      'quoteDate': DateTime.now().toIso8601String().substring(0, 10),
+    });
+    final q = data is Map ? data['quote'] : null;
+    return q is Map ? Map<String, dynamic>.from(q) : {};
+  }
+
+  /// Avis du chantier (PRO-02.6) : { avis, stats, site, accesClient }.
+  Future<Map<String, dynamic>> avis(String projectId) async {
+    final data = await _send(
+        'GET', '/api/avis?projectId=${Uri.encodeQueryComponent(projectId)}');
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// action : demander | repondre (texte) | realisation (titre, texte).
+  Future<Map<String, dynamic>> actionAvis(String projectId, String action,
+      [Map<String, dynamic> extra = const {}]) async {
+    final data = await _send('POST', '/api/avis',
+        {'projectId': projectId, 'action': action, ...extra});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<List<Map<String, dynamic>>> avenants(String quoteId) async => _list(
+      await _send('GET',
+          '/api/avenants?quoteId=${Uri.encodeQueryComponent(quoteId)}'),
+      'avenants');
+
+  /// Accès Koji Client du chantier (null s'il n'existe pas encore).
+  Future<Map<String, dynamic>?> accesClient(String projectId) async {
+    final data = await _send('GET',
+        '/api/client-portal-info?projectId=${Uri.encodeQueryComponent(projectId)}');
+    final access = data is Map ? data['access'] : null;
+    return access is Map ? Map<String, dynamic>.from(access) : null;
+  }
+
+  Future<void> activerSuiviClient(
+          String projectId, String email, String phone) =>
+      _send('POST', '/api/client-portal-info',
+          {'projectId': projectId, 'email': email, 'phone': phone});
+
+  /// Any list route of the site (factures, devis, chantiers, dépenses).
+  Future<List<Map<String, dynamic>>> liste(String path, String key) async =>
+      _list(await _send('GET', path), key);
 
   static List<Map<String, dynamic>> _list(dynamic data, String key) {
     final raw = data is Map ? data[key] : null;
@@ -148,6 +443,67 @@ class RadarOffre {
   int? get delaiJours => (data['delaiEstimeJours'] as num?)?.toInt();
   DateTime? get publieeLe =>
       DateTime.tryParse('${data['createdAt'] ?? ''}')?.toLocal();
+
+  /// Prix recommandé calculé par le site avec la bibliothèque et le taux de
+  /// l'entreprise (lib/prix-recommande.js) : TTC arrondi à la centaine, null
+  /// quand aucun poste n'a pu être chiffré. Jamais montré au particulier.
+  Map<String, dynamic>? get _prix => data['prixRecommande'] is Map
+      ? Map<String, dynamic>.from(data['prixRecommande'] as Map)
+      : null;
+  int? get prixTtc => (_prix?['ttc'] as num?)?.round();
+  int get prixManquants => (_prix?['manquants'] as num?)?.toInt() ?? 0;
+  int get prixPostes => (_prix?['postes'] as num?)?.toInt() ?? 0;
+  bool get tauxManquant => _prix?['tauxManquant'] == true;
+
+  /// Prix calculé sur une partie des postes seulement.
+  bool get prixPartiel => prixTtc != null && prixManquants > 0;
+
+  /// Centre de la maille de ~2 km du chantier (jamais l'adresse), null sans
+  /// géocodage : le chantier reste dans la liste, pas sur la carte.
+  ({double lat, double lon})? get position {
+    final p = data['position'];
+    if (p is! Map) return null;
+    final lat = (p['lat'] as num?)?.toDouble();
+    final lon = (p['lon'] as num?)?.toDouble();
+    if (lat == null || lon == null) return null;
+    return (lat: lat, lon: lon);
+  }
+}
+
+final _euro =
+    NumberFormat.currency(locale: 'fr_FR', symbol: '€', decimalDigits: 0);
+
+/// « 6 000 € » ou « À chiffrer » (même texte que le site).
+String prixCourt(RadarOffre offre) =>
+    offre.prixTtc == null ? 'À chiffrer' : _euro.format(offre.prixTtc);
+
+/// Ce qui a servi au calcul et ce qui manque (lib/radar-display.js::notePrix).
+String notePrix(RadarOffre offre) {
+  final postes = offre.prixPostes;
+  if (postes == 0) return '';
+  final n = offre.prixManquants;
+  if (n > 0 && offre.tauxManquant) {
+    return "Renseignez votre taux de main-d'œuvre (Bibliothèque › Mes prix) : "
+        'sans lui, Koji ne chiffre pas les ouvrages au temps.';
+  }
+  if (offre.prixTtc == null) {
+    return "Aucun poste de ce chantier n'a de prix dans votre bibliothèque : "
+        "Koji n'invente pas de montant.";
+  }
+  if (n > 0) {
+    return '$n poste${n > 1 ? 's' : ''} sur $postes sans prix dans votre '
+        "bibliothèque : ${n > 1 ? 'ils ne sont pas comptés' : "il n'est pas compté"}.";
+  }
+  return 'Calculé avec vos prix sur $postes poste${postes > 1 ? 's' : ''}, '
+      'TTC arrondi à la centaine.';
+}
+
+/// Tri « Prix recommandé, du plus haut » ; sans prix en dernier, puis le
+/// plus récent.
+int comparerPrix(RadarOffre a, RadarOffre b) {
+  final prix = (b.prixTtc ?? 0).compareTo(a.prixTtc ?? 0);
+  if (prix != 0) return prix;
+  return (b.publieeLe ?? DateTime(0)).compareTo(a.publieeLe ?? DateTime(0));
 }
 
 final proKojiWebProvider =
@@ -172,6 +528,13 @@ final proRadarProvider =
   }));
 });
 
+/// Zone de travail de l'entreprise, lue avec les offres (centre et légende
+/// de la carte du Radar).
+final proRadarZoneProvider = Provider.autoDispose<RadarZone?>((ref) {
+  ref.watch(proRadarProvider);
+  return ref.watch(proKojiWebProvider).zone;
+});
+
 /// Urgent alerts raised by clients or workers on the pro's chantiers. Empty on
 /// error: the home must still open when koji-web is unreachable.
 final proUrgentAlertsProvider =
@@ -183,26 +546,54 @@ final proUrgentAlertsProvider =
   }
 });
 
-/// Invoices past their due date and not fully paid (same query as the
-/// overdue-invoice notification).
+/// Données des chiffres du mois (PRO-01.2), lues sur le site comme la page
+/// Factures : factures, devis, chantiers et dépenses de l'entreprise.
+class ChiffresSource {
+  const ChiffresSource({
+    this.invoices = const [],
+    this.quotes = const [],
+    this.projects = const [],
+    this.expenses = const [],
+  });
+  final List<Map<String, dynamic>> invoices;
+  final List<Map<String, dynamic>> quotes;
+  final List<Map<String, dynamic>> projects;
+  final List<Map<String, dynamic>> expenses;
+}
+
+final proChiffresSourceProvider =
+    FutureProvider.autoDispose<ChiffresSource>((ref) async {
+  final api = ref.watch(proKojiWebProvider);
+  Future<List<Map<String, dynamic>>> lire(String path, String key) =>
+      api.liste(path, key).catchError((_) => <Map<String, dynamic>>[]);
+  final r = await Future.wait([
+    api.liste('/api/invoices', 'invoices'),
+    lire('/api/quotes', 'quotes'),
+    lire('/api/projects', 'projects'),
+    lire('/api/expenses', 'expenses'),
+  ]);
+  return ChiffresSource(
+      invoices: r[0], quotes: r[1], projects: r[2], expenses: r[3]);
+});
+
+/// Factures envoyées, échues et pas encore payées (mêmes règles que
+/// l'« À traiter » du site). Lues sur le site : c'est là que vivent les
+/// factures depuis le passage de Factures sur l'API (a2de5f5). Vide en cas
+/// d'erreur : l'accueil doit s'ouvrir même sans réseau.
 final proOverdueInvoicesProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final userId = SupabaseConfig.client.auth.currentUser?.id;
-  if (userId == null) return const [];
   try {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final rows = await SupabaseConfig.client
-        .from('invoices')
-        .select('id, reference, amount, paid_amount, due_date, client_name')
-        .eq('user_id', userId)
-        .lt('due_date', today);
-    return (rows as List)
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .where((r) {
-      final amount = (r['amount'] as num?)?.toDouble() ?? 0;
-      final paid = (r['paid_amount'] as num?)?.toDouble() ?? 0;
-      return amount - paid > 0.009;
+    final source = await ref.watch(proChiffresSourceProvider.future);
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return source.invoices.where((f) {
+      final echeance = '${f['dueDate'] ?? ''}';
+      return f['kind'] != 'avoir' &&
+          f['archived'] != true &&
+          (f['status'] == 'Emise' || f['status'] == 'Partielle') &&
+          echeance.length >= 10 &&
+          echeance.substring(0, 10).compareTo(today) < 0;
     }).toList();
   } catch (_) {
     return const [];

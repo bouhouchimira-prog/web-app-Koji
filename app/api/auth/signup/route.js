@@ -3,6 +3,8 @@ import { getSupabase, getSupabaseAdmin } from "../../../../lib/supabase";
 import { makeToken } from "../../../../lib/db";
 import { sendEntrepriseVerificationEmail } from "../../../../lib/mailer";
 import { checkRateLimit, recordFailedAttempt, rateLimitMessage } from "../../../../lib/rate-limit";
+import { chercherEntreprise, normaliserSiren } from "../../../../lib/sirene";
+import { ensureProfileRow } from "../../../../lib/ensure-profile";
 
 const ACTIVATION_TTL_MS = 48 * 60 * 60 * 1000; // 48h, same convention as particulier-signup
 const RATE_SCOPE = "entreprise-signup";
@@ -29,6 +31,15 @@ export async function POST(request) {
 
   if (!email || !password) return badRequest("Email et mot de passe obligatoires");
   if (password.length < 8) return badRequest("Le mot de passe doit contenir au moins 8 caractères");
+  // Maquette PRO-00 : case des conditions jamais pré-cochée, obligatoire ;
+  // SIREN facultatif (vérifié s'il est donné, la fiche se remplit depuis
+  // l'annuaire des entreprises, voir lib/sirene.js).
+  if (accountType === "entreprise" && body.acceptedTerms !== true) {
+    return badRequest("Acceptez les conditions d'utilisation pour créer votre compte.");
+  }
+  const sirenSaisi = String(body.siren || "").trim();
+  const siren = sirenSaisi ? normaliserSiren(sirenSaisi) : null;
+  if (sirenSaisi && !siren) return badRequest("Ce SIREN n'est pas valide : 9 chiffres, sans espace.");
 
   // Protection contre le spam d'inscriptions repetees sur la meme adresse
   // (16 oct) — meme systeme que le reste de l'app (lib/rate-limit.js).
@@ -66,13 +77,23 @@ export async function POST(request) {
 
   const activationToken = makeToken("activate");
   const activationExpiresAt = new Date(Date.now() + ACTIVATION_TTL_MS).toISOString();
+  // Fiche entreprise : ce que l'annuaire connaît du SIREN (raison sociale,
+  // SIRET, adresse du siège, TVA, forme juridique) + la preuve d'acceptation
+  // des conditions. Fusionnée avec le profil créé par le trigger.
+  const fiche = siren ? (await chercherEntreprise(siren)) || { siren } : {};
+  const extras = { ...fiche, _cguAcceptedAt: new Date().toISOString() };
   let updateError = null;
   try {
     const admin = getSupabaseAdmin();
+    // La ligne n'est plus créée par le trigger en prod (voir
+    // lib/ensure-profile.js) : sans elle, l'update ci-dessous ne touchait
+    // rien et le lien d'activation envoyé était invalide.
+    const profil = await ensureProfileRow(admin, data.user, { isProFallback: true });
     const { error: dbError } = await admin.from("users").update({
       email_verified: false,
       email_verify_token: activationToken,
-      email_verify_expires_at: activationExpiresAt
+      email_verify_expires_at: activationExpiresAt,
+      business_info: { ...(profil?.business_info || {}), ...extras }
     }).eq("id", data.user.id);
     updateError = dbError;
   } catch (thrown) {

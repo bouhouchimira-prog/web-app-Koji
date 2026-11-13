@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiSend, readStoredUser } from "../../lib/client-api";
 import { PricingPlans } from "../../components/PricingPlans";
 import "../home-pro.css";
@@ -20,6 +20,16 @@ import "./abonnement.css";
 export default function AbonnementPage() {
   const [pendingPlan, setPendingPlan] = useState("");
   const [error, setError] = useState("");
+  // 11 nov. : la page Tarifs publique est désormais /entreprise/tarifs
+  // (maquette SITE-03). Un visiteur sans compte y est envoyé ; une
+  // entreprise connectée garde cette page, qui lance le paiement Stripe
+  // (liens « Voir les formules », période d'essai terminée, menu du compte).
+  const [membre, setMembre] = useState(false);
+
+  useEffect(() => {
+    if (readStoredUser()) setMembre(true);
+    else window.location.replace("/entreprise/tarifs");
+  }, []);
 
   async function handleChoosePlan(plan, interval) {
     if (plan === "start") {
@@ -41,6 +51,8 @@ export default function AbonnementPage() {
       setPendingPlan("");
     }
   }
+
+  if (!membre) return null;
 
   return (
     <div className="pro" style={{ backgroundColor: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>

@@ -69,8 +69,6 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
   // Result (after /api/expertise-koji).
   Map<String, dynamic>? _expertise;
   final Set<String> _selectedConseils = {};
-  final Map<String, TextEditingController> _missingPriceControllers = {};
-  bool _submittingPrices = false;
   bool _publishing = false;
 
   final _draftController = TextEditingController();
@@ -91,9 +89,6 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     _scrollController.dispose();
     _manualDescriptionController.dispose();
     _manualAddressController.dispose();
-    for (final c in _missingPriceControllers.values) {
-      c.dispose();
-    }
     super.dispose();
   }
 
@@ -163,86 +158,83 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     try {
       _sub = repo
           .sendChatTurn(
-            turns: nextTurns
-                .map((t) => {'role': t.role, 'text': t.text})
-                .toList(),
-            conversationId: _conversationId,
-            draftId: _draftId,
-            photos: photosForThisTurn,
-            prenom: api.accountFirstName,
-          )
+        turns: nextTurns.map((t) => {'role': t.role, 'text': t.text}).toList(),
+        conversationId: _conversationId,
+        draftId: _draftId,
+        photos: photosForThisTurn,
+        prenom: api.accountFirstName,
+      )
           .listen(
-            (event) {
-              switch (event.event) {
-                case 'delta':
-                  liveText += (event.data['text'] as String?) ?? '';
-                  setState(() => _streamingText = liveText);
-                  _scrollToBottom();
-                case 'choice':
-                  final ack = liveText.trim();
-                  final question = (event.data['question'] as String?) ?? '';
-                  setState(() {
-                    if (ack.isNotEmpty) {
-                      _turns.add(_Turn(role: 'assistant', text: ack));
-                    }
-                    if (question.isNotEmpty) {
-                      _turns.add(_Turn(role: 'assistant', text: question));
-                    }
-                    liveText = '';
-                    uiHandled = true;
-                    _streamingText = '';
-                    _pendingChoice = event.data;
-                  });
-                  _scrollToBottom();
-                case 'photo-request':
-                  final ack = liveText.trim();
-                  setState(() {
-                    if (ack.isNotEmpty) {
-                      _turns.add(_Turn(role: 'assistant', text: ack));
-                    }
-                    liveText = '';
-                    uiHandled = true;
-                    _streamingText = '';
-                    _pendingPhotoRequest = event.data;
-                  });
-                  _scrollToBottom();
-                case 'done':
-                  final draftId = event.data['draftId'] as String?;
-                  final finished = event.data['finished'] == true;
-                  final finalMessage = uiHandled
-                      ? ''
-                      : ((event.data['message'] as String?) ?? liveText)
-                          .trim();
-                  setState(() {
-                    _draftId = draftId;
-                    if (finalMessage.isNotEmpty) {
-                      _turns.add(_Turn(role: 'assistant', text: finalMessage));
-                    }
-                    _streamingText = '';
-                  });
-                  _scrollToBottom();
-                  if (finished && draftId != null) {
-                    _loadDraftIntoRecap(draftId);
-                  }
-                case 'error':
-                  setState(() {
-                    _error = (event.data['message'] as String?) ??
-                        "L'assistant n'a pas pu répondre.";
-                  });
-              }
-            },
-            onError: (err) {
+        (event) {
+          switch (event.event) {
+            case 'delta':
+              liveText += (event.data['text'] as String?) ?? '';
+              setState(() => _streamingText = liveText);
+              _scrollToBottom();
+            case 'choice':
+              final ack = liveText.trim();
+              final question = (event.data['question'] as String?) ?? '';
               setState(() {
-                _error = err is KojiWebApiException
-                    ? err.message
-                    : "L'assistant n'a pas pu répondre. Réessayez.";
-                _sending = false;
+                if (ack.isNotEmpty) {
+                  _turns.add(_Turn(role: 'assistant', text: ack));
+                }
+                if (question.isNotEmpty) {
+                  _turns.add(_Turn(role: 'assistant', text: question));
+                }
+                liveText = '';
+                uiHandled = true;
+                _streamingText = '';
+                _pendingChoice = event.data;
               });
-            },
-            onDone: () {
-              if (mounted) setState(() => _sending = false);
-            },
-          );
+              _scrollToBottom();
+            case 'photo-request':
+              final ack = liveText.trim();
+              setState(() {
+                if (ack.isNotEmpty) {
+                  _turns.add(_Turn(role: 'assistant', text: ack));
+                }
+                liveText = '';
+                uiHandled = true;
+                _streamingText = '';
+                _pendingPhotoRequest = event.data;
+              });
+              _scrollToBottom();
+            case 'done':
+              final draftId = event.data['draftId'] as String?;
+              final finished = event.data['finished'] == true;
+              final finalMessage = uiHandled
+                  ? ''
+                  : ((event.data['message'] as String?) ?? liveText).trim();
+              setState(() {
+                _draftId = draftId;
+                if (finalMessage.isNotEmpty) {
+                  _turns.add(_Turn(role: 'assistant', text: finalMessage));
+                }
+                _streamingText = '';
+              });
+              _scrollToBottom();
+              if (finished && draftId != null) {
+                _loadDraftIntoRecap(draftId);
+              }
+            case 'error':
+              setState(() {
+                _error = (event.data['message'] as String?) ??
+                    "L'assistant n'a pas pu répondre.";
+              });
+          }
+        },
+        onError: (err) {
+          setState(() {
+            _error = err is KojiWebApiException
+                ? err.message
+                : "L'assistant n'a pas pu répondre. Réessayez.";
+            _sending = false;
+          });
+        },
+        onDone: () {
+          if (mounted) setState(() => _sending = false);
+        },
+      );
     } catch (err) {
       setState(() {
         _error = err is KojiWebApiException
@@ -281,8 +273,7 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
       final bytes = await image.readAsBytes();
       final ext = image.path.toLowerCase();
       final mediaType = ext.endsWith('.png') ? 'image/png' : 'image/jpeg';
-      final dataUrl =
-          'data:$mediaType;base64,${base64Encode(bytes)}';
+      final dataUrl = 'data:$mediaType;base64,${base64Encode(bytes)}';
       setState(() {
         if (_pendingPhotos.length < 8) _pendingPhotos.add(dataUrl);
       });
@@ -350,34 +341,6 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
             ? err.message
             : "L'expertise n'a pas pu se terminer.";
       });
-    }
-  }
-
-  Future<void> _submitMissingPrices() async {
-    final prices = _missingPriceControllers.entries
-        .map((e) => (itemId: e.key, value: e.value.text.trim()))
-        .where((e) => e.value.isNotEmpty && double.tryParse(e.value) != null)
-        .map((e) => {'itemId': e.itemId, 'amountHt': double.parse(e.value)})
-        .toList();
-    if (prices.isEmpty || _expertise == null) return;
-    setState(() => _submittingPrices = true);
-    try {
-      final missing = await ref
-          .read(marketplaceRepositoryProvider)
-          .submitMissingPrices(_expertise!['expertiseId'] as String, prices);
-      if (!mounted) return;
-      setState(() {
-        _expertise = {..._expertise!, 'missingPriceItems': missing};
-        _missingPriceControllers.clear();
-      });
-    } catch (err) {
-      if (!mounted) return;
-      setState(() {
-        _error =
-            err is KojiWebApiException ? err.message : 'Mise à jour impossible.';
-      });
-    } finally {
-      if (mounted) setState(() => _submittingPrices = false);
     }
   }
 
@@ -508,7 +471,8 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
             ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            KojiAlertBox(title: 'Erreur', message: _error!, tone: KojiTone.amber),
+            KojiAlertBox(
+                title: 'Erreur', message: _error!, tone: KojiTone.amber),
           ],
         ],
       ),
@@ -569,7 +533,8 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                      child: Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
                     ),
                 ],
               ),
@@ -608,8 +573,9 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      onPressed:
-                          _sending ? null : () => _answerText(_draftController.text),
+                      onPressed: _sending
+                          ? null
+                          : () => _answerText(_draftController.text),
                       icon: KojiIcon(KojiIcons.arrowRight, color: p.primary),
                     ),
                   ],
@@ -692,18 +658,10 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
   Widget _buildResult(BuildContext context) {
     final expertise = _expertise!;
     final conseils = (expertise['conseils'] as List?) ?? const [];
-    final missing = (expertise['missingPriceItems'] as List?) ?? const [];
     final delai = expertise['delaiEstimeJours'];
 
-    for (final item in missing.cast<Map<String, dynamic>>()) {
-      _missingPriceControllers.putIfAbsent(
-        item['id'] as String,
-        () => TextEditingController(),
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Chiffrage koji')),
+      appBar: AppBar(title: const Text('Votre projet')),
       body: KojiPage(
         title: (expertise['description'] as String?) ?? 'Votre chantier',
         subtitle: delai != null ? '$delai jours estimés' : null,
@@ -733,40 +691,6 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
                 ],
               ),
             ),
-          if (missing.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            KojiCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const KojiSectionTitle('Prix à compléter'),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Ces postes n'existent pas dans notre bibliothèque de prix"
-                    ' — proposez un prix ou laissez vide.',
-                    style: TextStyle(fontSize: 12.5, color: context.koji.muted),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final item in missing.cast<Map<String, dynamic>>())
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: KojiField(
-                        label: '${item['label']}',
-                        controller: _missingPriceControllers[item['id']]!,
-                        hint: 'Prix HT en €',
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  KojiButton(
-                    label: 'Enregistrer ces prix',
-                    variant: KojiButtonVariant.secondary,
-                    loading: _submittingPrices,
-                    onPressed: _submitMissingPrices,
-                  ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           if (_error != null)
             Padding(

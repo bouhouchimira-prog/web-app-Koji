@@ -1,72 +1,74 @@
-/* Refondre le panneau left (AuthBrandPanel) pour entreprise selon design KOJI Pro */
-
-.auth-hero-themed.entreprise {
-  background: linear-gradient(135deg, #171B1E 0%, #23272B 100%);
+/* Panneau gauche Koji Pro : maquette PRO-00 (.g2-brand). */
+.auth-hero-themed.entreprise.auth-brand-pro {
+  flex: 0 0 50%;
+  justify-content: flex-start;
+  gap: 22px;
+  padding: 56px 56px 40px;
+  background: #171B1E;
+  color: #FFFFFF;
+  font-family: var(--f), Arial, sans-serif;
 }
 
-.auth-hero-themed.entreprise .auth-hero-brand span {
+.auth-brand-pro-w {
+  display: block;
+  align-self: flex-start;
   color: #FFFFFF;
 }
 
-.auth-hero-themed.entreprise .auth-hero-domain-pill {
-  background: rgba(255, 255, 255, 0.08);
-  color: #FFFFFF;
-  font-size: 12px;
+.auth-brand-pro-w .kwm {
+  height: 20px;
+  width: auto;
+  fill: currentColor;
+}
+
+/* Phrase de marque du bandeau téléphone (maquette .g2-mb) */
+.auth-brand-pro-m {
+  display: none;
+}
+
+.auth-hero-themed.auth-brand-pro h2 {
+  margin: 40px 0 0;
+  font-size: 34px;
   font-weight: 700;
-  border: 1px solid rgba(255, 196, 0, 0.2);
+  line-height: 1.15;
+  color: #FFFFFF;
 }
 
-.auth-hero-themed.entreprise .auth-hero-eyebrow {
-  color: #FFC400;
+.auth-hero-themed.auth-brand-pro ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 15px;
+  line-height: 1.9;
+  color: #D5D7DA;
+}
+
+.auth-hero-themed.auth-brand-pro small {
+  margin-top: auto;
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.auth-hero-themed.entreprise .auth-hero-pitch h2 {
-  color: #FFFFFF;
-  font-size: clamp(1.8rem, 2.6vw, 2.4rem);
-  line-height: 1.1;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.auth-hero-themed.entreprise .auth-hero-pitch h2 em {
-  color: #FFC400;
-  font-style: italic;
-  font-weight: 800;
-}
-
-.auth-hero-themed.entreprise .auth-hero-pill {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 196, 0, 0.15);
-  color: #FFFFFF;
-  font-size: 14px;
-  font-weight: 700;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 8px;
-}
-
-.auth-hero-themed.entreprise .auth-hero-card {
-  background: #FFFFFF;
-  border-radius: 14px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
-}
-
-/* Animations */
-@keyframes authHeroFadeInEnterprise {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.auth-hero-themed.entreprise {
-  animation: authHeroFadeInEnterprise 0.5s ease both;
+  color: #8A8F98;
 }
 
 @media (max-width: 900px) {
-  .auth-hero-themed.entreprise {
-    padding: 28px 24px;
+  .auth-hero-themed.entreprise.auth-brand-pro {
+    flex: none;
+    gap: 8px;
+    padding: 40px 20px 24px;
+  }
+
+  .auth-brand-pro-w .kwm {
+    height: 18px;
+  }
+
+  .auth-hero-themed.auth-brand-pro .auth-brand-pro-m {
+    display: block;
+    margin: 0;
+    font-size: 14px;
+    color: #C4C7CC;
+  }
+
+  .auth-hero-themed.auth-brand-pro h2,
+  .auth-hero-themed.auth-brand-pro ul,
+  .auth-hero-themed.auth-brand-pro small {
+    display: none;
   }
 }

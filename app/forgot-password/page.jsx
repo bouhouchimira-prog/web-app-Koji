@@ -6,8 +6,11 @@ import { Suspense, useMemo, useState } from "react";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
+import { EntrepriseAuthLayout } from "../../components/EntrepriseAuthLayout";
+import { MotDePasseOublie } from "../../components/EntrepriseAccountScreens";
 
-function ForgotPasswordScreen() {
+// Espace particulier (Koji) : écran d'origine, refait avec CLI-05.
+function ForgotPasswordParticulier() {
   const { L } = useLocale();
   const params = useSearchParams();
   const typeParam = params.get("type");
@@ -74,6 +77,17 @@ function ForgotPasswordScreen() {
         </p>
       </section>
     </main>
+  );
+}
+
+// Koji Pro : maquette PRO-00.1 (mot de passe oublié).
+function ForgotPasswordScreen() {
+  const params = useSearchParams();
+  if (params.get("type") === "particulier") return <ForgotPasswordParticulier />;
+  return (
+    <EntrepriseAuthLayout>
+      <MotDePasseOublie />
+    </EntrepriseAuthLayout>
   );
 }
 

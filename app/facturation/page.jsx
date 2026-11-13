@@ -8,6 +8,7 @@ import { useLocale } from "../../lib/i18n";
 import { euro } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
+import { NOTE_LIBERATION_RETENUE } from "../../lib/cloture-chantier";
 
 // Factures, maquette PRO-06 (DA Koji Pro, 30 oct) : liste avec onglets, et
 // création d'une facture depuis un devis signé (mêmes modes qu'avant :
@@ -167,14 +168,22 @@ function FacturationContent() {
   const [tab, setTab] = useState("toutes");
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState("");
+  // « Situation de travaux » depuis la fiche chantier (maquette PRO-02.1) :
+  // facture intermédiaire au pourcentage d'avancement.
+  const situation = searchParams.get("type") === "situation";
+  // Clôture du chantier (PRO-02.4) : facture de solde calculée par Koji
+  // (travaux + avenants − déjà facturé − retenue), puis libération de la
+  // retenue de garantie (le reste à facturer).
+  const solde = searchParams.get("type") === "solde";
+  const retenue = searchParams.get("type") === "retenue";
   const [form, setForm] = useState({
-    type: "Acompte initial",
-    amountMode: "deposit",
-    fixedAmount: "",
+    type: solde || retenue ? "Facture finale" : situation ? "Facture intermédiaire" : "Acompte initial",
+    amountMode: solde ? "fixed" : retenue ? "remaining" : situation ? "percent" : "deposit",
+    fixedAmount: solde ? String(Number(searchParams.get("montant")) || "") : "",
     percent: 30,
     depositPercent: 30,
     dueDate: new Date().toISOString().slice(0, 10),
-    notes: ""
+    notes: solde ? String(searchParams.get("note") || "").slice(0, 400) : retenue ? NOTE_LIBERATION_RETENUE : ""
   });
 
   const [creditFor, setCreditFor] = useState(null);

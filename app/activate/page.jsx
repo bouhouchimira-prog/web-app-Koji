@@ -5,6 +5,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthBrandPanel } from "../../components/AuthBrandPanel";
 import { useLocale } from "../../lib/i18n";
+import { EntrepriseAuthLayout } from "../../components/EntrepriseAuthLayout";
+import { CompteActive } from "../../components/EntrepriseAccountScreens";
 
 function CheckIcon() {
   return (
@@ -32,7 +34,8 @@ function SpinnerIcon() {
   );
 }
 
-function ActivateInner() {
+// Espace particulier : écran d'origine (refait avec CLI-05).
+function ActivateParticulier() {
   const { L } = useLocale();
   const params = useSearchParams();
   const token = params.get("token");
@@ -114,6 +117,18 @@ function ActivateInner() {
         </div>
       </section>
     </main>
+  );
+}
+
+// Koji Pro : maquette PRO-00.1 (compte activé, lien expiré). Les liens
+// d'activation entreprise portent &type=entreprise (app/api/auth/signup).
+function ActivateInner() {
+  const params = useSearchParams();
+  if (params.get("type") !== "entreprise") return <ActivateParticulier />;
+  return (
+    <EntrepriseAuthLayout>
+      <CompteActive token={params.get("token")} />
+    </EntrepriseAuthLayout>
   );
 }
 

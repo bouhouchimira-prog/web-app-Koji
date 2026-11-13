@@ -167,11 +167,6 @@ export default function NewRadarOffrePage() {
   const [selectedConseils, setSelectedConseils] = useState(new Set());
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
-  // Prix manquants (1er oct, demande d'Amira) : des que l'IA ne fait plus
-  // confiance a son propre prix pour un poste hors catalogue, le particulier
-  // peut en proposer un ici, directement sur l'ecran de resultat.
-  const [missingPriceDrafts, setMissingPriceDrafts] = useState({});
-  const [submittingPrices, setSubmittingPrices] = useState(false);
   // Detail de la fourchette par lot (1er oct, demande d'Amira : "le prix
   // soit cliquable et detaille, le total de chaque metier").
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -550,7 +545,6 @@ export default function NewRadarOffrePage() {
       if (!response.ok) throw new Error(data.error || "L'expertise n'a pas pu se terminer.");
       setExpertise(data);
       setSelectedConseils(new Set());
-      setMissingPriceDrafts({});
       setShowBreakdown(false);
       setPhase("result");
     } catch (err) {
@@ -565,33 +559,6 @@ export default function NewRadarOffrePage() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  }
-
-  async function submitMissingPrices() {
-    const prices = Object.entries(missingPriceDrafts)
-      .filter(([, v]) => v !== "" && Number.isFinite(Number(v)))
-      .map(([itemId, v]) => ({ itemId, amountHt: Number(v) }));
-    if (prices.length === 0) return;
-    setSubmittingPrices(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/expertise-koji/${expertise.expertiseId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prices })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Mise à jour impossible.");
-      setExpertise((current) => ({
-        ...current,
-        missingPriceItems: data.missingPriceItems
-      }));
-      setMissingPriceDrafts({});
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmittingPrices(false);
-    }
   }
 
   async function publish() {
@@ -1060,38 +1027,8 @@ export default function NewRadarOffrePage() {
               </div>
             ) : null}
 
-            {expertise.missingPriceItems && expertise.missingPriceItems.length > 0 ? (
-              <div className="radar-recap-card">
-                <span className="radar-field-label">⚠️ Prix manquants dans notre base</span>
-                <p className="radar-recap-note" style={{ margin: "4px 0 10px" }}>
-                  Nous n'avons pas encore ces prix dans la base de Koji. Vous pouvez en proposer un, sinon ils resteront à 0€.
-                </p>
-                {expertise.missingPriceItems.map((item) => (
-                  <div key={item.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ flex: "1 1 60%", fontSize: 13 }}>{item.room} — {item.label} ({item.quantity} {item.unit})</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="Prix € HT"
-                      value={missingPriceDrafts[item.id] || ""}
-                      onChange={(e) => setMissingPriceDrafts((current) => ({ ...current, [item.id]: e.target.value }))}
-                      style={{ width: 110 }}
-                    />
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="button secondary"
-                  style={{ width: "100%", marginTop: 4 }}
-                  onClick={submitMissingPrices}
-                  disabled={submittingPrices}
-                >
-                  {submittingPrices ? "Mise à jour…" : "Mettre à jour l'estimation avec vos prix"}
-                </button>
-              </div>
-            ) : null}
-
+            {/* Aucun prix côté particulier (10 nov, demande d'Amira) : plus de saisie
+                des prix manquants ici, l'entreprise chiffre avec ses propres prix. */}
             {expertise.conseils && expertise.conseils.length > 0 ? (
               <>
                 <span className="radar-field-label">Conseils pour réduire le coût</span>

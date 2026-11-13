@@ -1,5 +1,6 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { readDb } from "../../../../lib/db";
+import { factureDeSolde, jourDeParis, plusAns } from "../../../../lib/cloture-chantier";
 import { fixObjectText, fixText } from "../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote } from "../../../../lib/quote-mapping";
@@ -79,7 +80,24 @@ export async function GET(request) {
       quote,
       projectsById.get(quote.projectId),
       (db.tasks || []).filter((task) => task.quoteId === quote.id || task.projectId === quote.projectId),
-    ));
+    ))
+    // Fin de chantier (PRO-02.4 à 02.6) : réception, garantie, dossier remis,
+    // avis du client.
+    .map((quote) => {
+      const cloture = (db.clotures || []).find((c) => c.projectId && c.projectId === quote.projectId) || null;
+      const receptionLe = cloture?.pv?.signeLe || "";
+      return {
+        ...quote,
+        dossierFinLe: cloture?.dossier?.remisLe || "",
+        finChantier: {
+          receptionLe,
+          parfaitJusqua: receptionLe ? plusAns(jourDeParis(receptionLe), 1) : "",
+          dossierFinLe: cloture?.dossier?.remisLe || "",
+          avisLe: (db.avis || []).find((a) => a.projectId === quote.projectId)?.creeLe || "",
+          avisPossible: Boolean(receptionLe || factureDeSolde(db.invoices || [], { projectId: quote.projectId }))
+        }
+      };
+    });
 
   if (id) {
     const quote = clientQuotes.find((entry) => entry.id === id);

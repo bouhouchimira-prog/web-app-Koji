@@ -733,7 +733,8 @@ export default function DevisEditor() {
         showMaterialsToClient: item.showMaterialsToClient !== false,
         fixedDuration: item.fixedDuration ?? null,
         fixedDurationUnit: item.fixedDurationUnit || "h",
-        subItems: Array.isArray(item.subItems) ? item.subItems : undefined
+        subItems: Array.isArray(item.subItems) ? item.subItems : undefined,
+        variante: Boolean(item.variante)
       };
     });
 
@@ -881,7 +882,9 @@ export default function DevisEditor() {
         // `postes` : composeur libre, IA sans correspondance, fourniture
         // rapide...) est "libre". Meme precaution que aiAdded/priceSource
         // ci-dessus : a ajouter explicitement, sinon disparait au rendu.
-        sourceKind: selectedIds.includes(source.id) ? (source.userId ? "perso" : "koji") : "libre"
+        sourceKind: selectedIds.includes(source.id) ? (source.userId ? "perso" : "koji") : "libre",
+        // Variante (maquette PRO-03.1) : proposée au client, hors total.
+        variante: Boolean(settings.variante)
       }, settings, quoteVatRate);
 
       const rawSubItems = Array.isArray(settings.subItems) ? settings.subItems : [];
@@ -895,7 +898,7 @@ export default function DevisEditor() {
 
   const totals = useMemo(() => {
     const hoursPerDay = Number(company.hoursPerDay || 7);
-    return quoteLines.reduce((sum, line) => ({
+    return quoteLines.filter((line) => !line.variante).reduce((sum, line) => ({
       hours: sum.hours + (line.billingMode === "fixed"
         ? (line.fixedDuration != null ? (line.fixedDurationUnit === "j" ? line.fixedDuration * hoursPerDay : line.fixedDuration) : 0)
         : Number(line.correctedTimeHours || 0)),
@@ -910,7 +913,7 @@ export default function DevisEditor() {
   // separe simplement les lignes "fourniture" (code FOURN, ajoutees via
   // addFournitureLine) du reste.
   const lotTotals = useMemo(() => {
-    return quoteLines.reduce((sum, line) => {
+    return quoteLines.filter((line) => !line.variante).reduce((sum, line) => {
       if (line.code === "FOURN") return { ...sum, supplies: sum.supplies + Number(line.totalHt || 0) };
       return { ...sum, works: sum.works + Number(line.totalHt || 0) };
     }, { works: 0, supplies: 0 });
@@ -2735,7 +2738,7 @@ export default function DevisEditor() {
       return (
         <div key={line.id} className="dl-wrap">
           <button type="button" className="dl" onClick={() => reopenLine(line.id)}>
-            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}</span>
+            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}{line.variante ? <span className="tag tag-o dl-var">Variante</span> : null}</span>
             <span className="dq">{qty > 0 ? `${qty.toLocaleString("fr-FR")} ${unitLabel(settings.unit ?? line.unit)}` : "—"}</span>
             <span className="dp">{money(unitPriceHt)}</span>
             <span className="dt">{money(line.totalHt)}</span>
@@ -2788,15 +2791,6 @@ export default function DevisEditor() {
         </div>
 
         <div className="dl-edit">
-          <label className="ed">{L.devis.descriptionClient}
-            <textarea
-              rows={2}
-              value={settings.description ?? line.description ?? ""}
-              onChange={(event) => updateLine(line.id, "description", event.target.value)}
-              placeholder={L.devis.descriptionPlaceholder}
-            />
-          </label>
-
           {!hasSubItems ? (
             <>
               <div className="eg3">
@@ -2810,10 +2804,23 @@ export default function DevisEditor() {
                         {LINE_UNIT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </label>
-                    <label className="ed">{L.devis.priceHt}<input type="number" min="0" step="0.01" value={formatNumberInput((settings.normativeTime ?? line.normativeTime ?? 0) * (settings.hourlyRate ?? line.hourlyRate ?? 0))} onChange={(event) => updateLineUnitPrice(line.id, line, settings, event.target.value)} placeholder="0.00" /></label>
                   </>
                 )}
               </div>
+
+              {line.billingMode !== "fixed" ? (
+                // Main-d'œuvre (maquette PRO-03.1) : temps par unité × taux.
+                <div className="dl-mo">
+                  <span className="lab">Main-d'œuvre</span>
+                  <span className="dl-mo-r">
+                    <input type="number" min="0" step="any" value={settings.normativeTime ?? (line.normativeTime > 0 ? line.normativeTime : "")} onChange={(event) => updateLine(line.id, "normativeTime", event.target.value)} placeholder="0" aria-label={`Temps en heures par ${unitLabel(settings.unit ?? line.unit)}`} />
+                    <span>h/{unitLabel(settings.unit ?? line.unit)} ×</span>
+                    <input type="number" min="0" step="any" value={settings.hourlyRate ?? (line.hourlyRate > 0 ? line.hourlyRate : company.hourlyRate > 0 ? company.hourlyRate : "")} onChange={(event) => updateLine(line.id, "hourlyRate", event.target.value)} placeholder={company.hourlyRate > 0 ? String(company.hourlyRate) : "0"} aria-label="Taux horaire en euros" />
+                    <span>€/h =</span>
+                    <b>{money(Number(settings.normativeTime ?? line.normativeTime ?? 0) * Number(settings.hourlyRate ?? line.hourlyRate ?? company.hourlyRate ?? 0))}/{unitLabel(settings.unit ?? line.unit)}</b>
+                  </span>
+                </div>
+              ) : null}
 
               {isAdvanced ? (
                 <div className="dl-adv">
@@ -2858,11 +2865,12 @@ export default function DevisEditor() {
                 </div>
               ) : null}
 
-              <div className="pu">{breakdown.filter(Boolean).join(" · ")}</div>
 
-              {visibleMaterials.length ? (
-                <div className="fl">
-                  <div className="fl-h"><span>{L.nav.supplies} · {money(line.materialCost)}</span></div>
+              <div className="fl">
+                  <div className="fl-h">
+                    <span>{L.nav.supplies} · {Number(settings.quantity ?? line.quantity ?? 0) > 0 ? `${money(Number(line.materialCost || 0) / Number(settings.quantity ?? line.quantity))}/${unitLabel(settings.unit ?? line.unit)}` : money(line.materialCost)}</span>
+                    <button type="button" className="link" onClick={() => openSupplyComposer(line.id, "manual")}>Ajouter une fourniture</button>
+                  </div>
                   {visibleMaterials.map((material) => {
                     const linkedSupply = findSupplyForMaterial(supplies, material);
                     const originalIndex = (line.materialLines || []).indexOf(material);
@@ -2915,11 +2923,28 @@ export default function DevisEditor() {
                     );
                   })}
                 </div>
-              ) : null}
             </>
           ) : (
             <div className="pu">{L.devis.subWorks(subItems.length)} · HT total : {money(line.totalHt)}</div>
           )}
+
+          <label className="ed">Note client
+            <textarea
+              rows={2}
+              value={settings.description ?? line.description ?? ""}
+              onChange={(event) => updateLine(line.id, "description", event.target.value)}
+              placeholder={L.devis.descriptionPlaceholder}
+            />
+          </label>
+
+          {!hasSubItems ? (
+            <div className="pu">
+                {line.billingMode !== "fixed" && Number(settings.quantity ?? line.quantity ?? 0) > 0
+                  ? `Prix unitaire ${money(line.totalHt / Number(settings.quantity ?? line.quantity))}/${unitLabel(settings.unit ?? line.unit)} = main-d'œuvre ${money(Number(line.laborCost || 0) / Number(settings.quantity ?? line.quantity))} + fournitures ${money(Number(line.materialCost || 0) / Number(settings.quantity ?? line.quantity))}${surcharges.some((x) => x.mode === "internal" || x.mode === "client") ? " · majorations appliquées au total" : ""}`
+                  : breakdown.filter(Boolean).join(" · ")}
+                {line.variante ? " · variante, hors total" : ""}
+              </div>
+          ) : null}
 
           {(hasSubItems || isAdvanced) ? (
             <div className="subs">
@@ -2992,9 +3017,13 @@ export default function DevisEditor() {
                 <button type="button" className="btn btn-sec" onClick={() => setConfirmDeleteLineId(null)}>{L.common.cancel}</button>
               </span>
             ) : (
-              <button type="button" className="btn btn-sec" onClick={() => saveLineDraft(line.id)}>
-                {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : L.devis.save}
-              </button>
+              <>
+                <button type="button" className={`btn btn-sec${line.variante ? " on" : ""}`} aria-pressed={Boolean(line.variante)} onClick={() => updateLine(line.id, "variante", !line.variante)}>Variante</button>
+                <button type="button" className="btn btn-sec" onClick={() => setConfirmDeleteLineId(line.id)}>{L.common.delete}</button>
+                <button type="button" className="btn btn-main" onClick={() => saveLineDraft(line.id)}>
+                  {savedLineId === `saving-${line.id}` ? L.devis.saving : savedLineId === `saved-${line.id}` ? L.devis.saved : "Valider"}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -3483,7 +3512,7 @@ export default function DevisEditor() {
                   {roomGroups.map((room) => {
                     const roomLines = linesByRoom[room] || [];
                     if (!roomLines.length) return null;
-                    const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+                    const roomTotalHt = roomLines.filter((l) => !l.variante).reduce((s, l) => s + l.totalHt, 0);
                     const collapsed = collapsedLots.has(room);
                     return (
                       <div className="lot" key={room}>
@@ -3733,7 +3762,7 @@ export default function DevisEditor() {
                     : roomGroups.filter((r) => r !== "Services")
                 ).map((room) => {
                   const roomLines = linesByRoom[room] || [];
-                  const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+                  const roomTotalHt = roomLines.filter((l) => !l.variante).reduce((s, l) => s + l.totalHt, 0);
                   const isExpanded = expandedLotIds.has(room);
                   const isTargeted = targetRoom === room;
                   return (

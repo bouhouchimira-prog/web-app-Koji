@@ -1,5 +1,9 @@
+import { DM_Sans } from "next/font/google";
+import KojiWordmark from "./KojiWordmark";
 import "./auth-hero-enterprise.css";
 import "./auth-pro.css";
+
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--f" });
 
 const letters = ["K", "O", "J", "I"];
 
@@ -11,26 +15,10 @@ function CheckIcon({ color }) {
   );
 }
 
-function RadarIcon({ color }) {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14" />
-    </svg>
-  );
-}
-
 function SparkleIcon({ color }) {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
-    </svg>
-  );
-}
-
-function SignatureIcon({ color }) {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 20l4-1L19 8a2.1 2.1 0 00-3-3L5 16zM14 6l3 3M12 20h8" />
     </svg>
   );
 }
@@ -64,68 +52,6 @@ function SwapArrowIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16233F" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
-  );
-}
-
-// Scene flottante "Radar des chantiers" + "Devis avec l'IA" (panneau
-// entreprise / Koji Pro) — mêmes informations que les vraies fonctionnalités
-// (jamais de chiffre inventé en dehors de ce décor purement illustratif).
-function EntrepriseScene() {
-  return (
-    <div className="auth-hero-scene">
-      <div className="auth-hero-card" style={{ "--rise-delay": "0.1s", left: 0, top: 0, width: 320, padding: 16, display: "flex", flexDirection: "column", gap: 9 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 14.5, fontWeight: 800, color: "#16233F" }}>Radar des chantiers</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 999, background: "#F3EEE6", color: "#16233F" }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#1E8E5A" }} />30 km
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid #ECE8E1", borderRadius: 14, padding: "10px 12px" }}>
-          <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 800, color: "#16233F" }}>Toiture</span>
-              <span style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#FBE9E5", color: "#C4452D" }}>Urgent</span>
-            </div>
-            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>Lyon 3e · 4 km</div>
-          </div>
-          <span style={{ height: 28, padding: "0 11px", borderRadius: 9, background: "#16233F", color: "#FFFFFF", fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center" }}>Répondre</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid #ECE8E1", borderRadius: 14, padding: "10px 12px" }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#E8DCCB,#F3EEE6)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
-            <BathIcon color="#A99B84" />
-          </div>
-          <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 800, color: "#16233F" }}>Salle de bain</span>
-            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>5 m² · Lyon 6e · 6 km</div>
-          </div>
-          <span style={{ height: 28, padding: "0 11px", borderRadius: 9, background: "#16233F", color: "#FFFFFF", fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center" }}>Répondre</span>
-        </div>
-      </div>
-
-      <div className="auth-hero-card" style={{ "--rise-delay": "0.3s", left: 240, top: 164, width: 270, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 14.5, fontWeight: 800, color: "#16233F" }}>Devis avec l'IA</span>
-          <span style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999, background: "#E8ECFD", color: "#3B5BDB" }}>IA</span>
-        </div>
-        {[["Dépose existant", true], ["Étanchéité douche", true], ["Carrelage", true]].map(([label]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "8px 0", borderBottom: "1px solid #F1EDE6" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#16233F" }}>{label}</span>
-            <span style={{ width: 19, height: 19, borderRadius: "50%", background: "#E6F5EE", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-              <CheckIcon color="#1E8E5A" />
-            </span>
-          </div>
-        ))}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "8px 0" }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#16233F" }}>Chauffe-eau</span>
-          <span style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999, background: "#FDF3DC", color: "#B7791F" }}>À chiffrer</span>
-        </div>
-      </div>
-
-      <div className="auth-hero-card" style={{ "--rise-delay": "0.5s", left: 0, top: 360, width: "auto", padding: "11px 17px", display: "flex", alignItems: "center", gap: 10, borderLeft: "4px solid #1E8E5A", whiteSpace: "nowrap", boxShadow: "0 14px 34px rgba(22,35,63,0.3)" }}>
-        <CheckIcon color="#1E8E5A" />
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#16233F" }}>Devis signé · 4 850 €</span>
-      </div>
-    </div>
   );
 }
 
@@ -186,59 +112,53 @@ function ParticulierScene() {
   );
 }
 
-const ENTREPRISE_PILLS = [
-  { label: "Radar des chantiers", icon: RadarIcon },
-  { label: "Devis avec l'IA", icon: SparkleIcon },
-  { label: "Signature électronique", icon: SignatureIcon }
-];
-
 const PARTICULIER_PILLS = [
   { label: "Gratuit et illimité", icon: GiftIcon },
   { label: "Partout en France", icon: PinIcon },
   { label: "Vous choisissez le devis", icon: CheckIcon }
 ];
 
-// Panneau de marque thématique par profil (18 oct) — une fois "Koji" ou
-// "Koji Pro" choisi sur /login (app/login/page.jsx::ProfileChooser), le
-// panneau générique (lettres KOJI + accroche Marketplace) laisse place à ce
-// décor spécifique au profil choisi, repris du design fourni par Amira
-// (artifact ConnexionEntreprise.dc.html / ConnexionParticulier.dc.html).
-// Jamais de chiffre ni de prix invente dans ce décor — uniquement des
-// libellés déjà utilisés ailleurs dans l'app (noms des outils, exemples
-// génériques de l'interface réelle).
-function ThemedHero({ profile }) {
-  const isEntreprise = profile === "entreprise";
-  const pills = isEntreprise ? ENTREPRISE_PILLS : PARTICULIER_PILLS;
+// Panneau Koji Pro, repris de la maquette PRO-00 (.g2-brand) ; sur
+// téléphone, bandeau graphite (.g2-mb) : mot-symbole et phrase de marque.
+function EntrepriseBrand() {
   return (
-    <section className={`auth-hero-themed ${profile}`} aria-label="Koji">
+    <section className={`auth-hero-themed entreprise auth-brand-pro ${dmSans.variable}`} aria-label="Koji">
+      <a href="/" className="auth-brand-pro-w" aria-label="Koji, accueil"><KojiWordmark height={20} /></a>
+      <p className="auth-brand-pro-m">Décrivez le chantier. Koji le chiffre.</p>
+      <h2>Décrivez le chantier.<br />Koji le chiffre.</h2>
+      <ul>
+        <li>Radar des chantiers près de chez vous</li>
+        <li>Devis guidé, envoyé en 10 minutes</li>
+        <li>Chantier, photos, factures au même endroit</li>
+      </ul>
+      <small>getkoji.io</small>
+    </section>
+  );
+}
+
+// Panneau de marque particulier (18 oct), repris du design fourni par Amira
+// (artifact ConnexionParticulier.dc.html). Jamais de chiffre ni de prix
+// invente dans ce décor.
+function ParticulierHero() {
+  return (
+    <section className="auth-hero-themed particulier" aria-label="Koji">
       <div className="auth-hero-topbar">
         <div className="auth-hero-brand">
-          {isEntreprise ? (
-            <img src="/koji-logo.svg" alt="" />
-          ) : (
-            // Le logo (public/koji-logo.svg) est dore/clair — illisible sur
-            // le fond clair du theme particulier sans ce fond fonce, meme
-            // principe de contraste que l'artifact (logo clair sur navy
-            // meme cote particulier).
-            <span className="auth-hero-logo-chip"><img src="/koji-logo.svg" alt="" /></span>
-          )}
+          {/* Logo dore/clair, illisible sur le fond clair sans ce fond fonce. */}
+          <span className="auth-hero-logo-chip"><img src="/koji-logo.svg" alt="" /></span>
           <span>Koji</span>
         </div>
-        <span className="auth-hero-domain-pill">{isEntreprise ? "entreprise.getkoji.io" : "particulier.getkoji.io"}</span>
+        <span className="auth-hero-domain-pill">particulier.getkoji.io</span>
       </div>
       <div className="auth-hero-pitch">
-        <p className="auth-hero-eyebrow">{isEntreprise ? "Espace entreprise · Koji Pro" : "Espace particulier"}</p>
-        {isEntreprise ? (
-          <h2>Trouvez des chantiers, <em>créez vos devis.</em></h2>
-        ) : (
-          <h2>Publiez votre chantier <em>en quelques questions.</em></h2>
-        )}
+        <p className="auth-hero-eyebrow">Espace particulier</p>
+        <h2>Publiez votre chantier <em>en quelques questions.</em></h2>
       </div>
-      {isEntreprise ? <EntrepriseScene /> : <ParticulierScene />}
+      <ParticulierScene />
       <div className="auth-hero-pills">
-        {pills.map(({ label, icon: Icon }, index) => (
+        {PARTICULIER_PILLS.map(({ label, icon: Icon }, index) => (
           <span key={label} className="auth-hero-pill" style={{ "--pill-delay": `${0.55 + index * 0.1}s` }}>
-            <Icon color={isEntreprise ? "#D9A93E" : "#8F6A12"} />{label}
+            <Icon color="#8F6A12" />{label}
           </span>
         ))}
       </div>
@@ -265,9 +185,8 @@ function ThemedHero({ profile }) {
 // n'ont jamais passe ce prop et gardent donc le panneau generique
 // exactement comme avant, aucune regression possible pour ces pages.
 export function AuthBrandPanel({ tagline, profile } = {}) {
-  if (profile === "entreprise" || profile === "particulier") {
-    return <ThemedHero profile={profile} />;
-  }
+  if (profile === "entreprise") return <EntrepriseBrand />;
+  if (profile === "particulier") return <ParticulierHero />;
 
   return (
     <section className="auth-brand auth-brand-animated">

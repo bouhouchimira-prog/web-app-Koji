@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Shell } from "../../../components/Shell";
 import { apiGet, apiSend } from "../../../lib/client-api";
 import { euro, shortDate } from "../../../lib/pricing";
-import { estNouveau, publication, titreCourt, villeSeule } from "../../../lib/radar-display";
+import { estNouveau, notePrix, prixCourt, prixPartiel, publication, titreCourt, villeSeule } from "../../../lib/radar-display";
 
 // Fiche d'un chantier du Radar, maquette PRO-04 (DA Koji Pro, 30 oct) :
 // projet du client à gauche, positionnement et suite à droite, discussion
@@ -228,7 +228,8 @@ export default function MarketplaceOffreDetailPage() {
               <div className="rd-facts">
                 <div className="kv"><span>Métier</span><b>{offre.metier || "Non précisé"}</b></div>
                 <div className="kv"><span>Zone</span><b>{offre.address || "Non précisée"}{!offre.rdvConfirmed ? " (secteur seulement)" : ""}</b></div>
-                <div className="kv"><span>Prix</span><b>à proposer selon votre taux journalier</b></div>
+                <div className="kv"><span>Prix recommandé</span><b>{offre.prixRecommande?.ttc ? `${prixCourt(offre.prixRecommande)} TTC${prixPartiel(offre.prixRecommande) ? ", partiel" : ""}` : "À chiffrer"}</b></div>
+                {notePrix(offre.prixRecommande) ? <p className="sm2" style={{ margin: "4px 0 8px" }}>{notePrix(offre.prixRecommande)}</p> : null}
                 {offre.delaiEstimeJours ? <div className="kv"><span>Délai estimé</span><b>{offre.delaiEstimeJours} jour{offre.delaiEstimeJours > 1 ? "s" : ""}</b></div> : null}
                 <div className="kv"><span>Publié le</span><b>{shortDate(offre.createdAt)}</b></div>
               </div>

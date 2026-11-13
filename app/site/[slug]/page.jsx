@@ -266,7 +266,36 @@ export default function PublicCompanySite() {
                   <div style={{ padding: "16px 18px 18px", fontFamily: FONT_INTER }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#FFFFFF" }}>{item.name || "Chantier"}</div>
                     <div style={{ fontSize: 9, color: "#B9C4E2", marginTop: 3 }}>{item.photos.length} photo{item.photos.length > 1 ? "s" : ""}</div>
+                    {item.texte ? <div style={{ fontSize: 11.5, color: "#D6DDF0", marginTop: 8, lineHeight: 1.5 }}>{item.texte}</div> : null}
                   </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ height: 58 }} />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Avis des clients (PRO-02.6) : tous publiés, positifs comme négatifs. */}
+      {site.avis?.length ? (
+        <div style={{ borderTop: "1px solid rgba(255,255,255,.13)" }} id="avis">
+          <div style={{ ...WRAP, padding: "58px 64px 0" }}>
+            <Kicker>Avis clients</Kicker>
+            <h2 style={{ fontFamily: FONT_SERIF, margin: "14px 0 0 0", fontSize: "clamp(18px,2.3vw,33px)", fontWeight: 700, color: "#FFFFFF" }}>
+              {site.avisStats?.nombre ? `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(site.avisStats.moyenne)} sur 5 · ${site.avisStats.nombre} avis vérifié${site.avisStats.nombre > 1 ? "s" : ""}` : "Ce que disent nos clients."}
+            </h2>
+            <p style={{ fontFamily: FONT_INTER, margin: "10px 0 0 0", fontSize: 12.5, lineHeight: 1.6, color: "#B9C4E2", maxWidth: 560 }}>
+              Avis publiés par les clients dans Koji Client, sans tri ni suppression. Un avis est « vérifié » quand le chantier a été terminé et facturé dans Koji ; aucune contrepartie n'est proposée en échange d'un avis.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 28 }}>
+              {site.avis.map((a) => (
+                <div key={a.id} style={{ borderRadius: 18, background: "#08173C", border: "1px solid rgba(255,255,255,.13)", padding: "18px 20px", fontFamily: FONT_INTER }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", color: "#FFFFFF" }}>
+                    <span style={{ fontSize: 16, letterSpacing: 2 }} aria-label={`${a.note} sur 5`}>{"★".repeat(a.note)}<span style={{ color: "rgba(255,255,255,.25)" }}>{"★".repeat(5 - a.note)}</span></span>
+                    <span style={{ fontSize: 11, color: "#B9C4E2" }}>{a.auteur} · {new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(a.date))}{a.verifie ? " · avis vérifié" : ""}</span>
+                  </div>
+                  {a.texte ? <p style={{ margin: "10px 0 0 0", fontSize: 13, lineHeight: 1.6, color: "#E8EDFA" }}>« {a.texte} »</p> : null}
+                  {a.reponse ? <p style={{ margin: "12px 0 0 0", padding: "10px 12px", borderLeft: "2px solid #C9A227", fontSize: 12, lineHeight: 1.55, color: "#B9C4E2" }}><b style={{ color: "#FFFFFF" }}>Réponse de l'entreprise · </b>{a.reponse}</p> : null}
                 </div>
               ))}
             </div>
