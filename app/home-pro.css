@@ -844,6 +844,33 @@
 .pro .composer .send{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;background:var(--fill);border:0;border-radius:var(--r-touch);color:var(--filltxt);cursor:pointer}
 .pro .composer .send:disabled{opacity:.45;cursor:default}
 .pro .composer .send svg{width:20px;height:20px}
+/* Devis guidé (maquette PRO-03.1) : questions oui / non, Koji travaille,
+   photo et dictée. */
+.pro .msg-k{display:contents}
+.pro .qs{display:flex;flex-direction:column;gap:8px;white-space:normal}
+.pro .qrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pro .qa{display:flex;flex:none;gap:6px}
+.pro .qa .chip{display:inline-flex;flex-direction:row;align-items:center;height:30px;padding:0 12px;background:var(--card);border:1px solid var(--ink);border-radius:var(--r-touch);box-shadow:none;color:var(--ink);font-size:13px;font-weight:600}
+.pro .qa .chip.on{background:var(--fill);border-color:var(--fill);color:var(--filltxt)}
+.pro .qa .chip:disabled{cursor:default}
+.pro .qa .chip:disabled:not(.on){opacity:.45}
+.pro .think{display:inline-flex;align-items:center;gap:3px;margin-right:8px;vertical-align:middle}
+.pro .think i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35;animation:kth 1.2s infinite}
+.pro .think i:nth-child(2){animation-delay:.2s}
+.pro .think i:nth-child(3){animation-delay:.4s}
+@keyframes kth{0%,80%,100%{opacity:.35}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.pro .think i{animation:none;opacity:.7}}
+.pro .msg.thinking{display:flex;align-items:center;color:var(--grey)}
+.pro .msg-photo{display:block;max-width:220px;max-height:220px;margin-bottom:8px;border-radius:var(--r-touch);object-fit:cover}
+.pro .dv-chat-photo{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line)}
+.pro .dv-chat-photo img{width:44px;height:44px;border-radius:var(--r-touch);object-fit:cover}
+.pro .dv-chat-photo .muted{flex:1;font-size:13px}
+.pro .composer .cam,.pro .composer .mic{display:grid;place-items:center;flex:none;width:40px;height:40px;padding:0;background:none;border:0;border-radius:var(--r-touch);color:var(--ink);cursor:pointer}
+.pro .composer .cam:hover,.pro .composer .mic:hover{background:var(--soft)}
+.pro .composer .mic.on{background:var(--fill);color:var(--filltxt)}
+.pro .composer .cam:disabled,.pro .composer .mic:disabled{opacity:.45;cursor:default}
+.pro .composer .cam svg,.pro .composer .mic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pro .dvm-band,.pro .dv-t-m,.pro .dv-send-m,.pro .dl-pop .dv-m-only{display:none}
 @media (min-width:901px){
   .pro .dv-chat{height:calc(100vh - 64px)}
 }
@@ -1402,16 +1429,40 @@
   .pro .lf-h strong{grid-column:1;grid-row:2}
   .pro .lf-h .lf-a{grid-column:2;grid-row:2}
   .pro .fgrid{grid-template-columns:1fr}
-  .pro .dv-top{flex-wrap:wrap;gap:8px 12px;padding:8px 16px}
-  .pro .dv-title{flex-basis:calc(100% - 90px);order:1}
-  .pro .dv-mode{order:2}
-  .pro .dv-act{flex-wrap:wrap;order:3;width:100%}
-  .pro .dv-act .dv-tools{display:inline-flex}
-  .pro .dv-act .btn{flex:1 1 auto}
+  /* Éditeur au téléphone (maquette PRO-03.1) : retour, titre, « Envoyer »,
+     le reste dans « ••• ». */
+  .pro .dv-top{flex-wrap:nowrap;gap:8px;min-height:56px;padding:8px 8px 8px 4px}
+  .pro .dv-top .back{justify-content:center;width:40px;height:40px;gap:0;font-size:0}
+  .pro .dv-top .back svg{width:20px;height:20px}
+  .pro .dv-title{flex:1;min-width:0}
+  .pro .dv-title>strong:not(.dv-t-m),.pro .dv-title>.muted,.pro .dv-mode,.pro .dv-act>.btn{display:none}
+  .pro .dv-title .dv-t-m{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pro .dv-title strong.dv-t-m{font-size:15px}
+  .pro .dv-title small.dv-t-m{color:var(--grey);font-size:12px}
+  .pro .dv-act{gap:4px}
+  .pro .dv-act .dv-send-m{display:inline-flex;align-items:center;height:40px;padding:0 8px;background:none;border:0;color:var(--ink);font-size:14px;font-weight:700;text-decoration:none}
+  .pro .dv-more>.btn{width:40px;height:40px;padding:0;background:none;border:0}
+  .pro .dl-pop .dv-m-only{display:block}
+  /* Devis guidé : chat plein écran, bandeau du total en bas, le devis
+     monte du bas comme une feuille. */
+  .pro .dv-body.is-ia .dv-chat{height:calc(100dvh - 56px - 72px);border-bottom:0}
+  .pro .dvm-band{position:fixed;right:0;bottom:0;left:0;z-index:50;display:flex;align-items:center;gap:24px;height:72px;padding:0 20px;background:var(--fill);border:0;border-radius:0;color:var(--filltxt);font:inherit;text-align:left;cursor:pointer}
+  .pro .dvm-band.live{gap:12px;padding:0 14px}
+  .pro .dvm-band .bl{display:flex;flex:1;flex-direction:column;min-width:0}
+  .pro .dvm-band .br{display:flex;flex-direction:column;align-items:flex-end}
+  .pro .dvm-band .lab{color:#A7ABB2;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+  .pro .dvm-band .bl b{display:block;overflow:hidden;font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+  .pro .dvm-band .br b{display:flex;align-items:baseline;gap:6px;font-size:17px;white-space:nowrap}
+  .pro .dvm-band .br small{color:var(--prim);font-size:11px;font-weight:700}
+  .pro .dvm-band .think{margin-right:0}
+  .pro .dvm-band .grab{flex:none;width:36px;height:4px;background:#A7ABB2;border-radius:2px}
+  .pro:has(.dvm-band) .koji-assistant-bubble{display:none}
+  .pro .dv-body.is-ia .quote-col-right{top:120px;right:0;bottom:0;left:0;width:auto;height:auto;padding:24px 0 24px;background:var(--card);border-top:1px solid var(--ink);border-radius:var(--r-sheet) var(--r-sheet) 0 0;box-shadow:0 -12px 30px rgba(11,13,15,.18);transform:translateY(102%)}
+  .pro .dv-body.is-ia .quote-col-right.open{transform:none}
+  .pro .dv-body.is-ia .quote-col-right::before{content:"";position:absolute;top:10px;left:50%;width:36px;height:4px;margin-left:-18px;background:var(--btn);border-radius:2px}
   .pro .dv-msg{margin:12px 16px 0}
   .pro .dv-body{display:block}
   .pro .dv-body .quote-col-right{padding:56px 16px 16px;background:var(--card)}
-  .pro .dv-body.is-ia .quote-col-right{background:var(--bg)}
   .pro .dv-drawer-close{position:absolute;top:12px;right:12px;display:grid}
   .pro .tp-list{max-height:none}
   .pro .dv-chat{height:70vh;border-bottom:1px solid var(--line)}
