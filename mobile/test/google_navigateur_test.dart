@@ -38,6 +38,21 @@ void main() {
     }
   });
 
+  test('pas de permission de paiement Google Play (rien à vendre dans l\'app)',
+      () {
+    // Play refusait la version 73 : BILLING seule = ancien paiement « AIDL ».
+    final manifest =
+        File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    expect(
+        manifest,
+        contains(
+            '<uses-permission android:name="com.android.vending.BILLING" tools:node="remove"/>'));
+    expect(
+        RegExp(r'<uses-permission android:name="com\.android\.vending\.BILLING"\s*/>')
+            .hasMatch(manifest),
+        isFalse);
+  });
+
   group('profil après Google', () {
     test('pas de ligne : on la crée', () {
       expect(googleProfileAction(null, true), GoogleProfileAction.create);
