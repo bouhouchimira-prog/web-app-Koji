@@ -297,6 +297,15 @@ List<LigneChantier> lignesChantiers({
         break;
       }
     }
+    // Tâche bloquée (PRO-02.7) : livraison, réserve…
+    Map<String, dynamic>? bloquee;
+    for (final t in taches) {
+      final b = t['bloquant'];
+      if (t['done'] != true && b is Map && _s(b['raison']).isNotEmpty) {
+        bloquee = t;
+        break;
+      }
+    }
     final echues = invoices
         .where((f) =>
             _s(f['projectId']) == id &&
@@ -326,6 +335,9 @@ List<LigneChantier> lignesChantiers({
               ? ' par ${alerte['senderName']}'
               : '';
       detail = '${_urgences[alerte['type']] ?? 'Alerte'} signalée$par';
+    } else if (bloquee != null) {
+      (etiquette, ton) = ('Bloquant', TonEtiquette.plein);
+      detail = '${_s(bloquee['label'])} : ${_s((bloquee['bloquant'] as Map)['raison'])}';
     } else if (echues.isNotEmpty) {
       final f = echues.first;
       (etiquette, ton) = ('À relancer', TonEtiquette.gris);

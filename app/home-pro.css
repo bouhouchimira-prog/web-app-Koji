@@ -1762,3 +1762,29 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 }
 .pro .rs-acc{display:flex;flex-direction:column;gap:8px}
 .pro .rs-acc select,.pro .rs-acc input{height:40px;padding:0 10px;border:1px solid #D9D9D4;background:#FFFFFF;font:inherit;font-size:14px;border-radius:var(--r-touch,4px)}
+
+/* Tâches du chantier (maquette PRO-02.7). */
+.pro .tk-l{display:flex;flex-direction:column;gap:14px}
+.pro .tk-hd{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pro .tk-lot{background:#FFFFFF;border:1px solid #E1E1DB;padding:4px 14px 6px}
+.pro .tk-lh{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0 4px;border-bottom:2px solid #171B1E}
+.pro .tk-lh b{font-size:14px}
+.pro .tk-lh span{font-size:12px;color:#5B5F66}
+.pro .tk-r{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #F0F0EB}
+.pro .tk-r:nth-child(2){border-top:0}
+.pro .tk-r .kj-cb{background:#FFFFFF;cursor:pointer;padding:0}
+.pro .tk-r .kj-cb.on{background:#171B1E;border-color:#171B1E}
+.pro .tk-r .kj-cb.on svg{stroke:#FFFFFF}
+.pro .tk-b{flex:1;display:flex;flex-direction:column;min-width:0}
+.pro .tk-b b{font-size:14px;font-weight:600}
+.pro .tk-r.ok .tk-b b{text-decoration:line-through;color:#5B5F66;font-weight:500}
+.pro .tk-b small{font-size:12px;color:#5B5F66}
+.pro .tk-bl{font-size:11px;opacity:.7}
+.pro .tk-r:hover .tk-bl{opacity:1}
+.pro .tag-val{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border:0}
+.pro .tag-val svg{width:14px;height:14px;stroke-width:2.2}
+.pro button.tag{cursor:pointer;font:inherit;font-size:12px}
+.pro .tk-add{display:flex;flex-direction:column;gap:10px}
+.pro .tk-add label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--grey)}
+.pro .tk-add input,.pro .tk-add select{height:40px;padding:0 10px;border:1px solid #D9D9D4;background:#FFFFFF;font:inherit;font-size:14px;color:var(--ink);border-radius:var(--r-touch,4px)}
+.pro .nf-ul{margin:0;padding-left:18px;font-size:13px;color:#3A3F44;display:flex;flex-direction:column;gap:6px}

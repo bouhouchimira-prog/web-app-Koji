@@ -12,6 +12,7 @@ import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreRe
 import { PvReception } from "../../components/PvReception";
 import { conseilsEntretien, elementsDossier, photosChoisies, resumeDossier } from "../../lib/dossier-fin";
 import { CRITERES, moyenneTexte, realisationProposee, reponseProposee } from "../../lib/avis";
+import { etatTache, ligneTache, tachesParLot } from "../../lib/taches-chantier";
 import { jourDeParis, bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
@@ -373,6 +374,8 @@ export default function ProjectsTrackingPage() {
   const [reponseAvis, setReponseAvis] = useState(null);
   const [realForm, setRealForm] = useState(null);
   const [avisEnvoi, setAvisEnvoi] = useState(false);
+  const [nouvelleTache, setNouvelleTache] = useState({ label: "", lot: "", qui: "", jour: "" });
+  const [tacheEnvoi, setTacheEnvoi] = useState(false);
   const noticeRef = useRef(null);
   const planRef = useRef(null);
 
@@ -943,6 +946,48 @@ export default function ProjectsTrackingPage() {
     const nextTasks = tasks.map((item) => item.id === updatedTask.id ? updatedTask : item);
     setTasks(nextTasks);
     await refreshProjectProgress(nextTasks);
+  }
+
+  // Tâches du chantier (PRO-02.7) : bloquer / débloquer, ajouter.
+  async function bloquerTache(task) {
+    const raison = task.bloquant?.raison ? "" : window.prompt(`Qu'est-ce qui bloque « ${task.label} » ? (livraison, réserve…)`);
+    if (!task.bloquant?.raison && !raison?.trim()) return;
+    try {
+      const { task: maj } = await apiSend("/api/tasks", task.bloquant?.raison ? { id: task.id, action: "debloquer" } : { id: task.id, action: "bloquer", raison }, "PATCH");
+      setTasks((liste) => liste.map((t) => (t.id === maj.id ? maj : t)));
+      setMessage(maj.bloquant ? "Tâche bloquée : elle remonte sur l'accueil." : "Tâche débloquée.");
+    } catch (error) {
+      setMessage(error.message || "La tâche n'a pas pu être mise à jour.");
+    }
+  }
+
+  async function ajouterTache(event) {
+    event.preventDefault();
+    if (!selectedProject || !nouvelleTache.label.trim()) return;
+    setTacheEnvoi(true);
+    try {
+      const worker = workers.find((w) => w.id === nouvelleTache.qui);
+      const { task } = await apiSend("/api/tasks", {
+        projectId: selectedProject.id,
+        project: selectedProject.title,
+        quoteId: selectedQuote?.id || "",
+        label: nouvelleTache.label.trim(),
+        room: nouvelleTache.lot || "Autres tâches",
+        startDate: nouvelleTache.jour,
+        endDate: nouvelleTache.jour,
+        dueDate: nouvelleTache.jour || undefined,
+        workerIds: worker ? [worker.id] : [],
+        assignedTo: worker ? worker.name : "À affecter",
+        participantType: worker?.type === "Sous-traitant" ? "Sous-traitants" : "Ouvriers"
+      });
+      setTasks((liste) => [task, ...liste]);
+      setNouvelleTache((t) => ({ ...t, label: "" }));
+      setMessage(worker ? `Tâche ajoutée : ${worker.name} la voit dans sa journée.` : "Tâche ajoutée, à affecter.");
+    } catch (error) {
+      setMessage(error.message || "La tâche n'a pas pu être ajoutée.");
+    } finally {
+      setTacheEnvoi(false);
+    }
   }
 
   async function validateTask(task) {
@@ -1571,6 +1616,7 @@ export default function ProjectsTrackingPage() {
     // plus « Coût » (budget et dépenses du chantier).
     const ficheTabs = [
       { id: "lots", label: "Lots", count: lotsFiche.length },
+      { id: "taches", label: "Tâches", count: projectTasks.length },
       { id: "planning", label: "Planning", count: upcomingTasks.length + upcomingEvents.length },
       { id: "fournitures", label: "Fournitures", count: supplyNeeds.length },
       { id: "situations", label: "Situations", count: linkedInvoices.length },
@@ -2169,6 +2215,37 @@ export default function ProjectsTrackingPage() {
               />
             ) : null}
 
+            {ficheTab === "taches" ? (
+              <div className="tk-l">
+                <div className="tk-hd">
+                  <span className="muted">{projectTasks.filter((t) => t.done).length} faite{projectTasks.filter((t) => t.done).length > 1 ? "s" : ""} sur {projectTasks.length}</span>
+                  <a className="btn btn-sec" href={`/api/taches-chantier?projectId=${encodeURIComponent(selectedProject.id)}`} target="_blank" rel="noreferrer">Imprimer la liste</a>
+                </div>
+                {projectTasks.length === 0 ? <p className="empty">Aucune tâche : lancez le chantier pour que Koji propose les tâches du devis, ou ajoutez-en une.</p> : null}
+                {tachesParLot(projectTasks, selectedQuote).map((lot) => (
+                  <div className="tk-lot" key={lot.nom}>
+                    <div className="tk-lh"><b>{lot.titre}</b><span>{lot.faites} / {lot.taches.length} faites</span></div>
+                    {lot.taches.map((t) => {
+                      const etat = etatTache(t, today);
+                      return (
+                        <div className={`tk-r${t.done ? " ok" : ""}`} key={t.id}>
+                          <button type="button" className={`kj-cb${t.done ? " on" : ""}`} aria-pressed={Boolean(t.done)} aria-label={t.done ? `Rouvrir ${t.label}` : `Marquer fait ${t.label}`} onClick={() => toggleDone(t)}>
+                            {t.done ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : null}
+                          </button>
+                          <div className="tk-b"><b>{t.label}</b><small>{ligneTache(t, today)}</small></div>
+                          {etat.id === "fait" ? <span className="tag-val"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>Fait</span>
+                            : etat.id === "bloquant" ? <button type="button" className="tag tag-b" title="Débloquer" onClick={() => bloquerTache(t)}>Bloquant</button>
+                            : etat.id === "retard" ? <span className="tag tag-o">En retard</span>
+                            : etat.id === "a_valider" ? <span className="tag tag-e">À valider</span> : null}
+                          {!t.done && !t.bloquant?.raison ? <button type="button" className="link tk-bl" onClick={() => bloquerTache(t)}>Bloquer</button> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {ficheTab === "documents" ? (
               <div className="card">
                 <div className="card-h"><h2>{L.chantiers.documents}</h2></div>
@@ -2259,6 +2336,37 @@ export default function ProjectsTrackingPage() {
           </div>
 
           <div className="fiche-side">
+            {ficheTab === "taches" ? (
+              <>
+                <form className="card tk-add" onSubmit={ajouterTache}>
+                  <div className="card-h"><h2>Ajouter une tâche</h2></div>
+                  <label><span>Tâche</span><input value={nouvelleTache.label} maxLength={160} onChange={(event) => setNouvelleTache({ ...nouvelleTache, label: event.target.value })} placeholder="Poser les plinthes carrelées" required /></label>
+                  <label><span>Lot</span>
+                    <select value={nouvelleTache.lot} onChange={(event) => setNouvelleTache({ ...nouvelleTache, lot: event.target.value })}>
+                      <option value="">Autres tâches</option>
+                      {lotsFiche.map((l) => <option key={l.nom} value={l.nom}>{l.numero} · {l.nom}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Compagnon</span>
+                    <select value={nouvelleTache.qui} onChange={(event) => setNouvelleTache({ ...nouvelleTache, qui: event.target.value })}>
+                      <option value="">À affecter</option>
+                      {workers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.type === "Sous-traitant" ? " · sous-traitant" : ""}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Jour</span><input type="date" value={nouvelleTache.jour} onChange={(event) => setNouvelleTache({ ...nouvelleTache, jour: event.target.value })} /></label>
+                  <button type="submit" className="btn btn-main" disabled={tacheEnvoi || !nouvelleTache.label.trim()}>Ajouter</button>
+                </form>
+                <div className="card">
+                  <div className="card-h"><h2>Comment Koji remplit cette liste</h2></div>
+                  <ul className="nf-ul">
+                    <li>Chaque ouvrage du devis donne sa tâche au lancement du chantier ; vous gardez, cochez, ajoutez.</li>
+                    <li>Une tâche = un lot, un compagnon, un jour ; elle apparaît dans le planning.</li>
+                    <li>« Fait » vient du compagnon ou de vous ; vous pouvez corriger.</li>
+                    <li>Une tâche bloquée (livraison, réserve) remonte sur l'accueil.</li>
+                  </ul>
+                </div>
+              </>
+            ) : null}
             {ficheTab === "cloture" && vueCloture === "avis" ? (
               <div className="card av-real">
                 <div className="card-h">

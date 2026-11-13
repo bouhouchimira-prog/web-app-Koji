@@ -188,6 +188,8 @@ void main() {
     await expectLater(find.byType(ProFicheChantierScreen),
         matchesGoldenFile('goldens/pro_fiche_chantier_lot.png'));
     // Dernier ouvrage du lot sans photo après : refusé.
+    await tester.ensureVisible(find.text('Marquer fait'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Marquer fait'));
     await tester.pump();
     expect(

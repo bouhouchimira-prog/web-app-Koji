@@ -294,6 +294,21 @@ function DashboardHome() {
         tri: alert.createdAt
       });
     }
+    // Tâches bloquées (PRO-02.7) : livraison attendue, réserve…
+    for (const tache of tasks) {
+      if (tache.done || !tache.bloquant?.raison) continue;
+      const chantier = projects.find((p) => p.id === tache.projectId);
+      items.push({
+        id: `tache-${tache.id}`,
+        rang: 0,
+        titre: `${tache.label}, ${chantier?.title || tache.project || "chantier"}`,
+        meta: `bloquant : ${tache.bloquant.raison}`,
+        tag: "Bloquant",
+        ton: "b",
+        href: tache.projectId ? `/chantiers?project=${tache.projectId}` : "/chantiers",
+        tri: tache.bloquant.depuis || ""
+      });
+    }
     for (const offre of offres) {
       if (!positions[offre.id]?.positionnee || !suivis[offre.id]?.clientARepondu) continue;
       items.push({
@@ -380,7 +395,7 @@ function DashboardHome() {
       });
     }
     return items.sort((a, b) => a.rang - b.rang || String(a.tri || "").localeCompare(String(b.tri || "")));
-  }, [urgentAlerts, offres, positions, suivis, calendarEvents, tasks, invoices, quotes, profileComplete, today]);
+  }, [urgentAlerts, offres, positions, suivis, calendarEvents, tasks, projects, invoices, quotes, profileComplete, today]);
 
   const aTraiterVisibles = toutAfficher ? aTraiter : aTraiter.slice(0, A_TRAITER_VISIBLES);
 

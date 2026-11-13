@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_cloture_screen.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_taches_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_reserves_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/reserves.dart';
@@ -305,6 +306,8 @@ class _ProFicheChantierScreenState
           ),
           const SizedBox(height: 12),
         ],
+        _ligneTaches(da, d),
+        const SizedBox(height: 8),
         _ligneReserves(da, d),
         const SizedBox(height: 8),
         _ligneCloture(da, d),
@@ -360,6 +363,42 @@ class _ProFicheChantierScreenState
                 c['toutes'] == 0
                     ? 'aucune'
                     : '${c['badge']} à traiter sur ${c['toutes']}',
+                style: da.text(13, color: da.grey)),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right, size: 18, color: da.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Tâches du chantier (PRO-02.7) : par lot, faites, bloquées.
+  Widget _ligneTaches(ProDa da, DonneesFiche d) {
+    final faites = d.taches.where((t) => t['done'] == true).length;
+    return InkWell(
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ProTachesScreen(
+                projectId: widget.projectId,
+                titreChantier: _s(d.projet['title']))));
+        _recharger();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: da.card,
+          border: Border.all(color: da.frame),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text('Tâches', style: da.text(14, weight: FontWeight.w600)),
+            ),
+            Text(
+                d.taches.isEmpty
+                    ? 'aucune'
+                    : '$faites faite${faites > 1 ? 's' : ''} sur ${d.taches.length}',
                 style: da.text(13, color: da.grey)),
             const SizedBox(width: 6),
             Icon(Icons.chevron_right, size: 18, color: da.grey),
