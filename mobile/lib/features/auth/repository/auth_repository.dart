@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,23 +29,22 @@ class GoogleSignInFailure implements Exception {
   String toString() => 'GoogleSignInFailure($cause)';
 }
 
+/// Where Google sends the user back after signing in: one address per app
+/// (its package name), so Android never asks « open with Koji or Koji Pro? ».
+/// Declared in AndroidManifest.xml (scheme ${applicationId}) and to be listed
+/// in Supabase → Authentication → URL Configuration → Redirect URLs.
+String googleRedirectFor({required bool isPro}) =>
+    isPro ? 'com.koji.pro://login-callback' : 'com.koji.client://login-callback';
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  // Pass via --dart-define=GOOGLE_WEB_CLIENT_ID=...
-  const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
-  return AuthRepository(
-    SupabaseConfig.client,
-    GoogleSignIn(
-      serverClientId: googleWebClientId.isNotEmpty ? googleWebClientId : null,
-    ),
-  );
+  return AuthRepository(SupabaseConfig.client);
 });
 
 class AuthRepository {
   final SupabaseClient _supabase;
-  final GoogleSignIn _googleSignIn;
   final Logger _logger = Logger();
 
-  AuthRepository(this._supabase, this._googleSignIn);
+  AuthRepository(this._supabase);
 
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 
@@ -104,37 +102,26 @@ class AuthRepository {
     }
   }
 
-  /// Errors are rethrown as [GoogleSignInFailure], so the screen can say that
-  /// Google failed instead of a generic « Une erreur est survenue ».
-  Future<AuthResponse?> signInWithGoogle() async {
-    _logger.i('🔍 [AuthRepository] Starting Google Sign-In flow');
+  /// Google sign-in in the browser, like the website (13 nov 2026).
+  ///
+  /// The native Android picker (google_sign_in) needed an Android OAuth
+  /// client for « com.koji.pro + Play signing SHA-1 » in our Google project;
+  /// that pair is still held by an old project we cannot reach (koji-android),
+  /// and Google allows it in one project only. The browser flow only uses the
+  /// web client Supabase already has for the site.
+  ///
+  /// This only opens the Google page: the session arrives later through the
+  /// [googleRedirectFor] deep link (handled by supabase_flutter), on
+  /// [authStateChanges]. Errors are rethrown as [GoogleSignInFailure].
+  Future<void> signInWithGoogle({required bool isPro}) async {
+    _logger.i('🔍 [AuthRepository] Opening Google sign-in in the browser');
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        _logger.w('⚠️ [AuthRepository] Google Sign-In cancelled by user');
-        return null;
-      }
-
-      _logger.i('✅ [AuthRepository] Google account selected');
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      _logger.i('🔑 [AuthRepository] Got Google authentication tokens');
-
-      final String? accessToken = googleAuth.accessToken;
-      final String? idToken = googleAuth.idToken;
-
-      if (accessToken == null || idToken == null) {
-        throw Exception('Missing Google Auth Tokens');
-      }
-
-      _logger.i('🔐 [AuthRepository] Signing in with Google credential');
-      final result = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
+      final opened = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: googleRedirectFor(isPro: isPro),
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
-      _logger.i('✅ [AuthRepository] Supabase signInWithIdToken successful');
-      return result;
+      if (!opened) throw Exception('Navigateur non ouvert');
     } catch (e) {
       _logger.e('❌ [AuthRepository] Google Sign-In failed', error: e);
       throw GoogleSignInFailure(e);
@@ -367,12 +354,9 @@ class AuthRepository {
       _supabase.storage.from('worker-uploads').getPublicUrl(storagePath);
 
   Future<void> signOut() async {
-    _logger.i('🚪 [AuthRepository] Signing out from Supabase and Google');
+    _logger.i('🚪 [AuthRepository] Signing out from Supabase');
     try {
-      await Future.wait([
-        _supabase.auth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+      await _supabase.auth.signOut();
       _logger.i('✅ [AuthRepository] Sign out successful');
     } catch (e) {
       _logger.e('❌ [AuthRepository] Sign out failed', error: e);

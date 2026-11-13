@@ -124,16 +124,11 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          # Client Web « Koji Build » du projet Google koji-2e5fb, celui que
-          # Supabase accepte pour Google. Sans lui, l'app Android ne reçoit pas
-          # de jeton Google (« Continuer avec Google » échouait toujours). Pas
-          # un secret : il est public dans chaque page de connexion Google.
-          # Il faut aussi l'empreinte SHA-1 de la clé de signature Play déclarée
-          # dans Firebase (koji-2e5fb) pour com.koji.pro et com.koji.client.
-          GOOGLE_WEB_CLIENT_ID: 4703912546-umnjmevmn24ga1459l0hlkh1vttetvi9.apps.googleusercontent.com
+        # Google se connecte par le navigateur (13 nov) : plus besoin de
+        # GOOGLE_WEB_CLIENT_ID ni d'empreinte SHA-1 pour l'app.
         run: |
-          jq -n --arg u "$SUPABASE_URL" --arg k "$SUPABASE_ANON_KEY" --arg g "$GOOGLE_WEB_CLIENT_ID" \
-            '{SUPABASE_URL: $u, SUPABASE_ANON_KEY: $k, GOOGLE_WEB_CLIENT_ID: $g}' > "$RUNNER_TEMP/defines.json"
+          jq -n --arg u "$SUPABASE_URL" --arg k "$SUPABASE_ANON_KEY" \
+            '{SUPABASE_URL: $u, SUPABASE_ANON_KEY: $k}' > "$RUNNER_TEMP/defines.json"
 
       - run: flutter pub get
 
