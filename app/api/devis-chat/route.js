@@ -6,6 +6,7 @@ import { buildDevisChatPrompt } from "../../../lib/devis-chat-prompt";
 import { DEVIS_CHAT_TOOLS, executeDevisChatTool } from "../../../lib/devis-chat-tools";
 import { ADMIN_INSTRUCTION_TOOL, requesterIsAdmin } from "../../../lib/ai-assistant-instructions";
 import { logConversationSafely } from "../../../lib/ai-chat-logs";
+import { texteQuestions } from "../../../lib/devis-guide";
 
 // Mode "Avec l'IA" cote devis entreprise (16 oct, maquette Artifact
 // DevisCreerIA) — moteur SSE conversationnel calque sur
@@ -20,10 +21,33 @@ import { logConversationSafely } from "../../../lib/ai-chat-logs";
 // resolveOuvrageForLabel (bibliotheque koji, voir lib/devis-chat-tools.js).
 const MAX_TOOL_ROUNDS = 6;
 
+// Photo du chantier (maquette PRO-03.1, bouton appareil photo) : seule la
+// photo du DERNIER message part au modèle ; les plus anciennes sont déjà
+// décrites dans ses réponses et restent un simple « [Photo envoyée] ».
+const PHOTO_RE = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/;
+const PHOTO_MAX = 5 * 1024 * 1024;
+
+function photoBlock(photo) {
+  const match = PHOTO_RE.exec(typeof photo === "string" ? photo : "");
+  if (!match || match[2].length > PHOTO_MAX) return null;
+  return { type: "image", source: { type: "base64", media_type: match[1], data: match[2] } };
+}
+
 function toAnthropicMessages(turns) {
-  return (Array.isArray(turns) ? turns : [])
-    .filter((t) => t && (t.role === "user" || t.role === "assistant") && typeof t.text === "string")
-    .map((t) => ({ role: t.role, content: t.text }));
+  const valides = (Array.isArray(turns) ? turns : [])
+    .filter((t) => t && (t.role === "user" || t.role === "assistant") && typeof t.text === "string");
+  return valides.map((t, index) => {
+    // Questions oui / non affichées par Koji : relues comme du texte.
+    const questions = t.role === "assistant" ? texteQuestions(t.questions) : "";
+    const text = [t.text, questions].filter(Boolean).join("\n\n") || (t.photo ? "Photo du chantier." : t.text);
+    if (t.role === "user" && t.photo) {
+      const image = index === valides.length - 1 ? photoBlock(t.photo) : null;
+      return image
+        ? { role: "user", content: [image, { type: "text", text }] }
+        : { role: "user", content: `[Photo envoyée] ${text}` };
+    }
+    return { role: t.role, content: text };
+  });
 }
 
 function sseFrame(event, data) {
@@ -102,15 +126,18 @@ export async function POST(request) {
 
           messages.push({ role: "assistant", content: response.content });
           const toolResults = [];
+          let endTurn = false;
           for (const block of toolUseBlocks) {
-            const { content, action, finished: didFinish } = await executeDevisChatTool(block.name, block.input, ctx);
+            const { content, action, finished: didFinish, endTurn: stop } = await executeDevisChatTool(block.name, block.input, ctx);
             if (action) send("action", action);
             if (didFinish) finished = true;
+            if (stop) endTurn = true;
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
           }
           messages.push({ role: "user", content: toolResults });
 
-          if (finished) break;
+          // poser_questions : le tour s'arrête sur les boutons Oui / Non.
+          if (finished || endTurn) break;
           if (response.stop_reason !== "tool_use") break;
         }
 
@@ -126,7 +153,13 @@ export async function POST(request) {
             conversationId: String(body.conversationId),
             entrepriseUserId: auth.userId,
             quoteId: quoteSnapshot?.id || null,
-            turns: [...turns.filter((t) => !t.hidden), { role: "assistant", text: visibleReply }]
+            turns: [
+              ...turns.filter((t) => !t.hidden).map((t) => ({
+                role: t.role,
+                text: [t.photo ? "[Photo envoyée]" : "", t.text, t.role === "assistant" ? texteQuestions(t.questions) : ""].filter(Boolean).join("\n")
+              })),
+              { role: "assistant", text: visibleReply }
+            ]
           });
         }
       } catch (error) {

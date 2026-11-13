@@ -1023,6 +1023,8 @@ export default function DevisEditor() {
     id: generatedQuote?.id || null,
     lots: roomGroups.map((room) => ({
       nom: room === "Services" ? L.devis.generalWorks : room,
+      // « Lot 01 » : Koji dit « au lot 01 » comme la maquette PRO-03.1.
+      code: lotCode(room),
       lignes: (linesByRoom[room] || []).map((line) => ({
         id: line.id,
         designation: line.label,
@@ -1030,7 +1032,8 @@ export default function DevisEditor() {
         unite: line.unit,
         prixUnitaireHt: line.quantity ? round2(line.totalHt / line.quantity) : 0,
         totalHt: line.totalHt,
-        prixManquant: line.priceSource === "manquant"
+        prixManquant: line.priceSource === "manquant",
+        variante: Boolean(line.variante)
       }))
     })),
     client: { nom: form.client, telephone: form.clientPhone, email: form.clientEmail, chantier: form.chantierAddress },
@@ -1759,6 +1762,8 @@ export default function DevisEditor() {
     // catalogue, remis a vide dans ce cas pour ne jamais ecraser le mauvais
     // prix si l'entreprise en donne un plus tard sans lien avec cette ligne.
     lastUnmatchedAiLineIdRef.current = resolved.matched ? "" : id;
+    // Ligne repliée dans le devis : Koji remplit, un clic l'ouvre.
+    setCollapsedLineIds((current) => new Set(current).add(id));
     // Renvoie l'id reel de la ligne creee — lu par DevisChatPanel.jsx pour
     // retrouver ses valeurs reellement enregistrees (protocole de
     // confirmation) une fois persistQuote termine, jamais avant.
@@ -3090,15 +3095,14 @@ export default function DevisEditor() {
     return (
       <>
         {renderDocHeader()}
-        <p className="notice">Prix issus de la bibliothèque Koji : temps normatif × taux horaire. L'IA n'invente aucun prix.</p>
 
         <div className="dv-lines">
           {!hasLines ? (
-            <p className="empty lot-empty">Les lots et lignes ajoutés par l'assistant apparaîtront ici.</p>
+            <p className="empty lot-empty">Les lots et lignes ajoutés par Koji apparaîtront ici.</p>
           ) : roomGroups.map((room) => {
             const roomLines = linesByRoom[room] || [];
             if (!roomLines.length) return null;
-            const roomTotalHt = roomLines.reduce((s, l) => s + l.totalHt, 0);
+            const roomTotalHt = roomLines.filter((l) => !l.variante).reduce((s, l) => s + l.totalHt, 0);
             return (
               <div className="lot" key={room}>
                 <div className="lot-h">
@@ -3106,24 +3110,10 @@ export default function DevisEditor() {
                   <span className="ln">{room === "Services" ? L.devis.generalWorks : room}</span>
                   <span className="ls">{money(roomTotalHt)}</span>
                 </div>
-                {roomLines.map((line) => {
-                  const qty = Number(line.quantity || 0);
-                  const unitPriceHt = qty > 0 ? line.totalHt / qty : line.totalHt;
-                  return (
-                    <div className="dl dl-in" key={line.id}>
-                      <span className="dd">{line.code ? <small>{line.code}</small> : null}{line.label}{aiTag(line)}</span>
-                      <span className="dq">
-                        <input type="number" value={qty || ""} onChange={(event) => updateLine(line.id, "quantity", event.target.value)} min="0" step="any" aria-label={`Quantité, ${line.label}`} />
-                        {unitLabel(line.unit)}
-                      </span>
-                      <span className="dp">
-                        <input type="number" value={round2(unitPriceHt) || ""} onChange={(event) => updateLineUnitPrice(line.id, line, lineSettings[line.id] || {}, event.target.value)} min="0" step="any" aria-label={`Prix unitaire HT, ${line.label}`} />
-                      </span>
-                      <span className="dt">{money(line.totalHt)}</span>
-                      <button type="button" className="dx" onClick={() => removeQuoteLine(line.id)} aria-label={`Supprimer ${line.label}`}>×</button>
-                    </div>
-                  );
-                })}
+                {/* Maquette PRO-03.1 : un clic sur la ligne l'ouvre en place
+                    (quantité, main-d'œuvre, fournitures, note client,
+                    variante, suppression), comme en mode Manuel. */}
+                {roomLines.map((line) => renderLineCard(line))}
               </div>
             );
           })}
@@ -3668,6 +3658,10 @@ export default function DevisEditor() {
         <div className="dv-title">
           <strong>{headerTitle}</strong>
           <span className="muted">{headerSubtitle}</span>
+          {/* Téléphone (maquette PRO-03.1) : « Devis 2026-041 » et, dessous,
+              « Salle de bain · Mme Lefèvre ». */}
+          <strong className="dv-t-m">{previewQuoteNumber ? `Devis ${previewQuoteNumber}` : L.devis.newQuote}</strong>
+          <small className="dv-t-m">{[form.project, headerClientName].filter(Boolean).join(" · ") || "brouillon"}</small>
         </div>
         <div className="kp-seg dv-mode" role="group" aria-label="Mode de saisie">
           <button type="button" className={mode === "manuel" ? "on" : ""} aria-pressed={mode === "manuel"} onClick={() => setMode("manuel")}>{L.devis.modeManual}</button>
@@ -3678,10 +3672,17 @@ export default function DevisEditor() {
           <button type="button" className="btn btn-sec" onClick={() => handlePreview()}>Aperçu PDF</button>
           <button type="button" className="btn btn-sec" onClick={handleGenerate}>{L.devis.save}</button>
           <button type="button" className="btn btn-main" onClick={openSendModal}>Envoyer au client</button>
+          <button type="button" className="link dv-send-m" onClick={openSendModal}>Envoyer</button>
           <div className="dv-more" ref={moreActionsRef}>
             <button type="button" className="btn btn-sec" onClick={() => setMoreActionsOpen((open) => !open)} aria-expanded={moreActionsOpen} aria-label="Plus d'actions">•••</button>
             {moreActionsOpen ? (
               <div className="dl-pop">
+                {/* Téléphone : la barre haute ne garde que « Envoyer », le
+                    reste passe ici. */}
+                <button type="button" className="dv-m-only" onClick={() => { setMoreActionsOpen(false); setMode(mode === "ia" ? "manuel" : "ia"); }}>{mode === "ia" ? "Passer en mode manuel" : "Devis guidé avec Koji"}</button>
+                {mode !== "ia" ? <button type="button" className="dv-m-only" onClick={() => { setMoreActionsOpen(false); setToolsDrawerOpen(true); }}>{L.devis.tabTools}</button> : null}
+                <button type="button" className="dv-m-only" onClick={() => { setMoreActionsOpen(false); handlePreview(); }}>Aperçu PDF</button>
+                <button type="button" className="dv-m-only" onClick={() => { setMoreActionsOpen(false); handleGenerate(); }}>{L.devis.save}</button>
                 <button type="button" onClick={() => { setMoreActionsOpen(false); handleTransformToInvoice(); }}>{L.devis.transformToInvoice}</button>
                 <button type="button" onClick={() => { setMoreActionsOpen(false); handleGenerate(); }}>{L.devis.generateQuote}</button>
                 <button type="button" onClick={() => { setMoreActionsOpen(false); handleConfirm(); }}>{L.devis.confirm}</button>
@@ -3736,6 +3737,7 @@ export default function DevisEditor() {
                 onSetClient={applyChatClientInfo}
                 onAutoSave={() => persistQuote(false)}
                 onFinish={() => enterRecap("ia")}
+                onOpenDevis={() => setToolsDrawerOpen(true)}
               />
             ) : null}
             <div className="dv-doc" style={mode === "ia" ? { display: "none" } : undefined}>

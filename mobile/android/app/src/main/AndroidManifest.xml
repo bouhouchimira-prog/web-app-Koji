@@ -1,7 +1,11 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Google Play Billing (in_app_purchase) — required for subscriptions. -->
-    <uses-permission android:name="com.android.vending.BILLING"/>
+    <!-- Aucune vente dans l'app depuis le 9 nov (in_app_purchase retiré).
+         La permission BILLING restée seule faisait croire à Google Play que
+         l'app utilisait l'ancien paiement « AIDL » : erreur bloquante sur la
+         version 73 (13 nov). Retirée, y compris si une dépendance l'ajoute. -->
+    <uses-permission android:name="com.android.vending.BILLING" tools:node="remove"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ecartTotal, koji, premierMessage, texteReponses, toutesRepondues } from "../lib/devis-guide";
 
 // Chat "Avec l'IA" du devis (16 oct, maquette Artifact DevisCreerIA) —
 // lecture du flux SSE calquee sur app/client/radar/new-chat/page.jsx (meme
-// boucle de lecture par trames), simplifiee : pas de choix a cocher ni de
-// demande de photo pour cette premiere version (texte libre uniquement).
-// Chaque evenement "action" recu est applique IMMEDIATEMENT sur le devis
+// boucle de lecture par trames). Maquette PRO-03.1 (13 nov) : questions
+// oubliées en oui / non d'un clic (outil poser_questions), « Koji
+// travaille » en direct, photo du chantier et dictée. Chaque evenement "action" recu est applique IMMEDIATEMENT sur le devis
 // ouvert via les callbacks passes en props (memes fonctions que les
 // boutons "Ajouter" manuels de DevisEditor.jsx) — ce chat ne stocke rien
 // lui-meme, le devis reste la seule source de verite.
@@ -33,15 +34,88 @@ function SendIcon() {
   );
 }
 
-const FIRST_MESSAGE = "Bonjour, décrivez-moi le chantier du client en quelques mots. Je prépare le devis pendant que vous parlez.";
+function CamIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
 
-export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave }) {
-  const [turns, setTurns] = useState(() => [{ role: "assistant", text: FIRST_MESSAGE }]);
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </svg>
+  );
+}
+
+function Think() {
+  return <span className="think" aria-label="Koji travaille"><i /><i /><i /></span>;
+}
+
+// Photo du chantier : réduite dans le navigateur (1568 px au plus, la
+// taille utile pour Claude) avant l'envoi, en JPEG.
+const PHOTO_COTE_MAX = 1568;
+
+function lirePhoto(fichier) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(fichier);
+    const img = new Image();
+    img.onload = () => {
+      const echelle = Math.min(1, PHOTO_COTE_MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * echelle);
+      canvas.height = Math.round(img.height * echelle);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Photo illisible."));
+    };
+    img.src = url;
+  });
+}
+
+// Ce qui part au serveur : texte, questions affichées, et la photo du
+// dernier message seulement (les anciennes sont déjà décrites par Koji).
+function pourLeServeur(turns) {
+  return turns.map(({ role, text, hidden, questions, photo }, index) => ({
+    role,
+    text,
+    ...(hidden ? { hidden } : {}),
+    ...(questions?.length ? { questions } : {}),
+    ...(photo && index === turns.length - 1 ? { photo } : photo ? { photo: true } : {})
+  }));
+}
+
+function euros(n) {
+  return Number(n || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+}
+
+const REFLEXION = { phrase: "Koji réfléchit…", lab: "Koji travaille", texte: "" };
+
+export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave, onOpenDevis }) {
+  const [turns, setTurns] = useState(() => [{ role: "assistant", text: premierMessage(quoteSnapshot) }]);
   const [draft, setDraft] = useState("");
+  const [photo, setPhoto] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [sending, setSending] = useState(false);
+  const [travail, setTravail] = useState(null);
+  // Bandeau du téléphone : total HT au début du dernier échange, pour
+  // l'écart « + 203,00 » pendant que Koji ajoute.
+  const totalDebutRef = useRef(null);
+  const toucheRef = useRef(null);
   const [error, setError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
+  const [dictee, setDictee] = useState(false);
+  const [ecoute, setEcoute] = useState(false);
+  const recoRef = useRef(null);
+  const photoInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const snapshotRef = useRef(quoteSnapshot);
   snapshotRef.current = quoteSnapshot;
@@ -57,7 +131,23 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, streamingText]);
+  }, [turns, streamingText, travail]);
+
+  // Le devis se charge après l'ouverture du panneau : tant que personne n'a
+  // parlé, le premier message suit son contenu (résumé ou invitation).
+  useEffect(() => {
+    const texte = premierMessage(quoteSnapshot);
+    setTurns((current) => (current.length === 1 && current[0].role === "assistant" && current[0].text !== texte
+      ? [{ role: "assistant", text: texte }]
+      : current));
+  }, [quoteSnapshot]);
+
+  // Dictée (bouton micro) : seulement si le navigateur sait reconnaître la
+  // voix ; ailleurs le bouton n'apparaît pas.
+  useEffect(() => {
+    setDictee(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+    return () => recoRef.current?.abort?.();
+  }, []);
 
   // Cherche une ligne par id dans le snapshot LE PLUS RECENT (snapshotRef,
   // tenu a jour a chaque rendu) — jamais dans une valeur capturee avant
@@ -78,6 +168,9 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
   // maintenant cette valeur au lieu de rien.
   function applyAction(action) {
     if (!action) return null;
+    // « Koji travaille » : la phrase suit ce que Koji est en train de faire.
+    const enCours = koji(action, snapshotRef.current?.lots);
+    if (enCours) setTravail(enCours);
     if (action.subAction === "addLot") {
       const result = onAddLot?.(action.lotName);
       return { tool: "ajouter_lot", lotName: result?.lotName || action.lotName };
@@ -136,7 +229,8 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
   // appliquees dans CE tour.
   async function runTurn(turnsForThisCall) {
     const captured = [];
-    let assistantText = "";
+    let questions = [];
+    let assistantTurn = null;
     const response = await fetch("/api/devis-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -144,7 +238,7 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
         // `hidden` est transmis (pas juste role/text) pour que le serveur
         // puisse l'exclure du journal admin (lib/ai-chat-logs.js) — sans
         // ca les tours synthetiques "[RESULTAT_ECRITURE]" s'y retrouveraient.
-        turns: turnsForThisCall.map(({ role, text, hidden }) => (hidden ? { role, text, hidden } : { role, text })),
+        turns: pourLeServeur(turnsForThisCall),
         quoteSnapshot: snapshotRef.current,
         conversationId: conversationIdRef.current
       })
@@ -177,12 +271,22 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
           liveText += data.text;
           setStreamingText(liveText);
         } else if (eventType === "action") {
+          if (data?.subAction === "askQuestions") {
+            questions = Array.isArray(data.questions) ? data.questions : [];
+            continue;
+          }
           const result = applyAction(data);
           if (result) captured.push(result);
         } else if (eventType === "done") {
-          assistantText = (data.message || liveText || "").trim();
-          if (assistantText) setTurns((current) => [...current, { role: "assistant", text: assistantText }]);
+          const assistantText = (data.message || liveText || "").trim();
+          if (assistantText || questions.length) {
+            // Questions oui / non (maquette PRO-03.1) : affichées sous le
+            // message, avec les boutons Oui / Non.
+            assistantTurn = { role: "assistant", text: assistantText, ...(questions.length ? { questions, reponses: [] } : {}) };
+            setTurns((current) => [...current, assistantTurn]);
+          }
           setStreamingText("");
+          liveText = "";
           if (data.finished) onFinish?.();
         } else if (eventType === "error") {
           setError(data.message || "L'assistant n'a pas pu répondre.");
@@ -190,17 +294,19 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       }
     }
 
-    return { captured, assistantText };
+    return { captured, assistantTurn };
   }
 
   async function sendToEngine(nextTurns) {
     setSending(true);
+    setTravail(REFLEXION);
+    totalDebutRef.current = Number(snapshotRef.current?.totaux?.totalHt || 0);
     setError("");
     setStreamingText("");
     setSaveNotice("");
 
     try {
-      const { captured, assistantText } = await runTurn(nextTurns);
+      const { captured, assistantTurn } = await runTurn(nextTurns);
 
       // Protocole de confirmation (voir commentaire d'en-tete) : rien
       // d'ecrit dans ce tour -> rien a confirmer, on s'arrete la (c'est
@@ -225,7 +331,7 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       // nextTurns + la reponse d'intention du modele (pas de la state React
       // `turns`, mise a jour de façon asynchrone par runTurn — lire le
       // retour direct de runTurn evite toute course avec ces mises a jour).
-      const turnsWithAssistant = assistantText ? [...nextTurns, { role: "assistant", text: assistantText }] : nextTurns;
+      const turnsWithAssistant = assistantTurn ? [...nextTurns, assistantTurn] : nextTurns;
       const turnsWithResult = [...turnsWithAssistant, resultTurn];
       setTurns((current) => [...current, resultTurn]);
 
@@ -237,55 +343,204 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       setError(err.message || "L'assistant n'a pas pu répondre. Réessayez.");
     } finally {
       setSending(false);
+      setTravail(null);
     }
   }
 
   function handleSubmit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     const trimmed = draft.trim();
-    if (!trimmed || sending) return;
-    const nextTurns = [...turns, { role: "user", text: trimmed }];
+    if ((!trimmed && !photo) || sending) return;
+    recoRef.current?.stop?.();
+    const nextTurns = [...turns, { role: "user", text: trimmed, ...(photo ? { photo } : {}) }];
     setTurns(nextTurns);
     setDraft("");
+    setPhoto("");
     sendToEngine(nextTurns);
   }
 
+  // Oui / Non d'un clic : la réponse part dès que toutes les questions du
+  // message ont la leur ; elle se lit sur les boutons, pas dans une bulle.
+  function repondre(index, numero, valeur) {
+    const turn = turns[index];
+    if (sending || !turn?.questions || turns.slice(index + 1).some((t) => t.role === "user")) return;
+    const reponses = [...(turn.reponses || [])];
+    reponses[numero] = valeur;
+    const updated = turns.map((t, i) => (i === index ? { ...t, reponses } : t));
+    if (!toutesRepondues(turn.questions, reponses)) {
+      setTurns(updated);
+      return;
+    }
+    const nextTurns = [...updated, { role: "user", text: texteReponses(turn.questions, reponses), chips: true }];
+    setTurns(nextTurns);
+    sendToEngine(nextTurns);
+  }
+
+  function basculerDictee() {
+    if (ecoute) {
+      recoRef.current?.stop?.();
+      return;
+    }
+    const Reconnaissance = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Reconnaissance) return;
+    const reco = new Reconnaissance();
+    reco.lang = "fr-FR";
+    reco.interimResults = true;
+    reco.continuous = false;
+    const debut = draft.trim() ? `${draft.trim()} ` : "";
+    reco.onresult = (event) => {
+      const texte = Array.from(event.results).map((r) => r[0]?.transcript || "").join("");
+      setDraft(debut + texte);
+    };
+    reco.onerror = (event) => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") setError("Le navigateur refuse l'accès au micro.");
+    };
+    reco.onend = () => setEcoute(false);
+    recoRef.current = reco;
+    setError("");
+    setEcoute(true);
+    reco.start();
+  }
+
+  async function choisirPhoto(event) {
+    const fichier = event.target.files?.[0];
+    event.target.value = "";
+    if (!fichier) return;
+    try {
+      setPhoto(await lirePhoto(fichier));
+    } catch (err) {
+      setError(err.message || "Photo illisible.");
+    }
+  }
+
   // Maquette PRO-03.1 : colonne « Devis guidé » de l'éditeur.
+  const peutEnvoyer = !sending && (draft.trim() || photo);
+  const totalHt = Number(quoteSnapshot?.totaux?.totalHt || 0);
+  const ecart = totalDebutRef.current == null ? "" : ecartTotal(totalDebutRef.current, totalHt);
+  const lignesDuDevis = (quoteSnapshot?.lots || []).reduce((n, lot) => n + (lot.lignes || []).length, 0);
+  const resumeLignes = lignesDuDevis ? `${lignesDuDevis} ligne${lignesDuDevis > 1 ? "s" : ""} · voir le devis` : "Aucune ligne pour l'instant";
   return (
     <section className="dv-chat" aria-label="Devis guidé avec Koji">
       <div className="dv-chat-h">
         <strong>Devis guidé</strong>
-        <span className="muted">Koji chiffre avec vous</span>
-        <span className={`tag ${sending ? "tag-b" : "tag-o"}`}>{sending ? "En cours" : "Prêt"}</span>
+        <span className="muted">Koji chiffre avec toi</span>
       </div>
 
       <div className="msgs" aria-live="polite">
-        {turns.filter((turn) => !turn.hidden).map((turn, index) => (
-          <div key={index} className={`msg ${turn.role === "user" ? "u" : "k"}`}>{turn.text}</div>
-        ))}
+        {turns.map((turn, index) => {
+          if (turn.hidden || turn.chips) return null;
+          if (turn.role === "user") {
+            return (
+              <div key={index} className="msg u">
+                {turn.photo ? <img className="msg-photo" src={turn.photo} alt="Photo envoyée à Koji" /> : null}
+                {turn.text}
+              </div>
+            );
+          }
+          const verrou = sending || turns.slice(index + 1).some((t) => t.role === "user");
+          return (
+            <div key={index} className="msg-k">
+              {turn.text ? <div className="msg k">{turn.text}</div> : null}
+              {turn.questions?.length ? (
+                <div className="msg k">
+                  <div className="qs">
+                    {turn.questions.map((question, numero) => {
+                      const choix = turn.reponses?.[numero];
+                      return (
+                        <div className="qrow" key={question}>
+                          <span>{question}</span>
+                          <span className="qa" role="group" aria-label={question}>
+                            {[["Oui", true], ["Non", false]].map(([libelle, valeur]) => (
+                              <button
+                                key={libelle}
+                                type="button"
+                                className={`chip${choix === valeur ? " on" : ""}`}
+                                aria-pressed={choix === valeur}
+                                disabled={verrou}
+                                onClick={() => repondre(index, numero, valeur)}
+                              >
+                                {libelle}
+                              </button>
+                            ))}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
         {streamingText ? <div className="msg k">{streamingText}</div> : null}
+        {sending && !streamingText && travail ? (
+          <div className="msg k thinking"><Think />{travail.phrase}</div>
+        ) : null}
         <div ref={messagesEndRef} />
       </div>
 
       {error ? <p className="dv-chat-note err" role="alert">{error}</p> : null}
       {!error && saveNotice ? <p className="dv-chat-note">{saveNotice}</p> : null}
 
+      {photo ? (
+        <div className="dv-chat-photo">
+          <img src={photo} alt="Photo à envoyer" />
+          <span className="muted">Photo jointe au prochain message</span>
+          <button type="button" className="dx" onClick={() => setPhoto("")} aria-label="Retirer la photo">×</button>
+        </div>
+      ) : null}
+
       {/* <div>, pas <form> : ce panneau est rendu a l'interieur du grand
           <form> de DevisEditor.jsx — un <form> imbrique est invalide en
           HTML (avertissement React, risque de double-soumission). */}
       <div className="composer">
+        <button type="button" className="cam" onClick={() => photoInputRef.current?.click()} disabled={sending} aria-label="Joindre une photo du chantier">
+          <CamIcon />
+        </button>
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" hidden onChange={choisirPhoto} />
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(e); }}
-          placeholder="Dites ce qui change, ajoutez un ouvrage, posez une question…"
+          placeholder="Dis-moi ce qui change, ajoute un ouvrage, pose une question…"
           aria-label="Message pour Koji"
           disabled={sending}
         />
-        <button type="button" className="send" onClick={handleSubmit} disabled={sending || !draft.trim()} aria-label="Envoyer">
+        {dictee ? (
+          <button type="button" className={`mic${ecoute ? " on" : ""}`} onClick={basculerDictee} disabled={sending} aria-pressed={ecoute} aria-label={ecoute ? "Arrêter la dictée" : "Dicter un message"}>
+            <MicIcon />
+          </button>
+        ) : null}
+        <button type="button" className="send" onClick={handleSubmit} disabled={!peutEnvoyer} aria-label="Envoyer">
           <SendIcon />
         </button>
       </div>
+
+      {/* Téléphone (maquette PRO-03.1) : bandeau du total en bas ; le
+          toucher ou le glisser vers le haut ouvre le devis. */}
+      <button
+        type="button"
+        className={`dvm-band${sending && travail ? " live" : ""}`}
+        onClick={() => onOpenDevis?.()}
+        onTouchStart={(e) => { toucheRef.current = e.touches[0]?.clientY ?? null; }}
+        onTouchEnd={(e) => {
+          const debut = toucheRef.current;
+          toucheRef.current = null;
+          if (debut != null && debut - (e.changedTouches[0]?.clientY ?? debut) > 30) onOpenDevis?.();
+        }}
+        aria-label="Ouvrir le devis"
+      >
+        {sending && travail ? <Think /> : null}
+        <span className="bl">
+          <span className="lab">{sending && travail ? travail.lab : "Le devis"}</span>
+          <b>{sending && travail ? (travail.texte || "…") : resumeLignes}</b>
+        </span>
+        <span className="br">
+          <span className="lab">Total HT</span>
+          <b>{euros(totalHt)}{ecart ? <small>{ecart}</small> : null}</b>
+        </span>
+        <span className="grab" aria-hidden="true" />
+      </button>
     </section>
   );
 }
