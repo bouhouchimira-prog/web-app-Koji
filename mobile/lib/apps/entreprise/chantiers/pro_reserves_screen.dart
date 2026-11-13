@@ -248,14 +248,17 @@ class _ProReservesScreenState extends ConsumerState<ProReservesScreen> {
     });
   }
 
-  Future<void> _action(Reserve r, String action) async {
+  Future<void> _action(Reserve r, String action,
+      [Map<String, dynamic> extra = const {}]) async {
     await _travail(() async {
-      final maj = await _api.actionReserve(r.id, action);
+      final maj = await _api.actionReserve(r.id, action, extra);
       _recharger();
       if (mounted) {
-        _message(action == 'valider'
-            ? '${maj['numero'] ?? r.numero} levée.'
-            : '${r.numero} à refaire.');
+        _message(switch (action) {
+          'valider' => '${maj['numero'] ?? r.numero} levée.',
+          'attribuer' => '${r.numero} acceptée : à faire par vous.',
+          _ => '${r.numero} à refaire.',
+        });
       }
     });
   }
@@ -453,6 +456,20 @@ class _ProReservesScreenState extends ConsumerState<ProReservesScreen> {
                   },
                   child: Text('Refuser, à refaire',
                       style: da.text(14, weight: FontWeight.w600)),
+                ),
+              ] else if (r.statut == 'proposee') ...[
+                // Signalée par le client dans Koji Client (PRO-02.6).
+                Text('Signalée par le client dans Koji Client.',
+                    style: da.text(13, color: da.grey)),
+                const SizedBox(height: 8),
+                ProPrimaryButton(
+                  label: 'Accepter la réserve',
+                  expand: true,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _action(r, 'attribuer',
+                        {'attribueeA': 'moi', 'attribueeNom': 'Vous'});
+                  },
                 ),
               ] else if (r.statut != 'levee')
                 ProPrimaryButton(

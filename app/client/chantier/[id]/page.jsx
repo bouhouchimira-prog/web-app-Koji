@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
+import { ClientFinChantier } from "../../../../components/ClientFinChantier";
+import "../../../../components/client-fin-chantier.css";
 import { useEffect, useRef, useState } from "react";
 import { euro, shortDate } from "../../../../lib/pricing";
 import { useLocale } from "../../../../lib/i18n";
@@ -386,6 +388,8 @@ export default function ClientChantierPage() {
               <div className="ccd-progress-bar"><div style={{ width: `${percent}%` }} /></div>
             </div>
           </div>
+
+          <ClientFinChantier quote={quote} entreprise={quote.company?.name || quote.companyName || ""} />
 
           <div className="ccd-general-urgence">
             {genUrgSent ? (

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:koji/apps/entreprise/chantiers/cloture.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_avis_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_dossier_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_reserves_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/reserves.dart';
@@ -22,6 +23,7 @@ typedef DonneesCloture = ({
   List<Map<String, dynamic>> factures,
   List<Map<String, dynamic>> avenants,
   List<Reserve> reserves,
+  Map<String, dynamic>? avis,
 });
 
 final proClotureProvider = FutureProvider.autoDispose
@@ -39,6 +41,7 @@ final proClotureProvider = FutureProvider.autoDispose
   final cloture = await api.cloture(projectId).catchError((_) => null);
   final avenants =
       quoteId.isEmpty ? <Map<String, dynamic>>[] : await lire(api.avenants(quoteId));
+  final avis = await api.avis(projectId).catchError((_) => <String, dynamic>{});
   return (
     cloture: cloture,
     devis: devis.isEmpty ? null : devis.first,
@@ -46,6 +49,7 @@ final proClotureProvider = FutureProvider.autoDispose
         facturesDuChantier(r[1], projectId: projectId, quoteId: quoteId),
     avenants: avenants,
     reserves: r[2].map(Reserve.new).toList(),
+    avis: avis['avis'] is Map ? Map<String, dynamic>.from(avis['avis']) : null,
   );
 });
 
@@ -129,16 +133,28 @@ class _ProClotureScreenState extends ConsumerState<ProClotureScreen> {
                 projectId: widget.projectId,
                 titreChantier: widget.titreChantier)));
         _recharger();
+      case 'avis' when d.avis != null:
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ProAvisScreen(
+                projectId: widget.projectId,
+                titreChantier: widget.titreChantier,
+                client: _s(d.devis?['client']))));
+        _recharger();
       case 'avis':
+        final demander = e.action == "Demander l'avis";
         setState(() => _envoi = true);
         try {
-          await ref
-              .read(proKojiWebProvider)
-              .majCloture(widget.projectId, 'avis', {'programme': true});
+          final api = ref.read(proKojiWebProvider);
+          if (demander) {
+            await api.actionAvis(widget.projectId, 'demander');
+          } else {
+            await api.majCloture(widget.projectId, 'avis', {'programme': true});
+          }
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text(
-                    "Demande d'avis programmée avec la facture de solde.")));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(demander
+                    ? "Avis demandé au client par e-mail."
+                    : "Demande d'avis programmée avec la facture de solde.")));
           }
           _recharger();
         } catch (err) {
@@ -172,7 +188,8 @@ class _ProClotureScreenState extends ConsumerState<ProClotureScreen> {
             cloture: d.cloture,
             reserves: d.reserves,
             solde: solde!,
-            factureSolde: factureDeSolde(d.factures));
+            factureSolde: factureDeSolde(d.factures),
+            avisRecu: d.avis);
     final enCours = etapes.where((e) => e.etat == 'cur').firstOrNull;
     return Scaffold(
       backgroundColor: da.page,
@@ -195,7 +212,12 @@ class _ProClotureScreenState extends ConsumerState<ProClotureScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                     children: [
                       for (final (i, e) in etapes.indexed)
-                        _etape(da, i + 1, e, premiere: i == 0),
+                        InkWell(
+                          onTap: _envoi || !_ouvrable(e, d)
+                              ? null
+                              : () => _faire(e, d, solde!),
+                          child: _etape(da, i + 1, e, premiere: i == 0),
+                        ),
                     ],
                   ),
           ),
@@ -215,6 +237,14 @@ class _ProClotureScreenState extends ConsumerState<ProClotureScreen> {
       ),
     );
   }
+
+  /// Une étape faite s'ouvre encore : réserves, dossier, avis reçu.
+  bool _ouvrable(EtapeCloture e, DonneesCloture d) => switch (e.id) {
+        'reserves' => d.reserves.isNotEmpty,
+        'dossier' => true,
+        'avis' => d.avis != null || e.action.isNotEmpty,
+        _ => e.etat == 'cur' && e.action.isNotEmpty,
+      };
 
   Widget _etape(ProDa da, int n, EtapeCloture e, {bool premiere = false}) {
     final ok = e.etat == 'ok';

@@ -8,7 +8,7 @@ import { BUCKET_CHANTIER, chantierAMoi, clotureDe, clotureOuNouvelle, sansChemin
 import { assemblerDossier, decennaleDe } from "../../../lib/dossier-fin-serveur";
 import { buildInvoicePdf, invoiceDocumentFilename } from "../../../lib/document-generator";
 import { loadInvoiceContext } from "../../../lib/invoice-context";
-import { sendDossierFinEmail } from "../../../lib/mailer";
+import { sendClientMessageEmail } from "../../../lib/mailer";
 
 // Dossier de fin de chantier (maquette PRO-02.5), site et app Koji Pro.
 // GET ?projectId= → { dossier, decennale } · GET ?projectId=&pdf=1 → PDF.
@@ -104,7 +104,7 @@ export async function POST(request) {
     "",
     entreprise || "Votre artisan"
   ].join("\n");
-  const envoi = await sendDossierFinEmail({ to: destinataire, subject: `Dossier de fin de chantier · ${titre}`, message, replyTo: devis?.company?.email || devis?.companyEmail || undefined, attachments });
+  const envoi = await sendClientMessageEmail({ to: destinataire, subject: `Dossier de fin de chantier · ${titre}`, message, replyTo: devis?.company?.email || devis?.companyEmail || undefined, attachments });
   if (!envoi.ok) return badRequest(`Le dossier n'a pas pu partir : ${envoi.error}`, 502);
 
   const fiche = clotureOuNouvelle(db, projectId, userId);

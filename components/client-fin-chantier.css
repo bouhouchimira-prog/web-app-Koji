@@ -1,0 +1,25 @@
+/* Koji Client après la réception (maquette PRO-02.6). */
+.cfc-list{display:flex;flex-direction:column;background:#FFFFFF;border:1px solid #E3E3DE;border-radius:12px;overflow:hidden}
+.cfc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:0;border-bottom:1px solid #EEEEE9;background:none;text-align:left;font:inherit;color:inherit;text-decoration:none;cursor:pointer;width:100%}
+.cfc-row:last-child{border-bottom:0}
+.cfc-row span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cfc-row b{font-size:15px;font-weight:600}
+.cfc-row small{font-size:13px;color:#5B5F66}
+.cfc-row i{font-style:normal;font-size:22px;color:#8A8F98}
+div.cfc-row{cursor:default}
+.cfc-form{display:flex;flex-direction:column;gap:12px;margin-top:12px;padding:16px;background:#FFFFFF;border:1px solid #E3E3DE;border-radius:12px}
+.cfc-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600}
+.cfc-form textarea,.cfc-form input[type=text],.cfc-form input:not([type]){width:100%;padding:10px 12px;border:1px solid #D9D9D4;border-radius:8px;font:inherit;font-size:15px;font-weight:400;box-sizing:border-box}
+.cfc-q{margin:0;font-size:16px;font-weight:700}
+.cfc-stars{display:inline-flex;gap:4px}
+.cfc-stars button{border:0;background:none;padding:2px;font-size:22px;line-height:1;color:#CFCFC9;cursor:pointer}
+.cfc-stars.big button{font-size:34px}
+.cfc-stars button.on{color:#171B1E}
+.cfc-crit{display:flex;flex-direction:column;gap:6px}
+.cfc-crit div{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+.cfc-check{flex-direction:row!important;align-items:flex-start;gap:8px!important;font-weight:400!important;font-size:13px!important}
+.cfc-note{margin:0;font-size:12px;color:#5B5F66;line-height:1.5}
+.cfc-cta{margin-top:12px;width:100%;height:50px;border:0;border-radius:8px;background:#FFC400;color:#171B1E;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.cfc-msg{margin:10px 0 0;padding:10px 12px;background:#F4F4EF;border-radius:8px;font-size:14px}
+.cfc-send{height:48px;border:0;border-radius:8px;background:#FFC400;color:#171B1E;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.cfc-send:disabled{opacity:.45;cursor:default}

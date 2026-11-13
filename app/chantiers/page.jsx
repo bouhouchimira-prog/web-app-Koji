@@ -11,7 +11,8 @@ import { LIBELLE_ETAT_PHOTOS, PHASES_RESERVE, horodatage, photosDuLot } from "..
 import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreReserve, statutReserve } from "../../lib/reserves";
 import { PvReception } from "../../components/PvReception";
 import { conseilsEntretien, elementsDossier, photosChoisies, resumeDossier } from "../../lib/dossier-fin";
-import { bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
+import { CRITERES, moyenneTexte, realisationProposee, reponseProposee } from "../../lib/avis";
+import { jourDeParis, bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { useApi } from "../../lib/use-api";
@@ -249,6 +250,16 @@ function isReadyForTracking(project) {
   return status.includes("cours") || status.includes("signe") || status.includes("accept") || status.includes("planifier");
 }
 
+const ETOILE = "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.8l6.1-.9z";
+
+function Etoiles({ note, big = false }) {
+  return (
+    <span className={`av-st${big ? " big" : ""}`} role="img" aria-label={`${note} sur 5`}>
+      {[1, 2, 3, 4, 5].map((i) => <i key={i} className={i <= note ? "on" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={ETOILE} /></svg></i>)}
+    </span>
+  );
+}
+
 function formatDate(value) {
   if (!value) return "-";
   try {
@@ -358,6 +369,10 @@ export default function ProjectsTrackingPage() {
   const [decennale, setDecennale] = useState(null);
   const [dossierEnvoi, setDossierEnvoi] = useState(false);
   const [conseilsOuverts, setConseilsOuverts] = useState(false);
+  const [avisData, setAvisData] = useState(null);
+  const [reponseAvis, setReponseAvis] = useState(null);
+  const [realForm, setRealForm] = useState(null);
+  const [avisEnvoi, setAvisEnvoi] = useState(false);
   const noticeRef = useRef(null);
   const planRef = useRef(null);
 
@@ -433,6 +448,32 @@ export default function ProjectsTrackingPage() {
       .then((data) => { setDossierFin(data.dossier || { remisLe: "", envoyeA: "", pieces: [] }); setDecennale(data.decennale || null); })
       .catch(() => { setDossierFin({ remisLe: "", envoyeA: "", pieces: [] }); setDecennale(null); });
   }, [selectedProjectId]);
+
+  // Avis et réalisation (PRO-02.6).
+  useEffect(() => {
+    setReponseAvis(null);
+    setRealForm(null);
+    if (!selectedProjectId) { setAvisData(null); return; }
+    apiGet(`/api/avis?projectId=${encodeURIComponent(selectedProjectId)}`)
+      .then((data) => setAvisData(data))
+      .catch(() => setAvisData(null));
+  }, [selectedProjectId]);
+
+  async function actionAvis(action, extra = {}, messageOk = "") {
+    setAvisEnvoi(true);
+    try {
+      const data = await apiSend("/api/avis", { projectId: selectedProjectId, action, ...extra });
+      if (data.cloture) setCloture(data.cloture);
+      if (data.avis) setAvisData((d) => ({ ...(d || {}), avis: data.avis, site: data.site || d?.site }));
+      setMessage(messageOk);
+      return true;
+    } catch (error) {
+      setMessage(error.message || "L'action n'a pas abouti.");
+      return false;
+    } finally {
+      setAvisEnvoi(false);
+    }
+  }
 
   async function ajouterPieceDossier(kind, file) {
     if (!file || !selectedProjectId) return;
@@ -1470,13 +1511,20 @@ export default function ProjectsTrackingPage() {
     const factureSolde = factureDeSolde(invoices, idsCloture);
     const factureRetenue = factureDeRetenue(invoices, idsCloture);
     const solde = montantsSolde({ devis: selectedQuote, avenants: avenantsDevis, factures: facturesCloture, tauxRetenue: cloture?.retenue?.taux || 0 });
-    const etapes = etapesCloture({ cloture, reserves, solde, factureSolde, factureRetenue, aujourdhui: today });
+    const avisRecu = avisData?.avis || null;
+    const etapes = etapesCloture({ cloture, reserves, solde, factureSolde, factureRetenue, avisRecu, aujourdhui: today });
     const bilan = bilanChantier({ solde, depenses: linkedExpenses, budgetEstime: budgetTotal.estimated, taches: projectTasks, devis: selectedQuote, receptionLe: cloture?.pv?.signeLe || "", aujourdhui: today });
     const garantiesChantier = garanties(cloture?.pv?.signeLe || "");
     const conseils = conseilsEntretien(selectedQuote?.items || []);
     const choixPhotos = photosChoisies(photosChantier);
     const elementsDuDossier = elementsDossier({ pv: cloture?.pv, photos: photosChantier, factures: facturesCloture, factureSolde, decennale, pieces: dossierFin.pieces || [], conseils, aujourdhui: today });
     const emailClient = selectedQuote?.clientEmail || selectedProject.clientEmail || "";
+    const debutChantier = projectTasks.map((t) => String(t.startDate || "").slice(0, 10)).filter(Boolean).sort()[0] || "";
+    const joursChantier = debutChantier && cloture?.pv?.signeLe ? joursOuvresEntre(debutChantier, jourDeParis(cloture.pv.signeLe)) : 0;
+    const realisationDefaut = realisationProposee({ titre: selectedProject.title, lots: lotsFiche.map((l) => l.nom), jours: joursChantier });
+    const real = realForm || { titre: avisRecu?.realisation?.titre || realisationDefaut.titre, texte: avisRecu?.realisation?.texte || realisationDefaut.texte };
+    const reponseTexte = reponseAvis ?? (avisRecu?.reponse?.texte || (avisRecu ? reponseProposee({ client: clientName, note: avisRecu.note }) : ""));
+    const pairePhotos = choixPhotos.paires.find((x) => x.avant && x.apres) || choixPhotos.paires[0] || {};
 
     const demarre = projectTasks.some((t) => t.done || ouvrageStatusKey(t) === "encours");
     const lotsFaits = lotsFiche.filter((l) => l.pourcent === 100).length;
@@ -1551,6 +1599,8 @@ export default function ProjectsTrackingPage() {
         case "facturer_retenue": router.push(`/facturation?quoteId=${encodeURIComponent(selectedQuote?.id || "")}&type=retenue`); break;
         case "dossier": setVueCloture("dossier"); break;
         case "avis_on": majCloture("avis", { programme: true }); break;
+        case "avis_voir": setVueCloture("avis"); break;
+        case "avis_demander": actionAvis("demander", {}, `Avis demandé à ${emailClient}.`); break;
         case "avis_off": majCloture("avis", { programme: false }); break;
         case "retenue_on": majCloture("retenue", { taux: 5 }); break;
         case "retenue_off": majCloture("retenue", { taux: 0 }); break;
@@ -2033,6 +2083,55 @@ export default function ProjectsTrackingPage() {
               </div>
             ) : null}
 
+            {ficheTab === "cloture" && vueCloture === "avis" ? (
+              <div className="stack" style={{ gap: 20 }}>
+                <button type="button" className="link df-back" onClick={() => setVueCloture("etapes")}>← Étapes de clôture</button>
+                {avisRecu ? (
+                  <div className="card av-rev">
+                    <div className="card-h">
+                      <h2>Avis de {clientName}</h2>
+                      <span className="sm2">{[`reçu le ${formatDate(avisRecu.creeLe)}`, avisRecu.verifie ? "avis vérifié : chantier terminé et facturé dans Koji" : "chantier pas encore facturé dans Koji"].join(" · ")}</span>
+                    </div>
+                    <div className="av-top"><Etoiles note={avisRecu.note} big /><b>{avisRecu.note} sur 5</b></div>
+                    {avisRecu.texte ? <div className="av-q">« {avisRecu.texte} »</div> : null}
+                    <div className="av-cr">
+                      {CRITERES.filter((c) => avisRecu.criteres?.[c.id]).map((c) => <span key={c.id}>{c.label} <Etoiles note={avisRecu.criteres[c.id]} /></span>)}
+                    </div>
+                    <div className="av-rep">
+                      <span className="lab">Votre réponse{avisRecu.reponse?.texte ? ` · publiée le ${formatDate(avisRecu.reponse.publieeLe)}` : " · proposée par Koji"}</span>
+                      <textarea className="av-ta" rows={4} value={reponseTexte} maxLength={1500} onChange={(event) => setReponseAvis(event.target.value)} aria-label="Votre réponse" />
+                      <div className="av-act">
+                        {reponseAvis !== null ? <button type="button" className="link" onClick={() => setReponseAvis(null)}>Revenir au texte de Koji</button> : <span />}
+                        <button type="button" className="btn btn-main" disabled={avisEnvoi || !reponseTexte.trim()} onClick={() => actionAvis("repondre", { texte: reponseTexte }, "Réponse publiée sur votre KojiPage.").then((okR) => okR && setReponseAvis(null))}>
+                          {avisRecu.reponse?.texte ? "Mettre à jour ma réponse" : "Publier ma réponse"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="card">
+                    <div className="card-h"><h2>Avis du client</h2></div>
+                    <p className="muted">{cloture?.avis?.demandeLe ? `Avis demandé le ${formatDate(cloture.avis.demandeLe)}${cloture.avis.demandeA ? ` à ${cloture.avis.demandeA}` : ""}. Il arrive ici dès que le client le publie dans Koji Client.` : "Le client n'a pas encore donné son avis."}</p>
+                    {!avisData?.accesClient ? <p className="cl-err">Le client n'a pas encore d'accès Koji Client : créez-le depuis la carte Client pour lui demander son avis.</p> : null}
+                    {!cloture?.avis?.demandeLe ? (
+                      <div className="av-act"><span /><button type="button" className="btn btn-main" disabled={avisEnvoi || !avisData?.accesClient} onClick={() => actionAvis("demander", {}, `Avis demandé à ${emailClient}.`)}>Demander l'avis maintenant</button></div>
+                    ) : null}
+                  </div>
+                )}
+                <div className="card">
+                  <div className="card-h"><h2>Avis sur votre KojiPage</h2></div>
+                  {avisData?.stats?.nombre ? (
+                    <div className="av-sum">
+                      <b>{moyenneTexte(avisData.stats.moyenne)}</b>
+                      <Etoiles note={Math.round(avisData.stats.moyenne)} />
+                      <small>{avisData.stats.nombre} avis vérifié{avisData.stats.nombre > 1 ? "s" : ""} · {avisData.stats.recommandent} % recommandent</small>
+                    </div>
+                  ) : <p className="muted">Pas encore d'avis vérifié.</p>}
+                  <small className="sm2">Tous les avis sont publiés, positifs comme négatifs ; vous pouvez répondre, pas supprimer.</small>
+                </div>
+              </div>
+            ) : null}
+
             {ficheTab === "cloture" && vueCloture === "etapes" ? (
               <div className="card cl-steps">
                 <div className="card-h">
@@ -2160,6 +2259,35 @@ export default function ProjectsTrackingPage() {
           </div>
 
           <div className="fiche-side">
+            {ficheTab === "cloture" && vueCloture === "avis" ? (
+              <div className="card av-real">
+                <div className="card-h">
+                  <h2>Réalisation pour votre KojiPage</h2>
+                  <span className="sm2">préparée par Koji</span>
+                </div>
+                <div className="av-ab">
+                  {[["avant", "Avant"], ["apres", "Après"]].map(([cle, libelle]) => (
+                    <div className="df-img" key={cle}>{pairePhotos[cle]?.url ? <img src={pairePhotos[cle].url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : null}<span className="df-k">{libelle}</span></div>
+                  ))}
+                </div>
+                <label className="kv"><span>Titre</span><input value={real.titre} maxLength={120} onChange={(event) => setRealForm({ ...real, titre: event.target.value })} /></label>
+                <label className="kv"><span>Texte</span><textarea rows={2} value={real.texte} maxLength={300} onChange={(event) => setRealForm({ ...real, texte: event.target.value })} /></label>
+                <div className="kv"><span>Avis lié</span><b>{avisRecu ? `${avisRecu.auteur} · ${avisRecu.note} sur 5` : "en attente de l'avis du client"}</b></div>
+                {avisRecu?.accordPhotos ? (
+                  <div className="av-ok">
+                    <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg></span>
+                    <div><strong>Accord de {clientName} pour les photos</strong><small>donné le {formatDate(avisRecu.accordLe)} dans Koji Client · adresse et visages jamais publiés</small></div>
+                  </div>
+                ) : <p className="muted">{avisRecu ? "Le client n'a pas donné son accord pour publier les photos : la réalisation reste privée." : "La réalisation se publie avec l'accord du client, donné avec son avis."}</p>}
+                {!avisData?.site ? <p className="cl-err">Créez d'abord votre KojiPage (Profil › KojiPage).</p> : null}
+                <div className="av-act">
+                  {avisRecu?.realisation?.publieeLe && avisData?.site ? <a className="link" href={`/site/${avisData.site.slug}#realisations`} target="_blank" rel="noreferrer">Voir sur la KojiPage</a> : <span />}
+                  <button type="button" className="btn btn-main" disabled={avisEnvoi || !avisRecu?.accordPhotos || !avisData?.site || !real.titre.trim()} onClick={() => actionAvis("realisation", real, "Réalisation publiée sur votre KojiPage.").then((okR) => okR && setRealForm(null))}>
+                    {avisRecu?.realisation?.publieeLe ? "Mettre à jour la réalisation" : "Publier la réalisation"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {ficheTab === "cloture" && vueCloture === "dossier" ? (
               <div className="card df-prev">
                 <div className="card-h">
@@ -2259,6 +2387,22 @@ export default function ProjectsTrackingPage() {
                   </div>
                 ) : reserveChoisie.statut === "levee" ? (
                   <p className="muted">{statutReserve(reserveChoisie).label}.</p>
+                ) : reserveChoisie.statut === "proposee" ? (
+                  <form className="rs-acc" onSubmit={(event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    const qui = String(form.get("qui") || "");
+                    const w = workers.find((x) => x.id === qui);
+                    actionReserve(reserveChoisie.id, "attribuer", { attribueeA: qui, attribueeNom: qui === "moi" ? "Vous" : w ? `${w.name}${w.type === "Sous-traitant" ? " · sous-traitant" : ""}` : "", pourLe: String(form.get("pourLe") || "") });
+                  }}>
+                    <p className="muted">Signalée par {reserveChoisie.signaleePar || "le client"} dans Koji Client. Acceptez-la pour l'attribuer ; elle passe « À faire ».</p>
+                    <select name="qui" defaultValue="moi" aria-label="Attribuée à">
+                      <option value="moi">Vous</option>
+                      {workers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.type === "Sous-traitant" ? " · sous-traitant" : ""}</option>)}
+                    </select>
+                    <input type="date" name="pourLe" aria-label="Pour le" />
+                    <button type="submit" className="btn btn-main" disabled={reserveEnvoi}>Accepter la réserve</button>
+                  </form>
                 ) : (
                   <p className="muted">La levée se photographie dans l'app Koji Pro ; vous la validez ensuite ici.</p>
                 )}

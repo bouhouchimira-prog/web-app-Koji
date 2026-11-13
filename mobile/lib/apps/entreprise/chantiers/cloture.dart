@@ -168,6 +168,40 @@ class EtapeCloture {
       reserve: reserve);
 }
 
+/// Avis du client (PRO-02.6) : programmé, demandé, reçu (note, réponse).
+EtapeCloture _etapeAvis(
+    Map avis, Map<String, dynamic>? recu, Map<String, dynamic>? solde) {
+  if (recu != null) {
+    final repondu = _s((recu['reponse'] as Map?)?['texte']).isNotEmpty;
+    return EtapeCloture(
+        id: 'avis',
+        titre: 'Avis du client',
+        ok: true,
+        court: '${recu['note']} sur 5 · ${repondu ? 'répondu' : 'à répondre'}',
+        action: repondu ? '' : "Répondre à l'avis");
+  }
+  if (_s(avis['demandeLe']).isNotEmpty) {
+    return const EtapeCloture(
+        id: 'avis', titre: 'Avis du client', ok: true, court: 'demandé');
+  }
+  if (solde != null && _s(solde['status']) != 'Brouillon') {
+    return const EtapeCloture(
+        id: 'avis',
+        titre: 'Avis du client',
+        ok: false,
+        court: 'à demander',
+        action: "Demander l'avis");
+  }
+  return EtapeCloture(
+      id: 'avis',
+      titre: 'Avis du client',
+      ok: false,
+      court: avis['programme'] == true
+          ? 'programmé après le solde'
+          : 'demandé après le solde',
+      action: avis['programme'] == true ? '' : "Programmer la demande d'avis");
+}
+
 String _pl(int n, String mot) => '$n $mot${n > 1 ? 's' : ''}';
 
 /// Les étapes du téléphone (maquette : réception, réserves, solde, dossier,
@@ -177,6 +211,7 @@ List<EtapeCloture> etapesCloture({
   List<Reserve> reserves = const [],
   required Solde solde,
   Map<String, dynamic>? factureSolde,
+  Map<String, dynamic>? avisRecu,
 }) {
   final pv = cloture?['pv'] is Map ? Map<String, dynamic>.from(cloture!['pv']) : null;
   final signe = _s(pv?['signeLe']).isNotEmpty;
@@ -237,17 +272,7 @@ List<EtapeCloture> etapesCloture({
       court: _s(dossier['remisLe']).isNotEmpty ? 'remis' : 'à préparer',
       action: _s(dossier['remisLe']).isNotEmpty ? '' : 'Préparer le dossier',
     ),
-    EtapeCloture(
-      id: 'avis',
-      titre: 'Avis du client',
-      ok: _s(avis['demandeLe']).isNotEmpty,
-      court: _s(avis['demandeLe']).isNotEmpty
-          ? 'demandé'
-          : avis['programme'] == true
-              ? 'programmé après le solde'
-              : 'demandé après le solde',
-      action: avis['programme'] == true ? '' : "Programmer la demande d'avis",
-    ),
+    _etapeAvis(avis, avisRecu, factureSolde),
   ];
   var cur = false;
   return [

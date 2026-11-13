@@ -75,6 +75,18 @@ describe("lib/cloture-chantier (PRO-02.4)", () => {
     assert.strictEqual(liberee[5].detail, "307,09 € TTC · facturée (FAC-2027-0410)");
   });
 
+  it("suit la demande d'avis jusqu'à la réponse", () => {
+    const solde = montantsSolde({ devis: DEVIS, factures: [] });
+    const avis = (cloture, extra = {}) => etapesCloture({ cloture, solde, aujourdhui: "2026-12-08", ...extra })[4];
+    assert.strictEqual(avis(null).action.id, "avis_on");
+    assert.strictEqual(avis({ avis: { programme: true } }).court, "programmé après le solde");
+    assert.strictEqual(avis({ avis: { programme: true } }, { factureSolde: { status: "Emise", amountTtc: 10 } }).action.id, "avis_demander");
+    assert.strictEqual(avis({ avis: { demandeLe: "2026-12-08T10:00:00Z", demandeA: "lefevre@exemple.fr" } }).detail, "demandé le 8 déc. à lefevre@exemple.fr · en attente de la réponse du client");
+    const recu = avis({ avis: { demandeLe: "2026-12-08T10:00:00Z" } }, { avisRecu: { note: 5, creeLe: "2026-12-12T09:00:00Z" } });
+    assert.strictEqual(recu.detail, "5 sur 5 · reçu le 12 déc. · à vous de répondre · publié sur votre KojiPage");
+    assert.strictEqual(recu.action.label, "Répondre");
+  });
+
   it("fait le bilan sans rien inventer", () => {
     const solde = montantsSolde({ devis: DEVIS, avenants: AVENANTS, factures: actives });
     const taches = [

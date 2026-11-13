@@ -315,6 +315,21 @@ class ProKojiWebClient {
     }
   }
 
+  /// Avis du chantier (PRO-02.6) : { avis, stats, site, accesClient }.
+  Future<Map<String, dynamic>> avis(String projectId) async {
+    final data = await _send(
+        'GET', '/api/avis?projectId=${Uri.encodeQueryComponent(projectId)}');
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// action : demander | repondre (texte) | realisation (titre, texte).
+  Future<Map<String, dynamic>> actionAvis(String projectId, String action,
+      [Map<String, dynamic> extra = const {}]) async {
+    final data = await _send('POST', '/api/avis',
+        {'projectId': projectId, 'action': action, ...extra});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
   Future<List<Map<String, dynamic>>> avenants(String quoteId) async => _list(
       await _send('GET',
           '/api/avenants?quoteId=${Uri.encodeQueryComponent(quoteId)}'),

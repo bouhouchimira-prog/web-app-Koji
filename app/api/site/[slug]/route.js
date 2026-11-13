@@ -4,6 +4,7 @@ import { getVerifiedUserId } from "../../../../lib/server-auth";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { buildWebUser } from "../../../../lib/user-profile";
 import { publicSiteView } from "../../../../lib/company-sites";
+import { statsAvis } from "../../../../lib/avis";
 
 // Route PUBLIQUE (aucune session requise pour un site publié) — meme
 // principe que app/api/signatures/[token]/route.js : resolution par un
@@ -34,5 +35,15 @@ export async function GET(request, context) {
   const { data: profile } = await supabase.from("users").select("email, business_info").eq("id", site.userId).maybeSingle();
   const webUser = buildWebUser({ id: site.userId, email: profile?.email || "", profile });
 
-  return ok({ site: { ...publicSiteView(site, webUser.business, webUser.professions), published: site.published } });
+  // Avis des clients (PRO-02.6) : tous publiés, positifs comme négatifs,
+  // avec la réponse de l'entreprise ; jamais d'e-mail ni de nom complet.
+  const avis = (db.avis || []).filter((a) => a.userId === site.userId).sort((a, b) => String(b.creeLe).localeCompare(String(a.creeLe)));
+  return ok({
+    site: {
+      ...publicSiteView(site, webUser.business, webUser.professions),
+      published: site.published,
+      avis: avis.map((a) => ({ id: a.id, auteur: a.auteur, note: a.note, criteres: a.criteres || {}, texte: a.texte || "", date: a.creeLe, verifie: Boolean(a.verifie), reponse: a.reponse?.texte || "" })),
+      avisStats: statsAvis(avis)
+    }
+  });
 }

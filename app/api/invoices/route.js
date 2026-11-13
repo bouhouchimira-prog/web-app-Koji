@@ -6,6 +6,7 @@ import { mapQuote } from "../../../lib/quote-mapping";
 import { loadInvoiceContext } from "../../../lib/invoice-context";
 import { buildInvoicePdf, invoiceDocumentFilename } from "../../../lib/document-generator";
 import { sendInvoiceReminderEmail } from "../../../lib/mailer";
+import { demanderAvis } from "../../../lib/avis-serveur";
 
 // Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
 // shared with the mobile app), so this fetches the two via the service_role
@@ -413,6 +414,13 @@ export async function PATCH(request) {
   } else if (action === "issue") {
     invoice.status = "Emise";
     invoice.issuedAt = now;
+    // Avis demandé à l'émission de la facture de solde quand l'entreprise
+    // l'a programmé (clôture du chantier, PRO-02.6).
+    const cloture = (db.clotures || []).find((c) => c.projectId && c.projectId === invoice.projectId);
+    if (invoice.type === "Facture finale" && !String(invoice.notes || "").startsWith("Libération de la retenue") && cloture?.avis?.programme && !cloture.avis.demandeLe) {
+      const demande = await demanderAvis(db, { projectId: invoice.projectId, userId: cloture.userId });
+      if (!demande.ok) cloture.avis.erreur = demande.raison;
+    }
   } else if (action === "pay") {
     invoice.status = "Payee";
     invoice.paidAt = now;
