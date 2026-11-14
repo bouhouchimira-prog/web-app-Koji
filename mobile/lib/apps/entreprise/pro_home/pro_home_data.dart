@@ -287,6 +287,66 @@ class ProKojiWebClient {
     return photo is Map ? Map<String, dynamic>.from(photo) : {};
   }
 
+  // ---- Mode visite (PRO-03.8) -------------------------------------------
+
+  /// Envoie la visite telle qu'elle est sur le téléphone (même id à chaque
+  /// envoi) ; le serveur contrôle l'heure du téléphone.
+  Future<Map<String, dynamic>> enregistrerVisite(Map<String, dynamic> visite) async {
+    final data = await _send('POST', '/api/visites', {'visite': visite, 'envoyeLe': DateTime.now().toUtc().toIso8601String()});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<void> envoyerPhotoVisite({
+    required String visiteId,
+    required String photoId,
+    required String pieceId,
+    required List<int> octets,
+    String pointId = '',
+    String prisLe = '',
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final requete = http.MultipartRequest('POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/visites/photos'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['visiteId'] = visiteId
+      ..fields['photoId'] = photoId
+      ..fields['pieceId'] = pieceId
+      ..fields['pointId'] = pointId
+      ..fields['prisLe'] = prisLe
+      ..files.add(http.MultipartFile.fromBytes('file', octets, filename: 'photo.jpg', contentType: MediaType.parse('image/jpeg')));
+    final reponse = await http.Response.fromStream(await _http.send(requete));
+    if (reponse.statusCode >= 400) {
+      dynamic data;
+      try {
+        data = jsonDecode(reponse.body);
+      } on FormatException {
+        data = null;
+      }
+      throw ProKojiWebException((data is Map ? data['error']?.toString() : null) ?? 'Erreur ${reponse.statusCode}');
+    }
+  }
+
+  /// Résumé au client et rappel « envoyer le devis » la veille au soir.
+  Future<Map<String, dynamic>> resumeVisite(String id, {required String message, required String devisPromis, String email = '', bool envoyer = true}) async {
+    final data = await _send('POST', '/api/visites', {'action': 'resume', 'id': id, 'message': message, 'devisPromis': devisPromis, 'email': email, 'envoyer': envoyer});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<void> lierVisite(String id, String quoteId) => _send('POST', '/api/visites', {'action': 'lier', 'id': id, 'quoteId': quoteId});
+
+  /// Rendez-vous à venir (calendrier partagé site / app), pour préparer
+  /// une visite.
+  Future<List<Map<String, dynamic>>> rendezVousAVenir() async {
+    final tous = await liste('/api/calendar-events', 'calendarEvents');
+    final maintenant = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+    return tous
+        .where((e) => (DateTime.tryParse('${e['startAt'] ?? ''}')?.isAfter(maintenant) ?? false))
+        .take(20)
+        .toList();
+  }
+
   // ---- Réserves (PRO-02.3) ---------------------------------------------
 
   Future<List<Map<String, dynamic>>> reserves(String projectId) async => _list(

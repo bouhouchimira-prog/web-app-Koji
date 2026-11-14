@@ -149,9 +149,25 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       if (mounted) setState(() {});
       return capture;
     },
-    enregistrer: _enregistrerAuto,
+    enregistrer: _enregistrerEtLierVisite,
     resultat: _guide.resultat,
   );
+
+  // Devis préparé depuis une visite (maquette PRO-03.8) : le compte rendu
+  // part comme premier message, et la visite est rattachée au devis.
+  bool _visiteEnvoyee = false;
+  bool _visiteLiee = false;
+  Map? get _visite => widget.data['visite'] is Map ? widget.data['visite'] as Map : null;
+
+  Future<({String id, String le})> _enregistrerEtLierVisite() async {
+    final r = await _enregistrerAuto();
+    final visite = _visite;
+    if (visite != null && !_visiteLiee && r.id.isNotEmpty) {
+      _visiteLiee = true;
+      ref.read(proKojiWebProvider).lierVisite('${visite['id']}', r.id).catchError((_) => _visiteLiee = false);
+    }
+    return r;
+  }
   bool _vueDetaillee = false;
 
   String get _clientTva => _tvaChoix['client']!.isNotEmpty ? _tvaChoix['client']! : 'particulier';
@@ -1447,7 +1463,13 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     if (_enSuivi) return _buildSuivi();
     // Le premier message de Koji suit le devis chargé (sans IA).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _conversation.accueillir();
+      if (!mounted) return;
+      _conversation.accueillir();
+      final visite = _visite;
+      if (visite != null && !_visiteEnvoyee && !_conversation.tours.any((t) => t.role == 'user')) {
+        _visiteEnvoyee = true;
+        _conversation.envoyer('${visite['demande'] ?? ''}');
+      }
     });
     final titre = 'Devis $_quoteNumber';
     final sousTitre = [_siteAddress, _clientName]

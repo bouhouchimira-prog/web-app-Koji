@@ -2026,3 +2026,31 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 @media (max-width:760px){
   .pro .fs-r{grid-template-columns:minmax(0,1fr) repeat(3,64px);font-size:12px}
 }
+
+/* Compte rendu de visite (maquette PRO-03.8). */
+.pro .vi{display:flex;flex-direction:column;gap:20px}
+.pro .vi .head .hact{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pro .vi-meta{margin:-8px 0 0;font-size:13px}
+.pro .vi-g{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+.pro .vi-wps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pro .vi-wp{position:relative;display:block;line-height:0;overflow:hidden;aspect-ratio:4/3;background:var(--soft)}
+.pro .vi-wp img{width:100%;height:100%;object-fit:cover}
+.pro .vi-wp .ph-st{position:absolute;left:6px;bottom:6px;background:rgba(23,27,30,.85);color:#fff;font-size:11px;line-height:1.2;padding:4px 6px;font-variant-numeric:tabular-nums;font-weight:600}
+.pro .vs-t{width:100%;border-collapse:collapse;font-size:13px}
+.pro .vs-t td{padding:10px 8px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.pro .vs-t td b{font-size:14px}
+.pro .vs-t td small{display:block;font-size:12px;color:var(--grey)}
+.pro .vs-t .num{text-align:right;white-space:nowrap}
+.pro .vi-wck{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--rule)}
+.pro .vi-wck.w{box-shadow:inset 3px 0 0 var(--ink);padding-left:10px;background:var(--soft)}
+.pro .vi-wck>span{font-weight:700;width:14px;text-align:center}
+.pro .vi-wck>svg{width:14px;height:14px;stroke:var(--ink);fill:none;stroke-width:3;flex:none;margin-top:3px}
+.pro .vi-wck div{display:flex;flex-direction:column}
+.pro .vi-wck b{font-size:14px}
+.pro .vi-wck small{font-size:12px;color:var(--grey)}
+.pro .vs-q{font-size:14px;line-height:1.5;background:var(--soft);border-left:3px solid var(--ink);padding:10px 12px}
+.pro .vs-q small{display:block;font-size:12px;color:var(--grey);margin-top:6px}
+.pro .vi-band{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.pro .vi-band a{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--card);border:1px solid var(--line);color:inherit;text-decoration:none}
+.pro .vi-band a b{font-weight:600}
+@media (max-width:900px){.pro .vi-g{grid-template-columns:1fr}.pro .vi-wps{grid-template-columns:repeat(2,1fr)}}

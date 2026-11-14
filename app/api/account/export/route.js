@@ -55,7 +55,8 @@ async function exportEntreprise(request, db) {
     fournitures: scopedItems(db.supplies, auth.userId),
     alertesUrgentes: scopedItems(db.urgentAlerts, auth.userId),
     notifications: scopedItems(db.notifications, auth.userId),
-    signalementsTechniques: scopedItems(db.technicalReports, auth.userId)
+    signalementsTechniques: scopedItems(db.technicalReports, auth.userId),
+    visites: (db.visites || []).filter((v) => v.userId === auth.userId)
   };
 }
 

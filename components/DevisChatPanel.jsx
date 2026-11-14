@@ -99,7 +99,7 @@ function euros(n) {
 
 const REFLEXION = { phrase: "Koji réfléchit…", lab: "Koji travaille", texte: "" };
 
-export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave, onOpenDevis, questionTva, onReponseTva }) {
+export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave, onOpenDevis, questionTva, onReponseTva, messageInitial }) {
   const [turns, setTurns] = useState(() => [{ role: "assistant", text: premierMessage(quoteSnapshot) }]);
   const [draft, setDraft] = useState("");
   const [photo, setPhoto] = useState("");
@@ -346,6 +346,19 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
       setTravail(null);
     }
   }
+
+  // Devis préparé depuis une visite (PRO-03.8) : le compte rendu part tout
+  // seul comme premier message, Koji construit les lignes avec la
+  // bibliothèque.
+  const initialEnvoye = useRef(false);
+  useEffect(() => {
+    if (!messageInitial || initialEnvoye.current || sending || turns.some((t) => t.role === "user")) return;
+    initialEnvoye.current = true;
+    const nextTurns = [...turns, { role: "user", text: messageInitial }];
+    setTurns(nextTurns);
+    sendToEngine(nextTurns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messageInitial]);
 
   function handleSubmit(event) {
     event?.preventDefault?.();

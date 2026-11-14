@@ -39,6 +39,9 @@ export default function DevisHistory() {
   const router = useRouter();
   const { data: quotes, setData: setQuotes } = useApi("/api/quotes", "quotes");
   const { data: projects } = useApi("/api/projects", "projects");
+  // Visites terminées sans devis encore (maquette PRO-03.8).
+  const { data: visites } = useApi("/api/visites", "visites");
+  const visitesADeviser = (visites || []).filter((v) => v.fin && !v.quoteId).slice(0, 3);
   const [tab, setTab] = useState("tous");
   const [query, setQuery] = useState("");
   const [relance, setRelance] = useState(null);
@@ -96,6 +99,17 @@ export default function DevisHistory() {
       </div>
 
       {message ? <p className="notice" role="status">{message}</p> : null}
+
+      {visitesADeviser.length ? (
+        <div className="vi-band" aria-label="Visites à transformer en devis">
+          {visitesADeviser.map((v) => (
+            <Link key={v.id} href={`/devis/visite?id=${v.id}`}>
+              <span><b>Compte rendu de visite</b> · {[v.client, v.adresse].filter(Boolean).join(" · ") || "Visite"}</span>
+              <span className="muted">{v.fin ? new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "short", day: "numeric", month: "short" }).format(new Date(v.fin)) : ""} · démarrer le devis</span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
 
       <div className="tbar">
         <div className="wtabs" role="tablist" aria-label="Filtrer les devis">

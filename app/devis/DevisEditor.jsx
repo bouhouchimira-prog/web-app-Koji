@@ -21,6 +21,7 @@ import { DevisSuivi } from "../../components/DevisSuivi";
 import { RelanceDevis } from "../../components/RelanceDevis";
 import { DevisVersions } from "../../components/DevisVersions";
 import { FaireSigner } from "../../components/FaireSigner";
+import { demandeDevisGuide } from "../../lib/visite-mode";
 import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
@@ -487,6 +488,10 @@ export default function DevisEditor() {
   const [vueVersions, setVueVersions] = useState(false);
   // Signature et rétractation (maquette PRO-03.7).
   const [signerOuvert, setSignerOuvert] = useState(false);
+  // Devis préparé depuis une visite (PRO-03.8) : client, adresse et
+  // compte rendu envoyé à Koji comme premier message.
+  const [visite, setVisite] = useState(null);
+  const visiteLiee = useRef("");
   const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
@@ -623,6 +628,27 @@ export default function DevisEditor() {
     setIsNewChantier(true);
     clearChantierDraft();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || editQuoteIdFromUrl()) return;
+    const visiteId = new URLSearchParams(window.location.search).get("visite");
+    if (!visiteId) return;
+    apiGet(`/api/visites?id=${encodeURIComponent(visiteId)}`)
+      .then(({ visite: v }) => {
+        if (!v) return;
+        applyChatClientInfo({ nom: v.client, email: v.email, chantier: v.adresse });
+        setVisite(v);
+      })
+      .catch(() => notifyError(new Error("Visite introuvable."), "Le compte rendu de visite n'a pas pu être chargé."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = generatedQuote?.id;
+    if (!visite?.id || !id || visiteLiee.current === id) return;
+    visiteLiee.current = id;
+    apiSend("/api/visites", { action: "lier", id: visite.id, quoteId: id }, "POST").catch(() => { visiteLiee.current = ""; });
+  }, [visite, generatedQuote?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4000,6 +4026,7 @@ export default function DevisEditor() {
                 onOpenDevis={() => setToolsDrawerOpen(true)}
                 questionTva={decisionTvaCourante.question && quoteLines.length ? questionTva(decisionTvaCourante.question, clientTvaCourant) : null}
                 onReponseTva={(valeur) => confirmationTva(appliquerTva({ ...tvaChoix, client: clientTvaCourant, local: valeur }), { client: clientTvaCourant, nom: headerClientName })}
+                messageInitial={visite ? demandeDevisGuide(visite) : ""}
               />
             ) : null}
             <div className="dv-doc" style={mode === "ia" ? { display: "none" } : undefined}>

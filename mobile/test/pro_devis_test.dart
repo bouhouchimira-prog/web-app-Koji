@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'package:koji/apps/entreprise/visite/pro_visite_screen.dart' show visiteStoreProvider;
+import 'package:koji/apps/entreprise/visite/visite_store.dart';
 import 'package:koji/app/account_provider.dart';
 import 'package:koji/apps/entreprise/devis/devis_liste.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart';
@@ -93,6 +95,7 @@ void main() {
       overrides: [
         proKojiWebProvider.overrideWithValue(serveur),
         currentAccountProvider.overrideWith((ref) async => null),
+        visiteStoreProvider.overrideWith((ref) => VisiteStore(compte: 'test', stockage: MemoireVisiteStockage(), serveur: WebVisiteServeur(serveur), surveillerReseau: false)),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -131,6 +134,8 @@ void main() {
     await tester.tap(find.text('Tous 7'));
     await tester.pumpAndSettle();
     await tester.dragUntilVisible(find.text('Cuisine, Paris 15e'), find.byType(ListView), const Offset(0, -200));
+    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Cuisine, Paris 15e'));
     await tester.pumpAndSettle();
     expect(serveur.appels.last, 'dupliquer q34');

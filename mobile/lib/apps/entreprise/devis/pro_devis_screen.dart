@@ -8,6 +8,8 @@ import 'package:koji/apps/entreprise/devis/devis_liste.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/apps/entreprise/visite/pro_visite_screen.dart';
+import 'package:koji/apps/entreprise/visite/visite_mode.dart' show demandeDevisGuide, enAttente;
 import 'package:koji/core/route_args.dart';
 import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
@@ -196,6 +198,11 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
               context.push('/quote/detail', extra: const QuoteDetailArgs(data: <String, dynamic>{}));
             },
           ),
+          const SizedBox(height: 8),
+          // Mode visite (maquette PRO-03.8) : préparée hors ligne, puis
+          // Devis guidé prérempli.
+          _boutonVisite(da),
+          ..._visites(da),
           const SizedBox(height: 12),
           _champRecherche(da),
           const SizedBox(height: 12),
@@ -226,6 +233,86 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
         ],
       ),
     );
+  }
+
+  Widget _boutonVisite(ProDa da) => Material(
+        color: da.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2), side: const BorderSide(color: Color(0xFF8A8F98))),
+        child: InkWell(
+          onTap: () async {
+            final v = await preparerVisite(context, ref);
+            if (v != null && mounted) _ouvrirVisite('${v['id']}');
+          },
+          child: SizedBox(
+            height: 44,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.home_work_outlined, size: 18, color: da.ink),
+              const SizedBox(width: 8),
+              Text('Préparer une visite', style: da.text(14, weight: FontWeight.w600)),
+            ]),
+          ),
+        ),
+      );
+
+  List<Widget> _visites(ProDa da) {
+    final store = ref.watch(visiteStoreProvider);
+    final visites = store.visites.where((v) => v['devisOuvert'] != true).take(3).toList();
+    return [
+      for (final v in visites) ...[
+        const SizedBox(height: 8),
+        Material(
+          color: da.card,
+          shape: RoundedRectangleBorder(side: BorderSide(color: da.line)),
+          child: InkWell(
+            onTap: () => _ouvrirVisite('${v['id']}'),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Visite · ${v['client']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: da.text(14, weight: FontWeight.w700)),
+                    Text(
+                      [
+                        _s(v['fin']).isNotEmpty ? 'terminée, devis à préparer' : _s(v['debut']).isNotEmpty ? 'en cours' : 'prête hors ligne',
+                        if (enAttente(v) > 0 && _s(v['debut']).isNotEmpty) "${enAttente(v)} en attente d'envoi",
+                      ].join(' · '),
+                      style: da.text(12.5, color: da.grey),
+                    ),
+                  ]),
+                ),
+                Icon(Icons.chevron_right, color: da.grey),
+              ]),
+            ),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  void _ouvrirVisite(String id) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) => ProVisiteScreen(
+          store: ref.watch(visiteStoreProvider),
+          visiteId: id,
+          onOuvrirDevis: (v) async {
+            final store = ref.read(visiteStoreProvider);
+            await store.enregistrer({...v, 'devisOuvert': true}, envoyer: false);
+            if (!ctx.mounted) return;
+            Navigator.of(ctx).pop();
+            ref.read(quoteCreationProvider.notifier).reset();
+            if (!mounted) return;
+            context.push('/quote/detail',
+                extra: QuoteDetailArgs(data: <String, dynamic>{
+                  'tasks': <String, dynamic>{},
+                  'client': {'name': _s(v['client']), 'email': _s(v['email']), 'address': _s(v['adresse'])},
+                  'siteAddress': _s(v['adresse']),
+                  'visite': {'id': _s(v['id']), 'demande': demandeDevisGuide(v)},
+                }));
+          },
+        ),
+      ),
+    ));
   }
 
   Widget _barre(ProDa da) {
