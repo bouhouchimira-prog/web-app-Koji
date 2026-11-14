@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MENTION_TAUX_REDUIT, estTauxReduit } from "../../../lib/tva";
 import { useParams } from "next/navigation";
 import { euro } from "../../../lib/pricing";
 import { useLocale } from "../../../lib/i18n";
@@ -39,6 +40,10 @@ export default function PublicSignaturePage() {
   }, [token]);
 
   const alreadySigned = quote?.signatureStatus === "Signe";
+  // TVA à taux réduit (maquette PRO-03.5) : le client certifie la mention en
+  // signant ; sans elle, le taux réduit ne s'applique pas.
+  const mentionAttendue = Boolean(quote) && !quote.autoliquidation
+    && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
   const totalItems = useMemo(() => quote?.items?.length || 0, [quote]);
 
   function setField(field, value) {
@@ -134,6 +139,20 @@ export default function PublicSignaturePage() {
                 />
               </label>
               <p className="muted">{L.signaturePub.madeAt} {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
+              {mentionAttendue ? (
+                <div className="signature-mention-tva">
+                  <strong>Attestation pour la TVA à taux réduit</strong>
+                  <p>{MENTION_TAUX_REDUIT}</p>
+                  {alreadySigned ? (
+                    <p className="muted">{quote.mentionTva ? "Mention certifiée à la signature." : "Mention non certifiée."}</p>
+                  ) : (
+                    <label className="checkline">
+                      <input type="checkbox" checked={Boolean(form.mentionTva)} onChange={(event) => setField("mentionTva", event.target.checked)} />
+                      Je certifie cette mention.
+                    </label>
+                  )}
+                </div>
+              ) : null}
               {!alreadySigned && (
                 <label className="checkline">
                   <input type="checkbox" checked={form.consent} onChange={(event) => setField("consent", event.target.checked)} />

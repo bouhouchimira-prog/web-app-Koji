@@ -9,6 +9,18 @@ import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-map
 import { hashPassword } from "../../../lib/password-hash";
 import { nomFichierDevis } from "../../../lib/devis-envoi";
 
+// Réponses TVA du devis (PRO-03.5) : seulement les valeurs connues.
+function tvaPropre(v) {
+  if (!v || typeof v !== "object") return null;
+  const choix = (valeur, permis) => (permis.includes(valeur) ? valeur : "");
+  return {
+    client: choix(v.client, ["particulier", "entreprise", "sous-traitance"]),
+    local: choix(v.local, ["logement-ancien", "logement-neuf", "professionnel"]),
+    travaux: choix(v.travaux, ["renovation", "energetique", "construction"]),
+    commande: fixText(String(v.commande || "")).slice(0, 60)
+  };
+}
+
 const emailValide = (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim()) ? String(v).trim() : "");
 import { randomChars, makeTemporaryPassword } from "../../../lib/secure-random";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
@@ -285,6 +297,8 @@ export async function POST(request) {
     surcharges: fixObjectText(body.surcharges || []),
     situationFactors: fixObjectText(body.situationFactors || {}),
     vatRate: Number(body.vatRate ?? 20),
+    tva: tvaPropre(body.tva),
+    autoliquidation: body.autoliquidation === true,
     draftStep: Number(body.draftStep || 0),
     draftData: fixObjectText(body.draftData || null),
     isCreationDraft: Boolean(body.isCreationDraft),
@@ -593,7 +607,7 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "situationFactors", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
+    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "situationFactors", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones", "tva", "autoliquidation"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);
@@ -604,6 +618,8 @@ export async function PATCH(request) {
         // orthographique appliquee aux textes deja rediges) — juste une
         // whitelist de forme, meme principe que quote-mapping.js.
         else if (key === "paymentMilestones") quote[key] = Array.isArray(body[key]) ? body[key] : null;
+        else if (key === "tva") quote[key] = tvaPropre(body[key]);
+        else if (key === "autoliquidation") quote[key] = body[key] === true;
         else quote[key] = fixObjectText(body[key]);
       }
     }

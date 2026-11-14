@@ -99,7 +99,7 @@ function euros(n) {
 
 const REFLEXION = { phrase: "Koji réfléchit…", lab: "Koji travaille", texte: "" };
 
-export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave, onOpenDevis }) {
+export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdateOuvrage, onRemoveOuvrage, onSetPrice, onSetClient, onFinish, onAutoSave, onOpenDevis, questionTva, onReponseTva }) {
   const [turns, setTurns] = useState(() => [{ role: "assistant", text: premierMessage(quoteSnapshot) }]);
   const [draft, setDraft] = useState("");
   const [photo, setPhoto] = useState("");
@@ -472,6 +472,37 @@ export function DevisChatPanel({ quoteSnapshot, onAddLot, onAddOuvrage, onUpdate
             </div>
           );
         })}
+        {/* TVA (maquette PRO-03.5) : Koji pose la question du local quand il
+            ne la connaît pas ; la réponse s'applique sans passer par l'IA. */}
+        {questionTva && !sending && turns.some((t) => t.role === "user") ? (
+          <div className="msg k">
+            <div className="qs">
+              <div className="qrow">
+                <span>{questionTva.texte}</span>
+              </div>
+              <span className="qa qa-tva" role="group" aria-label={questionTva.texte}>
+                {questionTva.reponses.map((r) => (
+                  <button
+                    key={r.valeur}
+                    type="button"
+                    className="chip"
+                    onClick={() => {
+                      const confirmation = onReponseTva?.(r.valeur, r.label) || "";
+                      setTurns((current) => [
+                        ...current,
+                        { role: "assistant", text: questionTva.texte },
+                        { role: "user", text: r.label },
+                        ...(confirmation ? [{ role: "assistant", text: confirmation }] : [])
+                      ]);
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </span>
+            </div>
+          </div>
+        ) : null}
         {streamingText ? <div className="msg k">{streamingText}</div> : null}
         {sending && !streamingText && travail ? (
           <div className="msg k thinking"><Think />{travail.phrase}</div>

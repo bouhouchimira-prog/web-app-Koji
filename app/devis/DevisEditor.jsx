@@ -15,6 +15,8 @@ import { calculateTaskPrice } from "../../lib/pricing";
 import { computeSurchargeBreakdown } from "../../lib/quote-calculations";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
+import { confirmationTva, decisionTva, questionTva, tauxProposeLigne, ventilerTva } from "../../lib/tva";
+import { PanneauTva } from "../../components/PanneauTva";
 import { DevisSuivi } from "../../components/DevisSuivi";
 import { RelanceDevis } from "../../components/RelanceDevis";
 import { FactureAcompte } from "../../components/FactureAcompte";
@@ -264,7 +266,12 @@ function sourceToTask(source, settings = {}) {
 }
 
 function recalculateLine(line, settings = {}, quoteVatRatePercent) {
-  const lineVatRate = quoteVatRatePercent != null ? Number(quoteVatRatePercent) / 100 : Number(pricingProfile.vatRate || 0.2);
+  // Taux propre à la ligne (maquette PRO-03.5, ex. 5,5 % sur une ligne de
+  // rénovation énergétique) ; sinon le taux du devis.
+  const tauxLigne = settings.tauxTva != null && settings.tauxTva !== "" ? Number(settings.tauxTva) : null;
+  const lineVatRate = tauxLigne != null
+    ? tauxLigne / 100
+    : quoteVatRatePercent != null ? Number(quoteVatRatePercent) / 100 : Number(pricingProfile.vatRate || 0.2);
   const editedMaterials = Array.isArray(settings.materialLines) ? settings.materialLines : null;
   const materialLines = (editedMaterials || line.materialLines || []).map((material) => {
     const unitsToBuy = Math.max(0, Number(material.unitsToBuy ?? material.quantityNeeded ?? 0));
@@ -310,6 +317,7 @@ function recalculateLine(line, settings = {}, quoteVatRatePercent) {
     discountAmount,
     vatAmount,
     vatRate: lineVatRate,
+    ...(tauxLigne != null ? { tauxTva: tauxLigne } : {}),
     totalHtBase,
     totalHt: round2(totalHt),
     totalTtc
@@ -500,6 +508,9 @@ export default function DevisEditor() {
   // entrees, somme des percent = 100.
   const [paymentMilestones, setPaymentMilestones] = useState(() => defaultPaymentMilestones());
   const [quoteVatRate, setQuoteVatRate] = useState(20);
+  // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
+  const [tvaChoix, setTvaChoix] = useState({ client: "", local: "", travaux: "", commande: "" });
+  const [tvaOuvert, setTvaOuvert] = useState(false);
   const [vatManual, setVatManual] = useState(false);
   const [draftQuoteNumber, setDraftQuoteNumber] = useState(null);
   const [ouvrageComposer, setOuvrageComposer] = useState({
@@ -742,7 +753,8 @@ export default function DevisEditor() {
         fixedDuration: item.fixedDuration ?? null,
         fixedDurationUnit: item.fixedDurationUnit || "h",
         subItems: Array.isArray(item.subItems) ? item.subItems : undefined,
-        variante: Boolean(item.variante)
+        variante: Boolean(item.variante),
+        ...(item.tauxTva != null ? { tauxTva: Number(item.tauxTva) } : {})
       };
     });
 
@@ -760,6 +772,7 @@ export default function DevisEditor() {
     }
     setPaymentMilestones(Array.isArray(quote.paymentMilestones) && quote.paymentMilestones.length > 0 ? quote.paymentMilestones : defaultPaymentMilestones());
     if (quote.vatRate != null) setQuoteVatRate(Number(quote.vatRate));
+    setTvaChoix({ client: quote.tva?.client || "", local: quote.tva?.local || "", travaux: quote.tva?.travaux || "", commande: quote.tva?.commande || "" });
     setVatManual(true);
     setDraftQuoteNumber(quote.quoteNumber || null);
     setForm((current) => ({
@@ -1011,10 +1024,47 @@ export default function DevisEditor() {
     const baseHt = totals.ht;
     const breakdown = computeSurchargeBreakdown(baseHt, surcharges);
     const totalHt = breakdown.totalHt;
-    const vatAmount = round2(totalHt * (Number(quoteVatRate) / 100));
+    // TVA par taux (PRO-03.5) : les lignes à leur taux, les majorations au
+    // taux du devis ; avec un seul taux, même calcul qu'avant.
+    const ventilation = ventilerTva(
+      quoteLines.filter((line) => !line.variante).map((line) => ({ ht: line.totalHt, taux: line.tauxTva })),
+      breakdown.total,
+      quoteVatRate
+    );
+    const vatAmount = ventilation.tva;
     const totalTtc = round2(totalHt + vatAmount);
-    return { baseHt, surchargeLines: breakdown.lines, surchargeTotal: breakdown.total, totalHt, vatAmount, totalTtc };
-  }, [totals.ht, surcharges, quoteVatRate]);
+    return { baseHt, surchargeLines: breakdown.lines, surchargeTotal: breakdown.total, totalHt, vatAmount, totalTtc, parTaux: ventilation.parTaux };
+  }, [totals.ht, surcharges, quoteVatRate, quoteLines]);
+
+  const clientTvaCourant = tvaChoix.client || (form.clientType === "societe" ? "entreprise" : "particulier");
+  const decisionTvaCourante = decisionTva({ client: clientTvaCourant, local: tvaChoix.local, travaux: tvaChoix.travaux });
+  const autoliquidation = clientTvaCourant === "sous-traitance";
+
+  // Applique les réponses TVA : le taux du devis suit la décision de Koji ;
+  // les taux propres aux lignes (5,5 %) ne restent que dans un devis à 10 %.
+  function appliquerTva(choix) {
+    const client = choix.client || clientTvaCourant;
+    const decision = decisionTva({ client, local: choix.local, travaux: choix.travaux });
+    setTvaChoix(choix);
+    if (decision.taux != null) setQuoteVatRate(decision.taux);
+    if (decision.taux != null && decision.taux !== 10) {
+      setLineSettings((current) => Object.fromEntries(Object.entries(current).map(([id, reglage]) => {
+        if (!reglage || reglage.tauxTva == null) return [id, reglage];
+        const { tauxTva, ...reste } = reglage; // eslint-disable-line no-unused-vars
+        return [id, reste];
+      })));
+    }
+    return decision;
+  }
+
+  function changerTauxLigne(id, taux) {
+    setLineSettings((current) => {
+      const reglage = { ...(current[id] || {}) };
+      if (taux == null || taux === "") delete reglage.tauxTva;
+      else reglage.tauxTva = Number(taux);
+      return { ...current, [id]: reglage };
+    });
+  }
 
   const selectedProject = useMemo(() => {
     return projects.find((project) => project.id === form.projectId) || projects.find((project) => project.title === form.project) || null;
@@ -2238,6 +2288,8 @@ export default function DevisEditor() {
       surcharges,
       situationFactors,
       vatRate: quoteVatRate,
+      tva: { ...tvaChoix, client: clientTvaCourant },
+      autoliquidation: clientTvaCourant === "sous-traitance",
       totalHt: summaryTotals.totalHt,
       totalTtc: summaryTotals.totalTtc,
       paymentMilestones
@@ -2501,6 +2553,7 @@ export default function DevisEditor() {
     ]);
     setPaymentMilestones(defaultPaymentMilestones());
     setQuoteVatRate(20);
+    setTvaChoix({ client: "", local: "", travaux: "", commande: "" });
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
     setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", clientType: "particulier", clientFirstName: "", clientLastName: "", clientCompanyName: "", contactId: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", chantierAddressDetails: null, quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
@@ -2755,7 +2808,7 @@ export default function DevisEditor() {
       return (
         <div key={line.id} className="dl-wrap">
           <button type="button" className="dl" onClick={() => reopenLine(line.id)}>
-            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}{line.variante ? <span className="tag tag-o dl-var">Variante</span> : null}</span>
+            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}{line.variante ? <span className="tag tag-o dl-var">Variante</span> : null}{line.tauxTva != null ? <span className="tag tag-o dl-var">TVA {String(line.tauxTva).replace(".", ",")} %</span> : null}</span>
             <span className="dq">{qty > 0 ? `${qty.toLocaleString("fr-FR")} ${unitLabel(settings.unit ?? line.unit)}` : "—"}</span>
             <span className="dp">{money(unitPriceHt)}</span>
             <span className="dt">{money(line.totalHt)}</span>
@@ -2954,6 +3007,18 @@ export default function DevisEditor() {
             />
           </label>
 
+          {!autoliquidation ? (
+            <label className="ed dl-tva">TVA de la ligne
+              <select value={settings.tauxTva ?? ""} onChange={(event) => changerTauxLigne(line.id, event.target.value === "" ? null : Number(event.target.value))}>
+                <option value="">Taux du devis ({String(quoteVatRate).replace(".", ",")} %)</option>
+                {[20, 10, 5.5].map((t) => <option key={t} value={t}>{String(t).replace(".", ",")} %</option>)}
+              </select>
+              {tauxProposeLigne(settings.label ?? line.label, decisionTvaCourante) && settings.tauxTva == null ? (
+                <span className="dl-tva-k">Rénovation énergétique : Koji propose 5,5 % sur cette ligne. <button type="button" className="link" onClick={() => changerTauxLigne(line.id, 5.5)}>Appliquer</button></span>
+              ) : null}
+            </label>
+          ) : null}
+
           {!hasSubItems ? (
             <div className="pu">
                 {line.billingMode !== "fixed" && Number(settings.quantity ?? line.quantity ?? 0) > 0
@@ -3069,7 +3134,9 @@ export default function DevisEditor() {
           <div>
             <span className="lab">Validité</span>
             <strong>{form.validityDays || 30} jours</strong>
-            <span className="muted">TVA {quoteVatRate} %</span>
+            <button type="button" className="dv-tva" onClick={() => setTvaOuvert(true)}>
+              {decisionTvaCourante.question ? "TVA à confirmer" : autoliquidation ? "Autoliquidation · sans TVA" : `TVA ${String(quoteVatRate).replace(".", ",")} % · vérifiée par Koji`}
+            </button>
           </div>
         </div>
         {signedAvenant ? <p className="muted">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</p> : null}
@@ -3090,8 +3157,12 @@ export default function DevisEditor() {
           </>
         ) : null}
         <div><span>Total HT</span><b>{money(summaryTotals.totalHt)}</b></div>
-        <div><span>TVA {quoteVatRate} %</span><b>{money(summaryTotals.vatAmount)}</b></div>
-        <div className="ttc"><span>Total TTC</span><b>{money(summaryTotals.totalTtc)}</b></div>
+        {autoliquidation ? (
+          <div><span>TVA autoliquidation</span><b>{money(0)}</b></div>
+        ) : (summaryTotals.parTaux?.length ? summaryTotals.parTaux : [{ taux: quoteVatRate, tva: summaryTotals.vatAmount }]).map((t) => (
+          <div key={t.taux}><span>TVA {String(t.taux).replace(".", ",")} %</span><b>{money(t.tva)}</b></div>
+        ))}
+        <div className="ttc"><span>{autoliquidation ? "Net à payer" : "Total TTC"}</span><b>{money(summaryTotals.totalTtc)}</b></div>
       </div>
     );
   }
@@ -3832,6 +3903,8 @@ export default function DevisEditor() {
                 onAutoSave={() => persistQuote(false)}
                 onFinish={() => enterRecap("ia")}
                 onOpenDevis={() => setToolsDrawerOpen(true)}
+                questionTva={decisionTvaCourante.question && quoteLines.length ? questionTva(decisionTvaCourante.question, clientTvaCourant) : null}
+                onReponseTva={(valeur) => confirmationTva(appliquerTva({ ...tvaChoix, client: clientTvaCourant, local: valeur }), { client: clientTvaCourant, nom: headerClientName })}
               />
             ) : null}
             <div className="dv-doc" style={mode === "ia" ? { display: "none" } : undefined}>
@@ -4457,6 +4530,18 @@ export default function DevisEditor() {
           </div>
         ) : null}
 
+        {tvaOuvert ? (
+          <PanneauTva
+            choix={tvaChoix}
+            client={clientTvaCourant}
+            decision={decisionTvaCourante}
+            lignesProposees={quoteLines.filter((l) => l.tauxTva == null && tauxProposeLigne(l.label, decisionTvaCourante)).map((l) => ({ id: l.id, label: l.label }))}
+            lignesAuTaux={quoteLines.filter((l) => l.tauxTva != null).map((l) => ({ id: l.id, label: l.label, taux: l.tauxTva }))}
+            onChange={appliquerTva}
+            onTauxLigne={changerTauxLigne}
+            onClose={() => setTvaOuvert(false)}
+          />
+        ) : null}
         {sendModalOpen && generatedQuote ? (
           <SendQuoteFlow
             quote={generatedQuote}

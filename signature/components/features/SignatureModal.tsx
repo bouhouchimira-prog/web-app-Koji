@@ -7,11 +7,14 @@ import { X, Eraser, Pencil, Type, ShieldCheck } from 'lucide-react';
 interface SignatureModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (signature: string) => void;
+  onConfirm: (signature: string, mentionCertifiee: boolean) => void;
   submitting?: boolean;
+  /** TVA à taux réduit (maquette PRO-03.5) : mention à certifier avant de signer. */
+  mention?: string;
 }
 
-export function SignatureModal({ open, onClose, onConfirm, submitting = false }: SignatureModalProps) {
+export function SignatureModal({ open, onClose, onConfirm, submitting = false, mention }: SignatureModalProps) {
+  const [certifie, setCertifie] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<'draw' | 'type'>('draw');
   const [typed, setTyped] = useState('');
@@ -73,14 +76,15 @@ export function SignatureModal({ open, onClose, onConfirm, submitting = false }:
   };
 
   const handleConfirm = () => {
+    if (mention && !certifie) return;
     if (mode === 'draw' && canvasRef.current && hasSig) {
-      onConfirm(canvasRef.current.toDataURL('image/png'));
+      onConfirm(canvasRef.current.toDataURL('image/png'), certifie);
     } else if (mode === 'type' && typed.trim()) {
-      onConfirm(typed.trim());
+      onConfirm(typed.trim(), certifie);
     }
   };
 
-  const canConfirm = mode === 'draw' ? hasSig : typed.trim().length > 0;
+  const canConfirm = (mode === 'draw' ? hasSig : typed.trim().length > 0) && (!mention || certifie);
 
   return (
     <Transition show={open} as={Fragment}>
@@ -159,6 +163,19 @@ export function SignatureModal({ open, onClose, onConfirm, submitting = false }:
                   )}
                 </div>
               </div>
+
+              {mention ? (
+                <div className="px-6 mt-4">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Attestation pour la TVA à taux réduit</p>
+                    <p className="text-[13px] text-gray-700 mt-2 leading-relaxed">{mention}</p>
+                    <label className="flex items-center gap-2 mt-3 text-sm font-semibold text-gray-900">
+                      <input type="checkbox" checked={certifie} onChange={(e) => setCertifie(e.target.checked)} />
+                      Je certifie cette mention.
+                    </label>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-end gap-3 px-6 py-4">
                 <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors">

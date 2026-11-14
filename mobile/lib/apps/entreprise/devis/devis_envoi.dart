@@ -8,8 +8,8 @@ import 'package:koji/apps/entreprise/devis/devis_guide.dart' show euros;
 const validites = [15, 30, 45, 60, 90];
 const acomptes = [0, 10, 20, 30, 40, 50];
 
-/// Taux proposés dans l'app (le 5,5 % arrive avec le lot TVA, PRO-03.5).
-const tauxTvaApp = [20, 10];
+/// Taux proposés dans l'app (5,5 % : rénovation énergétique, PRO-03.5).
+const tauxTvaApp = [20, 10, 5.5];
 
 /// Règlement du solde : (fin du libellé « Solde — … », libellé affiché).
 const reglements = [
@@ -53,6 +53,7 @@ String libelleReglement(String? label) {
 String libelleTva(num taux) {
   if (taux == 10 || taux == 5.5) return '${_pourcent(taux)} · mention certifiée par le client';
   if (taux == 20) return '20 % · taux normal';
+  if (taux == 0) return 'Autoliquidation · sans TVA';
   return _pourcent(taux);
 }
 

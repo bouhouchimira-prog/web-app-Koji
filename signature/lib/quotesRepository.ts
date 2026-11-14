@@ -86,7 +86,7 @@ function mapQuote(row: RawQuote): QuoteRecord {
     status: row.status || 'Draft',
     total_ht: Number(row.total_ht || 0),
     total_ttc: Number(row.total_ttc || 0),
-    tva_rate: Number(row.tva_rate || 20),
+    tva_rate: row.tva_rate == null ? 20 : Number(row.tva_rate), // 0 = autoliquidation
     created_at: row.created_at,
     updated_at: row.updated_at,
     client: meta.client || {},
@@ -320,13 +320,23 @@ export async function fetchQuoteById(quoteId: string): Promise<QuoteRecord | nul
   return quote;
 }
 
+// TVA à taux réduit (maquette PRO-03.5) : la mention que le client certifie
+// en signant. Même texte que lib/tva.js du site.
+export const MENTION_TAUX_REDUIT = "Je soussigné(e), preneur de la prestation, certifie que les travaux réalisés concernent des locaux à usage d'habitation achevés depuis plus de deux ans, qu'ils n'ont pas pour effet de produire un immeuble neuf ni d'augmenter de plus de 10 % la surface de plancher des locaux existants, et que je conserverai ce document signé.";
+
+export function mentionTvaAttendue(tauxTva: number | null | undefined): boolean {
+  const t = Number(tauxTva);
+  return t === 10 || t === 5.5 || t === 5;
+}
+
 export async function submitSignature(params: {
   quoteId: string;
   userId: string;
   clientName: string;
   signatureDataUrl: string;
+  mentionTva?: boolean;
 }): Promise<string> {
-  const { quoteId, userId, clientName, signatureDataUrl } = params;
+  const { quoteId, userId, clientName, signatureDataUrl, mentionTva } = params;
 
   const blob = await (await fetch(signatureDataUrl)).blob();
   const fileName = `${quoteId}_signature_${Date.now()}.png`;
@@ -348,9 +358,15 @@ export async function submitSignature(params: {
   });
   if (insertError) throw insertError;
 
+  const maintenant = new Date().toISOString();
+  let extras: Record<string, unknown> | null = null;
+  if (mentionTva) {
+    const { data } = await supabase.from('quotes').select('web_extras').eq('id', quoteId).maybeSingle();
+    extras = { ...((data?.web_extras as Record<string, unknown>) || {}), mentionTva: true, mentionTvaLe: maintenant };
+  }
   const { error: updateError } = await supabase
     .from('quotes')
-    .update({ status: 'signed', updated_at: new Date().toISOString() })
+    .update({ status: 'signed', updated_at: maintenant, ...(extras ? { web_extras: extras } : {}) })
     .eq('id', quoteId);
   if (updateError) throw updateError;
 

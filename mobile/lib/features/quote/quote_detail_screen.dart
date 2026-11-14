@@ -23,6 +23,8 @@ import 'package:koji/apps/entreprise/devis/devis_envoi.dart';
 import 'package:koji/apps/entreprise/devis/pro_envoi_devis_screen.dart';
 import 'package:koji/apps/entreprise/devis/pro_suivi_devis_view.dart';
 import 'package:koji/apps/entreprise/devis/pro_facture_acompte_screen.dart';
+import 'package:koji/apps/entreprise/devis/tva.dart';
+import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart' show ouvrirRelanceDevis;
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -120,7 +122,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   double _coordPct = 10; // Coordination de chantier
   double _aleasPct = 5; // Provision aléas de chantier
   double _decennalePct = 8; // Assurance décennale
-  int _tvaRate = 10; // 10 % rénovation (Art. 279-0 bis CGI) or 20 %
+  num _tvaRate = 10; // 10 % rénovation (Art. 279-0 bis CGI), 5,5 %, 20 % ou 0 (autoliquidation)
+  // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
+  Map<String, String> _tvaChoix = {'client': '', 'local': '', 'travaux': '', 'commande': ''};
   // Per-lot label override: roomId → {'number': int, 'title': String}.
   final Map<String, Map<String, dynamic>> _lotMeta = {};
 
@@ -147,6 +151,103 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     resultat: _guide.resultat,
   );
   bool _vueDetaillee = false;
+
+  String get _clientTva => _tvaChoix['client']!.isNotEmpty ? _tvaChoix['client']! : 'particulier';
+  bool get _autoliquidation => _clientTva == 'sous-traitance';
+  DecisionTva get _decisionTva => decisionTva(client: _clientTva, local: _tvaChoix['local']!, travaux: _tvaChoix['travaux']!);
+
+  // Applique les réponses TVA : le taux du devis suit la décision de Koji.
+  DecisionTva _appliquerTva(Map<String, String> choix) {
+    final d = decisionTva(client: choix['client']!.isEmpty ? _clientTva : choix['client']!, local: choix['local']!, travaux: choix['travaux']!);
+    setState(() {
+      _tvaChoix = {...choix};
+      if (d.taux != null) _tvaRate = d.taux!;
+    });
+    return d;
+  }
+
+  // Réglage TVA depuis le bandeau : les trois questions de la maquette.
+  Future<void> _ouvrirTva() async {
+    var choix = {..._tvaChoix, 'client': _clientTva};
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ProDa.of(context).page,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, majFeuille) {
+          final da = ProDa.of(ctx);
+          final d = decisionTva(client: choix['client']!, local: choix['local']!, travaux: choix['travaux']!);
+          Widget groupe(String titre, String cle, List<(String, String)> options) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titre, style: da.text(14, weight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final (id, libelle) in options)
+                        ChoiceChip(
+                          label: Text(libelle, style: da.text(13, weight: FontWeight.w600, color: choix[cle] == id ? da.onFill : da.ink)),
+                          selected: choix[cle] == id,
+                          selectedColor: da.fill,
+                          backgroundColor: da.card,
+                          showCheckmark: false,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: choix[cle] == id ? da.fill : da.line)),
+                          onSelected: (_) => majFeuille(() => choix = {...choix, cle: id}),
+                        ),
+                    ]),
+                  ],
+                ),
+              );
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.viewInsetsOf(ctx).bottom + 16),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('TVA du devis', style: da.text(17, weight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    groupe('1 · Qui est le client ?', 'client', clientsTva),
+                    if (choix['client'] != 'sous-traitance') groupe('2 · Quel local ?', 'local', locauxTva),
+                    if (choix['client'] != 'sous-traitance' && choix['local'] == 'logement-ancien') groupe('3 · Quels travaux ?', 'travaux', travauxTva),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: da.card, border: Border.all(color: da.line)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d.titre.isEmpty ? 'TVA à confirmer' : d.titre, style: da.text(16, weight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          for (final v in d.verifications) Text('✓ $v', style: da.text(13, color: da.grey)),
+                          if (d.mention.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(d.autoliquidation ? d.mention : 'Mention signée par le client à l\'acceptation du devis.', style: da.text(12, color: da.grey)),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ProPrimaryButton(
+                      label: 'Appliquer',
+                      expand: true,
+                      onPressed: d.taux == null
+                          ? null
+                          : () {
+                              _appliquerTva(choix);
+                              Navigator.of(ctx).pop();
+                            },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
   // Envoyer le devis (maquette PRO-03.2).
   String _clientPhone = '';
   int _acompte = 30;
@@ -426,7 +527,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       _quoteValidity = '${c.validite} jours';
       _acompte = c.acompte;
       _solde = c.solde;
-      _tvaRate = c.tva.toInt();
+      _tvaRate = c.tva;
       _mentionsCtrl.text = mentionsAvecPaiement(_mentionsCtrl.text, c.acompte, c.solde);
       if (c.adresse.isNotEmpty) _clientEmail = c.adresse;
       if (c.telephone.isNotEmpty) _clientPhone = c.telephone;
@@ -761,7 +862,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     _aleasPct = (recap['aleasPct'] as num?)?.toDouble() ?? _aleasPct;
     _decennalePct =
         (recap['decennalePct'] as num?)?.toDouble() ?? _decennalePct;
-    _tvaRate = (recap['tvaRate'] as num?)?.toInt() ?? _tvaRate;
+    _tvaRate = (recap['tvaRate'] as num?) ?? _tvaRate;
+    final tva = safe(recap['tva']);
+    _tvaChoix = {for (final k in ['client', 'local', 'travaux', 'commande']) k: '${tva[k] ?? ''}'};
     _acompte = (recap['acompte'] as num?)?.toInt() ?? _acompte;
     _solde = (recap['reglement'] as String?)?.trim().isNotEmpty == true ? recap['reglement'] as String : _solde;
     final lots = safe(d['lots']);
@@ -1171,7 +1274,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         'tvaRate': _tvaRate,
         'tva': _tvaAmount,
         'ttc': _grandTotalTTC,
+        'autoliquidation': _autoliquidation,
       },
+      'mentionTva': _suiviWeb?['mentionTva'] == true,
       // Récapitulatif config + per-lot labels, persisted in quote metadata.
       'recap': {
         'coordPct': _coordPct,
@@ -1180,6 +1285,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         'tvaRate': _tvaRate,
         'acompte': _acompte,
         'reglement': _solde,
+        'tva': {..._tvaChoix, 'client': _clientTva},
+        'autoliquidation': _autoliquidation,
       },
       'lots': {
         for (final entry in _lotMeta.entries) entry.key: entry.value,
@@ -1243,6 +1350,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       onEditionDetaillee: () => setState(() => _vueDetaillee = true),
       onApercu: _previewPdf,
       choisirPhoto: _photoPourKoji,
+      questionTva: _decisionTva.question.isNotEmpty && _linesByRoom.values.any((l) => l.isNotEmpty) ? questionTva(_decisionTva.question, _clientTva) : null,
+      onReponseTva: (valeur) => confirmationTva(_appliquerTva({..._tvaChoix, 'client': _clientTva, 'local': valeur}),
+          client: _clientTva, nom: _clientName == 'Client' ? '' : _clientName),
+      tauxTva: _decisionTva.question.isNotEmpty ? 'TVA ?' : libelleTauxCourt(_tvaRate, autoliquidation: _autoliquidation),
+      onTva: _ouvrirTva,
     );
   }
 
@@ -3475,13 +3587,15 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: DropdownButton<int>(
+                    child: DropdownButton<num>(
                       value: _tvaRate,
                       isDense: true,
                       underline: const SizedBox.shrink(),
                       items: const [
                         DropdownMenuItem(value: 10, child: Text('10 %')),
                         DropdownMenuItem(value: 20, child: Text('20 %')),
+                        DropdownMenuItem(value: 5.5, child: Text('5,5 %')),
+                        DropdownMenuItem(value: 0, child: Text('Autoliquidation')),
                       ],
                       onChanged: (v) =>
                           setState(() => _tvaRate = v ?? _tvaRate),

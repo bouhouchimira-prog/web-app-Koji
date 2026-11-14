@@ -159,7 +159,7 @@ List<(String, String)> conditionsEnvoyees(Map q) {
     ('Validité', '$jours jours${fin.isEmpty ? '' : ", jusqu'au ${_court(fin)}"}'),
     ('Acompte', acompte > 0 ? '${_pourcent(acompte)} à la signature · ${euros(ttc * acompte / 100)} TTC' : 'Sans acompte'),
     ('Règlement', libelleReglement(jalons.length > 1 ? _s((jalons[1] as Map)['label']) : 'Solde — ${soldeDe('')}')),
-    ('TVA', taux == 10 || taux == 5.5 ? '${_pourcent(taux)}, mention certifiée à la signature' : _pourcent(taux)),
+    ('TVA', q['autoliquidation'] == true ? 'Autoliquidation, sans TVA' : taux == 10 || taux == 5.5 ? '${_pourcent(taux)}, mention certifiée à la signature' : _pourcent(taux)),
     if (canaux.isNotEmpty) ('Canaux', '${canaux.first[0].toUpperCase()}${canaux.join(', ').substring(1)}'),
   ];
 }

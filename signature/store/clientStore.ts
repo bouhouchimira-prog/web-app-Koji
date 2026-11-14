@@ -21,7 +21,7 @@ interface ClientState {
   setUserFromSession: (sessionUser: User | null) => void;
   logout: () => Promise<void>;
   fetchQuote: (id: string, email?: string) => Promise<void>;
-  updateQuoteStatus: (id: string, status: QuoteStatus, signature?: string) => Promise<void>;
+  updateQuoteStatus: (id: string, status: QuoteStatus, signature?: string, mentionTva?: boolean) => Promise<void>;
   updateQuoteStartDate: (id: string, date: string) => Promise<void>;
   addQuoteMessage: (id: string, text: string, files: File[]) => Promise<void>;
 }
@@ -204,7 +204,9 @@ export const useClientStore = create<ClientState>((set, get) => ({
         (s: number, it: any) => s + Number(it.quantity || 0) * Number(it.unitPrice || 0),
         0
       );
-      const tvaRate = Number(data.tva_rate ?? metadata.tva_rate ?? 20) || 20;
+      // 0 % = autoliquidation (PRO-03.5), à ne pas remplacer par 20 %.
+      const tauxLu = Number(data.tva_rate ?? metadata.tva_rate ?? 20);
+      const tvaRate = Number.isFinite(tauxLu) ? tauxLu : 20;
       // Prefer stored HT; fall back to the sum of the lines we just built.
       const totalHT = Number(data.total_ht ?? metadata.total_ht ?? 0) || lineSum;
       // Prefer stored TTC; otherwise derive it from HT and the VAT rate.
@@ -273,7 +275,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
     }
   },
 
-  updateQuoteStatus: async (id, status, signature) => {
+  updateQuoteStatus: async (id, status, signature, mentionTva) => {
     const currentQuote = useClientStore.getState().quotes.find(q => q.id === id);
 
     set((state) => ({
@@ -288,11 +290,20 @@ export const useClientStore = create<ClientState>((set, get) => ({
       if (signature) {
         // Use the secure RPC function for signature submission.
         // The RPC accepts an empty email and falls back to id-only authorization.
-        const { data, error } = await supabase.rpc('submit_quote_signature', {
+        const base = {
           p_quote_id: id,
           p_email: currentQuote?.clientEmail || '',
           p_signature_data: signature
-        });
+        };
+        // Mention TVA certifiée (PRO-03.5) : variante à 4 paramètres
+        // (migration 0011) ; sans elle, la signature passe quand même.
+        let { data, error } = mentionTva
+          ? await supabase.rpc('submit_quote_signature', { ...base, p_mention_tva: true })
+          : await supabase.rpc('submit_quote_signature', base);
+        if (error && mentionTva) {
+          console.warn("Mention TVA non enregistrée (migration 0011 à exécuter) :", error.message);
+          ({ data, error } = await supabase.rpc('submit_quote_signature', base));
+        }
 
         if (error) {
           console.error("RPC Error:", error);

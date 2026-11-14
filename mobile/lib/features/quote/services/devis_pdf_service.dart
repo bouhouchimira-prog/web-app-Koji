@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+
+import 'package:koji/apps/entreprise/devis/tva.dart' show estTauxReduit, mentionAutoliquidation, mentionTauxReduit;
 import 'package:printing/printing.dart';
 
 /// Single source of truth for the devis PDF.
@@ -269,6 +271,9 @@ class DevisPdfService {
             _buildPaymentTerms(company, totals, colorNavy, colorAccent,
                 validity: quoteData['validity']?.toString() ?? '',
                 colorLine: colorLine),
+
+            // ── Mentions TVA (maquette PRO-03.5) ──
+            ..._mentionsTva(quoteData, totals),
 
             pw.SizedBox(height: 20),
 
@@ -713,7 +718,10 @@ class DevisPdfService {
     final aleasAmount = _num(totals['aleasAmount']);
     final decennaleAmount = _num(totals['decennaleAmount']);
     final generalHT = _num(totals['ht']);
-    final tvaRate = (totals['tvaRate'] as num?)?.toInt() ?? 20;
+    // Taux exact (5,5 %) et autoliquidation (maquette PRO-03.5).
+    final num tauxBrut = (totals['tvaRate'] as num?) ?? 20;
+    final tvaRate = (tauxBrut == tauxBrut.roundToDouble() ? tauxBrut.toInt() : tauxBrut).toString().replaceAll('.', ',');
+    final autoliquidation = totals['autoliquidation'] == true;
     final tva = _num(totals['tva']);
     final ttc = _num(totals['ttc']);
 
@@ -740,7 +748,7 @@ class DevisPdfService {
         if (coordAmount != 0 || aleasAmount != 0 || decennaleAmount != 0)
           pw.Divider(color: PdfColors.grey300),
         row('Total HT', '${generalHT.toStringAsFixed(2)} €', size: 10),
-        row('TVA $tvaRate %', '${tva.toStringAsFixed(2)} €',
+        row(autoliquidation ? 'TVA autoliquidation' : 'TVA $tvaRate %', '${tva.toStringAsFixed(2)} €',
             size: 10, color: PdfColors.grey700),
         pw.SizedBox(height: 6),
         pw.Container(
@@ -749,7 +757,7 @@ class DevisPdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Total TTC',
+              pw.Text(autoliquidation ? 'Net à payer' : 'Total TTC',
                   style: pw.TextStyle(
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
@@ -772,6 +780,37 @@ class DevisPdfService {
         pw.Expanded(flex: 3, child: totalsBox),
       ],
     );
+  }
+
+  // Attestation du client pour le taux réduit, autoliquidation, numéro de
+  // commande du client (maquette PRO-03.5).
+  List<pw.Widget> _mentionsTva(Map<String, dynamic> quoteData, Map<dynamic, dynamic> totals) {
+    final recap = quoteData['recap'] is Map ? quoteData['recap'] as Map : const {};
+    final tva = recap['tva'] is Map ? recap['tva'] as Map : const {};
+    final num taux = (totals['tvaRate'] as num?) ?? 20;
+    final commande = '${tva['commande'] ?? ''}'.trim();
+    final lignes = <pw.Widget>[];
+    if (commande.isNotEmpty) {
+      lignes.add(pw.Text('Numéro de commande du client : $commande', style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)));
+    }
+    if (totals['autoliquidation'] == true) {
+      lignes.add(pw.Text(mentionAutoliquidation, style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)));
+    } else if (estTauxReduit(taux)) {
+      final certifiee = quoteData['mentionTva'] == true;
+      lignes
+        ..add(pw.Text('Attestation du client (TVA à taux réduit)', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)))
+        ..add(pw.Text(
+          '$mentionTauxReduit ${certifiee ? 'Certifiée par le client à la signature.' : 'À certifier par le client à la signature du devis.'}',
+          style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+        ));
+    }
+    if (lignes.isEmpty) return const [];
+    return [
+      pw.SizedBox(height: 12),
+      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        for (final l in lignes) pw.Padding(padding: const pw.EdgeInsets.only(bottom: 4), child: l),
+      ]),
+    ];
   }
 
   pw.Widget _buildPaymentTerms(Map<dynamic, dynamic> company,

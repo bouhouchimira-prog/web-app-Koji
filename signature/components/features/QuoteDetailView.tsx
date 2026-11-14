@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { SignatureModal } from '@/components/features/SignatureModal';
+import { MENTION_TAUX_REDUIT, mentionTvaAttendue } from '@/lib/quotesRepository';
 import { useState, useEffect, useRef } from 'react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { Download, CheckCircle, Printer, FileText, Share2, Clock, Paperclip, X, File as FileIcon, Send, ClipboardList, Circle } from 'lucide-react';
@@ -112,9 +113,9 @@ export function QuoteDetailView({ id, email }: QuoteDetailViewProps) {
     fetchQuote(id, email);
   }, [id, email, fetched, fetchQuote]);
 
-  const handleSign = async (signatureData: string) => {
+  const handleSign = async (signatureData: string, mentionCertifiee: boolean) => {
     if (!quote) return;
-    await updateQuoteStatus(quote.id, 'Accepted', signatureData);
+    await updateQuoteStatus(quote.id, 'Accepted', signatureData, mentionCertifiee);
     setIsSignModalOpen(false);
   };
 
@@ -716,6 +717,7 @@ export function QuoteDetailView({ id, email }: QuoteDetailViewProps) {
           open={isSignModalOpen}
           onClose={() => setIsSignModalOpen(false)}
           onConfirm={handleSign}
+          mention={mentionTvaAttendue(quote.tvaRate) ? MENTION_TAUX_REDUIT : undefined}
         />
       </div>
 

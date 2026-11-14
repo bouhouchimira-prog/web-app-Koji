@@ -1932,3 +1932,25 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .ac-amt .big b{font-size:20px;letter-spacing:-.01em}
 .pro .ac-amt .big small{width:100%;color:var(--grey);font-size:12px}
 .pro .ac-mail{height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:14px}
+/* TVA automatique (maquette PRO-03.5) */
+.pro .dv-tva{padding:0;background:none;border:0;color:var(--grey);font:inherit;font-size:13px;text-align:left;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.pro .dv-tva:hover{color:var(--ink)}
+.pro .qa-tva{flex-wrap:wrap;margin-top:8px}
+.pro .tva-env .muted{margin:0;font-size:13px}
+.pro .tva-q{display:flex;gap:12px}
+.pro .tva-n{display:grid;place-items:center;flex:none;width:24px;height:24px;background:var(--fill);border-radius:50%;color:var(--filltxt);font-size:12px;font-weight:700}
+.pro .tva-q > div{display:flex;flex:1;flex-direction:column;gap:8px;min-width:0}
+.pro .tva-q strong{font-size:14px}
+.pro .tva-q .kp-seg{flex-wrap:wrap;align-self:flex-start}
+.pro .tva-res,.pro .tva-lignes{padding:18px 20px}
+.pro .tva-res .lab{display:block;margin-top:10px;color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pro .tva-ok{margin:6px 0 0;padding:0;list-style:none}
+.pro .tva-ok li{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px}
+.pro .tva-ok svg{flex:none;width:14px;height:14px;fill:none;stroke:var(--ink);stroke-width:2.5}
+.pro .tva-mention{margin:6px 0 0;color:var(--grey);font-size:13px;line-height:1.5}
+.pro .tva-res .ed{margin-top:12px}
+.pro .tva-lignes .kv{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--rule);font-size:13px}
+.pro .tva-lignes .kv span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pro .tva-lignes .kv small{color:var(--grey);font-size:12px}
+.pro .dl-tva select{max-width:260px}
+.pro .dl-tva-k{color:var(--grey);font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}

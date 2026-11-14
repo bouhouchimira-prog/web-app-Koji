@@ -1,3 +1,4 @@
+import { estTauxReduit } from "../../../../lib/tva";
 import { ok, badRequest } from "../../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../../lib/db";
 import { fixObjectText, fixText } from "../../../../lib/text";
@@ -76,6 +77,12 @@ export async function POST(request, context) {
   if (!quote) return badRequest("Lien de signature invalide.", 404);
   if (quote.signatureStatus === "Signe") return ok({ quote: fixObjectText(quote), clientAccess: quote.clientPortalAccess || null });
   if (!body.consent) return badRequest("La validation client est obligatoire.");
+  // TVA à taux réduit (PRO-03.5) : la mention doit être certifiée.
+  const mentionAttendue = !quote.autoliquidation
+    && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
+  if (mentionAttendue && body.mentionTva !== true) {
+    return badRequest("Pour la TVA à taux réduit, merci de certifier la mention avant de signer.");
+  }
 
   const now = new Date().toISOString();
   const updated = {
@@ -89,6 +96,7 @@ export async function POST(request, context) {
     signaturePlace: fixText(body.signaturePlace || ""),
     signerMessage: fixText(body.signerMessage || ""),
     signedAt: now,
+    ...(mentionAttendue ? { mentionTva: true, mentionTvaLe: now } : {}),
     updatedAt: now
   };
 
