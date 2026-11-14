@@ -9,7 +9,7 @@ import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/apps/entreprise/visite/pro_visite_screen.dart';
-import 'package:koji/apps/entreprise/visite/visite_mode.dart' show demandeDevisGuide, enAttente;
+import 'package:koji/apps/entreprise/visite/visite_mode.dart' show enAttente;
 import 'package:koji/core/route_args.dart';
 import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
@@ -289,31 +289,7 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
     ];
   }
 
-  void _ouvrirVisite(String id) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (ctx) => Consumer(
-        builder: (ctx, ref, _) => ProVisiteScreen(
-          store: ref.watch(visiteStoreProvider),
-          visiteId: id,
-          onOuvrirDevis: (v) async {
-            final store = ref.read(visiteStoreProvider);
-            await store.enregistrer({...v, 'devisOuvert': true}, envoyer: false);
-            if (!ctx.mounted) return;
-            Navigator.of(ctx).pop();
-            ref.read(quoteCreationProvider.notifier).reset();
-            if (!mounted) return;
-            context.push('/quote/detail',
-                extra: QuoteDetailArgs(data: <String, dynamic>{
-                  'tasks': <String, dynamic>{},
-                  'client': {'name': _s(v['client']), 'email': _s(v['email']), 'address': _s(v['adresse'])},
-                  'siteAddress': _s(v['adresse']),
-                  'visite': {'id': _s(v['id']), 'demande': demandeDevisGuide(v)},
-                }));
-          },
-        ),
-      ),
-    ));
-  }
+  void _ouvrirVisite(String id) => ouvrirVisite(context, id);
 
   Widget _barre(ProDa da) {
     final entreprise = ref.watch(currentAccountProvider).valueOrNull?.displayName ?? '';

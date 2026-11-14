@@ -71,6 +71,7 @@ class ProKojiWebClient {
       'PATCH' =>
         await _http.patch(uri, headers: headers, body: jsonEncode(body)),
       'PUT' => await _http.put(uri, headers: headers, body: jsonEncode(body)),
+      'DELETE' => await _http.delete(uri, headers: headers),
       _ => await _http.get(uri, headers: headers),
     };
     dynamic data;
@@ -166,6 +167,30 @@ class ProKojiWebClient {
 
   Future<void> positionner(String offreId) =>
       _send('POST', '/api/marketplace/offres/$offreId/positionner', const {});
+
+  // ---- Radar, fiche et positions (PRO-04) ---------------------------------
+
+  /// Fiche d'un chantier : projet, votre prix, jetons, places, créneaux
+  /// tirés du calendrier, message proposé, points à vérifier.
+  Future<Map<String, dynamic>> offreDetail(String offreId) async {
+    final data = await _send('GET', '/api/marketplace/offres/$offreId');
+    final o = data is Map ? data['offre'] : null;
+    return o is Map ? Map<String, dynamic>.from(o) : {};
+  }
+
+  /// Se positionner : message, créneaux de visite, devis estimatif joint ;
+  /// les jetons sont réservés (débités seulement au rendez-vous confirmé).
+  Future<void> positionnerAvec(String offreId, {required String message, required List<String> creneaux, bool joindreDevis = false}) =>
+      _send('POST', '/api/marketplace/offres/$offreId/positionner', {'message': message, 'creneaux': creneaux, 'joindreDevis': joindreDevis});
+
+  Future<void> retirerPosition(String offreId) => _send('DELETE', '/api/marketplace/offres/$offreId/positionner');
+
+  Future<void> masquerOffre(String offreId, String raison) => _send('POST', '/api/marketplace/offres/$offreId/masquer', {'raison': raison});
+
+  Future<Map<String, dynamic>> mesPositions() async {
+    final data = await _send('GET', '/api/marketplace/positions');
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
 
   Future<List<Map<String, dynamic>>> messages(String offreId) async => _list(
       await _send('GET', '/api/marketplace/offres/$offreId/messages'),
@@ -583,6 +608,15 @@ class RadarOffre {
   String get metier => (data['metier'] ?? '').toString().trim();
   String get adresse => (data['address'] ?? '').toString();
   int get photos => (data['photosCount'] as num?)?.toInt() ?? 0;
+
+  /// Jetons et places (maquette PRO-04), calculés par le site.
+  int get jetons => (data['jetons'] as num?)?.toInt() ?? 0;
+  Map get _places => data['places'] is Map ? data['places'] as Map : const {};
+  int get placesPrises => (_places['prises'] as num?)?.toInt() ?? 0;
+  int get placesMax => (_places['max'] as num?)?.toInt() ?? 3;
+  bool get complet => _places['complet'] == true;
+  double? get distanceKm => (data['distanceKm'] as num?)?.toDouble();
+  Map<String, dynamic>? get maPosition => data['maPosition'] is Map ? Map<String, dynamic>.from(data['maPosition'] as Map) : null;
   int? get delaiJours => (data['delaiEstimeJours'] as num?)?.toInt();
   DateTime? get publieeLe =>
       DateTime.tryParse('${data['createdAt'] ?? ''}')?.toLocal();
@@ -661,7 +695,11 @@ final proRadarProvider =
   final offres = await api.offres();
   return Future.wait(offres.map((data) async {
     final id = '${data['id']}';
-    final prise = await api.estPositionne(id).catchError((_) => false);
+    // Position calculée par le site (PRO-04) ; sinon l'ancien appel.
+    final mp = data['maPosition'];
+    final prise = data.containsKey('maPosition')
+        ? mp is Map && mp['termine'] != true
+        : await api.estPositionne(id).catchError((_) => false);
     if (!prise) return RadarOffre(data: data);
     final suivi = await api
         .messages(id)

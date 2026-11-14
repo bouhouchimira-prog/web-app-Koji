@@ -2,83 +2,136 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
+import { RadarMap } from "../../components/RadarMap";
+import { RechargeJetons } from "../../components/RechargeJetons";
 import { apiGet } from "../../lib/client-api";
-import { comparerPrix, estNouveau, prixCourt, prixPartiel, publication, titreCourt, villeSeule } from "../../lib/radar-display";
-import { useApi } from "../../lib/use-api";
+import { estNouveau, prixCourt, prixPartiel, publication, titreCourt, villeSeule } from "../../lib/radar-display";
 
-// Radar des chantiers, maquette PRO-04 (DA Koji Pro, 30 oct) : liste des
-// chantiers publiés dans la zone et les métiers de l'entreprise. Pas de
-// carte : l'API ne transmet volontairement que la ville (adresse masquée
-// jusqu'au rendez-vous confirmé).
+// Radar des chantiers (maquette PRO-04 v3) : la carte et la liste des
+// chantiers de la zone et des métiers de l'entreprise, avec pour chacun
+// le prix à ses prix, le coût en jetons et les places (3 au plus). Le
+// solde de jetons est en tête ; la fiche ouvre le positionnement.
 
 const TABS = [
   { id: "tous", label: "Tous" },
   { id: "nouveaux", label: "Nouveaux" },
-  { id: "pris", label: "Positions prises" }
+  { id: "pris", label: "Mes positions" }
+];
+const TRIS = [
+  { id: "recent", label: "Plus récents" },
+  { id: "distance", label: "Distance" },
+  { id: "montant", label: "Montant" },
+  { id: "jetons", label: "Jetons" }
 ];
 
-function plural(n, one, many) {
-  return `${n} ${n > 1 ? many || `${one}s` : one}`;
-}
+const pluriel = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs || `${un}s` : un}`;
+const km = (d) => (d == null ? "" : `${String(d).replace(".", ",")} km`);
 
-function Status({ taken, fresh }) {
-  if (taken) return <span className="tag tag-b">Position prise</span>;
-  if (fresh) return <span className="tag tag-e">Nouveau</span>;
+function Statut({ offre }) {
+  const p = offre.maPosition;
+  if (p && !p.termine) return <span className={p.etat === "rdv" ? "kj-st" : "tag tag-b"}>{p.etat === "rdv" ? "RDV confirmé" : "Position prise"}</span>;
+  if (offre.places?.complet) return <span className="tag tag-o dim">Complet</span>;
+  if (estNouveau(offre.createdAt)) return <span className="tag tag-e">Nouveau</span>;
   return <span className="sm2">À étudier</span>;
 }
 
 export default function MarketplacePage() {
   const router = useRouter();
-  const { data: offres, loading } = useApi("/api/marketplace/offres", "offres");
-  const [positions, setPositions] = useState({});
+  const [data, setData] = useState(null);
   const [tab, setTab] = useState("tous");
+  const [tri, setTri] = useState("recent");
   const [query, setQuery] = useState("");
-  const requested = useRef(new Set());
+  const [choisi, setChoisi] = useState("");
+  const [recharge, setRecharge] = useState(false);
+  const [plusTard, setPlusTard] = useState(false);
+  const [paye, setPaye] = useState(false);
 
   useEffect(() => {
-    offres.forEach((offre) => {
-      if (requested.current.has(offre.id)) return;
-      requested.current.add(offre.id);
-      apiGet(`/api/marketplace/offres/${offre.id}/positionner`)
-        .then((data) => setPositions((current) => ({ ...current, [offre.id]: Boolean(data.positionnee) })))
-        .catch(() => {});
-    });
-  }, [offres]);
+    setPaye(new URLSearchParams(window.location.search).get("jetons") === "ok");
+    try { setPlusTard(window.localStorage.getItem("koji-radar-premier-usage") === "vu"); } catch { /* sans stockage */ }
+    apiGet("/api/marketplace/offres").then(setData).catch(() => setData({ offres: [] }));
+  }, []);
 
+  const offres = data?.offres || [];
+  const loading = !data;
+  const pris = (o) => Boolean(o.maPosition && !o.maPosition.termine);
   const counts = useMemo(() => ({
     tous: offres.length,
-    nouveaux: offres.filter((offre) => estNouveau(offre.createdAt)).length,
-    pris: offres.filter((offre) => positions[offre.id]).length
-  }), [offres, positions]);
+    nouveaux: offres.filter((o) => estNouveau(o.createdAt)).length,
+    pris: offres.filter(pris).length
+  }), [offres]);
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    const cmp = {
+      recent: (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")),
+      distance: (a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999),
+      montant: (a, b) => Number(b.prixRecommande?.ttc || 0) - Number(a.prixRecommande?.ttc || 0),
+      jetons: (a, b) => (a.jetons || 0) - (b.jetons || 0)
+    }[tri];
     return offres
-      .filter((offre) => tab === "tous" || (tab === "nouveaux" ? estNouveau(offre.createdAt) : positions[offre.id]))
-      .filter((offre) => !needle || [offre.description, offre.metier, offre.address].some((v) => String(v || "").toLowerCase().includes(needle)))
-      // Prix recommandé, du plus haut (maquette PRO-04) ; sans prix en dernier.
-      .sort((a, b) => comparerPrix(a, b) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-  }, [offres, positions, tab, query]);
+      .filter((o) => tab === "tous" || (tab === "nouveaux" ? estNouveau(o.createdAt) : pris(o)))
+      .filter((o) => !needle || [o.description, o.metier, o.address].some((v) => String(v || "").toLowerCase().includes(needle)))
+      .sort(cmp);
+  }, [offres, tab, tri, query]);
 
-  const eyebrow = [
-    `${plural(offres.length, "chantier")} dans votre zone`,
-    counts.nouveaux ? plural(counts.nouveaux, "nouveau", "nouveaux") : null,
-    counts.pris ? plural(counts.pris, "position prise", "positions prises") : null
+  const points = rows
+    .filter((o) => o.position)
+    .map((o) => ({ id: o.id, lat: o.position.lat, lon: o.position.lon, label: o.prixRecommande?.ttc ? prixCourt(o.prixRecommande) : pluriel(o.jetons || 0, "jeton"), taken: pris(o) }));
+  const solde = data?.jetons?.solde ?? 0;
+  const zone = data?.zone;
+  const zoneLabel = zone ? `${zone.ville || "Votre zone"} et ${zone.radiusKm} km autour` : "";
+  const eyebrow = loading ? "Chargement…" : [
+    `${pluriel(offres.length, "chantier")}${zoneLabel ? ` · ${zoneLabel}` : " dans votre zone"}`,
+    `${pluriel(solde, "jeton disponible", "jetons disponibles")}`,
+    data?.jetons?.reserves ? `${data.jetons.reserves} réservé${data.jetons.reserves > 1 ? "s" : ""}` : ""
   ].filter(Boolean).join(" · ");
 
   return (
     <Shell variant="pro">
       <div className="head">
         <div className="stack">
-          <span className="eyebrow">{loading ? "Chargement…" : eyebrow}</span>
+          <span className="eyebrow">{eyebrow}</span>
           <h1>Radar des chantiers</h1>
         </div>
         <div className="acts">
+          <button type="button" className="btn btn-sec" onClick={() => setRecharge(true)}>Recharger</button>
           <Link href="/profil" className="btn btn-sec">Ma zone et mes métiers</Link>
+          <Link href="/marketplace/positions" className="btn btn-main">Mes positions</Link>
         </div>
       </div>
+
+      {paye ? <p className="notice" role="status">Paiement reçu : vos jetons sont ajoutés dès que Stripe le confirme (quelques secondes).</p> : null}
+
+      {data?.premierUsage && !plusTard ? (
+        <section className="card rd-pos" style={{ marginBottom: 16 }}>
+          <div className="card-h"><h2>Premier usage</h2></div>
+          <div className="rx-steps">
+            <div><b>1</b><span>Vérifiez votre zone et vos métiers</span><small>{[zoneLabel, (data.metiers || []).join(", ").toLowerCase()].filter(Boolean).join(" · ") || "à régler dans votre profil"}</small></div>
+            <div><b>2</b><span>Choisissez un chantier sur la carte</span><small>Votre prix, calculé avec votre bibliothèque, et le coût en jetons</small></div>
+            <div><b>3</b><span>Positionnez-vous</span><small>Jetons débités seulement si le client confirme un rendez-vous</small></div>
+          </div>
+          <div className="rx-mf">
+            <button type="button" className="link" onClick={() => { setPlusTard(true); try { window.localStorage.setItem("koji-radar-premier-usage", "vu"); } catch { /* sans stockage */ } }}>Plus tard</button>
+            <Link className="btn btn-sec" href="/profil">Ma zone et mes métiers</Link>
+          </div>
+        </section>
+      ) : null}
+
+      {points.length ? (
+        <div className="rd-map">
+          <RadarMap
+            points={points}
+            selectedId={choisi}
+            onSelect={(id) => (choisi === id ? router.push(`/marketplace/${id}`) : setChoisi(id))}
+            zone={zone}
+            caption={zoneLabel ? `${zoneLabel} · ${pluriel(offres.length, "chantier")}` : pluriel(offres.length, "chantier")}
+            legende={{ nouveaux: counts.nouveaux, prises: counts.pris }}
+          />
+        </div>
+      ) : null}
 
       <div className="tbar">
         <div className="wtabs" role="tablist" aria-label="Filtrer les chantiers">
@@ -88,6 +141,10 @@ export default function MarketplacePage() {
             </button>
           ))}
         </div>
+        <label className="kp-sort">
+          Trier
+          <select value={tri} onChange={(e) => setTri(e.target.value)}>{TRIS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
+        </label>
         <label className="search search-wide">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
           <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Métier, ville, travaux" aria-label="Rechercher un chantier" />
@@ -97,7 +154,9 @@ export default function MarketplacePage() {
       {rows.length === 0 ? (
         <div className="tbl">
           <div className="empty">
-            {loading ? "Chargement…" : query.trim() ? "Aucun chantier ne correspond à cette recherche." : tab === "tous" ? "Aucun chantier publié dans votre zone pour l'instant." : "Aucun chantier dans cet onglet."}
+            {loading ? "Chargement…" : query.trim() ? "Aucun chantier ne correspond à cette recherche." : tab === "tous"
+              ? <><strong>Aucun chantier pour vos métiers dans votre zone</strong><br />Koji vous prévient dès qu'un chantier correspond. <Link className="link" href="/profil">Élargir la zone ou changer mes métiers</Link></>
+              : "Aucun chantier dans cet onglet."}
           </div>
         </div>
       ) : (
@@ -107,50 +166,52 @@ export default function MarketplacePage() {
               <thead>
                 <tr>
                   <th>Chantier</th>
-                  <th className="r">Prix recommandé</th>
-                  <th>Ville</th>
-                  <th>Publication</th>
-                  <th className="r">Photos</th>
+                  <th className="r">Votre prix</th>
+                  <th>Lieu</th>
+                  <th className="r">Jetons</th>
+                  <th>Places</th>
                   <th>Statut</th>
                   <th aria-label="Action" />
                 </tr>
               </thead>
               <tbody>
-                {rows.map((offre) => (
-                  <tr key={offre.id} onClick={() => router.push(`/marketplace/${offre.id}`)}>
+                {rows.map((o) => (
+                  <tr key={o.id} className={choisi === o.id ? "sel" : ""} onClick={() => router.push(`/marketplace/${o.id}`)}>
                     <td className="n">
-                      <Link href={`/marketplace/${offre.id}`} className="rd-row-link">{titreCourt(offre.description)}</Link>
-                      <div className="sm">{offre.metier || "Métier non précisé"}{offre.delaiEstimeJours ? ` · ${plural(offre.delaiEstimeJours, "jour")} estimés` : ""}</div>
+                      <Link href={`/marketplace/${o.id}`} className="rd-row-link">{titreCourt(o.description)}</Link>
+                      <div className="sm">{[o.metier || "Métier non précisé", publication(o.createdAt)].join(" · ")}</div>
                     </td>
-                    <td className="r"><b>{prixCourt(offre.prixRecommande)}</b>{prixPartiel(offre.prixRecommande) ? <div className="sm">partiel, {offre.prixRecommande.manquants} sans prix</div> : null}</td>
-                    <td>{villeSeule(offre.address) || "—"}</td>
-                    <td className="sm2">{publication(offre.createdAt)}</td>
-                    <td className="r">{offre.photosCount || 0}</td>
-                    <td><Status taken={positions[offre.id]} fresh={estNouveau(offre.createdAt)} /></td>
-                    <td className="r"><Link href={`/marketplace/${offre.id}`} className="btn btn-sec">Voir</Link></td>
+                    <td className="r"><b>{prixCourt(o.prixRecommande)}</b>{prixPartiel(o.prixRecommande) ? <div className="sm">partiel</div> : null}</td>
+                    <td>{[villeSeule(o.address), km(o.distanceKm)].filter(Boolean).join(" · ") || "—"}</td>
+                    <td className="r">{o.maPosition && !o.maPosition.termine ? o.maPosition.jetons?.texte?.split(" · ")[0] : o.jetons}</td>
+                    <td>{o.places ? `${o.places.prises} / ${o.places.max}` : "—"}</td>
+                    <td><Statut offre={o} /></td>
+                    <td className="r"><Link href={`/marketplace/${o.id}`} className="btn btn-sec">Voir</Link></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="mlist">
-            {rows.map((offre) => (
-              <Link href={`/marketplace/${offre.id}`} className="m-card" key={offre.id}>
+            {rows.map((o) => (
+              <Link href={`/marketplace/${o.id}`} className="m-card" key={o.id}>
                 <div className="top2">
                   <div>
-                    <div className="nm">{titreCourt(offre.description)}</div>
-                    <div className="meta">{[offre.metier, villeSeule(offre.address)].filter(Boolean).join(" · ")}</div>
+                    <div className="nm">{titreCourt(o.description)}</div>
+                    <div className="meta">{[villeSeule(o.address), km(o.distanceKm), publication(o.createdAt)].filter(Boolean).join(" · ")}</div>
                   </div>
-                  <Status taken={positions[offre.id]} fresh={estNouveau(offre.createdAt)} />
+                  <Statut offre={o} />
                 </div>
-                <div className="line">{[`Prix recommandé ${prixCourt(offre.prixRecommande)}${prixPartiel(offre.prixRecommande) ? " (partiel)" : ""}`, publication(offre.createdAt), plural(offre.photosCount || 0, "photo")].filter(Boolean).join(" · ")}</div>
+                <div className="line">{[`Votre prix ${prixCourt(o.prixRecommande)}`, pluriel(o.jetons || 0, "jeton"), o.places ? `${o.places.prises} position${o.places.prises > 1 ? "s" : ""} sur ${o.places.max}` : ""].filter(Boolean).join(" · ")}</div>
               </Link>
             ))}
           </div>
         </>
       )}
 
-      <p className="foot-note">Le Radar montre les chantiers publiés dans votre zone et vos métiers, réglables dans votre profil. L'adresse exacte et les coordonnées du client restent masquées jusqu'à un rendez-vous confirmé.</p>
+      <p className="foot-note">Jetons réservés au positionnement, débités seulement si le client confirme un rendez-vous, rendus sinon. Trois entreprises au plus par chantier. L'adresse exacte et les coordonnées du client restent masquées jusqu'au rendez-vous confirmé.</p>
+
+      {recharge ? <RechargeJetons jetons={data?.jetons} onClose={() => setRecharge(false)} /> : null}
     </Shell>
   );
 }

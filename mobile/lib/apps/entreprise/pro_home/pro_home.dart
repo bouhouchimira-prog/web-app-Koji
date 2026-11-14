@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/account_provider.dart';
-import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
+import 'package:koji/apps/entreprise/radar/pro_radar_screens.dart' show ouvrirFicheRadar, ouvrirMesPositions;
 import 'package:koji/apps/entreprise/pro_home/chiffres_du_mois.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
@@ -227,33 +226,6 @@ class _ProHomeState extends ConsumerState<ProHome> {
         () => context.push('/quote/room-selection', extra: <String>[]),
       );
 
-  /// The Radar conversation and offer detail live on the website for now.
-  Future<void> _ouvrirSurLeSite(String offreId) => launchUrl(
-        Uri.parse('${KojiWebApiConfig.baseUrl}/marketplace/$offreId'),
-        mode: LaunchMode.externalApplication,
-      );
-
-  Future<void> _positionner(String offreId) async {
-    setState(() => _envoi[offreId] = '');
-    try {
-      await ref.read(proKojiWebProvider).positionner(offreId);
-      if (!mounted) return;
-      setState(() {
-        _envoi.remove(offreId);
-        _prisesLocales.add(offreId);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Positionnement envoyé au client')),
-      );
-      ref.invalidate(proRadarProvider);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _envoi[offreId] = e is ProKojiWebException
-          ? e.message
-          : "Le positionnement n'a pas pu être envoyé.");
-    }
-  }
-
   /// Radar list for the current filter, recommended price first.
   List<RadarOffre> _radarListe(List<RadarOffre> offres, List<RadarOffre> prises,
           List<RadarOffre> nouveaux) =>
@@ -346,7 +318,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
         tag: 'À répondre',
         ton: ProTagTone.ink,
         icon: Icons.chat_bubble_outline,
-        onTap: () => _ouvrirSurLeSite(offre.id),
+        onTap: () => ouvrirFicheRadar(context, offre.id),
         tri: offre.publieeLe?.toIso8601String() ?? '',
       ));
     }
@@ -1207,6 +1179,9 @@ class _ProHomeState extends ConsumerState<ProHome> {
               kv('Métier', offre.metier.isEmpty ? 'Non précisé' : offre.metier),
               if (offre.delaiJours != null)
                 kv('Délai estimé', _pluriel(offre.delaiJours!, 'jour')),
+              // Jetons et places (maquette PRO-04).
+              if (offre.jetons > 0) kv('Jetons', '${offre.jetons}'),
+              kv('Positions', '${offre.placesPrises} sur ${offre.placesMax}'),
               kv('Photos', '${offre.photos}'),
               if (prise) kv('Suivi', _libelleSuivi(offre.suivi)),
             ],
@@ -1223,16 +1198,27 @@ class _ProHomeState extends ConsumerState<ProHome> {
                 const SizedBox(width: 6),
                 Text('Position prise',
                     style: da.text(12, weight: FontWeight.w700)),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => ouvrirMesPositions(context),
+                  style: TextButton.styleFrom(foregroundColor: da.ink),
+                  child: Text('Mes positions', style: da.text(12.5, weight: FontWeight.w600)),
+                ),
               ],
             )
           else
+            // Fiche puis positionnement (message, créneaux, jetons), PRO-04.
             ProPrimaryButton(
-              label: envoi ? 'Envoi…' : 'Me positionner',
+              label: envoi ? 'Envoi…' : offre.complet ? 'Complet' : 'Me positionner',
               icon: Icons.my_location,
               height: 44,
               expand: true,
-              onPressed:
-                  envoi || limiteAtteinte ? null : () => _positionner(offre.id),
+              onPressed: envoi || limiteAtteinte || offre.complet
+                  ? null
+                  : () async {
+                      await ouvrirFicheRadar(context, offre.id);
+                      ref.invalidate(proRadarProvider);
+                    },
             ),
           if (!prise && limiteAtteinte) ...[
             const SizedBox(height: 8),

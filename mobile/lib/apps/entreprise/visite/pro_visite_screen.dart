@@ -12,7 +12,10 @@ import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart' show proKojiWebProvider, ProKojiWebException;
 import 'package:koji/apps/entreprise/visite/visite_mode.dart';
 import 'package:koji/apps/entreprise/visite/visite_store.dart';
+import 'package:go_router/go_router.dart';
+import 'package:koji/core/route_args.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
+import 'package:koji/features/quote/providers/quote_creation_provider.dart';
 
 /// Les visites du compte connecté, gardées sur le téléphone.
 final visiteStoreProvider = ChangeNotifierProvider<VisiteStore>((ref) {
@@ -1066,6 +1069,34 @@ class _FeuilleNoteState extends State<_FeuilleNote> {
       ),
     );
   }
+}
+
+/// Ouvre une visite ; « Ouvrir le Devis guidé » la transforme en devis
+/// prérempli (liste des devis, Mes positions du Radar).
+void ouvrirVisite(BuildContext context, String id) {
+  Navigator.of(context).push(MaterialPageRoute(
+    builder: (ctx) => Consumer(
+      builder: (ctx, ref, _) => ProVisiteScreen(
+        store: ref.watch(visiteStoreProvider),
+        visiteId: id,
+        onOuvrirDevis: (v) async {
+          final store = ref.read(visiteStoreProvider);
+          await store.enregistrer({...v, 'devisOuvert': true}, envoyer: false);
+          if (!ctx.mounted) return;
+          Navigator.of(ctx).pop();
+          ref.read(quoteCreationProvider.notifier).reset();
+          if (!context.mounted) return;
+          context.push('/quote/detail',
+              extra: QuoteDetailArgs(data: <String, dynamic>{
+                'tasks': <String, dynamic>{},
+                'client': {'name': _s(v['client']), 'email': _s(v['email']), 'address': _s(v['adresse'])},
+                'siteAddress': _s(v['adresse']),
+                'visite': {'id': _s(v['id']), 'demande': demandeDevisGuide(v)},
+              }));
+        },
+      ),
+    ),
+  ));
 }
 
 /// Préparer une visite : un rendez-vous à venir, ou une nouvelle visite.

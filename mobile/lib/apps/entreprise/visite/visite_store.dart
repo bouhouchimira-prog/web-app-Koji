@@ -166,10 +166,11 @@ class VisiteStore extends ChangeNotifier {
   Visite? lire(String id) => _visites[id];
 
   /// Nouvelle visite, prête hors ligne : demande et liste à vérifier.
-  Future<Visite> creer({required String client, String email = '', String adresse = '', String demande = '', String rdvLe = '', String eventId = '', String piece = ''}) async {
+  Future<Visite> creer({required String client, String email = '', String adresse = '', String demande = '', String rdvLe = '', String eventId = '', String piece = '', String offreId = ''}) async {
     final v = <String, dynamic>{
       'id': const Uuid().v4(),
       'eventId': eventId,
+      if (offreId.isNotEmpty) 'offreId': offreId,
       'client': client.trim(),
       'email': email.trim(),
       'adresse': adresse.trim(),
