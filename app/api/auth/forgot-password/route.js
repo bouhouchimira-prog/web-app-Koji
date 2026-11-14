@@ -5,6 +5,7 @@ import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 import { sendPasswordResetEmail } from "../../../../lib/mailer";
 import { checkRateLimit, recordFailedAttempt } from "../../../../lib/rate-limit";
 import { ensureProfileRow, findAuthUserByEmail } from "../../../../lib/ensure-profile";
+import { appDuLien } from "../../../../lib/reset-app";
 
 // 30 minutes (maquette PRO-00.1) — bien plus court qu'une activation de compte.
 const RESET_TTL_MS = 30 * 60 * 1000;
@@ -44,21 +45,24 @@ export async function POST(request) {
   try {
     if (accountType === "entreprise") {
       const admin = getSupabaseAdmin();
-      let { data: row } = await admin.from("users").select("id, email").eq("email", email).maybeSingle();
+      let { data: row } = await admin.from("users").select("id, email, is_pro").eq("email", email).maybeSingle();
       // Compte Supabase Auth sans ligne `users` (trigger d'inscription absent
       // en prod, voir lib/ensure-profile.js) : avant, aucun e-mail ne partait.
       if (!row) {
         const authUser = await findAuthUserByEmail(admin, email);
         if (authUser) {
           const profil = await ensureProfileRow(admin, authUser);
-          row = { id: profil?.id || authUser.id, email: profil?.email || authUser.email };
+          row = { id: profil?.id || authUser.id, email: profil?.email || authUser.email, is_pro: profil?.is_pro };
         }
       }
       if (row) {
         const resetToken = makeToken("reset");
         const resetExpiresAt = new Date(Date.now() + RESET_TTL_MS).toISOString();
         await admin.from("users").update({ password_reset_token: resetToken, password_reset_expires_at: resetExpiresAt }).eq("id", row.id);
-        const resetUrl = `${appUrl}/set-password?token=${resetToken}&mode=reset&type=entreprise`;
+        // Demande venue d'une app : la page finit par « Retournez dans
+        // l'app … » au lieu de connecter au site Pro (lib/reset-app.js).
+        const app = appDuLien({ demande: body.app, isPro: row.is_pro, userAgent: request.headers.get("user-agent") });
+        const resetUrl = `${appUrl}/set-password?token=${resetToken}&mode=reset&type=entreprise${app ? `&app=${app}` : ""}`;
         await sendPasswordResetEmail({ email: row.email, resetUrl });
       }
     } else {

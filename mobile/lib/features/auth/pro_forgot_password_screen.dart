@@ -4,21 +4,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/features/auth/pro_auth_widgets.dart';
 
 /// Envoie la demande de lien. Lève une exception si le serveur ne répond pas.
 typedef ProResetLinkSender = Future<void> Function(String email);
 
+/// Corps de la demande. `app` dit d'où elle vient : la page du lien finit
+/// par « Retournez dans l'app Koji / Koji Pro », aux couleurs de cette app,
+/// au lieu de connecter au site Pro (lib/reset-app.js côté site).
+Map<String, String> demandeLienReinitialisation(String email,
+        {required bool isClient}) =>
+    {
+      'email': email,
+      'accountType': 'entreprise',
+      'app': isClient ? 'koji' : 'pro',
+    };
+
 /// Demande envoyée à getkoji.io, comme sur le site : le lien reçu ouvre
 /// /set-password (maquette PRO-00.1) et vaut 30 minutes. La réponse est la
-/// même qu'un compte existe ou non.
+/// même qu'un compte existe ou non. Sert aux deux apps.
 Future<void> envoyerLienKojiPro(String email) async {
   final response = await http
       .post(
         Uri.parse('${KojiWebApiConfig.baseUrl}/api/auth/forgot-password'),
         headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'accountType': 'entreprise'}),
+        body: jsonEncode(demandeLienReinitialisation(email,
+            isClient: KojiAppConfig.isClient)),
       )
       .timeout(const Duration(seconds: 12));
   if (response.statusCode >= 500) {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,10 @@ import 'package:koji/features/quote/providers/quote_task_provider.dart';
 import 'package:koji/features/quote/providers/quote_creation_provider.dart';
 import 'package:koji/features/quote/repository/ouvrage_library_repository.dart';
 import 'package:koji/features/quote/model/library_ouvrage.dart';
+import 'package:koji/features/quote/model/devis_line.dart';
+import 'package:koji/apps/entreprise/devis/devis_guide.dart';
+import 'package:koji/apps/entreprise/devis/pro_devis_guide_view.dart';
+import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/fournitures/repository/fourniture_repository.dart';
 import 'package:koji/features/fournitures/models/fourniture_model.dart';
@@ -21,111 +26,9 @@ import 'package:koji/features/fournitures/add_fourniture_screen.dart';
 import 'package:koji/features/subscription/providers/subscription_provider.dart';
 import 'package:intl/intl.dart';
 
-// ─── Data model for one editable line ─────────────────────────────────────────
-class _DevisLine {
-  String taskId;
-  String label;
-  String code;
-  String famille;
-  String unite;
-
-  // Parent ouvrage id when this line is a sous-ouvrage. The recap groups such
-  // lines under their parent and shows a summed "Total ouvrage".
-  String parentTaskId;
-
-  double qty; // editable
-  double tempsHU; // editable – temps h/u
-  double tauxHoraire; // from profile
-  double conditionCoeff;
-
-  double fournituresQty; // editable – separate fourniture count
-  double fournituresUnitPrice; // editable – fournitures €/u
-
-  // Forfait (flat price) — when enabled the line is billed at a single fixed
-  // price and the qty/temps/fournitures breakdown is ignored.
-  bool forfaitEnabled;
-  double forfaitPrice;
-
-  // When true, fournitures are NOT itemised in the client devis/facture. The
-  // line total still includes their cost; only the "Fnt : …" detail is hidden.
-  bool hideFournitures;
-
-  // Line type, matching the professional devis layout:
-  //   'normal'  → billed normally (MO + fournitures count toward the total)
-  //   'charge'  → "Fourniture à votre charge": shown to the client but NOT
-  //               billed (client supplies it), so it adds 0 to every total
-  //   'attente' → "En attente de votre décision": shown but unpriced (0)
-  String lineType;
-
-  bool get isCharge => lineType == 'charge';
-  bool get isAttente => lineType == 'attente';
-  // Variante (maquette PRO-03.1) : chiffrée comme une ligne normale, montrée
-  // au client, mais jamais dans le total du lot ni du devis.
-  bool get isVariante => lineType == 'variante';
-  bool get isBillable => lineType == 'normal' || lineType == 'variante';
-
-  // Free-form commentaire shown under the line (devis & PDF). Editable from the
-  // recap so the entrepreneur can detail the prestation without leaving the page.
-  String commentaire;
-
-  // Supplier link for fourniture lines (chosen from the Fournisseurs module).
-  String fournisseurId;
-  String fournisseurName;
-
-  // A standalone fourniture (material-only) line. Added via
-  // _addFournitureToLot, its taskId is prefixed with "fourniture_".
-  // Such a line has NO main d'œuvre: its total is simply quantité × prix unitaire.
-  bool get isFourniture => taskId.startsWith('fourniture_');
-
-  // A standalone commentaire/note line: it carries text only, no price.
-  // Rendered as an italic note inside the lot (like Odoo's "Ajouter une note").
-  bool get isComment => taskId.startsWith('comment_');
-
-  // derived
-  // Fournitures carry no labour, so their MO unit price is always 0 — even if a
-  // temps value was somehow entered/saved on the line.
-  double get moUnitPrice =>
-      isFourniture ? 0.0 : tempsHU * tauxHoraire * conditionCoeff;
-  // A forfait line carries its whole price in MO so it flows into the totals;
-  // fournitures are folded into the flat price, so they're zero here.
-  // "À votre charge" / "En attente" lines are never billed → 0.
-  double get totalMO => (isBillable && !isComment)
-      ? (forfaitEnabled ? forfaitPrice : moUnitPrice * qty)
-      : 0.0;
-  // Fournitures = the products the user explicitly added to this line. For a
-  // normal ouvrage, their count is independent from the ouvrage qty/surface.
-  // A standalone fourniture still uses the line qty because that line is only
-  // the product.
-  double get billedFournituresQty => isFourniture ? qty : fournituresQty;
-  double get totalFournitures => (isBillable && !forfaitEnabled && !isComment)
-      ? fournituresUnitPrice * billedFournituresQty
-      : 0.0;
-  double get totalLigne => totalMO + totalFournitures;
-  // Ce qui compte dans les totaux : rien pour une variante.
-  double get totalCompte => isVariante ? 0.0 : totalLigne;
-
-  _DevisLine({
-    required this.taskId,
-    required this.label,
-    this.code = '',
-    this.famille = '',
-    this.unite = 'u',
-    this.parentTaskId = '',
-    this.qty = 1.0,
-    this.tempsHU = 0.0,
-    this.tauxHoraire = 0.0,
-    this.conditionCoeff = 1.0,
-    this.fournituresQty = 0.0,
-    this.fournituresUnitPrice = 0.0,
-    this.forfaitEnabled = false,
-    this.forfaitPrice = 0.0,
-    this.hideFournitures = false,
-    this.lineType = 'normal',
-    this.commentaire = '',
-    this.fournisseurId = '',
-    this.fournisseurName = '',
-  });
-}
+// La ligne modifiable vit dans model/devis_line.dart (partagée avec le
+// devis guidé, maquette PRO-03.1).
+typedef _DevisLine = DevisLine;
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 class _FournituresSummary {
@@ -191,6 +94,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
 
   @override
   void dispose() {
+    _conversation.dispose();
     _startCtrl.dispose();
     _durationCtrl.dispose();
     _mentionsCtrl.dispose();
@@ -211,6 +115,111 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   int _tvaRate = 10; // 10 % rénovation (Art. 279-0 bis CGI) or 20 %
   // Per-lot label override: roomId → {'number': int, 'title': String}.
   final Map<String, Map<String, dynamic>> _lotMeta = {};
+
+  // ─── Devis guidé (maquette PRO-03.1) ───────────────────────────────────────
+  // Koji lit et modifie les mêmes lignes que l'écran ; l'ancienne vue
+  // détaillée (client, dates, provisions, mentions) reste à un toucher.
+  late final DevisGuideDonnees _guide = DevisGuideDonnees(
+    linesByRoom: _linesByRoom,
+    roomOrder: _roomOrder,
+    lotMeta: _lotMeta,
+    tauxHoraire: () => _hourlyRate,
+    nouvelId: _newId,
+    nomPiece: _getRoomLabel,
+  );
+  late final DevisGuideConversation _conversation = DevisGuideConversation(
+    flux: (corps) => ref.read(proKojiWebProvider).devisChat(corps),
+    instantane: _instantaneDevis,
+    appliquer: (action) {
+      final capture = _guide.appliquer(action, onClient: _clientDeKoji);
+      if (mounted) setState(() {});
+      return capture;
+    },
+    enregistrer: _enregistrerAuto,
+    resultat: _guide.resultat,
+  );
+  bool _vueDetaillee = false;
+  // Id du devis une fois enregistré une première fois (enregistrement
+  // automatique du devis guidé).
+  String? _quoteId;
+
+  String? get _idDevis => _quoteId ?? widget.data['id'] as String?;
+
+  Map<String, dynamic> _instantaneDevis() => _guide.instantane(
+        id: _idDevis,
+        client: {'nom': _clientName, 'email': _clientEmail, 'chantier': _siteAddress},
+        sousTotal: _subtotalLots,
+        majorations: [
+          for (final (libelle, pct, montant) in [
+            ('Coordination de chantier', _coordPct, _coordAmount),
+            ('Provision aléas de chantier', _aleasPct, _aleasAmount),
+            ('Assurance décennale', _decennalePct, _decennaleAmount),
+          ])
+            if (pct > 0) {'label': libelle, 'pourcentage': pct, 'montant': (montant * 100).round() / 100},
+        ],
+        totalHt: _grandTotalGeneralHT,
+        totalTtc: _grandTotalTTC,
+      );
+
+  void _clientDeKoji(Map<String, dynamic> client) {
+    String v(String k) => (client[k] ?? '').toString().trim();
+    if (v('nom').isNotEmpty) _clientName = v('nom');
+    if (v('email').isNotEmpty) _clientEmail = v('email');
+    if (v('chantier').isNotEmpty) _siteAddress = v('chantier');
+  }
+
+  // Enregistrement après chaque action de Koji : sans quitter l'écran, avec
+  // les mêmes limites de formule que le bouton Enregistrer.
+  Future<({String id, String le})> _enregistrerAuto() async {
+    final user = ref.read(authProvider).value;
+    if (user == null) throw 'Session expirée. Reconnecte-toi.';
+    final existingId = _idDevis;
+    final limits = ref.read(planLimitsProvider);
+    final permis = existingId == null
+        ? await limits.canCreateQuote()
+        : await limits.canSaveQuote(existingId);
+    if (!permis.allowed) throw 'Limite de ta formule atteinte : devis non enregistré.';
+    final id = await ref
+        .read(quoteRepositoryProvider)
+        .saveQuote(user.id, _buildQuoteData(), quoteId: existingId);
+    _quoteId = id;
+    return (id: id, le: DateTime.now().toUtc().toIso8601String());
+  }
+
+  // Photo du chantier pour Koji : réduite à 1568 px, en JPEG.
+  Future<String?> _photoPourKoji() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choisir dans la galerie'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return null;
+    final fichier = await ImagePicker().pickImage(
+        source: source, maxWidth: 1568, maxHeight: 1568, imageQuality: 85);
+    if (fichier == null) return null;
+    final octets = await fichier.readAsBytes();
+    final type = octets.length > 3 && octets[0] == 0x89 && octets[1] == 0x50
+        ? 'image/png'
+        : octets.length > 11 && octets[8] == 0x57 && octets[9] == 0x45
+            ? 'image/webp'
+            : 'image/jpeg';
+    return 'data:$type;base64,${base64Encode(octets)}';
+  }
 
   @override
   void initState() {
@@ -609,7 +618,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     }
 
     final quoteData = _buildQuoteData();
-    final existingId = widget.data['id'] as String?;
+    final existingId = _idDevis;
 
     // Server-side plan-limit gate (see supabase/migrations/0006_subscription_plans.sql):
     // creating a brand-new devis is checked against the plan's monthly quote
@@ -896,7 +905,45 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   // ─────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    if (_vueDetaillee || _isLoadingDetails) return _buildRecapDetaille();
+    // Le premier message de Koji suit le devis chargé (sans IA).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _conversation.accueillir();
+    });
+    final titre = 'Devis $_quoteNumber';
+    final sousTitre = [_siteAddress, _clientName]
+        .map((x) => x.trim())
+        .where((x) => x.isNotEmpty && x != 'Client')
+        .join(' · ');
+    return ProDevisGuideView(
+      titre: titre,
+      sousTitre: sousTitre.isEmpty ? 'Brouillon' : sousTitre,
+      conversation: _conversation,
+      donnees: _guide,
+      totalHt: _grandTotalGeneralHT,
+      totalTtc: _grandTotalTTC,
+      onRetour: () => context.pop(),
+      onEnvoyer: _isSaving ? () {} : _generateQuote,
+      onChange: () => setState(() {}),
+      onAjouterOuvrage: _addOuvrageToLot,
+      onAjouterFourniture: _addFournitureToLot,
+      onAjouterLot: _addLot,
+      onSupprimer: _removeLine,
+      onEditionDetaillee: () => setState(() => _vueDetaillee = true),
+      onApercu: _previewPdf,
+      choisirPhoto: _photoPourKoji,
+    );
+  }
+
+  // Ancienne vue détaillée du devis : client, dates, lots complets
+  // (sous-ouvrages, notes, forfaits), provisions, mentions.
+  Widget _buildRecapDetaille() {
+    return PopScope(
+      canPop: !_vueDetaillee,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _vueDetaillee = false);
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -908,7 +955,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
           child: IconButton(
             icon: const Icon(Icons.arrow_back,
                 color: Color(0xFF0F172A), size: 20),
-            onPressed: () => context.pop(),
+            onPressed: () => _vueDetaillee
+                ? setState(() => _vueDetaillee = false)
+                : context.pop(),
           ),
         ),
         centerTitle: true,
@@ -1004,6 +1053,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
               ),
             ),
       bottomNavigationBar: _buildBottomBar(),
+      ),
     );
   }
 

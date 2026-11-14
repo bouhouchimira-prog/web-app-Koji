@@ -25,6 +25,15 @@ import 'package:koji/features/worker/worker_shell.dart';
 
 enum KojiAuthTab { login, signup }
 
+/// True when the previous auth state was « signed out » (data null): a
+/// session now arriving is a real sign-in, not a restore at startup (that one
+/// goes loading → user). Case seen with Google in the browser (14 nov): if
+/// Android closed the app meanwhile, it restarts on this screen, the session
+/// arrives through the return link and nothing was opened, because the
+/// sign-in had not been started from this instance of the screen.
+bool sessionVientDArriver(AsyncValue<User?>? previous) =>
+    previous is AsyncData<User?> && previous.value == null;
+
 enum _LoginMode { email, code }
 
 /// Connexion / création de compte, from the "Connexion — particulier" and
@@ -332,7 +341,9 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     ref.listen(authProvider, (previous, next) {
       next.whenOrNull(
         data: (user) {
-          if (user != null && _authAttempted && !_awaitingEmailConfirmation) {
+          if (user != null &&
+              !_awaitingEmailConfirmation &&
+              (_authAttempted || sessionVientDArriver(previous))) {
             _routeAfterAuth(user);
           }
         },

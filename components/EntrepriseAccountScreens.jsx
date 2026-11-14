@@ -138,7 +138,11 @@ function heure(iso) {
   return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
-export function NouveauMotDePasse({ token }) {
+// `app` : "pro" quand la demande vient de l'app Koji Pro (lien &app=pro,
+// lib/reset-app.js). La personne est sur son téléphone : on lui dit de
+// retourner dans l'app, au lieu de la connecter au site.
+export function NouveauMotDePasse({ token, app = null }) {
+  const depuisApp = app === "pro";
   const [lien, setLien] = useState({ status: "loading", email: "", expiresAt: null });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -167,6 +171,10 @@ export function NouveauMotDePasse({ token }) {
     try {
       const data = await apiSend("/api/auth/set-password", { token, mode: "reset", password, accountType: "entreprise" });
       const email = data.email || lien.email;
+      if (depuisApp) {
+        setState({ status: "done", error: "", email });
+        return;
+      }
       // Connexion immédiate avec le nouveau mot de passe.
       try {
         const session = await apiSend("/api/auth/login", { email, password, accountType: "entreprise" });
@@ -183,6 +191,18 @@ export function NouveauMotDePasse({ token }) {
 
   if (lien.status === "loading") return <p className="el-note">Vérification du lien…</p>;
   if (lien.status === "expired") return <LienExpire mode="reset" emailInitial={lien.email} />;
+  if (state.status === "done") {
+    return (
+      <div className="el el-done">
+        <Ico />
+        <h1 className="el-h">Mot de passe enregistré</h1>
+        <p className="el-p">
+          Retournez dans l'app <b>Koji Pro</b> et connectez-vous avec {state.email ? <b>{state.email}</b> : "votre adresse e-mail"} et ce nouveau mot de passe.
+        </p>
+        <small className="el-note">Vous pouvez fermer cette page.</small>
+      </div>
+    );
+  }
 
   return (
     <div className="el">
@@ -228,7 +248,7 @@ export function NouveauMotDePasse({ token }) {
         </div>
         {state.error ? <p className="el-error" role="alert">{state.error}</p> : null}
         <button type="submit" className="el-btn-primary" disabled={state.status === "saving" || !pret}>
-          {state.status === "saving" ? "Enregistrement…" : "Enregistrer et me connecter"}
+          {state.status === "saving" ? "Enregistrement…" : depuisApp ? "Enregistrer" : "Enregistrer et me connecter"}
         </button>
         {lien.expiresAt ? (
           <small className="el-note">Lien valable jusqu'à {heure(lien.expiresAt)}. Après : refaire « Mot de passe oublié ».</small>
