@@ -105,4 +105,14 @@ void main() {
     // Espaces insécables comme toLocaleString('fr-FR') côté site.
     expect(euro(2515).replaceAll(RegExp('[  ]'), ' '), '2 515,00 €');
   });
+
+  test("avoir au taux d'origine et facture corrigée à 10 % (maquette PRO-06.1)", () {
+    final a = avoirCorrige(2743.63, 20, 10);
+    expect((a.ht, a.tva, a.ttc, a.nouveauTtc), (2286.36, 457.27, 2743.63, 2515.0));
+    expect(tauxFacture({'tauxTva': 10}), 10);
+    expect(tauxFacture({'situation': {'tauxTva': 5.5}}), 5.5);
+    expect(tauxFacture({'quoteId': 'q1'}, [{'id': 'q1', 'vatRate': 10}]), 10);
+    expect(tauxFacture({}), 20);
+    expect(tauxTexte(5.5), '5,5');
+  });
 }

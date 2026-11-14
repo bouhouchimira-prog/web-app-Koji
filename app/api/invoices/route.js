@@ -344,7 +344,12 @@ export async function POST(request) {
 
   if (before.remaining <= 0.01) return badRequest("Ce devis est déjà entièrement facturé.");
   if (amountTtc <= 0) return badRequest("Le montant de la facture doit être supérieur à zéro.");
-  if (amountTtc > before.remaining + 0.01) return badRequest("Le montant dépasse le solde restant à facturer.");
+  // Facture refaite après avoir (PRO-06.1) : le plafond suit le nouveau taux.
+  const tauxDevis = Number(quote.vatRate ?? 20);
+  const plafond = body.remplace && Number(body.tauxTva) > tauxDevis
+    ? toAmount((before.remaining / (1 + tauxDevis / 100)) * (1 + Number(body.tauxTva) / 100))
+    : before.remaining;
+  if (amountTtc > plafond + 0.01) return badRequest("Le montant dépasse le solde restant à facturer.");
 
   const invoice = {
     id: `fac-${Date.now()}`,
@@ -360,6 +365,9 @@ export async function POST(request) {
     type: situation ? `Situation ${situation.numero}` : fixText(body.type || "Facture intermediaire"),
     amountMode: body.amountMode || "fixed",
     ...(situation ? { situation } : {}),
+    // Facture refaite à un autre taux après un avoir (PRO-06.1).
+    ...([0, 5.5, 10, 20].includes(Number(body.tauxTva)) && body.tauxTva !== "" && body.tauxTva != null ? { tauxTva: Number(body.tauxTva) } : {}),
+    ...(body.remplace ? { remplace: { avoirId: String(body.remplace.avoirId || ""), factureNumero: fixText(String(body.remplace.factureNumero || "")) } } : {}),
     percent: toAmount(body.amountMode === "fixed" ? 0 : body.amountMode === "deposit" ? Number(body.depositPercent || body.percent || 30) : Number(body.percent || 0)),
     amountTtc,
     totalQuoteTtc: before.totalQuoteTtc,
@@ -446,7 +454,12 @@ export async function PATCH(request) {
         message: text,
         replyTo: quote?.company?.email || owner?.email || undefined,
         pdfBuffer: buildInvoicePdf({ invoice, quote, project, db }),
-        pdfFilename: invoiceDocumentFilename(invoice)
+        pdfFilename: invoiceDocumentFilename(invoice),
+        // Avoir + facture corrigée dans un seul message (PRO-06.1).
+        extraPdfs: (() => {
+          const avoir = body.avoirId ? db.invoices.find((f) => f.id === body.avoirId && f.kind === "avoir" && f.userId === invoice.userId) : null;
+          return avoir ? [{ buffer: buildInvoicePdf({ invoice: avoir, quote, project, db }), filename: invoiceDocumentFilename(avoir) }] : [];
+        })()
       });
       if (!sent.ok) return badRequest(`Envoi impossible : ${sent.error}`, 502); // rien n'est écrit
       invoice.sentAt = now;

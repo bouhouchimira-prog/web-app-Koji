@@ -9,6 +9,7 @@ import { euro } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
 import { NOTE_LIBERATION_RETENUE } from "../../lib/cloture-chantier";
+import { avoirCorrige } from "../../lib/situation-travaux";
 
 // Factures, maquette PRO-06 (DA Koji Pro, 30 oct) : liste avec onglets, et
 // création d'une facture depuis un devis signé (mêmes modes qu'avant :
@@ -138,6 +139,18 @@ function InvoiceStatus({ bucket }) {
   return <span className="tag tag-o">Brouillon</span>;
 }
 
+// Montants au centime dans l'avoir (maquette PRO-06.1).
+const euroCts = (n) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n) || 0);
+
+// Taux de TVA d'une facture (PRO-06.1) : le sien, celui de la situation,
+// sinon 20 % (les taux réduits sont portés par la facture depuis 06.1).
+function tauxFactureBrut(invoice, quotes = []) {
+  if (invoice?.tauxTva != null) return Number(invoice.tauxTva);
+  if (invoice?.situation?.tauxTva != null) return Number(invoice.situation.tauxTva);
+  const q = quotes.find((x) => x.id === invoice?.quoteId);
+  return q?.vatRate != null ? Number(q.vatRate) : 20;
+}
+
 function dueLabel(invoice) {
   if (invoice.bucket === "Avoir") return invoice.refInvoiceNumber ? `sur ${invoice.refInvoiceNumber}` : "—";
   if (invoice.bucket === "Payee") return invoice.paidAt ? `payée le ${shortDay(invoice.paidAt)}` : "payée";
@@ -193,6 +206,7 @@ function FacturationContent() {
   const [remindForm, setRemindForm] = useState({ level: "aimable", text: "" });
   const [busy, setBusy] = useState(false);
   const [bandeauMasque, setBandeauMasque] = useState(false);
+  const tauxFacture = (invoice) => tauxFactureBrut(invoice, quotes || []);
   const [modalError, setModalError] = useState("");
 
   const invoicesWithBucket = useMemo(
@@ -344,7 +358,8 @@ function FacturationContent() {
   function openCredit(invoice) {
     setModalError("");
     setCreatedCredit(null);
-    setCreditForm({ reason: "erreur", mode: "total", amount: "", notes: "" });
+    const orig = tauxFacture(invoice);
+    setCreditForm({ reason: "erreur", mode: "total", amount: "", notes: "", refaire: false, nouveauTaux: orig === 20 ? 10 : 20, envoyer: Boolean(invoice.clientEmail) });
     setCreditFor(invoice);
   }
 
@@ -360,6 +375,27 @@ function FacturationContent() {
         notes: creditForm.notes
       });
       setInvoices((current) => [avoir, ...current]);
+      // PRO-06.1 : facture corrigée émise avec l'avoir, un seul message au client.
+      if (creditForm.refaire && creditForm.mode === "total") {
+        const ttc = avoirCorrige(creditFor.amountTtc, tauxFacture(creditFor), creditForm.nouveauTaux).nouveauTtc;
+        const { invoice: nouvelle } = await apiSend("/api/invoices", {
+          quoteId: creditFor.quoteId, projectId: creditFor.projectId, amountMode: "fixed", fixedAmount: ttc,
+          type: creditFor.type || "Facture", tauxTva: Number(creditForm.nouveauTaux),
+          remplace: { avoirId: avoir.id, factureNumero: creditFor.invoiceNumber },
+          notes: `Remplace la facture ${creditFor.invoiceNumber} (avoir ${avoir.invoiceNumber}). TVA ${String(creditForm.nouveauTaux).replace(".", ",")} %.`
+        });
+        let finale = nouvelle;
+        if (creditForm.envoyer && creditFor.clientEmail) {
+          finale = (await apiSend("/api/invoices", {
+            id: nouvelle.id, action: "send", email: true, to: creditFor.clientEmail, avoirId: avoir.id,
+            message: `Bonjour,\n\nVoici l'avoir ${avoir.invoiceNumber} qui annule la facture ${creditFor.invoiceNumber} du ${shortDay(creditFor.issuedAt || creditFor.createdAt)}, et la facture corrigée ${nouvelle.invoiceNumber} (TVA ${String(creditForm.nouveauTaux).replace(".", ",")} %), à régler à sa place.`
+          }, "PATCH")).invoice || nouvelle;
+        }
+        setInvoices((current) => [finale, ...current]);
+        setCreditFor(null);
+        setMessage(`Avoir ${avoir.invoiceNumber} et facture corrigée ${finale.invoiceNumber} émis${finale.sentAt ? ", envoyés au client dans un seul message" : ""}.`);
+        return;
+      }
       setCreatedCredit({ avoir, original: creditFor });
       setCreditFor(null);
       setMessage(`Avoir ${avoir.invoiceNumber} créé sur la facture ${creditFor.invoiceNumber}.`);
@@ -611,7 +647,7 @@ function FacturationContent() {
                 <div className="card-h"><h2>Créer un avoir</h2><button type="button" className="link" onClick={() => setCreditFor(null)}>Fermer</button></div>
                 <div className="env-sum">
                   <div><span className="lab">Facture d'origine</span><strong>{creditFor.invoiceNumber}</strong><span className="muted">{fixText(creditFor.client || "")} · émise le {shortDay(creditFor.issuedAt || creditFor.createdAt)}</span></div>
-                  <div><span className="lab">Montant TTC</span><strong>{euro(creditFor.amountTtc)}</strong><span className="muted">{creditedOn(creditFor) > 0 ? `déjà couvert par avoir : ${euro(creditedOn(creditFor))}` : "aucun avoir pour l'instant"}</span></div>
+                  <div><span className="lab">Montant TTC</span><strong>{euroCts(creditFor.amountTtc)}</strong><span className="muted">{creditedOn(creditFor) > 0 ? `déjà couvert par avoir : ${euro(creditedOn(creditFor))}` : "aucun avoir pour l'instant"}</span></div>
                 </div>
                 <label className="ed">Motif
                   <select value={creditForm.reason} onChange={(event) => setCreditForm({ ...creditForm, reason: event.target.value })}>
@@ -619,7 +655,7 @@ function FacturationContent() {
                   </select>
                 </label>
                 <div className="kp-seg" role="group" aria-label="Montant de l'avoir">
-                  <button type="button" className={creditForm.mode === "total" ? "on" : ""} aria-pressed={creditForm.mode === "total"} onClick={() => setCreditForm({ ...creditForm, mode: "total" })}>Total · {euro(remaining)}</button>
+                  <button type="button" className={creditForm.mode === "total" ? "on" : ""} aria-pressed={creditForm.mode === "total"} onClick={() => setCreditForm({ ...creditForm, mode: "total" })}>Total · {euroCts(remaining)}</button>
                   <button type="button" className={creditForm.mode === "partiel" ? "on" : ""} aria-pressed={creditForm.mode === "partiel"} onClick={() => setCreditForm({ ...creditForm, mode: "partiel" })}>Partiel</button>
                 </div>
                 {creditForm.mode === "partiel" ? (
@@ -627,6 +663,36 @@ function FacturationContent() {
                     <input type="number" min="0.01" max={remaining} step="0.01" value={creditForm.amount} onChange={(event) => setCreditForm({ ...creditForm, amount: event.target.value })} required />
                   </label>
                 ) : null}
+                {(() => {
+                  const orig = tauxFacture(creditFor);
+                  const ttc = creditForm.mode === "partiel" ? Number(creditForm.amount || 0) : remaining;
+                  const { ht, nouveauTtc } = avoirCorrige(ttc, orig, creditForm.nouveauTaux);
+                  return (
+                    <>
+                      <div className="ac-amt">
+                        <div><span>Travaux HT</span><b>− {euroCts(ht)}</b></div>
+                        <div><span>TVA {String(orig).replace(".", ",")} % (taux de la facture d'origine)</span><b>− {euroCts(Math.round((ttc - ht) * 100) / 100)}</b></div>
+                        <div className="big"><span>Total TTC</span><b>− {euroCts(ttc)}</b></div>
+                      </div>
+                      {creditForm.mode === "total" ? (
+                        <label className="checkline">
+                          <input type="checkbox" checked={creditForm.refaire} onChange={(event) => setCreditForm({ ...creditForm, refaire: event.target.checked })} />
+                          Refaire la facture corrigée ·{" "}
+                          <select value={creditForm.nouveauTaux} onChange={(event) => setCreditForm({ ...creditForm, nouveauTaux: Number(event.target.value) })} aria-label="Nouveau taux de TVA">
+                            {[20, 10, 5.5].map((t) => <option key={t} value={t}>TVA {String(t).replace(".", ",")} %</option>)}
+                          </select>{" "}
+                          · {euroCts(nouveauTtc)} TTC
+                        </label>
+                      ) : null}
+                      {creditForm.refaire && creditForm.mode === "total" ? (
+                        <label className="checkline">
+                          <input type="checkbox" checked={creditForm.envoyer} disabled={!creditFor.clientEmail} onChange={(event) => setCreditForm({ ...creditForm, envoyer: event.target.checked })} />
+                          Envoyer l'avoir et la nouvelle facture dans un seul message{creditFor.clientEmail ? ` à ${creditFor.clientEmail}` : " (pas d'e-mail)"}
+                        </label>
+                      ) : null}
+                    </>
+                  );
+                })()}
                 <label className="ed">Note (sur l'avoir)
                   <textarea rows={2} value={creditForm.notes} onChange={(event) => setCreditForm({ ...creditForm, notes: event.target.value })} maxLength={500} />
                 </label>
@@ -634,7 +700,7 @@ function FacturationContent() {
                 {modalError ? <p className="notice" role="alert">{modalError}</p> : null}
                 <div className="pm-act">
                   <button type="button" className="btn btn-sec" onClick={() => setCreditFor(null)}>Annuler</button>
-                  <button type="submit" className="btn btn-main" disabled={busy}>{busy ? "Création…" : "Créer l'avoir"}</button>
+                  <button type="submit" className="btn btn-main" disabled={busy}>{busy ? "Création…" : creditForm.refaire && creditForm.mode === "total" ? "Émettre l'avoir et la facture" : "Créer l'avoir"}</button>
                 </div>
               </form>
             </div>

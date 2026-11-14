@@ -79,6 +79,27 @@ void main() {
     expect(message, endsWith('ABL Expert Renov'));
   });
 
+  testWidgets("avoir : HT et TVA au taux d'origine, facture refaite à 10 % (PRO-06.1)", (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_app(const FacturesScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('FAC-2026-0001'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer un avoir'));
+    await tester.pumpAndSettle();
+    String normalize(String s) => s.replaceAll(RegExp('[  ]'), ' ');
+    List<String> textes() => tester.widgetList<Text>(find.byType(Text)).map((t) => normalize(t.data ?? '')).toList();
+    expect(textes(), containsAll(['− 2 500,00 €', '− 500,00 €', '− 3 000,00 €', "TVA 20 % (taux d'origine)"]));
+    await tester.tap(find.textContaining('Refaire la facture à 10 %'));
+    await tester.pumpAndSettle();
+    expect(textes().any((t) => t.startsWith('Refaire la facture à 10 % · 2 750,00 €')), isTrue);
+    expect(find.text('Émettre'), findsOneWidget);
+    expect(find.textContaining('un seul message à martin@example.com'), findsOneWidget);
+  });
+
   testWidgets('chantier et nouvelle facture : reste à facturer et acompte 30 %', (tester) async {
     tester.view.physicalSize = const Size(1400, 2000);
     tester.view.devicePixelRatio = 1;

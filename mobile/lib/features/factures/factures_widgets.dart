@@ -285,9 +285,15 @@ Future<void> showInvoiceActions(BuildContext context, WidgetRef ref, Invoice inv
 
 /// PRO-06.1 : avoir total ou partiel, puis « Refaire la facture corrigée ».
 Future<void> showCreditNoteSheet(BuildContext context, WidgetRef ref, Invoice invoice, FacturesData data) async {
-  final created = await _sheet<Invoice>(context, _CreditNoteSheet(invoice: invoice, data: data));
-  if (created == null || !context.mounted) return;
+  final result = await _sheet<(Invoice, Invoice?)>(context, _CreditNoteSheet(invoice: invoice, data: data));
+  if (result == null || !context.mounted) return;
+  final (created, corrigee) = result;
   facturesChanged(ref);
+  if (corrigee != null) {
+    final envoyes = corrigee['status'] == 'Emise';
+    showFacturesMessage(context, 'Avoir ${created['invoiceNumber']} et facture corrigée ${corrigee['invoiceNumber']} émis${envoyes ? ', envoyés au client dans un seul message' : ''}.');
+    return;
+  }
   showFacturesMessage(context, 'Avoir ${created['invoiceNumber']} créé sur la facture ${invoice['invoiceNumber']}.');
   if ('${invoice['quoteId'] ?? ''}'.isEmpty) return;
   await _sheet(
@@ -349,6 +355,11 @@ class _CreditNoteSheetState extends ConsumerState<_CreditNoteSheet> {
   String _error = '';
   final _amount = TextEditingController();
   final _notes = TextEditingController();
+  // PRO-06.1 : refaire la facture corrigée (ex. TVA 10 % au lieu de 20 %).
+  late final double _tauxOrigine = tauxFacture(widget.invoice, widget.data.quotes);
+  late double _nouveauTaux = _tauxOrigine == 20 ? 10 : 20;
+  bool _refaire = false;
+  late bool _envoyer = '${widget.invoice['clientEmail'] ?? ''}'.isNotEmpty;
 
   @override
   void dispose() {
@@ -371,8 +382,20 @@ class _CreditNoteSheetState extends ConsumerState<_CreditNoteSheet> {
       _error = '';
     });
     try {
-      final created = await ref.read(facturesRepositoryProvider).creditNote(widget.invoice, reason: _reason, amount: amount, notes: _notes.text.trim());
-      if (mounted) Navigator.of(context).pop(created);
+      final repo = ref.read(facturesRepositoryProvider);
+      final invoice = widget.invoice;
+      final created = await repo.creditNote(invoice, reason: _reason, amount: amount, notes: _notes.text.trim());
+      Invoice? corrigee;
+      if (_refaire && !_partial) {
+        final ttc = avoirCorrige(amountOf(invoice), _tauxOrigine, _nouveauTaux).nouveauTtc;
+        corrigee = await repo.correctedInvoice(invoice, created, amountTtc: ttc, tauxTva: _nouveauTaux);
+        final to = '${invoice['clientEmail'] ?? ''}';
+        if (_envoyer && to.isNotEmpty) {
+          corrigee = await repo.sendWithCreditNote(corrigee, created, to: to,
+              message: 'Bonjour,\n\nVoici l\'avoir ${created['invoiceNumber']} qui annule la facture ${invoice['invoiceNumber']} du ${shortDay(invoice['issuedAt'] ?? invoice['createdAt'])}, et la facture corrigée ${corrigee['invoiceNumber']} (TVA ${tauxTexte(_nouveauTaux)} %), à régler à sa place.');
+        }
+      }
+      if (mounted) Navigator.of(context).pop((created, corrigee));
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -416,6 +439,39 @@ class _CreditNoteSheetState extends ConsumerState<_CreditNoteSheet> {
           ),
         ],
         const SizedBox(height: 14),
+        Builder(builder: (_) {
+          final ttc = _partial ? (double.tryParse(_amount.text.replaceAll(',', '.').trim()) ?? 0) : remaining;
+          final calc = avoirCorrige(ttc, _tauxOrigine, _nouveauTaux);
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            FactureKv('Travaux HT', '− ${euro(calc.ht)}'),
+            FactureKv('TVA ${tauxTexte(_tauxOrigine)} % (taux d\'origine)', '− ${euro(calc.tva)}'),
+            FactureKv('Total TTC', '− ${euro(calc.ttc)}'),
+            if (!_partial) ...[
+              const SizedBox(height: 10),
+              _Coche(
+                value: _refaire,
+                label: 'Refaire la facture à ${tauxTexte(_nouveauTaux)} % · ${euro(calc.nouveauTtc)} TTC',
+                onChanged: (v) => setState(() => _refaire = v),
+              ),
+              if (_refaire) ...[
+                const SizedBox(height: 8),
+                KojiSegmented<double>(
+                  compact: true,
+                  options: <double, String>{20: 'TVA 20 %', 10: 'TVA 10 %', 5.5: 'TVA 5,5 %'},
+                  value: _nouveauTaux,
+                  onChanged: (v) => setState(() => _nouveauTaux = v),
+                ),
+                if ('${widget.invoice['clientEmail'] ?? ''}'.isNotEmpty)
+                  _Coche(
+                    value: _envoyer,
+                    label: 'Avoir et nouvelle facture dans un seul message à ${widget.invoice['clientEmail']}',
+                    onChanged: (v) => setState(() => _envoyer = v),
+                  ),
+              ],
+            ],
+          ]);
+        }),
+        const SizedBox(height: 14),
         KojiField(label: 'Note (sur l\'avoir)', controller: _notes, maxLines: 2),
         const SizedBox(height: 12),
         Text(
@@ -427,8 +483,30 @@ class _CreditNoteSheetState extends ConsumerState<_CreditNoteSheet> {
           Text(_error, style: TextStyle(fontSize: 13, color: p.toneFg(KojiTone.coral), fontWeight: FontWeight.w600)),
         ],
         const SizedBox(height: 18),
-        KojiButton(label: 'Créer l\'avoir', expand: true, loading: _busy, onPressed: () => _submit(remaining)),
+        KojiButton(label: _refaire && !_partial ? 'Émettre' : 'Créer l\'avoir', expand: true, loading: _busy, onPressed: () => _submit(remaining)),
       ],
+    );
+  }
+}
+
+class _Coche extends StatelessWidget {
+  const _Coche({required this.value, required this.label, required this.onChanged});
+  final bool value;
+  final String label;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.koji;
+    return InkWell(
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 13.5, color: p.heading, fontWeight: FontWeight.w600))),
+        ]),
+      ),
     );
   }
 }

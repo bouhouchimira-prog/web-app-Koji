@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { avancementLot, calculerSituation, echeance, messageSituation } = require("../../lib/situation-travaux");
+const { avancementLot, avoirCorrige, calculerSituation, echeance, messageSituation } = require("../../lib/situation-travaux");
 
 // Situation de travaux (maquette PRO-06).
 describe("situation de travaux (PRO-06)", () => {
@@ -27,5 +27,10 @@ describe("situation de travaux (PRO-06)", () => {
     assert.strictEqual(echeance("2026-11-28"), "2026-12-28");
     assert.strictEqual(messageSituation({ client: "Mme Lefèvre", numero: 1, finPrevue: "2026-12-05", lignes: [{ nom: "Dépose", pct: 100 }, { nom: "Plomberie", pct: 100 }, { nom: "Carrelage", pct: 60 }, { nom: "Électricité", pct: 0 }] }),
       "Bonjour Mme Lefèvre, voici la situation n° 1 : dépose et plomberie terminés, carrelage à 60 %. Les photos sont dans votre espace Koji. Fin prévue le 5 décembre.");
+  });
+
+  it("avoir au taux d'origine et facture corrigée à 10 % (maquette PRO-06.1)", () => {
+    assert.deepStrictEqual(avoirCorrige(2743.63, 20, 10), { ht: 2286.36, tva: 457.27, ttc: 2743.63, nouveauTtc: 2515 });
+    assert.deepStrictEqual(avoirCorrige(2515, 10, 10), { ht: 2286.36, tva: 228.64, ttc: 2515, nouveauTtc: 2515 });
   });
 });

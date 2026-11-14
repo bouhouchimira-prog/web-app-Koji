@@ -280,3 +280,26 @@ double previewAmount(String mode, BillingSummary summary, {double fixed = 0, dou
     _ => fixed,
   };
 }
+
+/// Taux de TVA d'une facture (PRO-06.1) : le sien, celui de la situation,
+/// sinon celui du devis, sinon 20 %. Même règle que le site.
+double tauxFacture(Invoice invoice, [List<Map<String, dynamic>> quotes = const []]) {
+  final propre = invoice['tauxTva'];
+  if (propre is num) return propre.toDouble();
+  final situation = invoice['situation'];
+  if (situation is Map && situation['tauxTva'] is num) return (situation['tauxTva'] as num).toDouble();
+  for (final q in quotes) {
+    if (q['id'] == invoice['quoteId'] && q['vatRate'] is num) return (q['vatRate'] as num).toDouble();
+  }
+  return 20;
+}
+
+/// Avoir ventilé au taux de la facture d'origine ; la facture corrigée
+/// reprend le même HT au nouveau taux (maquette : 2 286,36 € HT,
+/// 2 743,63 € à 20 %, 2 515,00 € à 10 %).
+({double ht, double tva, double ttc, double nouveauTtc}) avoirCorrige(num ttc, num tauxOrigine, num nouveauTaux) {
+  final ht = toAmount(ttc / (1 + tauxOrigine / 100));
+  return (ht: ht, tva: toAmount(ttc - ht), ttc: toAmount(ttc), nouveauTtc: toAmount(ht * (1 + nouveauTaux / 100)));
+}
+
+String tauxTexte(num taux) => '${taux == taux.roundToDouble() ? taux.toInt() : taux}'.replaceAll('.', ',');
