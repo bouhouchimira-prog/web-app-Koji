@@ -1,6 +1,10 @@
-import 'dart:typed_data';
+import 'dart:convert';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:koji/app/koji_web_api_config.dart';
@@ -27,6 +31,44 @@ class GoogleSignInFailure implements Exception {
 
   @override
   String toString() => 'GoogleSignInFailure($cause)';
+}
+
+/// Sign in with Apple failed (not a cancellation by the person).
+class AppleSignInFailure implements Exception {
+  const AppleSignInFailure(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'AppleSignInFailure($cause)';
+}
+
+/// Social sign-ins offered on this device, in display order (14 nov 2026).
+/// iPhone: Apple first, then Google — App Store guideline 4.8 requires Sign
+/// in with Apple as soon as another social login is offered. Android: Google
+/// (browser). Web: none, the website has its own buttons.
+List<String> fournisseursConnexion(
+    {required bool web, required TargetPlatform platform}) {
+  if (web) return const [];
+  if (platform == TargetPlatform.iOS) return const ['apple', 'google'];
+  return const ['google'];
+}
+
+/// Random value for Sign in with Apple: Apple gets its SHA-256, Supabase the
+/// raw value and checks both match, so a stolen Apple token can't be replayed.
+String nonceAleatoire([Random? random]) {
+  const chars =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._';
+  final r = random ?? Random.secure();
+  return List.generate(32, (_) => chars[r.nextInt(chars.length)]).join();
+}
+
+String sha256Hex(String value) => sha256.convert(utf8.encode(value)).toString();
+
+/// « Prénom Nom » from Apple, given only at the very first authorization.
+String? nomApple(String? prenom, String? nom) {
+  final complet =
+      [prenom, nom].whereType<String>().map((s) => s.trim()).join(' ').trim();
+  return complet.isEmpty ? null : complet;
 }
 
 /// Where Google sends the user back after signing in: one address per app
@@ -125,6 +167,53 @@ class AuthRepository {
     } catch (e) {
       _logger.e('❌ [AuthRepository] Google Sign-In failed', error: e);
       throw GoogleSignInFailure(e);
+    }
+  }
+
+  /// Native Sign in with Apple (iPhone). Returns null when the person
+  /// cancels the Apple sheet. Needs the « Sign In with Apple » capability on
+  /// the App ID (Runner.entitlements) and both bundle ids in the Supabase
+  /// Apple provider's Client IDs. Errors are rethrown as [AppleSignInFailure].
+  Future<AuthResponse?> signInWithApple() async {
+    _logger.i('🍏 [AuthRepository] Starting Sign in with Apple');
+    final rawNonce = nonceAleatoire();
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: sha256Hex(rawNonce),
+      );
+      final idToken = credential.identityToken;
+      if (idToken == null) throw Exception('Jeton Apple absent');
+      final result = await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: rawNonce,
+      );
+      // Apple only sends the name the first time: keep it on the account.
+      final nom = nomApple(credential.givenName, credential.familyName);
+      if (nom != null) {
+        try {
+          await _supabase.auth
+              .updateUser(UserAttributes(data: {'full_name': nom, 'name': nom}));
+        } catch (_) {
+          // The name is a nicety; the sign-in itself succeeded.
+        }
+      }
+      _logger.i('✅ [AuthRepository] Sign in with Apple successful');
+      return result;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        _logger.w('⚠️ [AuthRepository] Sign in with Apple cancelled');
+        return null;
+      }
+      _logger.e('❌ [AuthRepository] Sign in with Apple failed', error: e);
+      throw AppleSignInFailure(e);
+    } catch (e) {
+      _logger.e('❌ [AuthRepository] Sign in with Apple failed', error: e);
+      throw AppleSignInFailure(e);
     }
   }
 
