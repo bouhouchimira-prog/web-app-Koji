@@ -17,6 +17,7 @@ import 'package:koji/features/calendar/detail_planning_screen.dart';
 import 'package:koji/features/calendar/nouvel_evenement_screen.dart';
 import 'package:koji/features/factures/chantier_factures_screen.dart';
 import 'package:koji/features/factures/factures_screen.dart';
+import 'package:koji/features/factures/impayes_screen.dart';
 import 'package:koji/features/factures/nouvelle_facture_screen.dart';
 import 'package:koji/features/fournitures/fournitures_screen.dart';
 import 'package:koji/features/help/help_screen.dart';
@@ -264,6 +265,14 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const FacturesScreen(),
+              ),
+            ),
+            GoRoute(
+              path: impayesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ImpayesScreen(),
               ),
             ),
             GoRoute(

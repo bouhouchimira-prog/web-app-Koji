@@ -512,17 +512,19 @@ class _Coche extends StatelessWidget {
 }
 
 /// PRO-06.2 : relance aimable / ferme par e-mail, mise en demeure notée.
-Future<void> showReminderSheet(BuildContext context, WidgetRef ref, Invoice invoice, FacturesData data) async {
-  final message = await _sheet<String>(context, _ReminderSheet(invoice: invoice, company: data.company));
+Future<void> showReminderSheet(BuildContext context, WidgetRef ref, Invoice invoice, FacturesData data, {String? level}) async {
+  final message = await _sheet<String>(context, _ReminderSheet(invoice: invoice, company: data.company, societe: isCompanyClient(invoice, data.quotes), level: level));
   if (message == null || !context.mounted) return;
   facturesChanged(ref);
   showFacturesMessage(context, message);
 }
 
 class _ReminderSheet extends ConsumerStatefulWidget {
-  const _ReminderSheet({required this.invoice, required this.company});
+  const _ReminderSheet({required this.invoice, required this.company, this.societe = false, this.level});
   final Invoice invoice;
   final String company;
+  final bool societe;
+  final String? level;
 
   @override
   ConsumerState<_ReminderSheet> createState() => _ReminderSheetState();
@@ -530,8 +532,8 @@ class _ReminderSheet extends ConsumerStatefulWidget {
 
 class _ReminderSheetState extends ConsumerState<_ReminderSheet> {
   late Invoice _invoice = widget.invoice;
-  late String _level = suggestedLevel(_invoice);
-  late final _text = TextEditingController(text: reminderText(_level, _invoice, company: widget.company));
+  late String _level = widget.level ?? suggestedLevel(_invoice);
+  late final _text = TextEditingController(text: reminderText(_level, _invoice, company: widget.company, societe: widget.societe));
   bool _busy = false;
   String _error = '';
 
@@ -543,7 +545,7 @@ class _ReminderSheetState extends ConsumerState<_ReminderSheet> {
 
   void _pickLevel(String level) => setState(() {
         _level = level;
-        _text.text = reminderText(level, _invoice, company: widget.company);
+        _text.text = reminderText(level, _invoice, company: widget.company, societe: widget.societe);
       });
 
   Future<void> _send(String channel) async {

@@ -24196,3 +24196,20 @@ button.chantiers-table-row {
   padding: 4px 0;
   color: #5b5f66;
 }
+
+/* Relances et impayés (maquette PRO-06.2) */
+.imp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.imp-grid .cnt { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: var(--line, #e7e3da); font-size: 12px; text-align: center; }
+.imp-paliers { list-style: none; margin: 12px 0 14px; padding: 0; display: grid; gap: 10px; }
+.imp-paliers li { display: grid; grid-template-columns: 46px 1fr; gap: 8px; font-size: 14px; }
+.imp-paliers b { font-variant-numeric: tabular-nums; }
+.imp-lettre { border: 1px solid var(--line, #e7e3da); padding: 16px 18px; font-size: 14px; line-height: 1.55; margin-bottom: 10px; }
+.imp-lettre p { margin: 0 0 10px; white-space: pre-wrap; }
+.imp-lettre p:first-child { font-weight: 700; }
+@media (max-width: 900px) { .imp-grid { grid-template-columns: 1fr; } }
+.imp-grid { grid-template-columns: minmax(0, 1fr) 290px; }
+.imp-grid .tbl { overflow-x: auto; }
+.imp-grid td.n { white-space: nowrap; }
+.imp-grid td.r { white-space: nowrap; }
+.imp-grid td .btn { white-space: nowrap; padding: 8px 12px; font-size: 13px; }
+.imp-grid .ck { width: 100%; justify-content: flex-start; text-align: left; margin-bottom: 10px; }

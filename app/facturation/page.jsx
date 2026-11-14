@@ -10,6 +10,7 @@ import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
 import { NOTE_LIBERATION_RETENUE } from "../../lib/cloture-chantier";
 import { avoirCorrige } from "../../lib/situation-travaux";
+import { texteRelance } from "../../lib/relances";
 
 // Factures, maquette PRO-06 (DA Koji Pro, 30 oct) : liste avec onglets, et
 // création d'une facture depuis un devis signé (mêmes modes qu'avant :
@@ -45,7 +46,7 @@ const CHANNEL_LABELS = { email: "e-mail", manuel: "notée", recommande: "recomma
 function daysLate(invoice) {
   const due = invoice.dueDate ? new Date(`${invoice.dueDate}T00:00:00`) : null;
   if (!due) return 0;
-  return Math.max(0, Math.floor((new Date(new Date().toDateString()) - due) / 86400000));
+  return Math.max(0, Math.round((new Date(new Date().toDateString()) - due) / 86400000));
 }
 
 function suggestedLevel(invoice) {
@@ -53,22 +54,11 @@ function suggestedLevel(invoice) {
   return late >= 30 ? "demeure" : late >= 15 ? "ferme" : "aimable";
 }
 
-// PRO-06.2 : textes préremplis, modifiables avant envoi.
-function reminderText(level, invoice) {
-  const company = fixText(readStoredUser()?.business?.raisonSociale || "");
-  const client = fixText(invoice.client || "Madame, Monsieur");
-  const amount = euro(invoice.amountTtc);
-  const due = invoice.dueDate ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${invoice.dueDate}T00:00:00`)) : "";
-  const previous = (Array.isArray(invoice.reminders) ? invoice.reminders : [])
-    .map((reminder) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(new Date(reminder.at)));
-  const signature = company ? `\n\nCordialement,\n${company}` : "\n\nCordialement,";
-  if (level === "demeure") {
-    return `Objet : mise en demeure de payer, facture ${invoice.invoiceNumber}\n\n${client},\n\nPar la présente, nous vous mettons en demeure de régler la somme de ${amount} TTC due au titre de la facture ${invoice.invoiceNumber}, échue le ${due}${previous.length ? `, malgré nos relances du ${previous.join(" et du ")}` : ""}.\n\nÀ défaut de règlement dans un délai de 8 jours à compter de la réception de ce courrier, nous nous réservons le droit d'engager une procédure de recouvrement.${company ? `\n\n${company}` : ""}`;
-  }
-  if (level === "ferme") {
-    return `Bonjour ${client},\n\nMalgré notre précédent rappel${previous.length ? ` du ${previous[previous.length - 1]}` : ""}, la facture ${invoice.invoiceNumber} d'un montant de ${amount} TTC, échue le ${due}, reste impayée (${daysLate(invoice)} jours de retard).\n\nMerci de procéder au règlement sous 8 jours. La facture est jointe à ce message.${signature}`;
-  }
-  return `Bonjour ${client},\n\nSauf erreur de notre part, la facture ${invoice.invoiceNumber} d'un montant de ${amount} TTC, arrivée à échéance le ${due}, n'a pas encore été réglée.\n\nPourriez-vous procéder au règlement ? Vous trouverez la facture en pièce jointe. Si le paiement est déjà parti, merci de ne pas tenir compte de ce message.${signature}`;
+// PRO-06.2 : textes préremplis (lib/relances, mêmes que les relances
+// automatiques), modifiables avant envoi ; ton société ou particulier.
+function reminderText(level, invoice, quotes = []) {
+  const quote = quotes.find((q) => q.id === invoice.quoteId);
+  return texteRelance(level, invoice, { entreprise: fixText(readStoredUser()?.business?.raisonSociale || ""), societe: quote?.clientType === "societe" });
 }
 
 function signedQuote(quote) {
@@ -414,10 +404,20 @@ function FacturationContent() {
     setShowDashboard(false);
   }
 
+  // Lien « Relancer » / « Voir » depuis la page des impayés (PRO-06.2).
+  const relancerParam = searchParams.get("relancer") || "";
+  const [relanceOuverte, setRelanceOuverte] = useState(false);
+  useEffect(() => {
+    if (!relancerParam || relanceOuverte || !invoices) return;
+    const cible = invoices.find((inv) => inv.id === relancerParam);
+    if (cible) { setRelanceOuverte(true); openRemind(cible); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relancerParam, invoices]);
+
   function openRemind(invoice) {
     const level = suggestedLevel(invoice);
     setModalError("");
-    setRemindForm({ level, text: reminderText(level, invoice) });
+    setRemindForm({ level, text: reminderText(level, invoice, quotes || []) });
     setRemindFor(invoice);
   }
 
@@ -495,6 +495,7 @@ function FacturationContent() {
             <h1>Factures</h1>
           </div>
           <div className="acts">
+            <a className="btn btn-sec" href="/facturation/impayes">Relances et impayés</a>
             <button type="button" className="btn btn-sec" onClick={exportInvoicesCsv}>Exporter</button>
             <button type="button" className="btn btn-main" onClick={() => setShowDashboard(false)}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
@@ -721,7 +722,7 @@ function FacturationContent() {
               {remindFor.remindersOff ? <p className="notice">Relances désactivées pour cette facture.</p> : null}
               <div className="kp-seg" role="group" aria-label="Niveau de relance">
                 {REMINDER_LEVELS.map((level) => (
-                  <button key={level.id} type="button" className={remindForm.level === level.id ? "on" : ""} aria-pressed={remindForm.level === level.id} title={level.hint} onClick={() => setRemindForm({ level: level.id, text: reminderText(level.id, remindFor) })}>{level.label}</button>
+                  <button key={level.id} type="button" className={remindForm.level === level.id ? "on" : ""} aria-pressed={remindForm.level === level.id} title={level.hint} onClick={() => setRemindForm({ level: level.id, text: reminderText(level.id, remindFor, quotes || []) })}>{level.label}</button>
                 ))}
               </div>
               <label className="ed">{remindForm.level === "demeure" ? "Courrier à envoyer en recommandé avec accusé de réception" : "Message (la facture est jointe à l'e-mail)"}

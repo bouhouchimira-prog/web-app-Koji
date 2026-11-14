@@ -105,6 +105,11 @@ class FacturesRepository {
         'notes': notes,
       }));
 
+  /// Relances automatiques de l'entreprise (PRO-06.2) : J+3, J+15, J+30.
+  Future<bool> autoReminders() async => (await _api.get('/api/relances'))['actif'] == true;
+
+  Future<bool> setAutoReminders(bool actif) async => (await _api.post('/api/relances', {'actif': actif}))['actif'] == true;
+
   /// Facture refaite après un avoir (PRO-06.1) : même HT, nouveau taux.
   Future<Invoice> correctedInvoice(Invoice original, Invoice avoir, {required double amountTtc, required double tauxTva}) async =>
       _invoice(await _api.post('/api/invoices', {
