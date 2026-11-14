@@ -125,6 +125,20 @@ class ProKojiWebClient {
     return data is Map ? Map<String, dynamic>.from(data) : {};
   }
 
+  /// Facture d'acompte (maquette PRO-03.4) : création en brouillon depuis
+  /// le devis signé, puis envoi par e-mail avec le PDF (la facture est émise).
+  Future<Map<String, dynamic>> creerFacture(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/invoices', body);
+    final f = data is Map ? data['invoice'] : null;
+    return f is Map ? Map<String, dynamic>.from(f) : {};
+  }
+
+  Future<Map<String, dynamic>> envoyerFacture(String id, {required bool email, String to = '', String message = ''}) async {
+    final data = await _send('PATCH', '/api/invoices', {'id': id, 'action': 'send', 'email': email, 'to': to, 'message': message});
+    final f = data is Map ? data['invoice'] : null;
+    return f is Map ? Map<String, dynamic>.from(f) : {};
+  }
+
   /// Zone de travail renvoyée avec la dernière liste d'offres (carte).
   RadarZone? zone;
 

@@ -22,6 +22,7 @@ import 'package:koji/apps/entreprise/devis/pro_devis_guide_view.dart';
 import 'package:koji/apps/entreprise/devis/devis_envoi.dart';
 import 'package:koji/apps/entreprise/devis/pro_envoi_devis_screen.dart';
 import 'package:koji/apps/entreprise/devis/pro_suivi_devis_view.dart';
+import 'package:koji/apps/entreprise/devis/pro_facture_acompte_screen.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart' show ouvrirRelanceDevis;
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -158,6 +159,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   Map<String, dynamic>? _suiviWeb;
   bool _chantierLance = false;
   bool _suiviCharge = false;
+  Map<String, dynamic>? _factureAcompte;
+  double _dejaFacture = 0;
 
   bool get _devisSigne {
     final st = (_statut ?? '').toLowerCase();
@@ -176,6 +179,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       final web = devis.where((q) => '${q['id']}' == id).firstOrNull;
       var lance = false;
       final projet = '${web?['projectId'] ?? ''}';
+      final factures = (await api.liste('/api/invoices', 'invoices'))
+          .where((f) => '${f['quoteId']}' == id && f['status'] != 'Annulee' && f['archived'] != true)
+          .toList();
       if (projet.isNotEmpty) {
         final taches = await api.liste('/api/tasks', 'tasks');
         lance = taches.any((t) => '${t['projectId']}' == projet &&
@@ -185,6 +191,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       setState(() {
         _suiviWeb = web;
         _chantierLance = lance;
+        _factureAcompte = factures.where((f) => '${f['type']}'.toLowerCase().contains('acompte')).firstOrNull;
+        _dejaFacture = factures.fold<double>(0, (s, f) => s + ((f['amountTtc'] as num?) ?? 0).toDouble());
       });
     } catch (_) {
       // Hors ligne : le suivi s'affiche avec ce que l'app connaît du devis.
@@ -265,12 +273,59 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
               if (lance == true) _chargerSuivi();
             },
       onVoirChantier: projet.isEmpty ? null : () => context.push('/chantier/dashboard', extra: {'id': projet}),
-      onCreerAcompte: () => context.push('/chantier/facturation/create', extra: {
-        'quoteId': _idDevis,
-        'type': 'Acompte initial',
-        'amountMode': 'deposit',
-      }),
+      factureAcompte: _factureAcompte,
+      onCreerAcompte: projet.isEmpty ? null : () => _ouvrirAcompte(devis, projet),
     );
+  }
+
+  // Facture d'acompte (maquette PRO-03.4) : brouillon ou envoi par e-mail.
+  Future<void> _ouvrirAcompte(Map<String, dynamic> devis, String projet) async {
+    final brouillon = _factureAcompte?['status'] == 'Brouillon' ? _factureAcompte : null;
+    final signe = '${devis['signedAt'] ?? ''}';
+    final api = ref.read(proKojiWebProvider);
+    final fait = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ProFactureAcompteScreen(
+        numeroDevis: _quoteNumber,
+        client: _clientName == 'Client' ? '' : _clientName,
+        email: _clientEmail,
+        totalHt: _grandTotalGeneralHT,
+        totalTtc: _grandTotalTTC,
+        tva: _tvaRate,
+        signeLe: signe.isEmpty ? '' : DateFormat('d MMM', 'fr_FR').format(DateTime.parse(signe).toLocal()),
+        debut: _debutTravaux,
+        pourcentagePrevu: _acompte > 0 ? _acompte : 30,
+        restant: _grandTotalTTC - _dejaFacture,
+        brouillon: brouillon,
+        onValider: (choix, {required envoyer}) async {
+          try {
+            var facture = brouillon;
+            facture ??= await api.creerFacture({
+              'quoteId': _idDevis,
+              'projectId': projet,
+              'type': 'Acompte initial',
+              'amountMode': 'deposit',
+              'depositPercent': choix.pourcentage,
+              'dueDate': choix.echeance,
+              'notes': 'Acompte sur devis $_quoteNumber',
+            });
+            if (envoyer) {
+              await api.envoyerFacture('${facture['id']}', email: choix.email, to: choix.adresse, message: choix.message);
+            }
+            return null;
+          } on ProKojiWebException catch (e) {
+            _chargerSuivi();
+            return e.message;
+          } catch (e) {
+            _chargerSuivi();
+            return "La facture n'a pas pu être enregistrée.";
+          }
+        },
+      ),
+    ));
+    if (fait == true && mounted) {
+      _chargerSuivi();
+      _snack("Facture d'acompte enregistrée.");
+    }
   }
   // Id du devis une fois enregistré une première fois (enregistrement
   // automatique du devis guidé).

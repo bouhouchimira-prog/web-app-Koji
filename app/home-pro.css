@@ -1915,3 +1915,20 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
   .pro .sv-m-h h2{margin:0;font-size:17px}
   .pro .dv-doc.ro .dv-lines .dl{grid-template-columns:minmax(0,1fr) 96px}
 }
+/* Facture d'acompte (maquette PRO-03.4) */
+.pro .ac-pct{display:flex;flex-direction:column;gap:8px}
+.pro .ac-pct .lab,.pro .ac-amt span{color:var(--grey);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pro .ac-pct .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pro .ac-pct .chip{display:inline-flex;flex-direction:row;align-items:center;height:40px;padding:0 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch);box-shadow:none;color:var(--ink);font-size:14px;font-weight:500}
+.pro .ac-pct .chip.on{background:var(--fill);border-color:var(--fill);color:var(--filltxt);font-weight:600}
+.pro .ac-pct .chip:disabled:not(.on){opacity:.45;cursor:default}
+.pro .ac-autre{display:inline-flex;align-items:center;gap:6px}
+.pro .ac-autre input{width:72px;height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:14px}
+.pro .ac-amt{padding:4px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-struct)}
+.pro .ac-amt > div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pro .ac-amt > div:last-child{border-bottom:0}
+.pro .ac-amt b{font-weight:600;font-variant-numeric:tabular-nums}
+.pro .ac-amt .big{flex-wrap:wrap;border-top:1px solid var(--ink)}
+.pro .ac-amt .big b{font-size:20px;letter-spacing:-.01em}
+.pro .ac-amt .big small{width:100%;color:var(--grey);font-size:12px}
+.pro .ac-mail{height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:14px}

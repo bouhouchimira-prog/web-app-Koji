@@ -17,6 +17,7 @@ import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import { DevisSuivi } from "../../components/DevisSuivi";
 import { RelanceDevis } from "../../components/RelanceDevis";
+import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
 import catalog from "../../data/catalog-ouvrages.json";
@@ -470,6 +471,7 @@ export default function DevisEditor() {
   // suivi, en lecture seule ; « Modifier » repasse dans l'éditeur.
   const [editionApresEnvoi, setEditionApresEnvoi] = useState(false);
   const [relanceOuverte, setRelanceOuverte] = useState(false);
+  const [acompteOuvert, setAcompteOuvert] = useState(false);
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
   // Panneau "outils" (Client/Lots/Bibliotheque/Fournitures) en tiroir sur
@@ -2054,7 +2056,7 @@ export default function DevisEditor() {
                     ))}
                   </div>
                   <b>{money(Number(generatedQuote.totalTtc || 0) * depositPercent / 100)} TTC</b>
-                  <button type="button" className="btn btn-sec" disabled={depositBusy} onClick={createDepositInvoice}>
+                  <button type="button" className="btn btn-sec" disabled={depositBusy} onClick={() => createDepositInvoice()}>
                     {depositBusy ? "Création…" : "Créer la facture d'acompte"}
                   </button>
                 </div>
@@ -3696,12 +3698,34 @@ export default function DevisEditor() {
           client={{ name: headerClientName || "Client", detail: chantierAdresse || [form.clientPhone, form.clientEmail].filter(Boolean).join(" · ") }}
           chantier={{ titre: form.project, detail: String(form.workDescription || "").split("\n")[0].slice(0, 80) || chantierAdresse }}
           depositInvoice={acompteFacture}
-          depositBusy={depositBusy}
-          onCreerAcompte={(percent) => createDepositInvoice(percent)}
+          onOuvrirAcompte={() => setAcompteOuvert(true)}
           onRelancer={() => setRelanceOuverte(true)}
           onModifier={() => setEditionApresEnvoi(true)}
           onApercu={() => window.open(`/api/quotes/${generatedQuote.id}/documents?type=quote&format=pdf&preview=1`, "_blank")}
         />
+        {acompteOuvert ? (
+          <FactureAcompte
+            quote={generatedQuote}
+            totals={{ ht: Number(generatedQuote.totalHt || summaryTotals.totalHt), ttc: Number(generatedQuote.totalTtc || summaryTotals.totalTtc), vatRate: quoteVatRate }}
+            client={{ name: headerClientName || "", email: form.clientEmail }}
+            debut={form.startDate}
+            pourcentagePrevu={paymentMilestones[0]?.percent ?? 30}
+            restant={Number(generatedQuote.totalTtc || 0) - invoices
+              .filter((invoice) => invoice.quoteId === generatedQuote.id && invoice.status !== "Annulee" && !invoice.archived)
+              .reduce((s, invoice) => s + Number(invoice.amountTtc || 0), 0)}
+            brouillon={acompteFacture?.status === "Brouillon" ? acompteFacture : null}
+            onClose={() => setAcompteOuvert(false)}
+            onDone={(invoice, texte, options = {}) => {
+              setInvoices((current) => current.some((item) => item.id === invoice.id)
+                ? current.map((item) => item.id === invoice.id ? invoice : item)
+                : [invoice, ...current]);
+              if (!options.garderOuvert) {
+                setAcompteOuvert(false);
+                if (texte) notify(texte, "success");
+              }
+            }}
+          />
+        ) : null}
         {relanceOuverte ? (
           <RelanceDevis
             quote={generatedQuote}

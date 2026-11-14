@@ -143,8 +143,7 @@ export function DevisSuivi({
   client,
   chantier,
   depositInvoice,
-  depositBusy,
-  onCreerAcompte,
+  onOuvrirAcompte,
   onRelancer,
   onModifier,
   onApercu
@@ -277,17 +276,20 @@ export function DevisSuivi({
               <div className="card">
                 <div className="card-h"><h2>Acompte</h2></div>
                 <div className="kv"><span>Prévu au devis</span><b>{acompte > 0 ? `${acompte} % · ${euro(Number(quote.totalTtc || 0) * acompte / 100)} TTC` : "Sans acompte"}</b></div>
-                {depositInvoice ? (
+                {depositInvoice && depositInvoice.status !== "Brouillon" ? (
                   <div className="sv-note">
-                    Facture {depositInvoice.invoiceNumber || "en brouillon"} · {depositInvoice.status === "Brouillon" ? "brouillon" : depositInvoice.status === "Payee" ? "payée" : "envoyée"}.{" "}
+                    {point(`Facture ${depositInvoice.invoiceNumber} · ${depositInvoice.status === "Payee" ? "payée" : depositInvoice.sentAt ? `envoyée le ${jourCourt(depositInvoice.sentAt)}` : "émise"}`)}{" "}
                     <Link className="link" href="/facturation">Ouvrir dans Factures</Link>
                   </div>
+                ) : depositInvoice ? (
+                  <>
+                    <div className="sv-note">Facture {depositInvoice.invoiceNumber} en brouillon, pas encore envoyée au client.</div>
+                    <button type="button" className="btn btn-sec sv-wide" disabled={!quote.projectId} onClick={onOuvrirAcompte}>Envoyer la facture d'acompte</button>
+                  </>
                 ) : acompte > 0 ? (
                   <>
                     <div className="sv-note">Pas encore facturé. La facture reprend le numéro du devis et part au client avec un message.</div>
-                    <button type="button" className="btn btn-sec sv-wide" disabled={depositBusy || !quote.projectId} onClick={() => onCreerAcompte(acompte)}>
-                      {depositBusy ? "Création…" : "Créer la facture d'acompte"}
-                    </button>
+                    <button type="button" className="btn btn-sec sv-wide" disabled={!quote.projectId} onClick={onOuvrirAcompte}>Créer la facture d'acompte</button>
                   </>
                 ) : null}
               </div>

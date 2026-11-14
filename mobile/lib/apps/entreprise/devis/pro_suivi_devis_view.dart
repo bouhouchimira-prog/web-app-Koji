@@ -36,6 +36,7 @@ class ProSuiviDevisView extends StatelessWidget {
     this.onLancer,
     this.onVoirChantier,
     this.onCreerAcompte,
+    this.factureAcompte,
   });
 
   final String titre;
@@ -55,6 +56,9 @@ class ProSuiviDevisView extends StatelessWidget {
   final VoidCallback? onLancer;
   final VoidCallback? onVoirChantier;
   final VoidCallback? onCreerAcompte;
+
+  /// Facture d'acompte déjà faite sur ce devis (brouillon, émise, payée).
+  final Map<String, dynamic>? factureAcompte;
 
   bool get _signe => devis['status'] == 'Signe' || devis['signatureStatus'] == 'Signe';
 
@@ -145,9 +149,25 @@ class ProSuiviDevisView extends StatelessWidget {
                             style: da.text(13, weight: FontWeight.w600)),
                       ],
                     ),
-                    if (onCreerAcompte != null) ...[
+                    if (factureAcompte != null && factureAcompte!['status'] != 'Brouillon') ...[
                       const SizedBox(height: 8),
-                      SizedBox(height: 40, child: _Secondaire(libelle: "Créer la facture d'acompte", onTap: onCreerAcompte!)),
+                      Text(
+                        'Facture ${factureAcompte!['invoiceNumber'] ?? ''} · ${factureAcompte!['status'] == 'Payee' ? 'payée' : 'envoyée'}',
+                        style: da.text(13, color: da.grey),
+                      ),
+                    ] else if (onCreerAcompte != null) ...[
+                      if (factureAcompte != null) ...[
+                        const SizedBox(height: 8),
+                        Text('Facture ${factureAcompte!['invoiceNumber'] ?? ''} en brouillon, pas encore envoyée.', style: da.text(13, color: da.grey)),
+                      ],
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: _Secondaire(
+                          libelle: factureAcompte != null ? "Envoyer la facture d'acompte" : "Créer la facture d'acompte",
+                          onTap: onCreerAcompte!,
+                        ),
+                      ),
                     ],
                   ],
                 ),

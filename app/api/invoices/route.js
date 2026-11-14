@@ -383,8 +383,38 @@ export async function PATCH(request) {
   } else if (action === "purge") {
     if (!invoice.archived) return badRequest("Seule une facture déjà dans la corbeille peut être supprimée définitivement.", 400);
     db.invoices.splice(index, 1);
-  } else if (invoice.kind === "avoir" && (action === "issue" || action === "pay")) {
+  } else if (invoice.kind === "avoir" && (action === "issue" || action === "pay" || action === "send")) {
     return badRequest("Un avoir est émis à sa création et ne se marque pas payé.");
+  } else if (action === "send") {
+    // Facture d'acompte envoyée au client (maquette PRO-03.4) : par e-mail
+    // avec son PDF quand c'est demandé, puis émise. Rien n'est émis si
+    // l'e-mail n'est pas parti.
+    if (invoice.status !== "Brouillon") return badRequest("Seul un brouillon s'envoie ; une facture envoyée se relance.");
+    if (body.email !== false) {
+      const to = String(body.to || invoice.clientEmail || "").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return badRequest("Ajoute l'e-mail du client pour lui envoyer la facture.");
+      const text = fixText(String(body.message || "").trim().slice(0, 4000));
+      if (!text) return badRequest("Le message au client est vide.");
+      invoice.clientEmail = to;
+      const { quote, project } = await loadInvoiceContext(invoice);
+      const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      // Le PDF joint est celui de la facture émise (statut et date d'émission).
+      invoice.status = "Emise";
+      invoice.issuedAt = now;
+      const sent = await sendInvoiceReminderEmail({
+        to,
+        subject: `${/acompte/i.test(invoice.type || "") ? "Facture d'acompte" : "Facture"} ${invoice.invoiceNumber}${invoice.quoteNumber ? ` · devis ${invoice.quoteNumber}` : ""}`,
+        message: text,
+        replyTo: quote?.company?.email || owner?.email || undefined,
+        pdfBuffer: buildInvoicePdf({ invoice, quote, project, db }),
+        pdfFilename: invoiceDocumentFilename(invoice)
+      });
+      if (!sent.ok) return badRequest(`Envoi impossible : ${sent.error}`, 502); // rien n'est écrit
+      invoice.sentAt = now;
+      invoice.sentTo = to;
+    }
+    invoice.status = "Emise";
+    invoice.issuedAt = now;
   } else if (action === "remind") {
     // PRO-06.2 : relance manuelle. La mise en demeure n'est jamais envoyée
     // par e-mail : elle part en recommandé, Koji ne fait que la noter.
