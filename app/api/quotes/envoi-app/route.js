@@ -79,6 +79,19 @@ export async function POST(request) {
 
   const now = new Date().toISOString();
   const versions = Number.parseInt(extras.versionNumber || "001", 10) || 1;
+  // Instantané de la version envoyée (PRO-03.6), comme les devis du site :
+  // les lignes viennent de l'app (quote_tasks), les montants aussi.
+  const numeroVersion = String(extras.sentAt ? versions + 1 : versions).padStart(3, "0");
+  const lignes = (Array.isArray(body.lignes) ? body.lignes : []).slice(0, 500).map((l) => ({
+    id: String(l?.id || "").slice(0, 120),
+    label: fixText(String(l?.label || "Ligne")).slice(0, 300),
+    room: fixText(String(l?.room || "")).slice(0, 120),
+    quantity: Number(l?.quantity) || 0,
+    unit: String(l?.unit || "").slice(0, 20),
+    totalHt: Math.round((Number(l?.totalHt) || 0) * 100) / 100
+  }));
+  const instantane = { number: numeroVersion, sentAt: now, totalHt: Number(body.totalHt) || 0, totalTtc: Number(body.totalTtc) || 0, lines: lignes };
+  const versionsEnvoyees = [...(Array.isArray(extras.versions) ? extras.versions : []).filter((v) => v.number !== numeroVersion), instantane].slice(-10);
   const { error: majErreur } = await auth.supabase
     .from("quotes")
     .update({
@@ -91,7 +104,8 @@ export async function POST(request) {
         signatureStatus: "En attente",
         signatureProvider: "koji-signature",
         envoi: { kojiClient, email: body.envoyerEmail === true, sms: body.sms === true },
-        ...(extras.sentAt ? { versionNumber: String(versions + 1).padStart(3, "0") } : {})
+        versionNumber: numeroVersion,
+        ...(lignes.length ? { versions: versionsEnvoyees } : {})
       },
       updated_at: now
     })

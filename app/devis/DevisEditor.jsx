@@ -19,6 +19,7 @@ import { confirmationTva, decisionTva, questionTva, tauxProposeLigne, ventilerTv
 import { PanneauTva } from "../../components/PanneauTva";
 import { DevisSuivi } from "../../components/DevisSuivi";
 import { RelanceDevis } from "../../components/RelanceDevis";
+import { DevisVersions } from "../../components/DevisVersions";
 import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
@@ -480,6 +481,10 @@ export default function DevisEditor() {
   const [editionApresEnvoi, setEditionApresEnvoi] = useState(false);
   const [relanceOuverte, setRelanceOuverte] = useState(false);
   const [acompteOuvert, setAcompteOuvert] = useState(false);
+  // Versions du devis (maquette PRO-03.6) : écarts avant d'envoyer la version
+  // suivante, message proposé repris par le panneau d'envoi.
+  const [vueVersions, setVueVersions] = useState(false);
+  const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
   // Panneau "outils" (Client/Lots/Bibliotheque/Fournitures) en tiroir sur
@@ -2529,6 +2534,8 @@ export default function DevisEditor() {
     setGeneratedQuote(quote);
     // Une fois envoyé, le devis repasse en suivi (maquette PRO-03.3).
     setEditionApresEnvoi(false);
+    setVueVersions(false);
+    setMessageEnvoi("");
     setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
     // E-mail et téléphone saisis dans le panneau d'envoi : gardés sur le devis.
     setForm((current) => ({ ...current, clientEmail: quote.clientEmail || current.clientEmail, clientPhone: quote.clientPhone || current.clientPhone }));
@@ -3732,6 +3739,65 @@ export default function DevisEditor() {
   ].filter(Boolean).join(" · ");
 
   const devisSigne = generatedQuote?.status === "Signe" || generatedQuote?.signatureStatus === "Signe";
+  const dejaEnvoye = Boolean(generatedQuote?.sentAt) && !devisSigne;
+  // Un devis déjà envoyé repasse par l'écran des versions avant l'envoi.
+  const envoyerOuComparer = () => (dejaEnvoye ? setVueVersions(true) : openSendModal());
+  const panneauEnvoi = sendModalOpen && generatedQuote ? (
+          <SendQuoteFlow
+            quote={generatedQuote}
+            quoteNumber={previewQuoteNumber}
+            client={{ name: headerClientName || "Client", email: form.clientEmail, phone: form.clientPhone }}
+            projet={form.project}
+            debut={form.startDate}
+            entreprise={company.name}
+            totals={{ ht: summaryTotals.totalHt, tva: summaryTotals.vatAmount, ttc: summaryTotals.totalTtc }}
+            vatRate={quoteVatRate}
+            onVatRate={setQuoteVatRate}
+            validityDays={form.validityDays}
+            onValidity={(jours) => setField("validityDays", jours)}
+            acompte={paymentMilestones[0]?.percent ?? 30}
+            onAcompte={updateAcomptePercent}
+            soldeLabel={paymentMilestones[1]?.label}
+            onReglement={updateSoldeLabel}
+            lotsCount={roomGroups.filter((room) => (linesByRoom[room] || []).length > 0).length}
+            linesCount={quoteLines.length}
+            onPreview={() => handlePreview()}
+            onSave={() => persistQuote()}
+            onClose={() => setSendModalOpen(false)}
+            onSent={handleQuoteSent}
+            messageInitial={messageEnvoi}
+          />
+  ) : null;
+
+  if (vueVersions && generatedQuote?.id) {
+    const versionsEnvoyees = Array.isArray(generatedQuote.versions) ? generatedQuote.versions : [];
+    const suivante = Number(versionsEnvoyees.at(-1)?.number || generatedQuote.versionNumber || 1) + 1;
+    const brouillon = editionApresEnvoi && !devisSigne ? {
+      number: String(suivante).padStart(3, "0"),
+      lines: quoteLines.map((l) => ({ id: l.id, label: l.label, room: l.room, quantity: Number(l.quantity || 0), unit: l.unit, totalHt: l.totalHt })),
+      totalHt: summaryTotals.totalHt,
+      totalTtc: summaryTotals.totalTtc
+    } : null;
+    const finValiditeBrouillon = new Date(Date.now() + Number(form.validityDays || 30) * 86400000).toISOString().slice(0, 10);
+    return (
+      <Shell variant="pro-focus">
+        {message ? <p className={`notice dv-msg ${messageType || ""}`} role="status">{message}</p> : null}
+        <DevisVersions
+          quote={generatedQuote}
+          brouillon={brouillon}
+          client={headerClientName || ""}
+          tauxTva={quoteVatRate}
+          acompteTtc={summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 0) / 100}
+          finValidite={finValiditeBrouillon}
+          signe={devisSigne}
+          onRetour={() => setVueVersions(false)}
+          onModifier={() => { setEditionApresEnvoi(true); setVueVersions(false); }}
+          onEnvoyer={(texte) => { setMessageEnvoi(texte); openSendModal(); }}
+        />
+        {panneauEnvoi}
+      </Shell>
+    );
+  }
   const lectureSeule = Boolean(generatedQuote?.id) && !editionApresEnvoi && mode !== "recap"
     && (devisSigne || (generatedQuote.status === "Envoye" && Boolean(generatedQuote.sentAt)));
 
@@ -3771,7 +3837,8 @@ export default function DevisEditor() {
           depositInvoice={acompteFacture}
           onOuvrirAcompte={() => setAcompteOuvert(true)}
           onRelancer={() => setRelanceOuverte(true)}
-          onModifier={() => setEditionApresEnvoi(true)}
+          onModifier={() => { setEditionApresEnvoi(true); setVueVersions(true); }}
+          onVersions={() => setVueVersions(true)}
           onApercu={() => window.open(`/api/quotes/${generatedQuote.id}/documents?type=quote&format=pdf&preview=1`, "_blank")}
         />
         {acompteOuvert ? (
@@ -3836,8 +3903,8 @@ export default function DevisEditor() {
           <button type="button" className="btn btn-sec dv-tools" onClick={() => setToolsDrawerOpen(true)}>{mode === "ia" ? "Voir le devis" : L.devis.tabTools}</button>
           <button type="button" className="btn btn-sec" onClick={() => handlePreview()}>Aperçu PDF</button>
           <button type="button" className="btn btn-sec" onClick={handleGenerate}>{L.devis.save}</button>
-          <button type="button" className="btn btn-main" onClick={openSendModal}>Envoyer au client</button>
-          <button type="button" className="link dv-send-m" onClick={openSendModal}>Envoyer</button>
+          <button type="button" className="btn btn-main" onClick={envoyerOuComparer}>Envoyer au client</button>
+          <button type="button" className="link dv-send-m" onClick={envoyerOuComparer}>Envoyer</button>
           <div className="dv-more" ref={moreActionsRef}>
             <button type="button" className="btn btn-sec" onClick={() => setMoreActionsOpen((open) => !open)} aria-expanded={moreActionsOpen} aria-label="Plus d'actions">•••</button>
             {moreActionsOpen ? (
@@ -4542,31 +4609,7 @@ export default function DevisEditor() {
             onClose={() => setTvaOuvert(false)}
           />
         ) : null}
-        {sendModalOpen && generatedQuote ? (
-          <SendQuoteFlow
-            quote={generatedQuote}
-            quoteNumber={previewQuoteNumber}
-            client={{ name: headerClientName || "Client", email: form.clientEmail, phone: form.clientPhone }}
-            projet={form.project}
-            debut={form.startDate}
-            entreprise={company.name}
-            totals={{ ht: summaryTotals.totalHt, tva: summaryTotals.vatAmount, ttc: summaryTotals.totalTtc }}
-            vatRate={quoteVatRate}
-            onVatRate={setQuoteVatRate}
-            validityDays={form.validityDays}
-            onValidity={(jours) => setField("validityDays", jours)}
-            acompte={paymentMilestones[0]?.percent ?? 30}
-            onAcompte={updateAcomptePercent}
-            soldeLabel={paymentMilestones[1]?.label}
-            onReglement={updateSoldeLabel}
-            lotsCount={roomGroups.filter((room) => (linesByRoom[room] || []).length > 0).length}
-            linesCount={quoteLines.length}
-            onPreview={() => handlePreview()}
-            onSave={() => persistQuote()}
-            onClose={() => setSendModalOpen(false)}
-            onSent={handleQuoteSent}
-          />
-        ) : null}
+        {panneauEnvoi}
         </div>
       </form>
     </Shell>

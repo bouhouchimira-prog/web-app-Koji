@@ -65,12 +65,14 @@ export function SendQuoteFlow({
   onPreview,
   onSave,
   onClose,
-  onSent
+  onSent,
+  messageInitial
 }) {
   const [adresse, setAdresse] = useState(client?.email || "");
   const [telephone, setTelephone] = useState(client?.phone || "");
   const [modifierClient, setModifierClient] = useState(!client?.email);
-  const [message, setMessage] = useState(() => messageEnvoi({ client: client?.name || "", projet, debut }));
+  // Nouvelle version (PRO-03.6) : le message proposé avec les écarts.
+  const [message, setMessage] = useState(() => messageInitial || messageEnvoi({ client: client?.name || "", projet, debut }));
   const [kojiClient, setKojiClient] = useState(true);
   const [email, setEmail] = useState(true);
   const [sms, setSms] = useState(false);

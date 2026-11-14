@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MENTION_TAUX_REDUIT, estTauxReduit } from "../../../lib/tva";
+import { ecartsVersions, libelleEcart, signe } from "../../../lib/devis-versions";
 import { useParams } from "next/navigation";
 import { euro } from "../../../lib/pricing";
+
+const euro2 = (n) => `${Number(n || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 import { useLocale } from "../../../lib/i18n";
 
 export default function PublicSignaturePage() {
@@ -40,6 +43,12 @@ export default function PublicSignaturePage() {
   }, [token]);
 
   const alreadySigned = quote?.signatureStatus === "Signe";
+  // Nouvelle version (maquette PRO-03.6) : ce qui change depuis la précédente.
+  const [voirAvant, setVoirAvant] = useState(false);
+  const versions = Array.isArray(quote?.versions) ? quote.versions : [];
+  const versionAvant = versions.length > 1 ? versions[versions.length - 2] : null;
+  const versionCourante = versions.length > 1 ? versions[versions.length - 1] : null;
+  const ecarts = versionAvant ? ecartsVersions(versionAvant, versionCourante, { tauxTva: quote?.vatRate || 0 }) : null;
   // TVA à taux réduit (maquette PRO-03.5) : le client certifie la mention en
   // signant ; sans elle, le taux réduit ne s'applique pas.
   const mentionAttendue = Boolean(quote) && !quote.autoliquidation
@@ -99,6 +108,30 @@ export default function PublicSignaturePage() {
               <div className="metric"><span>{L.signaturePub.lines}</span><strong>{totalItems}</strong></div>
               <div className="metric"><span>{L.signaturePub.status}</span><strong>{alreadySigned ? L.signaturePub.signedStatus : L.signaturePub.toSignStatus}</strong></div>
             </div>
+
+            {ecarts ? (
+              <section className="signature-versions">
+                <h2>Ce qui change · version {Number(versionCourante.number) || versions.length}</h2>
+                {ecarts.lignes.length ? ecarts.lignes.map((l, i) => (
+                  <div className="signature-ecart" key={`${l.kind}-${i}`}>
+                    <span className="tag">{libelleEcart(l.kind)}</span>
+                    <span>{l.labelAvant ? `${l.label} au lieu de ${l.labelAvant}` : l.label}</span>
+                    <b>{signe(l.ecartTtc)} € TTC</b>
+                  </div>
+                )) : <p className="muted">Mêmes lignes que la version précédente.</p>}
+                <div className="signature-ecart total"><span>Nouveau total</span><b>{euro2(ecarts.totalTtc.apres)} TTC</b></div>
+                <div className="signature-ecart"><span>Avant</span><b>{euro2(ecarts.totalTtc.avant)} TTC</b></div>
+                <button type="button" className="link" onClick={() => setVoirAvant((v) => !v)}>
+                  {voirAvant ? "Masquer" : "Voir"} la version {Number(versionAvant.number) || versions.length - 1}
+                </button>
+                {voirAvant ? (
+                  <ul className="signature-avant">
+                    {(versionAvant.lines || []).map((l, i) => <li key={`${l.id}-${i}`}><span>{l.label}</span><b>{euro2(l.totalHt)} HT</b></li>)}
+                  </ul>
+                ) : null}
+                <p className="muted">La version précédente reste consultable mais ne peut plus être signée.</p>
+              </section>
+            ) : null}
 
             <section className="signature-quote-lines">
               {(quote.items || []).length === 0 ? (

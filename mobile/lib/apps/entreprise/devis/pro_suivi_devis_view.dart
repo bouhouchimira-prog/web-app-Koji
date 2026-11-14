@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:koji/apps/entreprise/devis/devis_guide.dart' show euros;
 import 'package:koji/apps/entreprise/devis/devis_liste.dart' show statutDevis;
 import 'package:koji/apps/entreprise/devis/devis_suivi.dart';
+import 'package:koji/apps/entreprise/devis/devis_versions.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 
 /// Un lot du devis, en lecture seule.
@@ -178,6 +179,7 @@ class ProSuiviDevisView extends StatelessWidget {
             else if (chantierLance && onVoirChantier != null)
               SizedBox(height: 44, child: _Secondaire(libelle: 'Voir le chantier', onTap: onVoirChantier!)),
           ],
+          ..._ceQuiChange(da),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -230,6 +232,61 @@ class ProSuiviDevisView extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+extension on ProSuiviDevisView {
+  // Versions (maquette PRO-03.6) : ce qui a changé depuis la version
+  // précédente, lignes concernées seulement.
+  List<Widget> _ceQuiChange(ProDa da) {
+    final versions = ((devis['versions'] as List?) ?? const []).whereType<Map>().toList();
+    if (versions.length < 2) return const [];
+    final avant = versions[versions.length - 2];
+    final apres = versions.last;
+    final e = ecartsVersions(avant, apres, tauxTva: (devis['vatRate'] as num?) ?? 0);
+    return [
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: da.card, border: Border.all(color: da.line)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Ce qui a changé · version ${int.tryParse('${apres['number']}') ?? versions.length}', style: da.text(15, weight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(resumeEcarts(e), style: da.text(12, color: da.grey)),
+            for (final l in e.lignes)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(border: Border.all(color: l.kind == 'del' ? da.grey : da.ink), borderRadius: BorderRadius.circular(4)),
+                      child: Text(libelleEcart(l.kind), style: da.text(11, weight: FontWeight.w700, color: l.kind == 'del' ? da.grey : da.ink)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l.labelAvant.isNotEmpty ? '${l.label} au lieu de ${l.labelAvant}' : l.label,
+                          style: da.text(13, height: 1.35, color: l.kind == 'del' ? da.grey : da.ink)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(signe(l.ecart), style: da.text(13, weight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: Text('Total TTC', style: da.text(13, color: da.grey))),
+                Text('${euros(e.totalTtc.$1)} → ${euros(e.totalTtc.$2)}', style: da.text(13, weight: FontWeight.w600)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 }
 

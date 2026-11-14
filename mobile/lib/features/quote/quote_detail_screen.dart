@@ -563,6 +563,15 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         'sms': c.sms,
         'envoyerEmail': c.email,
         'pdfBase64': pdf,
+        // Instantané de la version envoyée (maquette PRO-03.6).
+        'totalHt': _grandTotalGeneralHT,
+        'totalTtc': _grandTotalTTC,
+        'lignes': [
+          for (final r in _guide.lotsVisibles)
+            for (final l in _linesByRoom[r]!)
+              if (!l.isComment)
+                {'id': l.taskId, 'label': l.label, 'room': _guide.titreLot(r), 'quantity': l.qty, 'unit': l.unite, 'totalHt': l.totalLigne},
+        ],
       });
       if (mounted) setState(() => _statut = 'Envoye');
       if (c.sms) {

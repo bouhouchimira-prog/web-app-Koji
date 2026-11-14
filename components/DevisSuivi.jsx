@@ -146,7 +146,8 @@ export function DevisSuivi({
   onOuvrirAcompte,
   onRelancer,
   onModifier,
-  onApercu
+  onApercu,
+  onVersions
 }) {
   const signe = quote.status === "Signe" || quote.signatureStatus === "Signe";
   const statut = statutDevis(quote, aujourdhui);
@@ -226,7 +227,11 @@ export function DevisSuivi({
             <div className="dv-cli">
               <div><span className="lab">Client</span><strong>{client.name || "Client"}</strong><span className="muted">{client.detail || "—"}</span></div>
               <div><span className="lab">Chantier</span><strong>{chantier.titre || "—"}</strong><span className="muted">{chantier.detail || "—"}</span></div>
-              <div><span className="lab">Version</span><strong>{version.titre}</strong><span className="muted">{version.detail}</span></div>
+              <div>
+                <span className="lab">Version</span>
+                <strong>{version.titre}</strong>
+                <span className="muted">{version.detail}{onVersions ? <> · <button type="button" className="sv-lien" onClick={onVersions}>Voir les versions</button></> : null}</span>
+              </div>
             </div>
           </div>
           <div className="m-sec sv-m-h"><h2>Devis</h2><button type="button" className="link" onClick={onApercu}>PDF</button></div>
