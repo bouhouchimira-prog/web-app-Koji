@@ -21,6 +21,9 @@ import 'package:koji/apps/entreprise/devis/devis_guide.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_guide_view.dart';
 import 'package:koji/apps/entreprise/devis/devis_envoi.dart';
 import 'package:koji/apps/entreprise/devis/pro_envoi_devis_screen.dart';
+import 'package:koji/apps/entreprise/devis/pro_suivi_devis_view.dart';
+import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart' show ouvrirRelanceDevis;
+import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
@@ -148,6 +151,127 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   int _acompte = 30;
   String _solde = 'à la réception des travaux';
   late String? _statut = widget.data['status'] as String?;
+
+  // Après l'envoi (maquette PRO-03.3) : un devis envoyé ou signé s'ouvre en
+  // suivi ; « Modifier » repasse dans le devis guidé.
+  bool _editionApresEnvoi = false;
+  Map<String, dynamic>? _suiviWeb;
+  bool _chantierLance = false;
+  bool _suiviCharge = false;
+
+  bool get _devisSigne {
+    final st = (_statut ?? '').toLowerCase();
+    return st == 'signe' || st == 'signé' || st == 'signed' || widget.data['signed_at'] != null || _suiviWeb?['signatureStatus'] == 'Signe';
+  }
+
+  bool get _enSuivi => !_editionApresEnvoi && (_devisSigne || _statut == 'Envoye');
+
+  Future<void> _chargerSuivi() async {
+    final id = _idDevis;
+    if (id == null || id.isEmpty) return;
+    _suiviCharge = true;
+    final api = ref.read(proKojiWebProvider);
+    try {
+      final devis = await api.liste('/api/quotes', 'quotes');
+      final web = devis.where((q) => '${q['id']}' == id).firstOrNull;
+      var lance = false;
+      final projet = '${web?['projectId'] ?? ''}';
+      if (projet.isNotEmpty) {
+        final taches = await api.liste('/api/tasks', 'tasks');
+        lance = taches.any((t) => '${t['projectId']}' == projet &&
+            ['startDate', 'endDate', 'dueDate'].any((k) => '${t[k] ?? ''}'.isNotEmpty));
+      }
+      if (!mounted) return;
+      setState(() {
+        _suiviWeb = web;
+        _chantierLance = lance;
+      });
+    } catch (_) {
+      // Hors ligne : le suivi s'affiche avec ce que l'app connaît du devis.
+    }
+  }
+
+  /// Le devis vu par le suivi : dates et versions du serveur, montants et
+  /// conditions de l'app.
+  Map<String, dynamic> get _devisSuivi => {
+        ...?_suiviWeb,
+        'id': _idDevis,
+        'quoteNumber': _quoteNumber,
+        'client': _clientName,
+        'clientEmail': _clientEmail,
+        'status': _devisSigne ? 'Signe' : (_statut ?? 'Envoye'),
+        if (_devisSigne) 'signatureStatus': 'Signe',
+        if ((_suiviWeb?['signedAt'] ?? '').toString().isEmpty && widget.data['signed_at'] != null)
+          'signedAt': '${widget.data['signed_at']}',
+        'validityDays': joursDe(_quoteValidity),
+        'vatRate': _tvaRate,
+        'totalTtc': _grandTotalTTC,
+        'paymentMilestones': [
+          {'label': 'Acompte à la signature', 'percent': _acompte},
+          {'label': 'Solde — $_solde', 'percent': 100 - _acompte},
+        ],
+      };
+
+  Widget _buildSuivi() {
+    if (!_suiviCharge) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_suiviCharge) _chargerSuivi();
+      });
+    }
+    final devis = _devisSuivi;
+    final projet = '${devis['projectId'] ?? widget.data['chantier_id'] ?? ''}';
+    final lots = [
+      for (final r in _guide.lotsVisibles)
+        () {
+          final lignes = _linesByRoom[r]!;
+          final ids = {for (final l in lignes) l.taskId};
+          final visibles = lignes.where((l) =>
+              !l.isComment && !(l.parentTaskId.isNotEmpty && l.parentTaskId != l.taskId && ids.contains(l.parentTaskId)));
+          return SuiviLot(
+            _guide.codeLot(r),
+            _guide.titreLot(r),
+            _lotTotalHT(r),
+            [
+              for (final l in visibles)
+                (
+                  l.label,
+                  l.totalLigne + lignes.where((x) => x.parentTaskId == l.taskId && x.taskId != l.taskId).fold<double>(0, (s, x) => s + x.totalLigne),
+                  l.isVariante,
+                ),
+            ],
+          );
+        }(),
+    ];
+    return ProSuiviDevisView(
+      titre: 'Devis $_quoteNumber',
+      sousTitre: [_siteAddress, _clientName].map((x) => x.trim()).where((x) => x.isNotEmpty && x != 'Client').join(' · '),
+      devis: devis,
+      lots: lots,
+      totalHt: _grandTotalGeneralHT,
+      totalTtc: _grandTotalTTC,
+      aujourdhui: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      chantierLance: _chantierLance,
+      onRetour: () => context.pop(),
+      onRelancer: () async {
+        if (await ouvrirRelanceDevis(context, ref, devis)) _chargerSuivi();
+      },
+      onModifier: () => setState(() => _editionApresEnvoi = true),
+      onPdf: _previewPdf,
+      onLancer: projet.isEmpty
+          ? null
+          : () async {
+              final lance = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => ProLancerChantierScreen(projectId: projet)));
+              if (lance == true) _chargerSuivi();
+            },
+      onVoirChantier: projet.isEmpty ? null : () => context.push('/chantier/dashboard', extra: {'id': projet}),
+      onCreerAcompte: () => context.push('/chantier/facturation/create', extra: {
+        'quoteId': _idDevis,
+        'type': 'Acompte initial',
+        'amountMode': 'deposit',
+      }),
+    );
+  }
   // Id du devis une fois enregistré une première fois (enregistrement
   // automatique du devis guidé).
   String? _quoteId;
@@ -234,7 +358,12 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         },
       ),
     ));
-    if (envoye == true && mounted) _snack('Devis $_quoteNumber envoyé.');
+    if (envoye == true && mounted) {
+      // Une fois envoyé, le devis passe en suivi (maquette PRO-03.3).
+      setState(() => _editionApresEnvoi = false);
+      _chargerSuivi();
+      _snack('Devis $_quoteNumber envoyé.');
+    }
   }
 
   void _appliquerChoix(EnvoiDevisChoix c) {
@@ -275,6 +404,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         'subject': 'Devis $_quoteNumber${_companyName.trim().isEmpty ? '' : ' · ${_companyName.trim()}'}',
         'message': c.message,
         'kojiClient': c.kojiClient,
+        'sms': c.sms,
         'envoyerEmail': c.email,
         'pdfBase64': pdf,
       });
@@ -1031,6 +1161,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_vueDetaillee || _isLoadingDetails) return _buildRecapDetaille();
+    if (_enSuivi) return _buildSuivi();
     // Le premier message de Koji suit le devis chargé (sans IA).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _conversation.accueillir();

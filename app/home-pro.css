@@ -1869,3 +1869,49 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .fl-h .link{text-transform:none;letter-spacing:0;font-size:12px}
 .pro .dl-var{margin-left:8px;font-size:11px;vertical-align:middle}
 .pro .ed-act .btn.on{background:var(--fill);border-color:var(--fill);color:var(--filltxt)}
+/* Après l'envoi (maquette PRO-03.3) : devis en lecture seule, suivi à droite. */
+.pro .sv .dv-top .tag,.pro .sv .dv-top .signed{margin-right:8px;flex:none}
+.pro .sv .dv-top .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+.pro .sv-body{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:calc(100vh - 64px)}
+.pro .sv .dv-doc{border-right:1px solid var(--line)}
+.pro .dv-side{display:flex;flex-direction:column;gap:16px;padding:24px;overflow:auto;background:var(--bg)}
+.pro .dv-side .card{padding:20px}
+.pro .dv-side .card-h{margin-bottom:12px}
+.pro .dv-side .card-h h2{font-size:16px}
+.pro .dv-side .card.next{border-color:var(--ink)}
+.pro .dv-side .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--rule);font-size:13px}
+.pro .dv-side .kv span{color:var(--grey)}
+.pro .dv-side .kv b{font-weight:600;text-align:right}
+.pro .sv-wide{width:100%;margin-top:12px}
+.pro .tl{margin:0;padding:0;list-style:none}
+.pro .tl li{position:relative;display:flex;gap:12px;padding:0 0 16px}
+.pro .tl li:last-child{padding-bottom:0}
+.pro .tl li::before{content:"";position:absolute;top:22px;bottom:-2px;left:9px;width:1px;background:var(--line)}
+.pro .tl li:last-child::before{display:none}
+.pro .tl .dot{z-index:1;display:grid;place-items:center;flex:none;width:20px;height:20px;background:var(--card);border:1.5px solid var(--ink);border-radius:50%}
+.pro .tl .dot svg{width:11px;height:11px;fill:none;stroke:var(--card);stroke-width:3}
+.pro .tl li.done .dot{background:var(--ink)}
+.pro .tl li.todo .dot{border-color:#C9C4B9}
+.pro .tl li.todo strong{color:var(--btn);font-weight:500}
+.pro .tl li.now .dot{border-width:2px}
+.pro .tl strong{display:block;font-size:14px;font-weight:600}
+.pro .tl small{display:block;margin-top:2px;color:var(--grey);font-size:12px}
+.pro .dv-doc.ro .dl{cursor:default}
+.pro .dv-doc.ro .dv-lines .dl{grid-template-columns:minmax(0,1fr) 90px 110px 110px}
+.pro .svm-amt,.pro .svm-act,.pro .sv-m-h{display:none}
+.pro .sv-fil .msgs{flex:1;min-height:160px;padding:0}
+.pro .sv-msg-h{display:block;margin-bottom:4px;opacity:.75;font-size:11px}
+.pro .sv-msg-p{display:block;margin-top:4px;opacity:.75;font-size:12px}
+@media (max-width:900px){
+  .pro .sv-body{display:flex;flex-direction:column;min-height:0}
+  .pro .sv .dv-side{order:-1;padding:16px;gap:12px}
+  .pro .sv .dv-doc{border-right:0}
+  .pro .sv .dv-doc-h{display:none}
+  .pro .svm-amt{display:flex;flex-direction:column;gap:2px}
+  .pro .svm-amt b{font-size:24px;font-weight:600;letter-spacing:-.01em}
+  .pro .svm-act{display:flex;gap:8px}
+  .pro .svm-act .btn{flex:1;height:44px;font-size:14px}
+  .pro .sv-m-h{display:flex;align-items:center;justify-content:space-between;margin:8px 0}
+  .pro .sv-m-h h2{margin:0;font-size:17px}
+  .pro .dv-doc.ro .dv-lines .dl{grid-template-columns:minmax(0,1fr) 96px}
+}

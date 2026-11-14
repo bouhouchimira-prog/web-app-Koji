@@ -15,6 +15,8 @@ import { calculateTaskPrice } from "../../lib/pricing";
 import { computeSurchargeBreakdown } from "../../lib/quote-calculations";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
+import { DevisSuivi } from "../../components/DevisSuivi";
+import { RelanceDevis } from "../../components/RelanceDevis";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
 import catalog from "../../data/catalog-ouvrages.json";
@@ -464,6 +466,10 @@ export default function DevisEditor() {
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   // Fenetre "Envoyer le devis" (16 oct, maquette Artifact DevisEnvoi).
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  // Après l'envoi (maquette PRO-03.3) : un devis envoyé ou signé s'ouvre en
+  // suivi, en lecture seule ; « Modifier » repasse dans l'éditeur.
+  const [editionApresEnvoi, setEditionApresEnvoi] = useState(false);
+  const [relanceOuverte, setRelanceOuverte] = useState(false);
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
   // Panneau "outils" (Client/Lots/Bibliotheque/Fournitures) en tiroir sur
@@ -1939,7 +1945,7 @@ export default function DevisEditor() {
     }
   }
 
-  async function createDepositInvoice() {
+  async function createDepositInvoice(percent = depositPercent) {
     if (!generatedQuote?.id || !generatedQuote.projectId) return;
     setDepositBusy(true);
     try {
@@ -1948,7 +1954,7 @@ export default function DevisEditor() {
         projectId: generatedQuote.projectId,
         type: "Acompte initial",
         amountMode: "deposit",
-        depositPercent
+        depositPercent: percent
       });
       setInvoices((current) => [invoice, ...current]);
       notify(`Facture d'acompte ${invoice.invoiceNumber} créée en brouillon.`, "success");
@@ -2467,6 +2473,8 @@ export default function DevisEditor() {
 
   function handleQuoteSent(quote, { silent } = {}) {
     setGeneratedQuote(quote);
+    // Une fois envoyé, le devis repasse en suivi (maquette PRO-03.3).
+    setEditionApresEnvoi(false);
     setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
     // E-mail et téléphone saisis dans le panneau d'envoi : gardés sur le devis.
     setForm((current) => ({ ...current, clientEmail: quote.clientEmail || current.clientEmail, clientPhone: quote.clientPhone || current.clientPhone }));
@@ -3649,6 +3657,66 @@ export default function DevisEditor() {
     `${L.devis.versionNum} ${previewVersionNumber}`,
     [QUOTE_STATUS_WORDS[generatedQuote?.status] || "brouillon", savedLabel].join(" ")
   ].filter(Boolean).join(" · ");
+
+  const devisSigne = generatedQuote?.status === "Signe" || generatedQuote?.signatureStatus === "Signe";
+  const lectureSeule = Boolean(generatedQuote?.id) && !editionApresEnvoi && mode !== "recap"
+    && (devisSigne || (generatedQuote.status === "Envoye" && Boolean(generatedQuote.sentAt)));
+
+  if (lectureSeule) {
+    const chantierAdresse = [form.chantierAddressDetails?.address, form.chantierAddressDetails?.postalCode, form.chantierAddressDetails?.city].filter(Boolean).join(", ") || form.chantierAddress;
+    const lotsSuivi = roomGroups.map((room) => {
+      const lignes = linesByRoom[room] || [];
+      return {
+        nom: room === "Services" ? L.devis.generalWorks : room,
+        code: lotCode(room),
+        total: lignes.filter((l) => !l.variante).reduce((s, l) => s + l.totalHt, 0),
+        lignes: lignes.map((l) => {
+          const qte = Number(l.quantity || 0);
+          return {
+            id: l.id,
+            label: l.label,
+            quantite: qte > 0 ? `${qte.toLocaleString("fr-FR")} ${unitLabel(l.unit)}` : "—",
+            pu: qte > 0 ? l.totalHt / qte : l.totalHt,
+            total: l.totalHt,
+            variante: Boolean(l.variante)
+          };
+        })
+      };
+    });
+    const acompteFacture = invoices.find((invoice) => invoice.quoteId === generatedQuote.id
+      && /acompte/i.test(invoice.type || "") && invoice.status !== "Annulee" && !invoice.archived);
+    return (
+      <Shell variant="pro-focus">
+        {message ? <p className={`notice dv-msg ${messageType || ""}`} role="status">{message}</p> : null}
+        <DevisSuivi
+          quote={generatedQuote}
+          aujourdhui={todayIso()}
+          lots={lotsSuivi}
+          totals={{ ht: summaryTotals.totalHt, tva: summaryTotals.vatAmount, ttc: summaryTotals.totalTtc, vatRate: quoteVatRate }}
+          client={{ name: headerClientName || "Client", detail: chantierAdresse || [form.clientPhone, form.clientEmail].filter(Boolean).join(" · ") }}
+          chantier={{ titre: form.project, detail: String(form.workDescription || "").split("\n")[0].slice(0, 80) || chantierAdresse }}
+          depositInvoice={acompteFacture}
+          depositBusy={depositBusy}
+          onCreerAcompte={(percent) => createDepositInvoice(percent)}
+          onRelancer={() => setRelanceOuverte(true)}
+          onModifier={() => setEditionApresEnvoi(true)}
+          onApercu={() => window.open(`/api/quotes/${generatedQuote.id}/documents?type=quote&format=pdf&preview=1`, "_blank")}
+        />
+        {relanceOuverte ? (
+          <RelanceDevis
+            quote={generatedQuote}
+            onClose={() => setRelanceOuverte(false)}
+            onDone={(quote, texte) => {
+              setGeneratedQuote(quote);
+              setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+              setRelanceOuverte(false);
+              notify(texte, "success");
+            }}
+          />
+        ) : null}
+      </Shell>
+    );
+  }
 
   return (
     <Shell variant="pro-focus">

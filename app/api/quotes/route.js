@@ -389,6 +389,12 @@ export async function PATCH(request) {
     }
     signatureAccess = buildSignatureAccess(sideDb, quote, body, request, now);
     quote.signatureProvider = "koji-signature";
+    // Canaux de cet envoi, rappelés dans « Conditions envoyées » (PRO-03.3).
+    quote.envoi = {
+      kojiClient: body.includeSignatureLink !== false,
+      email: body.sendEmail === true,
+      sms: body.canalSms === true
+    };
     quote.status = "Envoye";
     quote.signatureStatus = "En attente";
     quote.sentAt = now;

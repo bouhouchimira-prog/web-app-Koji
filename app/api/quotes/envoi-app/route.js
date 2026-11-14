@@ -90,6 +90,7 @@ export async function POST(request) {
         viewedAt: "",
         signatureStatus: "En attente",
         signatureProvider: "koji-signature",
+        envoi: { kojiClient, email: body.envoyerEmail === true, sms: body.sms === true },
         ...(extras.sentAt ? { versionNumber: String(versions + 1).padStart(3, "0") } : {})
       },
       updated_at: now

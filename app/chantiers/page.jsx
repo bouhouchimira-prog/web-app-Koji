@@ -353,6 +353,9 @@ export default function ProjectsTrackingPage() {
   const [ouvrageAddTab, setOuvrageAddTab] = useState("team");
   const [quickAddWorkerIds, setQuickAddWorkerIds] = useState([]);
   const [lancerOuvert, setLancerOuvert] = useState(false);
+  // « Lancer le chantier » depuis le devis signé (maquette PRO-03.3) :
+  // /chantiers?project=…&lancer=1 ouvre directement le panneau.
+  const [lancerAuto, setLancerAuto] = useState(false);
   const [lotOuvert, setLotOuvert] = useState(null);
   const [photosChantier, setPhotosChantier] = useState([]);
   const [filtrePhotos, setFiltrePhotos] = useState("tous");
@@ -392,6 +395,7 @@ export default function ProjectsTrackingPage() {
     if (projectId) setSelectedProjectId(projectId);
     if (lineKey) setOpenLineKey(lineKey);
     if (params.get("started") === "1") setStartChoiceMade(true);
+    if (params.get("lancer") === "1") setLancerAuto(true);
   }, []);
 
   useEffect(() => {
@@ -1725,7 +1729,7 @@ export default function ProjectsTrackingPage() {
           </section>
         ) : null}
 
-        {lancerOuvert && selectedQuote ? (
+        {(lancerOuvert || (lancerAuto && quoteSigned && lancerPossible)) && selectedQuote ? (
           <LancerChantier
             project={selectedProject}
             quote={selectedQuote}
@@ -1734,8 +1738,8 @@ export default function ProjectsTrackingPage() {
             hoursPerDay={Number(readStoredUser()?.business?.hoursPerDay) || 7}
             clientPortalAccess={clientPortalAccess}
             invoices={linkedInvoices}
-            onClose={() => setLancerOuvert(false)}
-            onDone={apresLancement}
+            onClose={() => { setLancerOuvert(false); setLancerAuto(false); }}
+            onDone={(...args) => { setLancerAuto(false); apresLancement(...args); }}
           />
         ) : null}
 

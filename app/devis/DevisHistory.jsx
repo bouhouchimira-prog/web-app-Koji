@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { RelanceDevis } from "../../components/RelanceDevis";
 import { Shell } from "../../components/Shell";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import { apiSend } from "../../lib/client-api";
-import { ONGLETS_DEVIS, RELANCE_JOURS, VALIDITE_JOURS, actionDevis, compterDevis, derniereAction, messageRelance, ongletDevis, resumeDevis, statutDevis } from "../../lib/devis-liste";
+import { ONGLETS_DEVIS, RELANCE_JOURS, VALIDITE_JOURS, actionDevis, compterDevis, derniereAction, ongletDevis, resumeDevis, statutDevis } from "../../lib/devis-liste";
 
 // Liste des devis, maquette PRO-03 : onglets, statut, dernière action et
 // action de la ligne (Reprendre, Relancer, Voir, Dupliquer) ; règles dans
@@ -70,24 +71,10 @@ export default function DevisHistory() {
     }
   }
 
-  async function envoyerRelance() {
-    setEnvoi(true);
-    try {
-      const { quote } = await apiSend("/api/quotes", { id: relance.quote.id, action: "relancer", message: relance.message }, "PATCH");
-      setQuotes((liste) => liste.map((q) => (q.id === quote.id ? quote : q)));
-      setMessage(`Relance envoyée à ${relance.quote.clientEmail}.`);
-      setRelance(null);
-    } catch (error) {
-      setMessage(error.message || "La relance n'est pas partie.");
-    } finally {
-      setEnvoi(false);
-    }
-  }
-
   function agir(quote, event) {
     event.stopPropagation();
     const action = actionDevis(quote, today);
-    if (action.id === "relancer") setRelance({ quote, message: messageRelance(quote, { entreprise: quote.company?.name || "" }) });
+    if (action.id === "relancer") setRelance({ quote });
     else if (action.id === "dupliquer") dupliquer(quote);
     else router.push(`/devis?id=${quote.id}`);
   }
@@ -185,27 +172,15 @@ export default function DevisHistory() {
       <p className="foot-note">Un devis envoyé sans réponse passe « À relancer » après {RELANCE_JOURS} jours. Validité par défaut {VALIDITE_JOURS} jours ; à l'échéance le devis passe « Expiré » et peut être dupliqué.</p>
 
       {relance ? (
-        <>
-          <div className="env-scrim" onClick={envoi ? undefined : () => setRelance(null)} />
-          <section className="env-panel dv-rel" role="dialog" aria-modal="true" aria-label={`Relancer le devis ${relance.quote.quoteNumber}`}>
-            <div className="env-h">
-              <div>
-                <h2>Relancer le devis {relance.quote.quoteNumber}</h2>
-                <span className="muted">{[relance.quote.client, relance.quote.clientEmail].filter(Boolean).join(" · ")}</span>
-              </div>
-              <button type="button" className="link" onClick={() => setRelance(null)} disabled={envoi}>Fermer</button>
-            </div>
-            <label className="dv-rel-m">
-              <span className="lab">Message · proposé par Koji</span>
-              <textarea rows={10} value={relance.message} onChange={(event) => setRelance({ ...relance, message: event.target.value })} maxLength={3000} />
-            </label>
-            <p className="muted">Koji ajoute le lien pour consulter et signer le devis ; le client garde le mot de passe reçu avec le premier envoi.</p>
-            {!relance.quote.clientEmail ? <p className="cl-err">Pas d'e-mail client sur ce devis.</p> : null}
-            <div className="env-act">
-              <button type="button" className="btn btn-main" disabled={envoi || !relance.quote.clientEmail || !relance.message.trim()} onClick={envoyerRelance}>{envoi ? "Envoi…" : "Envoyer la relance"}</button>
-            </div>
-          </section>
-        </>
+        <RelanceDevis
+          quote={relance.quote}
+          onClose={() => setRelance(null)}
+          onDone={(quote, texte) => {
+            setQuotes((liste) => liste.map((q) => (q.id === quote.id ? quote : q)));
+            setMessage(texte);
+            setRelance(null);
+          }}
+        />
       ) : null}
     </Shell>
   );

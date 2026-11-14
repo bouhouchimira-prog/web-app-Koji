@@ -112,6 +112,7 @@ export function SendQuoteFlow({
         includePdf: true,
         includeSignatureLink: kojiClient,
         includeCredentials: kojiClient,
+        canalSms: sms,
         ...(quote?.signatureStatus === "Signe" ? { confirmReopenSigned: true } : {})
       }, "PATCH");
 
