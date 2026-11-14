@@ -1,259 +1,233 @@
 "use client";
 
 import { useState } from "react";
-import { apiGet, apiSend } from "../lib/client-api";
-import { euro } from "../lib/pricing";
-import { contactDisplayName } from "../lib/contacts";
+import { apiSend } from "../lib/client-api";
+import {
+  ACOMPTES,
+  REGLEMENTS,
+  TAUX_TVA,
+  VALIDITES,
+  erreurEnvoi,
+  libelleAcompte,
+  libelleReglement,
+  libelleTva,
+  libelleValidite,
+  messageEnvoi,
+  nomFichierDevis,
+  resumePdf,
+  soldeDe,
+  texteSms
+} from "../lib/devis-envoi";
 
-// Fenetre "Envoyer le devis" (24 oct, maquette Artifact DevisRecapEnvoiContact)
-// — remplace components/SendQuoteModal.jsx : choix du destinataire (un
-// contact existant du carnet, ou un contact Marketplace deja engage via un
-// chantier — meme regle de confidentialite RDV que partout ailleurs,
-// /api/marketplace/mes-chantiers deja construit) + canaux COMBINABLES
-// (email/WhatsApp/SMS coches ensemble, un seul clic). L'email reste le seul
-// envoi reellement server-side (action "send", sendEmail:true) ; WhatsApp et
-// SMS restent des ouvertures manuelles d'appli (wa.me / sms:), decision du
-// 23 oct : pas d'integration operateur payante pour l'instant.
-//
-// A la difference de la maquette : garde "Inclure l'identifiant et le mot
-// de passe de connexion" (case a cocher, cochee par defaut) — sans eux le
-// client ne peut pas se connecter pour signer, la maquette ne le montre
-// pas mais le supprimer casserait la signature en ligne.
-export function SendQuoteFlow({ quote, quoteNumber, lotsCount, linesCount, totalTtc, contacts, onClose, onSent }) {
-  const [destinataireMode, setDestinataireMode] = useState("existing");
-  const [selected, setSelected] = useState(() => ({
-    key: "current",
-    name: quote?.client || "Client",
-    email: quote?.clientEmail || "",
-    phone: quote?.clientPhone || ""
-  }));
-  const [contactQuery, setContactQuery] = useState("");
-  const [marketplaceContacts, setMarketplaceContacts] = useState(null);
-  const [marketplaceError, setMarketplaceError] = useState("");
+// Envoyer le devis (maquette PRO-03.2) : panneau par-dessus l'éditeur. Les
+// réglages (validité, acompte, règlement, TVA) sont ceux du devis, modifiés
+// ici directement ; le devis est enregistré avant l'envoi pour que le PDF
+// et le lien de signature partent avec ces valeurs. Envoi : Koji Client
+// (lien de signature en ligne et identifiants), e-mail avec le PDF (envoyé
+// par Koji), SMS (ouvre l'appli SMS avec le texte prêt, pas d'envoi payant).
 
-  const [channelEmail, setChannelEmail] = useState(true);
-  const [channelWhatsapp, setChannelWhatsapp] = useState(false);
-  const [channelSms, setChannelSms] = useState(false);
+function IconCheck() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>;
+}
 
-  const [objet, setObjet] = useState(`Votre devis ${quoteNumber} — ${quote?.workDescription?.slice(0, 40) || ""}`.trim());
-  const [message, setMessage] = useState(`Bonjour ${(selected.name || "").split(" ")[0] || ""}, voici notre devis pour votre projet. Vous pouvez le lire et le signer en ligne en un clic. Je reste disponible pour toute question.`.trim());
-  const [includePdf, setIncludePdf] = useState(true);
-  const [includeSignatureLink, setIncludeSignatureLink] = useState(true);
-  const [includeCredentials, setIncludeCredentials] = useState(true);
-  const [sendCopyToSelf, setSendCopyToSelf] = useState(false);
+function IconPdf() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM9 12h6M9 16h6" /></svg>;
+}
 
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
+function IconSend() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z" /></svg>;
+}
 
-  function openMarketplaceTab() {
-    setDestinataireMode("marketplace");
-    if (marketplaceContacts !== null) return;
-    apiGet("/api/marketplace/mes-chantiers")
-      .then((data) => setMarketplaceContacts(data.chantiers || []))
-      .catch((err) => setMarketplaceError(err.message || "Impossible de charger vos chantiers Marketplace."));
-  }
+function euro(n) {
+  return Number(n || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+}
 
-  function pickContact(name, email, phone, key) {
-    setSelected({ key, name, email, phone });
-    setMessage((current) => current.replace(/^Bonjour [^,]*,/, `Bonjour ${(name || "").split(" ")[0] || ""},`));
-  }
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
-  const phoneDigits = String(selected.phone || "").replace(/[^\d]/g, "");
-  const channelsChosenLabels = [
-    channelEmail ? "e-mail" : null,
-    channelWhatsapp ? "WhatsApp" : null,
-    channelSms ? "SMS" : null
-  ].filter(Boolean);
-  const sendButtonLabel = channelsChosenLabels.length
-    ? `Envoyer par ${channelsChosenLabels.join(" et ")}…`
-    : "Envoyer…";
+export function SendQuoteFlow({
+  quote,
+  quoteNumber,
+  client,
+  projet,
+  debut,
+  entreprise,
+  totals,
+  vatRate,
+  onVatRate,
+  validityDays,
+  onValidity,
+  acompte,
+  onAcompte,
+  soldeLabel,
+  onReglement,
+  lotsCount,
+  linesCount,
+  onPreview,
+  onSave,
+  onClose,
+  onSent
+}) {
+  const [adresse, setAdresse] = useState(client?.email || "");
+  const [telephone, setTelephone] = useState(client?.phone || "");
+  const [modifierClient, setModifierClient] = useState(!client?.email);
+  const [message, setMessage] = useState(() => messageEnvoi({ client: client?.name || "", projet, debut }));
+  const [kojiClient, setKojiClient] = useState(true);
+  const [email, setEmail] = useState(true);
+  const [sms, setSms] = useState(false);
+  const [envoi, setEnvoi] = useState(false);
+  const [erreur, setErreur] = useState("");
 
-  async function submitSend(event) {
-    event.preventDefault();
-    if (!quote?.id) return;
-    if (!channelEmail && !channelWhatsapp && !channelSms) {
-      setError("Choisissez au moins un canal d'envoi.");
-      return;
-    }
-    if (channelEmail && !selected.email.trim()) {
-      setError("E-mail du destinataire manquant pour l'envoi par e-mail.");
-      return;
-    }
-    if ((channelWhatsapp || channelSms) && !phoneDigits) {
-      setError("Téléphone du destinataire manquant pour WhatsApp/SMS.");
-      return;
-    }
-    setSending(true);
-    setError("");
-    try {
-      const confirmReopenSigned = quote.signatureStatus === "Signe"
-        ? window.confirm("Ce devis est déjà signé. L'envoyer à nouveau effacera la signature existante. Continuer ?")
-        : undefined;
-      if (quote.signatureStatus === "Signe" && !confirmReopenSigned) { setSending(false); return; }
-      const { quote: updated, emailSent, emailError } = await apiSend("/api/quotes", {
-        id: quote.id,
-        action: "send",
-        clientEmail: selected.email,
-        clientPhone: selected.phone,
-        sendEmail: channelEmail,
-        emailSubject: objet,
-        emailMessage: message,
-        includePdf,
-        includeSignatureLink,
-        includeCredentials,
-        sendCopyToSelf,
-        ...(confirmReopenSigned ? { confirmReopenSigned: true } : {})
-      }, "PATCH");
-
-      if (channelEmail && emailSent === false) {
-        setError(`${emailError || "Impossible d'envoyer l'email."} Les autres canaux cochés restent ouverts ci-dessous.`);
-      }
-
-      const access = updated.signatureClientAccess;
-      if ((channelWhatsapp || channelSms) && access?.loginUrl) {
-        const shareText = [
-          message,
-          `Lien : ${access.loginUrl}`,
-          includeCredentials ? `Identifiant : ${access.identifier} · Mot de passe : ${access.password}` : null
-        ].filter(Boolean).join("\n");
-        if (channelWhatsapp) window.open(`https://wa.me/${phoneDigits}?text=${encodeURIComponent(shareText)}`, "_blank");
-        if (channelSms) window.open(`sms:${phoneDigits}?&body=${encodeURIComponent(shareText)}`);
-      }
-
-      if (!(channelEmail && emailSent === false)) {
-        onSent?.(updated, { silent: false });
-      } else {
-        onSent?.(updated, { silent: true });
-      }
-    } catch (err) {
-      setError(err.message || "Impossible d'envoyer le devis.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  const filteredContacts = (contacts || []).filter((contact) => {
-    if (!contactQuery.trim()) return true;
-    return contactDisplayName(contact).toLowerCase().includes(contactQuery.trim().toLowerCase());
-  }).slice(0, 30);
-
-  const channels = [
-    { id: "email", label: "E-mail", detail: selected.email || "—", checked: channelEmail, set: setChannelEmail },
-    { id: "whatsapp", label: "WhatsApp", detail: selected.phone || "—", checked: channelWhatsapp, set: setChannelWhatsapp },
-    { id: "sms", label: "SMS", detail: selected.phone || "—", checked: channelSms, set: setChannelSms }
+  const solde = soldeDe(soldeLabel);
+  const reglements = REGLEMENTS.some((r) => r.solde === solde) ? REGLEMENTS : [...REGLEMENTS, { solde, libelle: libelleReglement(soldeLabel) }];
+  const taux = TAUX_TVA.includes(Number(vatRate)) ? TAUX_TVA : [...TAUX_TVA, Number(vatRate)];
+  const canaux = [
+    { id: "koji", label: "Koji Client, avec signature en ligne", on: kojiClient, set: setKojiClient },
+    { id: "email", label: "E-mail avec le PDF", on: email, set: setEmail },
+    { id: "sms", label: "SMS de notification", on: sms, set: setSms }
   ];
 
+  async function envoyer() {
+    const manque = erreurEnvoi({ kojiClient, email, sms, adresse, telephone });
+    if (manque) {
+      setErreur(manque);
+      return;
+    }
+    if (quote?.signatureStatus === "Signe" && !window.confirm("Ce devis est déjà signé. L'envoyer à nouveau effacera la signature existante. Continuer ?")) return;
+    setEnvoi(true);
+    setErreur("");
+    try {
+      // Enregistre d'abord : le PDF et la signature partent avec les
+      // réglages choisis ici.
+      const enregistre = await onSave?.();
+      const id = enregistre?.id || quote?.id;
+      if (!id) throw new Error("Le devis n'a pas pu être enregistré.");
+      const { quote: envoye, emailSent, emailError } = await apiSend("/api/quotes", {
+        id,
+        action: "send",
+        clientEmail: adresse.trim(),
+        clientPhone: telephone.trim(),
+        sendEmail: email,
+        emailSubject: `Devis ${quoteNumber}${entreprise ? ` · ${entreprise}` : ""}`,
+        emailMessage: message,
+        includePdf: true,
+        includeSignatureLink: kojiClient,
+        includeCredentials: kojiClient,
+        ...(quote?.signatureStatus === "Signe" ? { confirmReopenSigned: true } : {})
+      }, "PATCH");
+
+      if (sms) {
+        const acces = envoye?.signatureClientAccess || {};
+        const texte = texteSms({ message, lien: acces.loginUrl || envoye?.signatureUrl, identifiant: acces.identifier, motDePasse: acces.password, kojiClient });
+        window.open(`sms:${telephone.replace(/[^\d+]/g, "")}?&body=${encodeURIComponent(texte)}`);
+      }
+      if (email && emailSent === false) {
+        setErreur(`${emailError || "L'e-mail n'est pas parti."} Le devis est bien marqué envoyé : renvoie-le depuis la liste des devis.`);
+        onSent?.(envoye, { silent: true });
+        return;
+      }
+      onSent?.(envoye, { silent: false });
+    } catch (err) {
+      setErreur(err.message || "Impossible d'envoyer le devis.");
+    } finally {
+      setEnvoi(false);
+    }
+  }
+
   return (
-    <div className="pmodal-bg" onClick={() => !sending && onClose?.()}>
-      <div className="pmodal sq" role="dialog" aria-modal="true" aria-label="Envoyer le devis" onClick={(event) => event.stopPropagation()}>
-        <div className="card-h">
+    <>
+      <div className="env-scrim" onClick={envoi ? undefined : onClose} />
+      <section className="env-panel sq-env" role="dialog" aria-modal="true" aria-label="Envoyer le devis">
+        <div className="env-h">
           <h2>Envoyer le devis</h2>
-          <button type="button" className="link" onClick={onClose} disabled={sending}>Fermer</button>
+          <button type="button" className="link" onClick={onClose} disabled={envoi}>Fermer</button>
         </div>
-        <p className="muted">Choisissez le client et les canaux. Il pourra lire et signer le devis depuis son téléphone.</p>
 
-        <div className="pm-sec">
-          <div className="kp-seg" role="group" aria-label="Origine du client">
-            <button type="button" className={destinataireMode === "existing" ? "on" : ""} aria-pressed={destinataireMode === "existing"} onClick={() => setDestinataireMode("existing")}>Client existant</button>
-            <button type="button" className={destinataireMode === "marketplace" ? "on" : ""} aria-pressed={destinataireMode === "marketplace"} onClick={openMarketplaceTab}>Client du Radar</button>
+        <div className="env-sum">
+          <div>
+            <span className="lab">Client</span>
+            <strong>{client?.name || "Client"}</strong>
+            {modifierClient ? (
+              <span className="sq-cli">
+                <input type="email" value={adresse} onChange={(e) => setAdresse(e.target.value)} placeholder="E-mail du client" aria-label="E-mail du client" />
+                <input type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="Téléphone" aria-label="Téléphone du client" />
+              </span>
+            ) : (
+              <span className="muted">
+                {[adresse, telephone].filter(Boolean).join(" · ") || "coordonnées à renseigner"}{" "}
+                <button type="button" className="sq-mod" onClick={() => setModifierClient(true)}>Modifier</button>
+              </span>
+            )}
           </div>
+          <div>
+            <span className="lab">Devis {quoteNumber}</span>
+            <strong>{euro(totals?.ht)} HT</strong>
+            <span className="muted">TVA {String(vatRate).replace(".", ",")} % {euro(totals?.tva)} · {euro(totals?.ttc)} TTC</span>
+          </div>
+        </div>
 
-          <h3>Destinataire</h3>
-          {destinataireMode === "existing" ? (
-            <>
-              <label className="search">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.5-4.5" /></svg>
-                <input value={contactQuery} onChange={(e) => setContactQuery(e.target.value)} placeholder="Rechercher un contact…" aria-label="Rechercher un contact" />
-              </label>
-              <div className="sq-list">
-                <button type="button" className={`sq-pick${selected.key === "current" ? " on" : ""}`} aria-pressed={selected.key === "current"} onClick={() => pickContact(quote?.client || "Client", quote?.clientEmail || "", quote?.clientPhone || "", "current")}>
-                  <b>{quote?.client || "Client"}</b>
-                  <small>{[quote?.clientEmail, quote?.clientPhone].filter(Boolean).join(" · ") || "coordonnées à renseigner"}</small>
-                </button>
-                {filteredContacts.map((contact) => (
-                  <button
-                    type="button"
-                    key={contact.id}
-                    className={`sq-pick${selected.key === contact.id ? " on" : ""}`}
-                    aria-pressed={selected.key === contact.id}
-                    onClick={() => pickContact(contactDisplayName(contact), contact.email || "", contact.phone || "", contact.id)}
-                  >
-                    <b>{contactDisplayName(contact)}</b>
-                    <small>{[contact.email, contact.phone].filter(Boolean).join(" · ")}</small>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="sq-list">
-              {marketplaceError ? <p className="err" role="alert">{marketplaceError}</p> : null}
-              {!marketplaceError && marketplaceContacts === null ? <p className="muted">Chargement…</p> : null}
-              {!marketplaceError && marketplaceContacts && !marketplaceContacts.length ? (
-                <p className="muted">Aucun chantier avec un RDV confirmé pour l'instant.</p>
-              ) : null}
-              {(marketplaceContacts || []).map((chantier) => (
-                <button
-                  type="button"
-                  key={chantier.offerId}
-                  className={`sq-pick${selected.key === chantier.offerId ? " on" : ""}`}
-                  aria-pressed={selected.key === chantier.offerId}
-                  onClick={() => pickContact(chantier.clientName, chantier.clientEmail || "", chantier.clientPhone || "", chantier.offerId)}
-                >
-                  <b>{chantier.clientName}</b>
-                  <small>{chantier.description || chantier.address}</small>
-                  <small>{[chantier.clientPhone, chantier.clientEmail].filter(Boolean).join(" · ")}</small>
-                </button>
+        <div className="env-grid">
+          <label className="ed">
+            <span className="ed-l">Validité</span>
+            <select className="selv" value={Number(validityDays) || 30} onChange={(e) => onValidity?.(Number(e.target.value))}>
+              {VALIDITES.map((j) => <option key={j} value={j}>{libelleValidite(j, aujourdhui())}</option>)}
+            </select>
+          </label>
+          <label className="ed">
+            <span className="ed-l">Acompte à la signature</span>
+            <select className="selv" value={Number(acompte) || 0} onChange={(e) => onAcompte?.(Number(e.target.value))}>
+              {(ACOMPTES.includes(Number(acompte) || 0) ? ACOMPTES : [...ACOMPTES, Number(acompte)].sort((a, b) => a - b)).map((p) => (
+                <option key={p} value={p}>{libelleAcompte(p, totals?.ttc)}</option>
               ))}
-            </div>
-          )}
+            </select>
+          </label>
+          <label className="ed">
+            <span className="ed-l">Règlement</span>
+            <select className="selv" value={solde} onChange={(e) => onReglement?.(`Solde — ${e.target.value}`)}>
+              {reglements.map((r) => <option key={r.solde} value={r.solde}>{r.libelle}</option>)}
+            </select>
+          </label>
+          <label className="ed">
+            <span className="ed-l">TVA réduite</span>
+            <select className="selv" value={Number(vatRate)} onChange={(e) => onVatRate?.(Number(e.target.value))}>
+              {taux.map((t) => <option key={t} value={t}>{libelleTva(t)}</option>)}
+            </select>
+          </label>
         </div>
 
-        <div className="pm-sec">
-          <h3>Canaux</h3>
-          <div className="sq-channels">
-            {channels.map((channel) => (
-              <label key={channel.id} className={`sq-ch${channel.checked ? " on" : ""}`}>
-                <input type="checkbox" checked={channel.checked} onChange={(e) => channel.set(e.target.checked)} />
-                <span><b>{channel.label}</b><small>{channel.detail}</small></span>
-              </label>
-            ))}
+        <label className="ed">
+          <span className="ed-l">Message au client</span>
+          <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
+        </label>
+
+        <div className="env-ch">
+          <span className="lab">Envoi</span>
+          {canaux.map((c) => (
+            <label key={c.id} className={`ck${c.on ? " on" : ""}`}>
+              <input type="checkbox" checked={c.on} onChange={(e) => c.set(e.target.checked)} />
+              {c.on ? <IconCheck /> : null}
+              {c.label}
+            </label>
+          ))}
+        </div>
+
+        <div className="env-pdf">
+          <IconPdf />
+          <div>
+            <strong>{nomFichierDevis(quoteNumber, client?.name)}</strong>
+            <span className="muted">{resumePdf(linesCount, lotsCount)}</span>
           </div>
+          <button type="button" className="link" onClick={onPreview} disabled={envoi}>Aperçu</button>
         </div>
 
-        <div className="fgrid">
-          {channelEmail ? (
-            <label className="full">Objet<input value={objet} onChange={(e) => setObjet(e.target.value)} /></label>
-          ) : null}
-          <label className="full">Message<textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} /></label>
+        {erreur ? <p className="err" role="alert">{erreur}</p> : null}
+
+        <div className="env-act">
+          <button type="button" className="btn btn-sec" onClick={onClose} disabled={envoi}>Retour au devis</button>
+          <button type="button" className="btn btn-main" onClick={envoyer} disabled={envoi}>
+            <IconSend />{envoi ? "Envoi…" : "Envoyer le devis"}
+          </button>
         </div>
-
-        {(channelWhatsapp || channelSms) ? (
-          <div className="sq-preview">
-            <span className="flab">Aperçu · {channelWhatsapp ? "WhatsApp" : "SMS"}</span>
-            <p>{message} {includeSignatureLink ? "Lien : getkoji.io/s/…" : ""}</p>
-            {includePdf ? <span className="tag tag-o">Devis_{quoteNumber}.pdf</span> : null}
-          </div>
-        ) : null}
-
-        <div className="sq-checks">
-          <label className="chk"><input type="checkbox" checked={includePdf} onChange={(e) => setIncludePdf(e.target.checked)} /> Joindre le devis en PDF</label>
-          <label className="chk"><input type="checkbox" checked={includeSignatureLink} onChange={(e) => setIncludeSignatureLink(e.target.checked)} /> Inclure le lien de signature en ligne</label>
-          <label className="chk"><input type="checkbox" checked={includeCredentials} onChange={(e) => setIncludeCredentials(e.target.checked)} /> Inclure l'identifiant et le mot de passe de connexion</label>
-          {channelEmail ? <label className="chk"><input type="checkbox" checked={sendCopyToSelf} onChange={(e) => setSendCopyToSelf(e.target.checked)} /> M'envoyer une copie</label> : null}
-        </div>
-
-        <div className="kv kv-strong">
-          <span>Devis {quoteNumber} · {lotsCount} lot{lotsCount > 1 ? "s" : ""} · {linesCount} ligne{linesCount > 1 ? "s" : ""}</span>
-          <b>{euro(totalTtc)} TTC</b>
-        </div>
-
-        {error ? <p className="err" role="alert">{error}</p> : null}
-
-        <div className="pm-act">
-          <button type="button" className="btn btn-sec" onClick={onClose} disabled={sending}>Annuler</button>
-          <button type="button" className="btn btn-main" onClick={submitSend} disabled={sending}>{sending ? "Envoi…" : sendButtonLabel}</button>
-        </div>
-      </div>
-    </div>
+      </section>
+    </>
   );
 }

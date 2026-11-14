@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,9 @@ import 'package:koji/features/quote/model/library_ouvrage.dart';
 import 'package:koji/features/quote/model/devis_line.dart';
 import 'package:koji/apps/entreprise/devis/devis_guide.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_guide_view.dart';
+import 'package:koji/apps/entreprise/devis/devis_envoi.dart';
+import 'package:koji/apps/entreprise/devis/pro_envoi_devis_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/fournitures/repository/fourniture_repository.dart';
@@ -139,6 +143,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     resultat: _guide.resultat,
   );
   bool _vueDetaillee = false;
+  // Envoyer le devis (maquette PRO-03.2).
+  String _clientPhone = '';
+  int _acompte = 30;
+  String _solde = 'à la réception des travaux';
+  late String? _statut = widget.data['status'] as String?;
   // Id du devis une fois enregistré une première fois (enregistrement
   // automatique du devis guidé).
   String? _quoteId;
@@ -184,6 +193,114 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         .saveQuote(user.id, _buildQuoteData(), quoteId: existingId);
     _quoteId = id;
     return (id: id, le: DateTime.now().toUtc().toIso8601String());
+  }
+
+  // ─── Envoyer le devis (maquette PRO-03.2) ─────────────────────────────────
+  DateTime? get _debutTravaux {
+    final t = _startCtrl.text.trim();
+    if (t.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(t);
+    } catch (_) {
+      return DateTime.tryParse(t);
+    }
+  }
+
+  Future<void> _ouvrirEnvoi() async {
+    final lignes = _linesByRoom.values.expand((x) => x).where((l) => !l.isComment).length;
+    if (lignes == 0) {
+      _snack("Ajoute au moins une ligne avant d'envoyer le devis.", error: true);
+      return;
+    }
+    final lots = _guide.lotsVisibles.where((r) => _linesByRoom[r]!.isNotEmpty).length;
+    final envoye = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ProEnvoiDevisScreen(
+        numero: _quoteNumber,
+        client: _clientName == 'Client' ? '' : _clientName,
+        email: _clientEmail,
+        telephone: _clientPhone,
+        debut: _debutTravaux,
+        totalHt: _grandTotalGeneralHT,
+        tva: _tvaRate,
+        validite: joursDe(_quoteValidity),
+        acompte: _acompte,
+        solde: _solde,
+        lignes: lignes,
+        lots: lots,
+        onEnvoyer: _envoyerDevis,
+        onApercu: (choix) async {
+          _appliquerChoix(choix);
+          await _previewPdf();
+        },
+      ),
+    ));
+    if (envoye == true && mounted) _snack('Devis $_quoteNumber envoyé.');
+  }
+
+  void _appliquerChoix(EnvoiDevisChoix c) {
+    setState(() {
+      _quoteValidity = '${c.validite} jours';
+      _acompte = c.acompte;
+      _solde = c.solde;
+      _tvaRate = c.tva.toInt();
+      _mentionsCtrl.text = mentionsAvecPaiement(_mentionsCtrl.text, c.acompte, c.solde);
+      if (c.adresse.isNotEmpty) _clientEmail = c.adresse;
+      if (c.telephone.isNotEmpty) _clientPhone = c.telephone;
+    });
+  }
+
+  // Enregistre avec les réglages choisis, fait le PDF, puis Koji envoie
+  // l'e-mail et marque le devis « Envoyé » ; le SMS s'ouvre sur le téléphone.
+  Future<String?> _envoyerDevis(EnvoiDevisChoix c) async {
+    _appliquerChoix(c);
+    try {
+      await _enregistrerAuto();
+    } catch (e) {
+      return e.toString();
+    }
+    var pdf = '';
+    if (c.email) {
+      try {
+        final doc = await DevisPdfService().generate(quoteData: _buildQuoteData(), logoPath: _logoPath);
+        pdf = base64Encode(await doc.save());
+      } catch (e) {
+        return "Le PDF n'a pas pu être préparé : $e";
+      }
+    }
+    try {
+      final r = await ref.read(proKojiWebProvider).envoyerDevisApp({
+        'quoteId': _idDevis,
+        'to': c.adresse,
+        'telephone': c.telephone,
+        'subject': 'Devis $_quoteNumber${_companyName.trim().isEmpty ? '' : ' · ${_companyName.trim()}'}',
+        'message': c.message,
+        'kojiClient': c.kojiClient,
+        'envoyerEmail': c.email,
+        'pdfBase64': pdf,
+      });
+      if (mounted) setState(() => _statut = 'Envoye');
+      if (c.sms) {
+        final s = r['signature'] is Map ? r['signature'] as Map : const {};
+        final texte = texteSms(
+          message: c.message,
+          lien: (s['lien'] ?? '').toString(),
+          identifiant: (s['identifiant'] ?? '').toString(),
+          motDePasse: (s['motDePasse'] ?? '').toString(),
+          kojiClient: c.kojiClient,
+        );
+        final tel = c.telephone.replaceAll(RegExp(r'[^\d+]'), '');
+        final corps = Uri.encodeComponent(texte);
+        await launchUrl(Uri.parse(Platform.isIOS ? 'sms:$tel&body=$corps' : 'sms:$tel?body=$corps'));
+      }
+      if (c.email && r['emailSent'] == false) {
+        return "${r['emailError'] ?? "L'e-mail n'est pas parti."} Le devis est bien marqué envoyé.";
+      }
+      return null;
+    } on ProKojiWebException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Envoi impossible : $e';
+    }
   }
 
   // Photo du chantier pour Koji : réduite à 1568 px, en JPEG.
@@ -436,6 +553,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     _clientName = client['name'] ?? '';
     _clientAddress = client['address'] ?? '';
     _clientEmail = client['email'] ?? '';
+    _clientPhone = (client['phone'] ?? '').toString();
 
     final company = safe(d['company']);
     _companyName = company['name'] ?? _companyName;
@@ -459,6 +577,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     _decennalePct =
         (recap['decennalePct'] as num?)?.toDouble() ?? _decennalePct;
     _tvaRate = (recap['tvaRate'] as num?)?.toInt() ?? _tvaRate;
+    _acompte = (recap['acompte'] as num?)?.toInt() ?? _acompte;
+    _solde = (recap['reglement'] as String?)?.trim().isNotEmpty == true ? recap['reglement'] as String : _solde;
     final lots = safe(d['lots']);
     lots.forEach((roomId, meta) {
       _lotMeta[roomId] = safe(meta);
@@ -822,8 +942,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       'client': {
         'name': _clientName,
         'address': _clientAddress,
-        'email': _clientEmail
+        'email': _clientEmail,
+        if (_clientPhone.isNotEmpty) 'phone': _clientPhone,
       },
+      // Un devis déjà envoyé le reste quand on le réenregistre.
+      if (_statut != null && _statut!.isNotEmpty && _statut != 'Draft') 'status': _statut,
       'company': {
         'name': _companyName,
         'address': _companyAddress,
@@ -870,6 +993,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         'aleasPct': _aleasPct,
         'decennalePct': _decennalePct,
         'tvaRate': _tvaRate,
+        'acompte': _acompte,
+        'reglement': _solde,
       },
       'lots': {
         for (final entry in _lotMeta.entries) entry.key: entry.value,
@@ -923,7 +1048,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       totalHt: _grandTotalGeneralHT,
       totalTtc: _grandTotalTTC,
       onRetour: () => context.pop(),
-      onEnvoyer: _isSaving ? () {} : _generateQuote,
+      onEnvoyer: _isSaving ? () {} : _ouvrirEnvoi,
       onChange: () => setState(() {}),
       onAjouterOuvrage: _addOuvrageToLot,
       onAjouterFourniture: _addFournitureToLot,

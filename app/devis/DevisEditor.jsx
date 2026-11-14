@@ -2468,9 +2468,11 @@ export default function DevisEditor() {
   function handleQuoteSent(quote, { silent } = {}) {
     setGeneratedQuote(quote);
     setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+    // E-mail et téléphone saisis dans le panneau d'envoi : gardés sur le devis.
+    setForm((current) => ({ ...current, clientEmail: quote.clientEmail || current.clientEmail, clientPhone: quote.clientPhone || current.clientPhone }));
     if (!silent) {
       setSendModalOpen(false);
-      notify("Devis envoyé au client par e-mail.", "success");
+      notify(`Devis ${quote.quoteNumber || ""} envoyé.`.replace("  ", " "), "success");
     }
   }
 
@@ -4367,10 +4369,23 @@ export default function DevisEditor() {
           <SendQuoteFlow
             quote={generatedQuote}
             quoteNumber={previewQuoteNumber}
-            lotsCount={roomGroups.length}
+            client={{ name: headerClientName || "Client", email: form.clientEmail, phone: form.clientPhone }}
+            projet={form.project}
+            debut={form.startDate}
+            entreprise={company.name}
+            totals={{ ht: summaryTotals.totalHt, tva: summaryTotals.vatAmount, ttc: summaryTotals.totalTtc }}
+            vatRate={quoteVatRate}
+            onVatRate={setQuoteVatRate}
+            validityDays={form.validityDays}
+            onValidity={(jours) => setField("validityDays", jours)}
+            acompte={paymentMilestones[0]?.percent ?? 30}
+            onAcompte={updateAcomptePercent}
+            soldeLabel={paymentMilestones[1]?.label}
+            onReglement={updateSoldeLabel}
+            lotsCount={roomGroups.filter((room) => (linesByRoom[room] || []).length > 0).length}
             linesCount={quoteLines.length}
-            totalTtc={summaryTotals.totalTtc}
-            contacts={contacts}
+            onPreview={() => handlePreview()}
+            onSave={() => persistQuote()}
             onClose={() => setSendModalOpen(false)}
             onSent={handleQuoteSent}
           />

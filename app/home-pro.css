@@ -1618,6 +1618,19 @@
 .pro .env-act{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:10px;margin-top:auto;padding:12px 0 20px;background:var(--bg);border-top:1px solid var(--line)}
 .pro .env-act .btn-main{height:48px;padding:0 22px}
 .pro .env-act .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+/* Envoyer le devis (maquette PRO-03.2) */
+.pro .sq-env textarea{line-height:1.5}
+.pro .sq-env .ed .ed-l{color:var(--grey)}
+.pro .sq-env select.selv{width:100%;cursor:pointer}
+.pro .sq-cli{display:flex;flex-direction:column;gap:6px;width:100%;margin-top:4px}
+.pro .sq-cli input{width:100%;height:36px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);color:var(--ink);font:inherit;font-size:14px}
+.pro .sq-mod{padding:0;background:none;border:0;color:var(--ink);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+.pro .env-pdf{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-struct)}
+.pro .env-pdf > div{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+.pro .env-pdf strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pro .env-pdf .muted{font-size:13px}
+.pro .env-pdf svg{flex:none;width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:1.6}
+.pro .env-act .btn-main{display:inline-flex;align-items:center;gap:8px}
 .pro .lancer-card{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:20px;padding:16px 20px;background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:var(--r-struct)}
 .pro .lancer-card > div{display:flex;flex:1 1 320px;flex-direction:column;gap:4px}
 .pro .lancer-card strong{font-size:16px}

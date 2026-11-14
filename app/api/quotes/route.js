@@ -7,6 +7,9 @@ import { isVerifiedUserAdmin } from "../../../lib/admin-account";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
+import { nomFichierDevis } from "../../../lib/devis-envoi";
+
+const emailValide = (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim()) ? String(v).trim() : "");
 import { randomChars, makeTemporaryPassword } from "../../../lib/secure-random";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
@@ -413,13 +416,19 @@ export async function PATCH(request) {
           // PJ manquante != envoi bloque — l'email part quand meme sans PDF.
         }
       }
+      // Réponses du client : à l'e-mail de l'entreprise sur le devis, sinon
+      // à celui du compte.
+      const replyTo = emailValide(quote.company?.email)
+        || emailValide((await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle()).data?.email)
+        || undefined;
       const mailResult = await sendQuoteToClientEmail({
         to: signatureAccess.email,
         subject: fixText(body.emailSubject || `Votre devis ${quote.quoteNumber}`),
         message: fixText(body.emailMessage || ""),
         quoteNumber: quote.quoteNumber,
         pdfBuffer,
-        pdfFilename: `devis-${quote.quoteNumber}.pdf`,
+        pdfFilename: nomFichierDevis(quote.quoteNumber, quote.client),
+        replyTo,
         signatureUrl: signatureAccess.loginUrl,
         identifier: signatureAccess.identifier,
         password: signatureAccess.password,
@@ -438,7 +447,7 @@ export async function PATCH(request) {
             message: fixText(body.emailMessage || ""),
             quoteNumber: quote.quoteNumber,
             pdfBuffer,
-            pdfFilename: `devis-${quote.quoteNumber}.pdf`,
+            pdfFilename: nomFichierDevis(quote.quoteNumber, quote.client),
             signatureUrl: signatureAccess.loginUrl,
             identifier: signatureAccess.identifier,
             password: signatureAccess.password,

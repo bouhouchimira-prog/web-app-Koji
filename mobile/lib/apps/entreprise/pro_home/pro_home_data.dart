@@ -118,6 +118,13 @@ class ProKojiWebClient {
     yield* tramesSse(res.stream.transform(utf8.decoder));
   }
 
+  /// Envoyer le devis (maquette PRO-03.2) : e-mail avec le PDF fait par
+  /// l'app, lien de signature relu sur le devis, devis marqué « Envoyé ».
+  Future<Map<String, dynamic>> envoyerDevisApp(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/quotes/envoi-app', body);
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
   /// Zone de travail renvoyée avec la dernière liste d'offres (carte).
   RadarZone? zone;
 
