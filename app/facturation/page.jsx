@@ -133,7 +133,7 @@ function InvoiceStatus({ bucket }) {
   }
   if (bucket === "Annulee") return <span className="tag tag-o dim">Annulée</span>;
   if (bucket === "Avoir") return <span className="tag tag-o">Avoir</span>;
-  if (bucket === "Retard") return <span className="tag tag-b">En retard</span>;
+  if (bucket === "Retard") return <span className="tag tag-b">À relancer</span>;
   if (bucket === "Emise") return <span className="tag tag-e">À échéance</span>;
   return <span className="tag tag-o">Brouillon</span>;
 }
@@ -192,6 +192,7 @@ function FacturationContent() {
   const [remindFor, setRemindFor] = useState(null);
   const [remindForm, setRemindForm] = useState({ level: "aimable", text: "" });
   const [busy, setBusy] = useState(false);
+  const [bandeauMasque, setBandeauMasque] = useState(false);
   const [modalError, setModalError] = useState("");
 
   const invoicesWithBucket = useMemo(
@@ -418,6 +419,8 @@ function FacturationContent() {
   function primaryAction(invoice) {
     if (invoice.kind === "avoir") return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
     if (invoice.status === "Brouillon") return { label: L.facturation.issue, run: () => updateInvoice(invoice.id, "issue") };
+    // Maquette PRO-06 : une facture échue se relance d'abord.
+    if (invoice.bucket === "Retard") return { label: "Relancer", run: () => openRemind(invoice) };
     if (invoice.status !== "Payee") return { label: L.facturation.markPaid, run: () => updateInvoice(invoice.id, "pay") };
     return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
   }
@@ -465,6 +468,23 @@ function FacturationContent() {
         </div>
 
         {message ? <p className="notice" role="status">{message}</p> : null}
+
+        {/* Maquette PRO-06 : la facture échue la plus ancienne, relance prête. */}
+        {(() => {
+          const echues = invoicesWithBucket.filter((inv) => inv.bucket === "Retard").sort((a, b) => daysLate(b) - daysLate(a));
+          if (!echues.length || bandeauMasque) return null;
+          const f = echues[0];
+          return (
+            <div className="avk" style={{ marginBottom: 16, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <strong>{echues.length > 1 ? `${echues.length} factures échues, la plus ancienne depuis ${daysLate(f)} jours` : `1 facture échue depuis ${daysLate(f)} jour${daysLate(f) > 1 ? "s" : ""}`}</strong>
+                <small>{f.invoiceNumber} · {f.client} · la relance est prête, vous la relisez.</small>
+              </div>
+              <button type="button" className="btn btn-main" onClick={() => openRemind(f)}>Voir</button>
+              <button type="button" className="link" onClick={() => setBandeauMasque(true)}>Plus tard</button>
+            </div>
+          );
+        })()}
 
         <div className="kpis">
           <div>

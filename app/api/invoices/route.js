@@ -7,6 +7,8 @@ import { loadInvoiceContext } from "../../../lib/invoice-context";
 import { buildInvoicePdf, invoiceDocumentFilename } from "../../../lib/document-generator";
 import { sendInvoiceReminderEmail } from "../../../lib/mailer";
 import { demanderAvis } from "../../../lib/avis-serveur";
+import { calculerSituation } from "../../../lib/situation-travaux";
+import { computeQuoteItem } from "../../../lib/quote-calculations";
 
 // Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
 // shared with the mobile app), so this fetches the two via the service_role
@@ -308,7 +310,37 @@ export async function POST(request) {
   }
 
   const before = buildBillingSummary(db, quote, project, userId);
-  const amountTtc = toAmount(amountFromMode(body, before));
+
+  // Situation de travaux (maquette PRO-06) : avancement cumulé par lot. Les
+  // montants des lots viennent du devis signé (et des avenants signés),
+  // jamais de l'écran ; déjà facturé = factures précédentes du devis, HT.
+  let situation = null;
+  if (body.amountMode === "situation") {
+    const tauxTva = Number(quote.vatRate ?? 20);
+    const parLot = new Map();
+    for (const item of quote.items || []) {
+      const lot = fixText(item.room || "Travaux");
+      parLot.set(lot, toAmount((parLot.get(lot) || 0) + Number(computeQuoteItem(item, quote).totalHt || 0)));
+    }
+    const avenantsHt = toAmount((db.avenants || []).filter((a) => a.quoteId === quote.id && a.status === "Signe").reduce((sum, a) => sum + Number(a.totalHtDelta || 0), 0));
+    if (avenantsHt) parLot.set("Avenants signés", avenantsHt);
+    const pcts = new Map((Array.isArray(body.lots) ? body.lots : []).map((l) => [fixText(String(l?.nom || "")), Number(l?.pct) || 0]));
+    const precedentes = activeInvoicesFor(db, quote.id, project.id, userId);
+    const dejaFactureHt = toAmount(precedentes.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0) / (1 + tauxTva / 100));
+    situation = {
+      ...calculerSituation({
+        lots: [...parLot].map(([nom, ht]) => ({ nom, ht, pct: pcts.get(nom) ?? 0 })),
+        dejaFactureHt,
+        tauxRetenue: Math.max(0, Math.min(5, Number(body.tauxRetenue) || 0)),
+        tauxTva
+      }),
+      numero: precedentes.filter((inv) => inv.situation).length + 1,
+      periode: { du: String(body.periodeDu || "").slice(0, 10), au: String(body.periodeAu || now).slice(0, 10) },
+      message: fixText(String(body.message || "")).slice(0, 2000)
+    };
+    if (situation.ht <= 0) return badRequest("L'avancement ne dépasse pas ce qui est déjà facturé.");
+  }
+  const amountTtc = toAmount(situation ? situation.ttc : amountFromMode(body, before));
 
   if (before.remaining <= 0.01) return badRequest("Ce devis est déjà entièrement facturé.");
   if (amountTtc <= 0) return badRequest("Le montant de la facture doit être supérieur à zéro.");
@@ -325,8 +357,9 @@ export async function POST(request) {
     projectTitle: fixText(project.title || quote.project || "Chantier"),
     client: fixText(project.client || quote.client || "Client"),
     clientEmail: project.clientEmail || quote.clientEmail || "",
-    type: fixText(body.type || "Facture intermediaire"),
+    type: situation ? `Situation ${situation.numero}` : fixText(body.type || "Facture intermediaire"),
     amountMode: body.amountMode || "fixed",
+    ...(situation ? { situation } : {}),
     percent: toAmount(body.amountMode === "fixed" ? 0 : body.amountMode === "deposit" ? Number(body.depositPercent || body.percent || 30) : Number(body.percent || 0)),
     amountTtc,
     totalQuoteTtc: before.totalQuoteTtc,

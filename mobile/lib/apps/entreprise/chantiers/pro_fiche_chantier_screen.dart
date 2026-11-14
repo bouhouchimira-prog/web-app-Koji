@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:koji/apps/entreprise/chantiers/pro_situation_screen.dart';
 import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ouvrirAvenant;
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_cloture_screen.dart';
@@ -164,6 +165,51 @@ class _ProFicheChantierScreenState
     if (lance == true) _recharger();
   }
 
+  Future<void> _situation(dynamic d, List<LotFiche> lots) async {
+    final devis = Map<String, dynamic>.from(d.devis as Map);
+    final api = ref.read(proKojiWebProvider);
+    final tva = (devis['vatRate'] as num?)?.toDouble() ?? 20;
+    final precedentes = [
+      for (final f in (d.factures as List)) if ((f as Map)['quoteId'] == devis['id'] && f['kind'] != 'avoir' && ['Brouillon', 'Emise', 'Payee'].contains(f['status']) && f['archived'] != true) f,
+    ];
+    final dejaTtc = precedentes.fold<double>(0, (s, f) => s + ((f['amountTtc'] as num?) ?? 0).toDouble());
+    final avenants = await api.avenants(_s(devis['id'])).catchError((_) => <Map<String, dynamic>>[]);
+    final avenantsHt = avenants.where((a) => a['status'] == 'Signe').fold<double>(0, (s, a) => s + ((a['totalHtDelta'] as num?) ?? 0).toDouble());
+    if (!mounted) return;
+    final fait = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ProSituationScreen(
+        chantier: _s(devis['project']),
+        client: _s(devis['client']),
+        numeroDevis: _s(devis['quoteNumber']),
+        totalDevisHt: ((devis['totalHt'] as num?) ?? 0).toDouble(),
+        lots: [
+          for (final l in lots) LotSituation(l.nom, l.montant, arrondi5(l.pourcent)),
+          if (avenantsHt != 0) LotSituation('Avenants signés', avenantsHt, 0),
+        ],
+        dejaFactureHt: ((dejaTtc / (1 + tva / 100)) * 100).roundToDouble() / 100,
+        dejaFactureLibelle: precedentes.isEmpty ? '' : '${precedentes.first['invoiceNumber']}${precedentes.length > 1 ? ' + ${precedentes.length - 1}' : ''}',
+        tauxTva: tva,
+        numero: precedentes.where((f) => f['situation'] != null).length + 1,
+        email: _s(devis['clientEmail']),
+        onValider: (c, {required envoyer}) async {
+          final f = await api.creerFacture({
+            'quoteId': _s(devis['id']),
+            'projectId': widget.projectId,
+            'amountMode': 'situation',
+            'lots': [for (final e in c.lots.entries) {'nom': e.key, 'pct': e.value}],
+            'tauxRetenue': c.tauxRetenue,
+            'dueDate': c.echeance,
+            'notes': c.message,
+            'message': c.message,
+          });
+          if (!envoyer) return f;
+          return api.envoyerFacture(_s(f['id']), email: c.email, to: _s(devis['clientEmail']), message: c.message);
+        },
+      ),
+    ));
+    if (fait == true) ref.invalidate(proFicheChantierProvider(widget.projectId));
+  }
+
   @override
   Widget build(BuildContext context) {
     final da = ProDa.of(context);
@@ -298,12 +344,8 @@ class _ProFicheChantierScreenState
             label: 'Situation de travaux',
             icon: Icons.add,
             expand: true,
-            onPressed: () =>
-                context.push('/chantier/facturation/create', extra: {
-              'quoteId': _s(d.devis!['id']),
-              'type': 'Facture intermédiaire',
-              'amountMode': 'percent',
-            }),
+            // Situation par lot (maquette PRO-06).
+            onPressed: () => _situation(d, lots),
           ),
           const SizedBox(height: 8),
           // Avenant préparé par Koji depuis les notes (maquette PRO-05).

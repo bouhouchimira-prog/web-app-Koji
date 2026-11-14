@@ -17,6 +17,7 @@ import { jourDeParis, bilanChantier, etapesCloture, factureDeRetenue, factureDeS
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
 import { AvenantPanneau } from "../../components/AvenantPanneau";
+import { SituationPanneau } from "../../components/SituationPanneau";
 import { useApi } from "../../lib/use-api";
 import { ONGLETS_CHANTIERS, compterOnglets, lignesChantiers } from "../../lib/chantiers-liste";
 
@@ -638,6 +639,8 @@ export default function ProjectsTrackingPage() {
   const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
   // Avenant depuis la fiche du chantier (maquette PRO-05).
   const [avenantOuvert, setAvenantOuvert] = useState(false);
+  // Situation de travaux par lot (maquette PRO-06).
+  const [situationOuverte, setSituationOuverte] = useState(false);
   const selectedQuote = useMemo(() => {
     if (!selectedProject) return null;
     return quotes.find((quote) => quote.projectId === selectedProject.id)
@@ -1708,10 +1711,10 @@ export default function ProjectsTrackingPage() {
             <Link href="/planning" className="btn btn-sec">Planning</Link>
             {selectedQuote && quoteSigned ? <button type="button" className="btn btn-sec" onClick={() => setAvenantOuvert(true)}>Avenant</button> : null}
             {selectedQuote && quoteSigned ? (
-              <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="btn btn-main">
+              <button type="button" className="btn btn-main" onClick={() => setSituationOuverte(true)}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
                 Situation de travaux
-              </Link>
+              </button>
             ) : null}
           </div>
         </div>
@@ -1769,6 +1772,7 @@ export default function ProjectsTrackingPage() {
           </div>
         </div>
 
+        {situationOuverte && selectedQuote ? <SituationPanneau quote={selectedQuote} project={selectedProject} taches={projectTasks} factures={invoices} finPrevue={plannedEnd || ""} debut={plannedStart || ""} onClose={() => setSituationOuverte(false)} /> : null}
         {avenantOuvert && selectedQuote ? <AvenantPanneau quote={selectedQuote} finPrevue={plannedEnd || ""} onClose={() => setAvenantOuvert(false)} /> : null}
         <div className="wtabs" role="tablist" aria-label="Sections du chantier">
           {ficheTabs.map((tab) => (
@@ -1957,7 +1961,7 @@ export default function ProjectsTrackingPage() {
               <div className="card">
                 <div className="card-h">
                   <h2>Situations et factures</h2>
-                  {selectedQuote && quoteSigned ? <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="link">Situation de travaux</Link> : null}
+                  {selectedQuote && quoteSigned ? <button type="button" className="link" onClick={() => setSituationOuverte(true)}>Situation de travaux</button> : null}
                 </div>
                 {linkedInvoices.length === 0 ? (
                   <p className="empty">Aucune facture pour ce chantier. L'acompte et les situations de travaux apparaissent ici.</p>
