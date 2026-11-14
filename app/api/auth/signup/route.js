@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { getSupabase, getSupabaseAdmin } from "../../../../lib/supabase";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { makeToken } from "../../../../lib/db";
 import { sendEntrepriseVerificationEmail } from "../../../../lib/mailer";
 import { checkRateLimit, recordFailedAttempt, rateLimitMessage } from "../../../../lib/rate-limit";
@@ -47,28 +47,26 @@ export async function POST(request) {
   if (!limit.allowed) return badRequest(rateLimitMessage(limit.retryAfterSeconds), 429);
   await recordFailedAttempt(RATE_SCOPE, email);
 
-  const supabase = getSupabase();
-  const { data, error } = await supabase.auth.signUp({
+  // Création par le compte serveur (14 nov) : signUp() faisait aussi partir
+  // l'e-mail de confirmation de Supabase (« Confirm email » actif), en plus
+  // du nôtre — deux e-mails, celui de Supabase renvoyant vers les apps. Le
+  // compte reste non confirmé jusqu'à notre lien d'activation, qui le
+  // confirme aussi côté Supabase (activate/route.js). Sans e-mail
+  // d'activation (compte non entreprise), il est confirmé tout de suite.
+  const serveur = getSupabaseAdmin();
+  const { data, error } = await serveur.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: { is_pro: accountType !== "particulier", name },
-      emailRedirectTo: `${new URL(request.url).origin}/login?type=${accountType}`
-    }
+    email_confirm: accountType !== "entreprise",
+    user_metadata: { is_pro: accountType !== "particulier", name }
   });
 
   if (error) {
     const message = String(error.message || "");
-    if (/already registered/i.test(message)) {
+    if (error.code === "email_exists" || /already (been )?registered|already exists/i.test(message)) {
       return badRequest("Un compte existe déjà avec cet e-mail", 409);
     }
     return badRequest(message || "Création du compte impossible");
-  }
-
-  // Supabase returns an obfuscated existing user (no identities) when the
-  // email is already registered and confirmations are enabled.
-  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-    return badRequest("Un compte existe déjà avec cet e-mail", 409);
   }
 
   if (accountType !== "entreprise" || !data.user) {
