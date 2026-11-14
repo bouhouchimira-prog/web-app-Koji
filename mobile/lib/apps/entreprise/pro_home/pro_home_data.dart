@@ -168,6 +168,30 @@ class ProKojiWebClient {
   Future<void> positionner(String offreId) =>
       _send('POST', '/api/marketplace/offres/$offreId/positionner', const {});
 
+  // ---- Avenants (PRO-05) ----------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> tousAvenants() => liste('/api/avenants', 'avenants');
+
+  /// Koji prépare l'avenant depuis les notes de chantier (prix du devis ou
+  /// de la bibliothèque, jamais inventés).
+  Future<Map<String, dynamic>> preparerAvenant(String quoteId, String notes) async {
+    final data = await _send('POST', '/api/avenants/preparer', {'quoteId': quoteId, 'notes': notes});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<Map<String, dynamic>> creerAvenant(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/avenants', body);
+    final a = data is Map ? data['avenant'] : null;
+    return a is Map ? Map<String, dynamic>.from(a) : {};
+  }
+
+  /// Envoi pour signature en ligne (lien unique, e-mail avec le PDF).
+  Future<Map<String, dynamic>> envoyerAvenant(String id, {bool email = true}) async {
+    final data = await _send('PATCH', '/api/avenants', {'id': id, 'action': 'send', 'email': email});
+    final a = data is Map ? data['avenant'] : null;
+    return a is Map ? Map<String, dynamic>.from(a) : {};
+  }
+
   // ---- Radar, fiche et positions (PRO-04) ---------------------------------
 
   /// Fiche d'un chantier : projet, votre prix, jetons, places, créneaux

@@ -10,6 +10,7 @@ abstract final class KojiIcons {
   static const devis = 'M6 2h9l5 5v15H6zM14 2v6h6M9 13h7M9 17h7';
   static const factures =
       'M5 2h14v20l-3-2-2 2-2-2-2 2-2-2-3 2zM9 7h6M9 11h6M9 15h4';
+  static const avenant = 'M6 2h9l5 5v15H6zM14 2v6h6M12 11v6M9 14h6';
   static const fournitures = 'M12 2l9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10';
   static const bibliotheque =
       'M4 4h6a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h7z';

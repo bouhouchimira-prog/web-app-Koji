@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
+import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ProAvenantsScreen;
 import 'package:koji/apps/entreprise/chantiers/pro_fiche_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_shell.dart';
 import 'package:koji/core/route_args.dart';
@@ -459,6 +460,14 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const QuoteMessagesInboxScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/avenants',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ProAvenantsScreen(),
               ),
             ),
             GoRoute(

@@ -16,6 +16,7 @@ import { etatTache, ligneTache, tachesParLot } from "../../lib/taches-chantier";
 import { jourDeParis, bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
+import { AvenantPanneau } from "../../components/AvenantPanneau";
 import { useApi } from "../../lib/use-api";
 import { ONGLETS_CHANTIERS, compterOnglets, lignesChantiers } from "../../lib/chantiers-liste";
 
@@ -635,6 +636,8 @@ export default function ProjectsTrackingPage() {
   }, [lignesListe, activeChantierTab, chantierQuery]);
 
   const selectedProject = nonArchivedProjects.find((project) => project.id === selectedProjectId) || null;
+  // Avenant depuis la fiche du chantier (maquette PRO-05).
+  const [avenantOuvert, setAvenantOuvert] = useState(false);
   const selectedQuote = useMemo(() => {
     if (!selectedProject) return null;
     return quotes.find((quote) => quote.projectId === selectedProject.id)
@@ -1703,7 +1706,7 @@ export default function ProjectsTrackingPage() {
           </div>
           <div className="hact">
             <Link href="/planning" className="btn btn-sec">Planning</Link>
-            {selectedQuote ? <Link href={`/avenant?quoteId=${selectedQuote.id}`} className="btn btn-sec">Avenant</Link> : null}
+            {selectedQuote && quoteSigned ? <button type="button" className="btn btn-sec" onClick={() => setAvenantOuvert(true)}>Avenant</button> : null}
             {selectedQuote && quoteSigned ? (
               <Link href={`/facturation?quoteId=${selectedQuote.id}&type=situation`} className="btn btn-main">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
@@ -1766,6 +1769,7 @@ export default function ProjectsTrackingPage() {
           </div>
         </div>
 
+        {avenantOuvert && selectedQuote ? <AvenantPanneau quote={selectedQuote} finPrevue={plannedEnd || ""} onClose={() => setAvenantOuvert(false)} /> : null}
         <div className="wtabs" role="tablist" aria-label="Sections du chantier">
           {ficheTabs.map((tab) => (
             <button

@@ -16,6 +16,7 @@ const _homeTabs = {'accueil': 0, 'devis': 1, 'chantiers': 2};
 const _routes = {
   'messages': '/messages',
   'factures': '/facturation',
+  'avenants': '/avenants',
   'fournitures': '/fournitures',
   'bibliotheque': '/ouvrage-library',
   'calendrier': '/calendrier',
@@ -40,6 +41,8 @@ const entrepriseNavGroups = [
   ]),
   KojiNavGroup(label: 'Gestion', items: [
     KojiNavItem(id: 'factures', label: 'Facturation', icon: KojiIcons.factures),
+    // Avenants (maquette PRO-05.1) : liste ; création depuis le chantier.
+    KojiNavItem(id: 'avenants', label: 'Avenants', icon: KojiIcons.avenant),
     KojiNavItem(
         id: 'fournitures', label: 'Fournitures', icon: KojiIcons.fournitures),
     KojiNavItem(

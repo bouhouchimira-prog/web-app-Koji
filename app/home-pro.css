@@ -2142,3 +2142,13 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .rd-sum b{font-size:20px}
 @media (max-width:1100px){.pro .rd-grid{grid-template-columns:1fr}.pro .rd-side{position:static}}
 @media (max-width:700px){.pro .rd-col .rd-facts,.pro .rd-sum{grid-template-columns:1fr 1fr}.pro .rd-facts>div:nth-child(3){border-left:0}.pro .rd-sls,.pro .rx-qt{grid-template-columns:1fr 1fr}.pro .rd-col .rd-ul{columns:1}}
+
+/* Avenant préparé par Koji (maquette PRO-05). */
+.pro .avk{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:2px;padding:12px 14px}
+.pro .avk .think{margin-top:6px;color:var(--ink)}
+.pro .avk strong{display:block;font-size:14px;font-weight:600}
+.pro .avk small{display:block;font-size:12px;color:var(--grey);margin-top:2px;line-height:1.4}
+.pro .avl-g{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.pro .avl-rules{display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--grey);line-height:1.5}
+.pro .avl-rules p{margin:0}
+@media (max-width:1100px){.pro .avl-g{grid-template-columns:1fr}}

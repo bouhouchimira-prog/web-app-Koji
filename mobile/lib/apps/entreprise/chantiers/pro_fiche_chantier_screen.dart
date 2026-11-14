@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ouvrirAvenant;
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_cloture_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_taches_screen.dart';
@@ -303,6 +304,13 @@ class _ProFicheChantierScreenState
               'type': 'Facture intermédiaire',
               'amountMode': 'percent',
             }),
+          ),
+          const SizedBox(height: 8),
+          // Avenant préparé par Koji depuis les notes (maquette PRO-05).
+          OutlinedButton(
+            onPressed: () => ouvrirAvenant(context, ref, Map<String, dynamic>.from(d.devis!), finPrevue: _s(resume.fin)),
+            style: OutlinedButton.styleFrom(foregroundColor: da.ink, minimumSize: const Size.fromHeight(44), side: const BorderSide(color: Color(0xFF8A8F98)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2))),
+            child: Text('Avenant', style: da.text(14, weight: FontWeight.w600)),
           ),
           const SizedBox(height: 12),
         ],
