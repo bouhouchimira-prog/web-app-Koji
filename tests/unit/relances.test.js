@@ -16,6 +16,7 @@ describe("relances et mise en demeure (PRO-06.2)", () => {
     assert.strictEqual(etapeRelance(LEFEVRE, JOUR), "2e relance envoyée le 21 nov.");
     assert.strictEqual(etapeRelance(CAULAINCOURT, JOUR), "1re relance envoyée le 25 nov.");
     assert.strictEqual(etapeRelance({ ...AUTEUIL, dueDate: "2026-11-28" }, JOUR), "rappel aimable prévu demain");
+    assert.strictEqual(etapeRelance({ ...AUTEUIL, dueDate: "2026-11-27" }, JOUR), "relance ferme prévue dans 12 jours");
     assert.deepStrictEqual([LEFEVRE, CAULAINCOURT, { ...AUTEUIL, dueDate: "2026-11-28" }].map((f) => actionImpaye(f, JOUR)), ["demeure", "relancer", "voir"]);
   });
 

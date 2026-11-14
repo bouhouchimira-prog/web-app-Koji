@@ -241,7 +241,11 @@ String _listeJours(List<Object?> dates) {
 }
 
 /// Paliers des relances automatiques (J+3, J+15, J+30).
-const relancePaliers = [(level: 'aimable', jours: 3, label: 'rappel aimable'), (level: 'ferme', jours: 15, label: 'relance ferme'), (level: 'demeure', jours: 30, label: 'mise en demeure')];
+const relancePaliers = [
+  (level: 'aimable', jours: 3, label: 'rappel aimable', prevu: 'prévu'),
+  (level: 'ferme', jours: 15, label: 'relance ferme', prevu: 'prévue'),
+  (level: 'demeure', jours: 30, label: 'mise en demeure', prevu: 'prévue'),
+];
 
 /// Facture suivie dans les impayés : émise, échue, pas entièrement couverte
 /// par un avoir.
@@ -267,7 +271,7 @@ String relanceStep(Invoice invoice, {DateTime? now}) {
   final next = relancePaliers.where((p) => late < p.jours).toList();
   if (next.isEmpty) return 'à relancer';
   final dans = next.first.jours - late;
-  return '${next.first.label} prévu ${dans == 1 ? 'demain' : 'dans $dans jours'}';
+  return '${next.first.label} ${next.first.prevu} ${dans == 1 ? 'demain' : 'dans $dans jours'}';
 }
 
 /// Action de la ligne : « demeure », « relancer » ou « voir ».
