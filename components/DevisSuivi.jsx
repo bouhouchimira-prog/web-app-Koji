@@ -147,7 +147,8 @@ export function DevisSuivi({
   onRelancer,
   onModifier,
   onApercu,
-  onVersions
+  onVersions,
+  onFaireSigner
 }) {
   const signe = quote.status === "Signe" || quote.signatureStatus === "Signe";
   const statut = statutDevis(quote, aujourdhui);
@@ -190,6 +191,7 @@ export function DevisSuivi({
         <button type="button" className={`btn ${statut.id === "relancer" ? "btn-main" : "btn-sec"}`} onClick={onRelancer}>Relancer</button>
       ) : null}
       <button type="button" className="btn btn-sec" onClick={onModifier}>Modifier, version {prochaineVersion}</button>
+      {statut.id !== "expire" && onFaireSigner ? <button type="button" className="btn btn-sec" onClick={onFaireSigner}>Faire signer</button> : null}
     </>
   );
   const actionsSigne = (
@@ -281,6 +283,9 @@ export function DevisSuivi({
               <div className="card">
                 <div className="card-h"><h2>Acompte</h2></div>
                 <div className="kv"><span>Prévu au devis</span><b>{acompte > 0 ? `${acompte} % · ${euro(Number(quote.totalTtc || 0) * acompte / 100)} TTC` : "Sans acompte"}</b></div>
+                {quote.acompteAPartirDu && quote.acompteAPartirDu > aujourdhui ? (
+                  <div className="kv"><span>Bloqué jusqu'au {jourCourt(quote.acompteAPartirDu)}</span><b>signé chez le client</b></div>
+                ) : null}
                 {depositInvoice && depositInvoice.status !== "Brouillon" ? (
                   <div className="sv-note">
                     {point(`Facture ${depositInvoice.invoiceNumber} · ${depositInvoice.status === "Payee" ? "payée" : depositInvoice.sentAt ? `envoyée le ${jourCourt(depositInvoice.sentAt)}` : "émise"}`)}{" "}
@@ -301,7 +306,8 @@ export function DevisSuivi({
               <div className="card">
                 <div className="card-h"><h2>Documents</h2>{quote.projectId ? <Link className="link" href={`/chantiers?project=${quote.projectId}`}>Tout voir</Link> : null}</div>
                 <div className="kv"><span>Devis signé</span><b><a className="link" href={pdf} target="_blank" rel="noreferrer">PDF{quote.signedAt ? ` · ${jourCourt(quote.signedAt)}` : ""}</a></b></div>
-                {retract ? <div className="kv"><span>Rétractation</span><b>jusqu'au {jourCourt(retract)}</b></div> : null}
+                {retract ? <div className="kv"><span>Rétractation</span><b>jusqu'au {jourCourt(retract)} · formulaire joint</b></div> : null}
+                {quote.demarrageDemande ? <div className="kv"><span>Démarrage</span><b>le {jourCourt(quote.demarrageDemande)}, demandé par le client</b></div> : null}
               </div>
             </>
           ) : (

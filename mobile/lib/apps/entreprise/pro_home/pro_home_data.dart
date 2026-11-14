@@ -125,6 +125,13 @@ class ProKojiWebClient {
     return data is Map ? Map<String, dynamic>.from(data) : {};
   }
 
+  /// Faire signer sur place (maquette PRO-03.7) : signature du client,
+  /// cases cochées horodatées, exemplaire par e-mail avec le PDF de l'app.
+  Future<Map<String, dynamic>> signerDevisApp(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/quotes/signer-app', body);
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
   /// Facture d'acompte (maquette PRO-03.4) : création en brouillon depuis
   /// le devis signé, puis envoi par e-mail avec le PDF (la facture est émise).
   Future<Map<String, dynamic>> creerFacture(Map<String, dynamic> body) async {

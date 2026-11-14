@@ -40,6 +40,8 @@ export function FactureAcompte({ quote, totals, client, debut, pourcentagePrevu,
   const [erreur, setErreur] = useState("");
 
   const montant = brouillon ? Number(brouillon.amountTtc) || 0 : montantAcompte(totals.ttc, pourcentage);
+  // Signé au domicile (PRO-03.7) : aucun paiement avant 7 jours.
+  const bloqueJusquau = quote?.acompteAPartirDu && quote.acompteAPartirDu > aujourdhui() ? quote.acompteAPartirDu : "";
   const tva = tvaIncluse(montant, totals.vatRate);
   const signeLe = quote?.signedAt ? ` · signé le ${jourCourt(quote.signedAt)}` : "";
 
@@ -162,13 +164,16 @@ export function FactureAcompte({ quote, totals, client, debut, pourcentagePrevu,
           ) : null}
         </div>
 
+        {bloqueJusquau ? (
+          <p className="notice">Signé chez le client : aucun paiement avant le {jourCourt(bloqueJusquau)} (Code de la consommation, L221-10). Enregistre la facture en brouillon ; elle pourra partir à partir de cette date.</p>
+        ) : null}
         {erreur ? <p className="err" role="alert">{erreur}</p> : null}
 
         <div className="env-act">
           {!brouillon ? (
             <button type="button" className="btn btn-sec" onClick={() => valider(false)} disabled={Boolean(envoi)}>{envoi === "brouillon" ? "Enregistrement…" : "Enregistrer en brouillon"}</button>
           ) : null}
-          <button type="button" className="btn btn-main" onClick={() => valider(true)} disabled={Boolean(envoi)}>
+          <button type="button" className="btn btn-main" onClick={() => valider(true)} disabled={Boolean(envoi) || Boolean(bloqueJusquau)}>
             <IconSend />{envoi === "envoi" ? "Envoi…" : "Envoyer la facture d'acompte"}
           </button>
         </div>

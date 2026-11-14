@@ -23,6 +23,8 @@ import 'package:koji/apps/entreprise/devis/devis_envoi.dart';
 import 'package:koji/apps/entreprise/devis/pro_envoi_devis_screen.dart';
 import 'package:koji/apps/entreprise/devis/pro_suivi_devis_view.dart';
 import 'package:koji/apps/entreprise/devis/pro_facture_acompte_screen.dart';
+import 'package:koji/apps/entreprise/devis/pro_faire_signer_screen.dart';
+import 'package:koji/apps/entreprise/devis/signature_lieu.dart' show finRetractation;
 import 'package:koji/apps/entreprise/devis/tva.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart' show ouvrirRelanceDevis;
@@ -376,7 +378,114 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       onVoirChantier: projet.isEmpty ? null : () => context.push('/chantier/dashboard', extra: {'id': projet}),
       factureAcompte: _factureAcompte,
       onCreerAcompte: projet.isEmpty ? null : () => _ouvrirAcompte(devis, projet),
+      onFaireSigner: () => _faireSigner(devis, projet),
     );
+  }
+
+  // Faire signer sur place (maquette PRO-03.7) : le client lit, coche et
+  // signe sur ce téléphone ; exemplaire par e-mail avec le PDF signé.
+  Future<void> _faireSigner(Map<String, dynamic> devis, String projet) async {
+    final api = ref.read(proKojiWebProvider);
+    final version = int.tryParse('${((devis['versions'] as List?)?.lastOrNull as Map?)?['number'] ?? devis['versionNumber'] ?? 1}') ?? 1;
+    final debut = _debutTravaux;
+    final clientType = _clientTva == 'particulier' ? 'particulier' : 'societe';
+    final signe = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (ctx) => ProFaireSignerScreen(
+        numeroDevis: _quoteNumber,
+        version: version,
+        client: _clientName == 'Client' ? '' : _clientName,
+        email: _clientEmail,
+        titre: [_siteAddress, _clientName].map((x) => x.trim()).where((x) => x.isNotEmpty && x != 'Client').firstOrNull ?? 'Devis $_quoteNumber',
+        totalTtc: _grandTotalTTC,
+        clientType: clientType,
+        tauxTva: _tvaRate,
+        autoliquidation: _autoliquidation,
+        acomptePct: _acompte,
+        debut: debut == null ? '' : DateFormat('yyyy-MM-dd').format(debut),
+        onEnvoyer: () async {
+          Navigator.of(ctx).pop(false);
+          if (await ouvrirRelanceDevis(context, ref, devis)) _chargerSuivi();
+        },
+        onDecaler: (jour) async {
+          _startCtrl.text = DateFormat('dd/MM/yyyy').format(DateTime.parse(jour));
+          try {
+            await _enregistrerAuto();
+            return null;
+          } catch (_) {
+            return "La date de démarrage n'a pas pu être décalée.";
+          }
+        },
+        onPdf: () => _previewPdf(_devisSigneSurPlace),
+        onLancer: projet.isEmpty
+            ? null
+            : () async {
+                Navigator.of(ctx).pop(true);
+                final lance = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => ProLancerChantierScreen(projectId: projet)));
+                if (lance == true) _chargerSuivi();
+              },
+        onSigner: (s) async {
+          var pdf = '';
+          // Le devis signé : signature, cases cochées, information et
+          // formulaire de rétractation (exemplaire par e-mail ou à imprimer).
+          final data = _buildQuoteData();
+          final fin = finRetractation(s.jour, s.lieu, clientType);
+          data['signeSurPlace'] = {
+            'png': s.png,
+            'lignes': [
+              'Signé ${s.lieu == 'locaux' ? "dans les locaux de l'entreprise" : 'chez le client'} le ${DateFormat('dd/MM/yyyy').format(DateTime.parse(s.jour))} par ${s.signataire}.',
+              if (s.demandeExpresse.isNotEmpty && debut != null)
+                'Démarrage le ${DateFormat('dd/MM/yyyy').format(debut)} demandé par le client avant la fin du délai.',
+              if (s.mentionTva.isNotEmpty) 'Mention TVA à taux réduit certifiée.',
+              s.exemplaireEmail.isNotEmpty ? 'Exemplaire remis par e-mail, avec son accord.' : 'Exemplaire remis sur papier.',
+            ],
+          };
+          if (s.mentionTva.isNotEmpty) data['mentionTva'] = true;
+          if (fin.isNotEmpty && clientType == 'particulier') data['retractation'] = {'jusquau': DateFormat('dd/MM/yyyy').format(DateTime.parse(fin))};
+          _devisSigneSurPlace = data;
+          if (s.exemplaireEmail.isNotEmpty) {
+            try {
+              final doc = await DevisPdfService().generate(quoteData: data, logoPath: _logoPath);
+              pdf = base64Encode(await doc.save());
+            } catch (_) {
+              // Sans PDF, l'e-mail part quand même ; le PDF reste à imprimer.
+            }
+          }
+          try {
+            final r = await api.signerDevisApp({
+              'quoteId': _idDevis,
+              'lieu': s.lieu,
+              'signerName': s.signataire,
+              'signature': 'data:image/png;base64,${base64Encode(s.png)}',
+              'debut': debut == null ? '' : DateFormat('yyyy-MM-dd').format(debut),
+              'consentements': {
+                'demandeExpresse': s.demandeExpresse.isNotEmpty,
+                'demandeExpresseLe': s.demandeExpresse,
+                'mentionTva': s.mentionTva.isNotEmpty,
+                'mentionTvaLe': s.mentionTva,
+                'exemplaireEmail': s.exemplaireEmail.isNotEmpty,
+                'exemplaireEmailLe': s.exemplaireEmail,
+              },
+              'pdfBase64': pdf,
+            });
+            if (mounted) setState(() => _statut = 'Signe');
+            _chargerSuivi();
+            final ex = r['exemplaire'];
+            return SigneSurPlace(
+              retractationJusquau: '${r['retractationJusquau'] ?? ''}',
+              acompteAPartirDu: '${r['acompteAPartirDu'] ?? ''}',
+              demarrageDemande: '${r['demarrageDemande'] ?? ''}',
+              exemplaireEnvoye: ex is Map ? ex['email'] == true : null,
+            );
+          } on ProKojiWebException catch (e) {
+            return SigneSurPlace(erreur: e.message);
+          } catch (_) {
+            return const SigneSurPlace(erreur: "La signature n'a pas pu être enregistrée. Vérifiez la connexion.");
+          }
+        },
+      ),
+    ));
+    if (signe == true && mounted) _chargerSuivi();
   }
 
   // Facture d'acompte (maquette PRO-03.4) : brouillon ou envoi par e-mail.
@@ -1307,9 +1416,12 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   }
 
   // ── Aperçu PDF : génère le devis (sans enregistrer) et l'ouvre en aperçu ────
-  Future<void> _previewPdf() async {
+  /// Devis signé sur place (PRO-03.7), pour l'imprimer tel que signé.
+  Map<String, dynamic>? _devisSigneSurPlace;
+
+  Future<void> _previewPdf([Map<String, dynamic>? donnees]) async {
     try {
-      final quoteData = _buildQuoteData();
+      final quoteData = donnees ?? _buildQuoteData();
       // Le service charge le logo depuis logoPath si besoin (réseau).
       final doc = await DevisPdfService().generate(
         quoteData: quoteData,

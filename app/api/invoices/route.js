@@ -390,6 +390,12 @@ export async function PATCH(request) {
     // avec son PDF quand c'est demandé, puis émise. Rien n'est émis si
     // l'e-mail n'est pas parti.
     if (invoice.status !== "Brouillon") return badRequest("Seul un brouillon s'envoie ; une facture envoyée se relance.");
+    // Devis signé au domicile (PRO-03.7) : aucun paiement avant 7 jours.
+    const { quote: devisLie } = await loadInvoiceContext(invoice);
+    const jourParis = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+    if (devisLie?.acompteAPartirDu && devisLie.acompteAPartirDu > jourParis) {
+      return badRequest(`Signé chez le client : aucun paiement avant le ${devisLie.acompteAPartirDu.split("-").reverse().join("/")}.`, 409);
+    }
     if (body.email !== false) {
       const to = String(body.to || invoice.clientEmail || "").trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return badRequest("Ajoute l'e-mail du client pour lui envoyer la facture.");

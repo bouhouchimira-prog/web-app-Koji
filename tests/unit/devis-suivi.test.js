@@ -38,6 +38,9 @@ describe("après l'envoi (PRO-03.3)", () => {
     assert.strictEqual(retractationJusquau(signe), "2026-11-13");
     assert.strictEqual(retractationJusquau({ ...signe, clientType: "societe" }), "");
     assert.strictEqual(retractationJusquau({ ...signe, signatureProvider: "manuel" }), "");
+    // PRO-03.7 : report au jour ouvrable, date enregistrée prioritaire.
+    assert.strictEqual(retractationJusquau({ ...signe, signedAt: "2026-10-31T10:00:00Z" }), "2026-11-16");
+    assert.strictEqual(retractationJusquau({ ...signe, signatureProvider: "sur-place", signatureLieu: "domicile", retractationJusquau: "2026-11-13" }), "2026-11-13");
     const etapes = etapesSuivi(signe, { aujourdhui: "2026-10-31" });
     assert.deepStrictEqual(etapes.slice(2).map((e) => [e.label, e.etat, e.detail]), [["Signé", "done", "30 oct., 9 h 04 · en ligne"], ["Chantier lancé", "now", ""]]);
     assert.strictEqual(etapesSuivi(signe, { chantierLance: true })[3].etat, "done");

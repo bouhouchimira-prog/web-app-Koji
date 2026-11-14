@@ -4,6 +4,7 @@ import 'package:koji/apps/entreprise/devis/devis_guide.dart' show euros;
 import 'package:koji/apps/entreprise/devis/devis_liste.dart' show statutDevis;
 import 'package:koji/apps/entreprise/devis/devis_suivi.dart';
 import 'package:koji/apps/entreprise/devis/devis_versions.dart';
+import 'package:koji/apps/entreprise/devis/signature_lieu.dart' show jourCourt;
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 
 /// Un lot du devis, en lecture seule.
@@ -38,6 +39,7 @@ class ProSuiviDevisView extends StatelessWidget {
     this.onVoirChantier,
     this.onCreerAcompte,
     this.factureAcompte,
+    this.onFaireSigner,
   });
 
   final String titre;
@@ -57,6 +59,9 @@ class ProSuiviDevisView extends StatelessWidget {
   final VoidCallback? onLancer;
   final VoidCallback? onVoirChantier;
   final VoidCallback? onCreerAcompte;
+
+  /// Faire signer sur place (maquette PRO-03.7).
+  final VoidCallback? onFaireSigner;
 
   /// Facture d'acompte déjà faite sur ce devis (brouillon, émise, payée).
   final Map<String, dynamic>? factureAcompte;
@@ -134,8 +139,12 @@ class ProSuiviDevisView extends StatelessWidget {
                 ],
                 Expanded(child: _Secondaire(libelle: 'Modifier', onTap: onModifier)),
               ],
-            )
-          else ...[
+            ),
+          if (!_signe && statut.id != 'expire' && onFaireSigner != null) ...[
+            const SizedBox(height: 8),
+            _Secondaire(libelle: 'Faire signer', onTap: onFaireSigner!),
+          ],
+          if (_signe) ...[
             if (acompte > 0)
               Container(
                 padding: const EdgeInsets.all(14),
@@ -150,6 +159,13 @@ class ProSuiviDevisView extends StatelessWidget {
                             style: da.text(13, weight: FontWeight.w600)),
                       ],
                     ),
+                    // Signé au domicile (PRO-03.7) : aucun paiement avant 7 jours.
+                    if ('${devis['acompteAPartirDu'] ?? ''}'.compareTo(aujourdhui) > 0 &&
+                        (factureAcompte == null || factureAcompte!['status'] == 'Brouillon')) ...[
+                      const SizedBox(height: 6),
+                      Text("Bloqué jusqu'au ${jourCourt('${devis['acompteAPartirDu']}')} · aucun paiement avant, facture à envoyer à partir de ce jour",
+                          style: da.text(12.5, color: da.grey)),
+                    ],
                     if (factureAcompte != null && factureAcompte!['status'] != 'Brouillon') ...[
                       const SizedBox(height: 8),
                       Text(

@@ -90,6 +90,9 @@ void main() {
     expect(retractationJusquau(_signe), '2026-11-13');
     expect(retractationJusquau({..._signe, 'clientType': 'societe'}), '');
     expect(retractationJusquau({..._signe, 'signatureProvider': 'manuel'}), '');
+    // PRO-03.7 : report au jour ouvrable, date enregistrée prioritaire.
+    expect(retractationJusquau({..._signe, 'signedAt': '2026-10-31T10:00:00Z'}), '2026-11-16');
+    expect(retractationJusquau({..._signe, 'signatureProvider': 'sur-place', 'signatureLieu': 'domicile', 'retractationJusquau': '2026-11-13'}), '2026-11-13');
     expect(etapesSuivi(_signe, aujourdhui: '2026-10-31').skip(2).map((e) => [e.label, e.etat, e.detail]), [
       ['Signé', 'done', '30 oct., 9 h 04 · en ligne'],
       ['Chantier lancé', 'now', ''],

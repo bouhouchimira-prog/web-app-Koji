@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:koji/apps/entreprise/devis/devis_envoi.dart' show libelleReglement, soldeDe;
 import 'package:koji/apps/entreprise/devis/devis_guide.dart' show euros;
 import 'package:koji/apps/entreprise/devis/devis_liste.dart';
+import 'package:koji/apps/entreprise/devis/signature_lieu.dart' show finRetractation;
 
 // Après l'envoi (maquette PRO-03.3) : port de lib/devis-suivi.js, mêmes
 // exemples dans test/devis_suivi_test.dart et tests/unit/devis-suivi.test.js.
@@ -69,7 +70,9 @@ String _pourcent(num n) {
 String _point(String t) => t.endsWith('.') ? t : '$t.';
 
 bool _estSigne(Map q) => q['status'] == 'Signe' || q['signatureStatus'] == 'Signe';
-bool _enLigne(Map q) => q['signatureProvider'] != 'manuel';
+bool _enLigne(Map q) => q['signatureProvider'] != 'manuel' && q['signatureProvider'] != 'sur-place';
+bool _surPlace(Map q) => q['signatureProvider'] == 'sur-place';
+String _lieuSurPlace(Map q) => q['signatureLieu'] == 'locaux' ? 'dans vos locaux' : 'chez le client';
 
 String prochaineRelance(Map q) {
   final relances = ((q['relances'] as List?) ?? const []).map((r) => _j((r as Map)['le'])).toList()..sort();
@@ -78,8 +81,10 @@ String prochaineRelance(Map q) {
 }
 
 String retractationJusquau(Map q) {
+  // Date enregistrée à la signature (PRO-03.7, report au jour ouvrable).
+  if (_s(q['retractationJusquau']).isNotEmpty) return _s(q['retractationJusquau']);
   if (!_estSigne(q) || _s(q['signedAt']).isEmpty || !_enLigne(q) || q['clientType'] == 'societe') return '';
-  return _plus(_partsParis(_s(q['signedAt']))?.jour ?? _s(q['signedAt']), retractationJours);
+  return finRetractation(_j(_partsParis(_s(q['signedAt']))?.jour ?? _s(q['signedAt'])), 'en-ligne', '${q['clientType'] ?? 'particulier'}');
 }
 
 class EtapeSuivi {
@@ -99,8 +104,8 @@ List<EtapeSuivi> etapesSuivi(Map q, {required String aujourdhui, bool chantierLa
   final relance = prochaineRelance(q);
   EtapeSuivi signature;
   if (signe) {
-    final comment = _enLigne(q)
-        ? 'en ligne${q['mentionTva'] == true ? ', mention TVA certifiée' : ''}'
+    final comment = _enLigne(q) || _surPlace(q)
+        ? '${_surPlace(q) ? _lieuSurPlace(q) : 'en ligne'}${q['mentionTva'] == true ? ', mention TVA certifiée' : ''}'
         : q['acceptanceReason'] == 'acompte'
             ? 'accord noté, acompte reçu'
             : 'accord noté';
@@ -130,7 +135,7 @@ String noteSuivi(Map q, {required String aujourdhui, int messages = 0}) {
   if (_estSigne(q)) {
     final retract = retractationJusquau(q);
     return [
-      _point('${_enLigne(q) ? 'Signé en ligne' : 'Accord noté'} le ${_court(_partsParis(_s(q['signedAt']))?.jour ?? _s(q['signedAt']))}'),
+      _point('${_surPlace(q) ? 'Signé ${_lieuSurPlace(q)}' : _enLigne(q) ? 'Signé en ligne' : 'Accord noté'} le ${_court(_partsParis(_s(q['signedAt']))?.jour ?? _s(q['signedAt']))}'),
       if (q['mentionTva'] == true) 'Mention TVA ${_pourcent((q['vatRate'] as num?) ?? 20)} certifiée.',
       if (retract.isNotEmpty) _point("Rétractation possible jusqu'au ${_court(retract)}"),
     ].join(' ');

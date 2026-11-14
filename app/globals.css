@@ -24118,6 +24118,36 @@ button.chantiers-table-row {
   font-size: 13px;
   line-height: 1.5;
 }
+.signature-mention-tva .button.link,
+.signature-mention-tva button.link {
+  display: block;
+  margin: 6px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #171B1E;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Formulaire de rétractation (maquette PRO-03.7). */
+.signature-formulaire {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border: 1px dashed #b9b9b2;
+  border-radius: 4px;
+  background: #fff;
+}
+.signature-formulaire p {
+  margin: 4px 0;
+  font-size: 12.5px;
+  color: #3b4045;
+}
+.signature-formulaire p:first-child {
+  font-weight: 700;
+  color: #171B1E;
+}
 
 /* Nouvelle version du devis (maquette PRO-03.6) : ce qui change. */
 .signature-versions {

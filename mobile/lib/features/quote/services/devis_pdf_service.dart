@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'package:koji/apps/entreprise/devis/signature_lieu.dart' show formulaireRetractation, informationRetractation;
 import 'package:koji/apps/entreprise/devis/tva.dart' show estTauxReduit, mentionAutoliquidation, mentionTauxReduit;
 import 'package:printing/printing.dart';
 
@@ -296,6 +297,18 @@ class DevisPdfService {
                           style: const pw.TextStyle(
                               fontSize: 8, color: PdfColors.grey600)),
                       pw.SizedBox(height: 4),
+                      // Signé sur place (maquette PRO-03.7) : lieu, cases
+                      // cochées par le client, signature dessinée.
+                      if (quoteData['signeSurPlace'] is Map) ...[
+                        for (final l in ((quoteData['signeSurPlace'] as Map)['lignes'] as List? ?? const []))
+                          pw.Text('$l', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                        if ((quoteData['signeSurPlace'] as Map)['png'] is Uint8List)
+                          pw.Container(
+                              height: 50,
+                              width: 150,
+                              child: pw.Image(pw.MemoryImage((quoteData['signeSurPlace'] as Map)['png'] as Uint8List),
+                                  fit: pw.BoxFit.contain)),
+                      ] else ...[
                       pw.Text("Mention manuscrite obligatoire :",
                           style: const pw.TextStyle(
                               fontSize: 8, color: PdfColors.grey600)),
@@ -306,6 +319,7 @@ class DevisPdfService {
                               fontWeight: pw.FontWeight.bold,
                               color: colorNavy)),
                       pw.SizedBox(height: 40),
+                      ],
                     ],
                   ),
                 ),
@@ -339,9 +353,41 @@ class DevisPdfService {
                   style: const pw.TextStyle(
                       fontSize: 8, color: PdfColors.grey500)),
             ),
+            // Client particulier (maquette PRO-03.7) : information sur la
+            // rétractation et formulaire, sauf signature dans les locaux.
+            if (quoteData['retractation'] is Map) ..._retractation(quoteData['retractation'] as Map, company),
           ];
         }));
     return pdf;
+  }
+
+  List<pw.Widget> _retractation(Map r, dynamic company) {
+    final c = company is Map ? company : const {};
+    final formulaire = formulaireRetractation(
+      entreprise: '${c['name'] ?? ''}'.trim(),
+      adresse: '${c['address'] ?? ''}'.trim(),
+      email: '${c['email'] ?? ''}'.trim(),
+    );
+    const gris = pw.TextStyle(fontSize: 8, color: PdfColors.grey700);
+    return [
+      pw.SizedBox(height: 16),
+      pw.Text('Information sur le droit de rétractation', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 4),
+      if ('${r['jusquau'] ?? ''}'.isNotEmpty) pw.Text("Délai de rétractation : jusqu'au ${r['jusquau']} inclus.", style: gris),
+      pw.Text(informationRetractation, style: gris),
+      pw.SizedBox(height: 8),
+      pw.Container(
+        padding: const pw.EdgeInsets.all(10),
+        decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
+        child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          for (final (i, l) in formulaire.indexed)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 5),
+              child: pw.Text(l, style: i == 0 ? pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold) : gris),
+            ),
+        ]),
+      ),
+    ];
   }
 
   /// Version label for the devis header — "01", "02"… A missing/invalid value

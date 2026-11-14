@@ -20,6 +20,7 @@ import { PanneauTva } from "../../components/PanneauTva";
 import { DevisSuivi } from "../../components/DevisSuivi";
 import { RelanceDevis } from "../../components/RelanceDevis";
 import { DevisVersions } from "../../components/DevisVersions";
+import { FaireSigner } from "../../components/FaireSigner";
 import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
@@ -484,6 +485,8 @@ export default function DevisEditor() {
   // Versions du devis (maquette PRO-03.6) : écarts avant d'envoyer la version
   // suivante, message proposé repris par le panneau d'envoi.
   const [vueVersions, setVueVersions] = useState(false);
+  // Signature et rétractation (maquette PRO-03.7).
+  const [signerOuvert, setSignerOuvert] = useState(false);
   const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
@@ -3839,6 +3842,7 @@ export default function DevisEditor() {
           onRelancer={() => setRelanceOuverte(true)}
           onModifier={() => { setEditionApresEnvoi(true); setVueVersions(true); }}
           onVersions={() => setVueVersions(true)}
+          onFaireSigner={() => setSignerOuvert(true)}
           onApercu={() => window.open(`/api/quotes/${generatedQuote.id}/documents?type=quote&format=pdf&preview=1`, "_blank")}
         />
         {acompteOuvert ? (
@@ -3862,6 +3866,30 @@ export default function DevisEditor() {
                 if (texte) notify(texte, "success");
               }
             }}
+          />
+        ) : null}
+        {signerOuvert ? (
+          <FaireSigner
+            quote={generatedQuote}
+            client={{ name: headerClientName || "", email: form.clientEmail }}
+            totals={{ ht: Number(generatedQuote.totalHt || summaryTotals.totalHt), ttc: Number(generatedQuote.totalTtc || summaryTotals.totalTtc) }}
+            acomptePct={paymentMilestones[0]?.percent ?? 0}
+            debut={form.startDate || generatedQuote.startDate}
+            onEnvoyer={() => { setSignerOuvert(false); setRelanceOuverte(true); }}
+            onDecaler={async (jour) => {
+              setField("startDate", jour);
+              try {
+                const { quote: maj } = await apiSend("/api/quotes", { id: generatedQuote.id, action: "update", startDate: jour }, "PATCH");
+                setGeneratedQuote(maj);
+              } catch (error) {
+                notifyError(error, "La date de démarrage n'a pas pu être décalée.");
+              }
+            }}
+            onSigne={(quote) => {
+              setGeneratedQuote(quote);
+              setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+            }}
+            onClose={() => setSignerOuvert(false)}
           />
         ) : null}
         {relanceOuverte ? (
