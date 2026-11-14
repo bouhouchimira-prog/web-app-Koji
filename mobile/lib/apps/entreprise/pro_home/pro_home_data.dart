@@ -22,6 +22,29 @@ class ProKojiWebException implements Exception {
   String toString() => message;
 }
 
+/// Découpe un flux SSE (« event: x\ndata: {...}\n\n ») en événements.
+Stream<(String, Map<String, dynamic>)> tramesSse(Stream<String> texte) async* {
+  var tampon = '';
+  final evenement = RegExp(r'event: (\w+)');
+  final donnees = RegExp(r'data: (.+)');
+  await for (final morceau in texte) {
+    tampon += morceau.replaceAll('\r\n', '\n');
+    final trames = tampon.split('\n\n');
+    tampon = trames.removeLast();
+    for (final trame in trames) {
+      final e = evenement.firstMatch(trame)?.group(1);
+      final d = donnees.firstMatch(trame)?.group(1);
+      if (e == null || d == null) continue;
+      try {
+        final data = jsonDecode(d);
+        if (data is Map) yield (e, Map<String, dynamic>.from(data));
+      } on FormatException {
+        continue;
+      }
+    }
+  }
+}
+
 class ProKojiWebClient {
   ProKojiWebClient({http.Client? httpClient, String? Function()? accessToken})
       : _http = httpClient ?? http.Client(),
@@ -61,6 +84,38 @@ class ProKojiWebClient {
       throw ProKojiWebException(message ?? 'Erreur ${res.statusCode}');
     }
     return data;
+  }
+
+  /// Devis guidé (maquette PRO-03.1) : le même moteur que le site
+  /// (/api/devis-chat), lu au fil de l'eau. Chaque trame SSE devient un
+  /// couple (événement, données) : delta, action, done, error.
+  Stream<(String, Map<String, dynamic>)> devisChat(
+      Map<String, dynamic> body) async* {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final req = http.Request(
+        'POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/devis-chat'))
+      ..headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'text/event-stream',
+        'Content-Type': 'application/json',
+      })
+      ..body = jsonEncode(body);
+    final res = await _http.send(req);
+    if (res.statusCode >= 400) {
+      final texte = await res.stream.bytesToString();
+      String? message;
+      try {
+        final data = jsonDecode(texte);
+        message = data is Map ? data['error']?.toString() : null;
+      } on FormatException {
+        message = null;
+      }
+      throw ProKojiWebException(message ?? 'Erreur ${res.statusCode}');
+    }
+    yield* tramesSse(res.stream.transform(utf8.decoder));
   }
 
   /// Zone de travail renvoyée avec la dernière liste d'offres (carte).

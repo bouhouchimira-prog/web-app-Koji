@@ -11,6 +11,7 @@ import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/core/route_args.dart';
 import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
+import 'package:koji/features/quote/providers/quote_creation_provider.dart';
 import 'package:koji/features/quote/repository/quote_repository.dart';
 
 String _s(dynamic v) => v == null ? '' : '$v';
@@ -174,7 +175,17 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
           const SizedBox(height: 2),
           Text(asyncD.isLoading && devis.isEmpty ? 'Chargement…' : resumeDevis(comptes, avecTotal: false), style: da.text(13, color: da.grey)),
           const SizedBox(height: 14),
-          ProPrimaryButton(label: 'Démarrer un devis guidé', icon: Icons.add, expand: true, onPressed: () => context.push('/quote/room-selection', extra: <String>[])),
+          ProPrimaryButton(
+            label: 'Démarrer un devis guidé',
+            icon: Icons.add,
+            expand: true,
+            // Maquette PRO-03.1 : le devis guidé s'ouvre vide, Koji demande
+            // de décrire le chantier ; les lots se créent au fil du chat.
+            onPressed: () {
+              ref.read(quoteCreationProvider.notifier).reset();
+              context.push('/quote/detail', extra: const QuoteDetailArgs(data: <String, dynamic>{}));
+            },
+          ),
           const SizedBox(height: 12),
           _champRecherche(da),
           const SizedBox(height: 12),
