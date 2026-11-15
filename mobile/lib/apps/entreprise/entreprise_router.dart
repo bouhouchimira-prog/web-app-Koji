@@ -10,7 +10,6 @@ import 'package:koji/features/archives/archives_screen.dart';
 import 'package:koji/features/auth/business_info_screen.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/auth/profession_selection_screen.dart';
-import 'package:koji/features/calendar/calendrier_screen.dart';
 import 'package:koji/features/demarrage/demarrage_screen.dart';
 import 'package:koji/features/calendar/data/calendar_event_model.dart';
 import 'package:koji/features/calendar/detail_planning_screen.dart';
@@ -45,6 +44,7 @@ import 'package:koji/features/quote/chantier_rdv_screen.dart';
 import 'package:koji/features/quote/chantier_worker_activity_screen.dart';
 import 'package:koji/features/quote/client_details_screen.dart';
 import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
+import 'package:koji/features/calendrier_pro/calendrier_pro.dart';
 import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
@@ -785,12 +785,21 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
               ),
             ),
             // ── Calendar routes ──────────────────────────────────────
+            // Calendrier (maquettes PRO-11 à 11.4), sur l'API du site.
             GoRoute(
-              path: '/calendrier',
+              path: calendrierProRoute,
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const CalendrierScreen(),
+                const CalendrierProScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/calendrier/chantier/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                PlanningChantierScreen(projectId: state.pathParameters['id']!, titre: state.extra is String ? state.extra as String : ''),
               ),
             ),
             GoRoute(
