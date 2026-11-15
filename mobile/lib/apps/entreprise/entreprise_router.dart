@@ -44,6 +44,7 @@ import 'package:koji/features/quote/chantier_info_screen.dart';
 import 'package:koji/features/quote/chantier_rdv_screen.dart';
 import 'package:koji/features/quote/chantier_worker_activity_screen.dart';
 import 'package:koji/features/quote/client_details_screen.dart';
+import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
 import 'package:koji/features/quote/quote_detail_screen.dart';
@@ -813,7 +814,32 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 );
               },
             ),
-            // Bibliothèque d'ouvrages (reusable works catalogue)
+            // Bibliothèque (maquettes PRO-08 à 08.3), sur l'API du site.
+            GoRoute(
+              path: bibliothequeRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                BibliothequeProScreen(onglet: state.uri.queryParameters['onglet'] ?? 'ouvrages'),
+              ),
+            ),
+            GoRoute(
+              path: ficheOuvrageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                FicheOuvrageScreen(id: '${state.extra ?? state.uri.queryParameters['id'] ?? ''}'),
+              ),
+            ),
+            GoRoute(
+              path: nouvelOuvrageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const NouvelOuvrageScreen()),
+            ),
+            GoRoute(
+              path: tauxFacturesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const TauxFacturesScreen()),
+            ),
+            // Ancienne bibliothèque : sert encore de sélecteur depuis le devis.
             GoRoute(
               path: '/ouvrage-library',
               pageBuilder: (context, state) {

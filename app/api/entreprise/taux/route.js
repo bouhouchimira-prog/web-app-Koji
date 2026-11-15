@@ -1,7 +1,8 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { readDb, writeDb } from "../../../../lib/db";
 import { getVerifiedUserId } from "../../../../lib/server-auth";
-import { tauxParFamille, tauxParMetier } from "../../../../lib/demarrage";
+import { METIERS_DEMARRAGE, tauxParFamille, tauxParMetier } from "../../../../lib/demarrage";
+import familles from "../../../../data/ouvrage-families.json";
 
 // Taux horaires par métier (démarrage guidé, étape 3 ; site et app Koji Pro).
 // Enregistrés par famille d'ouvrage dans db.tauxParFamille[userId] : la
@@ -11,12 +12,17 @@ import { tauxParFamille, tauxParMetier } from "../../../../lib/demarrage";
 // journalier du profil (PATCH /api/auth/profile).
 const TAUX_MAX = 500;
 
+// Taux de référence des familles (affichés « Koji utilise X € en attendant »
+// tant que l'entreprise n'a pas réglé le sien ; jamais enregistrés pour elle).
+const DEFAUTS_FAMILLE = Object.fromEntries(familles.map((f) => [f.code, Number(f.hourlyRateDefault) || 0]));
+const DEFAUTS_METIER = Object.fromEntries(METIERS_DEMARRAGE.filter((m) => m.familles.length).map((m) => [m.metier, DEFAUTS_FAMILLE[m.familles[0]] || 0]));
+
 export async function GET(request) {
   const userId = await getVerifiedUserId(request);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const db = await readDb();
   const parFamille = db.tauxParFamille?.[userId]?.taux || {};
-  return ok({ taux: tauxParMetier(parFamille), parFamille, valides: db.tauxParFamille?.[userId]?.valides || {} });
+  return ok({ taux: tauxParMetier(parFamille), parFamille, valides: db.tauxParFamille?.[userId]?.valides || {}, defautsFamille: DEFAUTS_FAMILLE, defautsMetier: DEFAUTS_METIER });
 }
 
 export async function PUT(request) {

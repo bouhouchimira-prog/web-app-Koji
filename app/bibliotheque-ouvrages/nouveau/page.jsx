@@ -178,7 +178,7 @@ export default function NouvelOuvrage() {
             <div className="card-h"><h2>Sensibilité aux situations</h2></div>
             <p className="fx-note">Koji applique les facteurs de situation du chantier selon cette sensibilité. Valeurs des facteurs : réglées par Koji.</p>
             {FACTEURS_FICHE.map((x) => (
-              <div className="fx-row" key={x.key}>
+              <div className="fx-row bib-sens" key={x.key}>
                 <span className="t"><b>{x.nom}</b><small>{x.aide}</small></span>
                 <div className="kp-seg" role="group" aria-label={`Sensibilité ${x.nom}`}>
                   {NIVEAUX_SENSIBILITE.map((niv) => (

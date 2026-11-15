@@ -72,3 +72,36 @@
   .pro .fx-search{min-width:0;width:100%;margin-left:0}
   .pro .fx-tabs{flex-wrap:wrap}
 }
+
+/* Taux d'après les factures (PRO-08.3) : sur téléphone, les chiffres passent sous le métier. */
+.pro .fac-m{display:none}
+@media (max-width:700px){
+  .pro .fac-m{display:block;margin-top:2px}
+  .pro .fac-tbl th:not(:first-child):not(:last-child),.pro .fac-tbl td:not(:first-child):not(:last-child){display:none}
+}
+
+/* Bibliothèque (PRO-08) : familles, tableau, fiche ; empilés sous 1100 px,
+   familles en bandeau défilant, fiche ouverte au-dessus du tableau. */
+.pro div.fp-layout.bib-grid{grid-template-columns:200px minmax(0,1fr) 360px}
+@media (max-width:1100px){
+  .pro div.fp-layout.bib-grid{grid-template-columns:minmax(0,1fr)}
+  .pro .bib-grid > nav{display:flex;flex-direction:row;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px!important}
+  .pro .bib-grid > nav .lab{display:none}
+  .pro .bib-grid > nav .fx-row{flex:none;width:auto!important;white-space:nowrap;gap:6px}
+  .pro .bib-grid > :nth-child(3){order:-1}
+}
+@media (max-width:700px){
+  .pro .bib-grid .bib-tbl th:last-child,.pro .bib-grid .bib-tbl td:last-child{display:none}
+}
+@media (max-width:700px){
+  .pro .bib-grid .bib-tbl{overflow-x:auto}
+  .pro .bib-grid .bib-tbl th:nth-child(3),.pro .bib-grid .bib-tbl td:nth-child(3){display:none}
+  .pro .bib-sens{flex-wrap:wrap}
+  .pro .bib-sens .kp-seg{width:100%}
+  .pro .bib-sens .kp-seg button{flex:1}
+}
+.pro .bib-fermer{display:none}
+@media (max-width:1100px){
+  .pro .bib-grid > aside:not(.choisi){display:none}
+  .pro .bib-fermer{display:inline-block;margin-bottom:8px}
+}

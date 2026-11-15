@@ -76,7 +76,7 @@ export default function TauxFactures() {
         </div>
         <div className="hact">
           <label className="btn btn-sec">{depot ? "Lecture…" : "Ajouter des factures"}<input type="file" multiple accept=".pdf,.csv,image/*,application/pdf,text/csv" hidden disabled={Boolean(depot)} onChange={deposer} /></label>
-          <button type="button" className="btn btn-main" disabled={!propositions.length} onClick={() => patch({ action: "appliquer", metiers: propositions.map((m) => ({ metier: m.metier, taux: m.proposition.taux })) }, `${propositions.length} taux appliqué${propositions.length > 1 ? "s" : ""}.`)}>Appliquer {propositions.length ? `les ${propositions.length} proposition${propositions.length > 1 ? "s" : ""}` : "les propositions"}</button>
+          <button type="button" className="btn btn-main" disabled={!propositions.length} onClick={() => patch({ action: "appliquer", metiers: propositions.map((m) => ({ metier: m.metier, taux: m.proposition.taux })) }, `${propositions.length} taux appliqué${propositions.length > 1 ? "s" : ""}.`)}>{propositions.length === 1 ? "Appliquer la proposition" : `Appliquer les ${propositions.length || ""} propositions`.replace("  ", " ")}</button>
         </div>
       </div>
       <BibliothequeTabs current="prix" />
@@ -91,13 +91,13 @@ export default function TauxFactures() {
               {data.metiers.length === 0 ? (
                 <div className="empty">Déposez 3 à 10 factures de travaux récentes (PDF, photo, export CSV) : Koji rattache chaque ligne à un ouvrage de votre bibliothèque et en déduit votre taux par métier.</div>
               ) : (
-                <div className="tbl">
+                <div className="tbl fac-tbl">
                   <table>
                     <thead><tr><th>Métier</th><th className="r">Lignes</th><th className="r">Taux déduit</th><th>Confiance</th><th className="r">Réglé</th><th aria-label="Action" /></tr></thead>
                     <tbody>
                       {data.metiers.map((m) => (
                         <tr key={m.metier}>
-                          <td><div className="n2">{m.activite}</div><div className="sm">{m.proposition?.texte}</div></td>
+                          <td><div className="n2">{m.activite}</div><div className="sm fac-m"><b>{m.taux} € de l'heure</b> · {m.bas} à {m.haut} € · confiance {m.confiance} · {m.lignes} lignes{m.regle ? ` · réglé ${m.regle} €` : ""}</div><div className="sm">{m.proposition?.texte}</div></td>
                           <td className="r">{m.lignes}</td>
                           <td className="r"><b>{m.taux} €</b><div className="sm">{m.bas} à {m.haut} €</div></td>
                           <td><span className={`fx-etat ${TON[m.confiance]}`}>{m.confiance}</span></td>

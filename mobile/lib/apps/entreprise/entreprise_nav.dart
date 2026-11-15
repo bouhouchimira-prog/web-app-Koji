@@ -18,7 +18,7 @@ const _routes = {
   'factures': '/facturation',
   'avenants': '/avenants',
   'fournitures': '/fournitures',
-  'bibliotheque': '/ouvrage-library',
+  'bibliotheque': '/bibliotheque',
   'calendrier': '/calendrier',
   'planning': '/planning',
   'equipe': '/synchronization',
@@ -92,7 +92,7 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/quote/messages') || starts('/messages')) return 'messages';
   if (starts('/quote')) return 'devis';
   if (starts('/fournitures')) return 'fournitures';
-  if (starts('/ouvrage-library')) return 'bibliotheque';
+  if (starts('/ouvrage-library') || starts('/bibliotheque')) return 'bibliotheque';
   if (starts('/calendrier')) return 'calendrier';
   if (starts('/planning')) return 'planning';
   if (starts('/synchronization') || starts('/workers') || starts('/projects')) {

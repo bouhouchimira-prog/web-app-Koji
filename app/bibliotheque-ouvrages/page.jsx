@@ -20,7 +20,7 @@ const famCode = (o) => o.familyCode || String(o.code || "").split("-")[0];
 const nomFamille = (code) => familles.find((f) => f.code === code)?.name || code || "Autre";
 const NOMS_CHAMPS = { label: "libellé", unit: "unité", normativeTime: "temps", fixedTime: "temps fixe", hourlyRate: "taux", coefficient: "coefficient", discount: "réduction", sensitivities: "facteurs", synonyms: "synonymes", triggers: "déclenche", questions: "questions" };
 
-function FicheOuvrage({ ouvrage, ouvrages, tauxFamille, tauxDefaut, articles, onSaved, onDuplique }) {
+function FicheOuvrage({ ouvrage, ouvrages, tauxFamille, tauxDefaut, articles, onSaved, onDuplique, choisi, onFermer }) {
   const [f, setF] = useState(null);
   const [synonyme, setSynonyme] = useState("");
   const [histo, setHisto] = useState(false);
@@ -67,7 +67,8 @@ function FicheOuvrage({ ouvrage, ouvrages, tauxFamille, tauxDefaut, articles, on
   }
 
   return (
-    <aside className="ob-detail" aria-label={`Ouvrage ${ouvrage.code}`}>
+    <aside className={`ob-detail${choisi ? " choisi" : ""}`} aria-label={`Ouvrage ${ouvrage.code}`}>
+      <button type="button" className="link bib-fermer" onClick={onFermer}>← Retour à la liste</button>
       <div className="ob-h">
         <span className="code">{ouvrage.code} · {nomFamille(famCode(ouvrage))}</span>
         <h2>{ouvrage.label}</h2>
@@ -76,7 +77,7 @@ function FicheOuvrage({ ouvrage, ouvrages, tauxFamille, tauxDefaut, articles, on
       <div className="ob-grid">
         <div className="ed">Unité<div className="selv">{ouvrage.unit}</div></div>
         <label className="ed">Temps de base · h / {ouvrage.unit}<input type="number" min="0" step="0.01" value={f.normativeTime} onChange={(e) => setF({ ...f, normativeTime: e.target.value })} /></label>
-        <label className="ed">Taux horaire · €/h<input type="number" min="0" step="1" value={f.hourlyRate} placeholder={`${tauxFamille || tauxDefaut || "—"} · taux du métier`} onChange={(e) => setF({ ...f, hourlyRate: e.target.value })} /></label>
+        <label className="ed">Taux horaire · €/h<input type="number" min="0" step="1" value={f.hourlyRate} placeholder={`${tauxFamille || tauxDefaut || "—"} € · métier`} onChange={(e) => setF({ ...f, hourlyRate: e.target.value })} /></label>
         <label className="ed">Temps fixe · h / intervention<input type="number" min="0" step="0.1" value={f.fixedTime} onChange={(e) => setF({ ...f, fixedTime: e.target.value })} /></label>
       </div>
       <div className="fx-sum"><span>MO / {ouvrage.unit}</span><b>{euro(mo.parUnite)}{mo.fixe > 0 ? ` · + ${euro(mo.fixe)} par intervention` : ""}</b></div>
@@ -230,7 +231,7 @@ function Bibliotheque() {
       {message ? <p className="notice" role="status">{message}</p> : null}
       {erreur ? <p className="err" role="alert">{erreur}</p> : null}
       {!ouvrages ? <p className="muted">Chargement…</p> : (
-        <div className="fp-layout" style={{ gridTemplateColumns: "200px minmax(0,1fr) 360px" }}>
+        <div className="fp-layout bib-grid">
           <nav className="card" aria-label="Familles" style={{ padding: 12 }}>
             <div className="lab sm2" style={{ marginBottom: 6 }}>Familles</div>
             <button type="button" className={`fx-row${!famille ? " on" : ""}`} style={{ width: "100%", background: "none", border: 0, cursor: "pointer", font: "inherit", fontWeight: !famille ? 700 : 400 }} onClick={() => setFamille("")}><span>Toutes</span><span className="sm2">{ouvrages.length}</span></button>
@@ -240,18 +241,17 @@ function Bibliotheque() {
               </button>
             ))}
           </nav>
-          <div className="tbl">
+          <div className="tbl bib-tbl">
             {liste.length === 0 ? <div className="empty">Aucun ouvrage ne correspond. <Link className="link" href="/bibliotheque-ouvrages/nouveau">Créer un ouvrage</Link></div> : (
               <table>
-                <thead><tr><th>Code</th><th>Ouvrage</th><th>Unité</th><th className="r">Temps</th><th className="r">MO / u</th><th>Conf.</th></tr></thead>
+                <thead><tr><th>Code</th><th>Ouvrage</th><th className="r">Temps</th><th className="r">MO / u</th><th>Conf.</th></tr></thead>
                 <tbody>
                   {liste.slice(0, 400).map((o) => (
-                    <tr key={o.id} className={sel?.id === o.id ? "sel" : ""} onClick={() => setSelId(o.id)}>
-                      <td className="n">{o.code}</td>
+                    <tr key={o.id} className={sel?.id === o.id ? "sel" : ""} onClick={() => { setSelId(o.id); if (window.matchMedia("(max-width: 1100px)").matches) setTimeout(() => document.querySelector(".bib-grid > :nth-child(3)")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }}>
+                      <td className="n" style={{ whiteSpace: "nowrap" }}>{o.code}</td>
                       <td><div className="n2">{o.label}</div>{o.userId ? <span className="mode">Moi</span> : null}</td>
-                      <td>{o.unit}</td>
-                      <td className="r">{o.billingMode === "fixed" ? "forfait" : `${nb(o.normativeTime)} h`}</td>
-                      <td className="r b">{o.billingMode === "fixed" ? euro(o.fixedAmountHt) : euro(moOuvrage(o, tauxOuvrage(o, { tauxFamille: tauxDe(o), tauxDefaut })).parUnite)}</td>
+                      <td className="r" style={{ whiteSpace: "nowrap" }}>{o.billingMode === "fixed" ? "forfait" : `${nb(o.normativeTime)} h/${o.unit || "u"}`}</td>
+                      <td className="r b" style={{ whiteSpace: "nowrap" }}>{o.billingMode === "fixed" ? euro(o.fixedAmountHt) : euro(moOuvrage(o, tauxOuvrage(o, { tauxFamille: tauxDe(o), tauxDefaut })).parUnite)}</td>
                       <td>{o.confidence || "C"}</td>
                     </tr>
                   ))}
@@ -269,6 +269,8 @@ function Bibliotheque() {
               articles={articles}
               onSaved={(l) => setOuvrages(l)}
               onDuplique={dupliquer}
+              choisi={Boolean(selId)}
+              onFermer={() => setSelId("")}
             />
           ) : null}
         </div>
