@@ -241,7 +241,14 @@ Future<void> showInvoiceActions(BuildContext context, WidgetRef ref, Invoice inv
           ],
           if (!avoir && status == 'Emise') ...[
             const SizedBox(height: 10),
-            KojiButton(label: 'Marquer payée', expand: true, onPressed: () => act('pay', 'Facture $number marquée payée.')),
+            KojiButton(
+              label: 'Marquer payée',
+              expand: true,
+              onPressed: () {
+                Navigator.of(sheetContext).pop();
+                showPaymentSheet(context, ref, invoice, data);
+              },
+            ),
             const SizedBox(height: 10),
             KojiButton(
               label: 'Relancer',
@@ -268,7 +275,15 @@ Future<void> showInvoiceActions(BuildContext context, WidgetRef ref, Invoice inv
           ],
           if (!avoir && status == 'Brouillon') ...[
             const SizedBox(height: 10),
-            KojiButton(label: 'Marquer payée', variant: KojiButtonVariant.secondary, expand: true, onPressed: () => act('pay', 'Facture $number marquée payée.')),
+            KojiButton(
+              label: 'Marquer payée',
+              variant: KojiButtonVariant.secondary,
+              expand: true,
+              onPressed: () {
+                Navigator.of(sheetContext).pop();
+                showPaymentSheet(context, ref, invoice, data);
+              },
+            ),
           ],
           if (!avoir && status != 'Annulee' && status != 'Payee') ...[
             const SizedBox(height: 4),
@@ -508,6 +523,175 @@ class _Coche extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+/// PRO-06.3 : paiement tout ou partie, reçu optionnel au client.
+Future<void> showPaymentSheet(BuildContext context, WidgetRef ref, Invoice invoice, FacturesData data) async {
+  final updated = await _sheet<Invoice>(context, _PaymentSheet(invoice: invoice, data: data));
+  if (updated == null || !context.mounted) return;
+  facturesChanged(ref);
+  final number = invoice['invoiceNumber'] ?? '';
+  final payments = paymentsOf(updated);
+  final sent = payments.isNotEmpty && payments.last['recuEnvoye'] == true;
+  final solde = updated['status'] == 'Payee';
+  showFacturesMessage(
+    context,
+    '${solde ? 'Facture $number payée' : 'Paiement enregistré sur la facture $number'}${sent ? ', reçu envoyé au client' : ''}.',
+  );
+}
+
+class _PaymentSheet extends ConsumerStatefulWidget {
+  const _PaymentSheet({required this.invoice, required this.data});
+  final Invoice invoice;
+  final FacturesData data;
+
+  @override
+  ConsumerState<_PaymentSheet> createState() => _PaymentSheetState();
+}
+
+class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
+  bool _tout = true;
+  late final _montant = TextEditingController(text: dueOn(widget.invoice, widget.data.invoices).toStringAsFixed(2).replaceAll('.', ','));
+  final _referenceCtl = TextEditingController();
+  DateTime _date = DateTime.now();
+  String _moyen = 'virement';
+  late bool _recu = '${widget.invoice['clientEmail'] ?? ''}'.isNotEmpty;
+  bool _busy = false;
+  String _error = '';
+
+  String get _jour => '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
+  String get _reference => _referenceCtl.text.trim();
+
+  @override
+  void dispose() {
+    _montant.dispose();
+    _referenceCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(now.year - 2), lastDate: now);
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.koji;
+    final data = widget.data;
+    final invoice = widget.invoice;
+    final quote = data.quotes.firstWhere((q) => q['id'] == invoice['quoteId'], orElse: () => <String, dynamic>{});
+    final du = dueOn(invoice, data.invoices);
+    final montantRecu = _tout ? du : toAmount(double.tryParse(_montant.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0);
+    final resteFacture = du - montantRecu > 0 ? du - montantRecu : 0.0;
+    final totalDevis = (quote['totalTtc'] as num?)?.toDouble() ?? 0;
+    final encaisseDevis = data.invoices
+        .where((f) => !isCreditNote(f) && quote['id'] != null && f['quoteId'] == quote['id'] && f['status'] != 'Annulee')
+        .fold<double>(0, (s, f) => s + paidOn(f));
+    final resteChantier = totalDevis > 0 ? (totalDevis - encaisseDevis - montantRecu).clamp(0, double.infinity).toDouble() : null;
+    final particulier = quote['clientType'] != 'societe';
+    final cashWarning = particulier && _moyen == 'especes' && montantRecu > cashLimit;
+    final email = '${invoice['clientEmail'] ?? ''}'.trim();
+    final client = '${invoice['client'] ?? ''}'.trim().isEmpty ? 'le client' : '${invoice['client']}';
+    final objet = ['${invoice['type'] ?? 'Facture'}', '${invoice['projectTitle'] ?? ''}'].where((t) => t.trim().isNotEmpty).join(' · ');
+    final partiel = du < amountOf(invoice) - 0.01;
+
+    return _SheetFrame(
+      title: 'Marquer payée · ${invoice['invoiceNumber'] ?? ''}',
+      children: [
+        Text(
+          '$objet · ${euro(amountOf(invoice))} TTC${partiel ? ' · reste dû ${euro(du)}' : ''}',
+          style: TextStyle(fontSize: 13.5, color: p.muted, height: 1.4),
+        ),
+        const SizedBox(height: 16),
+        Text('Montant reçu', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.heading)),
+        const SizedBox(height: 8),
+        KojiSegmented<bool>(
+          compact: true,
+          options: {true: 'Tout · ${euro(du)}', false: 'Une partie'},
+          value: _tout,
+          onChanged: (v) => setState(() => _tout = v),
+        ),
+        if (!_tout) ...[
+          const SizedBox(height: 14),
+          KojiField(
+            label: 'Montant reçu (€)',
+            controller: _montant,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+        const SizedBox(height: 14),
+        KojiButton(
+          label: 'Reçu le ${shortDay(_jour)}',
+          variant: KojiButtonVariant.secondary,
+          leadingIcon: KojiIcons.calendrier,
+          expand: true,
+          onPressed: _pickDate,
+        ),
+        const SizedBox(height: 14),
+        Text('Moyen', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.heading)),
+        const SizedBox(height: 8),
+        KojiFilterChips<String>(options: paymentMethods, value: _moyen, onChanged: (v) => setState(() => _moyen = v)),
+        if (cashWarning) ...[
+          const SizedBox(height: 10),
+          KojiAlertBox(
+            title: 'Espèces limitées à ${euro(cashLimit)}',
+            message: "Paiement en espèces d'un particulier limité à ${euro(cashLimit)} : au-delà, demandez un autre moyen.",
+            tone: KojiTone.amber,
+          ),
+        ],
+        const SizedBox(height: 14),
+        KojiField(label: 'Référence du virement · facultatif', hint: 'VIR LEFEVRE SIT1', controller: _referenceCtl),
+        const SizedBox(height: 8),
+        _Coche(
+          value: _recu && email.isNotEmpty,
+          label: email.isEmpty ? "Envoyer un reçu à $client (pas d'e-mail sur la facture)" : 'Envoyer un reçu à $client',
+          onChanged: (v) => setState(() => _recu = email.isNotEmpty && v),
+        ),
+        Text('PDF « paiement reçu », avec le solde restant.', style: TextStyle(fontSize: 12, color: p.faint)),
+        const SizedBox(height: 14),
+        FactureKv('Après ce paiement, reste sur la facture', euro(resteFacture), strong: true),
+        if (resteChantier != null) FactureKv('Reste sur le chantier', euro(resteChantier)),
+        if (_error.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(_error, style: TextStyle(fontSize: 13, color: p.toneFg(KojiTone.coral), fontWeight: FontWeight.w600)),
+        ],
+        const SizedBox(height: 18),
+        KojiButton(
+          label: 'Enregistrer le paiement',
+          expand: true,
+          loading: _busy,
+          onPressed: _busy || !(montantRecu > 0) || montantRecu > du + 0.01 ? null : () => _save(montantRecu),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save(double amount) async {
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      final updated = await ref.read(facturesRepositoryProvider).pay(
+            widget.invoice,
+            amount: amount,
+            date: _jour,
+            moyen: _moyen,
+            reference: _reference,
+            receipt: _recu && '${widget.invoice['clientEmail'] ?? ''}'.trim().isNotEmpty,
+          );
+      if (mounted) Navigator.of(context).pop(updated);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = errorText(error);
+        });
+      }
+    }
   }
 }
 

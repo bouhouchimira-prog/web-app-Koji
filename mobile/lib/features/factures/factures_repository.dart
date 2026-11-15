@@ -105,6 +105,18 @@ class FacturesRepository {
         'notes': notes,
       }));
 
+  /// Paiement reçu (PRO-06.3) : tout ou partie, reçu PDF au client si demandé.
+  Future<Invoice> pay(Invoice invoice, {required double amount, required String date, required String moyen, String reference = '', bool receipt = false}) async =>
+      _invoice(await _api.patch('/api/invoices', {
+        'id': invoice['id'],
+        'action': 'payment',
+        'amount': amount,
+        'date': date,
+        'moyen': moyen,
+        'reference': reference,
+        'recu': receipt,
+      }));
+
   /// Relances automatiques de l'entreprise (PRO-06.2) : J+3, J+15, J+30.
   Future<bool> autoReminders() async => (await _api.get('/api/relances'))['actif'] == true;
 

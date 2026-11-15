@@ -11,6 +11,9 @@ import { useApi } from "../../lib/use-api";
 import { NOTE_LIBERATION_RETENUE } from "../../lib/cloture-chantier";
 import { avoirCorrige } from "../../lib/situation-travaux";
 import { texteRelance } from "../../lib/relances";
+import { resteDu } from "../../lib/encaissements";
+import { PaiementPanneau, creditsSur } from "../../components/PaiementPanneau";
+import { EncaissementsOnglet } from "../../components/EncaissementsOnglet";
 
 // Factures, maquette PRO-06 (DA Koji Pro, 30 oct) : liste avec onglets, et
 // création d'une facture depuis un devis signé (mêmes modes qu'avant :
@@ -20,6 +23,7 @@ const invoiceTypes = ["Acompte initial", "Facture intermédiaire", "Facture fina
 
 const INVOICE_TABS = [
   { id: "toutes", label: "Toutes" },
+  { id: "encaissements", label: "Encaissements" },
   { id: "Retard", label: "En retard" },
   { id: "Emise", label: "À échéance" },
   { id: "Payee", label: "Payées" },
@@ -196,6 +200,7 @@ function FacturationContent() {
   const [remindForm, setRemindForm] = useState({ level: "aimable", text: "" });
   const [busy, setBusy] = useState(false);
   const [bandeauMasque, setBandeauMasque] = useState(false);
+  const [payFor, setPayFor] = useState(null);
   const tauxFacture = (invoice) => tauxFactureBrut(invoice, quotes || []);
   const [modalError, setModalError] = useState("");
 
@@ -225,6 +230,7 @@ function FacturationContent() {
   const tabCounts = useMemo(() => {
     const counts = { toutes: invoicesWithBucket.length, Retard: 0, Emise: 0, Payee: 0, Brouillon: 0 };
     invoicesWithBucket.forEach((inv) => { if (counts[inv.bucket] !== undefined) counts[inv.bucket] += 1; });
+    counts.encaissements = invoicesWithBucket.filter((inv) => inv.kind !== "avoir" && inv.status === "Emise" && resteDu(inv, creditsSur(inv, invoices || [])) > 0.01).length;
     return counts;
   }, [invoicesWithBucket]);
 
@@ -457,7 +463,7 @@ function FacturationContent() {
     if (invoice.status === "Brouillon") return { label: L.facturation.issue, run: () => updateInvoice(invoice.id, "issue") };
     // Maquette PRO-06 : une facture échue se relance d'abord.
     if (invoice.bucket === "Retard") return { label: "Relancer", run: () => openRemind(invoice) };
-    if (invoice.status !== "Payee") return { label: L.facturation.markPaid, run: () => updateInvoice(invoice.id, "pay") };
+    if (invoice.status !== "Payee") return { label: L.facturation.markPaid, run: () => setPayFor(invoice) };
     return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
   }
 
@@ -473,7 +479,7 @@ function FacturationContent() {
           <button type="button" className="btn btn-sec" onClick={() => openCredit(invoice)}>Créer un avoir</button>
         ) : null}
         {invoice.status === "Brouillon" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "issue")}>{L.facturation.issue}</button> : null}
-        {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "pay")}>{L.facturation.markPaid}</button> : null}
+        {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => setPayFor(invoice)}>{L.facturation.markPaid}</button> : null}
         {invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "cancel")}>{L.common.cancel}</button> : null}
       </>
     );
@@ -523,6 +529,7 @@ function FacturationContent() {
           );
         })()}
 
+        {tab !== "encaissements" ? (
         <div className="kpis">
           <div>
             <div className="l">Encaissé ce mois</div>
@@ -545,6 +552,7 @@ function FacturationContent() {
             <div className="s">{stats.draftCount > 1 ? "factures en brouillon" : "facture en brouillon"}</div>
           </div>
         </div>
+        ) : null}
 
         <div className="tbar">
           <div className="wtabs" role="tablist" aria-label="Filtrer les factures">
@@ -560,7 +568,14 @@ function FacturationContent() {
           </label>
         </div>
 
-        {rows.length === 0 ? (
+        {tab === "encaissements" ? (
+          <EncaissementsOnglet
+            invoices={invoices || []}
+            onMarquer={(invoice) => setPayFor(invoice)}
+            onVoir={(invoice) => downloadInvoicePdf(invoice)}
+            onInvoicesChange={(maj) => setInvoices((cur) => (cur || []).map((f) => (f.id === maj.id ? maj : f)))}
+          />
+        ) : rows.length === 0 ? (
           <div className="tbl">
             <div className="empty">{query.trim() ? "Aucune facture ne correspond à cette recherche." : L.facturation.noInvoices}</div>
           </div>
@@ -707,6 +722,21 @@ function FacturationContent() {
             </div>
           );
         })() : null}
+
+        {payFor ? (
+          <PaiementPanneau
+            invoice={payFor}
+            invoices={invoices || []}
+            quote={(quotes || []).find((q) => q.id === payFor.quoteId) || null}
+            onClose={() => setPayFor(null)}
+            onDone={(maj) => {
+              setInvoices((cur) => (cur || []).map((f) => (f.id === maj.id ? maj : f)));
+              const p = (maj.payments || [])[maj.payments.length - 1];
+              setMessage(`Paiement de ${euro(p?.amount)} enregistré sur ${maj.invoiceNumber}${maj.status === "Payee" ? ", facture payée" : ""}${p?.recuEnvoye ? ", reçu envoyé au client" : p?.recuErreur ? ` (reçu non envoyé : ${p.recuErreur})` : ""}.`);
+              setPayFor(null);
+            }}
+          />
+        ) : null}
 
         {remindFor ? (
           <div className="pmodal-bg" onClick={() => setRemindFor(null)}>

@@ -4,7 +4,8 @@ import { fixObjectText, fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 import { loadInvoiceContext } from "../../../lib/invoice-context";
-import { buildInvoicePdf, invoiceDocumentFilename } from "../../../lib/document-generator";
+import { buildInvoicePdf, buildRecuPdf, invoiceDocumentFilename, recuFilename } from "../../../lib/document-generator";
+import { ajouterPaiement, encaisse, resteDu } from "../../../lib/encaissements";
 import { sendInvoiceReminderEmail } from "../../../lib/mailer";
 import { demanderAvis } from "../../../lib/avis-serveur";
 import { calculerSituation } from "../../../lib/situation-travaux";
@@ -502,6 +503,48 @@ export async function PATCH(request) {
     if (invoice.type === "Facture finale" && !String(invoice.notes || "").startsWith("Libération de la retenue") && cloture?.avis?.programme && !cloture.avis.demandeLe) {
       const demande = await demanderAvis(db, { projectId: invoice.projectId, userId: cloture.userId });
       if (!demande.ok) cloture.avis.erreur = demande.raison;
+    }
+  } else if (action === "payment") {
+    // PRO-06.3 : paiement reçu (tout ou partie), reçu PDF au client si demandé.
+    if (invoice.kind === "avoir" || !["Emise", "Payee"].includes(invoice.status)) return badRequest("Seule une facture envoyée se marque payée.");
+    const credite = db.invoices
+      .filter((item) => item.kind === "avoir" && item.refInvoiceId === invoice.id && item.status !== "Annulee")
+      .reduce((sum, item) => sum - Number(item.amountTtc || 0), 0);
+    let ajout;
+    try {
+      ajout = ajouterPaiement(invoice, { amount: body.amount, date: body.date, moyen: body.moyen, reference: fixText(String(body.reference || "")) }, credite);
+    } catch (error) {
+      return badRequest(error.message);
+    }
+    if (ajout.solde) {
+      invoice.status = "Payee";
+      invoice.paidAt = `${ajout.paiement.date}T12:00:00.000Z`;
+    }
+    const { quote, project } = await loadInvoiceContext(invoice);
+    let resteChantier = null;
+    if (quote) {
+      const totalChantier = toAmount(quoteTotal(quote, project) + signedAvenantsTtc(db, quote));
+      const encaisseChantier = db.invoices
+        .filter((item) => item.kind !== "avoir" && item.quoteId === quote.id && item.status !== "Annulee" && !item.archived)
+        .reduce((sum, item) => sum + encaisse(item), 0);
+      // Reste sur le chantier : marché (devis + avenants signés) − encaissé.
+      resteChantier = toAmount(Math.max(0, totalChantier - encaisseChantier));
+    }
+    ajout.paiement.resteChantier = resteChantier;
+    if (body.recu === true && invoice.clientEmail) {
+      const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      const resteFacture = resteDu(invoice, credite);
+      const sent = await sendInvoiceReminderEmail({
+        to: invoice.clientEmail,
+        subject: `Paiement reçu : facture ${invoice.invoiceNumber}`,
+        message: fixText(String(body.message || "").trim().slice(0, 2000)) || `Bonjour,\n\nNous avons bien reçu votre paiement de ${ajout.paiement.amount.toFixed(2).replace(".", ",")} € pour la facture ${invoice.invoiceNumber}. Vous trouverez le reçu en pièce jointe.${resteFacture > 0.01 ? `\n\nReste dû sur cette facture : ${resteFacture.toFixed(2).replace(".", ",")} €.` : ""}\n\nMerci.`,
+        replyTo: quote?.company?.email || owner?.email || undefined,
+        pdfBuffer: buildRecuPdf({ invoice, paiement: ajout.paiement, resteFacture, resteChantier, quote, project, db }),
+        pdfFilename: recuFilename(invoice, ajout.paiement)
+      });
+      // Le paiement est enregistré même si le reçu n'est pas parti.
+      ajout.paiement.recuEnvoye = Boolean(sent.ok);
+      if (!sent.ok) ajout.paiement.recuErreur = String(sent.error || "envoi").slice(0, 200);
     }
   } else if (action === "pay") {
     invoice.status = "Payee";

@@ -24213,3 +24213,17 @@ button.chantiers-table-row {
 .imp-grid td.r { white-space: nowrap; }
 .imp-grid td .btn { white-space: nowrap; padding: 8px 12px; font-size: 13px; }
 .imp-grid .ck { width: 100%; justify-content: flex-start; text-align: left; margin-bottom: 10px; }
+
+/* Encaissements (maquette PRO-06.3) */
+.enc-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.enc-etat { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--line, #e7e3da); white-space: nowrap; }
+.enc-etat.late { background: #fde4dc; color: #a33b1c; }
+.enc-etat.ok { background: #dff1e3; color: #23663a; }
+.enc-etat.off { background: transparent; color: var(--muted, #6b7280); border: 1px solid var(--line, #e7e3da); }
+.enc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+.enc-grid .card { gap: 10px; }
+.enc-props { display: grid; gap: 8px; }
+.enc-prop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 220px) auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line, #e7e3da); }
+.enc-prop small { display: block; color: var(--muted, #6b7280); font-size: 12px; }
+.enc-depot { align-self: flex-start; cursor: pointer; }
+@media (max-width: 900px) { .enc-grid { grid-template-columns: 1fr; } .enc-kpis { grid-template-columns: 1fr; } .enc-prop { grid-template-columns: 1fr; } }

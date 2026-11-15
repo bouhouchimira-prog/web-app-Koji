@@ -382,3 +382,86 @@ double tauxFacture(Invoice invoice, [List<Map<String, dynamic>> quotes = const [
 }
 
 String tauxTexte(num taux) => '${taux == taux.roundToDouble() ? taux.toInt() : taux}'.replaceAll('.', ',');
+
+// --- Encaissements (maquette PRO-06.3), mêmes règles que lib/encaissements.js.
+
+const paymentMethods = {'virement': 'Virement', 'carte': 'Carte (en ligne)', 'cheque': 'Chèque', 'especes': 'Espèces'};
+const _methodShort = {'virement': 'virement', 'carte': 'carte', 'cheque': 'chèque', 'especes': 'espèces'};
+
+/// Plafond légal d'un paiement en espèces d'un particulier (à vérifier).
+const cashLimit = 1000.0;
+
+/// Paiements d'une facture ; une facture payée avant PRO-06.3 a un paiement
+/// implicite du montant, à paidAt.
+List<Map<String, dynamic>> paymentsOf(Invoice invoice) {
+  final list = (invoice['payments'] as List?)?.whereType<Map>().map((p) => Map<String, dynamic>.from(p)).toList() ?? <Map<String, dynamic>>[];
+  if (list.isNotEmpty || invoice['status'] != 'Payee') return list;
+  return [
+    {'id': 'implicite', 'amount': amountOf(invoice), 'date': '${invoice['paidAt'] ?? invoice['updatedAt'] ?? ''}', 'moyen': ''},
+  ];
+}
+
+double paidOn(Invoice invoice) => toAmount(paymentsOf(invoice).fold<double>(0, (s, p) => s + ((p['amount'] as num?)?.toDouble() ?? 0)));
+
+/// Reste dû : montant − avoirs − paiements.
+double dueOn(Invoice invoice, List<Invoice> all) {
+  final rest = amountOf(invoice) - creditedOn(invoice, all) - paidOn(invoice);
+  return rest > 0 ? toAmount(rest) : 0;
+}
+
+/// État et colonne « Paiement » de la maquette.
+({String state, String text}) paymentState(Invoice invoice, List<Invoice> all, {DateTime? now}) {
+  final fullAvoir = all.where((a) => isCreditNote(a) && a['refInvoiceId'] == invoice['id'] && a['status'] != 'Annulee' && (amountOf(a) + amountOf(invoice)).abs() < 0.01).toList();
+  if (invoice['status'] == 'Annulee' || fullAvoir.isNotEmpty) {
+    return (state: 'Annulée', text: fullAvoir.isEmpty ? 'annulée' : 'annulée par avoir ${fullAvoir.first['invoiceNumber']}');
+  }
+  final payments = paymentsOf(invoice);
+  final last = payments.isEmpty ? null : payments.last;
+  String label(Map<String, dynamic> p) {
+    final moyen = '${p['moyen'] ?? ''}';
+    if (moyen == 'virement') return 'virement reçu le ${shortDay(p['date'])}';
+    if (moyen.isNotEmpty) return '${_methodShort[moyen] ?? moyen} · ${shortDay(p['date'])}';
+    return 'payée le ${shortDay(p['date'])}';
+  }
+
+  if (invoice['status'] == 'Payee') return (state: 'Payée', text: last == null ? 'payée' : label(last));
+  if (invoice['status'] == 'Brouillon') return (state: 'Brouillon', text: 'pas encore envoyée');
+  final late = daysLate(invoice, now: now);
+  final reminders = remindersOf(invoice).length;
+  final partial = last == null ? '' : ' · ${euro(paidOn(invoice))} reçus';
+  if (late > 0) return (state: 'En retard', text: 'échue depuis $late j${reminders > 0 ? ' · relance $reminders envoyée' : ''}$partial');
+  final due = parseDay(invoice['dueDate']);
+  return (state: 'À encaisser', text: '${due == null ? 'sans échéance' : 'échéance ${shortDay(invoice['dueDate'])}'}$partial');
+}
+
+/// Les trois chiffres : encaissé ce mois, à encaisser, prochaine échéance.
+({double collected, int paymentsCount, double toCollect, int dueCount, int lateCount, Invoice? next}) collectionStats(List<Invoice> all, {DateTime? now}) {
+  final today = _today(now);
+  var collected = 0.0;
+  var count = 0;
+  for (final f in all) {
+    if (isCreditNote(f) || f['status'] == 'Annulee') continue;
+    for (final p in paymentsOf(f)) {
+      final d = parseDay(p['date']);
+      if (d != null && d.year == today.year && d.month == today.month) {
+        collected += (p['amount'] as num?)?.toDouble() ?? 0;
+        count++;
+      }
+    }
+  }
+  final dues = all.where((f) => !isCreditNote(f) && f['status'] == 'Emise' && f['archived'] != true && dueOn(f, all) > 0.01).toList();
+  final late = dues.where((f) => daysLate(f, now: now) > 0).length;
+  final upcoming = dues.where((f) {
+    final d = parseDay(f['dueDate']);
+    return d != null && !d.isBefore(today);
+  }).toList()
+    ..sort((a, b) => parseDay(a['dueDate'])!.compareTo(parseDay(b['dueDate'])!));
+  return (
+    collected: toAmount(collected),
+    paymentsCount: count,
+    toCollect: toAmount(dues.fold<double>(0, (s, f) => s + dueOn(f, all))),
+    dueCount: dues.length,
+    lateCount: late,
+    next: upcoming.isEmpty ? null : upcoming.first,
+  );
+}
