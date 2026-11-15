@@ -398,6 +398,8 @@ export default function ProjectsTrackingPage() {
     if (lineKey) setOpenLineKey(lineKey);
     if (params.get("started") === "1") setStartChoiceMade(true);
     if (params.get("lancer") === "1") setLancerAuto(true);
+    // « Préparer un avenant » depuis le coût du chantier (maquette PRO-09.2).
+    if (params.get("avenant") === "1") setAvenantOuvert(true);
   }, []);
 
   useEffect(() => {
@@ -1773,7 +1775,7 @@ export default function ProjectsTrackingPage() {
         </div>
 
         {situationOuverte && selectedQuote ? <SituationPanneau quote={selectedQuote} project={selectedProject} taches={projectTasks} factures={invoices} finPrevue={plannedEnd || ""} debut={plannedStart || ""} onClose={() => setSituationOuverte(false)} /> : null}
-        {avenantOuvert && selectedQuote ? <AvenantPanneau quote={selectedQuote} finPrevue={plannedEnd || ""} onClose={() => setAvenantOuvert(false)} /> : null}
+        {avenantOuvert && selectedQuote && quoteSigned ? <AvenantPanneau quote={selectedQuote} finPrevue={plannedEnd || ""} onClose={() => setAvenantOuvert(false)} /> : null}
         <div className="wtabs" role="tablist" aria-label="Sections du chantier">
           {ficheTabs.map((tab) => (
             <button

@@ -18,6 +18,7 @@ const _routes = {
   'factures': '/facturation',
   'avenants': '/avenants',
   'fournitures': '/fournitures',
+  'depenses': '/depenses',
   'bibliotheque': '/bibliotheque',
   'calendrier': '/calendrier',
   'planning': '/planning',
@@ -45,6 +46,8 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'avenants', label: 'Avenants', icon: KojiIcons.avenant),
     KojiNavItem(
         id: 'fournitures', label: 'Fournitures', icon: KojiIcons.fournitures),
+    // Dépenses (maquettes PRO-09 à 09.4) : pièces, coût des chantiers.
+    KojiNavItem(id: 'depenses', label: 'Dépenses', icon: KojiIcons.comptabilite),
     KojiNavItem(
         id: 'bibliotheque',
         label: 'Bibliothèque koji',
@@ -92,6 +95,7 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/quote/messages') || starts('/messages')) return 'messages';
   if (starts('/quote')) return 'devis';
   if (starts('/fournitures')) return 'fournitures';
+  if (starts('/depenses')) return 'depenses';
   if (starts('/ouvrage-library') || starts('/bibliotheque')) return 'bibliotheque';
   if (starts('/calendrier')) return 'calendrier';
   if (starts('/planning')) return 'planning';

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Shell } from "../../../components/Shell";
 import { apiGet, apiSend } from "../../../lib/client-api";
 import { BibliothequeTabs } from "../BibliothequeTabs";
+import { fichierPourEnvoi } from "../../../lib/fichier-client";
 import "../../fournitures/fournitures.css";
 
 // Taux d'après mes factures (maquette PRO-08.3) : factures déposées, lues
@@ -15,7 +16,6 @@ const euro = (n, max = 2) => new Intl.NumberFormat("fr-FR", { style: "currency",
 const nb = (n) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(Number(n) || 0);
 const mois = (iso) => (iso ? new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(`${String(iso).slice(0, 10)}T12:00:00Z`)) : "");
 const TON = { forte: "ok", moyenne: "wait", faible: "late" };
-const lire = (file) => new Promise((resolve, reject) => { const r = new FileReader(); r.onerror = () => reject(new Error("Lecture impossible.")); r.onload = () => resolve(r.result); r.readAsDataURL(file); });
 
 function Question({ q, ouvrages, onRepondre }) {
   const [code, setCode] = useState("");
@@ -51,7 +51,7 @@ export default function TauxFactures() {
     for (const [i, file] of files.entries()) {
       setDepot(`Lecture de ${file.name} (${i + 1}/${files.length})…`);
       try {
-        const corps = /\.csv$/i.test(file.name) || file.type === "text/csv" ? { nom: file.name, texte: await file.text() } : { nom: file.name, data: await lire(file) };
+        const corps = /\.csv$/i.test(file.name) || file.type === "text/csv" ? { nom: file.name, texte: await file.text() } : { nom: file.name, data: await fichierPourEnvoi(file) };
         const r = await apiSend("/api/bibliotheque/factures", corps);
         setData(r);
         setMessage(`${file.name} : ${r.lues} lignes lues, ${r.comprises} comprises.`);

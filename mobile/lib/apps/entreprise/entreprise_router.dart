@@ -45,6 +45,7 @@ import 'package:koji/features/quote/chantier_rdv_screen.dart';
 import 'package:koji/features/quote/chantier_worker_activity_screen.dart';
 import 'package:koji/features/quote/client_details_screen.dart';
 import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
+import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
 import 'package:koji/features/quote/quote_detail_screen.dart';
@@ -813,6 +814,23 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                   DetailPlanningScreen(eventId: eventId),
                 );
               },
+            ),
+            // Dépenses (maquettes PRO-09 à 09.4), sur l'API du site.
+            GoRoute(
+              path: depensesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                DepensesScreen(onglet: state.uri.queryParameters['onglet'] ?? 'ranger'),
+              ),
+            ),
+            GoRoute(
+              path: '/depenses/chantier/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                CoutChantierScreen(projectId: state.pathParameters['id']!),
+              ),
             ),
             // Bibliothèque (maquettes PRO-08 à 08.3), sur l'API du site.
             GoRoute(

@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/relances", "schedule": "0 7 * * *" }
+    { "path": "/api/cron/relances", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/comptable", "schedule": "0 6 5 * *" }
   ]
 }

@@ -40,7 +40,8 @@ const OUTIL = {
   }
 };
 
-const MAX_FICHIER = 6_000_000;
+// Vercel refuse les requêtes de plus de 4,5 Mo (base64 compris).
+const MAX_FICHIER = 3 * 1024 * 1024;
 const texte = (v, max = 200) => fixText(String(v ?? "")).replace(/\s+/g, " ").trim().slice(0, max);
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -99,7 +100,7 @@ export async function POST(request) {
   const m = data.match(/^data:([a-z0-9.+/-]+);base64,(.+)$/i);
   const csv = typeof body.texte === "string" ? body.texte.slice(0, 80_000) : "";
   if (!m && !csv) return badRequest("Déposez un PDF, une photo ou un export CSV.");
-  if (m && m[2].length > MAX_FICHIER * 1.37) return badRequest("Fichier trop lourd (6 Mo au plus).");
+  if (m && m[2].length > MAX_FICHIER * 1.37) return badRequest("Fichier trop lourd (3 Mo au plus).");
   const type = m ? m[1].toLowerCase() : "text/csv";
   if (m && !/^(application\/pdf|image\/(jpeg|png|webp))$/.test(type)) return badRequest("Format non lu : PDF, photo (JPEG, PNG) ou CSV.");
 

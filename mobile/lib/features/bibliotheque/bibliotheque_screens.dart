@@ -645,8 +645,8 @@ class _TauxFacturesScreenState extends ConsumerState<TauxFacturesScreen> {
     final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: const ['pdf', 'csv'], withData: true);
     final f = r?.files.singleOrNull;
     if (f == null || f.bytes == null || !mounted) return;
-    if (f.size > 6 * 1024 * 1024) {
-      showFacturesMessage(context, 'Fichier trop lourd (6 Mo au plus).');
+    if (f.size > 3 * 1024 * 1024) {
+      showFacturesMessage(context, 'Fichier trop lourd (3 Mo au plus).');
       return;
     }
     if (f.name.toLowerCase().endsWith('.csv')) {

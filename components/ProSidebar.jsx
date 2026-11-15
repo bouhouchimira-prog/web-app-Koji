@@ -42,7 +42,7 @@ const GROUPS = [
   {
     label: "Business",
     items: [
-      { href: "/comptabilite", label: "Comptabilités", icon: "M5 20V10M12 20V4M19 20v-7" },
+      { href: "/depenses", label: "Dépenses", icon: "M5 20V10M12 20V4M19 20v-7" },
       { href: "/interventions", label: "Interventions", icon: "M14.7 6.3a4 4 0 0 0 5 5L12 19.1a2.1 2.1 0 0 1-3-3zM9.5 9.5 4 4" }
     ]
   },
