@@ -16,7 +16,7 @@ export async function GET(request) {
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const db = await readDb();
   const parFamille = db.tauxParFamille?.[userId]?.taux || {};
-  return ok({ taux: tauxParMetier(parFamille), parFamille });
+  return ok({ taux: tauxParMetier(parFamille), parFamille, valides: db.tauxParFamille?.[userId]?.valides || {} });
 }
 
 export async function PUT(request) {
@@ -40,11 +40,17 @@ export async function PUT(request) {
 
   const db = await readDb();
   db.tauxParFamille = db.tauxParFamille || {};
+  // Date de validation par métier (Mes prix, PRO-08.2) : gardée, et posée
+  // pour les métiers que l'entrepreneur confirme (body.valider).
+  const valides = { ...(db.tauxParFamille[userId]?.valides || {}) };
+  const metiersSaisis = tauxParMetier(parFamille);
+  for (const m of Object.keys(valides)) if (!metiersSaisis[m]) delete valides[m];
+  for (const m of Array.isArray(body.valider) ? body.valider : []) if (metiersSaisis[m]) valides[m] = new Date().toISOString().slice(0, 10);
   if (Object.keys(parFamille).length) {
-    db.tauxParFamille[userId] = { taux: parFamille, updatedAt: new Date().toISOString() };
+    db.tauxParFamille[userId] = { taux: parFamille, valides, updatedAt: new Date().toISOString() };
   } else {
     delete db.tauxParFamille[userId];
   }
   await writeDb(db);
-  return ok({ taux: tauxParMetier(parFamille), parFamille });
+  return ok({ taux: tauxParMetier(parFamille), parFamille, valides });
 }

@@ -256,7 +256,7 @@ class ProKojiWebClient {
       _taux(await _send('GET', '/api/entreprise/taux'));
 
   Future<Map<String, num>> enregistrerTaux(Map<String, num?> taux) async =>
-      _taux(await _send('PUT', '/api/entreprise/taux', {'taux': taux}));
+      _taux(await _send('PUT', '/api/entreprise/taux', {'taux': taux, 'valider': taux.keys.toList()}));
 
   static Map<String, num> _taux(dynamic data) {
     final taux = data is Map ? data['taux'] : null;

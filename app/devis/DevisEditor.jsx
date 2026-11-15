@@ -125,7 +125,8 @@ function accountSurchargesFrom(value) {
       label: String(item.label),
       percent: Math.max(0, Number(item.percent) || 0),
       mode: SURCHARGE_MODES.has(item.mode) ? item.mode : "excluded",
-      ...(item.calculationBase === "chiffrage_cumule" ? { calculationBase: "chiffrage_cumule" } : {})
+      ...(item.calculationBase === "chiffrage_cumule" ? { calculationBase: "chiffrage_cumule" } : {}),
+      ...(item.kind === "fixe" || item.kind === "minimum" ? { kind: item.kind, montant: Math.max(0, Number(item.montant) || 0) } : {})
     }));
 }
 
@@ -3247,8 +3248,11 @@ export default function DevisEditor() {
                 <div className="dl dl-in" key={surcharge.id}>
                   <span className="dd">{surcharge.label}</span>
                   <span className="dq">
-                    <input type="number" value={surcharge.percent} onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Pourcentage, ${surcharge.label}`} />
-                    %
+                    {surcharge.kind === "fixe" || surcharge.kind === "minimum" ? (
+                      <><input type="number" value={surcharge.montant} onChange={(event) => updateSurcharge(surcharge.id, "montant", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Montant, ${surcharge.label}`} /> €</>
+                    ) : (
+                      <><input type="number" value={surcharge.percent} onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Pourcentage, ${surcharge.label}`} /> %</>
+                    )}
                   </span>
                   <span className="dp" />
                   <span className="dt">+{money(surcharge.amount)}</span>
@@ -3316,16 +3320,19 @@ export default function DevisEditor() {
                         aria-label="Libellé de la majoration"
                       />
                       <span className="cond-pct">
-                        <input
-                          type="number"
-                          value={s.percent}
-                          min="0"
-                          max="100"
-                          step="0.5"
-                          onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
-                          aria-label={`Pourcentage, ${s.label}`}
-                        />
-                        %
+                        {s.kind === "fixe" || s.kind === "minimum" ? (
+                          <><input type="number" value={s.montant} min="0" step="1" onChange={(e) => updateSurcharge(s.id, "montant", e.target.value)} aria-label={`Montant, ${s.label}`} /> €</>
+                        ) : (
+                          <><input
+                            type="number"
+                            value={s.percent}
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
+                            aria-label={`Pourcentage, ${s.label}`}
+                          /> %</>
+                        )}
                       </span>
                       <b>{money(line?.amount ?? 0)}</b>
                       <button type="button" className="dx" onClick={() => removeSurcharge(s.id)} aria-label={`Supprimer ${s.label}`}>×</button>

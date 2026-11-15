@@ -44,7 +44,14 @@ export async function PATCH(request) {
   const db = await readDb();
   try {
     if (body.action === "reglage") {
-      const reglage = changerReglage(db, entreprise.userId, { coef: body.coef, lieux: body.lieux });
+      const reglage = changerReglage(db, entreprise.userId, { coef: body.coef, lieux: body.lieux, modeDefaut: body.modeDefaut });
+      // Les prix de vente enregistrés (lus par le devis) suivent la règle.
+      if (body.modeDefaut || body.coef != null) {
+        const { articles, fournisseurs } = await chargerCatalogue(entreprise, db);
+        for (const a of articles.filter((x) => x.modePrix === "public" && !x.manques.length)) {
+          await enregistrerArticle(entreprise, db, lireSaisie(a, fournisseurs), { id: a.id, fournisseurs, coef: reglage.coef, modeDefaut: reglage.modeDefaut });
+        }
+      }
       await writeDb(db);
       return ok({ reglage });
     }
