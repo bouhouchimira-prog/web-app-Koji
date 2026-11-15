@@ -46,11 +46,11 @@ import 'package:koji/features/quote/client_details_screen.dart';
 import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
 import 'package:koji/features/calendrier_pro/calendrier_pro.dart';
 import 'package:koji/features/contacts/contacts_pro.dart';
+import 'package:koji/features/messages_pro/messages_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
 import 'package:koji/features/quote/quote_detail_screen.dart';
-import 'package:koji/features/quote/quote_messages_inbox_screen.dart';
 import 'package:koji/features/quote/quote_messages_screen.dart';
 import 'package:koji/features/quote/quote_success_screen.dart';
 import 'package:koji/features/quote/room_selection_screen.dart';
@@ -478,11 +478,20 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
               },
             ),
             GoRoute(
-              path: '/messages',
+              path: messagesProRoute,
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const QuoteMessagesInboxScreen(),
+                const MessagesProScreen(),
+              ),
+            ),
+            // Fil d'une conversation (maquette PRO-12).
+            GoRoute(
+              path: '/messages/fil/:cle',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                FilScreen(cle: Uri.decodeComponent(state.pathParameters['cle']!)),
               ),
             ),
             GoRoute(

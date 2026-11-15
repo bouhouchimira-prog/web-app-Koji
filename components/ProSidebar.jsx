@@ -26,7 +26,7 @@ const GROUPS = [
     label: "Clients",
     items: [
       { href: "/profil/site-web", label: "KojiPage", icon: SHOP },
-      { label: "Messages", icon: "M4 5h16v11H9l-5 4z", soon: true },
+      { href: "/messages", label: "Messages", icon: "M4 5h16v11H9l-5 4z", badge: "messages" },
       { href: "/contacts", label: "Contacts", icon: PERSON, match: ["/contacts", "/clients"], badge: "contacts" }
     ]
   },
@@ -75,6 +75,7 @@ export function ProSidebar({
   hasNewMarketplaceOffers,
   devisBadge = 0,
   contactsBadge = 0,
+  messagesBadge = 0,
   onAsk,
   account,
   menuOpen,
@@ -125,6 +126,9 @@ export function ProSidebar({
                   ) : null}
                   {!locked && item.badge === "devis" && devisBadge > 0 ? (
                     <span className="cnt" aria-label={`${devisBadge} devis à reprendre ou relancer`}>{devisBadge}</span>
+                  ) : null}
+                  {!locked && item.badge === "messages" && messagesBadge > 0 ? (
+                    <span className="cnt" aria-label={`${messagesBadge} message${messagesBadge > 1 ? "s" : ""} non lu${messagesBadge > 1 ? "s" : ""}`}>{messagesBadge}</span>
                   ) : null}
                   {!locked && item.badge === "contacts" && contactsBadge > 0 ? (
                     <span className="cnt" aria-label={`${contactsBadge} contact${contactsBadge > 1 ? "s" : ""} à traiter`}>{contactsBadge}</span>

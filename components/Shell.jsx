@@ -631,10 +631,15 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
   const [devisBadge, setDevisBadge] = useState(0);
   // Badge Contacts (maquette PRO-10) : acomptes échus, documents de vigilance manquants.
   const [contactsBadge, setContactsBadge] = useState(0);
+  // Badge Messages (maquette PRO-12) : messages non lus.
+  const [messagesBadge, setMessagesBadge] = useState(0);
   useEffect(() => {
     let vivant = true;
     apiGet("/api/quotes?compteurs=1")
       .then((data) => { if (vivant) setDevisBadge(Number(data?.compteurs?.badge) || 0); })
+      .catch(() => {});
+    apiGet("/api/messages?compteurs=1")
+      .then((data) => { if (vivant) setMessagesBadge(Number(data?.compteurs?.nonLus) || 0); })
       .catch(() => {});
     apiGet("/api/contacts/carnet?compteurs=1")
       .then((data) => { if (vivant) setContactsBadge(Number(data?.compteurs?.aFaire) || 0); })
@@ -753,6 +758,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
             hasNewMarketplaceOffers={hasNewMarketplaceOffers}
             devisBadge={devisBadge}
             contactsBadge={contactsBadge}
+            messagesBadge={messagesBadge}
             onAsk={() => { setDrawerOpen(false); toggleKojiAssistant(); }}
             account={{
               name: avatarLabel,
@@ -786,11 +792,11 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
                 </Link>
               );
             })}
-            <span className="soon" aria-disabled="true">
+            <Link href="/messages" className={pathname.startsWith("/messages") ? "on" : ""} aria-current={pathname.startsWith("/messages") ? "page" : undefined}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+              {messagesBadge > 0 ? <em className="tbd" aria-label={`${messagesBadge} non lus`}>{messagesBadge}</em> : null}
               <span>Messages</span>
-              <em>Bientôt</em>
-            </span>
+            </Link>
           </nav>
         </div>
       )}
