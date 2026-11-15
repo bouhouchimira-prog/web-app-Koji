@@ -1,731 +1,463 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { AddressFields } from "../../components/AddressFields";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
-import { contactDisplayName } from "../../lib/contacts";
-import { useLocale } from "../../lib/i18n";
-import { euro } from "../../lib/pricing";
-import { useApi } from "../../lib/use-api";
+import { fichierPourEnvoi } from "../../lib/fichier-client";
+import "../fournitures/fournitures.css";
+import "./contacts.css";
 
-const initialContact = {
-  type: "particulier",
-  firstName: "",
-  lastName: "",
-  companyName: "",
-  siret: "",
-  contactPerson: "",
-  phone: "",
-  email: "",
-  address: "",
-  city: "",
-  postalCode: "",
-  floor: "",
-  accessCode: "",
-  complement: "",
-  accessInstructions: "",
-  notes: "",
-  roles: [],
-  linkedUserId: ""
-};
+// Contacts (maquettes PRO-10 à 10.3) : carnet unique (clients,
+// sous-traitants, fournisseurs, prescripteurs), liste dense « à faire
+// d'abord », fiche avec une seule action jaune, argent du client, documents
+// de vigilance des sous-traitants, blocs selon le type, historique rempli
+// seul, note d'appel à la voix ou au clavier, ajout par carte de visite,
+// SIREN, fichier ou contacts du téléphone.
+const euro = (n) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n) || 0);
+const euro0 = (n) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Number(n) || 0);
+const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const jourCourt = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? `${Number(m[3])} ${MOIS[Number(m[2]) - 1]}` : ""; };
+const quand = (iso) => (String(iso).slice(0, 10) === new Date().toISOString().slice(0, 10) ? "Aujourd'hui" : jourCourt(iso));
+const AV = { client: "cli", prospect: "cli", sous_traitant: "st", fournisseur: "fo", architecte: "pr" };
+const TYPES = { client: "Client", sous_traitant: "Sous-traitant", fournisseur: "Fournisseur", architecte: "Prescripteur", prospect: "Prospect", donneur_ordre: "Donneur d'ordre", autre: "Autre" };
+const FILTRES = { tout: "Tout", messages: "Messages", appels: "Appels et notes", documents: "Documents" };
+const TON_DOC = { ok: "", echeance: "wait", manquant: "late", expire: "late" };
+const IcoCheck = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>;
+const tel = (p) => String(p || "").replace(/[^\d+]/g, "");
 
-const emptyHistory = { quotes: [], chantiers: [], invoices: [], interventions: [] };
-
-// Onglets de la liste (maquette PRO-10 : Tous / À faire / Clients / Pros).
-// Les clients restent sur /clients (12 oct, demande d'Amira) : les prospects
-// prennent leur place, "Pros" regroupe tous les autres rôles, et le menu
-// "Type" affine sur un rôle précis.
-const GROUPS = [
-  { id: "tous", label: "Tous", test: () => true },
-  { id: "afaire", label: "À faire", test: (roles, contact) => Boolean(contact.nextAction?.label) },
-  { id: "prospect", label: "Prospects", test: (roles) => roles.includes("prospect") },
-  { id: "pros", label: "Pros", test: (roles) => roles.some((r) => r !== "prospect" && r !== "client") }
-];
-
-const ROLE_SINGULAR = {
-  client: "Client",
-  prospect: "Prospect",
-  equipe: "Équipe",
-  sous_traitant: "Sous-traitant",
-  architecte: "Architecte",
-  fournisseur: "Fournisseur",
-  donneur_ordre: "Donneur d'ordre",
-  autre: "Autre"
-};
-
-const QUOTE_STATUS_WORDS = { Brouillon: "brouillon", "Pret a envoyer": "prêt à envoyer", Envoye: "envoyé", Signe: "signé", Refuse: "refusé", Annule: "annulé", Archive: "archivé" };
-const INVOICE_STATUS_WORDS = { Brouillon: "brouillon", Emise: "envoyée", Payee: "payée", Retard: "en retard", Annulee: "annulée" };
-
-const HISTORY_FILTERS = [
-  { id: "tout", label: "Tout" },
-  { id: "devis", label: "Devis" },
-  { id: "chantier", label: "Chantiers" },
-  { id: "facture", label: "Factures" },
-  { id: "intervention", label: "Interventions" }
-];
-
-const ICONS = {
-  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
-  plus: "M12 5v14M5 12h14",
-  phone: "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2",
-  mail: "M4 6h16v12H4zM4 7l8 6 8-6",
-  pin: "M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11zM12 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4",
-  edit: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
-  alert: "M12 3l9 16H3zM12 10v4M12 17v.5",
-  archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4"
-};
-
-function Icon({ name }) {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={ICONS[name]} /></svg>;
-}
-
-function initials(contact) {
-  const name = contactDisplayName(contact) || "??";
-  return name.split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-}
-
-// Forme de l'avatar selon le rôle, comme la maquette : rond plein pour un
-// prospect, carré plein pour l'équipe et les sous-traitants, carré vide pour
-// un fournisseur, rond vide pour les autres partenaires.
-function avatarKind(roles) {
-  if (roles.includes("fournisseur")) return "fo";
-  if (roles.includes("sous_traitant") || roles.includes("equipe")) return "st";
-  if (roles.includes("prospect") || roles.length === 0) return "";
-  return "pr";
-}
-
-function shortDay(value) {
-  if (!value) return "";
-  const text = String(value);
-  const date = new Date(text.length === 10 ? `${text}T00:00:00` : text);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
-}
-
-function longDay(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(date);
-}
-
-function rolesText(contact) {
-  return (contact.roles || []).map((r) => ROLE_SINGULAR[r] || r).join(", ");
-}
-
-function fullAddress(contact) {
-  const town = [contact.postalCode, contact.city].filter(Boolean).join(" ");
-  const street = String(contact.address || "").trim();
-  if (!street) return town;
-  return town && !street.includes(town) ? `${street}, ${town}` : street;
-}
-
-function accessText(contact) {
-  return [contact.floor ? `étage ${contact.floor}` : "", contact.accessCode ? `code ${contact.accessCode}` : "", contact.complement].filter(Boolean).join(" · ");
-}
-
-function isOverdue(date) {
-  return Boolean(date) && date < new Date().toISOString().slice(0, 10);
-}
-
-function invoiceBucket(invoice) {
-  if (invoice.kind === "avoir") return "Avoir";
-  if (invoice.status === "Emise" && invoice.dueDate && new Date(`${invoice.dueDate}T00:00:00`) < new Date(new Date().toDateString())) return "Retard";
-  return invoice.status;
-}
-
-export default function ContactsPage() {
-  const { L } = useLocale();
-  const [showArchived, setShowArchived] = useState(false);
-  const { data: contacts, setData: setContacts, loading } = useApi(showArchived ? "/api/contacts?includeArchived=1" : "/api/contacts", "contacts");
-  const [search, setSearch] = useState("");
-  const [group, setGroup] = useState("tous");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [sortBy, setSortBy] = useState("nom");
-  const [selectedId, setSelectedId] = useState(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState(initialContact);
-  const [editingId, setEditingId] = useState(null);
-  const [message, setMessage] = useState("");
-  const [similar, setSimilar] = useState([]);
-  const [history, setHistory] = useState(emptyHistory);
-  const [historyFilter, setHistoryFilter] = useState("tout");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [noteKind, setNoteKind] = useState("appel");
-  const [noteText, setNoteText] = useState("");
-  const [actionForm, setActionForm] = useState({ label: "", date: "" });
-  const [editingAction, setEditingAction] = useState(false);
-
-  // "client" n'est plus un role selectionnable ici — les clients ont leur
-  // propre page dediee (/clients, 12 oct, demande d'Amira), avec generation
-  // d'acces au portail particulier directement integree.
-  const ALL_ROLES = [
-    { id: "prospect", label: L.contacts.roleProspect },
-    { id: "equipe", label: L.contacts.roleEquipe },
-    { id: "sous_traitant", label: L.contacts.roleSousTraitant },
-    { id: "architecte", label: L.contacts.roleArchitecte },
-    { id: "fournisseur", label: L.contacts.roleFournisseur },
-    { id: "donneur_ordre", label: L.contacts.roleDonneurOrdre },
-    { id: "autre", label: L.contacts.roleAutre }
-  ];
-
-  // Les clients ont leur propre page (/clients, 12 oct, demande d'Amira) —
-  // jamais affiches ici, meme s'ils ont aussi un autre role. Filtre cote page
-  // (pas dans /api/contacts) : DevisEditor.jsx lit la meme API sans ce filtre
-  // pour son selecteur de contact.
-  const activeContacts = useMemo(() => contacts.filter((c) => !(c.roles || []).includes("client")), [contacts]);
-
-  const groupCounts = useMemo(
-    () => Object.fromEntries(GROUPS.map((g) => [g.id, activeContacts.filter((c) => g.test(c.roles || [], c)).length])),
-    [activeContacts]
+function Liste({ data, sel, onSel, onAjouter }) {
+  const [q, setQ] = useState("");
+  const [onglet, setOnglet] = useState("tous");
+  const [tri, setTri] = useState("afaire");
+  const [type, setType] = useState("");
+  const liste = useMemo(() => {
+    const t = q.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    let l = data.contacts.filter((c) => (onglet === "tous" || (onglet === "afaire" && c.aFaire) || (onglet === "clients" && !c.pro) || (onglet === "pros" && c.pro)) && (!type || c.type === type));
+    if (t) l = l.filter((c) => `${c.nom} ${c.telephone} ${c.email} ${c.sousTitre}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s/g, "").includes(t.replace(/\s/g, "")));
+    return [...l].sort((a, b) => tri === "nom" ? a.nom.localeCompare(b.nom, "fr") : tri === "recent" ? String(b.dernier).localeCompare(String(a.dernier)) : (b.aFaire - a.aFaire) || Boolean(b.flag) - Boolean(a.flag) || String(b.dernier).localeCompare(String(a.dernier)));
+  }, [data, q, onglet, tri, type]);
+  const k = data.compteurs;
+  return (
+    <div className="ct-list">
+      <div className="ct-lh">
+        <div className="ct-top"><h1>Contacts</h1><button type="button" className="btn btn-main ct-add" onClick={onAjouter}>Ajouter</button></div>
+        <label className="ct-srch"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone, SIREN, chantier" aria-label="Rechercher un contact" /></label>
+        <div className="ct-seg" role="tablist">
+          {[["tous", `Tous ${k.tous}`], ["afaire", `À faire ${k.aFaire}`], ["clients", `Clients ${k.clients}`], ["pros", `Pros ${k.pros}`]].map(([id, l]) => <button type="button" key={id} role="tab" aria-selected={onglet === id} className={onglet === id ? "on" : ""} onClick={() => setOnglet(id)}>{l}</button>)}
+        </div>
+      </div>
+      <div className="ct-sub">
+        <label>Trier : <select value={tri} onChange={(e) => setTri(e.target.value)}><option value="afaire">à faire d'abord</option><option value="recent">plus récents</option><option value="nom">nom</option></select></label>
+        <label>Type : <select value={type} onChange={(e) => setType(e.target.value)}><option value="">tous</option>{Object.entries(TYPES).map(([v, l]) => <option key={v} value={v}>{l.toLowerCase()}</option>)}</select></label>
+      </div>
+      <div className="ct-items">
+        {liste.length === 0 ? <p className="ct-vide">{data.contacts.length ? "Aucun contact ne correspond." : "Votre carnet est vide : les clients de vos devis y arrivent seuls. Ajoutez vos sous-traitants et fournisseurs."}</p> : liste.map((c) => (
+          <button type="button" key={c.id} className={`ct-li2${sel === c.id ? " on" : ""}`} onClick={() => onSel(c.id)}>
+            <span className={`ct-av ${AV[c.type] || "cli"}`}>{c.initiales}</span>
+            <div className="b">
+              <div className="l1"><strong>{c.nom}</strong><small>{jourCourt(c.dernier)}</small></div>
+              <div className="l2"><small>{c.sousTitre}</small>{c.flag ? <span className={`ct-todo${c.aFaire ? " late" : ""}`}>{c.flag}</span> : null}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
+}
 
-  const filteredContacts = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const test = GROUPS.find((g) => g.id === group)?.test || (() => true);
-    const todoKey = (contact) => (contact.nextAction?.label ? `0${contact.nextAction.date || "9999-99-99"}` : "1");
-    return activeContacts.filter((contact) => {
-      if (!test(contact.roles || [], contact)) return false;
-      if (roleFilter && !(contact.roles || []).includes(roleFilter)) return false;
-      if (!needle) return true;
-      const haystack = [contactDisplayName(contact), contact.companyName, contact.siret, contact.phone, contact.email, contact.address, contact.city, contact.postalCode].filter(Boolean).join(" ").toLowerCase();
-      return haystack.includes(needle);
-    }).sort((a, b) => (sortBy === "recent"
-      ? String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
-      : sortBy === "afaire" || group === "afaire"
-        ? todoKey(a).localeCompare(todoKey(b)) || contactDisplayName(a).localeCompare(contactDisplayName(b), "fr")
-        : contactDisplayName(a).localeCompare(contactDisplayName(b), "fr")));
-  }, [activeContacts, search, group, roleFilter, sortBy]);
-
-  const selected = activeContacts.find((c) => c.id === selectedId) || null;
-
-  // Sur ordinateur la fiche du premier contact s'ouvre d'office (la maquette
-  // montre toujours une fiche) ; sur téléphone on reste sur la liste.
-  useEffect(() => {
-    if (selected || !filteredContacts.length) return;
-    if (window.matchMedia("(min-width: 901px)").matches) setSelectedId(filteredContacts[0].id);
-  }, [filteredContacts, selected]);
-
-  useEffect(() => {
-    setHistory(emptyHistory);
-    setHistoryFilter("tout");
-    setConfirmDelete(false);
-    setNoteText("");
-    setActionForm({ label: "", date: "" });
-    setEditingAction(false);
-    if (!selectedId) return;
-    let alive = true;
-    apiGet(`/api/contacts/${selectedId}/history`).then((payload) => {
-      if (alive) setHistory({ quotes: payload.quotes || [], chantiers: payload.chantiers || [], invoices: payload.invoices || [], interventions: payload.interventions || [] });
-    }).catch(() => {});
-    return () => { alive = false; };
-  }, [selectedId]);
-
-  function selectContact(id) {
-    setSelectedId(id);
-    setMessage("");
+function Note({ id, onFait }) {
+  const [t, setT] = useState("");
+  const [ecoute, setEcoute] = useState(false);
+  const dicte = useRef(false);
+  const reco = useRef(null);
+  function micro() {
+    const R = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+    if (!R) return;
+    if (ecoute) { reco.current?.stop(); return; }
+    const r = new R();
+    r.lang = "fr-FR";
+    r.interimResults = false;
+    r.onresult = (e) => { dicte.current = true; setT((x) => `${x} ${[...e.results].map((x2) => x2[0].transcript).join(" ")}`.trim()); };
+    r.onend = () => setEcoute(false);
+    reco.current = r;
+    setEcoute(true);
+    r.start();
   }
-
-  function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+  async function noter(kind) {
+    if (!t.trim()) return;
+    await apiSend("/api/contacts/carnet", { action: "noter", id, texte: t, kind, dictee: dicte.current }, "PATCH");
+    setT(""); dicte.current = false;
+    onFait();
   }
+  const peutDicter = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  return (
+    <div className="ct-note">
+      <input value={t} onChange={(e) => setT(e.target.value)} placeholder={peutDicter ? "Noter un appel ou une info, à la voix ou au clavier…" : "Noter un appel ou une info…"} aria-label="Noter un appel ou une info" onKeyDown={(e) => { if (e.key === "Enter") noter("note"); }} />
+      {peutDicter ? <button type="button" className="link" onClick={micro} aria-pressed={ecoute}>{ecoute ? "Arrêter" : "Dicter"}</button> : null}
+      {t.trim() ? <><button type="button" className="link" onClick={() => noter("appel")}>Appel</button><button type="button" className="link" onClick={() => noter("note")}>Note</button><button type="button" className="link" title="Devient la prochaine action de la fiche" onClick={async () => { await apiSend("/api/contacts/carnet", { action: "prochaine", id, label: t }, "PATCH"); setT(""); onFait(); }}>À faire</button></> : null}
+    </div>
+  );
+}
 
-  function toggleRole(roleId) {
-    setForm((current) => {
-      const roles = current.roles || [];
-      return { ...current, roles: roles.includes(roleId) ? roles.filter((r) => r !== roleId) : [...roles, roleId] };
-    });
+function Edition({ fiche, onFermer, onFait }) {
+  const c = fiche.contact;
+  const [f, setF] = useState(() => ({
+    type: c.type || "particulier", roles: c.roles?.length ? c.roles : ["client"], genreClient: c.genreClient || "", firstName: c.firstName || "", lastName: c.lastName || "", companyName: c.companyName || "", contactPerson: c.contactPerson || "",
+    phone: c.phone || "", email: c.email || "", siret: c.siret || "", address: c.address || "", accessCode: c.accessCode || "", floor: c.floor || "", metier: c.metier || "", preferences: c.preferences || "", disponibilite: c.disponibilite || "",
+    facturation: { identique: c.facturation?.identique !== false, adresse: c.facturation?.adresse || "", email: c.facturation?.email || "", commande: c.facturation?.commande || "" },
+    syndic: { gestionnaire: "", conseil: "", vote: "", paiement: "", acces: "", documents: "", ...(c.syndic || {}) },
+    fournisseur: { compte: "", remises: "", paiement: "", franco: "", commercial: "", ...(c.fournisseurInfo || {}) },
+    prescripteur: { remerciement: "", preference: "", ...(c.prescripteurInfo || {}) },
+    chantiersApportes: c.chantiersApportes || []
+  }));
+  const [erreur, setErreur] = useState("");
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const setIn = (g, k) => (e) => setF((x) => ({ ...x, [g]: { ...x[g], [k]: e.target.value } }));
+  const role = f.roles[0];
+  async function enregistrer() {
+    try { await apiSend("/api/contacts/carnet", { id: c.id, ...f }, "PATCH"); onFait("Fiche enregistrée."); } catch (e) { setErreur(e.message); }
   }
+  const champ = (label, k, props = {}) => <label className="ed">{label}<input value={f[k]} onChange={set(k)} {...props} /></label>;
+  const champIn = (g, label, k) => <label className="ed">{label}<input value={f[g][k]} onChange={setIn(g, k)} /></label>;
+  return (
+    <div className="env-panel ct-ed" role="dialog" aria-label="Modifier le contact">
+      <div className="ct-edh"><h2>Modifier la fiche</h2><button type="button" className="link" onClick={onFermer}>Fermer</button></div>
+      {erreur ? <p className="err" role="alert">{erreur}</p> : null}
+      <div className="ct-edg">
+        <label className="ed">Type<select value={role} onChange={(e) => setF((x) => ({ ...x, roles: [e.target.value] }))}>{Object.entries(TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label className="ed">Personne ou entreprise<select value={f.type} onChange={set("type")}><option value="particulier">Particulier</option><option value="societe">Entreprise</option></select></label>
+        {role === "client" ? <label className="ed">Client<select value={f.genreClient} onChange={set("genreClient")}><option value="">selon le type</option><option value="particulier">particulier</option><option value="entreprise">entreprise</option><option value="syndic">syndic</option></select></label> : null}
+        {f.type === "societe" ? champ("Raison sociale", "companyName") : <>{champ("Prénom", "firstName")}{champ("Nom", "lastName")}</>}
+        {f.type === "societe" ? champ("Contact · fonction", "contactPerson") : null}
+        {champ("Téléphone", "phone", { inputMode: "tel" })}
+        {champ("E-mail", "email", { type: "email" })}
+        {f.type === "societe" ? champ("SIRET", "siret") : null}
+        {role !== "client" ? champ("Activité, métier", "metier") : null}
+        {champ(role === "client" ? "Adresse du chantier" : "Adresse", "address")}
+        {role === "client" ? <>{champ("Code d'accès", "accessCode")}{champ("Étage, ascenseur", "floor")}{champ("Préférences de contact", "preferences", { placeholder: "préfère les messages, après 18 h" })}</> : null}
+        {role === "sous_traitant" ? champ("Disponibilité", "disponibilite", { placeholder: "à partir du 16 nov." }) : null}
+      </div>
+      {role === "client" ? (
+        <fieldset className="ct-fs"><legend>Facturation</legend>
+          <label className="ck2"><input type="checkbox" checked={f.facturation.identique} onChange={(e) => setF((x) => ({ ...x, facturation: { ...x.facturation, identique: e.target.checked } }))} /> identique au chantier</label>
+          <div className="ct-edg">{!f.facturation.identique ? champIn("facturation", "Adresse de facturation", "adresse") : null}{champIn("facturation", "E-mail de la comptabilité", "email")}{champIn("facturation", "N° de commande à rappeler", "commande")}</div>
+        </fieldset>
+      ) : null}
+      {role === "client" && f.genreClient === "syndic" ? <fieldset className="ct-fs"><legend>Syndic</legend><div className="ct-edg">{champIn("syndic", "Gestionnaire", "gestionnaire")}{champIn("syndic", "Conseil syndical", "conseil")}{champIn("syndic", "Vote des travaux (AG, résolution)", "vote")}{champIn("syndic", "Paiement (appels de fonds)", "paiement")}{champIn("syndic", "Accès", "acces")}{champIn("syndic", "Documents reçus", "documents")}</div></fieldset> : null}
+      {role === "fournisseur" ? <fieldset className="ct-fs"><legend>Fournisseur</legend><div className="ct-edg">{champIn("fournisseur", "N° de compte pro", "compte")}{champIn("fournisseur", "Remises négociées", "remises")}{champIn("fournisseur", "Paiement", "paiement")}{champIn("fournisseur", "Franco de port", "franco")}{champIn("fournisseur", "Commercial", "commercial")}</div></fieldset> : null}
+      {role === "architecte" ? (
+        <fieldset className="ct-fs"><legend>Prescripteur</legend>
+          <div className="ct-edg">{champIn("prescripteur", "Remerciement, commission", "remerciement")}{champIn("prescripteur", "Préférence", "preference")}</div>
+          <div className="ct-chips">{fiche.tousChantiers.map((ch) => { const on = f.chantiersApportes.includes(ch.projectId); return <button type="button" key={ch.projectId} className={`ob-chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => setF((x) => ({ ...x, chantiersApportes: on ? x.chantiersApportes.filter((p) => p !== ch.projectId) : [...x.chantiersApportes, ch.projectId] }))}>{ch.title}</button>; })}</div>
+        </fieldset>
+      ) : null}
+      <div className="ct-edf"><button type="button" className="btn btn-sec" onClick={onFermer}>Annuler</button><button type="button" className="btn btn-main" onClick={enregistrer}>Enregistrer</button></div>
+    </div>
+  );
+}
 
-  function closeForm() {
-    setFormOpen(false);
-    setEditingId(null);
-    setSimilar([]);
-  }
+function Fiche({ id, onRetour, onChange }) {
+  const [fiche, setFiche] = useState(null);
+  const [erreur, setErreur] = useState("");
+  const [filtre, setFiltre] = useState("tout");
+  const [edition, setEdition] = useState(false);
+  const [message, setMessage] = useState("");
+  const [personne, setPersonne] = useState(null);
+  const [affecter, setAffecter] = useState("");
+  const charger = () => apiGet(`/api/contacts/carnet?id=${encodeURIComponent(id)}`).then((d) => setFiche(d.fiche)).catch((e) => setErreur(e.message));
+  useEffect(() => { setFiche(null); setMessage(""); charger(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openCreate() {
-    setForm(initialContact);
-    setEditingId(null);
-    setSimilar([]);
-    setFormOpen(true);
-  }
-
-  function openEdit(contact) {
-    setForm({ ...initialContact, ...contact });
-    setEditingId(contact.id);
-    setSimilar([]);
-    setFormOpen(true);
-  }
-
-  async function submitContact(event) {
-    event.preventDefault();
-    if (editingId) {
-      const { contact } = await apiSend("/api/contacts", { id: editingId, ...form }, "PATCH");
-      setContacts(contacts.map((item) => (item.id === contact.id ? contact : item)));
-      setMessage(`Fiche de ${contactDisplayName(contact)} enregistrée.`);
-      closeForm();
-    } else {
-      const { contact, similar: similarContacts } = await apiSend("/api/contacts", form);
-      setContacts([contact, ...contacts]);
-      setSelectedId(contact.id);
-      if (similarContacts?.length) {
-        openEdit(contact);
-        setSimilar(similarContacts);
-        setMessage("");
-        return;
-      }
-      setMessage(`${contactDisplayName(contact)} ajouté aux contacts.`);
-      closeForm();
-    }
-  }
-
-  async function patchSelected(payload, done) {
+  if (erreur) return <section className="ct-f"><p className="err" role="alert">{erreur}</p></section>;
+  if (!fiche) return <section className="ct-f"><p className="muted">Chargement…</p></section>;
+  const c = fiche.contact;
+  const a = fiche.action;
+  const recharger = async (m) => { setMessage(m || ""); await charger(); onChange(); };
+  async function demander() {
     try {
-      const { contact } = await apiSend("/api/contacts", { id: selected.id, ...payload }, "PATCH");
-      setContacts((current) => current.map((item) => (item.id === contact.id ? contact : item)));
-      done?.();
-    } catch (error) {
-      setMessage(error.message || "Enregistrement impossible.");
-    }
+      const r = await apiSend("/api/contacts/carnet", { action: "demander", id: c.id, docs: a?.doc ? [a.doc] : undefined });
+      await recharger(r.envoye ? `Demande envoyée à ${c.email}.` : `Pas d'e-mail sur la fiche : envoyez ce lien au sous-traitant : ${r.lien}`);
+    } catch (e) { setErreur(e.message); }
   }
-
-  function saveNextAction(event) {
-    event.preventDefault();
-    patchSelected({ action: "next-action", ...actionForm }, () => setEditingAction(false));
-  }
-
-  function addJournal(event) {
-    event.preventDefault();
-    patchSelected({ action: "journal-add", kind: noteKind, text: noteText }, () => setNoteText(""));
-  }
-
-  async function archiveContact() {
-    if (!selected) return;
-    const { contact } = await apiSend("/api/contacts", { id: selected.id, action: "archive" }, "PATCH");
-    if (showArchived) {
-      setContacts(contacts.map((item) => (item.id === contact.id ? contact : item)));
-    } else {
-      setContacts(contacts.filter((item) => item.id !== contact.id));
-      setSelectedId(null);
-    }
-  }
-
-  async function restoreContact() {
-    if (!selected) return;
-    const { contact } = await apiSend("/api/contacts", { id: selected.id, action: "restore" }, "PATCH");
-    setContacts(contacts.map((item) => (item.id === contact.id ? contact : item)));
-  }
-
-  async function deleteContact() {
-    if (!selected) return;
-    try {
-      const { contact } = await apiSend("/api/contacts", { id: selected.id, action: "delete" }, "PATCH");
-      if (contact?.deleted) {
-        setContacts(contacts.filter((item) => item.id !== selected.id));
-        setSelectedId(null);
-      }
-    } catch (error) {
-      setMessage(error.message || L.contacts.cannotDelete);
-      setConfirmDelete(false);
-    }
-  }
-
-  const events = useMemo(() => {
-    const rows = [
-      ...history.quotes.map((quote) => ({
-        id: `q-${quote.id}`, kind: "devis", label: "Devis", date: quote.createdAtIso || quote.createdAt, href: `/devis?id=${quote.id}`,
-        text: [`Devis ${quote.quoteNumber || ""}`.trim(), QUOTE_STATUS_WORDS[quote.status] || quote.status, `${euro(quote.totalTtc)} TTC`].filter(Boolean).join(" · ")
-      })),
-      ...history.chantiers.map((chantier) => ({
-        id: `c-${chantier.id}`, kind: "chantier", label: "Chantier", date: chantier.createdAt, href: `/chantiers?project=${chantier.id}`,
-        text: [chantier.title, chantier.roleOnSite, chantier.status].filter(Boolean).join(" · ")
-      })),
-      ...history.invoices.map((invoice) => ({
-        id: `f-${invoice.id}`, kind: "facture", label: "Facture", date: invoice.issuedAt || invoice.createdAt, href: "/facturation",
-        text: [invoice.invoiceNumber, INVOICE_STATUS_WORDS[invoiceBucket(invoice)] || invoice.status, euro(invoice.amountTtc)].filter(Boolean).join(" · ")
-      })),
-      ...history.interventions.map((intervention) => ({
-        id: `i-${intervention.id}`, kind: "intervention", label: "Intervention", date: intervention.date, href: "/interventions",
-        text: [intervention.site || "Rapport d'intervention", intervention.status].filter(Boolean).join(" · ")
-      }))
-    ];
-    return rows.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-  }, [history]);
-
-  const visibleEvents = historyFilter === "tout" ? events : events.filter((e) => e.kind === historyFilter);
-
-  // Montants réels tirés de l'historique : devis signés, facturé (hors
-  // brouillons et annulées), payé, et ce qui est échu sans paiement.
-  const money = useMemo(() => {
-    const sum = (items, pick) => items.reduce((total, item) => total + (Number(pick(item)) || 0), 0);
-    const issued = history.invoices.filter((i) => !["Brouillon", "Annulee"].includes(i.status));
-    const late = issued.filter((i) => invoiceBucket(i) === "Retard");
-    return {
-      signed: sum(history.quotes.filter((q) => q.status === "Signe"), (q) => q.totalTtc),
-      invoiced: sum(issued, (i) => i.amountTtc),
-      paid: sum(issued.filter((i) => i.status === "Payee"), (i) => i.amountTtc),
-      late: sum(late, (i) => i.amountTtc),
-      lateInvoices: late
-    };
-  }, [history]);
-
-  const isSociete = form.type === "societe";
+  async function act(corps, ok, methode = "POST") { try { await apiSend("/api/contacts/carnet", corps, methode); await recharger(ok); } catch (e) { setMessage(e.message); } }
+  const actionBtn = a ? (
+    a.cle === "relancer" ? <Link className="btn btn-main" href={`/facturation?relancer=${a.invoiceId}`}>{a.label}</Link>
+      : a.cle === "vigilance" ? <button type="button" className="btn btn-main" onClick={demander}>{a.label}</button>
+        : <button type="button" className="btn btn-main" onClick={() => act({ action: "prochaine", id: c.id, label: "" }, "Fait.", "PATCH")}>Fait</button>
+  ) : null;
+  const hist = fiche.historique.filter((h) => filtre === "tout" || h.type === filtre);
+  const depuis = c.createdAt ? `depuis le ${jourCourt(c.createdAt)} ${String(c.createdAt).slice(0, 4)}` : "";
+  const origine = c.source === "devis" ? "arrivé par un devis" : c.source === "kojipage" ? "arrivé par votre KojiPage" : "";
+  const pers = Array.isArray(c.personnes) ? c.personnes : [];
+  const v = fiche.vigilance;
 
   return (
-    <Shell variant="pro">
-      <div className={`ct-grid${selected ? " has-sel" : ""}`}>
-        <div className="ct-list">
-          <div className="ct-lh">
-            <div className="ct-top">
-              <h1>{L.contacts.title}</h1>
-              <button type="button" className="btn btn-main ct-add" onClick={openCreate}><Icon name="plus" />Ajouter</button>
-            </div>
-            <label className="ct-srch">
-              <Icon name="search" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nom, téléphone, SIRET, ville" aria-label={L.contacts.search} />
-            </label>
-            <div className="kp-seg" role="group" aria-label="Type de contact">
-              {GROUPS.map((g) => (
-                <button type="button" key={g.id} className={group === g.id ? "on" : ""} aria-pressed={group === g.id} onClick={() => setGroup(g.id)}>
-                  {g.label}<b>{groupCounts[g.id]}</b>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="ct-sub">
-            <label>Trier :
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                <option value="nom">par nom</option>
-                <option value="afaire">à faire d'abord</option>
-                <option value="recent">ajouts récents</option>
-              </select>
-            </label>
-            <label>Type :
-              <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-                <option value="">tous</option>
-                {ALL_ROLES.map((role) => <option key={role.id} value={role.id}>{(ROLE_SINGULAR[role.id] || role.label).toLowerCase()}</option>)}
-              </select>
-            </label>
-            <label className="chk">
-              <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
-              Archivés
-            </label>
-          </div>
-          <div className="ct-items">
-            {filteredContacts.length === 0 ? (
-              <p className="empty">{loading ? "Chargement…" : activeContacts.length === 0 ? L.contacts.noContactsSub : "Aucun contact ne correspond."}</p>
-            ) : filteredContacts.map((contact) => {
-              const roles = contact.roles || [];
-              return (
-                <button type="button" key={contact.id} className={`ct-li2${contact.id === selectedId ? " on" : ""}`} onClick={() => selectContact(contact.id)} aria-current={contact.id === selectedId ? "true" : undefined}>
-                  <span className={`ct-av ${avatarKind(roles)}`}>{initials(contact)}</span>
-                  <span className="b">
-                    <span className="l1">
-                      <strong>{contactDisplayName(contact) || "Sans nom"}</strong>
-                      <small>{shortDay(contact.createdAt)}</small>
-                    </span>
-                    <span className="l2">
-                      <small>{[rolesText(contact) || "Sans rôle", contact.city].filter(Boolean).join(" · ")}</small>
-                      {contact.archived ? <span className="ct-todo">archivé</span> : contact.nextAction?.label ? (
-                        <span className={`ct-todo${isOverdue(contact.nextAction.date) ? " late" : ""}`}>{contact.nextAction.date ? shortDay(contact.nextAction.date) : "à faire"}</span>
-                      ) : null}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="ct-foot">
-            Voir aussi
-            <Link href="/clients" className="link">Clients</Link>
-            <Link href="/equipe" className="link">Équipe</Link>
-          </p>
+    <section className="ct-f">
+      <button type="button" className="link ct-back" onClick={onRetour}>← Contacts</button>
+      <div className="ct-fh">
+        <span className={`ct-av big ${AV[fiche.type] || "cli"}`}>{fiche.initiales}</span>
+        <div className="t">
+          <span className="eyebrow">{[fiche.typeLabel, fiche.genre, fiche.type === "sous_traitant" ? c.metier : "", depuis, origine, c.siret ? `SIRET ${c.siret}` : ""].filter(Boolean).join(" · ")}</span>
+          <h2>{fiche.nom}</h2>
+          <small>{[c.contactPerson, c.phone, c.email].filter(Boolean).join(" · ") || "Aucune coordonnée"}</small>
         </div>
-
-        <section className="ct-f">
-          {message ? <p className="notice" role="status">{message}</p> : null}
-          {!selected ? (
-            <div className="card">
-              <p className="empty">{loading ? "Chargement…" : activeContacts.length ? "Choisissez un contact dans la liste." : L.contacts.noContactsSub}</p>
-            </div>
-          ) : (
-            <>
-              <button type="button" className="link ct-back" onClick={() => setSelectedId(null)}>← Contacts</button>
-              <div className="ct-fh">
-                <span className={`ct-av big ${avatarKind(selected.roles || [])}`}>{initials(selected)}</span>
-                <div className="t">
-                  <span className="eyebrow">
-                    {[rolesText(selected) || "Sans rôle", selected.type === "societe" ? "société" : "particulier", selected.createdAt ? `depuis le ${longDay(selected.createdAt)}` : ""].filter(Boolean).join(" · ")}
-                  </span>
-                  <h2>{contactDisplayName(selected) || "Sans nom"}</h2>
-                  <small>{[selected.phone, selected.email].filter(Boolean).join(" · ") || "Pas de téléphone ni d'e-mail"}</small>
-                </div>
-                <div className="ct-acts">
-                  {selected.phone ? <a className="ct-ab" href={`tel:${selected.phone.replace(/\s+/g, "")}`}><Icon name="phone" />Appeler</a> : null}
-                  {selected.email ? <a className="ct-ab" href={`mailto:${selected.email}`}><Icon name="mail" />E-mail</a> : null}
-                  {fullAddress(selected) ? (
-                    <a className="ct-ab" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress(selected))}`} target="_blank" rel="noopener noreferrer"><Icon name="pin" />Itinéraire</a>
-                  ) : null}
-                  <button type="button" className="ct-ab" onClick={() => openEdit(selected)}><Icon name="edit" />Modifier</button>
-                </div>
-              </div>
-
-              {selected.archived ? (
-                <div className="ct-next">
-                  <span className="ic"><Icon name="archive" /></span>
-                  <div>
-                    <strong>{L.contacts.archived}</strong>
-                    <small>Ce contact n'apparaît plus dans la liste des contacts.</small>
-                  </div>
-                  <button type="button" className="btn btn-main" onClick={restoreContact}>{L.contacts.restoreContact}</button>
-                </div>
-              ) : null}
-
-              {money.lateInvoices.length ? (
-                <div className="ct-next">
-                  <span className="ic"><Icon name="alert" /></span>
-                  <div>
-                    <strong>
-                      {money.lateInvoices.length > 1
-                        ? `${money.lateInvoices.length} factures en retard · ${euro(money.late)}`
-                        : `Facture ${money.lateInvoices[0].invoiceNumber} en retard · ${euro(money.late)}`}
-                    </strong>
-                    <small>{money.lateInvoices.length > 1 ? "Échues sans paiement enregistré." : `Échue le ${shortDay(money.lateInvoices[0].dueDate)}, aucun paiement enregistré.`}</small>
-                  </div>
-                  <Link href="/facturation" className="btn btn-main">Voir les factures</Link>
-                </div>
-              ) : null}
-
-              {!selected.archived && selected.nextAction?.label && !editingAction ? (
-                <div className="ct-next">
-                  <span className="ic"><Icon name="edit" /></span>
-                  <div>
-                    <strong>{selected.nextAction.label}</strong>
-                    <small>
-                      {selected.nextAction.date
-                        ? `${isOverdue(selected.nextAction.date) ? "En retard, prévu" : "Prévu"} le ${longDay(selected.nextAction.date)}`
-                        : "Prochaine action, sans date"}
-                    </small>
-                  </div>
-                  <button type="button" className="btn btn-sec" onClick={() => { setActionForm({ label: selected.nextAction.label, date: selected.nextAction.date || "" }); setEditingAction(true); }}>Modifier</button>
-                  <button type="button" className="btn btn-sec" onClick={() => patchSelected({ action: "next-action", label: "" })}>Fait</button>
-                </div>
-              ) : null}
-
-              {!selected.archived && (!selected.nextAction?.label || editingAction) ? (
-                <form className="card ct-na" onSubmit={saveNextAction}>
-                  <div className="card-h"><h2>Prochaine action</h2></div>
-                  <div className="ct-na-row">
-                    <input value={actionForm.label} onChange={(event) => setActionForm({ ...actionForm, label: event.target.value })} placeholder="Rappeler pour le devis, envoyer les photos…" aria-label="Prochaine action" maxLength={200} />
-                    <input type="date" value={actionForm.date} onChange={(event) => setActionForm({ ...actionForm, date: event.target.value })} aria-label="Date de la prochaine action" />
-                    <button type="submit" className="btn btn-sec" disabled={!actionForm.label.trim()}>Enregistrer</button>
-                    {editingAction ? <button type="button" className="link" onClick={() => setEditingAction(false)}>Annuler</button> : null}
-                  </div>
-                  <small className="muted">Le contact apparaît alors dans l'onglet « À faire ».</small>
-                </form>
-              ) : null}
-
-              {history.quotes.length || history.invoices.length ? (
-                <div className="ct-strip">
-                  <div><span>Signé TTC</span><b>{euro(money.signed)}</b></div>
-                  <div><span>Facturé TTC</span><b>{euro(money.invoiced)}</b></div>
-                  <div><span>Payé</span><b>{euro(money.paid)}</b></div>
-                  <div className={money.late ? "ko" : ""}><span>En retard</span><b>{euro(money.late)}</b></div>
-                </div>
-              ) : null}
-
-              <div className="ct-g3">
-                <div className="card">
-                  <div className="card-h"><h2>Adresse</h2></div>
-                  {fullAddress(selected) ? (
-                    <>
-                      <div className="kv"><span>{L.contacts.address}</span><b>{fullAddress(selected)}</b></div>
-                      {accessText(selected) ? <div className="kv"><span>Accès</span><b>{accessText(selected)}</b></div> : null}
-                      {selected.accessInstructions ? <div className="kv"><span>Consignes</span><b>{selected.accessInstructions}</b></div> : null}
-                    </>
-                  ) : <p className="muted">Aucune adresse enregistrée.</p>}
-                </div>
-                <div className="card">
-                  <div className="card-h"><h2>Personnes</h2></div>
-                  {selected.type === "societe" && selected.contactPerson ? (
-                    <div className="ct-pp">
-                      <span className="ct-av sm">{initials({ firstName: selected.contactPerson })}</span>
-                      <div><strong>{selected.contactPerson}</strong><small>{L.contacts.contactPerson.toLowerCase()}</small></div>
-                    </div>
-                  ) : null}
-                  {selected.type !== "societe" ? (
-                    <div className="ct-pp">
-                      <span className={`ct-av sm ${avatarKind(selected.roles || [])}`}>{initials(selected)}</span>
-                      <div><strong>{contactDisplayName(selected)}</strong><small>{rolesText(selected).toLowerCase() || "contact"}</small></div>
-                    </div>
-                  ) : null}
-                  {selected.type === "societe" && !selected.contactPerson ? <p className="muted">Aucun interlocuteur renseigné.</p> : null}
-                </div>
-                <div className="card">
-                  <div className="card-h"><h2>Infos</h2></div>
-                  <div className="kv"><span>{L.contacts.typeLabel}</span><b>{selected.type === "societe" ? L.contacts.typeSociete : L.contacts.typeParticulier}</b></div>
-                  {selected.siret ? <div className="kv"><span>{L.contacts.siret}</span><b>{selected.siret}</b></div> : null}
-                  <div className="kv"><span>{L.contacts.rolesLabel}</span><b>{rolesText(selected) || "aucun"}</b></div>
-                  {selected.notes ? <div className="kv"><span>{L.contacts.notes}</span><b>{selected.notes}</b></div> : null}
-                </div>
-              </div>
-
-              <div className="card ct-jn">
-                <div className="card-h"><h2>Appels et notes{selected.journal?.length ? <span className="kcnt">{selected.journal.length}</span> : null}</h2></div>
-                <form className="ct-jn-f" onSubmit={addJournal}>
-                  <div className="kp-seg" role="group" aria-label="Type de note">
-                    <button type="button" className={noteKind === "appel" ? "on" : ""} aria-pressed={noteKind === "appel"} onClick={() => setNoteKind("appel")}>Appel</button>
-                    <button type="button" className={noteKind === "note" ? "on" : ""} aria-pressed={noteKind === "note"} onClick={() => setNoteKind("note")}>Note</button>
-                  </div>
-                  <textarea rows={2} value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder={noteKind === "appel" ? "Ce qui s'est dit au téléphone…" : "Une information à garder…"} aria-label="Texte de la note" maxLength={2000} />
-                  <button type="submit" className="btn btn-sec" disabled={!noteText.trim()}>Ajouter</button>
-                </form>
-                {(selected.journal || []).map((entry) => (
-                  <div className="ct-jn-e" key={entry.id}>
-                    <span className="d">{shortDay(entry.at)}</span>
-                    <span className="s">{entry.kind === "appel" ? "Appel" : "Note"}</span>
-                    <p>{entry.text}</p>
-                    <button type="button" className="dx" aria-label="Supprimer cette note" onClick={() => patchSelected({ action: "journal-delete", entryId: entry.id })}>×</button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="card ct-tl">
-                <div className="card-h">
-                  <h2>{L.contacts.historyTitle}{events.length ? <span className="kcnt">{events.length}</span> : null}</h2>
-                  {events.length ? (
-                    <div className="ct-fl" role="group" aria-label="Filtrer l'historique">
-                      {HISTORY_FILTERS.map((f) => (
-                        <button type="button" key={f.id} className={historyFilter === f.id ? "on" : ""} aria-pressed={historyFilter === f.id} onClick={() => setHistoryFilter(f.id)}>{f.label}</button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                {events.length === 0 ? <p className="muted">{L.contacts.noHistory}</p> : null}
-                {events.length && visibleEvents.length === 0 ? <p className="muted">Rien dans cette catégorie.</p> : null}
-                {visibleEvents.map((event) => (
-                  <Link key={event.id} href={event.href} className="ct-ev">
-                    <span className="d">{shortDay(event.date) || "—"}</span>
-                    <span className="s">{event.label}</span>
-                    <span className="x">{event.text}</span>
-                  </Link>
-                ))}
-              </div>
-
-              <div className="ct-end">
-                {selected.archived ? null : <button type="button" className="btn btn-sec" onClick={archiveContact}>{L.contacts.archiveContact}</button>}
-                {confirmDelete ? (
-                  <>
-                    <span className="muted">Supprimer définitivement ce contact ?</span>
-                    <button type="button" className="btn btn-sec" onClick={deleteContact}>{L.common.confirm}</button>
-                    <button type="button" className="btn btn-sec" onClick={() => setConfirmDelete(false)}>{L.common.cancel}</button>
-                  </>
-                ) : (
-                  <button type="button" className="btn btn-sec" onClick={() => setConfirmDelete(true)}>{L.contacts.deleteContact}</button>
-                )}
-              </div>
-            </>
-          )}
-        </section>
+        <div className="ct-acts">
+          <a className="ct-ab" href={c.phone ? `tel:${tel(c.phone)}` : undefined} aria-disabled={!c.phone}>Appeler</a>
+          <a className="ct-ab" href={c.phone ? `sms:${tel(c.phone)}` : c.email ? `mailto:${c.email}` : undefined} aria-disabled={!c.phone && !c.email}>Message</a>
+          <a className="ct-ab" href={c.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}` : undefined} target="_blank" rel="noreferrer" aria-disabled={!c.address}>Itinéraire</a>
+        </div>
       </div>
-
-      {formOpen ? (
-        <div className="pmodal-bg" onClick={closeForm}>
-          <form className="pmodal" role="dialog" aria-modal="true" aria-label={editingId ? L.contacts.editContact : L.contacts.newContact} onClick={(event) => event.stopPropagation()} onSubmit={submitContact}>
-            <div className="card-h">
-              <h2>{editingId ? L.contacts.editContact : L.contacts.newContact}</h2>
-              <button type="button" className="link" onClick={closeForm}>Fermer</button>
-            </div>
-
-            {similar.length ? (
-              <p className="notice">
-                <strong>{L.contacts.similarWarning}.</strong>{" "}
-                {similar.map((s) => L.contacts.similarWarningHint(contactDisplayName(s))).join(" ")}
-              </p>
-            ) : null}
-
-            <div className="fgrid">
-              <div className="full">
-                <span className="flab">{L.contacts.typeLabel}</span>
-                <div className="kp-seg" role="group" aria-label={L.contacts.typeLabel}>
-                  <button type="button" className={!isSociete ? "on" : ""} aria-pressed={!isSociete} onClick={() => setField("type", "particulier")}>{L.contacts.typeParticulier}</button>
-                  <button type="button" className={isSociete ? "on" : ""} aria-pressed={isSociete} onClick={() => setField("type", "societe")}>{L.contacts.typeSociete}</button>
-                </div>
-              </div>
-
-              {isSociete ? (
-                <>
-                  <label className="full">{L.contacts.companyName}
-                    <input value={form.companyName} onChange={(event) => setField("companyName", event.target.value)} required />
-                  </label>
-                  <label>{L.contacts.siret}
-                    <input value={form.siret} onChange={(event) => setField("siret", event.target.value)} placeholder="123 456 789 00012" />
-                  </label>
-                  <label>{L.contacts.contactPerson}
-                    <input value={form.contactPerson} onChange={(event) => setField("contactPerson", event.target.value)} />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <label>{L.contacts.firstName}
-                    <input value={form.firstName} onChange={(event) => setField("firstName", event.target.value)} />
-                  </label>
-                  <label>{L.contacts.lastName}
-                    <input value={form.lastName} onChange={(event) => setField("lastName", event.target.value)} required />
-                  </label>
-                </>
-              )}
-
-              <label>{L.contacts.phone}
-                <input value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="06 12 34 56 78" />
-              </label>
-              <label>{L.contacts.email}
-                <input type="email" value={form.email} onChange={(event) => setField("email", event.target.value)} />
-              </label>
-
-              <div className="full">
-                <div className="legacy addr">
-                  <AddressFields
-                    value={{
-                      address: form.address,
-                      city: form.city,
-                      postalCode: form.postalCode,
-                      floor: form.floor,
-                      accessCode: form.accessCode,
-                      complement: form.complement,
-                      accessInstructions: form.accessInstructions
-                    }}
-                    onChange={(next) => setForm((current) => ({ ...current, ...next }))}
-                  />
-                </div>
-              </div>
-
-              <label className="full">{L.contacts.notes}
-                <textarea rows={3} value={form.notes} onChange={(event) => setField("notes", event.target.value)} />
-              </label>
-
-              <div className="full">
-                <span className="flab">{L.contacts.rolesLabel}</span>
-                <div className="chips" role="group" aria-label={L.contacts.rolesLabel}>
-                  {ALL_ROLES.map((role) => {
-                    const on = (form.roles || []).includes(role.id);
-                    return (
-                      <button type="button" key={role.id} className={`chip chip-s${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggleRole(role.id)}>{role.label}</button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="pm-act">
-              <button type="button" className="btn btn-sec" onClick={closeForm}>{L.common.cancel}</button>
-              <button type="submit" className="btn btn-main">{L.contacts.save}</button>
-            </div>
-          </form>
+      {message ? <p className="notice" role="status">{message}</p> : null}
+      {a ? (
+        <div className="ct-next">
+          <div>
+            <strong>{fiche.vigilance?.bloquant && a.cle === "vigilance" ? `${fiche.vigilance.bloquant.nom} manquante : sous-traitant non affectable aux chantiers` : a.texte || a.label}</strong>
+            {fiche.vigilance?.bloquant && a.cle === "vigilance" ? <small>{euro0(fiche.pro?.cumulAnnee)} HT confiés en {new Date().getFullYear()} · au-delà de 5 000 € HT, l'attestation est exigée tous les 6 mois, sinon vous êtes solidaire de ses dettes sociales</small> : c.preferences ? <small>{c.preferences}</small> : null}
+          </div>
+          {actionBtn}
         </div>
       ) : null}
+
+      {fiche.argent ? (
+        <div className="ct-strip">
+          <div><span>Signé HT</span><b>{euro(fiche.argent.signeHt)}</b></div>
+          <div><span>Facturé TTC</span><b>{euro(fiche.argent.factureTtc)}</b></div>
+          <div><span>Payé</span><b>{euro(fiche.argent.paye)}</b></div>
+          <div className={fiche.argent.retard > 0 ? "ko" : ""}><span>En retard</span><b>{euro(fiche.argent.retard)}</b></div>
+        </div>
+      ) : null}
+
+      {fiche.type === "sous_traitant" && v ? (
+        <>
+          <div className="card ct-docs">
+              <div className="card-h"><h2>Documents de vigilance</h2><button type="button" className="link" onClick={demander}>Demander</button></div>
+              <small className="sm2">Koji lit les dates et prévient un mois avant l'échéance.</small>
+              {v.docs.map((d) => (
+                <div key={d.cle} className={`ct-doc${d.texte.startsWith("non concerné") ? " na" : ""}`}>
+                  <div><strong>{d.nom}</strong><small>{d.aide}</small>{d.aVerifier ? <small>déposé par le sous-traitant, à vérifier{d.lu?.activites ? ` · activités : ${d.lu.activites}` : ""}</small> : null}</div>
+                  <span className={`fx-etat ${TON_DOC[d.etat]}`}>{d.texte}</span>
+                  {d.recu ? <a className="link" href={`/api/contacts/carnet?id=${c.id}&document=${d.cle}`} target="_blank" rel="noreferrer">Voir</a> : null}
+                  {d.aVerifier ? <button type="button" className="link" onClick={() => act({ action: "document", id: c.id, doc: d.cle }, "Document vérifié.")}>Valider</button> : null}
+                  {d.facultatif && d.etat === "manquant" ? <button type="button" className="link" onClick={() => act({ action: "document", id: c.id, doc: d.cle, nonConcerne: true }, "Noté : non concerné.")}>Non concerné</button> : null}
+                </div>
+              ))}
+          </div>
+          <div className="ct-g3">
+            <div className="card">
+              <div className="card-h"><h2>Prix constatés</h2></div>
+              {fiche.pro?.prix?.length ? fiche.pro.prix.map((p) => <div className="kv" key={p.designation}><span>{p.designation}</span><b>{euro(p.prixHt)}{p.unite ? `/${p.unite}` : ""} HT</b></div>) : <small className="sm2">Lus sur ses factures rangées dans Dépenses : aucune ligne avec quantité pour l'instant.</small>}
+              <div className="card-h" style={{ marginTop: 14 }}><h2>Suivi interne</h2></div>
+              <div className="kv"><span>Chantiers ensemble</span><b>{fiche.pro?.chantiers.length || 0}</b></div>
+              <div className="kv"><span>Disponible</span><b>{c.disponibilite || "—"}</b></div>
+              <small className="sm2">Visible par votre entreprise seulement.</small>
+            </div>
+            <div className="card">
+              <div className="card-h"><h2>Chantiers et montants</h2></div>
+              {(fiche.pro?.chantiers || []).map((ch) => <div className="kv" key={ch.projectId}><span>{ch.title}{ch.lot ? ` · ${ch.lot}` : ""}</span><b>{euro0(ch.ht)} HT</b></div>)}
+              <div className="kv"><span>Cumul {new Date().getFullYear()}</span><b>{euro0(fiche.pro?.cumulAnnee)} HT</b></div>
+              {fiche.pro?.autoliquidation ? <div className="kv"><span>TVA</span><b>autoliquidation · facture sans TVA</b></div> : null}
+              <div className="ct-aff">
+                <select value={affecter} onChange={(e) => setAffecter(e.target.value)} aria-label="Chantier"><option value="">Affecter à un chantier…</option>{fiche.tousChantiers.map((ch) => <option key={ch.projectId} value={ch.projectId}>{ch.title}</option>)}</select>
+                <button type="button" className="btn btn-sec" disabled={!affecter} onClick={() => act({ action: "affecter", id: c.id, projectId: affecter }, "Affecté au chantier.")}>Affecter</button>
+              </div>
+              <small className="sm2">Contrat de sous-traitance et acceptation par le client : avec le Réseau pro.</small>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {fiche.type === "client" && fiche.genre !== "syndic" ? (
+        <div className="ct-g3">
+          <div className="card">
+            <div className="card-h"><h2>Adresses</h2></div>
+            <div className="kv"><span>Chantier</span><b>{c.address || fiche.projets[0]?.address || "—"}</b></div>
+            <div className="kv"><span>Facturation</span><b>{c.facturation?.identique === false ? c.facturation.adresse || "—" : "identique au chantier"}</b></div>
+            {c.facturation?.email ? <div className="kv"><span>Comptabilité</span><b>{c.facturation.email}</b></div> : null}
+            {c.facturation?.commande ? <div className="kv"><span>N° de commande</span><b>{c.facturation.commande}</b></div> : null}
+            <div className="kv"><span>Accès</span><b>{[c.accessCode ? `code ${c.accessCode}` : "", c.floor].filter(Boolean).join(" · ") || "—"}</b></div>
+            <small className="sm2" style={{ display: "block", marginTop: 8 }}>Code visible par les comptes affectés au chantier.</small>
+          </div>
+          <div className="card">
+            <div className="card-h"><h2>Personnes</h2></div>
+            {pers.length === 0 ? <small className="sm2">Qui signe et paie, qui est sur place : ajoutez les personnes de ce contact.</small> : pers.map((p) => <div className="ct-pp" key={p.id}><span className="ct-av sm cli">{(p.nom.split(" ").map((x) => x[0]).join("").slice(0, 2) || "?").toUpperCase()}</span><div><strong>{p.nom}</strong><small>{[p.role, p.telephone].filter(Boolean).join(" · ")}</small></div></div>)}
+            {personne ? (
+              <form className="ct-pform" onSubmit={(e) => { e.preventDefault(); act({ id: c.id, personnes: [...pers, personne] }, "Personne ajoutée.", "PATCH"); setPersonne(null); }}>
+                <input value={personne.nom} onChange={(e) => setPersonne({ ...personne, nom: e.target.value })} placeholder="Nom" required />
+                <input value={personne.role} onChange={(e) => setPersonne({ ...personne, role: e.target.value })} placeholder="conjoint · présent aux livraisons" />
+                <input value={personne.telephone} onChange={(e) => setPersonne({ ...personne, telephone: e.target.value })} placeholder="Téléphone" />
+                <button type="submit" className="btn btn-sec">Ajouter</button>
+              </form>
+            ) : <button type="button" className="link" style={{ alignSelf: "flex-start", fontSize: 12, marginTop: 6 }} onClick={() => setPersonne({ nom: "", role: "", telephone: "" })}>Ajouter une personne</button>}
+          </div>
+          <div className="card">
+            <div className="card-h"><h2>Pièces</h2></div>
+            {fiche.devis.length === 0 ? <small className="sm2">Aucun devis pour l'instant.</small> : fiche.devis.slice(0, 3).map((d) => <div className="kv" key={d.id}><span>{d.signe ? "Devis signé" : "Devis"}</span><b className={d.signe ? "ct-ok" : ""}>{d.signe ? <IcoCheck /> : null}{d.numero}</b></div>)}
+            {fiche.devis.some((d) => d.signe && Number(d.tva) < 20) ? <div className="kv"><span>TVA {String(fiche.devis.find((d) => d.signe && Number(d.tva) < 20).tva).replace(".", ",")} %</span><b>mention à la signature</b></div> : null}
+            <div className="kv"><span>Photos de visite</span><b>{fiche.photosVisite || "—"}</b></div>
+            <div className="kv"><span>Avis KojiPage</span><b>à demander en fin de chantier</b></div>
+          </div>
+        </div>
+      ) : null}
+
+      {fiche.genre === "syndic" ? (
+        <div className="ct-tg">
+          {[["Gestionnaire", c.syndic?.gestionnaire], ["Conseil syndical", c.syndic?.conseil], ["Vote des travaux", c.syndic?.vote], ["Paiement", c.syndic?.paiement], ["Accès", c.syndic?.acces], ["Documents", c.syndic?.documents]].map(([l, v2]) => <div className="ct-mini" key={l}><div className="kv"><span>{l}</span><b>{v2 || "à renseigner"}</b></div></div>)}
+          <p className="fx-note">Pas de démarrage sans PV d'AG et ordre de service.</p>
+        </div>
+      ) : null}
+
+      {fiche.type === "fournisseur" ? (
+        <div className="ct-tg">
+          {[["Compte pro", c.fournisseurInfo?.compte], ["Remise négociée", c.fournisseurInfo?.remises], ["Paiement", c.fournisseurInfo?.paiement], ["Franco de port", c.fournisseurInfo?.franco], ["Commercial", c.fournisseurInfo?.commercial], [`Commandes ${new Date().getFullYear()}`, fiche.fournisseur ? `${fiche.fournisseur.commandes} · ${euro0(fiche.fournisseur.commandesHt)} HT` : "—"]].map(([l, v2]) => <div className="ct-mini" key={l}><div className="kv"><span>{l}</span><b>{v2 || "à renseigner"}</b></div></div>)}
+          <Link className="btn btn-sec" href="/fournitures?onglet=bons">Nouvelle commande</Link>
+        </div>
+      ) : null}
+
+      {fiche.type === "architecte" ? (
+        <div className="ct-tg">
+          <div className="ct-mini"><div className="kv"><span>Chantiers apportés</span><b>{fiche.apportes.length ? `${fiche.apportes.length} · ${fiche.apportes.map((x) => x.title).join(", ")}` : "aucun"}</b></div></div>
+          <div className="ct-mini"><div className="kv"><span>Montant signé</span><b>{euro0(fiche.apportes.reduce((s, x) => s + x.signeHt, 0))} HT</b></div></div>
+          <div className="ct-mini"><div className="kv"><span>Dernier échange</span><b>{jourCourt(fiche.dernier) || "—"}</b></div></div>
+          <div className="ct-mini"><div className="kv"><span>Remerciement</span><b>{c.prescripteurInfo?.remerciement || "aucune commission convenue"}</b></div></div>
+          <div className="ct-mini"><div className="kv"><span>Préférence</span><b>{c.prescripteurInfo?.preference || "—"}</b></div></div>
+          <p className="fx-note">Toute commission d'apport doit être convenue par écrit et facturée.</p>
+        </div>
+      ) : null}
+
+      <div className="card ct-tl">
+        <div className="card-h"><h2>Historique</h2>
+          <div className="kp-seg" role="group" aria-label="Filtre">{Object.entries(FILTRES).map(([k, l]) => <button type="button" key={k} className={filtre === k ? "on" : ""} aria-pressed={filtre === k} onClick={() => setFiltre(k)}>{l}</button>)}</div>
+        </div>
+        <Note id={c.id} onFait={() => recharger("Noté.")} />
+        {hist.length === 0 ? <small className="sm2">Rien pour l'instant : devis, factures, visites et notes s'ajoutent seuls.</small> : hist.map((h) => <div className="ct-ev" key={h.id}><span className="d">{quand(h.quand)}</span><span className="s">{h.titre}</span><span className="x">{h.texte}</span></div>)}
+      </div>
+
+      <div className="ct-foot">
+        <button type="button" className="btn btn-sec" onClick={() => setEdition(true)}>Modifier la fiche</button>
+        {fiche.type === "client" && c.email ? <button type="button" className="link" onClick={async () => { try { await apiSend("/api/contacts", { id: c.id, action: c.linkedUserId ? "resetCredentials" : "createAccess" }, "PATCH"); setMessage("Accès Koji Client envoyé."); } catch (e) { setMessage(e.message); } }}>{c.linkedUserId ? "Renvoyer l'accès Koji Client" : "Créer l'accès Koji Client"}</button> : null}
+        <button type="button" className="link" onClick={async () => { try { await apiSend("/api/contacts", { id: c.id, action: "archive" }, "PATCH"); onChange(); onRetour(); } catch (e) { setMessage(e.message); } }}>Archiver</button>
+      </div>
+      {edition ? <Edition fiche={fiche} onFermer={() => setEdition(false)} onFait={async (m) => { setEdition(false); await recharger(m); }} /> : null}
+    </section>
+  );
+}
+
+const VIDE = { type: "societe", roles: ["sous_traitant"], companyName: "", contactPerson: "", firstName: "", lastName: "", phone: "", email: "", siret: "", address: "", metier: "" };
+
+function Ajouter({ onFermer, onCree }) {
+  const [src, setSrc] = useState("carte");
+  const [f, setF] = useState(VIDE);
+  const [lu, setLu] = useState(null);
+  const [dup, setDup] = useState(null);
+  const [choix, setChoix] = useState("completer");
+  const [busy, setBusy] = useState("");
+  const [erreur, setErreur] = useState("");
+  const [siren, setSiren] = useState("");
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const pickerDispo = typeof navigator !== "undefined" && "contacts" in navigator && "select" in (navigator.contacts || {});
+
+  async function carte(e) {
+    const file = e.target.files?.[0]; e.target.value = "";
+    if (!file) return;
+    setBusy("Koji lit la carte…"); setErreur("");
+    try {
+      const r = await apiSend("/api/contacts/carnet", { action: "carte", data: await fichierPourEnvoi(file, { cote: 1600 }) });
+      setF({ ...VIDE, ...r.proposition }); setLu(r); setDup(r.doublon); setChoix(r.doublon ? "completer" : "creer");
+    } catch (er) { setErreur(er.message); }
+    setBusy("");
+  }
+  async function annuaire() {
+    setBusy("Recherche dans l'annuaire…"); setErreur("");
+    try {
+      const r = await apiSend("/api/contacts/carnet", { action: "siren", siren });
+      setF((x) => ({ ...x, type: "societe", companyName: r.fiche.raisonSociale, siret: r.fiche.siret || r.fiche.siren, address: [r.fiche.addressLine1, r.fiche.postalCode, r.fiche.city].filter(Boolean).join(" "), activite: r.fiche.activite }));
+      setLu({ annuaire: true, proposition: r.fiche });
+      setDup(r.doublon ? { id: r.doublon, nom: r.fiche.raisonSociale, par: "même SIREN" } : null);
+    } catch (er) { setErreur(er.message); }
+    setBusy("");
+  }
+  async function fichier(e) {
+    const file = e.target.files?.[0]; e.target.value = "";
+    if (!file) return;
+    setBusy("Import…"); setErreur("");
+    try { const r = await apiSend("/api/contacts/carnet", { action: "csv", texte: await file.text() }); onCree(`${r.crees} contact${r.crees > 1 ? "s" : ""} ajouté${r.crees > 1 ? "s" : ""}${r.doublons ? `, ${r.doublons} déjà dans le carnet` : ""}.`); } catch (er) { setErreur(er.message); }
+    setBusy("");
+  }
+  async function telephone() {
+    try {
+      const [p] = await navigator.contacts.select(["name", "tel", "email"], { multiple: false });
+      if (p) setF((x) => ({ ...x, type: "particulier", lastName: p.name?.[0] || "", phone: p.tel?.[0] || "", email: p.email?.[0] || "" }));
+    } catch { /* annulé */ }
+  }
+  async function enregistrer() {
+    setErreur("");
+    try {
+      const r = await apiSend("/api/contacts/carnet", { ...f, source: src, ...(dup && choix === "completer" ? { completer: dup.id } : {}), forcer: choix === "creer" });
+      onCree(dup && choix === "completer" ? "Fiche existante complétée." : "Contact ajouté.", r.id);
+    } catch (er) { setErreur(er.message); }
+  }
+  const role = f.roles[0];
+  return (
+    <div className="env-panel ct-pan" role="dialog" aria-label="Ajouter un contact">
+      <div className="ct-edh"><h2>Ajouter un contact</h2><button type="button" className="link" onClick={onFermer}>Fermer</button></div>
+      <div className="ct-src">
+        <label className={src === "carte" ? "on" : ""} onClick={() => setSrc("carte")}><b>Carte de visite</b><small>photo, lue par Koji</small><input type="file" accept="image/*,application/pdf" capture="environment" hidden onChange={carte} /></label>
+        <button type="button" className={src === "tel" ? "on" : ""} disabled={!pickerDispo} onClick={() => { setSrc("tel"); telephone(); }}><b>Téléphone</b><small>{pickerDispo ? "depuis vos contacts" : "sur le téléphone, dans l'app"}</small></button>
+        <label className={src === "fichier" ? "on" : ""} onClick={() => setSrc("fichier")}><b>Fichier</b><small>Excel enregistré en CSV</small><input type="file" accept=".csv,text/csv" hidden onChange={fichier} /></label>
+        <button type="button" className={src === "siren" ? "on" : ""} onClick={() => setSrc("siren")}><b>SIREN</b><small>fiche remplie seule</small></button>
+      </div>
+      {src === "siren" ? <form className="ct-aff" onSubmit={(e) => { e.preventDefault(); annuaire(); }}><input value={siren} onChange={(e) => setSiren(e.target.value)} inputMode="numeric" placeholder="SIREN ou SIRET" aria-label="SIREN" /><button type="submit" className="btn btn-sec" disabled={siren.replace(/\D/g, "").length < 9}>Rechercher</button></form> : null}
+      {src === "fichier" ? <p className="fx-note">Première ligne : Nom ; Prénom ; Entreprise ; Téléphone ; E-mail ; Type (client, sous-traitant, fournisseur…). Les contacts déjà dans le carnet sont ignorés.</p> : null}
+      {busy ? <p className="notice" role="status">{busy}</p> : null}
+      {erreur ? <p className="err" role="alert">{erreur}</p> : null}
+      {lu ? <span className="eyebrow">{lu.annuaire ? "Lu par Koji, complété par l'annuaire des entreprises" : "Lu par Koji"}</span> : null}
+      <div className="ct-edg">
+        <label className="ed">Type<select value={role} onChange={(e) => setF((x) => ({ ...x, roles: [e.target.value] }))}>{Object.entries(TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label className="ed">Personne ou entreprise<select value={f.type} onChange={set("type")}><option value="societe">Entreprise</option><option value="particulier">Particulier</option></select></label>
+        {f.type === "societe" ? <><label className="ed">Entreprise<input value={f.companyName} onChange={set("companyName")} /></label><label className="ed">Contact<input value={f.contactPerson} onChange={set("contactPerson")} placeholder="Prénom Nom · fonction" /></label></> : <><label className="ed">Prénom<input value={f.firstName} onChange={set("firstName")} /></label><label className="ed">Nom<input value={f.lastName} onChange={set("lastName")} /></label></>}
+        <label className="ed">Téléphone<input value={f.phone} onChange={set("phone")} inputMode="tel" /></label>
+        <label className="ed">E-mail<input type="email" value={f.email} onChange={set("email")} /></label>
+        {f.type === "societe" ? <label className="ed">SIRET<input value={f.siret} onChange={set("siret")} /></label> : null}
+        {role !== "client" ? <label className="ed">Activité<input value={f.metier} onChange={set("metier")} placeholder={f.activite ? `code ${f.activite}` : "électricité"} /></label> : null}
+        <label className="ed">Adresse<input value={f.address} onChange={set("address")} /></label>
+      </div>
+      {lu?.proposition?.actif === false ? <p className="err">L'annuaire indique un établissement fermé.</p> : null}
+      {dup ? (
+        <div className="ct-dup">
+          <div><strong>Ce contact existe déjà : {dup.nom}</strong><small>{dup.par}{dup.createdAt ? ` · créé le ${jourCourt(dup.createdAt)}` : ""}{dup.manque?.length ? ` · ${dup.manque.map((m) => ({ phone: "téléphone", email: "e-mail", siret: "SIRET" })[m]).join(", ")} absent` : ""}</small></div>
+          <div className="kp-seg" role="group"><button type="button" className={choix === "completer" ? "on" : ""} onClick={() => setChoix("completer")}>Compléter la fiche existante</button><button type="button" className={choix === "creer" ? "on" : ""} onClick={() => setChoix("creer")}>Créer quand même</button></div>
+        </div>
+      ) : null}
+      {role === "sous_traitant" ? <p className="fx-note">Pour un sous-traitant, Koji demandera ensuite attestation URSSAF · Kbis · décennale · RC pro.</p> : null}
+      <div className="ct-edf"><button type="button" className="btn btn-sec" onClick={onFermer}>Annuler</button><button type="button" className="btn btn-main" disabled={Boolean(busy)} onClick={enregistrer}>{dup && choix === "completer" ? "Compléter la fiche" : "Enregistrer"}</button></div>
+    </div>
+  );
+}
+
+export default function Contacts() {
+  const [data, setData] = useState(null);
+  const [sel, setSel] = useState("");
+  const [ajout, setAjout] = useState(false);
+  const [message, setMessage] = useState("");
+  const [erreur, setErreur] = useState("");
+  const charger = () => apiGet("/api/contacts/carnet").then(setData).catch((e) => setErreur(e.message));
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("id")) setSel(p.get("id"));
+    if (p.get("ajouter") === "1") setAjout(true);
+    charger();
+  }, []);
+  return (
+    <Shell variant="pro">
+      {erreur ? <p className="err" role="alert">{erreur}</p> : null}
+      {message ? <p className="notice ct-msg" role="status">{message}</p> : null}
+      {!data ? <p className="muted">Chargement…</p> : (
+        <div className={`ct-grid${sel ? " has-sel" : ""}`}>
+          <Liste data={data} sel={sel} onSel={setSel} onAjouter={() => setAjout(true)} />
+          {sel ? <Fiche key={sel} id={sel} onRetour={() => setSel("")} onChange={charger} /> : <section className="ct-f ct-f-vide"><p className="muted">Choisissez un contact. Les clients de vos devis arrivent seuls dans le carnet.</p></section>}
+        </div>
+      )}
+      {ajout ? <Ajouter onFermer={() => setAjout(false)} onCree={async (m, id) => { setAjout(false); setMessage(m); await charger(); if (id) setSel(id); }} /> : null}
     </Shell>
   );
 }

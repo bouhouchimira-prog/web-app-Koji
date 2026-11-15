@@ -45,6 +45,7 @@ import 'package:koji/features/quote/chantier_rdv_screen.dart';
 import 'package:koji/features/quote/chantier_worker_activity_screen.dart';
 import 'package:koji/features/quote/client_details_screen.dart';
 import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
+import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -814,6 +815,19 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                   DetailPlanningScreen(eventId: eventId),
                 );
               },
+            ),
+            // Contacts (maquettes PRO-10 à 10.3), sur l'API du site.
+            GoRoute(
+              path: contactsRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const ContactsScreen()),
+            ),
+            GoRoute(
+              path: nouveauContactRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const AjouterContactScreen()),
+            ),
+            GoRoute(
+              path: '/contacts/fiche/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, FicheContactScreen(id: state.pathParameters['id']!)),
             ),
             // Dépenses (maquettes PRO-09 à 09.4), sur l'API du site.
             GoRoute(

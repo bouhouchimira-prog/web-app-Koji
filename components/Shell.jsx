@@ -629,10 +629,15 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
   const hasNewMarketplaceOffers = notifications.some((n) => n.type === "radar.expertise_publiee" && !n.read && !n.archived);
   // Badge Devis (maquette PRO-03) : brouillons à reprendre + devis à relancer.
   const [devisBadge, setDevisBadge] = useState(0);
+  // Badge Contacts (maquette PRO-10) : acomptes échus, documents de vigilance manquants.
+  const [contactsBadge, setContactsBadge] = useState(0);
   useEffect(() => {
     let vivant = true;
     apiGet("/api/quotes?compteurs=1")
       .then((data) => { if (vivant) setDevisBadge(Number(data?.compteurs?.badge) || 0); })
+      .catch(() => {});
+    apiGet("/api/contacts/carnet?compteurs=1")
+      .then((data) => { if (vivant) setContactsBadge(Number(data?.compteurs?.aFaire) || 0); })
       .catch(() => {});
     return () => { vivant = false; };
   }, [pathname]);
@@ -747,6 +752,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
             isLocked={(href) => premiumLocked && PREMIUM_PATHS.some((p) => href.startsWith(p))}
             hasNewMarketplaceOffers={hasNewMarketplaceOffers}
             devisBadge={devisBadge}
+            contactsBadge={contactsBadge}
             onAsk={() => { setDrawerOpen(false); toggleKojiAssistant(); }}
             account={{
               name: avatarLabel,

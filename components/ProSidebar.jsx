@@ -27,7 +27,7 @@ const GROUPS = [
     items: [
       { href: "/profil/site-web", label: "KojiPage", icon: SHOP },
       { label: "Messages", icon: "M4 5h16v11H9l-5 4z", soon: true },
-      { href: "/contacts", label: "Contacts", icon: PERSON, match: ["/contacts", "/clients"] }
+      { href: "/contacts", label: "Contacts", icon: PERSON, match: ["/contacts", "/clients"], badge: "contacts" }
     ]
   },
   {
@@ -74,6 +74,7 @@ export function ProSidebar({
   isLocked,
   hasNewMarketplaceOffers,
   devisBadge = 0,
+  contactsBadge = 0,
   onAsk,
   account,
   menuOpen,
@@ -124,6 +125,9 @@ export function ProSidebar({
                   ) : null}
                   {!locked && item.badge === "devis" && devisBadge > 0 ? (
                     <span className="cnt" aria-label={`${devisBadge} devis à reprendre ou relancer`}>{devisBadge}</span>
+                  ) : null}
+                  {!locked && item.badge === "contacts" && contactsBadge > 0 ? (
+                    <span className="cnt" aria-label={`${contactsBadge} contact${contactsBadge > 1 ? "s" : ""} à traiter`}>{contactsBadge}</span>
                   ) : null}
                   {!locked && item.badge === "radar" && hasNewMarketplaceOffers ? (
                     <span className="cnt" aria-label="Nouvelles offres">Nouveau</span>
