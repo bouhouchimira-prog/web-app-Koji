@@ -251,6 +251,9 @@ export default function SuppliesCataloguePage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (["fournisseurs", "divers"].includes(params.get("tab"))) setActiveTab(params.get("tab"));
+    // Le catalogue est désormais /fournitures (maquette PRO-07) ; cette vue
+    // ne reste que pour le choix d'une fourniture depuis le devis.
+    else if (params.get("from") !== "devis") { window.location.replace("/fournitures"); return; }
     if (params.get("from") === "devis") {
       setFromDevis(true);
       setDevisTargetRoom(window.localStorage.getItem("koji-devis-target-room") || "Services");

@@ -4394,7 +4394,7 @@ export default function DevisEditor() {
                   {!filteredSupplyItems.length ? <p className="empty">{L.bibliotheque.noFound}</p> : null}
                 </div>
                 <div className="tp-foot">
-                  <Link className="link" href="/fournitures/catalogue">{L.nav.supplies} →</Link>
+                  <Link className="link" href="/fournitures">{L.nav.supplies} →</Link>
                 </div>
               </section>
             ) : null}

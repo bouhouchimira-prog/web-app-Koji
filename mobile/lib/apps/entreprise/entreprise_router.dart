@@ -20,7 +20,9 @@ import 'package:koji/features/factures/encaissements_screen.dart';
 import 'package:koji/features/factures/factures_screen.dart';
 import 'package:koji/features/factures/impayes_screen.dart';
 import 'package:koji/features/factures/nouvelle_facture_screen.dart';
-import 'package:koji/features/fournitures/fournitures_screen.dart';
+import 'package:koji/features/fournitures/pro/fournitures_chantier_screen.dart';
+import 'package:koji/features/fournitures/pro/fournitures_extra_screens.dart';
+import 'package:koji/features/fournitures/pro/fournitures_pro_screen.dart';
 import 'package:koji/features/help/help_screen.dart';
 import 'package:koji/features/home/home_screen.dart';
 import 'package:koji/features/interventions/intervention_detail_screen.dart';
@@ -488,12 +490,61 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 const ProAvenantsScreen(),
               ),
             ),
+            // Fournitures (maquettes PRO-07 à 07.6), sur l'API du site.
             GoRoute(
               path: '/fournitures',
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const FournituresScreen(),
+                FournituresProScreen(onglet: state.uri.queryParameters['onglet'] ?? 'catalogue'),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/article',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ArticleFormScreen(articleId: state.extra is String ? state.extra as String : null),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/chantier/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ChantierFournituresScreen(projectId: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/bons/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                BonScreen(bonId: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/livraison/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                LivraisonScreen(bonId: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/partenaires/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                PartenaireScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/cloture/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ClotureResteScreen(projectId: state.pathParameters['id']!),
               ),
             ),
             GoRoute(

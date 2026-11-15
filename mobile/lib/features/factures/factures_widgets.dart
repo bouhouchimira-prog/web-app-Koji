@@ -128,7 +128,8 @@ class FactureKv extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(label, style: TextStyle(fontSize: 13.5, color: strong ? p.heading : p.muted, fontWeight: strong ? FontWeight.w700 : FontWeight.w500))),
-          Text(value, style: TextStyle(fontSize: strong ? 15.5 : 14, fontWeight: strong ? FontWeight.w800 : FontWeight.w700, color: p.heading)),
+          const SizedBox(width: 10),
+          Flexible(child: Text(value, textAlign: TextAlign.right, style: TextStyle(fontSize: strong ? 15.5 : 14, fontWeight: strong ? FontWeight.w800 : FontWeight.w700, color: p.heading))),
         ],
       ),
     );

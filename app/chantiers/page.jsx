@@ -1943,7 +1943,7 @@ export default function ProjectsTrackingPage() {
               <div className="card">
                 <div className="card-h">
                   <h2>{L.chantiers.supplies}</h2>
-                  <Link href="/fournitures/catalogue" className="link">{L.chantiers.manageSupplies}</Link>
+                  {selectedProject ? <Link href={`/fournitures/chantier?projet=${selectedProject.id}`} className="link">Liste par fournisseur et commandes</Link> : <Link href="/fournitures" className="link">{L.chantiers.manageSupplies}</Link>}
                 </div>
                 {supplyNeeds.length === 0 ? <p className="empty">{L.chantiers.noSupplies}</p> : supplyNeeds.map((need, index) => (
                   <div className="row" key={`${need.supplyId}-${index}`}>
