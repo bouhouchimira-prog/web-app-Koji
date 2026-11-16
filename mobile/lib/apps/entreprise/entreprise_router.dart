@@ -47,6 +47,7 @@ import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
 import 'package:koji/features/calendrier_pro/calendrier_pro.dart';
 import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/messages_pro/messages_pro.dart';
+import 'package:koji/features/kojipage/kojipage_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -483,6 +484,55 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const MessagesProScreen(),
+              ),
+            ),
+            // KojiPage (maquettes PRO-13 à 13.4).
+            GoRoute(
+              path: kojipageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const KojiPageScreen(),
+              ),
+            ),
+            GoRoute(
+              path: demandesKojiPageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const DemandesKojiPageScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/kojipage/demandes/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                DemandeKojiPageScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: nouvelleRealisationRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NouvelleRealisationScreen(),
+              ),
+            ),
+            GoRoute(
+              path: reglagesKojiPageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ReglagesKojiPageScreen(),
+              ),
+            ),
+            GoRoute(
+              path: carteKojiPageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const CarteKojiPageScreen(),
               ),
             ),
             // Fil d'une conversation (maquette PRO-12).

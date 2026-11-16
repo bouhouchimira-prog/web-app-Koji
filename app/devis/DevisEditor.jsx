@@ -493,6 +493,9 @@ export default function DevisEditor() {
   // compte rendu envoyé à Koji comme premier message.
   const [visite, setVisite] = useState(null);
   const visiteLiee = useRef("");
+  // Demande reçue par la KojiPage (PRO-13.1) : « Démarrer un devis guidé ».
+  const [demandeKP, setDemandeKP] = useState(null);
+  const demandeLiee = useRef("");
   const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
@@ -643,6 +646,27 @@ export default function DevisEditor() {
       .catch(() => notifyError(new Error("Visite introuvable."), "Le compte rendu de visite n'a pas pu être chargé."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || editQuoteIdFromUrl()) return;
+    const demandeId = new URLSearchParams(window.location.search).get("demande");
+    if (!demandeId) return;
+    apiGet(`/api/kojipage/demandes?id=${encodeURIComponent(demandeId)}`)
+      .then(({ demande }) => {
+        if (!demande) return;
+        applyChatClientInfo({ nom: demande.client?.nom, email: demande.client?.email });
+        setDemandeKP(demande);
+      })
+      .catch(() => notifyError(new Error("Demande introuvable."), "La demande de la KojiPage n'a pas pu être chargée."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = generatedQuote?.id;
+    if (!demandeKP?.id || !id || demandeLiee.current === id) return;
+    demandeLiee.current = id;
+    apiSend("/api/kojipage/demandes", { action: "devis", id: demandeKP.id, quoteId: id }, "POST").catch(() => { demandeLiee.current = ""; });
+  }, [demandeKP, generatedQuote?.id]);
 
   useEffect(() => {
     const id = generatedQuote?.id;
@@ -4033,7 +4057,7 @@ export default function DevisEditor() {
                 onOpenDevis={() => setToolsDrawerOpen(true)}
                 questionTva={decisionTvaCourante.question && quoteLines.length ? questionTva(decisionTvaCourante.question, clientTvaCourant) : null}
                 onReponseTva={(valeur) => confirmationTva(appliquerTva({ ...tvaChoix, client: clientTvaCourant, local: valeur }), { client: clientTvaCourant, nom: headerClientName })}
-                messageInitial={visite ? demandeDevisGuide(visite) : ""}
+                messageInitial={visite ? demandeDevisGuide(visite) : demandeKP ? demandeKP.messageDevis : ""}
               />
             ) : null}
             <div className="dv-doc" style={mode === "ia" ? { display: "none" } : undefined}>

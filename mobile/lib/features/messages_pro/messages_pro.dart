@@ -27,7 +27,9 @@ class MessagesRepository {
 
   Future<Json> liste() => _api.get('/api/messages');
   Future<Json> fil(String cle) => _api.get('/api/messages', query: {'fil': cle});
-  Future<Json> envoyer(Json fil, String texte) => _s(fil['quoteId']).isNotEmpty
+  Future<Json> envoyer(Json fil, String texte) => _s(fil['leadId']).isNotEmpty
+      ? _api.post('/api/kojipage/demandes', {'action': 'repondre', 'id': fil['leadId'], 'texte': texte})
+      : _s(fil['quoteId']).isNotEmpty
       ? _api.post('/api/quotes/${fil['quoteId']}/messages', {'texte': texte})
       : _api.post('/api/marketplace/offres/${fil['offreId']}/messages', {'message': texte});
   Future<Json> suggestion(String cle, String decision) => _api.patch('/api/messages', {'action': 'suggestion', 'fil': cle, 'decision': decision});

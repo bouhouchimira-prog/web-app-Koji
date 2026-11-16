@@ -33,7 +33,8 @@ function Fil({ cle, onLu, onRetour }) {
     if (!t || !d) return;
     setBusy(true); setErreur("");
     try {
-      if (d.fil.quoteId) await apiSend(`/api/quotes/${d.fil.quoteId}/messages`, { texte: t });
+      if (d.fil.leadId) await apiSend("/api/kojipage/demandes", { action: "repondre", id: d.fil.leadId, texte: t });
+      else if (d.fil.quoteId) await apiSend(`/api/quotes/${d.fil.quoteId}/messages`, { texte: t });
       else await apiSend(`/api/marketplace/offres/${d.fil.offreId}/messages`, { message: t });
       setTexte("");
       await charger();
@@ -58,8 +59,8 @@ function Fil({ cle, onLu, onRetour }) {
       <section className="m2-th">
         <button type="button" className="link m2-back" onClick={onRetour}>← Messages</button>
         <header className="m2-thh">
-          <div className="m2-who"><strong>{d.fil.titre}</strong><small>{[d.fil.quoteId ? "client" : "demande Radar", d.fil.sousTitre].filter(Boolean).join(" · ")}</small></div>
-          {c.projectId ? <Link className="link" href={`/chantiers?project=${c.projectId}`}>Ouvrir le chantier</Link> : d.fil.offreId ? <Link className="link" href={`/marketplace/${d.fil.offreId}`}>Ouvrir la demande</Link> : null}
+          <div className="m2-who"><strong>{d.fil.titre}</strong><small>{[d.fil.leadId ? "demande KojiPage" : d.fil.quoteId ? "client" : "demande Radar", d.fil.sousTitre].filter(Boolean).join(" · ")}</small></div>
+          {c.projectId ? <Link className="link" href={`/chantiers?project=${c.projectId}`}>Ouvrir le chantier</Link> : d.fil.offreId ? <Link className="link" href={`/marketplace/${d.fil.offreId}`}>Ouvrir la demande</Link> : d.fil.leadId ? <Link className="link" href={`/kojipage/demandes?id=${d.fil.leadId}`}>Ouvrir la demande</Link> : null}
           <button type="button" className={`m2-ib${details ? " on" : ""}`} title="Détails" aria-pressed={details} onClick={() => setDetails((x) => !x)}><Info /></button>
         </header>
         {c.etiquettes?.length ? <div className="m2-ctx">{c.etiquettes.map((e) => <span key={e.texte} className={e.alerte ? "warn" : ""}>{e.texte}</span>)}</div> : null}

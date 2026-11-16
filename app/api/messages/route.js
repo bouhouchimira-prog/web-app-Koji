@@ -9,6 +9,7 @@ import { livraisons } from "../../../lib/calendrier-pro";
 import { bonsDe } from "../../../lib/fournitures-serveur";
 import { importerClientsDesDevis } from "../../../lib/contacts-serveur";
 import { fixText } from "../../../lib/text";
+import { ETATS_DEMANDE, clientAffiche, etatDemande, texteProjet } from "../../../lib/kojipage";
 
 // Messages (maquette PRO-12) : une seule messagerie pour les fils des devis
 // (le client écrit depuis sa page de signature ou Koji Client, table
@@ -61,6 +62,16 @@ async function charger(entreprise, db) {
       cle: `radar:${offerId}`, type: "radar", pro: false, offreId: offerId, projectId: "",
       titre: nomCourt(o.clientName), sousTitre: [o.metier, String(o.description || "").slice(0, 50)].filter(Boolean).join(" · "),
       messages: m.map((x) => ({ id: x.id, texte: x.message || "", le: x.createdAt, entreprise: x.senderType === "entreprise", kind: x.kind || "text" }))
+    });
+  }
+  // Demandes reçues par la KojiPage (PRO-13.1) : la demande du client, puis
+  // les réponses envoyées par e-mail.
+  for (const d of (db.companySiteLeads || []).filter((x) => x.userId === userId)) {
+    const premier = d.message || (d.projet ? texteProjet(d.projet).split(String.fromCharCode(10)).join(" · ") : "Demande de devis");
+    fils.push({
+      cle: `kojipage:${d.id}`, type: "kojipage", pro: false, leadId: d.id, projectId: "",
+      titre: clientAffiche(d).nom || "Client", sousTitre: `KojiPage · ${d.prestation || d.projet?.piece || "demande de devis"}`,
+      messages: [{ id: `${d.id}-0`, texte: premier, le: d.createdAt, entreprise: false }, ...(d.messages || []).map((m, i) => ({ id: `${d.id}-${i + 1}`, texte: m.texte, le: m.le, entreprise: true }))]
     });
   }
   return { quotes, titres, adresses, fils, webUser };
@@ -174,7 +185,11 @@ export async function GET(request) {
     const q = !fil && cle.startsWith("devis:") ? ctx.quotes.find((x) => x.id === cle.slice(6)) : null;
     const f = fil || (q ? { cle, type: "client", pro: false, quoteId: q.id, projectId: q.projectId || "", titre: q.client || "Client", sousTitre: ctx.titres.get(q.projectId) || "", messages: [] } : null);
     if (!f) return badRequest("Fil introuvable.", 404);
-    const contexte = f.type === "client" ? contexteDevis(db, userId, f, ctx) : (() => {
+    const contexte = f.type === "client" ? contexteDevis(db, userId, f, ctx) : f.type === "kojipage" ? (() => {
+      const d = (db.companySiteLeads || []).find((x) => x.id === f.leadId) || {};
+      const etat = etatDemande(d);
+      return { chantier: "Demande KojiPage", etiquettes: [{ texte: "Demande KojiPage · sans jeton", alerte: false }, { texte: ETATS_DEMANDE[etat], alerte: etat === "a_repondre" }], details: [["Demande", (d.projet ? texteProjet(d.projet) : d.message || "").slice(0, 200)], d.city ? ["Ville", d.city] : null].filter(Boolean), documents: [{ titre: "Fiche de la demande", lien: `/kojipage/demandes?id=${d.id}` }], dansCeFil: `${f.titre} et vous. Vos réponses partent par e-mail.` };
+    })() : (() => {
       const o = (db.chantierOffres || []).find((x) => x.id === f.offreId);
       return { chantier: o?.metier || "Demande Radar", etiquettes: [{ texte: "Demande du Radar", alerte: false }], details: [["Demande", String(o?.description || "").slice(0, 160)]], documents: [{ titre: "Fiche de la demande", lien: `/marketplace/${f.offreId}` }], dansCeFil: `${f.titre} et vous.` };
     })();
@@ -182,7 +197,7 @@ export async function GET(request) {
     db.messagesLus[userId] = { ...(db.messagesLus[userId] || {}), [cle]: new Date().toISOString() };
     const { s } = f.type === "client" ? await suggestion(db, userId, f, contexte) : { s: null };
     await writeDb(db);
-    return ok({ fil: { ...resumeFil(f, { luLe: new Date().toISOString(), aujourdhui: today() }), quoteId: f.quoteId || "", offreId: f.offreId || "" }, jours: parJour(f.messages, today()), contexte, suggestion: s, reponses: db.reponsesEnregistrees?.[userId] || REPONSES_DEFAUT });
+    return ok({ fil: { ...resumeFil(f, { luLe: new Date().toISOString(), aujourdhui: today() }), quoteId: f.quoteId || "", offreId: f.offreId || "", leadId: f.leadId || "" }, jours: parJour(f.messages, today()), contexte, suggestion: s, reponses: db.reponsesEnregistrees?.[userId] || REPONSES_DEFAUT });
   }
   return ok(vueListe(db, userId, ctx.fils));
 }

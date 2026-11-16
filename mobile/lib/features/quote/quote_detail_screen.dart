@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/features/quote/services/devis_pdf_service.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
@@ -159,8 +160,22 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   bool _visiteLiee = false;
   Map? get _visite => widget.data['visite'] is Map ? widget.data['visite'] as Map : null;
 
+  // Demande reçue par la KojiPage (PRO-13.1) : la demande part comme premier
+  // message et le devis lui est rattaché.
+  bool _demandeEnvoyee = false;
+  bool _demandeLiee = false;
+  Map? get _demandeKP => widget.data['demandeKojiPage'] is Map ? widget.data['demandeKojiPage'] as Map : null;
+
   Future<({String id, String le})> _enregistrerEtLierVisite() async {
     final r = await _enregistrerAuto();
+    final demande = _demandeKP;
+    if (demande != null && !_demandeLiee && r.id.isNotEmpty) {
+      _demandeLiee = true;
+      ref.read(kojiProApiProvider).post('/api/kojipage/demandes', {'action': 'devis', 'id': '${demande['id']}', 'quoteId': r.id}).catchError((_) {
+        _demandeLiee = false;
+        return <String, dynamic>{};
+      });
+    }
     final visite = _visite;
     if (visite != null && !_visiteLiee && r.id.isNotEmpty) {
       _visiteLiee = true;
@@ -1469,6 +1484,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       if (visite != null && !_visiteEnvoyee && !_conversation.tours.any((t) => t.role == 'user')) {
         _visiteEnvoyee = true;
         _conversation.envoyer('${visite['demande'] ?? ''}');
+      }
+      final demande = _demandeKP;
+      if (demande != null && !_demandeEnvoyee && !_conversation.tours.any((t) => t.role == 'user')) {
+        _demandeEnvoyee = true;
+        _conversation.envoyer('${demande['texte'] ?? ''}');
       }
     });
     final titre = 'Devis $_quoteNumber';
