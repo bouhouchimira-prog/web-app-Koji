@@ -500,6 +500,8 @@ export default function DevisEditor() {
   const visiteLiee = useRef("");
   // Demande reçue par la KojiPage (PRO-13.1) : « Démarrer un devis guidé ».
   const [demandeKP, setDemandeKP] = useState(null);
+  const [interventionRapide, setInterventionRapide] = useState(null);
+  const interventionLiee = useRef("");
   const demandeLiee = useRef("");
   const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
@@ -677,6 +679,28 @@ export default function DevisEditor() {
       .catch(() => notifyError(new Error("Demande introuvable."), "La demande de la KojiPage n'a pas pu être chargée."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Intervention rapide (PRO-17.1) : travaux proposés en plus → devis séparé, client repris.
+  useEffect(() => {
+    if (typeof window === "undefined" || editQuoteIdFromUrl()) return;
+    const interventionId = new URLSearchParams(window.location.search).get("intervention");
+    if (!interventionId) return;
+    apiGet(`/api/interventions/rapide?id=${encodeURIComponent(interventionId)}`)
+      .then(({ intervention }) => {
+        if (!intervention) return;
+        applyChatClientInfo({ nom: intervention.client, email: intervention.email, chantier: intervention.site });
+        setInterventionRapide(intervention);
+      })
+      .catch(() => notifyError(new Error("Intervention introuvable."), "L'intervention n'a pas pu être chargée."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = generatedQuote?.id;
+    if (!interventionRapide?.id || !id || interventionLiee.current === id) return;
+    interventionLiee.current = id;
+    apiSend("/api/interventions/rapide", { action: "lier-devis", id: interventionRapide.id, quoteId: id }, "POST").catch(() => { interventionLiee.current = ""; });
+  }, [interventionRapide, generatedQuote?.id]);
 
   useEffect(() => {
     const id = generatedQuote?.id;

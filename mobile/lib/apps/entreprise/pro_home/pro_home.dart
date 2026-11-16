@@ -10,6 +10,7 @@ import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/radar/pro_radar_screens.dart' show ouvrirFicheRadar, ouvrirMesPositions;
 import 'package:koji/apps/entreprise/pro_home/chiffres_du_mois.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
+import 'package:koji/features/intervention_rapide/intervention_rapide.dart' show nouvelleInterventionRoute;
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/design/koji_widgets.dart' show kojiEuro;
@@ -544,6 +545,17 @@ class _ProHomeState extends ConsumerState<ProHome> {
               icon: Icons.add,
               expand: true,
               onPressed: _devisGuide,
+            ),
+            const SizedBox(height: 8),
+            // PRO-17.1 : un client appelle, intervention en un geste.
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(nouvelleInterventionRoute),
+                icon: const Icon(Icons.bolt, size: 18),
+                label: const Text('Nouvelle intervention'),
+              ),
             ),
             if (brouillon != null) ...[
               const SizedBox(height: 10),

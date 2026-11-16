@@ -50,6 +50,7 @@ import 'package:koji/features/messages_pro/messages_pro.dart';
 import 'package:koji/features/kojipage/kojipage_pro.dart';
 import 'package:koji/features/reseau_pro/reseau_pro.dart';
 import 'package:koji/features/equipe/equipe_pro.dart';
+import 'package:koji/features/intervention_rapide/intervention_rapide.dart';
 import 'package:koji/features/compte/compte_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
@@ -528,6 +529,31 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const AbonnementScreen(),
+              ),
+            ),
+            // Intervention rapide (maquette PRO-17.1).
+            GoRoute(
+              path: interventionsRapidesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const InterventionsRapidesScreen(),
+              ),
+            ),
+            GoRoute(
+              path: nouvelleInterventionRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NouvelleInterventionScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/intervention-rapide/suivi/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                SuiviInterventionScreen(id: state.pathParameters['id']!),
               ),
             ),
             // Équipe (maquettes PRO-16 à 16.3).

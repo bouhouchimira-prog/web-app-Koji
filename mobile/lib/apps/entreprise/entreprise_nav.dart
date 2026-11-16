@@ -115,7 +115,7 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/equipe') || starts('/synchronization') || starts('/workers') || starts('/projects')) {
     return 'equipe';
   }
-  if (starts('/interventions')) return 'interventions';
+  if (starts('/interventions') || starts('/intervention-rapide')) return 'interventions';
   if (starts('/archives')) return 'archives';
   if (starts('/profile')) return 'profil';
   if (starts('/signature')) return 'signature';

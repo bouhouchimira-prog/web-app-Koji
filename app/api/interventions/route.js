@@ -10,8 +10,9 @@ function normalizeIntervention(item) {
 export async function GET(request) {
   const db = await readDb();
   const userId = await getUserScope(request, db);
+  // Les interventions rapides (PRO-17.1) ont leur propre écran et leur route.
   const items = scopedItems(db.interventions, userId)
-    .slice()
+    .filter((item) => !item.rapide)
     .sort((a, b) => String(b.date || b.createdAt || "").localeCompare(String(a.date || a.createdAt || "")));
   return ok({ interventions: items.map(normalizeIntervention) });
 }
