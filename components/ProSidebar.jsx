@@ -43,6 +43,7 @@ const GROUPS = [
     label: "Business",
     items: [
       { href: "/depenses", label: "Dépenses", icon: "M5 20V10M12 20V4M19 20v-7" },
+      { href: "/equipe", label: "Équipe", icon: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5" },
       { href: "/interventions", label: "Interventions", icon: "M14.7 6.3a4 4 0 0 0 5 5L12 19.1a2.1 2.1 0 0 1-3-3zM9.5 9.5 4 4" }
     ]
   },

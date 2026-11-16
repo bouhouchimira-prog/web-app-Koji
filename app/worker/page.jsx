@@ -1,569 +1,282 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./worker.css";
-import { useLocale } from "../../lib/i18n";
-import { LangSwitcher } from "../../components/LangSwitcher";
-import { SettingsPanel } from "../../components/SettingsPanel";
+import { heuresMinutes, jourCourt } from "../../lib/equipe-pro";
+import { LANGUES } from "../../lib/compte-pro";
 
-const SESSION_KEY = "koji-worker-session";
+// Vue compagnon sur ordinateur (maquette PRO-16.5) et sur téléphone par le
+// lien reçu par SMS : ma journée, ma semaine, mes heures, mes documents ;
+// « Je suis arrivé » / « Je pars » (une seule source avec l'app). Ni prix,
+// ni devis, ni nom de client. Données : /api/compagnon.
+const Check = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg>;
+const Horloge = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2" /></svg>;
+const Danger = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 16H3zM12 10v4M12 17h.01" /></svg>;
+const ONGLETS = [["journee", "Ma journée"], ["semaine", "Ma semaine"], ["heures", "Mes heures"], ["documents", "Mes documents"]];
+const dateLongue = (jour) => new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${jour}T12:00:00Z`)).replace(/^./, (c) => c.toUpperCase());
+const dateCourte = (jour) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${jour}T12:00:00Z`));
+const heure = (hhmm = "") => String(hhmm).replace(/^0(?=\d)/, "").replace(":", " h ");
+const hm = (min) => (min ? heuresMinutes(min) : "—");
 
-const CLAIM_CATEGORIES = [
-  "Problème chantier",
-  "Manque de matériel",
-  "Problème technique",
-  "Problème sécurité",
-  "Autre",
-];
-
-function text(value, fallback = "") {
-  return String(value || fallback || "").trim();
-}
-
-function formatDate(value, noneLabel = "—") {
-  if (!value) return noneLabel;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function formatDateTime(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
-
-function sameDay(value) {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  const now = new Date();
-  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
-}
-
-function minutesLabel(minutes) {
-  const total = Number(minutes || 0);
-  const hours = Math.floor(total / 60);
-  const rest = Math.round(total % 60);
-  if (!hours) return `${rest} min`;
-  return `${hours}h${String(rest).padStart(2, "0")}`;
-}
-
-function taskTitle(task) {
-  return text(task.title || task.name || task.workName || task.ouvrageName || task.label, "Tâche sans nom");
-}
-
-function taskProjectName(task) {
-  return text(task.projectName || task.chantierName || task.project?.name || task.quoteProjectName, "Chantier");
-}
-
-function taskStatus(task) {
-  return text(task.status || task.state, "À faire");
-}
-
-function taskProgress(task) {
-  const status = taskStatus(task).toLowerCase();
-  if (status.includes("termin")) return 100;
-  if (status.includes("cours")) return 55;
-  const planned = Number(task.plannedMinutes || task.estimatedMinutes || task.durationMinutes || 0);
-  const consumed = Number(task.consumedMinutes || task.totalMinutes || task.timeSpentMinutes || 0);
-  if (planned > 0) return Math.min(100, Math.round((consumed / planned) * 100));
-  return 0;
-}
-
-async function fetchJson(url, options) {
-  const response = await fetch(url, options);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.error) throw new Error(data.error || "Action impossible pour le moment.");
+async function api(path, options = {}) {
+  const r = await fetch(path, { credentials: "same-origin", ...options });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(data.error || `Erreur ${r.status}`); e.status = r.status; throw e; }
   return data;
 }
+const poster = (corps) => api("/api/compagnon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
 
-function readFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+function Connexion({ onConnecte }) {
+  const [code, setCode] = useState("");
+  const [ancien, setAncien] = useState(false);
+  const [id, setId] = useState("");
+  const [mdp, setMdp] = useState("");
+  const [erreur, setErreur] = useState("");
+  const [busy, setBusy] = useState(false);
+  const expiree = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("invitation") === "expiree";
+  async function envoyer(e) {
+    e.preventDefault();
+    setBusy(true);
+    setErreur("");
+    try {
+      if (ancien) await api("/api/worker-auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier: id, password: mdp }) });
+      else await api("/api/compagnon/connexion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      onConnecte();
+    } catch (er) { setErreur(er.message); }
+    setBusy(false);
+  }
+  return (
+    <div className="wk-login">
+      <form className="card" onSubmit={envoyer}>
+        <h1>Koji · compagnon</h1>
+        {expiree ? <p className="wk-err">Ce lien a expiré. Demandez à votre entreprise de vous renvoyer l'invitation.</p> : null}
+        {ancien ? (
+          <>
+            <p>Identifiant et mot de passe donnés par votre entreprise.</p>
+            <input type="text" aria-label="Identifiant" placeholder="Identifiant" value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" />
+            <input type="password" aria-label="Mot de passe" placeholder="Mot de passe" value={mdp} onChange={(e) => setMdp(e.target.value)} autoComplete="current-password" style={{ width: "100%", border: "1px solid #D9D9D4", borderRadius: 2, padding: "8px 10px", font: "inherit" }} />
+          </>
+        ) : (
+          <>
+            <p>Ouvrez le lien reçu par SMS, ou entrez le code de 8 caractères qu'il contient.</p>
+            <input type="text" className="wk-code" aria-label="Code d'invitation" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={8} autoComplete="one-time-code" />
+          </>
+        )}
+        {erreur ? <p className="wk-err">{erreur}</p> : null}
+        <button type="submit" className="btn btn-main" disabled={busy || (ancien ? !id || !mdp : code.length !== 8)}>{busy ? "Connexion…" : "Ouvrir ma journée"}</button>
+        <button type="button" className="link" onClick={() => setAncien(!ancien)}>{ancien ? "J'ai un code d'invitation" : "J'ai un identifiant et un mot de passe"}</button>
+      </form>
+    </div>
+  );
+}
+
+function Tache({ t, onRetour, onPhoto, busy }) {
+  const [coches, setCoches] = useState([]);
+  return (
+    <div className="card">
+      <div className="card-h"><h2>{t.label}</h2><button type="button" className="link" onClick={onRetour}>Retour</button></div>
+      <p className="sm2" style={{ marginTop: -6 }}>{t.chantier}{t.lot ? ` · ${t.lot}` : ""}</p>
+      <div className="wk-desc">
+        <span className="wk-lab">Ce qu'il faut faire</span>
+        <p>{t.consigne || t.label}{t.quantite ? ` · ${String(t.quantite).replace(".", ",")} ${t.unite}` : ""}</p>
+      </div>
+      {t.aPrendre.length ? (
+        <div className="wk-desc">
+          <span className="wk-lab">À prendre au dépôt</span>
+          {t.aPrendre.map((a, i) => (
+            <div key={i} className={`tk-r ${coches.includes(i) ? "ok" : ""}`}>
+              <button type="button" className={`kj-cb ${coches.includes(i) ? "on" : ""}`} aria-label={a.label} onClick={() => setCoches((c) => (c.includes(i) ? c.filter((x) => x !== i) : [...c, i]))}>{coches.includes(i) ? <Check /> : null}</button>
+              <div className="tk-b"><b>{a.label}</b>{a.quantite ? <small>{String(a.quantite).replace(".", ",")} {a.unite}</small> : null}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <button type="button" className="btn btn-main" disabled={busy} onClick={() => onPhoto(t)}>{busy ? "Envoi…" : "Photo de fin"}</button>
+      <p className="sm2">Envoyée à votre chef et au chantier ; jamais au client sans son accord. La date et l'heure sont ajoutées.</p>
+    </div>
+  );
 }
 
 export default function WorkerPage() {
-  const { L } = useLocale();
-  const [worker, setWorker] = useState(null);
-  const [portal, setPortal] = useState(null);
-  const [view, setView] = useState("home");
-  const [selectedProjectId, setSelectedProjectId] = useState("");
-  const [login, setLogin] = useState({ identifier: "", password: "" });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [forms, setForms] = useState({});
+  const [d, setD] = useState(null);
+  const [connecte, setConnecte] = useState(null);
+  const [onglet, setOnglet] = useState("journee");
+  const [tache, setTache] = useState(null);
+  const [erreur, setErreur] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState("");
+  const [probleme, setProbleme] = useState("");
+  const fichier = useRef(null);
+  const cible = useRef({ mode: "fin", taskId: "" });
 
+  const charger = () => api("/api/compagnon").then((r) => { setD(r); setConnecte(true); }).catch((e) => { if (e.status === 401 || e.status === 403) setConnecte(false); else setErreur(e.message); });
+  useEffect(() => { charger(); }, []);
   useEffect(() => {
-    const saved = window.localStorage.getItem(SESSION_KEY);
-    if (!saved) {
-      setLoading(false);
-      return;
-    }
+    if (!d?.journee?.pointage?.ouvert) return undefined;
+    const t = setInterval(charger, 60000);
+    return () => clearInterval(t);
+  }, [d?.journee?.pointage?.ouvert]);
+
+  if (connecte === false) return <div className="wkp"><Connexion onConnecte={() => { window.history.replaceState(null, "", "/worker"); charger(); }} /></div>;
+  if (!d) return <div className="wkp"><div className="wk-login"><p className="sm2">{erreur || "Chargement…"}</p></div></div>;
+
+  const j = d.journee;
+  const p = j.pointage;
+  async function pointer() {
+    setBusy("pointer");
+    setErreur("");
+    try { setD(await poster({ action: p.ouvert ? "pars" : "arrive", depuis: "ordinateur" })); } catch (e) { setErreur(e.message); }
+    setBusy("");
+  }
+  async function cocher(t) {
+    try { await poster({ action: "tache", taskId: t.id, fait: !t.fait }); await charger(); } catch (e) { setErreur(e.message); }
+  }
+  function photo(mode, t) {
+    cible.current = { mode, taskId: t?.id || "" };
+    fichier.current?.click();
+  }
+  async function envoyerPhoto(e) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setBusy("photo");
+    setErreur("");
     try {
-      const parsed = JSON.parse(saved);
-      if (parsed?.id) {
-        setWorker(parsed);
-        loadPortal(parsed)
-          .catch((exception) => {
-            window.localStorage.removeItem(SESSION_KEY);
-            setWorker(null);
-            setError(exception.message);
-          })
-          .finally(() => setLoading(false));
-        return;
-      }
-    } catch {
-      window.localStorage.removeItem(SESSION_KEY);
-    }
-    setLoading(false);
-  }, []);
-
-  const selectedProject = useMemo(() => {
-    const projects = [...(portal?.activeProjects || []), ...(portal?.archivedProjects || [])];
-    return projects.find((project) => project.id === selectedProjectId) || null;
-  }, [portal, selectedProjectId]);
-
-  const todayTasks = useMemo(() => {
-    return (portal?.tasks || []).filter((task) => sameDay(task.dueDate || task.startDate || task.plannedStartDate));
-  }, [portal]);
-
-  async function loadPortal(nextWorker = worker) {
-    if (!nextWorker?.id) return;
-    setError("");
-    const data = await fetchJson("/api/worker-portal");
-    setPortal(data);
+      const form = new FormData();
+      form.append("file", f);
+      form.append("mode", cible.current.mode);
+      form.append("taskId", cible.current.taskId);
+      form.append("projectId", j.projectId || "");
+      if (cible.current.mode === "probleme") form.append("message", probleme);
+      await api("/api/compagnon", { method: "POST", body: form });
+      setMessage(cible.current.mode === "probleme" ? "Problème envoyé avec la photo." : "Photo de fin envoyée.");
+      if (cible.current.mode === "probleme") setProbleme("");
+    } catch (er) { setErreur(er.message); }
+    setBusy("");
+  }
+  async function envoyerProbleme() {
+    setBusy("probleme");
+    try { await poster({ action: "probleme", message: probleme }); setProbleme(""); setMessage("Message envoyé."); } catch (e) { setErreur(e.message); }
+    setBusy("");
+  }
+  async function langue(l) {
+    try { await poster({ action: "langue", langue: l }); await charger(); } catch (e) { setErreur(e.message); }
+  }
+  async function deconnecter() {
+    await api("/api/compagnon/connexion", { method: "DELETE" }).catch(() => null);
+    setD(null);
+    setConnecte(false);
   }
 
-  async function handleLogin(event) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const data = await fetchJson("/api/worker-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(login),
-      });
-      setWorker(data.worker);
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(data.worker));
-      await loadPortal(data.worker);
-      setView("home");
-    } catch (exception) {
-      setError(exception.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function runAction(payload) {
-    if (!worker?.id) return;
-    setBusy(true);
-    setError("");
-    try {
-      const data = await fetchJson("/api/worker-actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setPortal(data);
-    } catch (exception) {
-      setError(exception.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleFile(task, type, event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const dataUrl = await readFile(file);
-    await runAction({ action: type, taskId: task.id, name: file.name, mimeType: file.type, dataUrl });
-    event.target.value = "";
-  }
-
-  function updateTaskForm(taskId, patch) {
-    setForms((current) => ({ ...current, [taskId]: { ...(current[taskId] || {}), ...patch } }));
-  }
-
-  async function sendUrgentAlert(task) {
-    const form = forms[task.id] || {};
-    const message = (form.urgMsg || "").trim();
-    if (!message) return;
-    updateTaskForm(task.id, { urgSending: true });
-    try {
-      await fetchJson("/api/urgent-alerts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: "worker",
-          senderName: text(worker?.name || worker?.loginId || "Ouvrier"),
-          type: form.urgType || "urgence",
-          message,
-          projectId: task.projectId || "",
-          taskIds: [task.id],
-          taskLabels: [taskTitle(task)]
-        })
-      });
-      updateTaskForm(task.id, { urgSent: true, urgSending: false, urgMsg: "", showUrgence: false });
-    } catch {
-      updateTaskForm(task.id, { urgSending: false });
-    }
-  }
-
-  function logout() {
-    window.localStorage.removeItem(SESSION_KEY);
-    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    setWorker(null);
-    setPortal(null);
-    setSelectedProjectId("");
-    setView("home");
-  }
-
-  if (loading) {
-    return <main className="worker-page"><div className="worker-loader">{L.worker.loading}</div></main>;
-  }
-
-  if (!worker) {
-    return (
-      <main className="worker-login-shell">
-        <section className="worker-brand-panel">
-          <div className="worker-brand-mark">KJ</div>
-          <p>{L.worker.title}</p>
-          <h1>{L.worker.tagline}</h1>
-        </section>
-        <form className="worker-login-card" onSubmit={handleLogin}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}><LangSwitcher /></div>
-          <span className="worker-kicker">{L.worker.loginKicker}</span>
-          <h2>{L.worker.loginTitle}</h2>
-          <label>
-            {L.worker.identifierLabel}
-            <input
-              value={login.identifier}
-              onChange={(event) => setLogin({ ...login, identifier: event.target.value })}
-              placeholder="OUV-ABCDEF"
-              required
-            />
-          </label>
-          <label>
-            {L.worker.passwordPh}
-            <input
-              type="password"
-              value={login.password}
-              onChange={(event) => setLogin({ ...login, password: event.target.value })}
-              placeholder={L.worker.passwordPh}
-              required
-            />
-          </label>
-          {error ? <p className="worker-error">{error}</p> : null}
-          <button className="worker-primary" disabled={busy}>{busy ? L.worker.loggingIn : L.worker.loginBtn}</button>
-          <small>{L.worker.loginHint}</small>
-        </form>
-      </main>
-    );
-  }
-
-  return (
-    <main className="worker-page">
-      <header className="worker-topbar">
-        <div>
-          <span className="worker-kicker">Koji Worker</span>
-          <h1>{worker.name || worker.loginId}</h1>
-          <p>{worker.profession || worker.role || "Ouvrier"} · {worker.loginId}</p>
-        </div>
-        <nav className="worker-nav" aria-label="Navigation worker">
-          <button className={view === "home" ? "active" : ""} onClick={() => { setView("home"); setSelectedProjectId(""); }}>{L.worker.home}</button>
-          <button className={view === "attendance" ? "active" : ""} onClick={() => { setView("attendance"); setSelectedProjectId(""); }}>{L.worker.attendanceTitle}</button>
-          <button className={view === "archives" ? "active" : ""} onClick={() => { setView("archives"); setSelectedProjectId(""); }}>{L.worker.archives}</button>
-          <button className={view === "notifications" ? "active" : ""} onClick={() => { setView("notifications"); setSelectedProjectId(""); }}>
-            {L.worker.notifications} {portal?.unreadCount ? <b>{portal.unreadCount}</b> : null}
-          </button>
-          <button className={view === "settings" ? "active" : ""} onClick={() => { setView("settings"); setSelectedProjectId(""); }}>{L.nav.settings}</button>
-          <button onClick={logout}>{L.worker.logout}</button>
-        </nav>
-      </header>
-
-      {error ? <p className="worker-error worker-floating-error">{error}</p> : null}
-
-      {selectedProject ? renderProjectDetail(selectedProject) : null}
-      {!selectedProject && view === "home" ? renderHome() : null}
-      {!selectedProject && view === "attendance" ? renderAttendance() : null}
-      {!selectedProject && view === "archives" ? renderArchives() : null}
-      {!selectedProject && view === "notifications" ? renderNotifications() : null}
-      {!selectedProject && view === "settings" ? renderSettings() : null}
-    </main>
+  const semaine = (
+    <div className="card">
+      <div className="card-h"><h2>Ma semaine</h2><span className="sm2">{hm(d.semaine.minutes)} pointées</span></div>
+      <div className="wk-l">
+        {d.semaine.jours.map((s) => (
+          <div key={s.jour} className={`wk-d ${s.aujourdhui ? "on" : ""} ${s.chantier === "Repos" || s.chantier === "Congé" ? "off" : ""}`}>
+            <span className="wk-dd">{jourCourt(s.jour)}</span>
+            <div><strong>{s.chantier || "—"}{s.avec.length ? ` · avec ${s.avec.join(", ")}` : ""}</strong>{onglet === "semaine" && s.horaire ? <small>{s.horaire}</small> : null}</div>
+            <em>{s.minutes ? hm(s.minutes) : s.jour > j.jour ? "" : "—"}</em>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  const documents = (
+    <div className="card">
+      <div className="card-h"><h2>Mes documents</h2></div>
+      {d.documents.length ? d.documents.map((x) => <div key={x.id} className="st-row"><div><b>{x.nom}</b><small>{x.jusqua ? `valable jusqu'au ${dateCourte(x.jusqua)}` : ""}</small></div></div>) : <p className="sm2">Aucun document enregistré par votre entreprise.</p>}
+      <p className="sm2">Contrat, attestation, fiche de paie : demandez-les à {d.entreprise || "votre entreprise"}. La paie est faite hors de Koji.</p>
+    </div>
   );
 
-  function renderHome() {
-    return (
-      <div className="worker-stack">
-        <section className="worker-section">
-          <div className="worker-section-head">
-            <h2>{L.worker.activeProjects}</h2>
-            <span>{portal?.activeProjects?.length || 0}</span>
-          </div>
-          <div className="worker-project-grid">
-            {(portal?.activeProjects || []).map((project) => (
-              <button className="worker-project-card" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
-                <span className="worker-status">{project.status || L.worker.inProgress}</span>
-                <h3>{project.name || "Chantier"}</h3>
-                <p>{project.address || "—"}</p>
-                <small>{project.companyName || project.clientName || "Koji"}</small>
-                <div className="worker-date-grid">
-                  <span>{L.worker.start2}<br /><strong>{formatDate(project.startDate || project.plannedStartDate, L.worker.toDefine)}</strong></span>
-                  <span>{L.worker.endPlanned}<br /><strong>{formatDate(project.endDate || project.plannedEndDate, L.worker.toDefine)}</strong></span>
+  return (
+    <div className="wkp">
+      <header className="wk-top">
+        <span className="brand">KOJI</span>
+        <nav aria-label="Compagnon">{ONGLETS.map(([id, l]) => <button key={id} type="button" className={onglet === id ? "on" : ""} onClick={() => { setOnglet(id); setTache(null); }}>{l}</button>)}</nav>
+        <label className="wk-lang"><span className="fr">FR · </span><select aria-label="Langue des messages" value={d.compagnon.langue} onChange={(e) => langue(e.target.value)}>{LANGUES.map((l) => <option key={l.id} value={l.id}>{l.id.toUpperCase()}</option>)}</select></label>
+        <span className="wk-user">{d.compagnon.nom}<button type="button" onClick={deconnecter}>Se déconnecter</button></span>
+      </header>
+      <input ref={fichier} type="file" accept="image/*" capture="environment" hidden onChange={envoyerPhoto} />
+      <main className={`wk-main ${onglet === "journee" ? "" : "one"}`}>
+        {onglet === "journee" ? (
+          <>
+            <div className="wk-l2">
+              {erreur ? <p className="wk-err" role="alert">{erreur}</p> : null}
+              {message ? <p className="wk-msg" role="status">{message}</p> : null}
+              {d.messages.map((m) => <p key={m.id} className="wk-msg"><b>{m.titre}</b> · {m.message}</p>)}
+              {tache ? <Tache t={tache} busy={busy === "photo"} onRetour={() => setTache(null)} onPhoto={(t) => photo("fin", t)} /> : (
+                <div className="card">
+                  <div className="card-h"><h2>{dateLongue(j.jour)}</h2>{p.arriveA ? <span className="tag-val"><Check />arrivé à {heure(p.arriveA)}</span> : null}</div>
+                  {j.conge ? <p className="sm2">Congé aujourd'hui.</p> : j.chantier ? (
+                    <div className="wk-adr"><b>{j.chantier}</b><small>{[j.adresse, j.horaire, j.avec.length ? `avec ${j.avec.join(", ")}` : ""].filter(Boolean).join(" · ")}</small></div>
+                  ) : <p className="sm2">Pas de chantier prévu pour vous aujourd'hui dans le planning.</p>}
+                  {j.taches.map((t) => (
+                    <div key={t.id} className={`tk-r ${t.fait ? "ok" : ""}`}>
+                      <button type="button" className={`kj-cb ${t.fait ? "on" : ""}`} aria-label={`${t.label} : ${t.fait ? "fait" : "à faire"}`} onClick={() => cocher(t)}>{t.fait ? <Check /> : null}</button>
+                      <div className="tk-b"><b>{t.label}</b><small>{t.chantier}{t.lot ? ` · ${t.lot}` : ""}</small></div>
+                      <button type="button" className="link" onClick={() => setTache(t)}>Ouvrir</button>
+                    </div>
+                  ))}
+                  {j.taches.length ? (
+                    <div className="tk-r">
+                      <span className="kj-cb" aria-hidden="true" />
+                      <div className="tk-b"><b>Photo de fin</b><small>{j.chantier}</small></div>
+                      <button type="button" className="link" disabled={busy === "photo"} onClick={() => photo("fin", j.taches[0])}>Ouvrir</button>
+                    </div>
+                  ) : null}
+                  {j.consignes.map((c) => <div key={c} className="eq-warn"><Danger /><span>{c}</span></div>)}
                 </div>
-                <div className="worker-progress"><i style={{ width: `${project.progress || 0}%` }} /></div>
-                <em>{L.worker.progress(project.progress || 0)}</em>
-              </button>
-            ))}
-            {!portal?.activeProjects?.length ? <div className="worker-empty">{L.worker.noProjects}</div> : null}
-          </div>
-        </section>
-
-        <section className="worker-section">
-          <div className="worker-section-head">
-            <h2>{L.worker.todoNow}</h2>
-            <span>{todayTasks.length}</span>
-          </div>
-          <div className="worker-task-list">
-            {todayTasks.map((task) => renderTaskCard(task))}
-            {!todayTasks.length ? <div className="worker-empty">{L.worker.noTodayTasks}</div> : null}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  function renderProjectDetail(project) {
-    const tasks = project.tasks || (portal?.tasks || []).filter((task) => task.projectId === project.id);
-    return (
-      <div className="worker-stack">
-        <button className="worker-back" onClick={() => setSelectedProjectId("")}>{L.worker.back}</button>
-        <section className="worker-section worker-project-detail">
-          <span className="worker-status">{project.status || L.worker.inProgress}</span>
-          <h2>{project.name || "Chantier"}</h2>
-          <p>{project.address || "—"}</p>
-          <div className="worker-progress"><i style={{ width: `${project.progress || 0}%` }} /></div>
-        </section>
-        <section className="worker-section">
-          <div className="worker-section-head">
-            <h2>{L.worker.affectedWorks}</h2>
-            <span>{tasks.length}</span>
-          </div>
-          <div className="worker-task-list">{tasks.map((task) => renderTaskCard(task))}</div>
-        </section>
-      </div>
-    );
-  }
-
-  function renderTaskCard(task) {
-    const form = forms[task.id] || {};
-    const planned = Number(task.plannedMinutes || task.estimatedMinutes || task.durationMinutes || 0);
-    const consumed = Number(task.consumedMinutes || task.totalMinutes || task.timeSpentMinutes || 0);
-    const overrun = planned > 0 && consumed > planned;
-    const progress = taskProgress(task);
-
-    return (
-      <article className={`worker-task-card ${overrun ? "is-overrun" : ""}`} key={task.id}>
-        <div className="worker-task-main">
-          <span>{task.piece || task.room || taskProjectName(task)}</span>
-          <h3>{taskTitle(task)}</h3>
-          <p>{task.description || L.worker.noDesc}</p>
-          <div className="worker-task-meta">
-            <small>{L.worker.plannedDur}: {minutesLabel(planned)}</small>
-            <small>{L.worker.consumed}: {minutesLabel(consumed)}</small>
-            <small>{L.worker.status}: {taskStatus(task)}</small>
-          </div>
-          <div className="worker-progress"><i style={{ width: `${progress}%` }} /></div>
-          {overrun ? <strong className="worker-alert">{L.worker.timeOverrun(minutesLabel(consumed - planned))}</strong> : null}
-        </div>
-
-        {task.subWorks?.length ? (
-          <div className="worker-subworks">
-            {task.subWorks.map((subWork, index) => (
-              <div key={subWork.id || index}>
-                <strong>{subWork.name || subWork.title || "Sous-ouvrage"}</strong>
-                <span>{subWork.description || ""}</span>
-                <small>{subWork.status || "À faire"} · prévu {formatDate(subWork.plannedDate)} · réalisé {formatDate(subWork.realDate)}</small>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="worker-action-row">
-          <button onClick={() => runAction({ action: "start", taskId: task.id })} disabled={busy}>{L.worker.start}</button>
-          <button onClick={() => runAction({ action: "pause", taskId: task.id })} disabled={busy}>{L.worker.pause}</button>
-          <button onClick={() => runAction({ action: "resume", taskId: task.id })} disabled={busy}>{L.worker.resume}</button>
-          <button onClick={() => runAction({ action: "finish", taskId: task.id })} disabled={busy}>{L.worker.finish}</button>
-        </div>
-
-        <div className="worker-file-row">
-          <label>{L.worker.addPhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => handleFile(task, "photo", event)} /></label>
-          <label>{L.worker.addDocument}<input type="file" accept="application/pdf,image/*" onChange={(event) => handleFile(task, "document", event)} /></label>
-        </div>
-
-        <div className="worker-report-grid">
-          <div>
-            <h4>{L.worker.claim}</h4>
-            <select value={form.category || CLAIM_CATEGORIES[0]} onChange={(event) => updateTaskForm(task.id, { category: event.target.value })}>
-              {CLAIM_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
-            </select>
-            <textarea placeholder={L.worker.comment} value={form.claimMessage || ""} onChange={(event) => updateTaskForm(task.id, { claimMessage: event.target.value })} />
-            <button onClick={() => runAction({ action: "claim", taskId: task.id, category: form.category, message: form.claimMessage })}>{L.worker.makeClaim}</button>
-          </div>
-          <div>
-            <h4>{L.worker.delay}</h4>
-            <input placeholder={L.worker.reason} value={form.delayReason || ""} onChange={(event) => updateTaskForm(task.id, { delayReason: event.target.value })} />
-            <input placeholder={L.worker.estimatedDelay} value={form.estimatedDelay || ""} onChange={(event) => updateTaskForm(task.id, { estimatedDelay: event.target.value })} />
-            <textarea placeholder={L.worker.comment} value={form.delayComment || ""} onChange={(event) => updateTaskForm(task.id, { delayComment: event.target.value })} />
-            <button onClick={() => runAction({ action: "delay", taskId: task.id, reason: form.delayReason, estimatedDelay: form.estimatedDelay, comment: form.delayComment })}>{L.worker.reportDelay}</button>
-          </div>
-        </div>
-
-        <div className="worker-urgence-block">
-          {form.urgSent ? (
-            <div className="worker-urgence-sent">{L.worker.urgentSent}</div>
-          ) : !form.showUrgence ? (
-            <button className="worker-urgence-btn" onClick={() => updateTaskForm(task.id, { showUrgence: true })}>
-              {L.worker.reportUrgent}
-            </button>
-          ) : (
-            <div className="worker-urgence-form">
-              <strong>{L.worker.urgentTitle(taskTitle(task))}</strong>
-              <select value={form.urgType || "urgence"} onChange={(e) => updateTaskForm(task.id, { urgType: e.target.value })}>
-                <option value="urgence">⚡ Urgence générale</option>
-                <option value="degat">🧱 Dégât matériel</option>
-                <option value="fuite">💧 Fuite / dégât des eaux</option>
-                <option value="incendie">🔥 Incendie / fumée</option>
-                <option value="autre">⚠️ Autre problème urgent</option>
-              </select>
-              <textarea
-                placeholder="Décrivez le problème urgent (localisation, gravité…)"
-                value={form.urgMsg || ""}
-                onChange={(e) => updateTaskForm(task.id, { urgMsg: e.target.value })}
-              />
-              <div className="worker-urgence-actions">
-                <button onClick={() => updateTaskForm(task.id, { showUrgence: false })}>{L.common.cancel}</button>
-                <button
-                  className="worker-urgence-send"
-                  disabled={!form.urgMsg?.trim() || form.urgSending}
-                  onClick={() => sendUrgentAlert(task)}
-                >
-                  {form.urgSending ? "..." : L.worker.sendAlert}
-                </button>
-              </div>
+              )}
+              {semaine}
             </div>
-          )}
-        </div>
-      </article>
-    );
-  }
-
-  function renderAttendance() {
-    const today = portal?.attendanceToday;
-    const week = portal?.attendanceWeek;
-    const isClockedIn = Boolean(today && !today.endTime);
-    return (
-      <div className="worker-stack">
-        <section className="worker-section worker-attendance-card">
-          <div className="worker-section-head"><h2>{L.worker.attendanceTitle}</h2></div>
-          <div className="worker-clock-status">
-            <strong>{isClockedIn ? L.worker.clockedInSince(today.startTime) : L.worker.notClockedIn}</strong>
-            <button
-              className={`worker-primary ${isClockedIn ? "worker-clockout-btn" : ""}`}
-              disabled={busy}
-              onClick={() => runAction({ action: isClockedIn ? "clockOut" : "clockIn" })}
-            >
-              {isClockedIn ? L.worker.clockOut : L.worker.clockIn}
-            </button>
-          </div>
-        </section>
-        <section className="worker-section">
-          <div className="worker-section-head">
-            <h2>{L.worker.thisWeek}</h2>
-            <span>{week ? `${week.workedLabel} / ${week.contractLabel}` : "-"}</span>
-          </div>
-          <div className="worker-attendance-list">
-            {(week?.entries || []).map((entry) => (
-              <div className="worker-attendance-row" key={entry.id}>
-                <strong>{formatDate(entry.date)}</strong>
-                <span>{entry.startTime} → {entry.endTime || "…"}</span>
-                <small>{minutesLabel(entry.durationMinutes)}</small>
+            <div className="wk-r2">
+              <div className="card wk-big2">
+                <span>Aujourd'hui</span>
+                <b>{p.minutes ? heuresMinutes(p.minutes) : "0 h 00"}</b>
+                {j.conge ? null : p.parti && !p.ouvert ? <small className="sm2">Journée terminée. Vous pouvez pointer à nouveau si vous reprenez.</small> : null}
+                {j.conge ? null : <button type="button" className="btn btn-main" disabled={busy === "pointer"} onClick={pointer}><Horloge />{busy === "pointer" ? "…" : p.ouvert ? "Je pars" : "Je suis arrivé"}</button>}
+                <small className="sm2">Le pointage se fait aussi depuis le téléphone ; une seule source.</small>
               </div>
-            ))}
-            {!week?.entries?.length ? <div className="worker-empty">{L.worker.noAttendance}</div> : null}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  function renderArchives() {
-    return (
-      <div className="worker-stack">
-        <section className="worker-section">
-          <div className="worker-section-head"><h2>{L.worker.doneProjects}</h2><span>{portal?.archivedProjects?.length || 0}</span></div>
-          <div className="worker-project-grid">
-            {(portal?.archivedProjects || []).map((project) => (
-              <button className="worker-project-card" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
-                <span className="worker-status">{L.worker.finished}</span>
-                <h3>{project.name || "Chantier"}</h3>
-                <p>{project.address || "—"}</p>
-                <small>{project.companyName || "Koji"}</small>
-                <div className="worker-date-grid">
-                  <span>{L.worker.start2}<br /><strong>{formatDate(project.startDate, L.worker.toDefine)}</strong></span>
-                  <span>{L.worker.end}<br /><strong>{formatDate(project.endDate || project.updatedAt, L.worker.toDefine)}</strong></span>
+              <div className="card">
+                <div className="card-h"><h2>Un problème ?</h2></div>
+                <p className="sm2" style={{ margin: "0 0 10px" }}>Photo ou message : votre chef le reçoit.</p>
+                <textarea aria-label="Le problème" placeholder="Décrivez le problème en quelques mots" value={probleme} onChange={(e) => setProbleme(e.target.value)} />
+                <div className="wk-acts">
+                  <button type="button" className="btn btn-sec" disabled={busy === "photo" || !j.projectId} onClick={() => photo("probleme")}>Envoyer une photo</button>
+                  <button type="button" className="btn btn-sec" disabled={busy === "probleme" || !probleme.trim()} onClick={envoyerProbleme}>Envoyer le message</button>
                 </div>
-              </button>
-            ))}
-            {!portal?.archivedProjects?.length ? <div className="worker-empty">{L.worker.noArchived}</div> : null}
+              </div>
+              {documents}
+            </div>
+          </>
+        ) : onglet === "semaine" ? (
+          <div className="wk-l2">{semaine}<div className="wk-tot"><span>Cette semaine</span><b>{hm(d.semaine.minutes)}</b><small>{d.semaine.validation ? `validées le ${dateCourte(d.semaine.validation.valideLe.slice(0, 10))}` : "pointées · validation par votre entreprise en fin de semaine"}</small></div></div>
+        ) : onglet === "heures" ? (
+          <div className="wk-l2">
+            <div className="card">
+              <div className="card-h"><h2>Mes heures</h2><span className="sm2">{hm(d.semaine.minutes)}</span></div>
+              <div className="wk-l">
+                {d.semaine.jours.filter((s) => s.jour <= j.jour).map((s) => (
+                  <div key={s.jour} className="wk-d">
+                    <span className="wk-dd">{jourCourt(s.jour)}</span>
+                    <div><strong>{hm(s.minutes)}</strong><small>{s.chantier}</small></div>
+                    <span className={`wk-st ${s.valide ? "ok" : "wait"}`}>{s.minutes ? (s.valide ? "validé" : "à valider") : ""}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="wk-tot">
+                <span>Semaine précédente</span><b>{hm(d.semainePrecedente.minutes)}</b>
+                <small>{d.semainePrecedente.validation ? `validée le ${dateCourte(d.semainePrecedente.validation.valideLe.slice(0, 10))}` : "pas encore validée"}{d.semainePrecedente.minutes > d.semainePrecedente.contrat * 60 ? ` · ${hm(d.semainePrecedente.minutes - d.semainePrecedente.contrat * 60)} en plus de ${d.semainePrecedente.contrat} h` : ""}</small>
+              </div>
+              <p className="sm2">Les heures servent au planning et au coût des chantiers. La paie est faite ailleurs, par l'entreprise. Une erreur ? Signalez-la à votre chef : il la corrige, la correction est gardée.</p>
+            </div>
           </div>
-        </section>
-        <section className="worker-section">
-          <div className="worker-section-head"><h2>{L.worker.fullHistory}</h2><span>{portal?.history?.length || 0}</span></div>
-          <div className="worker-history-list">
-            {(portal?.history || []).map((item) => <p key={item.id || `${item.type}-${item.createdAt}`}><strong>{item.label || item.type}</strong><span>{formatDateTime(item.createdAt)}</span></p>)}
-            {!portal?.history?.length ? <div className="worker-empty">{L.worker.noHistory}</div> : null}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  function renderNotifications() {
-    return (
-      <section className="worker-section">
-        <div className="worker-section-head">
-          <h2>{L.worker.notifCenter}</h2>
-          <button onClick={() => runAction({ action: "bulk-read-notifications" })}>{L.worker.markAllRead}</button>
-        </div>
-        <div className="worker-notification-list">
-          {(portal?.notifications || []).map((notification) => (
-            <article className={notification.read ? "is-read" : ""} key={notification.id}>
-              <span>{notification.title || L.worker.notifications}</span>
-              <p>{notification.message}</p>
-              <small>{formatDateTime(notification.createdAt)}</small>
-              {!notification.read ? <button onClick={() => runAction({ action: "read-notification", notificationId: notification.id })}>{L.worker.markRead}</button> : null}
-            </article>
-          ))}
-          {!portal?.notifications?.length ? <div className="worker-empty">{L.worker.noNotifications}</div> : null}
-        </div>
-      </section>
-    );
-  }
-
-  function renderSettings() {
-    return (
-      <section className="worker-section">
-        <SettingsPanel accountType="ouvrier" />
-      </section>
-    );
-  }
+        ) : (
+          <div className="wk-l2">{documents}</div>
+        )}
+      </main>
+    </div>
+  );
 }

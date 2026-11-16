@@ -172,7 +172,7 @@ function Bibliotheque() {
   const [tauxFam, setTauxFam] = useState({});
   const [tauxDefaut, setTauxDefaut] = useState(0);
   const [articles, setArticles] = useState([]);
-  const [recherche, setRecherche] = useState("");
+  const [recherche, setRecherche] = useState(params.get("q") || "");
   const [famille, setFamille] = useState(params.get("famille") || "");
   const [selId, setSelId] = useState("");
   const [erreur, setErreur] = useState("");

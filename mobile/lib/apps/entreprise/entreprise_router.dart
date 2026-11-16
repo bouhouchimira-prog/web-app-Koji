@@ -49,6 +49,7 @@ import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/messages_pro/messages_pro.dart';
 import 'package:koji/features/kojipage/kojipage_pro.dart';
 import 'package:koji/features/reseau_pro/reseau_pro.dart';
+import 'package:koji/features/equipe/equipe_pro.dart';
 import 'package:koji/features/compte/compte_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
@@ -527,6 +528,39 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const AbonnementScreen(),
+              ),
+            ),
+            // Équipe (maquettes PRO-16 à 16.3).
+            GoRoute(
+              path: equipeRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const EquipeScreen(),
+              ),
+            ),
+            GoRoute(
+              path: heuresEquipeRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const HeuresEquipeScreen(),
+              ),
+            ),
+            GoRoute(
+              path: ajouterCompagnonRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const AjouterCompagnonScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/equipe/fiche/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                FicheCompagnonScreen(id: state.pathParameters['id']!),
               ),
             ),
             // Réseau pro et contrat de sous-traitance (PRO-14, 14.1).
