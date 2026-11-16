@@ -1,3 +1,5 @@
+import { estTauxReduit } from "../../../../lib/tva";
+import { finRetractation } from "../../../../lib/signature-lieu";
 import { ok, badRequest } from "../../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../../lib/db";
 import { fixObjectText, fixText } from "../../../../lib/text";
@@ -64,9 +66,38 @@ export async function GET(request, context) {
       clientPortalUserId: quote.clientPortalUserId || "",
       clientPortalAccessSentAt: quote.clientPortalAccessSentAt || "",
       signaturePlace: fixText(quote.signaturePlace || ""),
-      signerMessage: fixText(quote.signerMessage || "")
+      signerMessage: fixText(quote.signerMessage || ""),
+      // TVA (PRO-03.5), versions (PRO-03.6), rétractation (PRO-03.7).
+      vatRate: quote.vatRate,
+      autoliquidation: quote.autoliquidation === true,
+      mentionTva: quote.mentionTva === true,
+      versions: Array.isArray(quote.versions) ? quote.versions : [],
+      clientType: quote.clientType,
+      startDate: quote.startDate || "",
+      retractationJusquau: quote.retractationJusquau || "",
+      retracteLe: quote.retracteLe || "",
+      demarrageDemande: quote.demarrageDemande || "",
+      company: await entreprise(quote)
     }
   });
+}
+
+// Coordonnées de l'entreprise pour le formulaire de rétractation : celles du
+// devis, sinon celles de CE compte uniquement.
+async function entreprise(quote) {
+  const snap = quote.company || {};
+  let owner = null;
+  if (!snap.name || !snap.email || !(snap.address || snap.addressLine1)) {
+    const db = await readDb().catch(() => null);
+    owner = (db?.users || []).find((u) => u.id && u.id === quote.userId) || null;
+  }
+  const b = owner?.business || {};
+  const adresse = snap.address || [snap.addressLine1, snap.addressLine2].filter(Boolean).join(" ") || [b.addressLine1, b.addressLine2].filter(Boolean).join(" ");
+  return {
+    name: fixText(snap.name || b.raisonSociale || owner?.name || ""),
+    address: fixText(adresse || ""),
+    email: fixText(snap.email || b.emailPro || owner?.email || "")
+  };
 }
 
 export async function POST(request, context) {
@@ -76,6 +107,12 @@ export async function POST(request, context) {
   if (!quote) return badRequest("Lien de signature invalide.", 404);
   if (quote.signatureStatus === "Signe") return ok({ quote: fixObjectText(quote), clientAccess: quote.clientPortalAccess || null });
   if (!body.consent) return badRequest("La validation client est obligatoire.");
+  // TVA à taux réduit (PRO-03.5) : la mention doit être certifiée.
+  const mentionAttendue = !quote.autoliquidation
+    && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
+  if (mentionAttendue && body.mentionTva !== true) {
+    return badRequest("Pour la TVA à taux réduit, merci de certifier la mention avant de signer.");
+  }
 
   const now = new Date().toISOString();
   const updated = {
@@ -89,6 +126,13 @@ export async function POST(request, context) {
     signaturePlace: fixText(body.signaturePlace || ""),
     signerMessage: fixText(body.signerMessage || ""),
     signedAt: now,
+    ...(mentionAttendue ? { mentionTva: true, mentionTvaLe: now } : {}),
+    // Signé en ligne (PRO-03.7) : 14 jours de rétractation pour un
+    // particulier, démarrage pendant le délai sur sa demande expresse.
+    signatureLieu: "en-ligne",
+    retractationJusquau: finRetractation(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date(now)), "en-ligne", quote.clientType),
+    consentements: { demandeExpresse: body.demandeExpresse === true ? now : "", mentionTva: mentionAttendue ? now : "", exemplaireEmail: "" },
+    demarrageDemande: body.demandeExpresse === true ? String(quote.startDate || "").slice(0, 10) : "",
     updatedAt: now
   };
 

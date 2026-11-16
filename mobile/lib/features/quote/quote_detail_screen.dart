@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/features/quote/services/devis_pdf_service.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
@@ -18,6 +20,17 @@ import 'package:koji/features/quote/model/library_ouvrage.dart';
 import 'package:koji/features/quote/model/devis_line.dart';
 import 'package:koji/apps/entreprise/devis/devis_guide.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_guide_view.dart';
+import 'package:koji/apps/entreprise/devis/devis_envoi.dart';
+import 'package:koji/apps/entreprise/devis/pro_envoi_devis_screen.dart';
+import 'package:koji/apps/entreprise/devis/pro_suivi_devis_view.dart';
+import 'package:koji/apps/entreprise/devis/pro_facture_acompte_screen.dart';
+import 'package:koji/apps/entreprise/devis/pro_faire_signer_screen.dart';
+import 'package:koji/apps/entreprise/devis/signature_lieu.dart' show finRetractation;
+import 'package:koji/apps/entreprise/devis/tva.dart';
+import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
+import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart' show ouvrirRelanceDevis;
+import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/fournitures/repository/fourniture_repository.dart';
@@ -112,7 +125,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   double _coordPct = 10; // Coordination de chantier
   double _aleasPct = 5; // Provision aléas de chantier
   double _decennalePct = 8; // Assurance décennale
-  int _tvaRate = 10; // 10 % rénovation (Art. 279-0 bis CGI) or 20 %
+  num _tvaRate = 10; // 10 % rénovation (Art. 279-0 bis CGI), 5,5 %, 20 % ou 0 (autoliquidation)
+  // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
+  Map<String, String> _tvaChoix = {'client': '', 'local': '', 'travaux': '', 'commande': ''};
   // Per-lot label override: roomId → {'number': int, 'title': String}.
   final Map<String, Map<String, dynamic>> _lotMeta = {};
 
@@ -135,10 +150,424 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       if (mounted) setState(() {});
       return capture;
     },
-    enregistrer: _enregistrerAuto,
+    enregistrer: _enregistrerEtLierVisite,
     resultat: _guide.resultat,
   );
+
+  // Devis préparé depuis une visite (maquette PRO-03.8) : le compte rendu
+  // part comme premier message, et la visite est rattachée au devis.
+  bool _visiteEnvoyee = false;
+  bool _visiteLiee = false;
+  Map? get _visite => widget.data['visite'] is Map ? widget.data['visite'] as Map : null;
+
+  // Demande reçue par la KojiPage (PRO-13.1) : la demande part comme premier
+  // message et le devis lui est rattaché.
+  bool _demandeEnvoyee = false;
+  bool _demandeLiee = false;
+  Map? get _demandeKP => widget.data['demandeKojiPage'] is Map ? widget.data['demandeKojiPage'] as Map : null;
+
+  Future<({String id, String le})> _enregistrerEtLierVisite() async {
+    final r = await _enregistrerAuto();
+    final demande = _demandeKP;
+    if (demande != null && !_demandeLiee && r.id.isNotEmpty) {
+      _demandeLiee = true;
+      ref.read(kojiProApiProvider).post('/api/kojipage/demandes', {'action': 'devis', 'id': '${demande['id']}', 'quoteId': r.id}).catchError((_) {
+        _demandeLiee = false;
+        return <String, dynamic>{};
+      });
+    }
+    final visite = _visite;
+    if (visite != null && !_visiteLiee && r.id.isNotEmpty) {
+      _visiteLiee = true;
+      ref.read(proKojiWebProvider).lierVisite('${visite['id']}', r.id).catchError((_) => _visiteLiee = false);
+    }
+    return r;
+  }
   bool _vueDetaillee = false;
+
+  String get _clientTva => _tvaChoix['client']!.isNotEmpty ? _tvaChoix['client']! : 'particulier';
+  bool get _autoliquidation => _clientTva == 'sous-traitance';
+  DecisionTva get _decisionTva => decisionTva(client: _clientTva, local: _tvaChoix['local']!, travaux: _tvaChoix['travaux']!);
+
+  // Applique les réponses TVA : le taux du devis suit la décision de Koji.
+  DecisionTva _appliquerTva(Map<String, String> choix) {
+    final d = decisionTva(client: choix['client']!.isEmpty ? _clientTva : choix['client']!, local: choix['local']!, travaux: choix['travaux']!);
+    setState(() {
+      _tvaChoix = {...choix};
+      if (d.taux != null) _tvaRate = d.taux!;
+    });
+    return d;
+  }
+
+  // Réglage TVA depuis le bandeau : les trois questions de la maquette.
+  Future<void> _ouvrirTva() async {
+    var choix = {..._tvaChoix, 'client': _clientTva};
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ProDa.of(context).page,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, majFeuille) {
+          final da = ProDa.of(ctx);
+          final d = decisionTva(client: choix['client']!, local: choix['local']!, travaux: choix['travaux']!);
+          Widget groupe(String titre, String cle, List<(String, String)> options) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titre, style: da.text(14, weight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final (id, libelle) in options)
+                        ChoiceChip(
+                          label: Text(libelle, style: da.text(13, weight: FontWeight.w600, color: choix[cle] == id ? da.onFill : da.ink)),
+                          selected: choix[cle] == id,
+                          selectedColor: da.fill,
+                          backgroundColor: da.card,
+                          showCheckmark: false,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: choix[cle] == id ? da.fill : da.line)),
+                          onSelected: (_) => majFeuille(() => choix = {...choix, cle: id}),
+                        ),
+                    ]),
+                  ],
+                ),
+              );
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.viewInsetsOf(ctx).bottom + 16),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('TVA du devis', style: da.text(17, weight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    groupe('1 · Qui est le client ?', 'client', clientsTva),
+                    if (choix['client'] != 'sous-traitance') groupe('2 · Quel local ?', 'local', locauxTva),
+                    if (choix['client'] != 'sous-traitance' && choix['local'] == 'logement-ancien') groupe('3 · Quels travaux ?', 'travaux', travauxTva),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: da.card, border: Border.all(color: da.line)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(d.titre.isEmpty ? 'TVA à confirmer' : d.titre, style: da.text(16, weight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          for (final v in d.verifications) Text('✓ $v', style: da.text(13, color: da.grey)),
+                          if (d.mention.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(d.autoliquidation ? d.mention : 'Mention signée par le client à l\'acceptation du devis.', style: da.text(12, color: da.grey)),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ProPrimaryButton(
+                      label: 'Appliquer',
+                      expand: true,
+                      onPressed: d.taux == null
+                          ? null
+                          : () {
+                              _appliquerTva(choix);
+                              Navigator.of(ctx).pop();
+                            },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+  // Envoyer le devis (maquette PRO-03.2).
+  String _clientPhone = '';
+  int _acompte = 30;
+  String _solde = 'à la réception des travaux';
+  late String? _statut = widget.data['status'] as String?;
+
+  // Après l'envoi (maquette PRO-03.3) : un devis envoyé ou signé s'ouvre en
+  // suivi ; « Modifier » repasse dans le devis guidé.
+  bool _editionApresEnvoi = false;
+  Map<String, dynamic>? _suiviWeb;
+  bool _chantierLance = false;
+  bool _suiviCharge = false;
+  Map<String, dynamic>? _factureAcompte;
+  double _dejaFacture = 0;
+
+  bool get _devisSigne {
+    final st = (_statut ?? '').toLowerCase();
+    return st == 'signe' || st == 'signé' || st == 'signed' || widget.data['signed_at'] != null || _suiviWeb?['signatureStatus'] == 'Signe';
+  }
+
+  bool get _enSuivi => !_editionApresEnvoi && (_devisSigne || _statut == 'Envoye');
+
+  Future<void> _chargerSuivi() async {
+    final id = _idDevis;
+    if (id == null || id.isEmpty) return;
+    _suiviCharge = true;
+    final api = ref.read(proKojiWebProvider);
+    try {
+      final devis = await api.liste('/api/quotes', 'quotes');
+      final web = devis.where((q) => '${q['id']}' == id).firstOrNull;
+      var lance = false;
+      final projet = '${web?['projectId'] ?? ''}';
+      final factures = (await api.liste('/api/invoices', 'invoices'))
+          .where((f) => '${f['quoteId']}' == id && f['status'] != 'Annulee' && f['archived'] != true)
+          .toList();
+      if (projet.isNotEmpty) {
+        final taches = await api.liste('/api/tasks', 'tasks');
+        lance = taches.any((t) => '${t['projectId']}' == projet &&
+            ['startDate', 'endDate', 'dueDate'].any((k) => '${t[k] ?? ''}'.isNotEmpty));
+      }
+      if (!mounted) return;
+      setState(() {
+        _suiviWeb = web;
+        _chantierLance = lance;
+        _factureAcompte = factures.where((f) => '${f['type']}'.toLowerCase().contains('acompte')).firstOrNull;
+        _dejaFacture = factures.fold<double>(0, (s, f) => s + ((f['amountTtc'] as num?) ?? 0).toDouble());
+      });
+    } catch (_) {
+      // Hors ligne : le suivi s'affiche avec ce que l'app connaît du devis.
+    }
+  }
+
+  /// Le devis vu par le suivi : dates et versions du serveur, montants et
+  /// conditions de l'app.
+  Map<String, dynamic> get _devisSuivi => {
+        ...?_suiviWeb,
+        'id': _idDevis,
+        'quoteNumber': _quoteNumber,
+        'client': _clientName,
+        'clientEmail': _clientEmail,
+        'status': _devisSigne ? 'Signe' : (_statut ?? 'Envoye'),
+        if (_devisSigne) 'signatureStatus': 'Signe',
+        if ((_suiviWeb?['signedAt'] ?? '').toString().isEmpty && widget.data['signed_at'] != null)
+          'signedAt': '${widget.data['signed_at']}',
+        'validityDays': joursDe(_quoteValidity),
+        'vatRate': _tvaRate,
+        'totalTtc': _grandTotalTTC,
+        'paymentMilestones': [
+          {'label': 'Acompte à la signature', 'percent': _acompte},
+          {'label': 'Solde — $_solde', 'percent': 100 - _acompte},
+        ],
+      };
+
+  Widget _buildSuivi() {
+    if (!_suiviCharge) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_suiviCharge) _chargerSuivi();
+      });
+    }
+    final devis = _devisSuivi;
+    final projet = '${devis['projectId'] ?? widget.data['chantier_id'] ?? ''}';
+    final lots = [
+      for (final r in _guide.lotsVisibles)
+        () {
+          final lignes = _linesByRoom[r]!;
+          final ids = {for (final l in lignes) l.taskId};
+          final visibles = lignes.where((l) =>
+              !l.isComment && !(l.parentTaskId.isNotEmpty && l.parentTaskId != l.taskId && ids.contains(l.parentTaskId)));
+          return SuiviLot(
+            _guide.codeLot(r),
+            _guide.titreLot(r),
+            _lotTotalHT(r),
+            [
+              for (final l in visibles)
+                (
+                  l.label,
+                  l.totalLigne + lignes.where((x) => x.parentTaskId == l.taskId && x.taskId != l.taskId).fold<double>(0, (s, x) => s + x.totalLigne),
+                  l.isVariante,
+                ),
+            ],
+          );
+        }(),
+    ];
+    return ProSuiviDevisView(
+      titre: 'Devis $_quoteNumber',
+      sousTitre: [_siteAddress, _clientName].map((x) => x.trim()).where((x) => x.isNotEmpty && x != 'Client').join(' · '),
+      devis: devis,
+      lots: lots,
+      totalHt: _grandTotalGeneralHT,
+      totalTtc: _grandTotalTTC,
+      aujourdhui: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      chantierLance: _chantierLance,
+      onRetour: () => context.pop(),
+      onRelancer: () async {
+        if (await ouvrirRelanceDevis(context, ref, devis)) _chargerSuivi();
+      },
+      onModifier: () => setState(() => _editionApresEnvoi = true),
+      onPdf: _previewPdf,
+      onLancer: projet.isEmpty
+          ? null
+          : () async {
+              final lance = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => ProLancerChantierScreen(projectId: projet)));
+              if (lance == true) _chargerSuivi();
+            },
+      onVoirChantier: projet.isEmpty ? null : () => context.push('/chantier/dashboard', extra: {'id': projet}),
+      factureAcompte: _factureAcompte,
+      onCreerAcompte: projet.isEmpty ? null : () => _ouvrirAcompte(devis, projet),
+      onFaireSigner: () => _faireSigner(devis, projet),
+    );
+  }
+
+  // Faire signer sur place (maquette PRO-03.7) : le client lit, coche et
+  // signe sur ce téléphone ; exemplaire par e-mail avec le PDF signé.
+  Future<void> _faireSigner(Map<String, dynamic> devis, String projet) async {
+    final api = ref.read(proKojiWebProvider);
+    final version = int.tryParse('${((devis['versions'] as List?)?.lastOrNull as Map?)?['number'] ?? devis['versionNumber'] ?? 1}') ?? 1;
+    final debut = _debutTravaux;
+    final clientType = _clientTva == 'particulier' ? 'particulier' : 'societe';
+    final signe = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (ctx) => ProFaireSignerScreen(
+        numeroDevis: _quoteNumber,
+        version: version,
+        client: _clientName == 'Client' ? '' : _clientName,
+        email: _clientEmail,
+        titre: [_siteAddress, _clientName].map((x) => x.trim()).where((x) => x.isNotEmpty && x != 'Client').firstOrNull ?? 'Devis $_quoteNumber',
+        totalTtc: _grandTotalTTC,
+        clientType: clientType,
+        tauxTva: _tvaRate,
+        autoliquidation: _autoliquidation,
+        acomptePct: _acompte,
+        debut: debut == null ? '' : DateFormat('yyyy-MM-dd').format(debut),
+        onEnvoyer: () async {
+          Navigator.of(ctx).pop(false);
+          if (await ouvrirRelanceDevis(context, ref, devis)) _chargerSuivi();
+        },
+        onDecaler: (jour) async {
+          _startCtrl.text = DateFormat('dd/MM/yyyy').format(DateTime.parse(jour));
+          try {
+            await _enregistrerAuto();
+            return null;
+          } catch (_) {
+            return "La date de démarrage n'a pas pu être décalée.";
+          }
+        },
+        onPdf: () => _previewPdf(_devisSigneSurPlace),
+        onLancer: projet.isEmpty
+            ? null
+            : () async {
+                Navigator.of(ctx).pop(true);
+                final lance = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => ProLancerChantierScreen(projectId: projet)));
+                if (lance == true) _chargerSuivi();
+              },
+        onSigner: (s) async {
+          var pdf = '';
+          // Le devis signé : signature, cases cochées, information et
+          // formulaire de rétractation (exemplaire par e-mail ou à imprimer).
+          final data = _buildQuoteData();
+          final fin = finRetractation(s.jour, s.lieu, clientType);
+          data['signeSurPlace'] = {
+            'png': s.png,
+            'lignes': [
+              'Signé ${s.lieu == 'locaux' ? "dans les locaux de l'entreprise" : 'chez le client'} le ${DateFormat('dd/MM/yyyy').format(DateTime.parse(s.jour))} par ${s.signataire}.',
+              if (s.demandeExpresse.isNotEmpty && debut != null)
+                'Démarrage le ${DateFormat('dd/MM/yyyy').format(debut)} demandé par le client avant la fin du délai.',
+              if (s.mentionTva.isNotEmpty) 'Mention TVA à taux réduit certifiée.',
+              s.exemplaireEmail.isNotEmpty ? 'Exemplaire remis par e-mail, avec son accord.' : 'Exemplaire remis sur papier.',
+            ],
+          };
+          if (s.mentionTva.isNotEmpty) data['mentionTva'] = true;
+          if (fin.isNotEmpty && clientType == 'particulier') data['retractation'] = {'jusquau': DateFormat('dd/MM/yyyy').format(DateTime.parse(fin))};
+          _devisSigneSurPlace = data;
+          if (s.exemplaireEmail.isNotEmpty) {
+            try {
+              final doc = await DevisPdfService().generate(quoteData: data, logoPath: _logoPath);
+              pdf = base64Encode(await doc.save());
+            } catch (_) {
+              // Sans PDF, l'e-mail part quand même ; le PDF reste à imprimer.
+            }
+          }
+          try {
+            final r = await api.signerDevisApp({
+              'quoteId': _idDevis,
+              'lieu': s.lieu,
+              'signerName': s.signataire,
+              'signature': 'data:image/png;base64,${base64Encode(s.png)}',
+              'debut': debut == null ? '' : DateFormat('yyyy-MM-dd').format(debut),
+              'consentements': {
+                'demandeExpresse': s.demandeExpresse.isNotEmpty,
+                'demandeExpresseLe': s.demandeExpresse,
+                'mentionTva': s.mentionTva.isNotEmpty,
+                'mentionTvaLe': s.mentionTva,
+                'exemplaireEmail': s.exemplaireEmail.isNotEmpty,
+                'exemplaireEmailLe': s.exemplaireEmail,
+              },
+              'pdfBase64': pdf,
+            });
+            if (mounted) setState(() => _statut = 'Signe');
+            _chargerSuivi();
+            final ex = r['exemplaire'];
+            return SigneSurPlace(
+              retractationJusquau: '${r['retractationJusquau'] ?? ''}',
+              acompteAPartirDu: '${r['acompteAPartirDu'] ?? ''}',
+              demarrageDemande: '${r['demarrageDemande'] ?? ''}',
+              exemplaireEnvoye: ex is Map ? ex['email'] == true : null,
+            );
+          } on ProKojiWebException catch (e) {
+            return SigneSurPlace(erreur: e.message);
+          } catch (_) {
+            return const SigneSurPlace(erreur: "La signature n'a pas pu être enregistrée. Vérifiez la connexion.");
+          }
+        },
+      ),
+    ));
+    if (signe == true && mounted) _chargerSuivi();
+  }
+
+  // Facture d'acompte (maquette PRO-03.4) : brouillon ou envoi par e-mail.
+  Future<void> _ouvrirAcompte(Map<String, dynamic> devis, String projet) async {
+    final brouillon = _factureAcompte?['status'] == 'Brouillon' ? _factureAcompte : null;
+    final signe = '${devis['signedAt'] ?? ''}';
+    final api = ref.read(proKojiWebProvider);
+    final fait = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ProFactureAcompteScreen(
+        numeroDevis: _quoteNumber,
+        client: _clientName == 'Client' ? '' : _clientName,
+        email: _clientEmail,
+        totalHt: _grandTotalGeneralHT,
+        totalTtc: _grandTotalTTC,
+        tva: _tvaRate,
+        signeLe: signe.isEmpty ? '' : DateFormat('d MMM', 'fr_FR').format(DateTime.parse(signe).toLocal()),
+        debut: _debutTravaux,
+        pourcentagePrevu: _acompte > 0 ? _acompte : 30,
+        restant: _grandTotalTTC - _dejaFacture,
+        brouillon: brouillon,
+        onValider: (choix, {required envoyer}) async {
+          try {
+            var facture = brouillon;
+            facture ??= await api.creerFacture({
+              'quoteId': _idDevis,
+              'projectId': projet,
+              'type': 'Acompte initial',
+              'amountMode': 'deposit',
+              'depositPercent': choix.pourcentage,
+              'dueDate': choix.echeance,
+              'notes': 'Acompte sur devis $_quoteNumber',
+            });
+            if (envoyer) {
+              await api.envoyerFacture('${facture['id']}', email: choix.email, to: choix.adresse, message: choix.message);
+            }
+            return null;
+          } on ProKojiWebException catch (e) {
+            _chargerSuivi();
+            return e.message;
+          } catch (e) {
+            _chargerSuivi();
+            return "La facture n'a pas pu être enregistrée.";
+          }
+        },
+      ),
+    ));
+    if (fait == true && mounted) {
+      _chargerSuivi();
+      _snack("Facture d'acompte enregistrée.");
+    }
+  }
   // Id du devis une fois enregistré une première fois (enregistrement
   // automatique du devis guidé).
   String? _quoteId;
@@ -184,6 +613,129 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         .saveQuote(user.id, _buildQuoteData(), quoteId: existingId);
     _quoteId = id;
     return (id: id, le: DateTime.now().toUtc().toIso8601String());
+  }
+
+  // ─── Envoyer le devis (maquette PRO-03.2) ─────────────────────────────────
+  DateTime? get _debutTravaux {
+    final t = _startCtrl.text.trim();
+    if (t.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(t);
+    } catch (_) {
+      return DateTime.tryParse(t);
+    }
+  }
+
+  Future<void> _ouvrirEnvoi() async {
+    final lignes = _linesByRoom.values.expand((x) => x).where((l) => !l.isComment).length;
+    if (lignes == 0) {
+      _snack("Ajoute au moins une ligne avant d'envoyer le devis.", error: true);
+      return;
+    }
+    final lots = _guide.lotsVisibles.where((r) => _linesByRoom[r]!.isNotEmpty).length;
+    final envoye = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ProEnvoiDevisScreen(
+        numero: _quoteNumber,
+        client: _clientName == 'Client' ? '' : _clientName,
+        email: _clientEmail,
+        telephone: _clientPhone,
+        debut: _debutTravaux,
+        totalHt: _grandTotalGeneralHT,
+        tva: _tvaRate,
+        validite: joursDe(_quoteValidity),
+        acompte: _acompte,
+        solde: _solde,
+        lignes: lignes,
+        lots: lots,
+        onEnvoyer: _envoyerDevis,
+        onApercu: (choix) async {
+          _appliquerChoix(choix);
+          await _previewPdf();
+        },
+      ),
+    ));
+    if (envoye == true && mounted) {
+      // Une fois envoyé, le devis passe en suivi (maquette PRO-03.3).
+      setState(() => _editionApresEnvoi = false);
+      _chargerSuivi();
+      _snack('Devis $_quoteNumber envoyé.');
+    }
+  }
+
+  void _appliquerChoix(EnvoiDevisChoix c) {
+    setState(() {
+      _quoteValidity = '${c.validite} jours';
+      _acompte = c.acompte;
+      _solde = c.solde;
+      _tvaRate = c.tva;
+      _mentionsCtrl.text = mentionsAvecPaiement(_mentionsCtrl.text, c.acompte, c.solde);
+      if (c.adresse.isNotEmpty) _clientEmail = c.adresse;
+      if (c.telephone.isNotEmpty) _clientPhone = c.telephone;
+    });
+  }
+
+  // Enregistre avec les réglages choisis, fait le PDF, puis Koji envoie
+  // l'e-mail et marque le devis « Envoyé » ; le SMS s'ouvre sur le téléphone.
+  Future<String?> _envoyerDevis(EnvoiDevisChoix c) async {
+    _appliquerChoix(c);
+    try {
+      await _enregistrerAuto();
+    } catch (e) {
+      return e.toString();
+    }
+    var pdf = '';
+    if (c.email) {
+      try {
+        final doc = await DevisPdfService().generate(quoteData: _buildQuoteData(), logoPath: _logoPath);
+        pdf = base64Encode(await doc.save());
+      } catch (e) {
+        return "Le PDF n'a pas pu être préparé : $e";
+      }
+    }
+    try {
+      final r = await ref.read(proKojiWebProvider).envoyerDevisApp({
+        'quoteId': _idDevis,
+        'to': c.adresse,
+        'telephone': c.telephone,
+        'subject': 'Devis $_quoteNumber${_companyName.trim().isEmpty ? '' : ' · ${_companyName.trim()}'}',
+        'message': c.message,
+        'kojiClient': c.kojiClient,
+        'sms': c.sms,
+        'envoyerEmail': c.email,
+        'pdfBase64': pdf,
+        // Instantané de la version envoyée (maquette PRO-03.6).
+        'totalHt': _grandTotalGeneralHT,
+        'totalTtc': _grandTotalTTC,
+        'lignes': [
+          for (final r in _guide.lotsVisibles)
+            for (final l in _linesByRoom[r]!)
+              if (!l.isComment)
+                {'id': l.taskId, 'label': l.label, 'room': _guide.titreLot(r), 'quantity': l.qty, 'unit': l.unite, 'totalHt': l.totalLigne},
+        ],
+      });
+      if (mounted) setState(() => _statut = 'Envoye');
+      if (c.sms) {
+        final s = r['signature'] is Map ? r['signature'] as Map : const {};
+        final texte = texteSms(
+          message: c.message,
+          lien: (s['lien'] ?? '').toString(),
+          identifiant: (s['identifiant'] ?? '').toString(),
+          motDePasse: (s['motDePasse'] ?? '').toString(),
+          kojiClient: c.kojiClient,
+        );
+        final tel = c.telephone.replaceAll(RegExp(r'[^\d+]'), '');
+        final corps = Uri.encodeComponent(texte);
+        await launchUrl(Uri.parse(Platform.isIOS ? 'sms:$tel&body=$corps' : 'sms:$tel?body=$corps'));
+      }
+      if (c.email && r['emailSent'] == false) {
+        return "${r['emailError'] ?? "L'e-mail n'est pas parti."} Le devis est bien marqué envoyé.";
+      }
+      return null;
+    } on ProKojiWebException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Envoi impossible : $e';
+    }
   }
 
   // Photo du chantier pour Koji : réduite à 1568 px, en JPEG.
@@ -436,6 +988,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     _clientName = client['name'] ?? '';
     _clientAddress = client['address'] ?? '';
     _clientEmail = client['email'] ?? '';
+    _clientPhone = (client['phone'] ?? '').toString();
 
     final company = safe(d['company']);
     _companyName = company['name'] ?? _companyName;
@@ -458,7 +1011,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     _aleasPct = (recap['aleasPct'] as num?)?.toDouble() ?? _aleasPct;
     _decennalePct =
         (recap['decennalePct'] as num?)?.toDouble() ?? _decennalePct;
-    _tvaRate = (recap['tvaRate'] as num?)?.toInt() ?? _tvaRate;
+    _tvaRate = (recap['tvaRate'] as num?) ?? _tvaRate;
+    final tva = safe(recap['tva']);
+    _tvaChoix = {for (final k in ['client', 'local', 'travaux', 'commande']) k: '${tva[k] ?? ''}'};
+    _acompte = (recap['acompte'] as num?)?.toInt() ?? _acompte;
+    _solde = (recap['reglement'] as String?)?.trim().isNotEmpty == true ? recap['reglement'] as String : _solde;
     final lots = safe(d['lots']);
     lots.forEach((roomId, meta) {
       _lotMeta[roomId] = safe(meta);
@@ -822,8 +1379,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       'client': {
         'name': _clientName,
         'address': _clientAddress,
-        'email': _clientEmail
+        'email': _clientEmail,
+        if (_clientPhone.isNotEmpty) 'phone': _clientPhone,
       },
+      // Un devis déjà envoyé le reste quand on le réenregistre.
+      if (_statut != null && _statut!.isNotEmpty && _statut != 'Draft') 'status': _statut,
       'company': {
         'name': _companyName,
         'address': _companyAddress,
@@ -863,13 +1423,19 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         'tvaRate': _tvaRate,
         'tva': _tvaAmount,
         'ttc': _grandTotalTTC,
+        'autoliquidation': _autoliquidation,
       },
+      'mentionTva': _suiviWeb?['mentionTva'] == true,
       // Récapitulatif config + per-lot labels, persisted in quote metadata.
       'recap': {
         'coordPct': _coordPct,
         'aleasPct': _aleasPct,
         'decennalePct': _decennalePct,
         'tvaRate': _tvaRate,
+        'acompte': _acompte,
+        'reglement': _solde,
+        'tva': {..._tvaChoix, 'client': _clientTva},
+        'autoliquidation': _autoliquidation,
       },
       'lots': {
         for (final entry in _lotMeta.entries) entry.key: entry.value,
@@ -881,9 +1447,12 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   }
 
   // ── Aperçu PDF : génère le devis (sans enregistrer) et l'ouvre en aperçu ────
-  Future<void> _previewPdf() async {
+  /// Devis signé sur place (PRO-03.7), pour l'imprimer tel que signé.
+  Map<String, dynamic>? _devisSigneSurPlace;
+
+  Future<void> _previewPdf([Map<String, dynamic>? donnees]) async {
     try {
-      final quoteData = _buildQuoteData();
+      final quoteData = donnees ?? _buildQuoteData();
       // Le service charge le logo depuis logoPath si besoin (réseau).
       final doc = await DevisPdfService().generate(
         quoteData: quoteData,
@@ -906,9 +1475,21 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_vueDetaillee || _isLoadingDetails) return _buildRecapDetaille();
+    if (_enSuivi) return _buildSuivi();
     // Le premier message de Koji suit le devis chargé (sans IA).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _conversation.accueillir();
+      if (!mounted) return;
+      _conversation.accueillir();
+      final visite = _visite;
+      if (visite != null && !_visiteEnvoyee && !_conversation.tours.any((t) => t.role == 'user')) {
+        _visiteEnvoyee = true;
+        _conversation.envoyer('${visite['demande'] ?? ''}');
+      }
+      final demande = _demandeKP;
+      if (demande != null && !_demandeEnvoyee && !_conversation.tours.any((t) => t.role == 'user')) {
+        _demandeEnvoyee = true;
+        _conversation.envoyer('${demande['texte'] ?? ''}');
+      }
     });
     final titre = 'Devis $_quoteNumber';
     final sousTitre = [_siteAddress, _clientName]
@@ -923,7 +1504,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       totalHt: _grandTotalGeneralHT,
       totalTtc: _grandTotalTTC,
       onRetour: () => context.pop(),
-      onEnvoyer: _isSaving ? () {} : _generateQuote,
+      onEnvoyer: _isSaving ? () {} : _ouvrirEnvoi,
       onChange: () => setState(() {}),
       onAjouterOuvrage: _addOuvrageToLot,
       onAjouterFourniture: _addFournitureToLot,
@@ -932,6 +1513,11 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       onEditionDetaillee: () => setState(() => _vueDetaillee = true),
       onApercu: _previewPdf,
       choisirPhoto: _photoPourKoji,
+      questionTva: _decisionTva.question.isNotEmpty && _linesByRoom.values.any((l) => l.isNotEmpty) ? questionTva(_decisionTva.question, _clientTva) : null,
+      onReponseTva: (valeur) => confirmationTva(_appliquerTva({..._tvaChoix, 'client': _clientTva, 'local': valeur}),
+          client: _clientTva, nom: _clientName == 'Client' ? '' : _clientName),
+      tauxTva: _decisionTva.question.isNotEmpty ? 'TVA ?' : libelleTauxCourt(_tvaRate, autoliquidation: _autoliquidation),
+      onTva: _ouvrirTva,
     );
   }
 
@@ -3164,13 +3750,15 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: DropdownButton<int>(
+                    child: DropdownButton<num>(
                       value: _tvaRate,
                       isDense: true,
                       underline: const SizedBox.shrink(),
                       items: const [
                         DropdownMenuItem(value: 10, child: Text('10 %')),
                         DropdownMenuItem(value: 20, child: Text('20 %')),
+                        DropdownMenuItem(value: 5.5, child: Text('5,5 %')),
+                        DropdownMenuItem(value: 0, child: Text('Autoliquidation')),
                       ],
                       onChanged: (v) =>
                           setState(() => _tvaRate = v ?? _tvaRate),

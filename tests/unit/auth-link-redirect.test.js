@@ -26,11 +26,18 @@ describe("lib/auth-link-redirect", () => {
     assert.strictEqual(cibleLienAuth("/entreprise", erreur), null);
   });
 
-  it("rien à faire : pas de hash, ancre de page, confirmation d'inscription", () => {
+  it("lien de confirmation d'inscription (apps) → page Adresse confirmée, jeton conservé", () => {
+    const signup = "#access_token=eyJ.a.b&expires_in=3600&refresh_token=r&token_type=bearer&type=signup";
+    assert.strictEqual(cibleLienAuth("/", signup), `/compte-confirme${signup}`);
+    assert.strictEqual(cibleLienAuth("/login", signup), `/compte-confirme${signup}`);
+    assert.strictEqual(cibleLienAuth("/compte-confirme", signup), null);
+  });
+
+  it("rien à faire : pas de hash, ancre de page, jeton absent", () => {
     assert.strictEqual(cibleLienAuth("/", ""), null);
     assert.strictEqual(cibleLienAuth("/", "#"), null);
     assert.strictEqual(cibleLienAuth("/entreprise", "#tarifs"), null);
-    assert.strictEqual(cibleLienAuth("/", "#access_token=x&type=signup"), null);
+    assert.strictEqual(cibleLienAuth("/", "#type=signup"), null);
     assert.strictEqual(cibleLienAuth("/", "#type=recovery"), null);
   });
 });

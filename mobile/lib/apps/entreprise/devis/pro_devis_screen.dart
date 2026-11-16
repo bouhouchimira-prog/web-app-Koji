@@ -8,6 +8,8 @@ import 'package:koji/apps/entreprise/devis/devis_liste.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/apps/entreprise/visite/pro_visite_screen.dart';
+import 'package:koji/apps/entreprise/visite/visite_mode.dart' show enAttente;
 import 'package:koji/core/route_args.dart';
 import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
@@ -39,6 +41,59 @@ Future<void> ouvrirDevisApp(BuildContext context, WidgetRef ref, Map<String, dyn
   final brut = tous.where((q) => _s(q['id']) == _s(devis['id'])).firstOrNull;
   if (brut == null || !context.mounted) return;
   context.push('/quote/detail', extra: QuoteDetailArgs(data: brut));
+}
+
+/// Relancer un devis envoyé (maquettes PRO-03 et PRO-03.3) : message
+/// proposé par Koji, modifiable, envoyé par e-mail avec le lien de
+/// signature. Renvoie true si la relance est partie.
+Future<bool> ouvrirRelanceDevis(BuildContext context, WidgetRef ref, Map<String, dynamic> q) async {
+  final entreprise = ref.read(currentAccountProvider).valueOrNull?.displayName ?? '';
+  final texte = TextEditingController(text: messageRelance(q, entreprise: entreprise));
+  final da = ProDa.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: da.page,
+    builder: (c) => Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.viewInsetsOf(c).bottom + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Relancer le devis ${q['quoteNumber']}', style: da.text(17, weight: FontWeight.w700)),
+          Text([_s(q['client']), _s(q['clientEmail'])].where((x) => x.isNotEmpty).join(' · '), style: da.text(12, color: da.grey)),
+          const SizedBox(height: 12),
+          Text('MESSAGE · PROPOSÉ PAR KOJI', style: da.text(11, weight: FontWeight.w700, color: da.grey)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: texte,
+            minLines: 6,
+            maxLines: 10,
+            style: da.text(14),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFFD9D9D4))),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('Koji ajoute le lien pour consulter et signer le devis.', style: da.text(12, color: da.grey)),
+          const SizedBox(height: 12),
+          ProPrimaryButton(label: 'Envoyer la relance', expand: true, onPressed: _s(q['clientEmail']).isEmpty ? null : () => Navigator.of(c).pop(true)),
+        ],
+      ),
+    ),
+  );
+  if (ok != true) return false;
+  try {
+    await ref.read(proKojiWebProvider).relancerDevis(_s(q['id']), texte.text.trim());
+    messenger.showSnackBar(SnackBar(content: Text('Relance envoyée à ${q['clientEmail']}.')));
+    return true;
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e is ProKojiWebException ? e.message : "La relance n'est pas partie.")));
+    return false;
+  }
 }
 
 /// Koji Pro, Devis (maquette PRO-03, téléphone) : « Devis », le résumé,
@@ -75,54 +130,11 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
   void _dire(String t) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t)));
 
   Future<void> _relancer(Map<String, dynamic> q) async {
-    final entreprise = ref.read(currentAccountProvider).valueOrNull?.displayName ?? '';
-    final texte = TextEditingController(text: messageRelance(q, entreprise: entreprise));
-    final da = ProDa.of(context);
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: da.page,
-      builder: (c) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.viewInsetsOf(c).bottom + 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Relancer le devis ${q['quoteNumber']}', style: da.text(17, weight: FontWeight.w700)),
-            Text([_s(q['client']), _s(q['clientEmail'])].where((x) => x.isNotEmpty).join(' · '), style: da.text(12, color: da.grey)),
-            const SizedBox(height: 12),
-            Text('MESSAGE · PROPOSÉ PAR KOJI', style: da.text(11, weight: FontWeight.w700, color: da.grey)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: texte,
-              minLines: 6,
-              maxLines: 10,
-              style: da.text(14),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFFD9D9D4))),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text('Koji ajoute le lien pour consulter et signer le devis.', style: da.text(12, color: da.grey)),
-            const SizedBox(height: 12),
-            ProPrimaryButton(label: 'Envoyer la relance', expand: true, onPressed: _s(q['clientEmail']).isEmpty ? null : () => Navigator.of(c).pop(true)),
-          ],
-        ),
-      ),
-    );
-    if (ok != true || !mounted) return;
     setState(() => _envoi = true);
-    try {
-      await ref.read(proKojiWebProvider).relancerDevis(_s(q['id']), texte.text.trim());
-      if (mounted) _dire('Relance envoyée à ${q['clientEmail']}.');
-      ref.invalidate(proDevisProvider);
-    } catch (e) {
-      if (mounted) _dire(e is ProKojiWebException ? e.message : "La relance n'est pas partie.");
-    } finally {
-      if (mounted) setState(() => _envoi = false);
-    }
+    final ok = await ouvrirRelanceDevis(context, ref, q);
+    if (!mounted) return;
+    setState(() => _envoi = false);
+    if (ok) ref.invalidate(proDevisProvider);
   }
 
   Future<void> _dupliquer(Map<String, dynamic> q) async {
@@ -186,6 +198,11 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
               context.push('/quote/detail', extra: const QuoteDetailArgs(data: <String, dynamic>{}));
             },
           ),
+          const SizedBox(height: 8),
+          // Mode visite (maquette PRO-03.8) : préparée hors ligne, puis
+          // Devis guidé prérempli.
+          _boutonVisite(da),
+          ..._visites(da),
           const SizedBox(height: 12),
           _champRecherche(da),
           const SizedBox(height: 12),
@@ -217,6 +234,62 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
       ),
     );
   }
+
+  Widget _boutonVisite(ProDa da) => Material(
+        color: da.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2), side: const BorderSide(color: Color(0xFF8A8F98))),
+        child: InkWell(
+          onTap: () async {
+            final v = await preparerVisite(context, ref);
+            if (v != null && mounted) _ouvrirVisite('${v['id']}');
+          },
+          child: SizedBox(
+            height: 44,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.home_work_outlined, size: 18, color: da.ink),
+              const SizedBox(width: 8),
+              Text('Préparer une visite', style: da.text(14, weight: FontWeight.w600)),
+            ]),
+          ),
+        ),
+      );
+
+  List<Widget> _visites(ProDa da) {
+    final store = ref.watch(visiteStoreProvider);
+    final visites = store.visites.where((v) => v['devisOuvert'] != true).take(3).toList();
+    return [
+      for (final v in visites) ...[
+        const SizedBox(height: 8),
+        Material(
+          color: da.card,
+          shape: RoundedRectangleBorder(side: BorderSide(color: da.line)),
+          child: InkWell(
+            onTap: () => _ouvrirVisite('${v['id']}'),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Visite · ${v['client']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: da.text(14, weight: FontWeight.w700)),
+                    Text(
+                      [
+                        _s(v['fin']).isNotEmpty ? 'terminée, devis à préparer' : _s(v['debut']).isNotEmpty ? 'en cours' : 'prête hors ligne',
+                        if (enAttente(v) > 0 && _s(v['debut']).isNotEmpty) "${enAttente(v)} en attente d'envoi",
+                      ].join(' · '),
+                      style: da.text(12.5, color: da.grey),
+                    ),
+                  ]),
+                ),
+                Icon(Icons.chevron_right, color: da.grey),
+              ]),
+            ),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  void _ouvrirVisite(String id) => ouvrirVisite(context, id);
 
   Widget _barre(ProDa da) {
     final entreprise = ref.watch(currentAccountProvider).valueOrNull?.displayName ?? '';

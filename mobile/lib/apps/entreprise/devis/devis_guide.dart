@@ -495,6 +495,12 @@ class DevisGuideConversation extends ChangeNotifier {
     if (!_ferme) notifyListeners();
   }
 
+  /// Échange écrit sans IA (question TVA de Koji et sa réponse, PRO-03.5).
+  void ajouterTours(List<GuideTour> nouveaux) {
+    tours.addAll(nouveaux);
+    _maj();
+  }
+
   /// Premier message : suit le devis tant que personne n'a parlé.
   void accueillir() {
     final texte = premierMessage(instantane());

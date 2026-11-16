@@ -3,6 +3,9 @@ import { addHistory, makeToken, readDb, writeDb } from "../../../../../../lib/db
 import { resolveEntreprise, loadEntrepriseSnapshot } from "../../../../../../lib/entreprise-auth";
 import { getVerifiedPortalUserId } from "../../../../../../lib/portal-session";
 import { maxPositionsForPlan } from "../../../../../../lib/plan";
+import { contexteRadar, decorerOffre } from "../../../../../../lib/radar-server";
+import { prixRecommandesPour } from "../../../../../../lib/prix-recommande-server";
+import { fixText } from "../../../../../../lib/text";
 
 // Positionnement d'une entreprise sur un chantier (cahier des charges 3.3 et
 // 4.3) : premier arrive premier servi, pas de plafond sur le nombre
@@ -15,6 +18,8 @@ import { maxPositionsForPlan } from "../../../../../../lib/plan";
 function publicPositionnement(entry) {
   return {
     id: entry.id,
+    jetons: Number(entry.jetons) || 0,
+    creneaux: entry.creneaux || [],
     offerId: entry.offerId,
     entrepriseUserId: entry.entrepriseUserId,
     entrepriseSnapshot: entry.entrepriseSnapshot || null,
@@ -70,7 +75,27 @@ export async function POST(request, context) {
   const existing = (db.chantierPositionnements || []).find(
     (p) => p.offerId === id && p.entrepriseUserId === entreprise.userId
   );
-  if (existing?.status === "Active") return ok({ positionnement: publicPositionnement(existing) });
+  if (existing?.status === "Active" && Number(existing.jetons) > 0) return ok({ positionnement: publicPositionnement(existing) });
+
+  // Jetons et places (maquette PRO-04) : 3 entreprises au plus, jetons
+  // réservés maintenant, débités seulement si le client confirme un
+  // rendez-vous.
+  const maintenant = new Date().toISOString();
+  const ctx = await contexteRadar(db, entreprise, maintenant);
+  const budgets = new Map();
+  const prix = await prixRecommandesPour({ db, userId: entreprise.userId, business: ctx.business, offres: [offre], budgets }).catch(() => new Map());
+  const radar = decorerOffre(db, offre, ctx, budgets.get(offre.id), maintenant);
+  if (offre.status !== "Publiee" || radar.expiree) return badRequest("Ce chantier n'est plus sur le Radar.", 409);
+  if (radar.places.complet) return badRequest("Trois entreprises sont déjà positionnées sur ce chantier.", 409);
+  if (ctx.solde.solde < radar.jetons) {
+    return Response.json({ error: `Il faut ${radar.jetons} jetons, il vous en reste ${ctx.solde.solde}.`, code: "solde", manque: radar.jetons - ctx.solde.solde }, { status: 409 });
+  }
+  const message = fixText(String(body.message || "")).trim().slice(0, 2000);
+  const creneaux = (Array.isArray(body.creneaux) ? body.creneaux : [])
+    .map((c) => String(c || ""))
+    .filter((c) => Number.isFinite(new Date(c).getTime()) && new Date(c).getTime() > Date.now())
+    .slice(0, 4);
+  const devisTtc = body.joindreDevis === true ? Number(prix.get(offre.id)?.ttc) || 0 : 0;
 
   const entrepriseSnapshot = await loadEntrepriseSnapshot(entreprise);
   const maxPositions = maxPositionsForPlan(entrepriseSnapshot.plan);
@@ -81,10 +106,9 @@ export async function POST(request, context) {
   const now = new Date().toISOString();
 
   let entry;
+  const proposition = { jetons: radar.jetons, message, creneaux, devisEstimatifTtc: devisTtc || null, retireLe: "" };
   if (existing) {
-    existing.status = "Active";
-    existing.entrepriseSnapshot = entrepriseSnapshot;
-    existing.createdAt = now;
+    Object.assign(existing, { status: "Active", entrepriseSnapshot, createdAt: now, ...proposition });
     entry = existing;
   } else {
     entry = {
@@ -93,9 +117,21 @@ export async function POST(request, context) {
       entrepriseUserId: entreprise.userId,
       entrepriseSnapshot,
       status: "Active",
-      createdAt: now
+      createdAt: now,
+      ...proposition
     };
     db.chantierPositionnements.push(entry);
+  }
+
+  // Le client reçoit le message, les créneaux (un rendez-vous à accepter
+  // par créneau) et, s'il est joint, le montant du devis estimatif.
+  const base = { offerId: id, particulierUserId: offre.userId, entrepriseUserId: entreprise.userId, entrepriseSnapshot, senderType: "entreprise", respondsToId: null, rdvStatus: null };
+  const texte = [message, devisTtc ? `Devis estimatif à mes prix : ${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(devisTtc)} € TTC, à confirmer après la visite.` : ""].filter(Boolean).join("\n\n");
+  db.chantierOffreMessages = db.chantierOffreMessages || [];
+  if (texte) db.chantierOffreMessages.push({ id: makeToken("radarmsg"), ...base, message: texte, kind: "text", rdvDate: null, createdAt: now });
+  for (const c of creneaux) {
+    const quand = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", dateStyle: "full", timeStyle: "short" }).format(new Date(c));
+    db.chantierOffreMessages.push({ id: makeToken("radarmsg"), ...base, message: `Proposition de visite : ${quand}.`, kind: "rdv_proposal", rdvDate: c, createdAt: now });
   }
 
   db.notifications.unshift({
@@ -137,6 +173,7 @@ export async function DELETE(request, context) {
   if (!entry) return ok({ retiree: true });
 
   entry.status = "Retiree";
+  entry.retireLe = new Date().toISOString();
   await writeDb(db);
   return ok({ retiree: true });
 }

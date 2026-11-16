@@ -1,0 +1,15 @@
+/* Contrat de sous-traitance (maquette PRO-14.1). */
+.pro .stc{display:flex;flex-direction:column;gap:20px}
+.pro .stc h1{font-size:28px;font-weight:700;letter-spacing:-.01em}
+.pro .stc-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+.pro .stc-col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.pro .stc-ok{padding:10px 14px;background:var(--soft);border-left:3px solid var(--ink);font-size:13px}
+.pro .stc-alerte{padding:12px 14px;background:var(--soft);border-left:3px solid var(--prim);font-size:13px}
+.pro .stc-acts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px}
+.pro .stc .kcnt.ok{background:var(--ink);border-color:var(--ink);color:var(--card)}
+.pro .stc .row .kcnt{margin-left:0}
+.pro .stc-gar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.pro .stc-gar button{min-height:48px;padding:8px 12px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);color:var(--ink);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.pro .stc-gar button.on{border:2px solid var(--ink);background:var(--soft)}
+@media (max-width:1000px){.pro .stc-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.pro .stc-gar{grid-template-columns:minmax(0,1fr)}.pro .stc .head .acts{width:100%}.pro .stc .head .acts .btn{flex:1}.pro .stc .row{flex-wrap:wrap}}

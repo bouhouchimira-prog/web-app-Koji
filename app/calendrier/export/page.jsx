@@ -7,6 +7,8 @@ import { readStoredUser } from "../../../lib/client-api";
 import { fixText } from "../../../lib/text";
 import { useApi } from "../../../lib/use-api";
 import "../../home-pro.css";
+import "../calendrier.css";
+import { PlanningChantier } from "./PlanningChantier";
 
 // PRO-11.1 : un seul outil d'export, trois modèles (semaine tous chantiers,
 // un chantier, un intervenant). Page imprimable : « Enregistrer en PDF » du
@@ -55,6 +57,7 @@ export default function PlanningExportPage() {
   const { data: events } = useApi("/api/calendar-events", "calendarEvents");
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: workers } = useApi("/api/workers", "workers");
+  const { data: quotes } = useApi("/api/quotes", "quotes");
   const thisMonday = mondayOf(new Date());
   const [model, setModel] = useState("semaine");
   const [projectId, setProjectId] = useState("");
@@ -64,6 +67,7 @@ export default function PlanningExportPage() {
   const [audience, setAudience] = useState("interne");
   const [withRdv, setWithRdv] = useState(true);
   const [company, setCompany] = useState("");
+  const [siret, setSiret] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -73,6 +77,7 @@ export default function PlanningExportPage() {
     if (parseDay(params.get("from"))) setFrom(params.get("from"));
     if (parseDay(params.get("to"))) setTo(params.get("to"));
     setCompany(fixText(readStoredUser()?.business?.raisonSociale || ""));
+    setSiret(fixText(readStoredUser()?.business?.siret || ""));
   }, []);
 
   const workerById = useMemo(() => Object.fromEntries(workers.map((worker) => [worker.id, worker])), [workers]);
@@ -172,6 +177,7 @@ export default function PlanningExportPage() {
           <select value={audience} onChange={(event) => setAudience(event.target.value)}>
             <option value="interne">Interne (tout)</option>
             <option value="client">Client (sous-traitants non nommés)</option>
+            <option value="soustraitant">Sous-traitant (sans points internes)</option>
           </select>
         </label>
         {audience !== "client" ? (
@@ -184,12 +190,15 @@ export default function PlanningExportPage() {
         <header className="pe-h">
           <div>
             <strong>{company || "Mon entreprise"}</strong>
+            {siret ? <small className="pe-siret">SIRET {siret}</small> : null}
             <h1>{title}</h1>
-            <span>{period} · {rows.length} ligne{rows.length > 1 ? "s" : ""}</span>
+            <span>{period}{model === "chantier" ? "" : ` · ${rows.length} ligne${rows.length > 1 ? "s" : ""}`}</span>
           </div>
-          <small>Édité le {new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date())}</small>
+          <small>Édité le {new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date())} · {audience === "client" ? "pour le client" : audience === "soustraitant" ? "pour les intervenants" : "document interne"}</small>
         </header>
-        {!ready ? (
+        {ready && model === "chantier" && project && !loadingTasks ? (
+          <PlanningChantier project={project} tasks={tasks} workers={workers} audience={audience} company={{ name: company }} quote={quotes.find((q) => q.projectId === project.id && (q.status === "Signe" || q.signatureStatus === "Signe")) || null} />
+        ) : !ready ? (
           <p className="empty">{model === "chantier" ? "Choisissez un chantier." : "Choisissez un intervenant."}</p>
         ) : loadingTasks ? (
           <p className="empty">Chargement…</p>

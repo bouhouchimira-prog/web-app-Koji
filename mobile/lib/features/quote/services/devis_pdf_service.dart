@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+
+import 'package:koji/apps/entreprise/devis/signature_lieu.dart' show formulaireRetractation, informationRetractation;
+import 'package:koji/apps/entreprise/devis/tva.dart' show estTauxReduit, mentionAutoliquidation, mentionTauxReduit;
 import 'package:printing/printing.dart';
 
 /// Single source of truth for the devis PDF.
@@ -270,6 +273,9 @@ class DevisPdfService {
                 validity: quoteData['validity']?.toString() ?? '',
                 colorLine: colorLine),
 
+            // ── Mentions TVA (maquette PRO-03.5) ──
+            ..._mentionsTva(quoteData, totals),
+
             pw.SizedBox(height: 20),
 
             // ── Signatures ──
@@ -291,6 +297,18 @@ class DevisPdfService {
                           style: const pw.TextStyle(
                               fontSize: 8, color: PdfColors.grey600)),
                       pw.SizedBox(height: 4),
+                      // Signé sur place (maquette PRO-03.7) : lieu, cases
+                      // cochées par le client, signature dessinée.
+                      if (quoteData['signeSurPlace'] is Map) ...[
+                        for (final l in ((quoteData['signeSurPlace'] as Map)['lignes'] as List? ?? const []))
+                          pw.Text('$l', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                        if ((quoteData['signeSurPlace'] as Map)['png'] is Uint8List)
+                          pw.Container(
+                              height: 50,
+                              width: 150,
+                              child: pw.Image(pw.MemoryImage((quoteData['signeSurPlace'] as Map)['png'] as Uint8List),
+                                  fit: pw.BoxFit.contain)),
+                      ] else ...[
                       pw.Text("Mention manuscrite obligatoire :",
                           style: const pw.TextStyle(
                               fontSize: 8, color: PdfColors.grey600)),
@@ -301,6 +319,7 @@ class DevisPdfService {
                               fontWeight: pw.FontWeight.bold,
                               color: colorNavy)),
                       pw.SizedBox(height: 40),
+                      ],
                     ],
                   ),
                 ),
@@ -334,9 +353,41 @@ class DevisPdfService {
                   style: const pw.TextStyle(
                       fontSize: 8, color: PdfColors.grey500)),
             ),
+            // Client particulier (maquette PRO-03.7) : information sur la
+            // rétractation et formulaire, sauf signature dans les locaux.
+            if (quoteData['retractation'] is Map) ..._retractation(quoteData['retractation'] as Map, company),
           ];
         }));
     return pdf;
+  }
+
+  List<pw.Widget> _retractation(Map r, dynamic company) {
+    final c = company is Map ? company : const {};
+    final formulaire = formulaireRetractation(
+      entreprise: '${c['name'] ?? ''}'.trim(),
+      adresse: '${c['address'] ?? ''}'.trim(),
+      email: '${c['email'] ?? ''}'.trim(),
+    );
+    const gris = pw.TextStyle(fontSize: 8, color: PdfColors.grey700);
+    return [
+      pw.SizedBox(height: 16),
+      pw.Text('Information sur le droit de rétractation', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 4),
+      if ('${r['jusquau'] ?? ''}'.isNotEmpty) pw.Text("Délai de rétractation : jusqu'au ${r['jusquau']} inclus.", style: gris),
+      pw.Text(informationRetractation, style: gris),
+      pw.SizedBox(height: 8),
+      pw.Container(
+        padding: const pw.EdgeInsets.all(10),
+        decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
+        child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          for (final (i, l) in formulaire.indexed)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 5),
+              child: pw.Text(l, style: i == 0 ? pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold) : gris),
+            ),
+        ]),
+      ),
+    ];
   }
 
   /// Version label for the devis header — "01", "02"… A missing/invalid value
@@ -713,7 +764,10 @@ class DevisPdfService {
     final aleasAmount = _num(totals['aleasAmount']);
     final decennaleAmount = _num(totals['decennaleAmount']);
     final generalHT = _num(totals['ht']);
-    final tvaRate = (totals['tvaRate'] as num?)?.toInt() ?? 20;
+    // Taux exact (5,5 %) et autoliquidation (maquette PRO-03.5).
+    final num tauxBrut = (totals['tvaRate'] as num?) ?? 20;
+    final tvaRate = (tauxBrut == tauxBrut.roundToDouble() ? tauxBrut.toInt() : tauxBrut).toString().replaceAll('.', ',');
+    final autoliquidation = totals['autoliquidation'] == true;
     final tva = _num(totals['tva']);
     final ttc = _num(totals['ttc']);
 
@@ -740,7 +794,7 @@ class DevisPdfService {
         if (coordAmount != 0 || aleasAmount != 0 || decennaleAmount != 0)
           pw.Divider(color: PdfColors.grey300),
         row('Total HT', '${generalHT.toStringAsFixed(2)} €', size: 10),
-        row('TVA $tvaRate %', '${tva.toStringAsFixed(2)} €',
+        row(autoliquidation ? 'TVA autoliquidation' : 'TVA $tvaRate %', '${tva.toStringAsFixed(2)} €',
             size: 10, color: PdfColors.grey700),
         pw.SizedBox(height: 6),
         pw.Container(
@@ -749,7 +803,7 @@ class DevisPdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Total TTC',
+              pw.Text(autoliquidation ? 'Net à payer' : 'Total TTC',
                   style: pw.TextStyle(
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
@@ -772,6 +826,37 @@ class DevisPdfService {
         pw.Expanded(flex: 3, child: totalsBox),
       ],
     );
+  }
+
+  // Attestation du client pour le taux réduit, autoliquidation, numéro de
+  // commande du client (maquette PRO-03.5).
+  List<pw.Widget> _mentionsTva(Map<String, dynamic> quoteData, Map<dynamic, dynamic> totals) {
+    final recap = quoteData['recap'] is Map ? quoteData['recap'] as Map : const {};
+    final tva = recap['tva'] is Map ? recap['tva'] as Map : const {};
+    final num taux = (totals['tvaRate'] as num?) ?? 20;
+    final commande = '${tva['commande'] ?? ''}'.trim();
+    final lignes = <pw.Widget>[];
+    if (commande.isNotEmpty) {
+      lignes.add(pw.Text('Numéro de commande du client : $commande', style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)));
+    }
+    if (totals['autoliquidation'] == true) {
+      lignes.add(pw.Text(mentionAutoliquidation, style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700)));
+    } else if (estTauxReduit(taux)) {
+      final certifiee = quoteData['mentionTva'] == true;
+      lignes
+        ..add(pw.Text('Attestation du client (TVA à taux réduit)', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)))
+        ..add(pw.Text(
+          '$mentionTauxReduit ${certifiee ? 'Certifiée par le client à la signature.' : 'À certifier par le client à la signature du devis.'}',
+          style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+        ));
+    }
+    if (lignes.isEmpty) return const [];
+    return [
+      pw.SizedBox(height: 12),
+      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        for (final l in lignes) pw.Padding(padding: const pw.EdgeInsets.only(bottom: 4), child: l),
+      ]),
+    ];
   }
 
   pw.Widget _buildPaymentTerms(Map<dynamic, dynamic> company,

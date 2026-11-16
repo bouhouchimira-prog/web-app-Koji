@@ -1,0 +1,107 @@
+/* Fournitures (maquettes PRO-07 à 07.6) : ce que home-pro.css n'a pas déjà. */
+.pro .pr-a{display:flex;gap:12px;align-items:center;min-width:0}
+.pro .thumb{display:inline-grid;place-items:center;flex:none;overflow:hidden;background:#EFEDE7;border:1px solid var(--line);border-radius:2px}
+.pro .thumb img{width:100%;height:100%;object-fit:cover}
+.pro .thumb svg{width:60%;height:60%;fill:none;stroke:#8A8F98;stroke-width:1.5}
+.pro .mode{padding:1px 6px;border:1px solid var(--line);border-radius:2px;color:var(--grey);font-size:11px;font-weight:500;white-space:nowrap}
+.pro .n2{font-weight:500;font-size:14px}
+.pro .fp-layout .tbl td{padding:12px 10px;font-size:13px;vertical-align:middle}
+.pro .fp-layout .tbl th{padding:10px}
+.pro .fp-layout .tbl td.b{font-weight:600}
+.pro .fp-layout .tbl tbody tr{cursor:pointer}
+.pro .tbl tbody tr.warn td{color:var(--grey)}
+.pro .ob-detail{position:sticky;top:16px;display:flex;flex-direction:column;gap:16px;padding:20px;background:var(--card);border:1px solid var(--ink);border-radius:2px}
+.pro .ob-detail .ob-h h2{margin:0;font-size:17px;font-weight:600;line-height:1.3}
+.pro .ob-detail .ob-h .code{color:var(--grey);font-size:12px;font-weight:500}
+.pro .ob-sec{display:flex;flex-direction:column;gap:6px}
+.pro .ob-sec>.lab{color:var(--grey);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pro .ph-big{display:flex;gap:12px;align-items:flex-end}
+.pro .ph-s{display:flex;flex-direction:column;gap:6px}
+.pro .seg3{display:flex;gap:3px;padding:3px;background:#E2E2DB;border-radius:var(--r-touch)}
+.pro .seg3 button{flex:1;min-width:0;padding:7px 6px;background:transparent;border:0;border-radius:var(--r-touch);color:#3A3F44;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.pro .seg3 button:hover{background:#D2D2C9}
+.pro .seg3 button.on{background:#fff;box-shadow:inset 0 0 0 1px #BDBDB4;color:var(--ink);font-weight:700}
+.pro .selv{display:flex;align-items:center;justify-content:space-between;gap:8px;height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font-size:14px}
+.pro .fx-search{display:flex;align-items:center;gap:8px;min-width:240px;height:36px;margin-left:auto;padding:0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch)}
+.pro .fx-search input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;font:inherit;font-size:13px}
+.pro .fx-tabs{display:flex;align-items:flex-end;gap:12px;border-bottom:1px solid var(--frame)}
+.pro .fx-note{color:var(--grey);font-size:12px;line-height:1.45}
+.pro .fx-ok{color:#1F7A4D}
+.pro .fx-warn{color:#B4441D}
+.pro .fx-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.pro .fx-row:first-child{border-top:0}
+.pro .fx-row .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pro .fx-row .t small{color:var(--grey);font-size:12px}
+.pro .fx-sum{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--soft);border-radius:2px;font-size:13px}
+.pro .fx-chk{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.pro .fx-chk span{display:flex;gap:8px;align-items:flex-start}
+.pro .fx-chk span:before{content:"✓";color:#1F7A4D;font-weight:700}
+.pro .fx-chk span.no:before{content:"!";color:#B4441D}
+.pro .fx-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pro .fx-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pro .fx-grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pro .fx-form{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+.pro .fx-form>div{display:flex;flex-direction:column;gap:16px;min-width:0}
+.pro .fx-scan{display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--soft);border:1px dashed var(--btn);border-radius:2px}
+.pro .fx-scan p{flex:1;margin:0;font-size:13px}
+.pro .fx-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pro .fx-chips span{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;background:var(--soft);border:1px solid var(--line);border-radius:2px;font-size:12px}
+.pro .fx-chips button{padding:0;background:none;border:0;color:var(--grey);cursor:pointer}
+.pro .fx-four td input{height:34px;width:100%;padding:0 8px;border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:13px}
+.pro .fx-grp{display:flex;flex-direction:column;gap:0}
+.pro .fx-grp-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
+.pro .fx-grp-h h3{margin:0;font-size:15px;font-weight:700}
+.pro .fx-grp-h small{color:var(--grey);font-size:12px}
+.pro .fx-grp-h .r{display:flex;align-items:center;gap:12px}
+.pro .fx-etat{display:inline-flex;padding:2px 8px;border:1px solid var(--line);border-radius:2px;font-size:12px;font-weight:600;white-space:nowrap}
+.pro .fx-etat.ok{background:#E5F4E4;border-color:#BFE0BD;color:#1F5E33}
+.pro .fx-etat.late{background:#FBEBEB;border-color:#EBC3C3;color:#8C2B2B}
+.pro .fx-etat.wait{background:#F9EEDA;border-color:#EAD3A5;color:#7A5410}
+.pro .fx-etat.off{color:var(--grey)}
+.pro .fx-badge{display:inline-flex;padding:1px 6px;background:#171B1E;border-radius:2px;color:#fff;font-size:11px;font-weight:700;letter-spacing:.02em}
+.pro .fx-lock{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:28px;background:var(--card);border:1px solid var(--frame);border-radius:2px}
+.pro .fx-bc{display:flex;flex-direction:column;gap:14px;padding:24px;background:#fff;border:1px solid var(--frame);border-radius:2px}
+.pro .fx-bc .fx-bc-h{display:flex;justify-content:space-between;gap:12px}
+.pro .fx-photo{width:100%;max-height:340px;object-fit:contain;background:var(--soft);border:1px solid var(--line);border-radius:2px}
+@media (max-width:1100px){
+  .pro .fp-layout,.pro .fx-form{grid-template-columns:minmax(0,1fr)}
+  .pro .ob-detail{position:static}
+}
+@media (max-width:760px){
+  .pro .fx-grid3,.pro .fx-grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pro .fx-search{min-width:0;width:100%;margin-left:0}
+  .pro .fx-tabs{flex-wrap:wrap}
+}
+
+/* Taux d'après les factures (PRO-08.3) : sur téléphone, les chiffres passent sous le métier. */
+.pro .fac-m{display:none}
+@media (max-width:700px){
+  .pro .fac-m{display:block;margin-top:2px}
+  .pro .fac-tbl th:not(:first-child):not(:last-child),.pro .fac-tbl td:not(:first-child):not(:last-child){display:none}
+}
+
+/* Bibliothèque (PRO-08) : familles, tableau, fiche ; empilés sous 1100 px,
+   familles en bandeau défilant, fiche ouverte au-dessus du tableau. */
+.pro div.fp-layout.bib-grid{grid-template-columns:200px minmax(0,1fr) 360px}
+@media (max-width:1100px){
+  .pro div.fp-layout.bib-grid{grid-template-columns:minmax(0,1fr)}
+  .pro .bib-grid > nav{display:flex;flex-direction:row;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px!important}
+  .pro .bib-grid > nav .lab{display:none}
+  .pro .bib-grid > nav .fx-row{flex:none;width:auto!important;white-space:nowrap;gap:6px}
+  .pro .bib-grid > :nth-child(3){order:-1}
+}
+@media (max-width:700px){
+  .pro .bib-grid .bib-tbl th:last-child,.pro .bib-grid .bib-tbl td:last-child{display:none}
+}
+@media (max-width:700px){
+  .pro .bib-grid .bib-tbl{overflow-x:auto}
+  .pro .bib-grid .bib-tbl th:nth-child(3),.pro .bib-grid .bib-tbl td:nth-child(3){display:none}
+  .pro .bib-sens{flex-wrap:wrap}
+  .pro .bib-sens .kp-seg{width:100%}
+  .pro .bib-sens .kp-seg button{flex:1}
+}
+.pro .bib-fermer{display:none}
+@media (max-width:1100px){
+  .pro .bib-grid > aside:not(.choisi){display:none}
+  .pro .bib-fermer{display:inline-block;margin-bottom:8px}
+}

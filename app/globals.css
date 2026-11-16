@@ -24104,3 +24104,126 @@ button.chantiers-table-row {
   background: #FBE9E5;
   color: #C4452D;
 }
+
+/* TVA à taux réduit (maquette PRO-03.5) : mention certifiée à la signature. */
+.signature-mention-tva {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d9d9d4;
+  border-radius: 4px;
+  background: #f5f5f2;
+}
+.signature-mention-tva p {
+  margin: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.signature-mention-tva .button.link,
+.signature-mention-tva button.link {
+  display: block;
+  margin: 6px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #171B1E;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Formulaire de rétractation (maquette PRO-03.7). */
+.signature-formulaire {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border: 1px dashed #b9b9b2;
+  border-radius: 4px;
+  background: #fff;
+}
+.signature-formulaire p {
+  margin: 4px 0;
+  font-size: 12.5px;
+  color: #3b4045;
+}
+.signature-formulaire p:first-child {
+  font-weight: 700;
+  color: #171B1E;
+}
+
+/* Nouvelle version du devis (maquette PRO-03.6) : ce qui change. */
+.signature-versions {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #171b1e;
+  border-radius: 4px;
+  background: #fff;
+}
+.signature-versions h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.signature-ecart {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid #e3e3de;
+  font-size: 14px;
+}
+.signature-ecart span:not(.tag) {
+  flex: 1;
+}
+.signature-ecart .tag {
+  padding: 1px 8px;
+  border: 1px solid #171b1e;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.signature-ecart.total {
+  border-top-color: #171b1e;
+  font-weight: 600;
+}
+.signature-avant {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.signature-avant li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  color: #5b5f66;
+}
+
+/* Relances et impayés (maquette PRO-06.2) */
+.imp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.imp-grid .cnt { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: var(--line, #e7e3da); font-size: 12px; text-align: center; }
+.imp-paliers { list-style: none; margin: 12px 0 14px; padding: 0; display: grid; gap: 10px; }
+.imp-paliers li { display: grid; grid-template-columns: 46px 1fr; gap: 8px; font-size: 14px; }
+.imp-paliers b { font-variant-numeric: tabular-nums; }
+.imp-lettre { border: 1px solid var(--line, #e7e3da); padding: 16px 18px; font-size: 14px; line-height: 1.55; margin-bottom: 10px; }
+.imp-lettre p { margin: 0 0 10px; white-space: pre-wrap; }
+.imp-lettre p:first-child { font-weight: 700; }
+@media (max-width: 900px) { .imp-grid { grid-template-columns: 1fr; } }
+.imp-grid { grid-template-columns: minmax(0, 1fr) 290px; }
+.imp-grid .tbl { overflow-x: auto; }
+.imp-grid td.n { white-space: nowrap; }
+.imp-grid td.r { white-space: nowrap; }
+.imp-grid td .btn { white-space: nowrap; padding: 8px 12px; font-size: 13px; }
+.imp-grid .ck { width: 100%; justify-content: flex-start; text-align: left; margin-bottom: 10px; }
+
+/* Encaissements (maquette PRO-06.3) */
+.enc-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.enc-etat { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--line, #e7e3da); white-space: nowrap; }
+.enc-etat.late { background: #fde4dc; color: #a33b1c; }
+.enc-etat.ok { background: #dff1e3; color: #23663a; }
+.enc-etat.off { background: transparent; color: var(--muted, #6b7280); border: 1px solid var(--line, #e7e3da); }
+.enc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+.enc-grid .card { gap: 10px; }
+.enc-props { display: grid; gap: 8px; }
+.enc-prop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 220px) auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line, #e7e3da); }
+.enc-prop small { display: block; color: var(--muted, #6b7280); font-size: 12px; }
+.enc-depot { align-self: flex-start; cursor: pointer; }
+@media (max-width: 900px) { .enc-grid { grid-template-columns: 1fr; } .enc-kpis { grid-template-columns: 1fr; } .enc-prop { grid-template-columns: 1fr; } }

@@ -7,6 +7,21 @@ import { isVerifiedUserAdmin } from "../../../lib/admin-account";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
+import { nomFichierDevis } from "../../../lib/devis-envoi";
+
+// Réponses TVA du devis (PRO-03.5) : seulement les valeurs connues.
+function tvaPropre(v) {
+  if (!v || typeof v !== "object") return null;
+  const choix = (valeur, permis) => (permis.includes(valeur) ? valeur : "");
+  return {
+    client: choix(v.client, ["particulier", "entreprise", "sous-traitance"]),
+    local: choix(v.local, ["logement-ancien", "logement-neuf", "professionnel"]),
+    travaux: choix(v.travaux, ["renovation", "energetique", "construction"]),
+    commande: fixText(String(v.commande || "")).slice(0, 60)
+  };
+}
+
+const emailValide = (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim()) ? String(v).trim() : "");
 import { randomChars, makeTemporaryPassword } from "../../../lib/secure-random";
 import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../lib/quote-projects";
 import { ensureClientPortalAccess } from "../../../lib/client-portal-access";
@@ -17,6 +32,10 @@ import { checkTrialSendLimit, checkTrialEditLimit, persistTrialPatch } from "../
 import { buildWebUser } from "../../../lib/user-profile";
 import { sendClientMessageEmail, sendQuoteToClientEmail } from "../../../lib/mailer";
 import { compterDevis, messageRelance } from "../../../lib/devis-liste";
+import { acompteAPartirDu, finRetractation } from "../../../lib/signature-lieu";
+import { estTauxReduit } from "../../../lib/tva";
+import { buildQuotePdf } from "../../../lib/document-generator";
+import { nomFichierDevis as nomPdfDevis } from "../../../lib/devis-envoi";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -282,6 +301,8 @@ export async function POST(request) {
     surcharges: fixObjectText(body.surcharges || []),
     situationFactors: fixObjectText(body.situationFactors || {}),
     vatRate: Number(body.vatRate ?? 20),
+    tva: tvaPropre(body.tva),
+    autoliquidation: body.autoliquidation === true,
     draftStep: Number(body.draftStep || 0),
     draftData: fixObjectText(body.draftData || null),
     isCreationDraft: Boolean(body.isCreationDraft),
@@ -386,6 +407,12 @@ export async function PATCH(request) {
     }
     signatureAccess = buildSignatureAccess(sideDb, quote, body, request, now);
     quote.signatureProvider = "koji-signature";
+    // Canaux de cet envoi, rappelés dans « Conditions envoyées » (PRO-03.3).
+    quote.envoi = {
+      kojiClient: body.includeSignatureLink !== false,
+      email: body.sendEmail === true,
+      sms: body.canalSms === true
+    };
     quote.status = "Envoye";
     quote.signatureStatus = "En attente";
     quote.sentAt = now;
@@ -413,13 +440,19 @@ export async function PATCH(request) {
           // PJ manquante != envoi bloque — l'email part quand meme sans PDF.
         }
       }
+      // Réponses du client : à l'e-mail de l'entreprise sur le devis, sinon
+      // à celui du compte.
+      const replyTo = emailValide(quote.company?.email)
+        || emailValide((await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle()).data?.email)
+        || undefined;
       const mailResult = await sendQuoteToClientEmail({
         to: signatureAccess.email,
         subject: fixText(body.emailSubject || `Votre devis ${quote.quoteNumber}`),
         message: fixText(body.emailMessage || ""),
         quoteNumber: quote.quoteNumber,
         pdfBuffer,
-        pdfFilename: `devis-${quote.quoteNumber}.pdf`,
+        pdfFilename: nomFichierDevis(quote.quoteNumber, quote.client),
+        replyTo,
         signatureUrl: signatureAccess.loginUrl,
         identifier: signatureAccess.identifier,
         password: signatureAccess.password,
@@ -438,7 +471,7 @@ export async function PATCH(request) {
             message: fixText(body.emailMessage || ""),
             quoteNumber: quote.quoteNumber,
             pdfBuffer,
-            pdfFilename: `devis-${quote.quoteNumber}.pdf`,
+            pdfFilename: nomFichierDevis(quote.quoteNumber, quote.client),
             signatureUrl: signatureAccess.loginUrl,
             identifier: signatureAccess.identifier,
             password: signatureAccess.password,
@@ -451,14 +484,52 @@ export async function PATCH(request) {
     }
   }
 
-  if (action === "accept-manually" && quote.signatureStatus !== "Signe") {
+  // Signature sur place (maquette PRO-03.7) : le client signe sur l'appareil
+  // de l'entreprise, chez lui ou dans les locaux. Cases cochées par lui,
+  // horodatées ; rétractation, acompte et démarrage calculés selon le lieu.
+  let surPlace = false;
+  if (action === "signer-sur-place") {
+    if (quote.signatureStatus === "Signe") return badRequest("Ce devis est déjà signé.", 409);
+    const image = String(body.signature || "");
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > 400000) return badRequest("La signature du client manque.");
+    const lieu = body.lieu === "locaux" ? "locaux" : "domicile";
+    const c = body.consentements && typeof body.consentements === "object" ? body.consentements : {};
+    const reduit = !quote.autoliquidation && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
+    if (reduit && !c.mentionTva) return badRequest("Pour la TVA à taux réduit, le client doit certifier la mention avant de signer.");
+    const horodate = (coche, le) => (coche ? (Number.isFinite(new Date(le).getTime()) && Math.abs(Date.now() - new Date(le).getTime()) < 3 * 3600000 ? new Date(le).toISOString() : now) : "");
+    const jour = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date(now));
     quote.status = "Signe";
     quote.signatureStatus = "Signe";
-    quote.signatureProvider = "manuel";
-    quote.acceptanceReason = body.acceptanceReason === "acompte" ? "acompte" : "verbal";
-    quote.acceptanceNote = fixText(body.acceptanceNote || "");
+    quote.signatureProvider = "sur-place";
+    quote.signatureLieu = lieu;
     quote.signerName = fixText(body.signerName || quote.client || "Client");
     quote.signedAt = now;
+    quote.signatureImage = image;
+    quote.consentements = {
+      demandeExpresse: horodate(c.demandeExpresse, c.demandeExpresseLe),
+      mentionTva: horodate(c.mentionTva, c.mentionTvaLe),
+      exemplaireEmail: horodate(c.exemplaireEmail, c.exemplaireEmailLe)
+    };
+    if (reduit) {
+      quote.mentionTva = true;
+      quote.mentionTvaLe = quote.consentements.mentionTva;
+    }
+    quote.retractationJusquau = finRetractation(jour, lieu, quote.clientType);
+    quote.acompteAPartirDu = acompteAPartirDu(jour, lieu, quote.clientType);
+    quote.demarrageDemande = c.demandeExpresse ? String(quote.startDate || "").slice(0, 10) : "";
+    surPlace = true;
+  }
+
+  if ((action === "accept-manually" && quote.signatureStatus !== "Signe") || surPlace) {
+    if (!surPlace) {
+      quote.status = "Signe";
+      quote.signatureStatus = "Signe";
+      quote.signatureProvider = "manuel";
+      quote.acceptanceReason = body.acceptanceReason === "acompte" ? "acompte" : "verbal";
+      quote.acceptanceNote = fixText(body.acceptanceNote || "");
+      quote.signerName = fixText(body.signerName || quote.client || "Client");
+      quote.signedAt = now;
+    }
     quote.projectId = await ensureChantierForQuote(auth.supabase, quote, now);
     generateTasksForSignedQuote(sideDb, quote, now);
     createPaiementEcheancesForQuote(sideDb, quote, now);
@@ -578,7 +649,7 @@ export async function PATCH(request) {
   }
 
   if (action === "update") {
-    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "situationFactors", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones"];
+    const allowed = ["client", "clientReference", "clientEmail", "clientPhone", "clientType", "clientFirstName", "clientLastName", "clientCompanyName", "project", "projectId", "projectReference", "contactId", "chantierAddress", "chantierAddressDetails", "startDate", "expectedDuration", "workDescription", "validityDays", "company", "quoteDate", "createdAt", "rooms", "items", "notes", "surcharges", "situationFactors", "vatRate", "totalHt", "totalTtc", "status", "draftStep", "draftData", "isCreationDraft", "paymentMilestones", "tva", "autoliquidation"];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (key === "draftStep") quote[key] = Number(body[key] || 0);
@@ -589,6 +660,8 @@ export async function PATCH(request) {
         // orthographique appliquee aux textes deja rediges) — juste une
         // whitelist de forme, meme principe que quote-mapping.js.
         else if (key === "paymentMilestones") quote[key] = Array.isArray(body[key]) ? body[key] : null;
+        else if (key === "tva") quote[key] = tvaPropre(body[key]);
+        else if (key === "autoliquidation") quote[key] = body[key] === true;
         else quote[key] = fixObjectText(body[key]);
       }
     }
@@ -651,11 +724,36 @@ export async function PATCH(request) {
   if (updateError) return badRequest(`Mise à jour du devis impossible: ${updateError.message}`, 500);
 
   const responseQuote = mapQuote(updatedRow);
+  // Exemplaire du client (PRO-03.7) : par e-mail s'il l'a demandé en cochant
+  // la case, avec le devis signé (information et formulaire de rétractation).
+  let exemplaire = null;
+  if (surPlace && responseQuote.consentements?.exemplaireEmail && responseQuote.clientEmail) {
+    try {
+      const pdf = buildQuotePdf({ quote: responseQuote, project: null, db: sideDb });
+      const sent = await sendClientMessageEmail({
+        to: responseQuote.clientEmail,
+        subject: `Votre devis signé ${responseQuote.quoteNumber}`,
+        message: [
+          `Bonjour ${responseQuote.signerName || responseQuote.client || ""},`.trim(),
+          "",
+          `Voici votre exemplaire du devis ${responseQuote.quoteNumber}, signé le ${new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" }).format(new Date(responseQuote.signedAt))}.`,
+          responseQuote.retractationJusquau ? "Vous y trouverez l'information sur votre droit de rétractation et le formulaire à utiliser si vous souhaitez annuler." : "",
+          "",
+          responseQuote.company?.name || ""
+        ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n").trim(),
+        replyTo: responseQuote.company?.email || undefined,
+        attachments: [{ filename: nomPdfDevis(responseQuote.quoteNumber, responseQuote.client), content: Buffer.from(pdf), contentType: "application/pdf" }]
+      });
+      exemplaire = { email: Boolean(sent?.ok), erreur: sent?.ok ? "" : sent?.error || "" };
+    } catch (error) {
+      exemplaire = { email: false, erreur: error.message || "Envoi impossible" };
+    }
+  }
   // Surface the one-time plaintext password in this response only — it was
   // never written to the row (see buildSignatureAccess), so mapQuote(updatedRow)
   // alone wouldn't have it.
   if (action === "send" && signatureAccess?.password) {
     responseQuote.signatureClientAccess = { ...responseQuote.signatureClientAccess, password: signatureAccess.password };
   }
-  return ok({ quote: responseQuote, emailSent: emailSendResult?.ok ?? null, emailError: emailSendResult?.ok === false ? emailSendResult.error : null });
+  return ok({ quote: responseQuote, emailSent: emailSendResult?.ok ?? null, emailError: emailSendResult?.ok === false ? emailSendResult.error : null, ...(exemplaire ? { exemplaire } : {}) });
 }

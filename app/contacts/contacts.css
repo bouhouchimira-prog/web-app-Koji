@@ -1,0 +1,60 @@
+/* Contacts (maquettes PRO-10 à 10.3) : compléments aux classes ct- de
+   home-pro.css (liste, fiche, bandeau d'argent, historique). */
+.pro .ct-srch input{width:100%;height:38px;padding:0 12px;border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:14px;background:var(--card)}
+.pro .ct-seg{display:flex;background:#E2E2DB;padding:3px;gap:3px;border-radius:var(--r-touch);margin-top:10px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.pro .ct-seg button{flex:none;padding:6px 10px;border:0;border-radius:2px;background:none;color:#3A3F44;font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.pro .ct-seg button.on{background:#FFFFFF;color:var(--ink);box-shadow:inset 0 0 0 1px #BDBDB4;font-weight:700}
+.pro .ct-sub{display:flex;gap:14px;flex-wrap:wrap;padding:8px 16px;font-size:12px;color:var(--grey);border-bottom:1px solid var(--line)}
+.pro .ct-sub select{border:0;background:none;font:inherit;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer}
+.pro .ct-vide{padding:16px;font-size:13px;color:var(--grey)}
+.pro .ct-f-vide{display:grid;place-items:center}
+.pro .ct-msg{margin:8px 16px}
+.pro .ct-ok{display:inline-flex;gap:5px;align-items:center;font-weight:600;white-space:nowrap;font-size:13px}
+.pro .ct-ok svg{width:13px;height:13px;stroke:var(--ink);fill:none;stroke-width:2.5}
+.pro .ct-note{display:flex;gap:10px;align-items:center;min-height:42px;padding:0 12px;border:1px dashed #8A8F98;border-radius:2px;margin:4px 0 6px;background:var(--card)}
+.pro .ct-note input{flex:1;min-width:0;height:40px;border:0;background:none;font:inherit;font-size:13px}
+.pro .ct-note .link{font-size:12px;white-space:nowrap}
+.pro .ct-docs small.sm2{display:block;margin-bottom:4px}
+.pro .ct-doc{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line)}
+.pro .ct-doc:last-child{border-bottom:0}
+.pro .ct-doc>div{flex:1 1 200px;display:flex;flex-direction:column;min-width:0}
+.pro .ct-doc strong{font-size:14px;font-weight:600}
+.pro .ct-doc small{font-size:12px;color:var(--grey)}
+.pro .ct-doc.na strong{color:var(--grey);font-weight:500}
+.pro .ct-doc .link{font-size:12px}
+.pro .ct-aff{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pro .ct-aff select,.pro .ct-aff input{flex:1 1 180px;min-width:0;height:38px;padding:0 10px;border:1px solid var(--btn);border-radius:2px;font:inherit;font-size:13px;background:var(--card)}
+.pro .ct-pform{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.pro .ct-pform input{height:34px;padding:0 8px;border:1px solid var(--btn);border-radius:2px;font:inherit;font-size:13px}
+.pro .ct-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.pro .ct-tg>.btn,.pro .ct-tg>.fx-note{grid-column:1 / -1;justify-self:start}
+.pro .ct-mini{background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:var(--r-struct);padding:10px 14px;display:flex;flex-direction:column}
+.pro .ct-mini .kv{flex-direction:column;align-items:flex-start;gap:1px;padding:4px 0;border:0}
+.pro .ct-mini .kv span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.pro .ct-mini .kv b{font-size:13px;text-align:left}
+.pro .ct-pan,.pro .ct-ed{display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.pro .ct-edh{display:flex;justify-content:space-between;align-items:center}
+.pro .ct-edh h2{font-size:20px;margin:0}
+.pro .ct-edg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pro .ct-edf{display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.pro .ct-fs{border:1px solid var(--line);border-radius:2px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.pro .ct-fs legend{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grey);padding:0 4px}
+.pro .ct-chips{display:flex;gap:6px;flex-wrap:wrap}
+.pro .ck2{display:flex;gap:8px;align-items:center;font-size:13px}
+.pro .ct-src{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pro .ct-src>label,.pro .ct-src>button{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid #D9D9D4;border-radius:2px;background:var(--card);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.pro .ct-src>.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.pro .ct-src>button:disabled{opacity:.55;cursor:default}
+.pro .ct-src b{font-size:13px}
+.pro .ct-src small{font-size:11px;color:var(--grey)}
+.pro .ct-dup{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--ink);border-radius:2px;padding:12px 14px}
+.pro .ct-dup>div:first-child{flex:1 1 260px;display:flex;flex-direction:column}
+.pro .ct-dup strong{font-size:14px}
+.pro .ct-dup small{font-size:12px;color:var(--grey)}
+.pro .ct-a[aria-disabled="true"],.pro .ct-ab[aria-disabled="true"]{opacity:.45;pointer-events:none}
+@media (max-width:900px){
+  .pro .ct-src{grid-template-columns:1fr 1fr}
+  .pro .ct-edg,.pro .ct-tg{grid-template-columns:minmax(0,1fr)}
+}
+.pro .ct-doc>.fx-etat{margin-left:auto}
+.pro .ct-docs .ct-doc>div{flex:1 1 320px}

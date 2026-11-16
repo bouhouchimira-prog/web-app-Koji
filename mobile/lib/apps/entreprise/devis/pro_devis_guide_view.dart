@@ -31,6 +31,10 @@ class ProDevisGuideView extends StatefulWidget {
     this.choisirPhoto,
     this.feuilleOuverte = false,
     this.ligneOuverte,
+    this.questionTva,
+    this.onReponseTva,
+    this.tauxTva = '',
+    this.onTva,
   });
 
   final String titre;
@@ -57,6 +61,13 @@ class ProDevisGuideView extends StatefulWidget {
   /// États de départ (tests et retours sur l'écran).
   final bool feuilleOuverte;
   final String? ligneOuverte;
+
+  /// TVA (maquette PRO-03.5) : question de Koji (texte, réponses) et ce qu'il
+  /// dit une fois le taux appliqué ; taux affiché dans le bandeau.
+  final (String, List<(String, String)>)? questionTva;
+  final String Function(String valeur)? onReponseTva;
+  final String tauxTva;
+  final VoidCallback? onTva;
 
   @override
   State<ProDevisGuideView> createState() => _ProDevisGuideViewState();
@@ -437,6 +448,40 @@ class _ProDevisGuideViewState extends State<ProDevisGuideView> {
       if (t.text.isNotEmpty) enfants.add(_bulle(da, Text(t.text, style: da.text(14, height: 1.45))));
       if (t.questions.isNotEmpty) enfants.add(_bulle(da, _questions(da, i, t)));
     }
+    final q = widget.questionTva;
+    if (q != null && !_c.envoi && _c.tours.any((t) => t.role == 'user')) {
+      enfants.add(_bulle(
+        da,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(q.$1, style: da.text(14, height: 1.35)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final (libelle, valeur) in q.$2)
+                  _Puce(
+                    libelle: libelle,
+                    choisie: false,
+                    eteinte: false,
+                    onTap: () {
+                      final confirmation = widget.onReponseTva?.call(valeur) ?? '';
+                      _c.ajouterTours([
+                        GuideTour('assistant', q.$1),
+                        GuideTour('user', libelle),
+                        if (confirmation.isNotEmpty) GuideTour('assistant', confirmation),
+                      ]);
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ));
+    }
     if (_c.enDirect.isNotEmpty) {
       enfants.add(_bulle(da, Text(_c.enDirect, style: da.text(14, height: 1.45))));
     } else if (_c.envoi && _c.travail != null) {
@@ -643,6 +688,21 @@ class _ProDevisGuideViewState extends State<ProDevisGuideView> {
                   ),
                 ],
               ),
+              if (widget.tauxTva.isNotEmpty) ...[
+                const SizedBox(width: 10),
+                Semantics(
+                  button: true,
+                  label: 'TVA du devis',
+                  child: GestureDetector(
+                    onTap: widget.onTva,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(border: Border.all(color: lab), borderRadius: BorderRadius.circular(4)),
+                      child: Text(widget.tauxTva, style: da.text(11, weight: FontWeight.w700, color: Colors.white)),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 12),
               Container(
                 width: 36,

@@ -3,9 +3,11 @@ import { readDb, writeDb } from "../../../lib/db";
 import { getAuth, getVerifiedUserId, isUuid } from "../../../lib/server-auth";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { buildWebUser } from "../../../lib/user-profile";
-import { isTrialUser } from "../../../lib/plan";
+import { computeQuoteItem } from "../../../lib/quote-calculations";
+import { mapQuote } from "../../../lib/quote-mapping";
 import { fixText } from "../../../lib/text";
-import { cleanText, daysBetween, distanceBetween, documentsStatus, initials, publicProfil } from "../../../lib/reseau";
+import { sendClientMessageEmail } from "../../../lib/mailer";
+import { accesReseau, cleanText, daysBetween, distanceBetween, documentsStatus, initials, publicProfil, vitrineReseau } from "../../../lib/reseau";
 
 // Tables reseau_* (supabase_web_setup.sql, section « Réseau pro ») : une
 // ligne par profil, besoin, échange et message. Lues et écrites uniquement
@@ -140,13 +142,52 @@ async function addMessage(supabase, echangeId, userId, text) {
   return row;
 }
 
+// « Mes lots sans intervenant » : tâches de mes chantiers sans personne
+// affectée, par lot, avec le montant du lot au devis signé et sa
+// main-d'œuvre (budget indicatif d'un besoin publié depuis ce lot).
+async function lotsSansIntervenant(userId, besoinRows) {
+  const db = await readDb();
+  const groupes = new Map();
+  for (const task of (db.tasks || []).filter((x) => x.userId === userId && !x.done && x.projectId && !(Array.isArray(x.workerIds) && x.workerIds.length))) {
+    const lot = fixText(task.room || task.label || "Lot");
+    const cle = `${task.projectId}|${lot}`;
+    const debut = task.startDate || task.dueDate || "";
+    const fin = task.endDate || task.dueDate || task.startDate || "";
+    const g = groupes.get(cle);
+    if (!g) groupes.set(cle, { cle, projectId: task.projectId, lot, debut, fin });
+    else {
+      if (debut && (!g.debut || debut < g.debut)) g.debut = debut;
+      if (fin && fin > g.fin) g.fin = fin;
+    }
+  }
+  if (!groupes.size) return [];
+  const ids = [...new Set([...groupes.values()].map((g) => g.projectId))];
+  const admin = getSupabaseAdmin();
+  const [{ data: chantiers }, { data: devis }] = await Promise.all([
+    admin.from("chantiers").select("id,reference,city,user_id").in("id", ids),
+    admin.from("quotes").select("*").in("chantier_id", ids)
+  ]);
+  const titres = new Map((chantiers || []).filter((c) => c.user_id === userId).map((c) => [c.id, [c.reference || "Chantier", c.city].filter(Boolean).join(", ")]));
+  const signes = (devis || []).map(mapQuote).filter((q) => q.userId === userId && (q.status === "Signe" || q.signatureStatus === "Signe"));
+  const publies = new Set(besoinRows.filter((b) => b.user_id === userId && b.status === "ouvert").map((b) => `${b.project_id}|${b.lot_label}`));
+  const r2 = (n) => Math.round(n * 100) / 100;
+  return [...groupes.values()].filter((g) => titres.has(g.projectId)).slice(0, 8).map((g) => {
+    const q = signes.find((x) => x.projectId === g.projectId);
+    const calc = (q?.items || []).filter((it) => fixText(it.room || "") === g.lot).map((it) => computeQuoteItem(it, q));
+    return { ...g, projectTitle: titres.get(g.projectId), totalHt: r2(calc.reduce((n, c) => n + (Number(c.totalHt) || 0), 0)), moHt: r2(calc.reduce((n, c) => n + (Number(c.laborCostHt) || 0), 0)), publie: publies.has(`${g.projectId}|${g.lot}`) };
+  });
+}
+
 export async function GET(request) {
   const auth = await authenticate(request);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const me = await loadMe(auth);
-  if (isTrialUser(me.user)) return ok({ locked: true });
-
   const supabase = getSupabaseAdmin();
+  if (!accesReseau(me.user)) {
+    const { data } = await supabase.from("reseau_profils").select("visible,metiers,kbis_date,urssaf_until,decennale_until").eq("visible", true).limit(LIST_LIMIT);
+    return ok({ locked: true, vitrine: vitrineReseau((data || []).map((x) => ({ visible: x.visible, metiers: x.metiers, kbisDate: x.kbis_date, urssafUntil: x.urssaf_until, decennaleUntil: x.decennale_until }))) });
+  }
+
   const userId = auth.userId;
   const [profilsRes, besoinsRes, echangesRes] = await Promise.all([
     supabase.from("reseau_profils").select("*").or(`visible.eq.true,user_id.eq.${userId}`).limit(LIST_LIMIT),
@@ -206,6 +247,7 @@ export async function GET(request) {
     },
     besoins: besoinRows.map((row) => besoinView(row, userId, me.zone, responses.get(row.id) || 0, myEchangeByBesoin.get(row.id) || "")),
     pros,
+    lots: await lotsSansIntervenant(auth.userId, besoinRows).catch(() => []),
     echanges: echangeRows.map((row) => echangeView(row, userId, messagesByEchange.get(row.id) || [], besoinById.get(row.besoin_id)))
   });
 }
@@ -215,7 +257,7 @@ export async function POST(request) {
   const auth = await authenticate(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
   const me = await loadMe(auth);
-  if (isTrialUser(me.user)) return badRequest("Le Réseau pro est inclus dans les offres Pro et Business.", 402);
+  if (!accesReseau(me.user)) return badRequest("Le Réseau pro est inclus dans les offres Pro et Business.", 402);
 
   const supabase = getSupabaseAdmin();
   const userId = auth.userId;
@@ -345,6 +387,20 @@ export async function POST(request) {
       return ok({ echange: await echangeWithMessages(supabase, updated, userId) });
     }
 
+    if (action === "signaler") {
+      const motif = cleanText(body.motif, 500);
+      if (!motif) return badRequest("Dites ce que vous signalez.");
+      const { data: echange } = await supabase.from("reseau_echanges").select("*").eq("id", cleanText(body.echangeId, 80)).maybeSingle();
+      if (!echange || (echange.user_a !== userId && echange.user_b !== userId)) return badRequest("Échange introuvable.", 404);
+      const db = await readDb();
+      db.reseauSignalements = [{ id: `rs-${Date.now()}`, echangeId: echange.id, parUserId: userId, contreUserId: echange.user_a === userId ? echange.user_b : echange.user_a, motif, le: now }, ...(db.reseauSignalements || [])];
+      await writeDb(db);
+      await sendClientMessageEmail({ to: "contact@getkoji.io", subject: `Réseau pro · signalement · ${me.companyName}`, message: `${me.companyName} signale l'échange ${echange.id} avec ${echange.user_a === userId ? echange.name_b : echange.name_a}.
+
+Motif : ${motif}` }).catch(() => null);
+      return ok({ signale: true });
+    }
+
     if (action === "retenir") {
       const { data: echange } = await supabase.from("reseau_echanges").select("*").eq("id", cleanText(body.echangeId, 80)).maybeSingle();
       const { data: besoin } = echange?.besoin_id
@@ -356,12 +412,30 @@ export async function POST(request) {
         supabase.from("reseau_besoins").update({ status: "pourvu", updated_at: now }).eq("id", besoin.id).select().single()
       ]);
       if (echangeError || besoinError) throw echangeError || besoinError;
+      // Le pro retenu entre dans Contacts comme sous-traitant (vigilance,
+      // affectation au chantier, contrat de sous-traitance).
+      const autreId = echange.user_a === userId ? echange.user_b : echange.user_a;
+      const autreNom = (echange.user_a === userId ? echange.name_b : echange.name_a) || "Sous-traitant";
+      const db = await readDb();
+      db.contacts = db.contacts || [];
+      let contact = db.contacts.find((c) => c.userId === userId && (c.reseauUserId === autreId || String(c.companyName || "").toLowerCase() === autreNom.toLowerCase()));
+      if (!contact) {
+        contact = { id: `contact-${Date.now()}`, userId, archived: false, archivedAt: "", createdAt: now, updatedAt: now, roles: ["sous_traitant"], companyName: autreNom, metier: besoin.metier || "", source: "reseau" };
+        db.contacts.unshift(contact);
+      }
+      contact.reseauUserId = autreId;
+      if (!(contact.roles || []).includes("sous_traitant")) contact.roles = [...(contact.roles || []), "sous_traitant"];
+      if (besoin.project_id) {
+        db.chantierContacts = db.chantierContacts || [];
+        if (!db.chantierContacts.some((l) => l.userId === userId && l.contactId === contact.id && l.projectId === besoin.project_id)) db.chantierContacts.unshift({ id: `cc-${Date.now()}`, userId, contactId: contact.id, projectId: besoin.project_id, roleOnSite: besoin.lot_label || besoin.metier || "sous-traitant", addedAt: now });
+      }
+      await writeDb(db);
       await notify(echange.user_a === userId ? echange.user_b : echange.user_a, {
         title: "Vous êtes retenu",
         message: `${me.companyName} vous retient pour : ${besoin.title}`,
         echangeId: echange.id
       });
-      return ok({ echange: await echangeWithMessages(supabase, updatedEchange, userId), besoin: besoinView(updatedBesoin, userId, me.zone, 0, "") });
+      return ok({ echange: await echangeWithMessages(supabase, updatedEchange, userId), besoin: besoinView(updatedBesoin, userId, me.zone, 0, ""), contactId: contact.id });
     }
   } catch (error) {
     return fail(error);

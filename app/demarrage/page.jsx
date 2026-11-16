@@ -418,7 +418,7 @@ export default function DemarragePage() {
   async function enregistrerPrix(parMetier, autres) {
     setError("");
     try {
-      const data = await apiSend("/api/entreprise/taux", { taux: parMetier }, "PUT");
+      const data = await apiSend("/api/entreprise/taux", { taux: parMetier, valider: Object.keys(parMetier) }, "PUT");
       setTaux(data?.taux || {});
       const heures = Number(user?.business?.hoursPerDay) || 7;
       return await enregistrer("prix", { business: { dailyRate: Math.round(autres * heures * 100) / 100, hoursPerDay: heures } });

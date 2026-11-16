@@ -9,6 +9,8 @@ import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/factures/factures_logic.dart';
 import 'package:koji/features/factures/factures_repository.dart';
 import 'package:koji/features/factures/factures_widgets.dart';
+import 'package:koji/features/factures/encaissements_screen.dart';
+import 'package:koji/features/factures/impayes_screen.dart';
 
 const _tabs = {
   'toutes': 'Toutes',
@@ -90,7 +92,11 @@ class _FacturesScreenState extends ConsumerState<FacturesScreen> {
     return KojiPage(
       title: 'Factures',
       subtitle: eyebrow,
-      actions: [newButton],
+      actions: [
+        KojiButton(label: 'Encaissements', variant: KojiButtonVariant.secondary, onPressed: () => context.push(encaissementsRoute)),
+        if (stats.lateCount > 0) KojiButton(label: 'Impayés', variant: KojiButtonVariant.secondary, onPressed: () => context.push(impayesRoute)),
+        newButton,
+      ],
       onRefresh: () => ref.refresh(facturesProvider.future),
       top: [
         KojiKpiRow(children: [

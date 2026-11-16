@@ -4,6 +4,10 @@ import { fixObjectText, fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 import { nextAvenantNumero, normalizeLignes, computeAvenantTotals } from "../../../lib/avenant-mapping";
+import { makeToken } from "../../../lib/db";
+import { sendClientMessageEmail } from "../../../lib/mailer";
+import { buildAvenantPdf, avenantDocumentFilename } from "../../../lib/document-generator";
+import { numeroCourt } from "../../../lib/avenant-koji";
 
 // Avenants (contract amendments) attach to an already-SIGNED devis and carry
 // only the delta — see lib/avenant-mapping.js for the numbering/totals
@@ -49,7 +53,9 @@ export async function POST(request) {
   // n'importe quelle entreprise authentifiee pouvait creer un avenant sur le
   // devis signe d'une AUTRE entreprise juste en connaissant/devinant son id.
   if (userId !== ADMIN_SCOPE && quote.userId !== userId) return badRequest("Devis introuvable.", 404);
-  if (quote.status !== "Signe" && quote.signatureStatus !== "Signe") {
+  // Devis de l'app signés via koji-signature : statut « accepte ».
+  const signe = quote.status === "Signe" || quote.signatureStatus === "Signe" || String(quoteRow.status || "").toLowerCase() === "accepte" || Boolean(quoteRow.signed_at);
+  if (!signe) {
     return badRequest("Un avenant ne peut être créé que sur un devis déjà signé.");
   }
 
@@ -71,12 +77,19 @@ export async function POST(request) {
     motifCategory: ["demande_client", "imprevu_chantier", "modification_technique"].includes(body.motifCategory) ? body.motifCategory : "demande_client",
     facturationMode: body.facturationMode === "solde" ? "solde" : "separee",
     client: quote.client || "",
+    chantier: quote.project || "",
     clientEmail: quote.clientEmail || "",
     chantierAddress: quote.chantierAddress || "",
     vatRate: quote.vatRate,
     lignes,
     totalHtDelta,
     totalTtcDelta,
+    // PRO-05 : impact planning (jours ouvrés), message au client, notes de
+    // chantier dont Koji est parti.
+    impactJours: Math.max(-30, Math.min(30, Math.round(Number(body.impactJours) || 0))),
+    message: fixText(String(body.message || "")).slice(0, 2000),
+    notes: fixText(String(body.notes || "")).slice(0, 2000),
+    projectId: quote.projectId || "",
     createdAt: now,
     updatedAt: now,
     sentAt: "",
@@ -126,6 +139,9 @@ export async function PATCH(request) {
     if (Object.prototype.hasOwnProperty.call(body, "motifCategory") && ["demande_client", "imprevu_chantier", "modification_technique"].includes(body.motifCategory)) {
       avenant.motifCategory = body.motifCategory;
     }
+    if (Object.prototype.hasOwnProperty.call(body, "impactJours")) avenant.impactJours = Math.max(-30, Math.min(30, Math.round(Number(body.impactJours) || 0)));
+    if (Object.prototype.hasOwnProperty.call(body, "message")) avenant.message = fixText(String(body.message || "")).slice(0, 2000);
+    if (Object.prototype.hasOwnProperty.call(body, "notes")) avenant.notes = fixText(String(body.notes || "")).slice(0, 2000);
     if (Object.prototype.hasOwnProperty.call(body, "facturationMode")) {
       avenant.facturationMode = body.facturationMode === "solde" ? "solde" : "separee";
     }
@@ -138,8 +154,32 @@ export async function PATCH(request) {
   } else if (action === "send") {
     if (avenant.status !== "Brouillon") return badRequest("Cet avenant a déjà été envoyé.");
     if (!avenant.lignes.length) return badRequest("Ajoutez au moins une ligne avant d'envoyer cet avenant.");
+    if (avenant.lignes.some((l) => l.aChiffrer && !(Number(l.unitPriceHt) > 0))) return badRequest("Une ligne est encore à chiffrer : donnez-lui un prix avant d'envoyer.");
     avenant.status = "Envoye";
     avenant.sentAt = now;
+    // Signature en ligne par le client (PRO-05), comme le devis : lien
+    // unique, e-mail avec le PDF s'il est demandé.
+    avenant.signatureToken = avenant.signatureToken || makeToken("avsig");
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    avenant.signatureUrl = `${appUrl}/signature/avenant/${avenant.signatureToken}`;
+    if (body.email !== false && avenant.clientEmail) {
+      try {
+        const supabase = getSupabaseAdmin();
+        const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", avenant.quoteId).maybeSingle();
+        const quote = quoteRow ? fixObjectText(mapQuote(quoteRow)) : null;
+        const pdf = buildAvenantPdf({ avenant: fixObjectText(avenant), quote, db });
+        const r = await sendClientMessageEmail({
+          to: avenant.clientEmail,
+          subject: `Avenant ${numeroCourt(avenant.numero)} au devis ${avenant.quoteNumber}`,
+          message: [avenant.message || `Bonjour${avenant.client ? ` ${avenant.client}` : ""}, voici l'avenant au devis ${avenant.quoteNumber}.`, "", `Pour le lire et le signer en ligne : ${avenant.signatureUrl}`].join("\n"),
+          replyTo: quote?.company?.email || undefined,
+          attachments: [{ filename: avenantDocumentFilename(avenant), content: Buffer.from(pdf), contentType: "application/pdf" }]
+        });
+        avenant.emailEnvoye = Boolean(r?.ok);
+      } catch {
+        avenant.emailEnvoye = false;
+      }
+    }
   } else if (action === "accept-manually") {
     if (avenant.status === "Signe") return badRequest("Cet avenant est déjà signé.");
     avenant.status = "Signe";

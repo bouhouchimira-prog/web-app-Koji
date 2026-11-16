@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -97,6 +98,13 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     await ref
         .read(authProvider.notifier)
         .signInWithEmailAndPassword(_email.text.trim(), _password.text);
+  }
+
+  Future<void> _apple() async {
+    setState(() => _authAttempted = true);
+    await ref
+        .read(authProvider.notifier)
+        .signInWithApple(isPro: KojiAppConfig.isPro);
   }
 
   Future<void> _google() async {
@@ -411,17 +419,28 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
               size: 19, color: ProAuth.grey),
         );
 
-    final showGoogle = !kIsWeb && defaultTargetPlatform != TargetPlatform.iOS;
+    final fournisseurs =
+        fournisseursConnexion(web: kIsWeb, platform: defaultTargetPlatform);
     final providers = <Widget>[
-      if (showGoogle) ...[
+      if (fournisseurs.isNotEmpty) ...[
         const ProAuthOr(),
         gap,
-        ProAuthProviderButton(
-          logo: SvgPicture.string(_GoogleButton._logo, width: 18, height: 18),
-          label: 'Continuer avec Google',
-          onTap: loading ? null : _google,
-        ),
-        gap,
+        for (final fournisseur in fournisseurs) ...[
+          if (fournisseur == 'apple')
+            _AppleButton(
+              onTap: loading ? null : _apple,
+              height: 48,
+              radius: ProAuth.radius,
+            )
+          else
+            ProAuthProviderButton(
+              logo: SvgPicture.string(_GoogleButton._logo,
+                  width: 18, height: 18),
+              label: 'Continuer avec Google',
+              onTap: loading ? null : _google,
+            ),
+          gap,
+        ],
       ],
     ];
 
@@ -815,16 +834,28 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
     final p = context.koji;
     final isLogin = _tab == KojiAuthTab.login;
     return [
-      // Google opens in the browser and comes back to the app (see
-      // AuthRepository.signInWithGoogle). Mobile only: the website has its
-      // own Google button. Hidden on iOS: App Store guideline 4.8 requires
-      // "Sign in with Apple" next to any third-party login, not set up yet.
-      if (!kIsWeb && defaultTargetPlatform != TargetPlatform.iOS) ...[
-        _GoogleButton(
-          label: isLogin ? 'Continuer avec Google' : "S'inscrire avec Google",
-          onTap: loading ? null : _google,
-        ),
-        const SizedBox(height: 22),
+      // Social sign-ins (fournisseursConnexion): Google in the browser on
+      // Android and iPhone; on iPhone, Sign in with Apple first (App Store
+      // guideline 4.8). Mobile only: the website has its own buttons.
+      if (fournisseursConnexion(web: kIsWeb, platform: defaultTargetPlatform)
+          .isNotEmpty) ...[
+        for (final fournisseur in fournisseursConnexion(
+            web: kIsWeb, platform: defaultTargetPlatform)) ...[
+          if (fournisseur == 'apple')
+            _AppleButton(
+              onTap: loading ? null : _apple,
+              height: 54,
+              radius: const BorderRadius.all(Radius.circular(13)),
+            )
+          else
+            _GoogleButton(
+              label:
+                  isLogin ? 'Continuer avec Google' : "S'inscrire avec Google",
+              onTap: loading ? null : _google,
+            ),
+          const SizedBox(height: 12),
+        ],
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(child: Divider(color: p.line)),
@@ -1010,6 +1041,28 @@ const _clientBackground = LinearGradient(
   colors: [KojiColors.navyDeep, KojiColors.navy, KojiColors.navySoft],
   stops: [0, 0.55, 1],
 );
+
+/// « Continuer avec Apple », the official button of sign_in_with_apple
+/// (Apple logo and look as Apple requires), sized like the other buttons.
+class _AppleButton extends StatelessWidget {
+  const _AppleButton(
+      {required this.onTap, required this.height, required this.radius});
+
+  final VoidCallback? onTap;
+  final double height;
+  final BorderRadius radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return SignInWithAppleButton(
+      text: 'Continuer avec Apple',
+      height: height,
+      borderRadius: radius,
+      style: SignInWithAppleButtonStyle.black,
+      onPressed: onTap,
+    );
+  }
+}
 
 class _GoogleButton extends StatelessWidget {
   const _GoogleButton({required this.label, required this.onTap});

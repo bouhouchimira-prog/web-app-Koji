@@ -1,0 +1,55 @@
+/* Calendrier (maquettes PRO-11 à 11.4) : compléments à home-pro.css. */
+.pro .k-ev.kliv{background:#E6E6E1;border-color:#C9C9C2;color:var(--ink)}
+.pro .k-ev em+em{margin-left:4px}
+.pro .k-per{margin-left:auto}
+.pro .k-nav{flex-wrap:wrap}
+.pro .k-fsearch{width:100%;height:34px;padding:0 10px;margin-bottom:8px;border:1px solid var(--btn);border-radius:2px;font:inherit;font-size:13px}
+.pro .k-filter-pop .lab{display:block;margin:10px 0 4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
+.pro .k-filter-pop .link{display:inline-block;margin-top:10px;font-size:12px}
+.pro .k-ag{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:start}
+.pro .k-ag .k-h{font-size:12px;font-weight:700;color:var(--ink);padding-top:2px;white-space:nowrap}
+.pro .k-rg{align-items:flex-start}
+.pro .k-rg .t .link{align-self:flex-start;margin-top:6px;font-size:12px}
+.pro .k-tact{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.pro .k-tact select{height:38px;padding:0 10px;border:1px solid var(--btn);border-radius:2px;font:inherit;font-size:13px;background:var(--card)}
+.pro .k-plan{gap:14px}
+.pro .k-lot{display:flex;flex-direction:column;gap:12px}
+.pro .k-prop{margin:0;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--prim);font-size:13px}
+.pro .k-dispo{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.pro .k-dispo span{display:flex;flex-direction:column;gap:2px;padding:8px 6px;border:1px solid var(--line);background:var(--card);font-size:11px;color:var(--grey);text-align:center}
+.pro .k-dispo span b{font-size:12px;color:var(--ink)}
+.pro .k-dispo span.oc{background:#E6E6E1}
+.pro .k-dispo span.fe{background:repeating-linear-gradient(45deg,#ECECE7,#ECECE7 4px,#E2E2DB 4px,#E2E2DB 8px)}
+.pro .k-dispo span.pr{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);color:var(--ink);font-weight:700}
+.pro .k-warn{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--ink);background:var(--card);font-size:12px}
+.pro .k-warn b{font-size:13px}
+.pro .k-warn span{color:var(--grey)}
+.pro .k-warn .link{align-self:flex-start;font-size:12px;margin-top:4px}
+.pro .k-fiche .kv{padding:8px 0}
+.pro .k-avant{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.pro .k-avant .lab{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
+@media (max-width:700px){
+  .pro .k-per{margin-left:0;width:100%}
+  .pro .k-dispo{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+/* Export du planning d'un chantier (PRO-11.1). */
+.pro .pe-siret{display:block;font-size:11px;color:var(--grey)}
+.pro .pe-ch h3{margin:18px 0 8px;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.pro .pe-info{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px}
+.pro .pe-info div{display:flex;flex-direction:column;padding:8px 10px;border:1px solid var(--line)}
+.pro .pe-info span{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--grey)}
+.pro .pe-info b{font-size:12px}
+.pro .pe-gantt{display:flex;flex-direction:column;border:1px solid var(--line);font-size:11px}
+.pro .pe-gh,.pro .pe-gr{display:grid;grid-template-columns:200px repeat(var(--n),minmax(0,1fr));align-items:center}
+.pro .pe-gh span{padding:4px;border-left:1px solid var(--line);font-weight:700;text-align:center}
+.pro .pe-gh span:first-child{text-align:left;border-left:0}
+.pro .pe-gh small{display:block;font-weight:400;color:var(--grey)}
+.pro .pe-gr{border-top:1px solid var(--line);min-height:34px}
+.pro .pe-gr>span{display:flex;flex-direction:column;padding:4px 6px;grid-column:1}
+.pro .pe-gr small{color:var(--grey)}
+.pro .pe-gr i{grid-row:1;height:14px;margin:0 2px;border:1px solid var(--ink);background:var(--card)}
+.pro .pe-gr i.ok{background:#BFBFB8;border-color:#9A9A93}
+.pro .pe-gr i.ec{background:var(--ink)}
+.pro .pe-jal,.pro .pe-li{margin:6px 0;font-size:12px}
+.pro .pe-foot{margin-top:18px;font-size:11px;color:var(--grey)}
+@media print{.pro .pe-info{grid-template-columns:repeat(5,1fr)}}

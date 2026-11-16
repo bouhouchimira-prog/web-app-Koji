@@ -94,6 +94,9 @@ class KojiProApi {
   Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> body) async =>
       _decode(await _http.patch(_uri(path), headers: await _headers(), body: jsonEncode(body)));
 
+  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) async =>
+      _decode(await _http.put(_uri(path), headers: await _headers(), body: jsonEncode(body)));
+
   Future<Map<String, dynamic>> delete(String path, {Map<String, dynamic>? query}) async =>
       _decode(await _http.delete(_uri(path, query), headers: await _headers(json: false)));
 

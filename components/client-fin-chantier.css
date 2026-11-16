@@ -23,3 +23,7 @@ div.cfc-row{cursor:default}
 .cfc-msg{margin:10px 0 0;padding:10px 12px;background:#F4F4EF;border-radius:8px;font-size:14px}
 .cfc-send{height:48px;border:0;border-radius:8px;background:#FFC400;color:#171B1E;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
 .cfc-send:disabled{opacity:.45;cursor:default}
+.cfc-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.cfc-photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px}
+.cfc-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:520px){.cfc-photos{grid-template-columns:repeat(2,1fr)}}

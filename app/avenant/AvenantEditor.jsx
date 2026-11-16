@@ -8,6 +8,7 @@ import { apiGet, apiSend } from "../../lib/client-api";
 import { useApi } from "../../lib/use-api";
 import { useLocale } from "../../lib/i18n";
 import { computeAvenantTotals, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
+import { numeroCourt } from "../../lib/avenant-koji";
 import catalog from "../../data/catalog-ouvrages.json";
 
 function money(value) {
@@ -338,6 +339,7 @@ export function AvenantEditor() {
             </>
           ) : avenant?.status === "Envoye" ? (
             <>
+              {avenant.signatureUrl ? <button type="button" className="btn btn-sec" onClick={() => navigator.clipboard?.writeText(avenant.signatureUrl)}>Copier le lien de signature</button> : null}
               <button type="button" className="btn btn-sec" onClick={openRefuseComposer}>{L.avenants.refuseAvenant}</button>
               <button type="button" className="btn btn-main" onClick={openAcceptComposer}>{L.avenants.acceptManually}</button>
             </>
@@ -571,112 +573,84 @@ export function AvenantEditor() {
 // création à partir d'un devis signé. Avant, la page ouvrait un éditeur vide
 // sans devis d'origine, que l'API refusait d'enregistrer.
 export function AvenantList() {
-  const { L } = useLocale();
   const router = useRouter();
   const { data: avenants, loading } = useApi("/api/avenants", "avenants");
-  const { data: quotes } = useApi("/api/quotes", "quotes");
-  const [pickOpen, setPickOpen] = useState(false);
-  const [pickedQuoteId, setPickedQuoteId] = useState("");
+  const [onglet, setOnglet] = useState("tous");
 
-  const signedQuotes = useMemo(() => quotes.filter((q) => q.status === "Signe"), [quotes]);
-  const rows = useMemo(() => [...avenants].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))), [avenants]);
-  const pending = avenants.filter((a) => a.status === "Envoye").length;
-  const drafts = avenants.filter((a) => a.status === "Brouillon").length;
-
-  function openPicker() {
-    setPickedQuoteId(signedQuotes[0]?.id || "");
-    setPickOpen(true);
-  }
+  // Liste des avenants (maquette PRO-05.1) : par état, numérotés A1, A2…
+  // L'avenant se crée toujours depuis la fiche du chantier (PRO-05).
+  const visibles = useMemo(() => avenants.filter((a) => a.status !== "Archive"), [avenants]);
+  const etat = (a) => (a.status === "Envoye" ? "signer" : a.status === "Brouillon" ? "brouillon" : a.status === "Signe" ? "signe" : "autre");
+  const comptes = { tous: visibles.length, signer: visibles.filter((a) => etat(a) === "signer").length, brouillon: visibles.filter((a) => etat(a) === "brouillon").length, signe: visibles.filter((a) => etat(a) === "signe").length };
+  const rows = useMemo(() => visibles
+    .filter((a) => onglet === "tous" || etat(a) === onglet)
+    .sort((a, b) => String(b.signedAt || b.sentAt || b.createdAt || "").localeCompare(String(a.signedAt || a.sentAt || a.createdAt || ""))), [visibles, onglet]);
+  const ONGLETS = [["tous", "Tous"], ["signer", "À signer"], ["brouillon", "Brouillons"], ["signe", "Signés"]];
+  const libelle = (a) => `${numeroCourt(a.numero)} · ${a.chantier || a.client || `devis ${a.quoteNumber}`}`;
+  const objet = (a) => a.motif || (a.lignes || []).map((l) => l.label).slice(0, 2).join(", ") || "—";
+  const date = (a) => (a.status === "Signe" ? `signé le ${shortDate(a.signedAt)}` : a.status === "Envoye" ? `envoyé le ${shortDate(a.sentAt)} · en attente` : a.status === "Refuse" ? `refusé le ${shortDate(a.refusedAt)}` : "brouillon");
+  const tag = (a) => (a.status === "Signe" ? <span className="tag tag-b">Signé</span> : a.status === "Envoye" ? <span className="tag tag-e">À signer</span> : a.status === "Refuse" ? <span className="tag dim">Refusé</span> : <span className="tag tag-o">Brouillon</span>);
+  const montantTtc = (a) => `${Number(a.totalTtcDelta || 0) >= 0 ? "+ " : "− "}${money(Math.abs(Number(a.totalTtcDelta || 0)))}`;
 
   return (
     <Shell variant="pro">
       <div className="head">
         <div className="stack">
-          <span className="eyebrow">
-            {[`${avenants.length} avenant${avenants.length > 1 ? "s" : ""}`, `${drafts} brouillon${drafts > 1 ? "s" : ""}`, `${pending} en attente de signature`].join(" · ")}
-          </span>
+          <span className="eyebrow">{`Avenants · ${visibles.length}${comptes.signer ? ` · ${comptes.signer} à signer` : ""}`}</span>
           <h1>Avenants</h1>
-          <span className="muted">Un avenant modifie un devis signé sans le refaire : ajout, suppression ou modification de lignes.</span>
-        </div>
-        <div className="acts">
-          <button type="button" className="btn btn-main" onClick={openPicker}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Nouvel avenant
-          </button>
         </div>
       </div>
-
-      {loading || rows.length === 0 ? (
-        <div className="tbl"><p className="empty">{loading ? "Chargement…" : "Aucun avenant pour l'instant. Créez-en un depuis un devis signé."}</p></div>
-      ) : (
-        <>
-          <div className="tbl has-cards">
-            <table>
-              <thead>
-                <tr>
-                  <th>Avenant · devis</th>
-                  <th>Client</th>
-                  <th>Motif</th>
-                  <th className="r">Montant TTC</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((item) => (
-                  <tr key={item.id} tabIndex={0} onClick={() => router.push(`/avenant?id=${item.id}`)} onKeyDown={(event) => { if (event.key === "Enter") router.push(`/avenant?id=${item.id}`); }}>
-                    <td className="n">{item.numero}<div className="sm">Devis {item.quoteNumber || "—"} · {shortDate(item.createdAt)}</div></td>
-                    <td>{item.client || "—"}</td>
-                    <td className="av-motif">{item.motif || <span className="sm2">Sans motif</span>}</td>
-                    <td className="r">{Number(item.totalTtcDelta || 0) >= 0 ? "+ " : "− "}{money(Math.abs(Number(item.totalTtcDelta || 0)))}</td>
-                    <td><span className={STATUS_TAGS[item.status] || "tag tag-o"}>{L.avenants[STATUS_KEYS[item.status]] || item.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mlist">
-            {rows.map((item) => (
-              <Link className="m-card" key={item.id} href={`/avenant?id=${item.id}`}>
-                <div className="top2">
-                  <div>
-                    <div className="nm">{item.numero} · {item.client || "Client"}</div>
-                    <div className="meta">Devis {item.quoteNumber || "—"} · {shortDate(item.createdAt)}</div>
-                  </div>
-                  <span className={STATUS_TAGS[item.status] || "tag tag-o"}>{L.avenants[STATUS_KEYS[item.status]] || item.status}</span>
-                </div>
-                {item.motif ? <div className="line">{item.motif}</div> : null}
-                <div className="dvc-f"><b>{Number(item.totalTtcDelta || 0) >= 0 ? "+ " : "− "}{money(Math.abs(Number(item.totalTtcDelta || 0)))} TTC</b></div>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
-
-      {pickOpen ? (
-        <div className="pmodal-bg" onClick={() => setPickOpen(false)}>
-          <form className="pmodal fp-small" role="dialog" aria-modal="true" aria-label="Nouvel avenant" onClick={(event) => event.stopPropagation()} onSubmit={(event) => { event.preventDefault(); if (pickedQuoteId) router.push(`/avenant?quoteId=${pickedQuoteId}`); }}>
-            <div className="card-h">
-              <h2>Nouvel avenant</h2>
-              <button type="button" className="link" onClick={() => setPickOpen(false)}>Fermer</button>
+      <div className="avl-g">
+        <div>
+          <div className="tbar">
+            <div className="wtabs" role="tablist" aria-label="Filtrer les avenants">
+              {ONGLETS.map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={onglet === id} className={onglet === id ? "on" : ""} onClick={() => setOnglet(id)}>{label} <span>{comptes[id]}</span></button>
+              ))}
             </div>
-            {signedQuotes.length === 0 ? (
-              <p className="muted">{L.avenants.onlyOnSigned}</p>
-            ) : (
-              <div className="fgrid">
-                <label className="full">Devis signé à modifier
-                  <select value={pickedQuoteId} onChange={(event) => setPickedQuoteId(event.target.value)}>
-                    {signedQuotes.map((q) => <option key={q.id} value={q.id}>{q.quoteNumber} · {q.client || "Client"} · {money(q.totalTtc)}</option>)}
-                  </select>
-                </label>
+          </div>
+          {loading || rows.length === 0 ? (
+            <div className="tbl"><p className="empty">{loading ? "Chargement…" : "Aucun avenant dans cet onglet. Un avenant se crée depuis la fiche du chantier."}</p></div>
+          ) : (
+            <>
+              <div className="tbl has-cards">
+                <table>
+                  <thead><tr><th>Avenant</th><th>Objet</th><th className="r">Montant TTC</th><th>Date</th><th>État</th><th aria-label="Action" /></tr></thead>
+                  <tbody>
+                    {rows.map((a) => (
+                      <tr key={a.id} tabIndex={0} onClick={() => router.push(`/avenant?id=${a.id}`)} onKeyDown={(e) => { if (e.key === "Enter") router.push(`/avenant?id=${a.id}`); }}>
+                        <td className="n">{libelle(a)}</td>
+                        <td className="av-motif">{objet(a)}</td>
+                        <td className="r">{montantTtc(a)}</td>
+                        <td className="sm2">{date(a)}</td>
+                        <td>{tag(a)}</td>
+                        <td className="r"><Link className="link" href={`/avenant?id=${a.id}`} onClick={(e) => e.stopPropagation()}>Ouvrir</Link></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-            <div className="pm-act">
-              <button type="button" className="btn btn-sec" onClick={() => setPickOpen(false)}>{L.common.cancel}</button>
-              <button type="submit" className="btn btn-main" disabled={!pickedQuoteId}>Continuer</button>
-            </div>
-          </form>
+              <div className="mlist">
+                {rows.map((a) => (
+                  <Link className="m-card" key={a.id} href={`/avenant?id=${a.id}`}>
+                    <div className="top2"><div><div className="nm">{libelle(a)}</div><div className="meta">{objet(a)}</div></div>{tag(a)}</div>
+                    <div className="dvc-f"><span className="sm2">{date(a)}</span><b>{montantTtc(a)}</b></div>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      ) : null}
+        <aside className="card">
+          <div className="card-h"><h2>Un avenant se crée depuis le chantier</h2></div>
+          <div className="avl-rules">
+            <p>Depuis la fiche du chantier : Koji repart du devis signé et de vos notes, numérote A1, A2…</p>
+            <p>Signé en ligne par le client, comme le devis ; il voit chaque changement et sa justification.</p>
+            <p>Un avenant signé met à jour le total du marché et le reste à facturer sur les situations.</p>
+            <Link className="btn btn-sec" href="/chantiers">Voir les chantiers</Link>
+          </div>
+        </aside>
+      </div>
     </Shell>
   );
 }

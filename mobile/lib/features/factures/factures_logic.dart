@@ -91,7 +91,9 @@ String invoiceBucket(Invoice invoice, {DateTime? now}) {
 int daysLate(Invoice invoice, {DateTime? now}) {
   final due = parseDay(invoice['dueDate']);
   if (due == null) return 0;
-  final late = _today(now).difference(due).inDays;
+  // En dates UTC : un changement d'heure ne fait pas perdre un jour.
+  final today = _today(now);
+  final late = DateTime.utc(today.year, today.month, today.day).difference(DateTime.utc(due.year, due.month, due.day)).inDays;
   return late > 0 ? late : 0;
 }
 
@@ -188,24 +190,101 @@ FacturesStats facturesStats(List<Invoice> invoices, {DateTime? now}) {
   );
 }
 
-/// PRO-06.2 : textes préremplis, modifiables avant envoi (identiques au site).
-String reminderText(String level, Invoice invoice, {String company = '', DateTime? now}) {
-  final client = '${invoice['client'] ?? ''}'.trim().isEmpty ? 'Madame, Monsieur' : '${invoice['client']}';
+/// PRO-06.2 : textes préremplis, modifiables avant envoi (identiques au site,
+/// lib/relances.js). societe : client professionnel (pénalités, indemnité de
+/// 40 €) ; particulier : intérêts au taux légal.
+String reminderText(String level, Invoice invoice, {String company = '', bool societe = false, DateTime? now}) {
+  final client = '${invoice['client'] ?? ''}'.trim();
   final amount = euro(amountOf(invoice));
   final due = longDay(invoice['dueDate']);
   final number = '${invoice['invoiceNumber'] ?? ''}';
-  final previous = remindersOf(invoice).map((r) => longDay(r['at'], withYear: false)).where((d) => d.isNotEmpty).toList();
+  final previous = remindersOf(invoice).where((r) => r['level'] != 'demeure').map((r) => r['at']).toList();
   final signature = company.isNotEmpty ? '\n\nCordialement,\n$company' : '\n\nCordialement,';
+  final type = '${invoice['type'] ?? ''}';
+  final nom = RegExp('acompte', caseSensitive: false).hasMatch(type)
+      ? 'la facture d\'acompte'
+      : RegExp('situation', caseSensitive: false).hasMatch(type)
+          ? 'la situation de travaux'
+          : 'la facture';
   if (level == 'demeure') {
-    final relances = previous.isEmpty ? '' : ', malgré nos relances du ${previous.join(' et du ')}';
-    return 'Objet : mise en demeure de payer, facture $number\n\n$client,\n\nPar la présente, nous vous mettons en demeure de régler la somme de $amount TTC due au titre de la facture $number, échue le $due$relances.\n\nÀ défaut de règlement dans un délai de 8 jours à compter de la réception de ce courrier, nous nous réservons le droit d\'engager une procédure de recouvrement.${company.isNotEmpty ? '\n\n$company' : ''}';
+    final relances = previous.isEmpty ? '' : 'malgré ${previous.length > 1 ? 'nos relances des' : 'notre relance du'} ${_listeJours(previous)}, ';
+    final emise = longDay(invoice['issuedAt'] ?? invoice['createdAt'], withYear: false);
+    final suite = societe
+        ? 'À défaut, nous saisirons la juridiction compétente. Des pénalités de retard et l\'indemnité forfaitaire de 40 € pour frais de recouvrement sont dues de plein droit.'
+        : 'À défaut, nous saisirons la juridiction compétente. Les sommes dues porteront intérêts au taux légal à compter de la présente mise en demeure.';
+    return 'Objet : mise en demeure de payer\n\n${_civilite(client)}, $relances$nom $number${emise.isNotEmpty ? ' du $emise' : ''}, d\'un montant de $amount TTC, reste impayée. Nous vous mettons en demeure de régler cette somme sous 8 jours à compter de la réception de ce courrier. $suite${company.isNotEmpty ? '\n\n$company' : ''}';
   }
+  final bonjour = client.isEmpty ? 'Madame, Monsieur' : client;
   if (level == 'ferme') {
-    final rappel = previous.isEmpty ? '' : ' du ${previous.last}';
-    return 'Bonjour $client,\n\nMalgré notre précédent rappel$rappel, la facture $number d\'un montant de $amount TTC, échue le $due, reste impayée (${daysLate(invoice, now: now)} jours de retard).\n\nMerci de procéder au règlement sous 8 jours. La facture est jointe à ce message.$signature';
+    final rappel = previous.isEmpty ? '' : ' du ${longDay(previous.last, withYear: false)}';
+    return 'Bonjour $bonjour,\n\nMalgré notre précédent rappel$rappel, $nom $number d\'un montant de $amount TTC, échue le $due, reste impayée (${daysLate(invoice, now: now)} jours de retard).\n\nMerci de procéder au règlement sous 8 jours. La facture est jointe à ce message.$signature';
   }
-  return 'Bonjour $client,\n\nSauf erreur de notre part, la facture $number d\'un montant de $amount TTC, arrivée à échéance le $due, n\'a pas encore été réglée.\n\nPourriez-vous procéder au règlement ? Vous trouverez la facture en pièce jointe. Si le paiement est déjà parti, merci de ne pas tenir compte de ce message.$signature';
+  return 'Bonjour $bonjour,\n\nSauf erreur de notre part, $nom $number d\'un montant de $amount TTC, arrivée à échéance le $due, n\'a pas encore été réglée.\n\nPourriez-vous procéder au règlement ? Vous trouverez la facture en pièce jointe. Si le paiement est déjà parti, merci de ne pas tenir compte de ce message.$signature';
 }
+
+String _civilite(String client) {
+  if (RegExp(r'^(mme|madame)\b', caseSensitive: false).hasMatch(client)) return 'Madame';
+  if (RegExp(r'^(m\.|mr|monsieur)\b', caseSensitive: false).hasMatch(client)) return 'Monsieur';
+  return 'Madame, Monsieur';
+}
+
+/// « 9 et 21 novembre », mois répétés s'ils diffèrent.
+String _listeJours(List<Object?> dates) {
+  final days = dates.map(parseDay).whereType<DateTime>().toList();
+  if (days.isEmpty) return '';
+  final memeMois = days.every((d) => d.month == days.first.month);
+  final mots = [
+    for (var i = 0; i < days.length; i++)
+      memeMois && i < days.length - 1 ? '${days[i].day}' : '${days[i].day} ${_monthsLong[days[i].month - 1]}',
+  ];
+  return mots.length > 1 ? '${mots.sublist(0, mots.length - 1).join(', ')} et ${mots.last}' : mots.first;
+}
+
+/// Paliers des relances automatiques (J+3, J+15, J+30).
+const relancePaliers = [
+  (level: 'aimable', jours: 3, label: 'rappel aimable', prevu: 'prévu'),
+  (level: 'ferme', jours: 15, label: 'relance ferme', prevu: 'prévue'),
+  (level: 'demeure', jours: 30, label: 'mise en demeure', prevu: 'prévue'),
+];
+
+/// Facture suivie dans les impayés : émise, échue, pas entièrement couverte
+/// par un avoir.
+bool isUnpaid(Invoice invoice, List<Invoice> all, {DateTime? now}) =>
+    !isCreditNote(invoice) &&
+    invoice['status'] == 'Emise' &&
+    invoice['archived'] != true &&
+    amountOf(invoice) - creditedOn(invoice, all) > 0.01 &&
+    invoiceBucket(invoice, now: now) == 'Retard';
+
+/// Étape affichée (« 2e relance envoyée le 21 nov. », « rappel aimable prévu demain »).
+String relanceStep(Invoice invoice, {DateTime? now}) {
+  final reminders = remindersOf(invoice);
+  final demeure = reminders.where((r) => r['level'] == 'demeure').toList();
+  if (demeure.isNotEmpty) return 'mise en demeure envoyée le ${shortDay(demeure.first['at'])}';
+  if (invoice['demeurePrete'] != null) return 'mise en demeure prête';
+  if (reminders.isNotEmpty) {
+    final last = reminders.last;
+    return '${reminders.length == 1 ? '1re' : '${reminders.length}e'} relance ${last['channel'] == 'email' ? 'envoyée' : 'notée'} le ${shortDay(last['at'])}';
+  }
+  if (invoice['remindersOff'] == true) return 'relances désactivées';
+  final late = daysLate(invoice, now: now);
+  final next = relancePaliers.where((p) => late < p.jours).toList();
+  if (next.isEmpty) return 'à relancer';
+  final dans = next.first.jours - late;
+  return '${next.first.label} ${next.first.prevu} ${dans == 1 ? 'demain' : 'dans $dans jours'}';
+}
+
+/// Action de la ligne : « demeure », « relancer » ou « voir ».
+String relanceAction(Invoice invoice, {DateTime? now}) {
+  final reminders = remindersOf(invoice);
+  if (reminders.any((r) => r['level'] == 'demeure')) return 'voir';
+  if (daysLate(invoice, now: now) >= 30 || reminders.any((r) => r['level'] == 'ferme') || invoice['demeurePrete'] != null) return 'demeure';
+  if (daysLate(invoice, now: now) >= 3) return 'relancer';
+  return 'voir';
+}
+
+bool isCompanyClient(Invoice invoice, List<Map<String, dynamic>> quotes) =>
+    quotes.any((q) => q['id'] == invoice['quoteId'] && q['clientType'] == 'societe');
 
 bool isSignedQuote(Map<String, dynamic> quote) => quote['status'] == 'Signe' || quote['signatureStatus'] == 'Signe';
 
@@ -279,4 +358,110 @@ double previewAmount(String mode, BillingSummary summary, {double fixed = 0, dou
     'deposit' => summary.total * deposit / 100,
     _ => fixed,
   };
+}
+
+/// Taux de TVA d'une facture (PRO-06.1) : le sien, celui de la situation,
+/// sinon celui du devis, sinon 20 %. Même règle que le site.
+double tauxFacture(Invoice invoice, [List<Map<String, dynamic>> quotes = const []]) {
+  final propre = invoice['tauxTva'];
+  if (propre is num) return propre.toDouble();
+  final situation = invoice['situation'];
+  if (situation is Map && situation['tauxTva'] is num) return (situation['tauxTva'] as num).toDouble();
+  for (final q in quotes) {
+    if (q['id'] == invoice['quoteId'] && q['vatRate'] is num) return (q['vatRate'] as num).toDouble();
+  }
+  return 20;
+}
+
+/// Avoir ventilé au taux de la facture d'origine ; la facture corrigée
+/// reprend le même HT au nouveau taux (maquette : 2 286,36 € HT,
+/// 2 743,63 € à 20 %, 2 515,00 € à 10 %).
+({double ht, double tva, double ttc, double nouveauTtc}) avoirCorrige(num ttc, num tauxOrigine, num nouveauTaux) {
+  final ht = toAmount(ttc / (1 + tauxOrigine / 100));
+  return (ht: ht, tva: toAmount(ttc - ht), ttc: toAmount(ttc), nouveauTtc: toAmount(ht * (1 + nouveauTaux / 100)));
+}
+
+String tauxTexte(num taux) => '${taux == taux.roundToDouble() ? taux.toInt() : taux}'.replaceAll('.', ',');
+
+// --- Encaissements (maquette PRO-06.3), mêmes règles que lib/encaissements.js.
+
+const paymentMethods = {'virement': 'Virement', 'carte': 'Carte (en ligne)', 'cheque': 'Chèque', 'especes': 'Espèces'};
+const _methodShort = {'virement': 'virement', 'carte': 'carte', 'cheque': 'chèque', 'especes': 'espèces'};
+
+/// Plafond légal d'un paiement en espèces d'un particulier (à vérifier).
+const cashLimit = 1000.0;
+
+/// Paiements d'une facture ; une facture payée avant PRO-06.3 a un paiement
+/// implicite du montant, à paidAt.
+List<Map<String, dynamic>> paymentsOf(Invoice invoice) {
+  final list = (invoice['payments'] as List?)?.whereType<Map>().map((p) => Map<String, dynamic>.from(p)).toList() ?? <Map<String, dynamic>>[];
+  if (list.isNotEmpty || invoice['status'] != 'Payee') return list;
+  return [
+    {'id': 'implicite', 'amount': amountOf(invoice), 'date': '${invoice['paidAt'] ?? invoice['updatedAt'] ?? ''}', 'moyen': ''},
+  ];
+}
+
+double paidOn(Invoice invoice) => toAmount(paymentsOf(invoice).fold<double>(0, (s, p) => s + ((p['amount'] as num?)?.toDouble() ?? 0)));
+
+/// Reste dû : montant − avoirs − paiements.
+double dueOn(Invoice invoice, List<Invoice> all) {
+  final rest = amountOf(invoice) - creditedOn(invoice, all) - paidOn(invoice);
+  return rest > 0 ? toAmount(rest) : 0;
+}
+
+/// État et colonne « Paiement » de la maquette.
+({String state, String text}) paymentState(Invoice invoice, List<Invoice> all, {DateTime? now}) {
+  final fullAvoir = all.where((a) => isCreditNote(a) && a['refInvoiceId'] == invoice['id'] && a['status'] != 'Annulee' && (amountOf(a) + amountOf(invoice)).abs() < 0.01).toList();
+  if (invoice['status'] == 'Annulee' || fullAvoir.isNotEmpty) {
+    return (state: 'Annulée', text: fullAvoir.isEmpty ? 'annulée' : 'annulée par avoir ${fullAvoir.first['invoiceNumber']}');
+  }
+  final payments = paymentsOf(invoice);
+  final last = payments.isEmpty ? null : payments.last;
+  String label(Map<String, dynamic> p) {
+    final moyen = '${p['moyen'] ?? ''}';
+    if (moyen == 'virement') return 'virement reçu le ${shortDay(p['date'])}';
+    if (moyen.isNotEmpty) return '${_methodShort[moyen] ?? moyen} · ${shortDay(p['date'])}';
+    return 'payée le ${shortDay(p['date'])}';
+  }
+
+  if (invoice['status'] == 'Payee') return (state: 'Payée', text: last == null ? 'payée' : label(last));
+  if (invoice['status'] == 'Brouillon') return (state: 'Brouillon', text: 'pas encore envoyée');
+  final late = daysLate(invoice, now: now);
+  final reminders = remindersOf(invoice).length;
+  final partial = last == null ? '' : ' · ${euro(paidOn(invoice))} reçus';
+  if (late > 0) return (state: 'En retard', text: 'échue depuis $late j${reminders > 0 ? ' · relance $reminders envoyée' : ''}$partial');
+  final due = parseDay(invoice['dueDate']);
+  return (state: 'À encaisser', text: '${due == null ? 'sans échéance' : 'échéance ${shortDay(invoice['dueDate'])}'}$partial');
+}
+
+/// Les trois chiffres : encaissé ce mois, à encaisser, prochaine échéance.
+({double collected, int paymentsCount, double toCollect, int dueCount, int lateCount, Invoice? next}) collectionStats(List<Invoice> all, {DateTime? now}) {
+  final today = _today(now);
+  var collected = 0.0;
+  var count = 0;
+  for (final f in all) {
+    if (isCreditNote(f) || f['status'] == 'Annulee') continue;
+    for (final p in paymentsOf(f)) {
+      final d = parseDay(p['date']);
+      if (d != null && d.year == today.year && d.month == today.month) {
+        collected += (p['amount'] as num?)?.toDouble() ?? 0;
+        count++;
+      }
+    }
+  }
+  final dues = all.where((f) => !isCreditNote(f) && f['status'] == 'Emise' && f['archived'] != true && dueOn(f, all) > 0.01).toList();
+  final late = dues.where((f) => daysLate(f, now: now) > 0).length;
+  final upcoming = dues.where((f) {
+    final d = parseDay(f['dueDate']);
+    return d != null && !d.isBefore(today);
+  }).toList()
+    ..sort((a, b) => parseDay(a['dueDate'])!.compareTo(parseDay(b['dueDate'])!));
+  return (
+    collected: toAmount(collected),
+    paymentsCount: count,
+    toCollect: toAmount(dues.fold<double>(0, (s, f) => s + dueOn(f, all))),
+    dueCount: dues.length,
+    lateCount: late,
+    next: upcoming.isEmpty ? null : upcoming.first,
+  );
 }

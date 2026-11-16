@@ -71,6 +71,7 @@ class ProKojiWebClient {
       'PATCH' =>
         await _http.patch(uri, headers: headers, body: jsonEncode(body)),
       'PUT' => await _http.put(uri, headers: headers, body: jsonEncode(body)),
+      'DELETE' => await _http.delete(uri, headers: headers),
       _ => await _http.get(uri, headers: headers),
     };
     dynamic data;
@@ -118,6 +119,34 @@ class ProKojiWebClient {
     yield* tramesSse(res.stream.transform(utf8.decoder));
   }
 
+  /// Envoyer le devis (maquette PRO-03.2) : e-mail avec le PDF fait par
+  /// l'app, lien de signature relu sur le devis, devis marqué « Envoyé ».
+  Future<Map<String, dynamic>> envoyerDevisApp(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/quotes/envoi-app', body);
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// Faire signer sur place (maquette PRO-03.7) : signature du client,
+  /// cases cochées horodatées, exemplaire par e-mail avec le PDF de l'app.
+  Future<Map<String, dynamic>> signerDevisApp(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/quotes/signer-app', body);
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  /// Facture d'acompte (maquette PRO-03.4) : création en brouillon depuis
+  /// le devis signé, puis envoi par e-mail avec le PDF (la facture est émise).
+  Future<Map<String, dynamic>> creerFacture(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/invoices', body);
+    final f = data is Map ? data['invoice'] : null;
+    return f is Map ? Map<String, dynamic>.from(f) : {};
+  }
+
+  Future<Map<String, dynamic>> envoyerFacture(String id, {required bool email, String to = '', String message = ''}) async {
+    final data = await _send('PATCH', '/api/invoices', {'id': id, 'action': 'send', 'email': email, 'to': to, 'message': message});
+    final f = data is Map ? data['invoice'] : null;
+    return f is Map ? Map<String, dynamic>.from(f) : {};
+  }
+
   /// Zone de travail renvoyée avec la dernière liste d'offres (carte).
   RadarZone? zone;
 
@@ -138,6 +167,54 @@ class ProKojiWebClient {
 
   Future<void> positionner(String offreId) =>
       _send('POST', '/api/marketplace/offres/$offreId/positionner', const {});
+
+  // ---- Avenants (PRO-05) ----------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> tousAvenants() => liste('/api/avenants', 'avenants');
+
+  /// Koji prépare l'avenant depuis les notes de chantier (prix du devis ou
+  /// de la bibliothèque, jamais inventés).
+  Future<Map<String, dynamic>> preparerAvenant(String quoteId, String notes) async {
+    final data = await _send('POST', '/api/avenants/preparer', {'quoteId': quoteId, 'notes': notes});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<Map<String, dynamic>> creerAvenant(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/api/avenants', body);
+    final a = data is Map ? data['avenant'] : null;
+    return a is Map ? Map<String, dynamic>.from(a) : {};
+  }
+
+  /// Envoi pour signature en ligne (lien unique, e-mail avec le PDF).
+  Future<Map<String, dynamic>> envoyerAvenant(String id, {bool email = true}) async {
+    final data = await _send('PATCH', '/api/avenants', {'id': id, 'action': 'send', 'email': email});
+    final a = data is Map ? data['avenant'] : null;
+    return a is Map ? Map<String, dynamic>.from(a) : {};
+  }
+
+  // ---- Radar, fiche et positions (PRO-04) ---------------------------------
+
+  /// Fiche d'un chantier : projet, votre prix, jetons, places, créneaux
+  /// tirés du calendrier, message proposé, points à vérifier.
+  Future<Map<String, dynamic>> offreDetail(String offreId) async {
+    final data = await _send('GET', '/api/marketplace/offres/$offreId');
+    final o = data is Map ? data['offre'] : null;
+    return o is Map ? Map<String, dynamic>.from(o) : {};
+  }
+
+  /// Se positionner : message, créneaux de visite, devis estimatif joint ;
+  /// les jetons sont réservés (débités seulement au rendez-vous confirmé).
+  Future<void> positionnerAvec(String offreId, {required String message, required List<String> creneaux, bool joindreDevis = false}) =>
+      _send('POST', '/api/marketplace/offres/$offreId/positionner', {'message': message, 'creneaux': creneaux, 'joindreDevis': joindreDevis});
+
+  Future<void> retirerPosition(String offreId) => _send('DELETE', '/api/marketplace/offres/$offreId/positionner');
+
+  Future<void> masquerOffre(String offreId, String raison) => _send('POST', '/api/marketplace/offres/$offreId/masquer', {'raison': raison});
+
+  Future<Map<String, dynamic>> mesPositions() async {
+    final data = await _send('GET', '/api/marketplace/positions');
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
 
   Future<List<Map<String, dynamic>>> messages(String offreId) async => _list(
       await _send('GET', '/api/marketplace/offres/$offreId/messages'),
@@ -179,7 +256,7 @@ class ProKojiWebClient {
       _taux(await _send('GET', '/api/entreprise/taux'));
 
   Future<Map<String, num>> enregistrerTaux(Map<String, num?> taux) async =>
-      _taux(await _send('PUT', '/api/entreprise/taux', {'taux': taux}));
+      _taux(await _send('PUT', '/api/entreprise/taux', {'taux': taux, 'valider': taux.keys.toList()}));
 
   static Map<String, num> _taux(dynamic data) {
     final taux = data is Map ? data['taux'] : null;
@@ -257,6 +334,66 @@ class ProKojiWebClient {
     }
     final photo = data is Map ? data['photo'] : null;
     return photo is Map ? Map<String, dynamic>.from(photo) : {};
+  }
+
+  // ---- Mode visite (PRO-03.8) -------------------------------------------
+
+  /// Envoie la visite telle qu'elle est sur le téléphone (même id à chaque
+  /// envoi) ; le serveur contrôle l'heure du téléphone.
+  Future<Map<String, dynamic>> enregistrerVisite(Map<String, dynamic> visite) async {
+    final data = await _send('POST', '/api/visites', {'visite': visite, 'envoyeLe': DateTime.now().toUtc().toIso8601String()});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<void> envoyerPhotoVisite({
+    required String visiteId,
+    required String photoId,
+    required String pieceId,
+    required List<int> octets,
+    String pointId = '',
+    String prisLe = '',
+  }) async {
+    final token = _accessToken();
+    if (token == null || token.isEmpty) {
+      throw const ProKojiWebException('Session expirée. Reconnectez-vous.');
+    }
+    final requete = http.MultipartRequest('POST', Uri.parse('${KojiWebApiConfig.baseUrl}/api/visites/photos'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['visiteId'] = visiteId
+      ..fields['photoId'] = photoId
+      ..fields['pieceId'] = pieceId
+      ..fields['pointId'] = pointId
+      ..fields['prisLe'] = prisLe
+      ..files.add(http.MultipartFile.fromBytes('file', octets, filename: 'photo.jpg', contentType: MediaType.parse('image/jpeg')));
+    final reponse = await http.Response.fromStream(await _http.send(requete));
+    if (reponse.statusCode >= 400) {
+      dynamic data;
+      try {
+        data = jsonDecode(reponse.body);
+      } on FormatException {
+        data = null;
+      }
+      throw ProKojiWebException((data is Map ? data['error']?.toString() : null) ?? 'Erreur ${reponse.statusCode}');
+    }
+  }
+
+  /// Résumé au client et rappel « envoyer le devis » la veille au soir.
+  Future<Map<String, dynamic>> resumeVisite(String id, {required String message, required String devisPromis, String email = '', bool envoyer = true}) async {
+    final data = await _send('POST', '/api/visites', {'action': 'resume', 'id': id, 'message': message, 'devisPromis': devisPromis, 'email': email, 'envoyer': envoyer});
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<void> lierVisite(String id, String quoteId) => _send('POST', '/api/visites', {'action': 'lier', 'id': id, 'quoteId': quoteId});
+
+  /// Rendez-vous à venir (calendrier partagé site / app), pour préparer
+  /// une visite.
+  Future<List<Map<String, dynamic>>> rendezVousAVenir() async {
+    final tous = await liste('/api/calendar-events', 'calendarEvents');
+    final maintenant = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+    return tous
+        .where((e) => (DateTime.tryParse('${e['startAt'] ?? ''}')?.isAfter(maintenant) ?? false))
+        .take(20)
+        .toList();
   }
 
   // ---- Réserves (PRO-02.3) ---------------------------------------------
@@ -495,6 +632,15 @@ class RadarOffre {
   String get metier => (data['metier'] ?? '').toString().trim();
   String get adresse => (data['address'] ?? '').toString();
   int get photos => (data['photosCount'] as num?)?.toInt() ?? 0;
+
+  /// Jetons et places (maquette PRO-04), calculés par le site.
+  int get jetons => (data['jetons'] as num?)?.toInt() ?? 0;
+  Map get _places => data['places'] is Map ? data['places'] as Map : const {};
+  int get placesPrises => (_places['prises'] as num?)?.toInt() ?? 0;
+  int get placesMax => (_places['max'] as num?)?.toInt() ?? 3;
+  bool get complet => _places['complet'] == true;
+  double? get distanceKm => (data['distanceKm'] as num?)?.toDouble();
+  Map<String, dynamic>? get maPosition => data['maPosition'] is Map ? Map<String, dynamic>.from(data['maPosition'] as Map) : null;
   int? get delaiJours => (data['delaiEstimeJours'] as num?)?.toInt();
   DateTime? get publieeLe =>
       DateTime.tryParse('${data['createdAt'] ?? ''}')?.toLocal();
@@ -573,7 +719,11 @@ final proRadarProvider =
   final offres = await api.offres();
   return Future.wait(offres.map((data) async {
     final id = '${data['id']}';
-    final prise = await api.estPositionne(id).catchError((_) => false);
+    // Position calculée par le site (PRO-04) ; sinon l'ancien appel.
+    final mp = data['maPosition'];
+    final prise = data.containsKey('maPosition')
+        ? mp is Map && mp['termine'] != true
+        : await api.estPositionne(id).catchError((_) => false);
     if (!prise) return RadarOffre(data: data);
     final suivi = await api
         .messages(id)

@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MENTION_TAUX_REDUIT, estTauxReduit } from "../../../lib/tva";
+import { ecartsVersions, libelleEcart, signe } from "../../../lib/devis-versions";
+import { demarrageAvantFin, finRetractation, formulaireRetractation, texteDemandeExpresse, texteRetractation } from "../../../lib/signature-lieu";
 import { useParams } from "next/navigation";
 import { euro } from "../../../lib/pricing";
+
+const euro2 = (n) => `${Number(n || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 import { useLocale } from "../../../lib/i18n";
 
 export default function PublicSignaturePage() {
@@ -39,6 +44,38 @@ export default function PublicSignaturePage() {
   }, [token]);
 
   const alreadySigned = quote?.signatureStatus === "Signe";
+  // Nouvelle version (maquette PRO-03.6) : ce qui change depuis la précédente.
+  const [voirAvant, setVoirAvant] = useState(false);
+  const versions = Array.isArray(quote?.versions) ? quote.versions : [];
+  const versionAvant = versions.length > 1 ? versions[versions.length - 2] : null;
+  const versionCourante = versions.length > 1 ? versions[versions.length - 1] : null;
+  const ecarts = versionAvant ? ecartsVersions(versionAvant, versionCourante, { tauxTva: quote?.vatRate || 0 }) : null;
+  // Rétractation (maquette PRO-03.7) : signé en ligne, 14 jours pour un
+  // particulier ; démarrage pendant le délai seulement à sa demande.
+  const jourParis = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+  const particulier = quote && quote.clientType !== "societe";
+  const finPrevue = particulier ? finRetractation(jourParis, "en-ligne", quote?.clientType) : "";
+  const finSignee = quote?.retractationJusquau || "";
+  const demarrageTot = particulier && !alreadySigned && demarrageAvantFin(quote?.startDate, finPrevue);
+  const peutSeRetracter = alreadySigned && finSignee && finSignee >= jourParis && !quote?.retracteLe;
+  const [voirFormulaire, setVoirFormulaire] = useState(false);
+  const [retractation, setRetractation] = useState({ ouverte: false, envoi: false, erreur: "" });
+
+  async function seRetracter() {
+    setRetractation((r) => ({ ...r, envoi: true, erreur: "" }));
+    const response = await fetch(`/api/signatures/${token}/retractation`, { method: "POST" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setRetractation((r) => ({ ...r, envoi: false, erreur: payload.error || "La rétractation n'a pas pu être enregistrée." }));
+      return;
+    }
+    setQuote((q) => ({ ...q, ...payload.quote }));
+    setRetractation({ ouverte: false, envoi: false, erreur: "" });
+  }
+  // TVA à taux réduit (maquette PRO-03.5) : le client certifie la mention en
+  // signant ; sans elle, le taux réduit ne s'applique pas.
+  const mentionAttendue = Boolean(quote) && !quote.autoliquidation
+    && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
   const totalItems = useMemo(() => quote?.items?.length || 0, [quote]);
 
   function setField(field, value) {
@@ -51,14 +88,14 @@ export default function PublicSignaturePage() {
     const response = await fetch(`/api/signatures/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
+      body: JSON.stringify({ ...form, demandeExpresseLe: form.demandeExpresse ? form.demandeExpresseLe : "" })
     });
     const payload = await response.json();
     if (!response.ok) {
       setError(payload.error || "Signature impossible.");
       return;
     }
-    setQuote(payload.quote);
+    setQuote((q) => ({ ...payload.quote, company: q?.company || payload.quote?.company }));
     setClientAccess(payload.clientAccess || null);
     setSaved(true);
   }
@@ -94,6 +131,30 @@ export default function PublicSignaturePage() {
               <div className="metric"><span>{L.signaturePub.lines}</span><strong>{totalItems}</strong></div>
               <div className="metric"><span>{L.signaturePub.status}</span><strong>{alreadySigned ? L.signaturePub.signedStatus : L.signaturePub.toSignStatus}</strong></div>
             </div>
+
+            {ecarts ? (
+              <section className="signature-versions">
+                <h2>Ce qui change · version {Number(versionCourante.number) || versions.length}</h2>
+                {ecarts.lignes.length ? ecarts.lignes.map((l, i) => (
+                  <div className="signature-ecart" key={`${l.kind}-${i}`}>
+                    <span className="tag">{libelleEcart(l.kind)}</span>
+                    <span>{l.labelAvant ? `${l.label} au lieu de ${l.labelAvant}` : l.label}</span>
+                    <b>{signe(l.ecartTtc)} € TTC</b>
+                  </div>
+                )) : <p className="muted">Mêmes lignes que la version précédente.</p>}
+                <div className="signature-ecart total"><span>Nouveau total</span><b>{euro2(ecarts.totalTtc.apres)} TTC</b></div>
+                <div className="signature-ecart"><span>Avant</span><b>{euro2(ecarts.totalTtc.avant)} TTC</b></div>
+                <button type="button" className="link" onClick={() => setVoirAvant((v) => !v)}>
+                  {voirAvant ? "Masquer" : "Voir"} la version {Number(versionAvant.number) || versions.length - 1}
+                </button>
+                {voirAvant ? (
+                  <ul className="signature-avant">
+                    {(versionAvant.lines || []).map((l, i) => <li key={`${l.id}-${i}`}><span>{l.label}</span><b>{euro2(l.totalHt)} HT</b></li>)}
+                  </ul>
+                ) : null}
+                <p className="muted">La version précédente reste consultable mais ne peut plus être signée.</p>
+              </section>
+            ) : null}
 
             <section className="signature-quote-lines">
               {(quote.items || []).length === 0 ? (
@@ -134,6 +195,32 @@ export default function PublicSignaturePage() {
                 />
               </label>
               <p className="muted">{L.signaturePub.madeAt} {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
+              {mentionAttendue ? (
+                <div className="signature-mention-tva">
+                  <strong>Attestation pour la TVA à taux réduit</strong>
+                  <p>{MENTION_TAUX_REDUIT}</p>
+                  {alreadySigned ? (
+                    <p className="muted">{quote.mentionTva ? "Mention certifiée à la signature." : "Mention non certifiée."}</p>
+                  ) : (
+                    <label className="checkline">
+                      <input type="checkbox" checked={Boolean(form.mentionTva)} onChange={(event) => setField("mentionTva", event.target.checked)} />
+                      Je certifie cette mention.
+                    </label>
+                  )}
+                </div>
+              ) : null}
+              {particulier && !alreadySigned ? (
+                <div className="signature-mention-tva">
+                  <strong>Votre droit de rétractation</strong>
+                  <p>{texteRetractation(finPrevue)}</p>
+                  {demarrageTot ? (
+                    <label className="checkline">
+                      <input type="checkbox" checked={Boolean(form.demandeExpresse)} onChange={(event) => { setField("demandeExpresse", event.target.checked); setField("demandeExpresseLe", event.target.checked ? new Date().toISOString() : ""); }} />
+                      {texteDemandeExpresse(quote.startDate)}
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
               {!alreadySigned && (
                 <label className="checkline">
                   <input type="checkbox" checked={form.consent} onChange={(event) => setField("consent", event.target.checked)} />
@@ -150,6 +237,35 @@ export default function PublicSignaturePage() {
                 </div>
               ) : null}
               {!alreadySigned && <button className="button blue" style={{ marginTop: 12 }}>{L.signaturePub.signBtn}</button>}
+              {quote.retracteLe ? (
+                <div className="signature-mention-tva">
+                  <strong>Vous vous êtes rétracté le {new Date(quote.retracteLe).toLocaleDateString("fr-FR")}.</strong>
+                  <p>Le devis est annulé. L'entreprise est prévenue et vous rembourse les sommes versées sous 14 jours.</p>
+                </div>
+              ) : alreadySigned && finSignee ? (
+                <div className="signature-mention-tva">
+                  <strong>Vous pouvez annuler sans motif jusqu'au {new Date(`${finSignee}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} inclus.</strong>
+                  <button type="button" className="link" onClick={() => setVoirFormulaire((v) => !v)}>Formulaire de rétractation</button>
+                  {voirFormulaire ? (
+                    <div className="signature-formulaire">
+                      {formulaireRetractation({ entreprise: quote.company?.name, adresse: quote.company?.address, email: quote.company?.email }).map((l, i) => <p key={i}>{l}</p>)}
+                    </div>
+                  ) : null}
+                  {quote.demarrageDemande ? <p>Début des travaux le {new Date(`${quote.demarrageDemande}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, à votre demande.</p> : null}
+                  {peutSeRetracter ? (
+                    retractation.ouverte ? (
+                      <div>
+                        <p>Confirmez-vous l'annulation de ce devis ? L'entreprise en sera prévenue.</p>
+                        <button type="button" className="button blue" onClick={seRetracter} disabled={retractation.envoi}>{retractation.envoi ? "Envoi…" : "Je me rétracte"}</button>{" "}
+                        <button type="button" className="link" onClick={() => setRetractation((r) => ({ ...r, ouverte: false }))}>Annuler</button>
+                      </div>
+                    ) : (
+                      <button type="button" className="button" onClick={() => setRetractation((r) => ({ ...r, ouverte: true }))}>Me rétracter</button>
+                    )
+                  ) : null}
+                  {retractation.erreur ? <p className="form-error">{retractation.erreur}</p> : null}
+                </div>
+              ) : null}
             </form>
           </>
         )}

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,6 +61,27 @@ void main() {
         findsOneWidget);
     await expectLater(find.byType(KojiAuthScreen),
         matchesGoldenFile('goldens/pro_auth_login.png'));
+  });
+
+  testWidgets('iPhone : « Continuer avec Apple » au-dessus de Google',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await _ouvrir(tester, KojiAuthTab.login);
+      final apple = find.text('Continuer avec Apple');
+      final google = find.text('Continuer avec Google');
+      expect(apple, findsOneWidget);
+      expect(google, findsOneWidget);
+      expect(tester.getTopLeft(apple).dy, lessThan(tester.getTopLeft(google).dy));
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('Android : Google seulement, pas d\'Apple', (tester) async {
+    await _ouvrir(tester, KojiAuthTab.login);
+    expect(find.text('Continuer avec Google'), findsOneWidget);
+    expect(find.text('Continuer avec Apple'), findsNothing);
   });
 
   testWidgets('inscription', (tester) async {

@@ -69,6 +69,36 @@ export async function POST(request) {
             currentPeriodEnd: null
           });
         }
+        // Jetons du Radar achetés (PRO-04) : crédités une seule fois par
+        // paiement (Stripe peut rejouer l'événement).
+        if (session.mode === "payment" && session.metadata?.radarJetons && session.metadata?.kojiUserId && session.payment_status === "paid") {
+          const db = await readDb();
+          db.jetonsAchats = db.jetonsAchats || [];
+          if (!db.jetonsAchats.some((a) => a.sessionId === session.id)) {
+            const quantite = Number(session.metadata.radarJetons) || 0;
+            db.jetonsAchats.push({
+              id: session.id,
+              sessionId: session.id,
+              userId: session.metadata.kojiUserId,
+              quantite,
+              montantTtc: (Number(session.amount_total) || 0) / 100,
+              le: new Date().toISOString()
+            });
+            db.notifications = db.notifications || [];
+            db.notifications.unshift({
+              id: `notif-jetons-${session.id}`,
+              userId: session.metadata.kojiUserId,
+              type: "radar.jetons",
+              title: `${quantite} jetons ajoutés à votre solde`,
+              message: "Paiement reçu. Vos jetons sont disponibles sur le Radar des chantiers.",
+              actionUrl: "/marketplace",
+              actionLabel: "Voir le Radar",
+              read: false,
+              createdAt: new Date().toISOString()
+            });
+            await writeDb(db);
+          }
+        }
         if (session.mode === "payment" && session.metadata?.chantierPaiementId) {
           const db = await readDb();
           const paiement = (db.chantierPaiements || []).find((p) => p.id === session.metadata.chantierPaiementId);

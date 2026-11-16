@@ -363,6 +363,42 @@ void main() {
       expect(journal, contains('ouvrage r3'));
     });
 
+    testWidgets('question TVA de Koji (PRO-03.5), réponse en un clic', (tester) async {
+      final (d, c) = etat();
+      final reponses = <String>[];
+      await monter(
+        tester,
+        ProDevisGuideView(
+          titre: 'Devis 2026-041',
+          sousTitre: 'Salle de bain · Claire D.',
+          conversation: c,
+          donnees: d,
+          totalHt: 2902.50,
+          totalTtc: 3192.75,
+          onRetour: () {},
+          onEnvoyer: () {},
+          onChange: () {},
+          onAjouterOuvrage: (_) async {},
+          onAjouterFourniture: (_, {parentTaskId = ''}) async {},
+          onAjouterLot: () async {},
+          onSupprimer: (_, __) {},
+          onEditionDetaillee: () {},
+          questionTva: ('Le logement a-t-il plus de 2 ans ?', const [('Oui', 'logement-ancien'), ('Non, il est neuf', 'logement-neuf')]),
+          onReponseTva: (v) {
+            reponses.add(v);
+            return 'TVA à 10 % appliquée. Claire signera la mention en acceptant le devis.';
+          },
+          tauxTva: 'TVA ?',
+        ),
+      );
+      expect(find.text('Le logement a-t-il plus de 2 ans ?'), findsOneWidget);
+      expect(find.text('TVA ?'), findsOneWidget);
+      await tester.tap(find.text('Oui').last);
+      await tester.pump();
+      expect(reponses, ['logement-ancien']);
+      expect(c.tours.last.text, 'TVA à 10 % appliquée. Claire signera la mention en acceptant le devis.');
+    });
+
     testWidgets('questions oui / non et envoi', (tester) async {
       final d = _devisMaquette();
       final corps = <Map<String, dynamic>>[];

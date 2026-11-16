@@ -12,6 +12,8 @@ import {
   fetchSignatureForQuote,
   submitSignature,
   classifyStatus,
+  MENTION_TAUX_REDUIT,
+  mentionTvaAttendue,
   type QuoteRecord,
 } from '@/lib/quotesRepository';
 import { formatCurrency } from '@/lib/utils';
@@ -57,7 +59,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => { load(); }, [load]);
 
-  const handleSign = async (signatureData: string) => {
+  const handleSign = async (signatureData: string, mentionCertifiee: boolean) => {
     if (!user || !quote) return;
     setSubmitting(true);
     try {
@@ -66,6 +68,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         userId: user.id,
         clientName: user.name,
         signatureDataUrl: signatureData.startsWith('data:') ? signatureData : await textToImageDataUrl(signatureData),
+        mentionTva: mentionCertifiee,
       });
       setSignatureUrl(url);
       setQuote({ ...quote, status: 'signed' });
@@ -326,7 +329,13 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <SignatureModal open={signOpen} onClose={() => setSignOpen(false)} onConfirm={handleSign} submitting={submitting} />
+      <SignatureModal
+        open={signOpen}
+        onClose={() => setSignOpen(false)}
+        onConfirm={handleSign}
+        submitting={submitting}
+        mention={mentionTvaAttendue(quote.tva_rate) ? MENTION_TAUX_REDUIT : undefined}
+      />
       <SuccessModal open={successOpen} onClose={() => setSuccessOpen(false)} clientName={user?.name || quote.client.name || 'Client'} />
     </div>
   );

@@ -1618,6 +1618,19 @@
 .pro .env-act{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:10px;margin-top:auto;padding:12px 0 20px;background:var(--bg);border-top:1px solid var(--line)}
 .pro .env-act .btn-main{height:48px;padding:0 22px}
 .pro .env-act .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+/* Envoyer le devis (maquette PRO-03.2) */
+.pro .sq-env textarea{line-height:1.5}
+.pro .sq-env .ed .ed-l{color:var(--grey)}
+.pro .sq-env select.selv{width:100%;cursor:pointer}
+.pro .sq-cli{display:flex;flex-direction:column;gap:6px;width:100%;margin-top:4px}
+.pro .sq-cli input{width:100%;height:36px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);color:var(--ink);font:inherit;font-size:14px}
+.pro .sq-mod{padding:0;background:none;border:0;color:var(--ink);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+.pro .env-pdf{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-struct)}
+.pro .env-pdf > div{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+.pro .env-pdf strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pro .env-pdf .muted{font-size:13px}
+.pro .env-pdf svg{flex:none;width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:1.6}
+.pro .env-act .btn-main{display:inline-flex;align-items:center;gap:8px}
 .pro .lancer-card{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:20px;padding:16px 20px;background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:var(--r-struct)}
 .pro .lancer-card > div{display:flex;flex:1 1 320px;flex-direction:column;gap:4px}
 .pro .lancer-card strong{font-size:16px}
@@ -1856,3 +1869,286 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .fl-h .link{text-transform:none;letter-spacing:0;font-size:12px}
 .pro .dl-var{margin-left:8px;font-size:11px;vertical-align:middle}
 .pro .ed-act .btn.on{background:var(--fill);border-color:var(--fill);color:var(--filltxt)}
+/* Après l'envoi (maquette PRO-03.3) : devis en lecture seule, suivi à droite. */
+.pro .sv .dv-top .tag,.pro .sv .dv-top .signed{margin-right:8px;flex:none}
+.pro .sv .dv-top .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+.pro .sv-body{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:calc(100vh - 64px)}
+.pro .sv .dv-doc{border-right:1px solid var(--line)}
+.pro .dv-side{display:flex;flex-direction:column;gap:16px;padding:24px;overflow:auto;background:var(--bg)}
+.pro .dv-side .card{padding:20px}
+.pro .dv-side .card-h{margin-bottom:12px}
+.pro .dv-side .card-h h2{font-size:16px}
+.pro .dv-side .card.next{border-color:var(--ink)}
+.pro .dv-side .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--rule);font-size:13px}
+.pro .dv-side .kv span{color:var(--grey)}
+.pro .dv-side .kv b{font-weight:600;text-align:right}
+.pro .sv-wide{width:100%;margin-top:12px}
+.pro .tl{margin:0;padding:0;list-style:none}
+.pro .tl li{position:relative;display:flex;gap:12px;padding:0 0 16px}
+.pro .tl li:last-child{padding-bottom:0}
+.pro .tl li::before{content:"";position:absolute;top:22px;bottom:-2px;left:9px;width:1px;background:var(--line)}
+.pro .tl li:last-child::before{display:none}
+.pro .tl .dot{z-index:1;display:grid;place-items:center;flex:none;width:20px;height:20px;background:var(--card);border:1.5px solid var(--ink);border-radius:50%}
+.pro .tl .dot svg{width:11px;height:11px;fill:none;stroke:var(--card);stroke-width:3}
+.pro .tl li.done .dot{background:var(--ink)}
+.pro .tl li.todo .dot{border-color:#C9C4B9}
+.pro .tl li.todo strong{color:var(--btn);font-weight:500}
+.pro .tl li.now .dot{border-width:2px}
+.pro .tl strong{display:block;font-size:14px;font-weight:600}
+.pro .tl small{display:block;margin-top:2px;color:var(--grey);font-size:12px}
+.pro .dv-doc.ro .dl{cursor:default}
+.pro .dv-doc.ro .dv-lines .dl{grid-template-columns:minmax(0,1fr) 90px 110px 110px}
+.pro .svm-amt,.pro .svm-act,.pro .sv-m-h{display:none}
+.pro .sv-fil .msgs{flex:1;min-height:160px;padding:0}
+.pro .sv-msg-h{display:block;margin-bottom:4px;opacity:.75;font-size:11px}
+.pro .sv-msg-p{display:block;margin-top:4px;opacity:.75;font-size:12px}
+@media (max-width:900px){
+  .pro .sv-body{display:flex;flex-direction:column;min-height:0}
+  .pro .sv .dv-side{order:-1;padding:16px;gap:12px}
+  .pro .sv .dv-doc{border-right:0}
+  .pro .sv .dv-doc-h{display:none}
+  .pro .svm-amt{display:flex;flex-direction:column;gap:2px}
+  .pro .svm-amt b{font-size:24px;font-weight:600;letter-spacing:-.01em}
+  .pro .svm-act{display:flex;gap:8px}
+  .pro .svm-act .btn{flex:1;height:44px;font-size:14px}
+  .pro .sv-m-h{display:flex;align-items:center;justify-content:space-between;margin:8px 0}
+  .pro .sv-m-h h2{margin:0;font-size:17px}
+  .pro .dv-doc.ro .dv-lines .dl{grid-template-columns:minmax(0,1fr) 96px}
+}
+/* Facture d'acompte (maquette PRO-03.4) */
+.pro .ac-pct{display:flex;flex-direction:column;gap:8px}
+.pro .ac-pct .lab,.pro .ac-amt span{color:var(--grey);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pro .ac-pct .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pro .ac-pct .chip{display:inline-flex;flex-direction:row;align-items:center;height:40px;padding:0 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch);box-shadow:none;color:var(--ink);font-size:14px;font-weight:500}
+.pro .ac-pct .chip.on{background:var(--fill);border-color:var(--fill);color:var(--filltxt);font-weight:600}
+.pro .ac-pct .chip:disabled:not(.on){opacity:.45;cursor:default}
+.pro .ac-autre{display:inline-flex;align-items:center;gap:6px}
+.pro .ac-autre input{width:72px;height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:14px}
+.pro .ac-amt{padding:4px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-struct)}
+.pro .ac-amt > div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pro .ac-amt > div:last-child{border-bottom:0}
+.pro .ac-amt b{font-weight:600;font-variant-numeric:tabular-nums}
+.pro .ac-amt .big{flex-wrap:wrap;border-top:1px solid var(--ink)}
+.pro .ac-amt .big b{font-size:20px;letter-spacing:-.01em}
+.pro .ac-amt .big small{width:100%;color:var(--grey);font-size:12px}
+.pro .ac-mail{height:40px;padding:0 10px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);font:inherit;font-size:14px}
+/* TVA automatique (maquette PRO-03.5) */
+.pro .dv-tva{padding:0;background:none;border:0;color:var(--grey);font:inherit;font-size:13px;text-align:left;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.pro .dv-tva:hover{color:var(--ink)}
+.pro .qa-tva{flex-wrap:wrap;margin-top:8px}
+.pro .tva-env .muted{margin:0;font-size:13px}
+.pro .tva-q{display:flex;gap:12px}
+.pro .tva-n{display:grid;place-items:center;flex:none;width:24px;height:24px;background:var(--fill);border-radius:50%;color:var(--filltxt);font-size:12px;font-weight:700}
+.pro .tva-q > div{display:flex;flex:1;flex-direction:column;gap:8px;min-width:0}
+.pro .tva-q strong{font-size:14px}
+.pro .tva-q .kp-seg{flex-wrap:wrap;align-self:flex-start}
+.pro .tva-res,.pro .tva-lignes{padding:18px 20px}
+.pro .tva-res .lab{display:block;margin-top:10px;color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pro .tva-ok{margin:6px 0 0;padding:0;list-style:none}
+.pro .tva-ok li{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px}
+.pro .tva-ok svg{flex:none;width:14px;height:14px;fill:none;stroke:var(--ink);stroke-width:2.5}
+.pro .tva-mention{margin:6px 0 0;color:var(--grey);font-size:13px;line-height:1.5}
+.pro .tva-res .ed{margin-top:12px}
+.pro .tva-lignes .kv{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--rule);font-size:13px}
+.pro .tva-lignes .kv span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pro .tva-lignes .kv small{color:var(--grey);font-size:12px}
+.pro .dl-tva select{max-width:260px}
+.pro .dl-tva-k{color:var(--grey);font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}
+/* Versions du devis (maquette PRO-03.6) */
+.pro .sv-lien{padding:0;background:none;border:0;color:var(--ink);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+.pro .vr .dv-top .back{padding:0;background:none;border:0;font:inherit;cursor:pointer}
+.pro .vr-main{display:flex;flex-direction:column;gap:16px;min-width:0;padding:24px;border-right:1px solid var(--line)}
+.pro .vr-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.pro .vr-tabs button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.pro .vr-tabs button.on{border-color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+.pro .vr-tabs b{font-size:14px}
+.pro .vr-tabs small{color:var(--grey);font-size:12px}
+.pro .vr-card{padding:20px}
+.pro .vr-resume{margin:0 0 12px;font-size:13px}
+.pro .vr-table{display:flex;flex-direction:column}
+.pro .vr-row{display:grid;grid-template-columns:80px minmax(0,1fr) 110px 110px 110px;gap:12px;align-items:baseline;padding:10px 0;border-top:1px solid var(--rule);font-size:13px;font-variant-numeric:tabular-nums}
+.pro .vr-row > span:nth-child(n+3),.pro .vr-row > b{text-align:right}
+.pro .vr-head{border-top:0;color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pro .vr-k{display:inline-block;justify-self:start;padding:2px 8px;border:1px solid var(--ink);border-radius:var(--r-touch);font-size:11px;font-weight:700}
+.pro .vr-del .vr-k{border-color:var(--grey);color:var(--grey)}
+.pro .vr-l{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pro .vr-l small{color:var(--grey);font-size:12px}
+.pro .vr-del .vr-l{color:var(--grey);text-decoration:line-through}
+.pro .vr-tot{font-weight:600}
+.pro .vr-tot:first-of-type{border-top:1px solid var(--ink)}
+.pro .vr-lst{grid-template-columns:minmax(0,1fr) 120px}
+.pro .vr-note{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--rule);color:var(--grey);font-size:13px}
+.pro .vr-msg textarea{line-height:1.5}
+.pro .vr-demande{margin:0;font-size:14px;line-height:1.5}
+@media (max-width:900px){
+  .pro .vr .sv-body{display:flex;flex-direction:column}
+  .pro .vr-main{padding:16px;border-right:0}
+  .pro .vr .dv-side{order:0}
+  .pro .vr-row{grid-template-columns:64px minmax(0,1fr) 84px;row-gap:2px}
+  .pro .vr-row > span:nth-child(3),.pro .vr-row > span:nth-child(4){display:none}
+  .pro .vr-head > span:nth-child(3),.pro .vr-head > span:nth-child(4){display:none}
+  .pro .vr-lst{grid-template-columns:minmax(0,1fr) 96px}
+  .pro .vr .dv-act{display:none}
+}
+/* Signature et rétractation (maquette PRO-03.7) */
+.pro .fs-choix{display:flex;flex-direction:column;gap:4px;padding:16px 18px;background:var(--card);border:1px solid var(--ink);border-radius:var(--r-touch);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.pro .fs-choix strong{font-size:16px}
+.pro .fs-choix .muted{font-size:13px}
+.pro .fs-choix:hover{background:var(--soft)}
+.pro .fs-locaux{align-self:flex-start}
+.pro .fs-regles{display:flex;flex-direction:column;font-size:13px}
+.pro .fs-r{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(3,minmax(0,1fr));gap:10px;padding:8px 0;border-top:1px solid var(--rule)}
+.pro .fs-rh{border-top:0;color:var(--grey);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pro .fs-r b{font-weight:600}
+.pro .fs-regles .muted{margin:10px 0 0;font-size:12px}
+.pro .fs-res,.pro .fs-pourquoi{padding:18px 20px}
+.pro .fs-res .kv{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--rule);font-size:13px}
+.pro .fs-res .kv span{font-weight:600}
+.pro .fs-res .kv b{color:var(--grey);font-weight:400}
+.pro .fs-dem-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pro .fs-dem-act .btn.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.pro .fs-client{position:fixed;inset:0;z-index:1100;overflow:auto;background:var(--bg)}
+.pro .fs-client-in{display:flex;flex-direction:column;gap:14px;max-width:560px;margin:0 auto;padding:24px 16px 40px}
+.pro .fs-client-h{display:flex;flex-direction:column;gap:2px}
+.pro .fs-client-h strong{font-size:22px}
+.pro .fs-client .card{padding:16px 18px}
+.pro .fs-client .card p{margin:6px 0 0;font-size:14px;line-height:1.5}
+.pro .fs-devis{display:flex;flex-direction:column;gap:2px}
+.pro .fs-devis b{font-size:20px}
+.pro .fs-client .ck{align-items:flex-start;line-height:1.45}
+.pro .fs-client .ck span{display:flex;flex-direction:column;gap:4px}
+.pro .fs-client .ck small{color:var(--grey);font-size:12px;font-weight:400}
+.pro .fs-client .ck input{position:static;opacity:1;pointer-events:auto;width:18px;height:18px;margin-top:2px;flex:none}
+.pro .fs-client .ck:not(.on){padding-left:12px}
+.pro .fs-note{margin:0;font-size:12px}
+.pro .fs-client-act{display:flex;gap:10px}
+.pro .fs-client-act .btn-main{flex:1;height:48px}
+@media (max-width:760px){
+  .pro .fs-r{grid-template-columns:minmax(0,1fr) repeat(3,64px);font-size:12px}
+}
+
+/* Compte rendu de visite (maquette PRO-03.8). */
+.pro .vi{display:flex;flex-direction:column;gap:20px}
+.pro .vi .head .hact{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pro .vi-meta{margin:-8px 0 0;font-size:13px}
+.pro .vi-g{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+.pro .vi-wps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pro .vi-wp{position:relative;display:block;line-height:0;overflow:hidden;aspect-ratio:4/3;background:var(--soft)}
+.pro .vi-wp img{width:100%;height:100%;object-fit:cover}
+.pro .vi-wp .ph-st{position:absolute;left:6px;bottom:6px;background:rgba(23,27,30,.85);color:#fff;font-size:11px;line-height:1.2;padding:4px 6px;font-variant-numeric:tabular-nums;font-weight:600}
+.pro .vs-t{width:100%;border-collapse:collapse;font-size:13px}
+.pro .vs-t td{padding:10px 8px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.pro .vs-t td b{font-size:14px}
+.pro .vs-t td small{display:block;font-size:12px;color:var(--grey)}
+.pro .vs-t .num{text-align:right;white-space:nowrap}
+.pro .vi-wck{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--rule)}
+.pro .vi-wck.w{box-shadow:inset 3px 0 0 var(--ink);padding-left:10px;background:var(--soft)}
+.pro .vi-wck>span{font-weight:700;width:14px;text-align:center}
+.pro .vi-wck>svg{width:14px;height:14px;stroke:var(--ink);fill:none;stroke-width:3;flex:none;margin-top:3px}
+.pro .vi-wck div{display:flex;flex-direction:column}
+.pro .vi-wck b{font-size:14px}
+.pro .vi-wck small{font-size:12px;color:var(--grey)}
+.pro .vs-q{font-size:14px;line-height:1.5;background:var(--soft);border-left:3px solid var(--ink);padding:10px 12px}
+.pro .vs-q small{display:block;font-size:12px;color:var(--grey);margin-top:6px}
+.pro .vi-band{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.pro .vi-band a{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--card);border:1px solid var(--line);color:inherit;text-decoration:none}
+.pro .vi-band a b{font-weight:600}
+@media (max-width:900px){.pro .vi-g{grid-template-columns:1fr}.pro .vi-wps{grid-template-columns:repeat(2,1fr)}}
+
+/* Radar : fiche, positionnement, états, mes positions (maquette PRO-04 v3). */
+.pro .rd-crumb{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--grey);margin-bottom:16px}
+.pro .rd-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+.pro .rd-col{display:flex;flex-direction:column;gap:24px;min-width:0}
+.pro .rd-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.pro .rd-t{font-size:26px;margin:4px 0 0;line-height:1.2}
+.pro .rd-fit{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.pro .rd-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:2px;background:var(--card)}
+.pro .rd-chip.ok{border-color:var(--ink);font-weight:600}
+.pro .rd-chip svg{width:12px;height:12px;stroke:var(--ink);fill:none;stroke-width:3}
+.pro .rd-col .rd-msg{font-size:15px;line-height:1.5;font-style:normal;background:none;border-left:3px solid var(--line);padding:0 0 0 14px;margin:0 0 14px}
+.pro .rd-col .rd-sec{margin-top:0}
+.pro .rd-col .rd-sec>span{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
+.pro .rd-col .rd-ul{margin:6px 0 14px;padding-left:18px;font-size:14px;line-height:1.7;columns:2}
+.pro .rd-ul li.ko{color:var(--grey)}
+.pro .rd-col .rd-facts{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:2px;margin-top:0}
+.pro .rd-facts>div{padding:10px 14px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.pro .rd-facts>div:first-child{border-left:0}
+.pro .rd-facts>div span{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--grey)}
+.pro .rd-facts>div b{font-size:14px;font-weight:600}
+.pro .rd-side{position:sticky;top:24px;display:flex;flex-direction:column;gap:16px}
+.pro .rd-pos{display:flex;flex-direction:column;gap:14px}
+.pro .rd-price{display:grid;grid-template-columns:1fr;border:1px solid var(--line);border-radius:2px}
+.pro .rd-price>div{padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.pro .rd-price span{font-size:11px;color:var(--grey);line-height:1.3}
+.pro .rd-price b{font-size:22px;font-weight:700}
+.pro .rd-price small{font-size:11px;color:var(--grey);line-height:1.3}
+.pro .rd-places{display:flex;align-items:center;gap:10px;font-size:13px}
+.pro .rd-places span{color:var(--grey);flex:1}
+.pro .rd-dots{display:flex;gap:4px}
+.pro .rd-dots i{width:18px;height:8px;background:var(--pill);border-radius:1px}
+.pro .rd-dots i.on{background:var(--ink)}
+.pro .rd-tok{display:flex;gap:10px;align-items:flex-start;background:var(--soft);border:1px solid var(--line);border-radius:2px;padding:10px 12px}
+.pro .rd-tok .ic svg{width:22px;height:22px;stroke:var(--ink);fill:none;stroke-width:1.6}
+.pro .rd-tok div{display:flex;flex-direction:column;gap:2px}
+.pro .rd-tok strong{font-size:14px}
+.pro .rd-tok small{font-size:12px;color:var(--grey);line-height:1.4}
+.pro .rd-side .rd-go{width:100%;height:48px;margin-top:0}
+.pro .rd-no{align-self:center;font-size:12px}
+.pro .rd-p{font-size:13px;color:var(--grey);line-height:1.5;margin:0}
+.pro .env-panel.rd-pan{width:640px;max-width:100%}
+.pro .rd-sls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pro .rd-sl{border:1px solid var(--line);border-radius:2px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:var(--card);text-align:left;cursor:pointer;font:inherit;color:var(--ink)}
+.pro .rd-sl.on{border:2px solid var(--ink);padding:7px 9px}
+.pro .rd-sl b{font-size:13px}
+.pro .rd-sl span{font-size:12px;color:var(--grey)}
+.pro .rd-at{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:2px;padding:10px 12px;background:var(--card);cursor:pointer;text-align:left;font:inherit;color:var(--ink);width:100%}
+.pro .rd-at.on{border-color:var(--ink)}
+.pro .rd-at .cb{width:18px;height:18px;border:1.5px solid var(--ink);border-radius:2px;flex:none;display:grid;place-items:center;margin-top:1px}
+.pro .rd-at.on .cb{background:var(--ink)}
+.pro .rd-at.on .cb svg{width:12px;height:12px;stroke:var(--card);fill:none;stroke-width:3}
+.pro .rd-at div{flex:1;display:flex;flex-direction:column;gap:2px}
+.pro .rd-at strong{font-size:14px;font-weight:600}
+.pro .rd-at small{font-size:12px;color:var(--grey)}
+.pro .rd-ok{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--ink);border-left:4px solid var(--ink);border-radius:2px;padding:14px 18px}
+.pro .rd-ok .ic{width:32px;height:32px;display:grid;place-items:center;background:var(--ink);border-radius:2px;flex:none}
+.pro .rd-ok .ic svg{width:18px;height:18px;stroke:var(--card);fill:none;stroke-width:2.5}
+.pro .rd-ok div{flex:1;display:flex;flex-direction:column;gap:2px}
+.pro .rd-ok strong{font-size:15px}
+.pro .rd-ok small{font-size:12px;color:var(--grey)}
+.pro .rd-ok .btn-main{height:44px;font-size:14px}
+.pro .rd-legend{font-size:12px;color:var(--grey);margin-top:12px}
+.pro .rd-ta{width:100%;min-height:110px;padding:10px 12px;border:1px solid var(--frame);border-radius:2px;background:var(--card);color:var(--ink);font:inherit;font-size:14px;line-height:1.5;resize:vertical}
+.pro .rx-fh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pro .rx-fh h2{margin:2px 0 0;font-size:18px}
+.pro .rx-p{font-size:13px;color:var(--grey);line-height:1.5;margin:0}
+.pro .rx-warn{border:1px solid var(--ink);border-left:4px solid var(--ink);padding:10px 12px;background:var(--soft)}
+.pro .rx-warn strong{font-size:14px}
+.pro .rx-warn p{margin:4px 0 0;font-size:12.5px;color:var(--grey);line-height:1.45}
+.pro .rx-why{display:flex;flex-wrap:wrap;gap:6px}
+.pro .rx-why button{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:13px;padding:6px 10px;border-radius:2px;cursor:pointer}
+.pro .rx-why button.on{border-color:var(--ink);background:var(--ink);color:var(--card)}
+.pro .rx-mf{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pro .rx-steps{display:flex;flex-direction:column;gap:12px}
+.pro .rx-steps>div{display:grid;grid-template-columns:24px 1fr;column-gap:10px}
+.pro .rx-steps b{grid-row:span 2;width:22px;height:22px;border:1.5px solid var(--ink);border-radius:50%;display:grid;place-items:center;font-size:12px}
+.pro .rx-steps span{font-weight:600;font-size:14px}
+.pro .rx-steps small{font-size:12px;color:var(--grey)}
+.pro .rx-qt{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pro .rd-map{margin-bottom:16px}
+.pro .rd-sum{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);background:var(--card);margin-bottom:16px}
+.pro .rd-sum>div{padding:12px 16px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.pro .rd-sum>div:first-child{border-left:0}
+.pro .rd-sum span{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--grey)}
+.pro .rd-sum b{font-size:20px}
+@media (max-width:1100px){.pro .rd-grid{grid-template-columns:1fr}.pro .rd-side{position:static}}
+@media (max-width:700px){.pro .rd-col .rd-facts,.pro .rd-sum{grid-template-columns:1fr 1fr}.pro .rd-facts>div:nth-child(3){border-left:0}.pro .rd-sls,.pro .rx-qt{grid-template-columns:1fr 1fr}.pro .rd-col .rd-ul{columns:1}}
+
+/* Avenant préparé par Koji (maquette PRO-05). */
+.pro .avk{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:2px;padding:12px 14px}
+.pro .avk .think{margin-top:6px;color:var(--ink)}
+.pro .avk strong{display:block;font-size:14px;font-weight:600}
+.pro .avk small{display:block;font-size:12px;color:var(--grey);margin-top:2px;line-height:1.4}
+.pro .avl-g{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.pro .avl-rules{display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--grey);line-height:1.5}
+.pro .avl-rules p{margin:0}
+@media (max-width:1100px){.pro .avl-g{grid-template-columns:1fr}}

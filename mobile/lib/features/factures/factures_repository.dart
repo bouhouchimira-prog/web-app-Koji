@@ -105,6 +105,47 @@ class FacturesRepository {
         'notes': notes,
       }));
 
+  /// Paiement reçu (PRO-06.3) : tout ou partie, reçu PDF au client si demandé.
+  Future<Invoice> pay(Invoice invoice, {required double amount, required String date, required String moyen, String reference = '', bool receipt = false}) async =>
+      _invoice(await _api.patch('/api/invoices', {
+        'id': invoice['id'],
+        'action': 'payment',
+        'amount': amount,
+        'date': date,
+        'moyen': moyen,
+        'reference': reference,
+        'recu': receipt,
+      }));
+
+  /// Relances automatiques de l'entreprise (PRO-06.2) : J+3, J+15, J+30.
+  Future<bool> autoReminders() async => (await _api.get('/api/relances'))['actif'] == true;
+
+  Future<bool> setAutoReminders(bool actif) async => (await _api.post('/api/relances', {'actif': actif}))['actif'] == true;
+
+  /// Facture refaite après un avoir (PRO-06.1) : même HT, nouveau taux.
+  Future<Invoice> correctedInvoice(Invoice original, Invoice avoir, {required double amountTtc, required double tauxTva}) async =>
+      _invoice(await _api.post('/api/invoices', {
+        'quoteId': original['quoteId'],
+        'projectId': original['projectId'],
+        'type': original['type'] ?? 'Facture',
+        'amountMode': 'fixed',
+        'fixedAmount': amountTtc,
+        'tauxTva': tauxTva,
+        'remplace': {'avoirId': avoir['id'], 'factureNumero': original['invoiceNumber']},
+        'notes': 'Remplace la facture ${original['invoiceNumber']} (avoir ${avoir['invoiceNumber']}). TVA ${tauxTexte(tauxTva)} %.',
+      }));
+
+  /// Avoir + facture corrigée dans un seul message au client.
+  Future<Invoice> sendWithCreditNote(Invoice invoice, Invoice avoir, {required String to, required String message}) async =>
+      _invoice(await _api.patch('/api/invoices', {
+        'id': invoice['id'],
+        'action': 'send',
+        'email': true,
+        'to': to,
+        'avoirId': avoir['id'],
+        'message': message,
+      }));
+
   /// channel « email » : envoyée au client avec la facture jointe ; « manuel » :
   /// seulement notée (la mise en demeure part toujours en recommandé).
   Future<Invoice> remind(Invoice invoice, {required String level, required String channel, required String text}) async =>

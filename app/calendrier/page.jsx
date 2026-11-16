@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
-import { apiSend } from "../../lib/client-api";
+import { apiGet, apiSend } from "../../lib/client-api";
+import { FicheEvenement, PlanifierPanneau, lendemainOuvre } from "./CalendrierPanneaux";
 import { useLocale } from "../../lib/i18n";
+import "../fournitures/fournitures.css";
+import "./calendrier.css";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
 
@@ -12,7 +15,7 @@ import { useApi } from "../../lib/use-api";
 // par intervenant, ou sur 4 semaines par chantier. Une seule source : les
 // tâches (dates + intervenants) et les rendez-vous du calendrier.
 
-const eventTypes = ["Chantier", "Devis", "Urgence", "Maintenance"];
+const eventTypes = ["Chantier", "Visite", "Devis", "Réunion", "Urgence", "Maintenance", "Absence"];
 const statuses = ["En attente", "En cours", "Termine", "Annule"];
 
 const initialEvent = {
@@ -123,7 +126,7 @@ export default function CalendrierPage() {
   const { data: calendarEvents, setData: setCalendarEvents } = useApi("/api/calendar-events", "calendarEvents");
   const { data: projects } = useApi("/api/projects", "projects");
   const { data: workers } = useApi("/api/workers", "workers");
-  const { data: tasks } = useApi("/api/tasks", "tasks");
+  const { data: tasks, setData: setTasks } = useApi("/api/tasks", "tasks");
   const [view, setView] = useState("intervenant");
   const [offset, setOffset] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
@@ -135,6 +138,22 @@ export default function CalendrierPage() {
   const [workerFilter, setWorkerFilter] = useState([]);
   const [shown, setShown] = useState({ tasks: true, rdv: true, done: true });
   const [openFilter, setOpenFilter] = useState("");
+  // PRO-11 : période (semaine, 4 semaines, chantier entier), livraisons,
+  // fériés, conflits avec proposition, lots à planifier, agenda du jour.
+  const [periode, setPeriode] = useState("semaine");
+  const [extra, setExtra] = useState(null);
+  const [lotOuvert, setLotOuvert] = useState(null);
+  const [planifierOuvert, setPlanifierOuvert] = useState(false);
+  const [ficheEvent, setFicheEvent] = useState(null);
+  const [prefs, setPrefs] = useState({ livraisons: true, relances: true, samedi: true, dimanche: true, compacte: false, seulsActifs: false });
+  const [rechercheChantier, setRechercheChantier] = useState("");
+  useEffect(() => {
+    try {
+      const sauve = JSON.parse(window.localStorage.getItem("koji-calendrier") || "null");
+      if (sauve?.prefs) setPrefs((x) => ({ ...x, ...sauve.prefs }));
+      if (sauve?.shown) setShown((x) => ({ ...x, ...sauve.shown }));
+    } catch { /* préférences absentes */ }
+  }, []);
 
   const today = useMemo(() => {
     const now = new Date();
@@ -142,19 +161,47 @@ export default function CalendrierPage() {
   }, []);
   const todayKey = dayKey(today);
 
-  // Par chantier : 4 semaines, jours ouvrés seulement (sinon 28 colonnes
-  // trop étroites pour lire une tâche d'un jour).
-  const step = view === "chantier" ? 4 : 1;
+  // Semaine (7 jours), 4 semaines (jours ouvrés seulement, sinon 28
+  // colonnes trop étroites) ou chantier entier (du premier au dernier lot).
+  const step = periode === "4sem" ? 4 : 1;
+  const entier = useMemo(() => {
+    if (periode !== "entier") return null;
+    const liste = tasks.filter((task) => !projectFilter.length || projectFilter.includes(task.projectId));
+    const debuts = liste.map((task) => parseDay(task.startDate || task.dueDate || task.endDate)).filter(Boolean);
+    const fins = liste.map((task) => parseDay(task.endDate || task.dueDate || task.startDate)).filter(Boolean);
+    if (!debuts.length) return null;
+    return { start: mondayOf(new Date(Math.min(...debuts))), end: new Date(Math.max(...fins)) };
+  }, [periode, tasks, projectFilter]);
   const days = useMemo(() => {
+    if (entier) {
+      const all = [];
+      for (let d = entier.start; d <= entier.end && all.length < 400; d = addDays(d, 1)) all.push(d);
+      return all.filter((date) => date.getDay() !== 0 && date.getDay() !== 6);
+    }
     const start = addDays(mondayOf(today), offset * 7);
     const all = Array.from({ length: step * 7 }, (_, i) => addDays(start, i));
-    return view === "chantier" ? all.filter((date) => date.getDay() !== 0 && date.getDay() !== 6) : all;
-  }, [today, offset, step, view]);
+    if (step > 1) return all.filter((date) => date.getDay() !== 0 && date.getDay() !== 6);
+    return all.filter((date) => (prefs.samedi || date.getDay() !== 6) && (prefs.dimanche || date.getDay() !== 0));
+  }, [today, offset, step, entier, prefs.samedi, prefs.dimanche]);
   const span = days.length;
   const rangeStart = days[0];
   const rangeEnd = days[days.length - 1];
 
   const workerById = useMemo(() => Object.fromEntries(workers.map((worker) => [worker.id, worker])), [workers]);
+
+  const debutCle = dayKey(rangeStart);
+  const finCle = dayKey(rangeEnd);
+  function chargerExtra() {
+    return apiGet(`/api/calendrier?debut=${debutCle}&fin=${finCle}`).then(setExtra).catch(() => {});
+  }
+  useEffect(() => { chargerExtra(); }, [debutCle, finCle]); // eslint-disable-line react-hooks/exhaustive-deps
+  const feries = useMemo(() => new Set(extra?.feries || []), [extra]);
+  async function rafraichir(texte) {
+    const { tasks: liste } = await apiGet("/api/tasks");
+    setTasks(liste || []);
+    await chargerExtra();
+    if (texte) setMessage(texte);
+  }
 
   const allTaskItems = useMemo(() => tasks.map((task) => {
     const start = parseDay(task.startDate || task.dueDate || task.endDate);
@@ -257,8 +304,14 @@ export default function CalendrierPage() {
   const { workerRows, conflicts } = useMemo(() => {
     const rows = [];
     const found = [];
+    // Livraisons des bons de commande, en tête de grille (maquette PRO-11).
+    const livs = prefs.livraisons ? clipAll((extra?.livraisons || []).map((l) => {
+      const d = parseDay(l.date);
+      return d ? { kind: "livraison", id: l.id, start: d, end: d, title: `${fixText(l.fournisseur)}${l.chantier ? ` → ${fixText(l.chantier)}` : ""}`, sub: l.livre ? "livré" : [l.heure, l.numero, l.raison].filter(Boolean).join(" · "), tone: "kliv", bloquant: l.bloquant, done: l.livre, projectId: l.projectId, workerIds: [] } : null;
+    }).filter(Boolean)) : [];
+    if (livs.length) rows.push({ id: "livraisons", title: "Livraisons", sub: "bons de commande", ...assignLanes(livs) });
     const rdv = clipAll(eventItems).map((item) => ({ ...item, title: item.label, sub: [item.time, item.project].filter(Boolean).join(" · ") }));
-    if (rdv.length) rows.push({ id: "rdv", title: "Rendez-vous", sub: plural(rdv.length, "rendez-vous", "rendez-vous"), ...assignLanes(rdv) });
+
 
     const sortedWorkers = workers
       .filter((worker) => !workerFilter.length || workerFilter.includes(worker.id))
@@ -288,8 +341,9 @@ export default function CalendrierPage() {
     const unassigned = clipAll(taskItems.filter((item) => !item.workerIds.length && !item.done))
       .map((item) => ({ ...item, title: item.project, sub: item.label }));
     if (unassigned.length) rows.push({ id: "na", title: "À attribuer", sub: plural(unassigned.length, "tâche"), ...assignLanes(unassigned) });
+    if (rdv.length) rows.push({ id: "rdv", title: "Rendez-vous", sub: plural(rdv.length, "rendez-vous", "rendez-vous"), ...assignLanes(rdv) });
     return { workerRows: rows, conflicts: found };
-  }, [eventItems, taskItems, workers, workerFilter, days]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [eventItems, taskItems, workers, workerFilter, days, extra, prefs.livraisons]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Vue « Par chantier » : une ligne par chantier, ses tâches et ses RDV.
   const projectRows = useMemo(() => {
@@ -410,8 +464,14 @@ export default function CalendrierPage() {
   }
 
   function openItem(item) {
-    if (item.kind === "event") openEditEvent(item.event);
+    if (item.kind === "livraison") window.location.href = "/fournitures?onglet=bons";
+    else if (item.kind === "event") setFicheEvent(item.event);
     else setDetailTask(item);
+  }
+
+  function garderParDefaut() {
+    try { window.localStorage.setItem("koji-calendrier", JSON.stringify({ prefs, shown })); setMessage("Affichage gardé par défaut."); } catch { /* stockage indisponible */ }
+    setOpenFilter("");
   }
 
   async function submitEvent(event) {
@@ -447,7 +507,7 @@ export default function CalendrierPage() {
   }
 
   function renderGrid() {
-    const compact = view === "chantier";
+    const compact = view === "chantier" || prefs.compacte || step > 1 || Boolean(entier);
     if (!rows.length) {
       return <p className="k-empty">{view === "chantier" ? "Aucun chantier planifié sur ces 4 semaines." : "Rien de planifié cette semaine."}</p>;
     }
@@ -459,11 +519,12 @@ export default function CalendrierPage() {
             {days.map((date) => {
               const isToday = dayKey(date) === todayKey;
               const weekend = date.getDay() === 0 || date.getDay() === 6;
+              const ferie = feries.has(dayKey(date));
               return (
-                <div key={dayKey(date)} className={`k-dh${isToday ? " today" : ""}${weekend ? " we" : ""}`}>
+                <div key={dayKey(date)} className={`k-dh${isToday ? " today" : ""}${weekend || ferie ? " we" : ""}`}>
                   <span>{DOW[date.getDay()]}</span>
                   <b>{date.getDate()}</b>
-                  {isToday && !compact ? <small>Aujourd'hui</small> : null}
+                  {isToday && !compact ? <small>Aujourd'hui</small> : ferie ? <small>Férié</small> : null}
                 </div>
               );
             })}
@@ -476,7 +537,7 @@ export default function CalendrierPage() {
               </div>
               {days.map((date, i) => {
                 const isToday = dayKey(date) === todayKey;
-                const weekend = date.getDay() === 0 || date.getDay() === 6;
+                const weekend = date.getDay() === 0 || date.getDay() === 6 || feries.has(dayKey(date));
                 return <div key={dayKey(date)} className={`k-bg${isToday ? " today" : ""}${weekend ? " we" : ""}`} style={{ gridRow: `1 / span ${row.laneCount}`, gridColumn: i + 2 }} />;
               })}
               {row.items.map((item) => (
@@ -491,6 +552,7 @@ export default function CalendrierPage() {
                   <b>{item.title}</b>
                   {item.sub ? <span>{item.sub}</span> : null}
                   {item.conflict ? <em>Conflit</em> : null}
+                  {item.bloquant ? <em>Bloquant</em> : null}
                 </button>
               ))}
             </div>
@@ -500,7 +562,11 @@ export default function CalendrierPage() {
     );
   }
 
-  const eyebrow = [
+  const eyebrow = extra?.resume ? [
+    plural(extra.resume.chantiers, "chantier actif", "chantiers actifs"),
+    plural(extra.resume.sousTraitants, "sous-traitant"),
+    `${plural(extra.resume.livraisons, "livraison")} ${step === 1 && !entier ? "cette semaine" : "sur la période"}`
+  ].join(" · ") : [
     plural(weekCount.projects, "chantier actif", "chantiers actifs"),
     plural(weekCount.workers, "intervenant"),
     `${weekCount.rdv} RDV cette semaine`
@@ -566,7 +632,6 @@ export default function CalendrierPage() {
           <h1>{L.calendrier.title}</h1>
         </div>
         <div className="hact">
-          <Link href="/planning" className="btn btn-sec">Attribuer les tâches</Link>
           <Link
             className="btn btn-sec"
             target="_blank"
@@ -574,9 +639,9 @@ export default function CalendrierPage() {
           >
             Exporter en PDF
           </Link>
-          <button type="button" className="btn btn-main" onClick={openCreateEvent}>
+          <button type="button" className="btn btn-main" onClick={() => setPlanifierOuvert(true)}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Planifier un RDV
+            Planifier
           </button>
         </div>
       </div>
@@ -585,8 +650,8 @@ export default function CalendrierPage() {
 
       <div className="k-tabs">
         <div className="wtabs" role="tablist" aria-label="Vue du planning">
-          <button type="button" role="tab" aria-selected={view === "intervenant"} className={view === "intervenant" ? "on" : ""} onClick={() => { setView("intervenant"); setOffset(0); }}>Par intervenant</button>
-          <button type="button" role="tab" aria-selected={view === "chantier"} className={view === "chantier" ? "on" : ""} onClick={() => { setView("chantier"); setOffset(0); }}>Par chantier</button>
+          <button type="button" role="tab" aria-selected={view === "intervenant"} className={view === "intervenant" ? "on" : ""} onClick={() => { setView("intervenant"); setOffset(0); setPeriode("semaine"); }}>Par intervenant</button>
+          <button type="button" role="tab" aria-selected={view === "chantier"} className={view === "chantier" ? "on" : ""} onClick={() => { setView("chantier"); setOffset(0); setPeriode("4sem"); }}>Par chantier</button>
         </div>
       </div>
 
@@ -601,21 +666,47 @@ export default function CalendrierPage() {
             </button>
             <button type="button" className="btn btn-sec" onClick={() => setOffset(0)} disabled={offset === 0}>Aujourd'hui</button>
             <strong>{rangeLabel(rangeStart, rangeEnd)}</strong>
-            <span>{step === 1 ? `Semaine ${isoWeek(rangeStart)}` : `Semaines ${isoWeek(rangeStart)} à ${isoWeek(rangeEnd)} · jours ouvrés`}</span>
+            <span>{step === 1 && !entier ? `Semaine ${isoWeek(rangeStart)}` : `Semaines ${isoWeek(rangeStart)} à ${isoWeek(rangeEnd)} · jours ouvrés`}</span>
+            <div className="kp-seg k-per" role="group" aria-label="Période">
+              {[["semaine", "Semaine"], ["4sem", "4 semaines"], ["entier", "Chantier entier"]].map(([id, label]) => (
+                <button type="button" key={id} className={periode === id ? "on" : ""} aria-pressed={periode === id} onClick={() => { setPeriode(id); setOffset(0); }}>{label}</button>
+              ))}
+            </div>
           </div>
           <div className="k-filters">
-            {renderFilter("chantier", "Chantier", summary(projectFilter, projectOptions, "chantiers"),
-              renderChecklist(projectOptions, projectFilter, setProjectFilter, "Tous les chantiers"))}
-            {renderFilter("intervenant", "Intervenant", summary(workerFilter, workerOptions, "intervenants"),
-              renderChecklist(workerOptions, workerFilter, setWorkerFilter, "Tous les intervenants"))}
+            {renderFilter("chantier", "Chantier", summary(projectFilter, projectOptions, "chantiers"), (
+              <>
+                <input className="k-fsearch" value={rechercheChantier} onChange={(e) => setRechercheChantier(e.target.value)} placeholder="Rechercher un chantier" aria-label="Rechercher un chantier" />
+                {renderChecklist(projectOptions.map((g) => ({ ...g, items: g.items.filter((it) => (!rechercheChantier || it.title.toLowerCase().includes(rechercheChantier.toLowerCase())) && (!prefs.seulsActifs || taskItems.some((t) => t.projectId === it.id && t.end >= rangeStart && t.start <= rangeEnd))) })), projectFilter, setProjectFilter, "Tous les chantiers en cours")}
+                <label className="chk"><input type="checkbox" checked={prefs.seulsActifs} onChange={() => setPrefs((x) => ({ ...x, seulsActifs: !x.seulsActifs }))} />Seulement les chantiers avec un lot sur la période</label>
+              </>
+            ))}
+            {renderFilter("intervenant", "Intervenant", summary(workerFilter, workerOptions, "intervenants"), (
+              <>
+                {renderChecklist(workerOptions, workerFilter, setWorkerFilter, "Tous les intervenants")}
+                <Link className="link" href="/equipe">Ajouter un intervenant</Link>
+              </>
+            ))}
             {renderFilter("afficher", "Afficher", shownSummary, (
               <>
+                <span className="lab">Types</span>
                 {Object.entries(SHOW_LABELS).map(([key, text]) => (
                   <label key={key} className="chk">
                     <input type="checkbox" checked={shown[key]} onChange={() => setShown((current) => ({ ...current, [key]: !current[key] }))} />
-                    {text.charAt(0).toUpperCase() + text.slice(1)}
+                    {key === "tasks" ? "Lots de chantier, équipe et sous-traitants" : key === "rdv" ? "Rendez-vous et visites" : "Lots terminés, en gris"}
                   </label>
                 ))}
+                <label className="chk"><input type="checkbox" checked={prefs.livraisons} onChange={() => setPrefs((x) => ({ ...x, livraisons: !x.livraisons }))} />Livraisons des bons de commande</label>
+                <label className="chk"><input type="checkbox" checked={prefs.relances} onChange={() => setPrefs((x) => ({ ...x, relances: !x.relances }))} />Relances, dans « Aujourd'hui »</label>
+                <span className="lab">Jours</span>
+                <label className="chk"><input type="checkbox" checked={prefs.samedi} onChange={() => setPrefs((x) => ({ ...x, samedi: !x.samedi }))} />Samedi</label>
+                <label className="chk"><input type="checkbox" checked={prefs.dimanche} onChange={() => setPrefs((x) => ({ ...x, dimanche: !x.dimanche }))} />Dimanche</label>
+                <span className="lab">Densité</span>
+                <div className="kp-seg" role="group" aria-label="Densité">
+                  <button type="button" className={!prefs.compacte ? "on" : ""} onClick={() => setPrefs((x) => ({ ...x, compacte: false }))}>Confort</button>
+                  <button type="button" className={prefs.compacte ? "on" : ""} onClick={() => setPrefs((x) => ({ ...x, compacte: true }))}>Compacte</button>
+                </div>
+                <button type="button" className="link" onClick={garderParDefaut}>Garder comme affichage par défaut</button>
               </>
             ))}
           </div>
@@ -652,7 +743,16 @@ export default function CalendrierPage() {
       <div className="k-cards">
         <section className="card k-today">
           <div className="card-h"><h2>Aujourd'hui · {new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric" }).format(today)}</h2></div>
-          {todayItems.length === 0 ? <p className="empty">Rien de prévu aujourd'hui.</p> : todayItems.map((item) => (
+          {extra?.agenda ? (
+            extra.agenda.items.filter((it) => prefs.relances || it.type !== "relance").filter((it) => prefs.livraisons || it.type !== "livraison").length === 0 ? <p className="empty">Rien de prévu aujourd'hui.</p>
+              : extra.agenda.items.filter((it) => prefs.relances || it.type !== "relance").filter((it) => prefs.livraisons || it.type !== "livraison").map((it, i) => (
+                <div className="row k-ag" key={`${it.type}-${it.id || it.projectId}-${i}`}>
+                  <span className="k-h">{it.heure || "—"}</span>
+                  <div className="t"><strong>{fixText(it.titre)}</strong><small>{fixText(it.detail)}</small></div>
+                  {it.type === "relance" ? <Link className="link" href="/devis">Relancer</Link> : null}
+                </div>
+              ))
+          ) : todayItems.length === 0 ? <p className="empty">Rien de prévu aujourd'hui.</p> : todayItems.map((item) => (
             <button type="button" className="row" key={`${item.kind}-${item.id}`} onClick={() => openItem(item)}>
               <div className="t"><strong>{item.title}</strong><small>{item.sub}</small></div>
             </button>
@@ -660,29 +760,79 @@ export default function CalendrierPage() {
         </section>
 
         <section className="card">
-          <div className="card-h"><h2>À régler{conflicts.length ? <span className="kcnt">{conflicts.length}</span> : null}</h2></div>
-          {conflicts.length === 0 ? <p className="empty">Aucun conflit cette semaine.</p> : conflicts.map((conflict) => (
-            <div className="row" key={conflict.id}>
-              <div className="t">
-                <strong>{conflict.worker} sur deux chantiers</strong>
-                <small>{dayTitle(conflict.date)} : {conflict.projects.join(" et ")}</small>
-              </div>
-              <span className="tag tag-b">Conflit</span>
-            </div>
-          ))}
+          {(() => {
+            const cf = extra?.conflits || [];
+            const lb = extra?.livraisonsBloquantes || [];
+            const dc = extra?.documents || [];
+            const n = cf.length + lb.length + dc.length;
+            const court = (j) => new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric" }).format(parseDay(j));
+            return (
+              <>
+                <div className="card-h"><h2>À régler{n ? <span className="kcnt">{n}</span> : null}</h2></div>
+                {!extra ? (conflicts.length === 0 ? <p className="empty">Aucun conflit cette semaine.</p> : null) : n === 0 ? <p className="empty">Rien à régler sur la période.</p> : null}
+                {cf.map((c) => (
+                  <div className="row k-rg" key={c.id}>
+                    <div className="t">
+                      <strong>{fixText(c.worker)} sur deux chantiers</strong>
+                      <small>{court(c.jour)} : {c.taches.map((t) => `${fixText(t.chantier)}${t.label ? ` ${fixText(t.label)}` : ""}`).join(" et ")}. Premier jour libre : {court(c.proposition.debut)}.</small>
+                      <button type="button" className="link" onClick={async () => { try { await apiSend("/api/calendrier", { action: "decaler", taskId: c.proposition.taskId, debut: c.proposition.debut }); await rafraichir(`${c.proposition.chantier} décalé au ${court(c.proposition.debut)}.`); } catch (e) { setMessage(e.message); } }}>Décaler {fixText(c.proposition.chantier)} au {court(c.proposition.debut)}</button>
+                    </div>
+                    <span className="tag tag-b">Bloquant</span>
+                  </div>
+                ))}
+                {lb.map((l) => (
+                  <div className="row k-rg" key={l.id}>
+                    <div className="t">
+                      <strong>Livraison {fixText(l.fournisseur)}, {court(l.date)}</strong>
+                      <small>{l.chantier ? `${fixText(l.chantier)}, ` : ""}{l.raison}.</small>
+                      <Link className="link" href="/fournitures?onglet=bons">{l.raison === "lieu à confirmer" ? "Confirmer le lieu" : "Voir le bon"}</Link>
+                    </div>
+                    <span className="tag tag-b">Bloquant</span>
+                  </div>
+                ))}
+                {dc.map((d) => (
+                  <div className="row k-rg" key={`${d.contactId}-${d.doc}`}>
+                    <div className="t">
+                      <strong>{d.nom.split(" ")[0] === "Attestation" ? "Attestation URSSAF" : d.nom} · {fixText(d.worker)}</strong>
+                      <small>{d.texte.charAt(0).toUpperCase() + d.texte.slice(1)}, avant {fixText(d.avant)}.</small>
+                      <Link className="link" href={`/contacts?id=${d.contactId}`}>Demander {d.doc === "urssaf" ? "l'attestation" : "le document"}</Link>
+                    </div>
+                    <span className={`tag ${d.bloquant ? "tag-b" : "tag-e"}`}>{d.bloquant ? "Bloquant" : "Échéance"}</span>
+                  </div>
+                ))}
+              </>
+            );
+          })()}
         </section>
 
         <section className="card">
-          <div className="card-h">
-            <h2>À planifier{toPlan.length ? <span className="kcnt">{toPlan.length}</span> : null}</h2>
-            {toPlan.length ? <Link href="/planning" className="link">Attribuer</Link> : null}
-          </div>
-          {toPlan.length === 0 ? <p className="empty">Toutes les tâches ont une date et un intervenant.</p> : toPlan.slice(0, 6).map((entry) => (
-            <div className="row" key={entry.id}>
-              <div className="t"><strong>{entry.title}</strong><small>{entry.sub}</small></div>
-            </div>
-          ))}
-          {toPlan.length > 6 ? <p className="muted">et {toPlan.length - 6} autre{toPlan.length - 6 > 1 ? "s" : ""}</p> : null}
+          {(() => {
+            const lots = extra?.aPlanifier || [];
+            const n = lots.length + toPlan.length;
+            return (
+              <>
+                <div className="card-h">
+                  <h2>À planifier{n ? <span className="kcnt">{n}</span> : null}</h2>
+                  {toPlan.length ? <Link href="/planning" className="link">Attribuer</Link> : null}
+                </div>
+                {n === 0 ? <p className="empty">Tous les lots ont une date et un intervenant.</p> : null}
+                {lots.slice(0, 6).map((l) => (
+                  <div className="row k-rg" key={`${l.projectId}-${l.lot}`}>
+                    <div className="t">
+                      <strong>{fixText(l.chantier)} · {fixText(l.lot)}</strong>
+                      <small>{l.workerIds.map((id) => workerById[id]?.name).filter(Boolean).join(", ") || "Sans intervenant"} · {l.jours} j{l.lotPrecedent ? ` · après ${fixText(l.lotPrecedent)}` : ""}</small>
+                    </div>
+                    <button type="button" className="btn btn-sec" onClick={() => setLotOuvert(l)}>Placer</button>
+                  </div>
+                ))}
+                {toPlan.slice(0, Math.max(0, 6 - lots.length)).map((entry) => (
+                  <div className="row" key={entry.id}>
+                    <div className="t"><strong>{entry.title}</strong><small>{entry.sub}</small></div>
+                  </div>
+                ))}
+              </>
+            );
+          })()}
         </section>
       </div>
 
@@ -700,13 +850,62 @@ export default function CalendrierPage() {
               <div className="kv"><span>{L.calendrier.workers}</span><b>{detailTask.workerNames || "À attribuer"}</b></div>
               <div className="kv"><span>{L.calendrier.status}</span><b>{detailTask.done ? "Terminée" : fixText(detailTask.task.status || "À faire")}</b></div>
             </div>
-            <p className="muted">{L.calendrier.taskFromPlanning}</p>
+            {!detailTask.done ? (
+              <div className="k-tact">
+                <button type="button" className="btn btn-sec" onClick={async () => {
+                  const lendemain = lendemainOuvre(dayKey(detailTask.start));
+                  try { await apiSend("/api/calendrier", { action: "decaler", taskId: detailTask.id, debut: lendemain }); setDetailTask(null); await rafraichir(`Déplacé au ${new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(parseDay(lendemain))}.`); } catch (e) { setMessage(e.message); }
+                }}>Déplacer au lendemain</button>
+                <select aria-label="Changer d'intervenant" defaultValue="" onChange={async (e) => {
+                  if (!e.target.value) return;
+                  try { await apiSend("/api/calendrier", { action: "changer", taskId: detailTask.id, workerIds: [e.target.value] }); setDetailTask(null); await rafraichir("Intervenant changé."); } catch (er) { setMessage(er.message); }
+                }}>
+                  <option value="">Changer d'intervenant…</option>
+                  {workers.filter((w) => !detailTask.workerIds.includes(w.id)).map((w) => {
+                    const occupe = taskItems.some((t) => t.id !== detailTask.id && !t.done && t.workerIds.includes(w.id) && t.start <= detailTask.end && t.end >= detailTask.start);
+                    return <option key={w.id} value={w.id}>{fixText(w.name)}{occupe ? " · occupé" : " · disponible"}</option>;
+                  })}
+                </select>
+                {detailTask.workerIds.some((id) => workerById[id]?.email) ? <button type="button" className="btn btn-sec" onClick={async () => { try { const r = await apiSend("/api/calendrier", { action: "prevenir", taskId: detailTask.id }); setMessage(`${r.prevenus.join(", ")} prévenu par e-mail.`); } catch (e) { setMessage(e.message); } }}>Prévenir</button> : null}
+              </div>
+            ) : null}
             <div className="pm-act">
               <Link href="/planning" className="btn btn-sec">Attribuer</Link>
               {detailTask.task.projectId ? <Link href={`/chantiers?project=${detailTask.task.projectId}`} className="btn btn-main">Ouvrir le chantier</Link> : null}
             </div>
           </div>
         </div>
+      ) : null}
+
+      {planifierOuvert || lotOuvert ? (
+        <PlanifierPanneau
+          lot={lotOuvert}
+          chantiers={extra?.chantiers || []}
+          workers={workers}
+          taches={tasks}
+          documents={extra?.documents || []}
+          onFermer={() => { setPlanifierOuvert(false); setLotOuvert(null); }}
+          onFait={async (texte) => { setPlanifierOuvert(false); setLotOuvert(null); await rafraichir(texte); }}
+          onRdv={() => { setPlanifierOuvert(false); openCreateEvent(); }}
+          onAbsence={() => { setPlanifierOuvert(false); openCreateEvent(); setField("eventType", "Absence"); setField("title", "Absence"); }}
+        />
+      ) : null}
+
+      {ficheEvent ? (
+        <FicheEvenement
+          event={{ ...ficheEvent, projectTitle: ficheEvent.projectTitle || projects.find((p) => p.id === ficheEvent.projectId)?.title || "" }}
+          chantiers={extra?.chantiers || []}
+          onFermer={() => setFicheEvent(null)}
+          onModifier={() => { const e = ficheEvent; setFicheEvent(null); openEditEvent(e); }}
+          onAnnuler={async () => {
+            try {
+              const { calendarEvent } = await apiSend("/api/calendar-events", { id: ficheEvent.id, status: "Annule" }, "PATCH");
+              setCalendarEvents(calendarEvents.map((item) => (item.id === calendarEvent.id ? calendarEvent : item)));
+              setFicheEvent(null);
+              setMessage("Rendez-vous annulé.");
+            } catch (e) { setMessage(e.message); }
+          }}
+        />
       ) : null}
 
       {formOpen ? (

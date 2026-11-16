@@ -36,7 +36,7 @@ function getNavItems(L) {
     { href: "/facturation",           label: L.nav.invoicing,   icon: "invoice",  group: "premium", color: "#17ad5b" },
     { href: "/fournitures",           label: L.nav.supplies,    icon: "box",      group: "premium", color: "#b08542" },
     { href: "/bibliotheque-ouvrages", label: L.nav.library,     icon: "book",     group: "premium", color: "#7c4dff" },
-    { href: "/comptabilite",          label: "Comptabilités",   icon: "file",     group: "premium", color: "#0ea5a0" },
+    { href: "/depenses",              label: "Dépenses",        icon: "file",     group: "premium", color: "#0ea5a0" },
     { href: "/contacts",              label: L.nav.contacts,    icon: "user",     group: "premium", color: "#2fa1e8" },
     { href: "/calendrier",            label: L.nav.calendar,    icon: "calendar", group: "premium", color: "#5b5fc7" },
     { href: "/archives",              label: L.nav.archives,    icon: "archive",  group: "premium", color: "#6b7280" },
@@ -50,7 +50,7 @@ function getNavItems(L) {
 // "/bibliotheque-ouvrages" y entrent a l'inverse, devenues premium.
 // "/comptabilite" et "/corbeille" (nouvelles pages) suivent la meme regle
 // que le reste du groupe premium.
-const PREMIUM_PATHS = ["/calendrier", "/planning", "/archives", "/bibliotheque-ouvrages", "/comptabilite", "/corbeille", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions", "/avenant"];
+const PREMIUM_PATHS = ["/calendrier", "/planning", "/archives", "/bibliotheque-ouvrages", "/comptabilite", "/depenses", "/corbeille", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions", "/avenant"];
 
 const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
 
@@ -629,10 +629,20 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
   const hasNewMarketplaceOffers = notifications.some((n) => n.type === "radar.expertise_publiee" && !n.read && !n.archived);
   // Badge Devis (maquette PRO-03) : brouillons à reprendre + devis à relancer.
   const [devisBadge, setDevisBadge] = useState(0);
+  // Badge Contacts (maquette PRO-10) : acomptes échus, documents de vigilance manquants.
+  const [contactsBadge, setContactsBadge] = useState(0);
+  // Badge Messages (maquette PRO-12) : messages non lus.
+  const [messagesBadge, setMessagesBadge] = useState(0);
   useEffect(() => {
     let vivant = true;
     apiGet("/api/quotes?compteurs=1")
       .then((data) => { if (vivant) setDevisBadge(Number(data?.compteurs?.badge) || 0); })
+      .catch(() => {});
+    apiGet("/api/messages?compteurs=1")
+      .then((data) => { if (vivant) setMessagesBadge(Number(data?.compteurs?.nonLus) || 0); })
+      .catch(() => {});
+    apiGet("/api/contacts/carnet?compteurs=1")
+      .then((data) => { if (vivant) setContactsBadge(Number(data?.compteurs?.aFaire) || 0); })
       .catch(() => {});
     return () => { vivant = false; };
   }, [pathname]);
@@ -747,6 +757,8 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
             isLocked={(href) => premiumLocked && PREMIUM_PATHS.some((p) => href.startsWith(p))}
             hasNewMarketplaceOffers={hasNewMarketplaceOffers}
             devisBadge={devisBadge}
+            contactsBadge={contactsBadge}
+            messagesBadge={messagesBadge}
             onAsk={() => { setDrawerOpen(false); toggleKojiAssistant(); }}
             account={{
               name: avatarLabel,
@@ -780,11 +792,11 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
                 </Link>
               );
             })}
-            <span className="soon" aria-disabled="true">
+            <Link href="/messages" className={pathname.startsWith("/messages") ? "on" : ""} aria-current={pathname.startsWith("/messages") ? "page" : undefined}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+              {messagesBadge > 0 ? <em className="tbd" aria-label={`${messagesBadge} non lus`}>{messagesBadge}</em> : null}
               <span>Messages</span>
-              <em>Bientôt</em>
-            </span>
+            </Link>
           </nav>
         </div>
       )}

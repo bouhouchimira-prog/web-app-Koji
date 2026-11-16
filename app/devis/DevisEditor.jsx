@@ -15,6 +15,14 @@ import { calculateTaskPrice } from "../../lib/pricing";
 import { computeSurchargeBreakdown } from "../../lib/quote-calculations";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
+import { confirmationTva, decisionTva, questionTva, tauxProposeLigne, ventilerTva } from "../../lib/tva";
+import { PanneauTva } from "../../components/PanneauTva";
+import { DevisSuivi } from "../../components/DevisSuivi";
+import { RelanceDevis } from "../../components/RelanceDevis";
+import { DevisVersions } from "../../components/DevisVersions";
+import { FaireSigner } from "../../components/FaireSigner";
+import { demandeDevisGuide } from "../../lib/visite-mode";
+import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
 import catalog from "../../data/catalog-ouvrages.json";
@@ -117,7 +125,8 @@ function accountSurchargesFrom(value) {
       label: String(item.label),
       percent: Math.max(0, Number(item.percent) || 0),
       mode: SURCHARGE_MODES.has(item.mode) ? item.mode : "excluded",
-      ...(item.calculationBase === "chiffrage_cumule" ? { calculationBase: "chiffrage_cumule" } : {})
+      ...(item.calculationBase === "chiffrage_cumule" ? { calculationBase: "chiffrage_cumule" } : {}),
+      ...(item.kind === "fixe" || item.kind === "minimum" ? { kind: item.kind, montant: Math.max(0, Number(item.montant) || 0) } : {})
     }));
 }
 
@@ -261,7 +270,12 @@ function sourceToTask(source, settings = {}) {
 }
 
 function recalculateLine(line, settings = {}, quoteVatRatePercent) {
-  const lineVatRate = quoteVatRatePercent != null ? Number(quoteVatRatePercent) / 100 : Number(pricingProfile.vatRate || 0.2);
+  // Taux propre à la ligne (maquette PRO-03.5, ex. 5,5 % sur une ligne de
+  // rénovation énergétique) ; sinon le taux du devis.
+  const tauxLigne = settings.tauxTva != null && settings.tauxTva !== "" ? Number(settings.tauxTva) : null;
+  const lineVatRate = tauxLigne != null
+    ? tauxLigne / 100
+    : quoteVatRatePercent != null ? Number(quoteVatRatePercent) / 100 : Number(pricingProfile.vatRate || 0.2);
   const editedMaterials = Array.isArray(settings.materialLines) ? settings.materialLines : null;
   const materialLines = (editedMaterials || line.materialLines || []).map((material) => {
     const unitsToBuy = Math.max(0, Number(material.unitsToBuy ?? material.quantityNeeded ?? 0));
@@ -307,6 +321,7 @@ function recalculateLine(line, settings = {}, quoteVatRatePercent) {
     discountAmount,
     vatAmount,
     vatRate: lineVatRate,
+    ...(tauxLigne != null ? { tauxTva: tauxLigne } : {}),
     totalHtBase,
     totalHt: round2(totalHt),
     totalTtc
@@ -464,6 +479,24 @@ export default function DevisEditor() {
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   // Fenetre "Envoyer le devis" (16 oct, maquette Artifact DevisEnvoi).
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  // Après l'envoi (maquette PRO-03.3) : un devis envoyé ou signé s'ouvre en
+  // suivi, en lecture seule ; « Modifier » repasse dans l'éditeur.
+  const [editionApresEnvoi, setEditionApresEnvoi] = useState(false);
+  const [relanceOuverte, setRelanceOuverte] = useState(false);
+  const [acompteOuvert, setAcompteOuvert] = useState(false);
+  // Versions du devis (maquette PRO-03.6) : écarts avant d'envoyer la version
+  // suivante, message proposé repris par le panneau d'envoi.
+  const [vueVersions, setVueVersions] = useState(false);
+  // Signature et rétractation (maquette PRO-03.7).
+  const [signerOuvert, setSignerOuvert] = useState(false);
+  // Devis préparé depuis une visite (PRO-03.8) : client, adresse et
+  // compte rendu envoyé à Koji comme premier message.
+  const [visite, setVisite] = useState(null);
+  const visiteLiee = useRef("");
+  // Demande reçue par la KojiPage (PRO-13.1) : « Démarrer un devis guidé ».
+  const [demandeKP, setDemandeKP] = useState(null);
+  const demandeLiee = useRef("");
+  const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
   const [addLineMenuRoom, setAddLineMenuRoom] = useState(null);
   // Panneau "outils" (Client/Lots/Bibliotheque/Fournitures) en tiroir sur
@@ -492,6 +525,9 @@ export default function DevisEditor() {
   // entrees, somme des percent = 100.
   const [paymentMilestones, setPaymentMilestones] = useState(() => defaultPaymentMilestones());
   const [quoteVatRate, setQuoteVatRate] = useState(20);
+  // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
+  const [tvaChoix, setTvaChoix] = useState({ client: "", local: "", travaux: "", commande: "" });
+  const [tvaOuvert, setTvaOuvert] = useState(false);
   const [vatManual, setVatManual] = useState(false);
   const [draftQuoteNumber, setDraftQuoteNumber] = useState(null);
   const [ouvrageComposer, setOuvrageComposer] = useState({
@@ -596,6 +632,48 @@ export default function DevisEditor() {
     setIsNewChantier(true);
     clearChantierDraft();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || editQuoteIdFromUrl()) return;
+    const visiteId = new URLSearchParams(window.location.search).get("visite");
+    if (!visiteId) return;
+    apiGet(`/api/visites?id=${encodeURIComponent(visiteId)}`)
+      .then(({ visite: v }) => {
+        if (!v) return;
+        applyChatClientInfo({ nom: v.client, email: v.email, chantier: v.adresse });
+        setVisite(v);
+      })
+      .catch(() => notifyError(new Error("Visite introuvable."), "Le compte rendu de visite n'a pas pu être chargé."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || editQuoteIdFromUrl()) return;
+    const demandeId = new URLSearchParams(window.location.search).get("demande");
+    if (!demandeId) return;
+    apiGet(`/api/kojipage/demandes?id=${encodeURIComponent(demandeId)}`)
+      .then(({ demande }) => {
+        if (!demande) return;
+        applyChatClientInfo({ nom: demande.client?.nom, email: demande.client?.email });
+        setDemandeKP(demande);
+      })
+      .catch(() => notifyError(new Error("Demande introuvable."), "La demande de la KojiPage n'a pas pu être chargée."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = generatedQuote?.id;
+    if (!demandeKP?.id || !id || demandeLiee.current === id) return;
+    demandeLiee.current = id;
+    apiSend("/api/kojipage/demandes", { action: "devis", id: demandeKP.id, quoteId: id }, "POST").catch(() => { demandeLiee.current = ""; });
+  }, [demandeKP, generatedQuote?.id]);
+
+  useEffect(() => {
+    const id = generatedQuote?.id;
+    if (!visite?.id || !id || visiteLiee.current === id) return;
+    visiteLiee.current = id;
+    apiSend("/api/visites", { action: "lier", id: visite.id, quoteId: id }, "POST").catch(() => { visiteLiee.current = ""; });
+  }, [visite, generatedQuote?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -734,7 +812,8 @@ export default function DevisEditor() {
         fixedDuration: item.fixedDuration ?? null,
         fixedDurationUnit: item.fixedDurationUnit || "h",
         subItems: Array.isArray(item.subItems) ? item.subItems : undefined,
-        variante: Boolean(item.variante)
+        variante: Boolean(item.variante),
+        ...(item.tauxTva != null ? { tauxTva: Number(item.tauxTva) } : {})
       };
     });
 
@@ -752,6 +831,7 @@ export default function DevisEditor() {
     }
     setPaymentMilestones(Array.isArray(quote.paymentMilestones) && quote.paymentMilestones.length > 0 ? quote.paymentMilestones : defaultPaymentMilestones());
     if (quote.vatRate != null) setQuoteVatRate(Number(quote.vatRate));
+    setTvaChoix({ client: quote.tva?.client || "", local: quote.tva?.local || "", travaux: quote.tva?.travaux || "", commande: quote.tva?.commande || "" });
     setVatManual(true);
     setDraftQuoteNumber(quote.quoteNumber || null);
     setForm((current) => ({
@@ -1003,10 +1083,47 @@ export default function DevisEditor() {
     const baseHt = totals.ht;
     const breakdown = computeSurchargeBreakdown(baseHt, surcharges);
     const totalHt = breakdown.totalHt;
-    const vatAmount = round2(totalHt * (Number(quoteVatRate) / 100));
+    // TVA par taux (PRO-03.5) : les lignes à leur taux, les majorations au
+    // taux du devis ; avec un seul taux, même calcul qu'avant.
+    const ventilation = ventilerTva(
+      quoteLines.filter((line) => !line.variante).map((line) => ({ ht: line.totalHt, taux: line.tauxTva })),
+      breakdown.total,
+      quoteVatRate
+    );
+    const vatAmount = ventilation.tva;
     const totalTtc = round2(totalHt + vatAmount);
-    return { baseHt, surchargeLines: breakdown.lines, surchargeTotal: breakdown.total, totalHt, vatAmount, totalTtc };
-  }, [totals.ht, surcharges, quoteVatRate]);
+    return { baseHt, surchargeLines: breakdown.lines, surchargeTotal: breakdown.total, totalHt, vatAmount, totalTtc, parTaux: ventilation.parTaux };
+  }, [totals.ht, surcharges, quoteVatRate, quoteLines]);
+
+  const clientTvaCourant = tvaChoix.client || (form.clientType === "societe" ? "entreprise" : "particulier");
+  const decisionTvaCourante = decisionTva({ client: clientTvaCourant, local: tvaChoix.local, travaux: tvaChoix.travaux });
+  const autoliquidation = clientTvaCourant === "sous-traitance";
+
+  // Applique les réponses TVA : le taux du devis suit la décision de Koji ;
+  // les taux propres aux lignes (5,5 %) ne restent que dans un devis à 10 %.
+  function appliquerTva(choix) {
+    const client = choix.client || clientTvaCourant;
+    const decision = decisionTva({ client, local: choix.local, travaux: choix.travaux });
+    setTvaChoix(choix);
+    if (decision.taux != null) setQuoteVatRate(decision.taux);
+    if (decision.taux != null && decision.taux !== 10) {
+      setLineSettings((current) => Object.fromEntries(Object.entries(current).map(([id, reglage]) => {
+        if (!reglage || reglage.tauxTva == null) return [id, reglage];
+        const { tauxTva, ...reste } = reglage; // eslint-disable-line no-unused-vars
+        return [id, reste];
+      })));
+    }
+    return decision;
+  }
+
+  function changerTauxLigne(id, taux) {
+    setLineSettings((current) => {
+      const reglage = { ...(current[id] || {}) };
+      if (taux == null || taux === "") delete reglage.tauxTva;
+      else reglage.tauxTva = Number(taux);
+      return { ...current, [id]: reglage };
+    });
+  }
 
   const selectedProject = useMemo(() => {
     return projects.find((project) => project.id === form.projectId) || projects.find((project) => project.title === form.project) || null;
@@ -1939,7 +2056,7 @@ export default function DevisEditor() {
     }
   }
 
-  async function createDepositInvoice() {
+  async function createDepositInvoice(percent = depositPercent) {
     if (!generatedQuote?.id || !generatedQuote.projectId) return;
     setDepositBusy(true);
     try {
@@ -1948,7 +2065,7 @@ export default function DevisEditor() {
         projectId: generatedQuote.projectId,
         type: "Acompte initial",
         amountMode: "deposit",
-        depositPercent
+        depositPercent: percent
       });
       setInvoices((current) => [invoice, ...current]);
       notify(`Facture d'acompte ${invoice.invoiceNumber} créée en brouillon.`, "success");
@@ -2048,7 +2165,7 @@ export default function DevisEditor() {
                     ))}
                   </div>
                   <b>{money(Number(generatedQuote.totalTtc || 0) * depositPercent / 100)} TTC</b>
-                  <button type="button" className="btn btn-sec" disabled={depositBusy} onClick={createDepositInvoice}>
+                  <button type="button" className="btn btn-sec" disabled={depositBusy} onClick={() => createDepositInvoice()}>
                     {depositBusy ? "Création…" : "Créer la facture d'acompte"}
                   </button>
                 </div>
@@ -2230,6 +2347,8 @@ export default function DevisEditor() {
       surcharges,
       situationFactors,
       vatRate: quoteVatRate,
+      tva: { ...tvaChoix, client: clientTvaCourant },
+      autoliquidation: clientTvaCourant === "sous-traitance",
       totalHt: summaryTotals.totalHt,
       totalTtc: summaryTotals.totalTtc,
       paymentMilestones
@@ -2467,10 +2586,16 @@ export default function DevisEditor() {
 
   function handleQuoteSent(quote, { silent } = {}) {
     setGeneratedQuote(quote);
+    // Une fois envoyé, le devis repasse en suivi (maquette PRO-03.3).
+    setEditionApresEnvoi(false);
+    setVueVersions(false);
+    setMessageEnvoi("");
     setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+    // E-mail et téléphone saisis dans le panneau d'envoi : gardés sur le devis.
+    setForm((current) => ({ ...current, clientEmail: quote.clientEmail || current.clientEmail, clientPhone: quote.clientPhone || current.clientPhone }));
     if (!silent) {
       setSendModalOpen(false);
-      notify("Devis envoyé au client par e-mail.", "success");
+      notify(`Devis ${quote.quoteNumber || ""} envoyé.`.replace("  ", " "), "success");
     }
   }
 
@@ -2489,6 +2614,7 @@ export default function DevisEditor() {
     ]);
     setPaymentMilestones(defaultPaymentMilestones());
     setQuoteVatRate(20);
+    setTvaChoix({ client: "", local: "", travaux: "", commande: "" });
     setVatManual(false);
     setDraftQuoteNumber(nextQuoteNumberFromList(quotes));
     setForm({ client: "", clientReference: "", clientEmail: "", clientPhone: "", clientType: "particulier", clientFirstName: "", clientLastName: "", clientCompanyName: "", contactId: "", projectId: "", project: "", propertyType: "Maison", chantierAddress: "", chantierAddressDetails: null, quoteDate: todayIso(), startDate: "", expectedDuration: "", workDescription: "", validityDays: 30 });
@@ -2743,7 +2869,7 @@ export default function DevisEditor() {
       return (
         <div key={line.id} className="dl-wrap">
           <button type="button" className="dl" onClick={() => reopenLine(line.id)}>
-            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}{line.variante ? <span className="tag tag-o dl-var">Variante</span> : null}</span>
+            <span className="dd">{settings.label ?? line.label ?? L.devis.designation}{aiTag(line)}{line.variante ? <span className="tag tag-o dl-var">Variante</span> : null}{line.tauxTva != null ? <span className="tag tag-o dl-var">TVA {String(line.tauxTva).replace(".", ",")} %</span> : null}</span>
             <span className="dq">{qty > 0 ? `${qty.toLocaleString("fr-FR")} ${unitLabel(settings.unit ?? line.unit)}` : "—"}</span>
             <span className="dp">{money(unitPriceHt)}</span>
             <span className="dt">{money(line.totalHt)}</span>
@@ -2942,6 +3068,18 @@ export default function DevisEditor() {
             />
           </label>
 
+          {!autoliquidation ? (
+            <label className="ed dl-tva">TVA de la ligne
+              <select value={settings.tauxTva ?? ""} onChange={(event) => changerTauxLigne(line.id, event.target.value === "" ? null : Number(event.target.value))}>
+                <option value="">Taux du devis ({String(quoteVatRate).replace(".", ",")} %)</option>
+                {[20, 10, 5.5].map((t) => <option key={t} value={t}>{String(t).replace(".", ",")} %</option>)}
+              </select>
+              {tauxProposeLigne(settings.label ?? line.label, decisionTvaCourante) && settings.tauxTva == null ? (
+                <span className="dl-tva-k">Rénovation énergétique : Koji propose 5,5 % sur cette ligne. <button type="button" className="link" onClick={() => changerTauxLigne(line.id, 5.5)}>Appliquer</button></span>
+              ) : null}
+            </label>
+          ) : null}
+
           {!hasSubItems ? (
             <div className="pu">
                 {line.billingMode !== "fixed" && Number(settings.quantity ?? line.quantity ?? 0) > 0
@@ -3057,7 +3195,9 @@ export default function DevisEditor() {
           <div>
             <span className="lab">Validité</span>
             <strong>{form.validityDays || 30} jours</strong>
-            <span className="muted">TVA {quoteVatRate} %</span>
+            <button type="button" className="dv-tva" onClick={() => setTvaOuvert(true)}>
+              {decisionTvaCourante.question ? "TVA à confirmer" : autoliquidation ? "Autoliquidation · sans TVA" : `TVA ${String(quoteVatRate).replace(".", ",")} % · vérifiée par Koji`}
+            </button>
           </div>
         </div>
         {signedAvenant ? <p className="muted">{L.avenants.marketTotalUpdated} : {money(cumulativeMarketTotal(generatedQuote, avenants))}</p> : null}
@@ -3078,8 +3218,12 @@ export default function DevisEditor() {
           </>
         ) : null}
         <div><span>Total HT</span><b>{money(summaryTotals.totalHt)}</b></div>
-        <div><span>TVA {quoteVatRate} %</span><b>{money(summaryTotals.vatAmount)}</b></div>
-        <div className="ttc"><span>Total TTC</span><b>{money(summaryTotals.totalTtc)}</b></div>
+        {autoliquidation ? (
+          <div><span>TVA autoliquidation</span><b>{money(0)}</b></div>
+        ) : (summaryTotals.parTaux?.length ? summaryTotals.parTaux : [{ taux: quoteVatRate, tva: summaryTotals.vatAmount }]).map((t) => (
+          <div key={t.taux}><span>TVA {String(t.taux).replace(".", ",")} %</span><b>{money(t.tva)}</b></div>
+        ))}
+        <div className="ttc"><span>{autoliquidation ? "Net à payer" : "Total TTC"}</span><b>{money(summaryTotals.totalTtc)}</b></div>
       </div>
     );
   }
@@ -3128,8 +3272,11 @@ export default function DevisEditor() {
                 <div className="dl dl-in" key={surcharge.id}>
                   <span className="dd">{surcharge.label}</span>
                   <span className="dq">
-                    <input type="number" value={surcharge.percent} onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Pourcentage, ${surcharge.label}`} />
-                    %
+                    {surcharge.kind === "fixe" || surcharge.kind === "minimum" ? (
+                      <><input type="number" value={surcharge.montant} onChange={(event) => updateSurcharge(surcharge.id, "montant", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Montant, ${surcharge.label}`} /> €</>
+                    ) : (
+                      <><input type="number" value={surcharge.percent} onChange={(event) => updateSurcharge(surcharge.id, "percent", Number(event.target.value) || 0)} min="0" step="any" aria-label={`Pourcentage, ${surcharge.label}`} /> %</>
+                    )}
                   </span>
                   <span className="dp" />
                   <span className="dt">+{money(surcharge.amount)}</span>
@@ -3197,16 +3344,19 @@ export default function DevisEditor() {
                         aria-label="Libellé de la majoration"
                       />
                       <span className="cond-pct">
-                        <input
-                          type="number"
-                          value={s.percent}
-                          min="0"
-                          max="100"
-                          step="0.5"
-                          onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
-                          aria-label={`Pourcentage, ${s.label}`}
-                        />
-                        %
+                        {s.kind === "fixe" || s.kind === "minimum" ? (
+                          <><input type="number" value={s.montant} min="0" step="1" onChange={(e) => updateSurcharge(s.id, "montant", e.target.value)} aria-label={`Montant, ${s.label}`} /> €</>
+                        ) : (
+                          <><input
+                            type="number"
+                            value={s.percent}
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            onChange={(e) => updateSurcharge(s.id, "percent", e.target.value)}
+                            aria-label={`Pourcentage, ${s.label}`}
+                          /> %</>
+                        )}
                       </span>
                       <b>{money(line?.amount ?? 0)}</b>
                       <button type="button" className="dx" onClick={() => removeSurcharge(s.id)} aria-label={`Supprimer ${s.label}`}>×</button>
@@ -3648,6 +3798,173 @@ export default function DevisEditor() {
     [QUOTE_STATUS_WORDS[generatedQuote?.status] || "brouillon", savedLabel].join(" ")
   ].filter(Boolean).join(" · ");
 
+  const devisSigne = generatedQuote?.status === "Signe" || generatedQuote?.signatureStatus === "Signe";
+  const dejaEnvoye = Boolean(generatedQuote?.sentAt) && !devisSigne;
+  // Un devis déjà envoyé repasse par l'écran des versions avant l'envoi.
+  const envoyerOuComparer = () => (dejaEnvoye ? setVueVersions(true) : openSendModal());
+  const panneauEnvoi = sendModalOpen && generatedQuote ? (
+          <SendQuoteFlow
+            quote={generatedQuote}
+            quoteNumber={previewQuoteNumber}
+            client={{ name: headerClientName || "Client", email: form.clientEmail, phone: form.clientPhone }}
+            projet={form.project}
+            debut={form.startDate}
+            entreprise={company.name}
+            totals={{ ht: summaryTotals.totalHt, tva: summaryTotals.vatAmount, ttc: summaryTotals.totalTtc }}
+            vatRate={quoteVatRate}
+            onVatRate={setQuoteVatRate}
+            validityDays={form.validityDays}
+            onValidity={(jours) => setField("validityDays", jours)}
+            acompte={paymentMilestones[0]?.percent ?? 30}
+            onAcompte={updateAcomptePercent}
+            soldeLabel={paymentMilestones[1]?.label}
+            onReglement={updateSoldeLabel}
+            lotsCount={roomGroups.filter((room) => (linesByRoom[room] || []).length > 0).length}
+            linesCount={quoteLines.length}
+            onPreview={() => handlePreview()}
+            onSave={() => persistQuote()}
+            onClose={() => setSendModalOpen(false)}
+            onSent={handleQuoteSent}
+            messageInitial={messageEnvoi}
+          />
+  ) : null;
+
+  if (vueVersions && generatedQuote?.id) {
+    const versionsEnvoyees = Array.isArray(generatedQuote.versions) ? generatedQuote.versions : [];
+    const suivante = Number(versionsEnvoyees.at(-1)?.number || generatedQuote.versionNumber || 1) + 1;
+    const brouillon = editionApresEnvoi && !devisSigne ? {
+      number: String(suivante).padStart(3, "0"),
+      lines: quoteLines.map((l) => ({ id: l.id, label: l.label, room: l.room, quantity: Number(l.quantity || 0), unit: l.unit, totalHt: l.totalHt })),
+      totalHt: summaryTotals.totalHt,
+      totalTtc: summaryTotals.totalTtc
+    } : null;
+    const finValiditeBrouillon = new Date(Date.now() + Number(form.validityDays || 30) * 86400000).toISOString().slice(0, 10);
+    return (
+      <Shell variant="pro-focus">
+        {message ? <p className={`notice dv-msg ${messageType || ""}`} role="status">{message}</p> : null}
+        <DevisVersions
+          quote={generatedQuote}
+          brouillon={brouillon}
+          client={headerClientName || ""}
+          tauxTva={quoteVatRate}
+          acompteTtc={summaryTotals.totalTtc * (paymentMilestones[0]?.percent ?? 0) / 100}
+          finValidite={finValiditeBrouillon}
+          signe={devisSigne}
+          onRetour={() => setVueVersions(false)}
+          onModifier={() => { setEditionApresEnvoi(true); setVueVersions(false); }}
+          onEnvoyer={(texte) => { setMessageEnvoi(texte); openSendModal(); }}
+        />
+        {panneauEnvoi}
+      </Shell>
+    );
+  }
+  const lectureSeule = Boolean(generatedQuote?.id) && !editionApresEnvoi && mode !== "recap"
+    && (devisSigne || (generatedQuote.status === "Envoye" && Boolean(generatedQuote.sentAt)));
+
+  if (lectureSeule) {
+    const chantierAdresse = [form.chantierAddressDetails?.address, form.chantierAddressDetails?.postalCode, form.chantierAddressDetails?.city].filter(Boolean).join(", ") || form.chantierAddress;
+    const lotsSuivi = roomGroups.map((room) => {
+      const lignes = linesByRoom[room] || [];
+      return {
+        nom: room === "Services" ? L.devis.generalWorks : room,
+        code: lotCode(room),
+        total: lignes.filter((l) => !l.variante).reduce((s, l) => s + l.totalHt, 0),
+        lignes: lignes.map((l) => {
+          const qte = Number(l.quantity || 0);
+          return {
+            id: l.id,
+            label: l.label,
+            quantite: qte > 0 ? `${qte.toLocaleString("fr-FR")} ${unitLabel(l.unit)}` : "—",
+            pu: qte > 0 ? l.totalHt / qte : l.totalHt,
+            total: l.totalHt,
+            variante: Boolean(l.variante)
+          };
+        })
+      };
+    });
+    const acompteFacture = invoices.find((invoice) => invoice.quoteId === generatedQuote.id
+      && /acompte/i.test(invoice.type || "") && invoice.status !== "Annulee" && !invoice.archived);
+    return (
+      <Shell variant="pro-focus">
+        {message ? <p className={`notice dv-msg ${messageType || ""}`} role="status">{message}</p> : null}
+        <DevisSuivi
+          quote={generatedQuote}
+          aujourdhui={todayIso()}
+          lots={lotsSuivi}
+          totals={{ ht: summaryTotals.totalHt, tva: summaryTotals.vatAmount, ttc: summaryTotals.totalTtc, vatRate: quoteVatRate }}
+          client={{ name: headerClientName || "Client", detail: chantierAdresse || [form.clientPhone, form.clientEmail].filter(Boolean).join(" · ") }}
+          chantier={{ titre: form.project, detail: String(form.workDescription || "").split("\n")[0].slice(0, 80) || chantierAdresse }}
+          depositInvoice={acompteFacture}
+          onOuvrirAcompte={() => setAcompteOuvert(true)}
+          onRelancer={() => setRelanceOuverte(true)}
+          onModifier={() => { setEditionApresEnvoi(true); setVueVersions(true); }}
+          onVersions={() => setVueVersions(true)}
+          onFaireSigner={() => setSignerOuvert(true)}
+          onApercu={() => window.open(`/api/quotes/${generatedQuote.id}/documents?type=quote&format=pdf&preview=1`, "_blank")}
+        />
+        {acompteOuvert ? (
+          <FactureAcompte
+            quote={generatedQuote}
+            totals={{ ht: Number(generatedQuote.totalHt || summaryTotals.totalHt), ttc: Number(generatedQuote.totalTtc || summaryTotals.totalTtc), vatRate: quoteVatRate }}
+            client={{ name: headerClientName || "", email: form.clientEmail }}
+            debut={form.startDate}
+            pourcentagePrevu={paymentMilestones[0]?.percent ?? 30}
+            restant={Number(generatedQuote.totalTtc || 0) - invoices
+              .filter((invoice) => invoice.quoteId === generatedQuote.id && invoice.status !== "Annulee" && !invoice.archived)
+              .reduce((s, invoice) => s + Number(invoice.amountTtc || 0), 0)}
+            brouillon={acompteFacture?.status === "Brouillon" ? acompteFacture : null}
+            onClose={() => setAcompteOuvert(false)}
+            onDone={(invoice, texte, options = {}) => {
+              setInvoices((current) => current.some((item) => item.id === invoice.id)
+                ? current.map((item) => item.id === invoice.id ? invoice : item)
+                : [invoice, ...current]);
+              if (!options.garderOuvert) {
+                setAcompteOuvert(false);
+                if (texte) notify(texte, "success");
+              }
+            }}
+          />
+        ) : null}
+        {signerOuvert ? (
+          <FaireSigner
+            quote={generatedQuote}
+            client={{ name: headerClientName || "", email: form.clientEmail }}
+            totals={{ ht: Number(generatedQuote.totalHt || summaryTotals.totalHt), ttc: Number(generatedQuote.totalTtc || summaryTotals.totalTtc) }}
+            acomptePct={paymentMilestones[0]?.percent ?? 0}
+            debut={form.startDate || generatedQuote.startDate}
+            onEnvoyer={() => { setSignerOuvert(false); setRelanceOuverte(true); }}
+            onDecaler={async (jour) => {
+              setField("startDate", jour);
+              try {
+                const { quote: maj } = await apiSend("/api/quotes", { id: generatedQuote.id, action: "update", startDate: jour }, "PATCH");
+                setGeneratedQuote(maj);
+              } catch (error) {
+                notifyError(error, "La date de démarrage n'a pas pu être décalée.");
+              }
+            }}
+            onSigne={(quote) => {
+              setGeneratedQuote(quote);
+              setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+            }}
+            onClose={() => setSignerOuvert(false)}
+          />
+        ) : null}
+        {relanceOuverte ? (
+          <RelanceDevis
+            quote={generatedQuote}
+            onClose={() => setRelanceOuverte(false)}
+            onDone={(quote, texte) => {
+              setGeneratedQuote(quote);
+              setQuotes((current) => current.map((item) => item.id === quote.id ? quote : item));
+              setRelanceOuverte(false);
+              notify(texte, "success");
+            }}
+          />
+        ) : null}
+      </Shell>
+    );
+  }
+
   return (
     <Shell variant="pro-focus">
       <header className="dv-top">
@@ -3671,8 +3988,8 @@ export default function DevisEditor() {
           <button type="button" className="btn btn-sec dv-tools" onClick={() => setToolsDrawerOpen(true)}>{mode === "ia" ? "Voir le devis" : L.devis.tabTools}</button>
           <button type="button" className="btn btn-sec" onClick={() => handlePreview()}>Aperçu PDF</button>
           <button type="button" className="btn btn-sec" onClick={handleGenerate}>{L.devis.save}</button>
-          <button type="button" className="btn btn-main" onClick={openSendModal}>Envoyer au client</button>
-          <button type="button" className="link dv-send-m" onClick={openSendModal}>Envoyer</button>
+          <button type="button" className="btn btn-main" onClick={envoyerOuComparer}>Envoyer au client</button>
+          <button type="button" className="link dv-send-m" onClick={envoyerOuComparer}>Envoyer</button>
           <div className="dv-more" ref={moreActionsRef}>
             <button type="button" className="btn btn-sec" onClick={() => setMoreActionsOpen((open) => !open)} aria-expanded={moreActionsOpen} aria-label="Plus d'actions">•••</button>
             {moreActionsOpen ? (
@@ -3738,6 +4055,9 @@ export default function DevisEditor() {
                 onAutoSave={() => persistQuote(false)}
                 onFinish={() => enterRecap("ia")}
                 onOpenDevis={() => setToolsDrawerOpen(true)}
+                questionTva={decisionTvaCourante.question && quoteLines.length ? questionTva(decisionTvaCourante.question, clientTvaCourant) : null}
+                onReponseTva={(valeur) => confirmationTva(appliquerTva({ ...tvaChoix, client: clientTvaCourant, local: valeur }), { client: clientTvaCourant, nom: headerClientName })}
+                messageInitial={visite ? demandeDevisGuide(visite) : demandeKP ? demandeKP.messageDevis : ""}
               />
             ) : null}
             <div className="dv-doc" style={mode === "ia" ? { display: "none" } : undefined}>
@@ -4105,7 +4425,7 @@ export default function DevisEditor() {
                   {!filteredSupplyItems.length ? <p className="empty">{L.bibliotheque.noFound}</p> : null}
                 </div>
                 <div className="tp-foot">
-                  <Link className="link" href="/fournitures/catalogue">{L.nav.supplies} →</Link>
+                  <Link className="link" href="/fournitures">{L.nav.supplies} →</Link>
                 </div>
               </section>
             ) : null}
@@ -4363,18 +4683,19 @@ export default function DevisEditor() {
           </div>
         ) : null}
 
-        {sendModalOpen && generatedQuote ? (
-          <SendQuoteFlow
-            quote={generatedQuote}
-            quoteNumber={previewQuoteNumber}
-            lotsCount={roomGroups.length}
-            linesCount={quoteLines.length}
-            totalTtc={summaryTotals.totalTtc}
-            contacts={contacts}
-            onClose={() => setSendModalOpen(false)}
-            onSent={handleQuoteSent}
+        {tvaOuvert ? (
+          <PanneauTva
+            choix={tvaChoix}
+            client={clientTvaCourant}
+            decision={decisionTvaCourante}
+            lignesProposees={quoteLines.filter((l) => l.tauxTva == null && tauxProposeLigne(l.label, decisionTvaCourante)).map((l) => ({ id: l.id, label: l.label }))}
+            lignesAuTaux={quoteLines.filter((l) => l.tauxTva != null).map((l) => ({ id: l.id, label: l.label, taux: l.tauxTva }))}
+            onChange={appliquerTva}
+            onTauxLigne={changerTauxLigne}
+            onClose={() => setTvaOuvert(false)}
           />
         ) : null}
+        {panneauEnvoi}
         </div>
       </form>
     </Shell>

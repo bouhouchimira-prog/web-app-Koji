@@ -4,9 +4,12 @@ import { fixObjectText, fixText } from "../../../lib/text";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 import { loadInvoiceContext } from "../../../lib/invoice-context";
-import { buildInvoicePdf, invoiceDocumentFilename } from "../../../lib/document-generator";
+import { buildInvoicePdf, buildRecuPdf, invoiceDocumentFilename, recuFilename } from "../../../lib/document-generator";
+import { ajouterPaiement, encaisse, resteDu } from "../../../lib/encaissements";
 import { sendInvoiceReminderEmail } from "../../../lib/mailer";
 import { demanderAvis } from "../../../lib/avis-serveur";
+import { calculerSituation } from "../../../lib/situation-travaux";
+import { computeQuoteItem } from "../../../lib/quote-calculations";
 
 // Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
 // shared with the mobile app), so this fetches the two via the service_role
@@ -308,11 +311,46 @@ export async function POST(request) {
   }
 
   const before = buildBillingSummary(db, quote, project, userId);
-  const amountTtc = toAmount(amountFromMode(body, before));
+
+  // Situation de travaux (maquette PRO-06) : avancement cumulé par lot. Les
+  // montants des lots viennent du devis signé (et des avenants signés),
+  // jamais de l'écran ; déjà facturé = factures précédentes du devis, HT.
+  let situation = null;
+  if (body.amountMode === "situation") {
+    const tauxTva = Number(quote.vatRate ?? 20);
+    const parLot = new Map();
+    for (const item of quote.items || []) {
+      const lot = fixText(item.room || "Travaux");
+      parLot.set(lot, toAmount((parLot.get(lot) || 0) + Number(computeQuoteItem(item, quote).totalHt || 0)));
+    }
+    const avenantsHt = toAmount((db.avenants || []).filter((a) => a.quoteId === quote.id && a.status === "Signe").reduce((sum, a) => sum + Number(a.totalHtDelta || 0), 0));
+    if (avenantsHt) parLot.set("Avenants signés", avenantsHt);
+    const pcts = new Map((Array.isArray(body.lots) ? body.lots : []).map((l) => [fixText(String(l?.nom || "")), Number(l?.pct) || 0]));
+    const precedentes = activeInvoicesFor(db, quote.id, project.id, userId);
+    const dejaFactureHt = toAmount(precedentes.reduce((sum, inv) => sum + Number(inv.amountTtc || 0), 0) / (1 + tauxTva / 100));
+    situation = {
+      ...calculerSituation({
+        lots: [...parLot].map(([nom, ht]) => ({ nom, ht, pct: pcts.get(nom) ?? 0 })),
+        dejaFactureHt,
+        tauxRetenue: Math.max(0, Math.min(5, Number(body.tauxRetenue) || 0)),
+        tauxTva
+      }),
+      numero: precedentes.filter((inv) => inv.situation).length + 1,
+      periode: { du: String(body.periodeDu || "").slice(0, 10), au: String(body.periodeAu || now).slice(0, 10) },
+      message: fixText(String(body.message || "")).slice(0, 2000)
+    };
+    if (situation.ht <= 0) return badRequest("L'avancement ne dépasse pas ce qui est déjà facturé.");
+  }
+  const amountTtc = toAmount(situation ? situation.ttc : amountFromMode(body, before));
 
   if (before.remaining <= 0.01) return badRequest("Ce devis est déjà entièrement facturé.");
   if (amountTtc <= 0) return badRequest("Le montant de la facture doit être supérieur à zéro.");
-  if (amountTtc > before.remaining + 0.01) return badRequest("Le montant dépasse le solde restant à facturer.");
+  // Facture refaite après avoir (PRO-06.1) : le plafond suit le nouveau taux.
+  const tauxDevis = Number(quote.vatRate ?? 20);
+  const plafond = body.remplace && Number(body.tauxTva) > tauxDevis
+    ? toAmount((before.remaining / (1 + tauxDevis / 100)) * (1 + Number(body.tauxTva) / 100))
+    : before.remaining;
+  if (amountTtc > plafond + 0.01) return badRequest("Le montant dépasse le solde restant à facturer.");
 
   const invoice = {
     id: `fac-${Date.now()}`,
@@ -325,8 +363,12 @@ export async function POST(request) {
     projectTitle: fixText(project.title || quote.project || "Chantier"),
     client: fixText(project.client || quote.client || "Client"),
     clientEmail: project.clientEmail || quote.clientEmail || "",
-    type: fixText(body.type || "Facture intermediaire"),
+    type: situation ? `Situation ${situation.numero}` : fixText(body.type || "Facture intermediaire"),
     amountMode: body.amountMode || "fixed",
+    ...(situation ? { situation } : {}),
+    // Facture refaite à un autre taux après un avoir (PRO-06.1).
+    ...([0, 5.5, 10, 20].includes(Number(body.tauxTva)) && body.tauxTva !== "" && body.tauxTva != null ? { tauxTva: Number(body.tauxTva) } : {}),
+    ...(body.remplace ? { remplace: { avoirId: String(body.remplace.avoirId || ""), factureNumero: fixText(String(body.remplace.factureNumero || "")) } } : {}),
     percent: toAmount(body.amountMode === "fixed" ? 0 : body.amountMode === "deposit" ? Number(body.depositPercent || body.percent || 30) : Number(body.percent || 0)),
     amountTtc,
     totalQuoteTtc: before.totalQuoteTtc,
@@ -383,8 +425,49 @@ export async function PATCH(request) {
   } else if (action === "purge") {
     if (!invoice.archived) return badRequest("Seule une facture déjà dans la corbeille peut être supprimée définitivement.", 400);
     db.invoices.splice(index, 1);
-  } else if (invoice.kind === "avoir" && (action === "issue" || action === "pay")) {
+  } else if (invoice.kind === "avoir" && (action === "issue" || action === "pay" || action === "send")) {
     return badRequest("Un avoir est émis à sa création et ne se marque pas payé.");
+  } else if (action === "send") {
+    // Facture d'acompte envoyée au client (maquette PRO-03.4) : par e-mail
+    // avec son PDF quand c'est demandé, puis émise. Rien n'est émis si
+    // l'e-mail n'est pas parti.
+    if (invoice.status !== "Brouillon") return badRequest("Seul un brouillon s'envoie ; une facture envoyée se relance.");
+    // Devis signé au domicile (PRO-03.7) : aucun paiement avant 7 jours.
+    const { quote: devisLie } = await loadInvoiceContext(invoice);
+    const jourParis = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+    if (devisLie?.acompteAPartirDu && devisLie.acompteAPartirDu > jourParis) {
+      return badRequest(`Signé chez le client : aucun paiement avant le ${devisLie.acompteAPartirDu.split("-").reverse().join("/")}.`, 409);
+    }
+    if (body.email !== false) {
+      const to = String(body.to || invoice.clientEmail || "").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return badRequest("Ajoute l'e-mail du client pour lui envoyer la facture.");
+      const text = fixText(String(body.message || "").trim().slice(0, 4000));
+      if (!text) return badRequest("Le message au client est vide.");
+      invoice.clientEmail = to;
+      const { quote, project } = await loadInvoiceContext(invoice);
+      const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      // Le PDF joint est celui de la facture émise (statut et date d'émission).
+      invoice.status = "Emise";
+      invoice.issuedAt = now;
+      const sent = await sendInvoiceReminderEmail({
+        to,
+        subject: `${/acompte/i.test(invoice.type || "") ? "Facture d'acompte" : "Facture"} ${invoice.invoiceNumber}${invoice.quoteNumber ? ` · devis ${invoice.quoteNumber}` : ""}`,
+        message: text,
+        replyTo: quote?.company?.email || owner?.email || undefined,
+        pdfBuffer: buildInvoicePdf({ invoice, quote, project, db }),
+        pdfFilename: invoiceDocumentFilename(invoice),
+        // Avoir + facture corrigée dans un seul message (PRO-06.1).
+        extraPdfs: (() => {
+          const avoir = body.avoirId ? db.invoices.find((f) => f.id === body.avoirId && f.kind === "avoir" && f.userId === invoice.userId) : null;
+          return avoir ? [{ buffer: buildInvoicePdf({ invoice: avoir, quote, project, db }), filename: invoiceDocumentFilename(avoir) }] : [];
+        })()
+      });
+      if (!sent.ok) return badRequest(`Envoi impossible : ${sent.error}`, 502); // rien n'est écrit
+      invoice.sentAt = now;
+      invoice.sentTo = to;
+    }
+    invoice.status = "Emise";
+    invoice.issuedAt = now;
   } else if (action === "remind") {
     // PRO-06.2 : relance manuelle. La mise en demeure n'est jamais envoyée
     // par e-mail : elle part en recommandé, Koji ne fait que la noter.
@@ -420,6 +503,48 @@ export async function PATCH(request) {
     if (invoice.type === "Facture finale" && !String(invoice.notes || "").startsWith("Libération de la retenue") && cloture?.avis?.programme && !cloture.avis.demandeLe) {
       const demande = await demanderAvis(db, { projectId: invoice.projectId, userId: cloture.userId });
       if (!demande.ok) cloture.avis.erreur = demande.raison;
+    }
+  } else if (action === "payment") {
+    // PRO-06.3 : paiement reçu (tout ou partie), reçu PDF au client si demandé.
+    if (invoice.kind === "avoir" || !["Emise", "Payee"].includes(invoice.status)) return badRequest("Seule une facture envoyée se marque payée.");
+    const credite = db.invoices
+      .filter((item) => item.kind === "avoir" && item.refInvoiceId === invoice.id && item.status !== "Annulee")
+      .reduce((sum, item) => sum - Number(item.amountTtc || 0), 0);
+    let ajout;
+    try {
+      ajout = ajouterPaiement(invoice, { amount: body.amount, date: body.date, moyen: body.moyen, reference: fixText(String(body.reference || "")) }, credite);
+    } catch (error) {
+      return badRequest(error.message);
+    }
+    if (ajout.solde) {
+      invoice.status = "Payee";
+      invoice.paidAt = `${ajout.paiement.date}T12:00:00.000Z`;
+    }
+    const { quote, project } = await loadInvoiceContext(invoice);
+    let resteChantier = null;
+    if (quote) {
+      const totalChantier = toAmount(quoteTotal(quote, project) + signedAvenantsTtc(db, quote));
+      const encaisseChantier = db.invoices
+        .filter((item) => item.kind !== "avoir" && item.quoteId === quote.id && item.status !== "Annulee" && !item.archived)
+        .reduce((sum, item) => sum + encaisse(item), 0);
+      // Reste sur le chantier : marché (devis + avenants signés) − encaissé.
+      resteChantier = toAmount(Math.max(0, totalChantier - encaisseChantier));
+    }
+    ajout.paiement.resteChantier = resteChantier;
+    if (body.recu === true && invoice.clientEmail) {
+      const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      const resteFacture = resteDu(invoice, credite);
+      const sent = await sendInvoiceReminderEmail({
+        to: invoice.clientEmail,
+        subject: `Paiement reçu : facture ${invoice.invoiceNumber}`,
+        message: fixText(String(body.message || "").trim().slice(0, 2000)) || `Bonjour,\n\nNous avons bien reçu votre paiement de ${ajout.paiement.amount.toFixed(2).replace(".", ",")} € pour la facture ${invoice.invoiceNumber}. Vous trouverez le reçu en pièce jointe.${resteFacture > 0.01 ? `\n\nReste dû sur cette facture : ${resteFacture.toFixed(2).replace(".", ",")} €.` : ""}\n\nMerci.`,
+        replyTo: quote?.company?.email || owner?.email || undefined,
+        pdfBuffer: buildRecuPdf({ invoice, paiement: ajout.paiement, resteFacture, resteChantier, quote, project, db }),
+        pdfFilename: recuFilename(invoice, ajout.paiement)
+      });
+      // Le paiement est enregistré même si le reçu n'est pas parti.
+      ajout.paiement.recuEnvoye = Boolean(sent.ok);
+      if (!sent.ok) ajout.paiement.recuErreur = String(sent.error || "envoi").slice(0, 200);
     }
   } else if (action === "pay") {
     invoice.status = "Payee";

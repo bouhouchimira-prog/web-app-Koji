@@ -99,10 +99,31 @@ void main() {
     expect(ferme, contains('Malgré notre précédent rappel du 25 octobre'));
     expect(ferme, contains('(30 jours de retard)'));
     expect(ferme, endsWith('Cordialement,\nABL Expert Renov'));
-    final demeure = reminderText('demeure', invoice, now: now);
-    expect(demeure, startsWith('Objet : mise en demeure de payer, facture FAC-2026-0121'));
-    expect(demeure, contains('échue le 21 octobre 2026, malgré nos relances du 25 octobre'));
+    // Mise en demeure de la maquette PRO-06.2, identique au site.
+    final lefevre = {
+      'invoiceNumber': 'KJ-2026-118', 'type': 'Acompte initial', 'client': 'Mme Lefèvre', 'amountTtc': 1739.56,
+      'issuedAt': '2026-10-30T09:00:00Z', 'dueDate': '2026-11-06',
+      'reminders': [{'level': 'aimable', 'channel': 'email', 'at': '2026-11-09T08:00:00Z'}, {'level': 'ferme', 'channel': 'email', 'at': '2026-11-21T08:00:00Z'}],
+    };
+    expect(reminderText('demeure', lefevre).replaceAll(RegExp('[  ]'), ' '),
+        "Objet : mise en demeure de payer\n\nMadame, malgré nos relances des 9 et 21 novembre, la facture d'acompte KJ-2026-118 du 30 octobre, d'un montant de 1 739,56 € TTC, reste impayée. Nous vous mettons en demeure de régler cette somme sous 8 jours à compter de la réception de ce courrier. À défaut, nous saisirons la juridiction compétente. Les sommes dues porteront intérêts au taux légal à compter de la présente mise en demeure.");
+    expect(reminderText('demeure', lefevre, societe: true), contains('indemnité forfaitaire de 40 €'));
+    final jour = DateTime(2026, 11, 30);
+    expect(daysLate(lefevre, now: jour), 24);
+    expect(relanceStep(lefevre, now: jour), '2e relance envoyée le 21 nov.');
+    expect(relanceAction(lefevre, now: jour), 'demeure');
+    expect(relanceStep({'status': 'Emise', 'dueDate': '2026-11-28'}, now: jour), 'rappel aimable prévu demain');
     // Espaces insécables comme toLocaleString('fr-FR') côté site.
     expect(euro(2515).replaceAll(RegExp('[  ]'), ' '), '2 515,00 €');
+  });
+
+  test("avoir au taux d'origine et facture corrigée à 10 % (maquette PRO-06.1)", () {
+    final a = avoirCorrige(2743.63, 20, 10);
+    expect((a.ht, a.tva, a.ttc, a.nouveauTtc), (2286.36, 457.27, 2743.63, 2515.0));
+    expect(tauxFacture({'tauxTva': 10}), 10);
+    expect(tauxFacture({'situation': {'tauxTva': 5.5}}), 5.5);
+    expect(tauxFacture({'quoteId': 'q1'}, [{'id': 'q1', 'vatRate': 10}]), 10);
+    expect(tauxFacture({}), 20);
+    expect(tauxTexte(5.5), '5,5');
   });
 }

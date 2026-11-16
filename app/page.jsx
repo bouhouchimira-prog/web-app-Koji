@@ -511,7 +511,7 @@ function DashboardHome() {
               {chiffres.marge ? (
                 <>
                   {" · "}marge moyenne {Math.round(chiffres.marge.taux * 100)} %{" "}
-                  (<Link href="/comptabilite/chantiers">Coût des chantiers</Link>)
+                  (<Link href="/depenses/chantiers">Coût des chantiers</Link>)
                 </>
               ) : null}
             </span>

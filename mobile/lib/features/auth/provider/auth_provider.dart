@@ -12,8 +12,15 @@ const googleSignInFailedMessage =
     'e-mail et un mot de passe ; si vous n\'en avez pas encore, touchez '
     '« Mot de passe oublié ? » pour en créer un.';
 
+/// Same for Sign in with Apple (iPhone).
+const appleSignInFailedMessage =
+    'La connexion avec Apple n\'a pas abouti. Connectez-vous avec votre '
+    'e-mail et un mot de passe ; si vous n\'en avez pas encore, touchez '
+    '« Mot de passe oublié ? » pour en créer un.';
+
 String authErrorMessage(Object error) {
   if (error is GoogleSignInFailure) return googleSignInFailedMessage;
+  if (error is AppleSignInFailure) return appleSignInFailedMessage;
 
   final rawMessage = error.toString();
   final message = error is AuthException ? error.message : rawMessage;
@@ -82,21 +89,31 @@ GoogleProfileAction googleProfileAction(
       : GoogleProfileAction.setIsPro;
 }
 
-/// True when the account has a Google identity.
-bool hasGoogleIdentity(User user) {
+/// True when the account has an identity from [provider] ('google', 'apple').
+bool hasProviderIdentity(User user, String provider) {
   final providers = user.appMetadata['providers'];
-  return (providers is List && providers.contains('google')) ||
-      user.appMetadata['provider'] == 'google';
+  return (providers is List && providers.contains(provider)) ||
+      user.appMetadata['provider'] == provider;
 }
+
+/// True when the account has a Google identity.
+bool hasGoogleIdentity(User user) => hasProviderIdentity(user, 'google');
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final AuthRepository _authRepository;
   final UserRepository _userRepository;
   final Logger _logger = Logger();
 
-  /// Set when the Google button opened the browser; holds the app's isPro
-  /// until the session comes back through the deep link.
-  bool? _googlePendingIsPro;
+  /// Set when the Google or Apple button was used: which provider, and the
+  /// app's isPro, until the session arrives (deep link for Google, right
+  /// away for Apple), so the profile row follows the app.
+  String? _pendingProvider;
+  bool? _pendingIsPro;
+
+  void _clearPending() {
+    _pendingProvider = null;
+    _pendingIsPro = null;
+  }
 
   AuthNotifier(this._authRepository, this._userRepository)
       : super(const AsyncValue.loading()) {
@@ -109,13 +126,15 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       final session = authState.session;
       final user = session?.user;
       if (user != null) {
-        final pendingIsPro = _googlePendingIsPro;
+        final pendingIsPro = _pendingIsPro;
+        final pendingProvider = _pendingProvider;
         if (pendingIsPro != null &&
+            pendingProvider != null &&
             authState.event == AuthChangeEvent.signedIn &&
-            hasGoogleIdentity(user)) {
-          _googlePendingIsPro = null;
+            hasProviderIdentity(user, pendingProvider)) {
+          _clearPending();
           // Before routing: the screen reads the profile right after.
-          await _reconcileGoogleProfile(user, pendingIsPro);
+          await _reconcileProviderProfile(user, pendingIsPro);
         }
         _logger.i('✅ Auth state changed: User logged in (session active)');
         state = AsyncValue.data(user);
@@ -126,37 +145,42 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }, onError: (Object error, StackTrace st) {
       // Error coming back from the Google page (refused, cancelled…).
       _logger.e('❌ Auth state error', error: error, stackTrace: st);
-      final wasGoogle = _googlePendingIsPro != null;
-      _googlePendingIsPro = null;
+      final provider = _pendingProvider;
+      _clearPending();
       state = AsyncValue.error(
-          wasGoogle ? GoogleSignInFailure(error) : error, st);
+          provider == 'google'
+              ? GoogleSignInFailure(error)
+              : provider == 'apple'
+                  ? AppleSignInFailure(error)
+                  : error,
+          st);
     });
   }
 
-  Future<void> _reconcileGoogleProfile(User user, bool isPro) async {
+  Future<void> _reconcileProviderProfile(User user, bool isPro) async {
     try {
       final userDoc = await _userRepository.getUser(user.id);
       switch (googleProfileAction(userDoc, isPro)) {
         case GoogleProfileAction.create:
-          _logger.i('💾 New Google user — saving to Supabase (isPro: $isPro)');
+          _logger.i('💾 New social user — saving to Supabase (isPro: $isPro)');
           await _userRepository.saveUser(user.id, user.email ?? '',
               isPro: isPro);
         case GoogleProfileAction.setIsPro:
-          _logger.i('🔧 Reconciling is_pro for Google user → $isPro');
+          _logger.i('🔧 Reconciling is_pro for social user → $isPro');
           await _userRepository.setIsPro(user.id, isPro);
         case GoogleProfileAction.none:
-          _logger.i('✅ Google user — is_pro already correct');
+          _logger.i('✅ Social user — is_pro already correct');
       }
     } catch (e, st) {
       // Never blocks the sign-in: the profile is completed later.
-      _logger.e('❌ Google profile reconciliation failed',
+      _logger.e('❌ Social profile reconciliation failed',
           error: e, stackTrace: st);
     }
   }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
     _logger.i('🔐 Attempting email/password sign in');
-    _googlePendingIsPro = null;
+    _clearPending();
     state = const AsyncValue.loading();
     try {
       await _authRepository.signInWithEmailAndPassword(
@@ -171,7 +195,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   Future<bool> signUpWithEmailAndPassword(String email, String password,
       {bool isPro = false}) async {
     _logger.i('📝 Attempting email/password signup (isPro: $isPro)');
-    _googlePendingIsPro = null;
+    _clearPending();
     state = const AsyncValue.loading();
     try {
       final response = await _authRepository.createUserWithEmailAndPassword(
@@ -207,12 +231,30 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   /// it, Koji Pro Google users got routed to /client-home on every cold start.
   Future<void> signInWithGoogle({bool isPro = false}) async {
     _logger.i('🔍 Attempting Google Sign-In (isPro: $isPro)');
-    _googlePendingIsPro = isPro;
+    _pendingProvider = 'google';
+    _pendingIsPro = isPro;
     try {
       await _authRepository.signInWithGoogle(isPro: isPro);
     } catch (e, st) {
-      _googlePendingIsPro = null;
+      _clearPending();
       _logger.e('❌ Google Sign-In failed', error: e, stackTrace: st);
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Sign in with Apple (iPhone). The session arrives during the call, the
+  /// listener reconciles the profile like for Google. Closing the Apple sheet
+  /// is not an error: nothing happens.
+  Future<void> signInWithApple({bool isPro = false}) async {
+    _logger.i('🍏 Attempting Sign in with Apple (isPro: $isPro)');
+    _pendingProvider = 'apple';
+    _pendingIsPro = isPro;
+    try {
+      final response = await _authRepository.signInWithApple();
+      if (response == null) _clearPending(); // cancelled by the person
+    } catch (e, st) {
+      _clearPending();
+      _logger.e('❌ Sign in with Apple failed', error: e, stackTrace: st);
       state = AsyncValue.error(e, st);
     }
   }

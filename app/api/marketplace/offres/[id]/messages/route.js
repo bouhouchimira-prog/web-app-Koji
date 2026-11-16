@@ -3,6 +3,7 @@ import { addHistory, makeToken, readDb, writeDb } from "../../../../../../lib/db
 import { getVerifiedPortalUserId } from "../../../../../../lib/portal-session";
 import { resolveEntreprise, loadEntrepriseSnapshot } from "../../../../../../lib/entreprise-auth";
 import { fixText } from "../../../../../../lib/text";
+import { getSupabaseAdmin } from "../../../../../../lib/supabase";
 
 // Messagerie interne Radar des Chantiers (module 4.5 du cahier des charges)
 // — un fil par (offre, entreprise). Cote entreprise : un seul fil, le sien.
@@ -181,6 +182,44 @@ export async function POST(request, context) {
       createdAt: now
     };
     db.chantierOffreMessages.push(entry);
+
+    // Rendez-vous confirmé (maquette PRO-04) : les jetons réservés sont
+    // débités, l'entreprise est prévenue, la visite entre dans son
+    // calendrier et les coordonnées du client deviennent visibles.
+    if (kindFields.kind === "rdv_response" && kindFields.rdvStatus === "accepted") {
+      const proposition = (db.chantierOffreMessages || []).find((m) => m.id === kindFields.respondsToId && m.offerId === id && m.entrepriseUserId === entrepriseUserId);
+      const position = (db.chantierPositionnements || []).find((p) => p.offerId === id && p.entrepriseUserId === entrepriseUserId && p.status === "Active");
+      const jetons = Number(position?.jetons) || 0;
+      const quand = proposition?.rdvDate ? new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }).format(new Date(proposition.rdvDate)) : "";
+      db.notifications.unshift({
+        id: makeToken("notif"),
+        userId: entrepriseUserId,
+        type: "radar.rdv_confirme",
+        title: `Le client a confirmé la visite${quand ? ` : ${quand}` : ""}`,
+        message: `${fixText(offre.description || "").slice(0, 90)}${jetons ? ` · ${jetons} jeton${jetons > 1 ? "s" : ""} débité${jetons > 1 ? "s" : ""}` : ""} · coordonnées complètes disponibles`,
+        offerId: id,
+        actionUrl: `/marketplace/${id}`,
+        actionLabel: "Ouvrir le fil",
+        read: false,
+        createdAt: now
+      });
+      if (proposition?.rdvDate) {
+        const fin = new Date(new Date(proposition.rdvDate).getTime() + 3600000).toISOString();
+        await getSupabaseAdmin().from("calendar_events").insert({
+          user_id: entrepriseUserId,
+          title: `Visite · ${fixText(offre.clientName || "client")}`,
+          event_type: "Visite technique",
+          client_name: fixText(offre.clientName || ""),
+          address: fixText(offre.address || ""),
+          start_at: proposition.rdvDate,
+          end_at: fin,
+          all_day: false,
+          status: "Confirmé",
+          progress: 0,
+          notes: fixText(offre.description || "").slice(0, 1000)
+        }).then(() => null, () => null);
+      }
+    }
     await writeDb(db);
     return ok({ message: publicMessage(entry) }, 201);
   }

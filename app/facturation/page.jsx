@@ -9,6 +9,11 @@ import { euro } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
 import { useApi } from "../../lib/use-api";
 import { NOTE_LIBERATION_RETENUE } from "../../lib/cloture-chantier";
+import { avoirCorrige } from "../../lib/situation-travaux";
+import { texteRelance } from "../../lib/relances";
+import { resteDu } from "../../lib/encaissements";
+import { PaiementPanneau, creditsSur } from "../../components/PaiementPanneau";
+import { EncaissementsOnglet } from "../../components/EncaissementsOnglet";
 
 // Factures, maquette PRO-06 (DA Koji Pro, 30 oct) : liste avec onglets, et
 // création d'une facture depuis un devis signé (mêmes modes qu'avant :
@@ -18,6 +23,7 @@ const invoiceTypes = ["Acompte initial", "Facture intermédiaire", "Facture fina
 
 const INVOICE_TABS = [
   { id: "toutes", label: "Toutes" },
+  { id: "encaissements", label: "Encaissements" },
   { id: "Retard", label: "En retard" },
   { id: "Emise", label: "À échéance" },
   { id: "Payee", label: "Payées" },
@@ -44,7 +50,7 @@ const CHANNEL_LABELS = { email: "e-mail", manuel: "notée", recommande: "recomma
 function daysLate(invoice) {
   const due = invoice.dueDate ? new Date(`${invoice.dueDate}T00:00:00`) : null;
   if (!due) return 0;
-  return Math.max(0, Math.floor((new Date(new Date().toDateString()) - due) / 86400000));
+  return Math.max(0, Math.round((new Date(new Date().toDateString()) - due) / 86400000));
 }
 
 function suggestedLevel(invoice) {
@@ -52,22 +58,11 @@ function suggestedLevel(invoice) {
   return late >= 30 ? "demeure" : late >= 15 ? "ferme" : "aimable";
 }
 
-// PRO-06.2 : textes préremplis, modifiables avant envoi.
-function reminderText(level, invoice) {
-  const company = fixText(readStoredUser()?.business?.raisonSociale || "");
-  const client = fixText(invoice.client || "Madame, Monsieur");
-  const amount = euro(invoice.amountTtc);
-  const due = invoice.dueDate ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${invoice.dueDate}T00:00:00`)) : "";
-  const previous = (Array.isArray(invoice.reminders) ? invoice.reminders : [])
-    .map((reminder) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(new Date(reminder.at)));
-  const signature = company ? `\n\nCordialement,\n${company}` : "\n\nCordialement,";
-  if (level === "demeure") {
-    return `Objet : mise en demeure de payer, facture ${invoice.invoiceNumber}\n\n${client},\n\nPar la présente, nous vous mettons en demeure de régler la somme de ${amount} TTC due au titre de la facture ${invoice.invoiceNumber}, échue le ${due}${previous.length ? `, malgré nos relances du ${previous.join(" et du ")}` : ""}.\n\nÀ défaut de règlement dans un délai de 8 jours à compter de la réception de ce courrier, nous nous réservons le droit d'engager une procédure de recouvrement.${company ? `\n\n${company}` : ""}`;
-  }
-  if (level === "ferme") {
-    return `Bonjour ${client},\n\nMalgré notre précédent rappel${previous.length ? ` du ${previous[previous.length - 1]}` : ""}, la facture ${invoice.invoiceNumber} d'un montant de ${amount} TTC, échue le ${due}, reste impayée (${daysLate(invoice)} jours de retard).\n\nMerci de procéder au règlement sous 8 jours. La facture est jointe à ce message.${signature}`;
-  }
-  return `Bonjour ${client},\n\nSauf erreur de notre part, la facture ${invoice.invoiceNumber} d'un montant de ${amount} TTC, arrivée à échéance le ${due}, n'a pas encore été réglée.\n\nPourriez-vous procéder au règlement ? Vous trouverez la facture en pièce jointe. Si le paiement est déjà parti, merci de ne pas tenir compte de ce message.${signature}`;
+// PRO-06.2 : textes préremplis (lib/relances, mêmes que les relances
+// automatiques), modifiables avant envoi ; ton société ou particulier.
+function reminderText(level, invoice, quotes = []) {
+  const quote = quotes.find((q) => q.id === invoice.quoteId);
+  return texteRelance(level, invoice, { entreprise: fixText(readStoredUser()?.business?.raisonSociale || ""), societe: quote?.clientType === "societe" });
 }
 
 function signedQuote(quote) {
@@ -133,9 +128,21 @@ function InvoiceStatus({ bucket }) {
   }
   if (bucket === "Annulee") return <span className="tag tag-o dim">Annulée</span>;
   if (bucket === "Avoir") return <span className="tag tag-o">Avoir</span>;
-  if (bucket === "Retard") return <span className="tag tag-b">En retard</span>;
+  if (bucket === "Retard") return <span className="tag tag-b">À relancer</span>;
   if (bucket === "Emise") return <span className="tag tag-e">À échéance</span>;
   return <span className="tag tag-o">Brouillon</span>;
+}
+
+// Montants au centime dans l'avoir (maquette PRO-06.1).
+const euroCts = (n) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n) || 0);
+
+// Taux de TVA d'une facture (PRO-06.1) : le sien, celui de la situation,
+// sinon 20 % (les taux réduits sont portés par la facture depuis 06.1).
+function tauxFactureBrut(invoice, quotes = []) {
+  if (invoice?.tauxTva != null) return Number(invoice.tauxTva);
+  if (invoice?.situation?.tauxTva != null) return Number(invoice.situation.tauxTva);
+  const q = quotes.find((x) => x.id === invoice?.quoteId);
+  return q?.vatRate != null ? Number(q.vatRate) : 20;
 }
 
 function dueLabel(invoice) {
@@ -192,6 +199,9 @@ function FacturationContent() {
   const [remindFor, setRemindFor] = useState(null);
   const [remindForm, setRemindForm] = useState({ level: "aimable", text: "" });
   const [busy, setBusy] = useState(false);
+  const [bandeauMasque, setBandeauMasque] = useState(false);
+  const [payFor, setPayFor] = useState(null);
+  const tauxFacture = (invoice) => tauxFactureBrut(invoice, quotes || []);
   const [modalError, setModalError] = useState("");
 
   const invoicesWithBucket = useMemo(
@@ -220,6 +230,7 @@ function FacturationContent() {
   const tabCounts = useMemo(() => {
     const counts = { toutes: invoicesWithBucket.length, Retard: 0, Emise: 0, Payee: 0, Brouillon: 0 };
     invoicesWithBucket.forEach((inv) => { if (counts[inv.bucket] !== undefined) counts[inv.bucket] += 1; });
+    counts.encaissements = invoicesWithBucket.filter((inv) => inv.kind !== "avoir" && inv.status === "Emise" && resteDu(inv, creditsSur(inv, invoices || [])) > 0.01).length;
     return counts;
   }, [invoicesWithBucket]);
 
@@ -343,7 +354,8 @@ function FacturationContent() {
   function openCredit(invoice) {
     setModalError("");
     setCreatedCredit(null);
-    setCreditForm({ reason: "erreur", mode: "total", amount: "", notes: "" });
+    const orig = tauxFacture(invoice);
+    setCreditForm({ reason: "erreur", mode: "total", amount: "", notes: "", refaire: false, nouveauTaux: orig === 20 ? 10 : 20, envoyer: Boolean(invoice.clientEmail) });
     setCreditFor(invoice);
   }
 
@@ -359,6 +371,27 @@ function FacturationContent() {
         notes: creditForm.notes
       });
       setInvoices((current) => [avoir, ...current]);
+      // PRO-06.1 : facture corrigée émise avec l'avoir, un seul message au client.
+      if (creditForm.refaire && creditForm.mode === "total") {
+        const ttc = avoirCorrige(creditFor.amountTtc, tauxFacture(creditFor), creditForm.nouveauTaux).nouveauTtc;
+        const { invoice: nouvelle } = await apiSend("/api/invoices", {
+          quoteId: creditFor.quoteId, projectId: creditFor.projectId, amountMode: "fixed", fixedAmount: ttc,
+          type: creditFor.type || "Facture", tauxTva: Number(creditForm.nouveauTaux),
+          remplace: { avoirId: avoir.id, factureNumero: creditFor.invoiceNumber },
+          notes: `Remplace la facture ${creditFor.invoiceNumber} (avoir ${avoir.invoiceNumber}). TVA ${String(creditForm.nouveauTaux).replace(".", ",")} %.`
+        });
+        let finale = nouvelle;
+        if (creditForm.envoyer && creditFor.clientEmail) {
+          finale = (await apiSend("/api/invoices", {
+            id: nouvelle.id, action: "send", email: true, to: creditFor.clientEmail, avoirId: avoir.id,
+            message: `Bonjour,\n\nVoici l'avoir ${avoir.invoiceNumber} qui annule la facture ${creditFor.invoiceNumber} du ${shortDay(creditFor.issuedAt || creditFor.createdAt)}, et la facture corrigée ${nouvelle.invoiceNumber} (TVA ${String(creditForm.nouveauTaux).replace(".", ",")} %), à régler à sa place.`
+          }, "PATCH")).invoice || nouvelle;
+        }
+        setInvoices((current) => [finale, ...current]);
+        setCreditFor(null);
+        setMessage(`Avoir ${avoir.invoiceNumber} et facture corrigée ${finale.invoiceNumber} émis${finale.sentAt ? ", envoyés au client dans un seul message" : ""}.`);
+        return;
+      }
       setCreatedCredit({ avoir, original: creditFor });
       setCreditFor(null);
       setMessage(`Avoir ${avoir.invoiceNumber} créé sur la facture ${creditFor.invoiceNumber}.`);
@@ -377,10 +410,20 @@ function FacturationContent() {
     setShowDashboard(false);
   }
 
+  // Lien « Relancer » / « Voir » depuis la page des impayés (PRO-06.2).
+  const relancerParam = searchParams.get("relancer") || "";
+  const [relanceOuverte, setRelanceOuverte] = useState(false);
+  useEffect(() => {
+    if (!relancerParam || relanceOuverte || !invoices) return;
+    const cible = invoices.find((inv) => inv.id === relancerParam);
+    if (cible) { setRelanceOuverte(true); openRemind(cible); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relancerParam, invoices]);
+
   function openRemind(invoice) {
     const level = suggestedLevel(invoice);
     setModalError("");
-    setRemindForm({ level, text: reminderText(level, invoice) });
+    setRemindForm({ level, text: reminderText(level, invoice, quotes || []) });
     setRemindFor(invoice);
   }
 
@@ -418,7 +461,9 @@ function FacturationContent() {
   function primaryAction(invoice) {
     if (invoice.kind === "avoir") return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
     if (invoice.status === "Brouillon") return { label: L.facturation.issue, run: () => updateInvoice(invoice.id, "issue") };
-    if (invoice.status !== "Payee") return { label: L.facturation.markPaid, run: () => updateInvoice(invoice.id, "pay") };
+    // Maquette PRO-06 : une facture échue se relance d'abord.
+    if (invoice.bucket === "Retard") return { label: "Relancer", run: () => openRemind(invoice) };
+    if (invoice.status !== "Payee") return { label: L.facturation.markPaid, run: () => setPayFor(invoice) };
     return { label: "PDF", run: () => downloadInvoicePdf(invoice) };
   }
 
@@ -434,7 +479,7 @@ function FacturationContent() {
           <button type="button" className="btn btn-sec" onClick={() => openCredit(invoice)}>Créer un avoir</button>
         ) : null}
         {invoice.status === "Brouillon" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "issue")}>{L.facturation.issue}</button> : null}
-        {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "pay")}>{L.facturation.markPaid}</button> : null}
+        {invoice.status !== "Payee" && invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => setPayFor(invoice)}>{L.facturation.markPaid}</button> : null}
         {invoice.status !== "Annulee" ? <button type="button" className="btn btn-sec" onClick={() => updateInvoice(invoice.id, "cancel")}>{L.common.cancel}</button> : null}
       </>
     );
@@ -456,6 +501,7 @@ function FacturationContent() {
             <h1>Factures</h1>
           </div>
           <div className="acts">
+            <a className="btn btn-sec" href="/facturation/impayes">Relances et impayés</a>
             <button type="button" className="btn btn-sec" onClick={exportInvoicesCsv}>Exporter</button>
             <button type="button" className="btn btn-main" onClick={() => setShowDashboard(false)}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
@@ -466,6 +512,24 @@ function FacturationContent() {
 
         {message ? <p className="notice" role="status">{message}</p> : null}
 
+        {/* Maquette PRO-06 : la facture échue la plus ancienne, relance prête. */}
+        {(() => {
+          const echues = invoicesWithBucket.filter((inv) => inv.bucket === "Retard").sort((a, b) => daysLate(b) - daysLate(a));
+          if (!echues.length || bandeauMasque) return null;
+          const f = echues[0];
+          return (
+            <div className="avk" style={{ marginBottom: 16, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <strong>{echues.length > 1 ? `${echues.length} factures échues, la plus ancienne depuis ${daysLate(f)} jours` : `1 facture échue depuis ${daysLate(f)} jour${daysLate(f) > 1 ? "s" : ""}`}</strong>
+                <small>{f.invoiceNumber} · {f.client} · la relance est prête, vous la relisez.</small>
+              </div>
+              <button type="button" className="btn btn-main" onClick={() => openRemind(f)}>Voir</button>
+              <button type="button" className="link" onClick={() => setBandeauMasque(true)}>Plus tard</button>
+            </div>
+          );
+        })()}
+
+        {tab !== "encaissements" ? (
         <div className="kpis">
           <div>
             <div className="l">Encaissé ce mois</div>
@@ -488,6 +552,7 @@ function FacturationContent() {
             <div className="s">{stats.draftCount > 1 ? "factures en brouillon" : "facture en brouillon"}</div>
           </div>
         </div>
+        ) : null}
 
         <div className="tbar">
           <div className="wtabs" role="tablist" aria-label="Filtrer les factures">
@@ -503,7 +568,14 @@ function FacturationContent() {
           </label>
         </div>
 
-        {rows.length === 0 ? (
+        {tab === "encaissements" ? (
+          <EncaissementsOnglet
+            invoices={invoices || []}
+            onMarquer={(invoice) => setPayFor(invoice)}
+            onVoir={(invoice) => downloadInvoicePdf(invoice)}
+            onInvoicesChange={(maj) => setInvoices((cur) => (cur || []).map((f) => (f.id === maj.id ? maj : f)))}
+          />
+        ) : rows.length === 0 ? (
           <div className="tbl">
             <div className="empty">{query.trim() ? "Aucune facture ne correspond à cette recherche." : L.facturation.noInvoices}</div>
           </div>
@@ -591,7 +663,7 @@ function FacturationContent() {
                 <div className="card-h"><h2>Créer un avoir</h2><button type="button" className="link" onClick={() => setCreditFor(null)}>Fermer</button></div>
                 <div className="env-sum">
                   <div><span className="lab">Facture d'origine</span><strong>{creditFor.invoiceNumber}</strong><span className="muted">{fixText(creditFor.client || "")} · émise le {shortDay(creditFor.issuedAt || creditFor.createdAt)}</span></div>
-                  <div><span className="lab">Montant TTC</span><strong>{euro(creditFor.amountTtc)}</strong><span className="muted">{creditedOn(creditFor) > 0 ? `déjà couvert par avoir : ${euro(creditedOn(creditFor))}` : "aucun avoir pour l'instant"}</span></div>
+                  <div><span className="lab">Montant TTC</span><strong>{euroCts(creditFor.amountTtc)}</strong><span className="muted">{creditedOn(creditFor) > 0 ? `déjà couvert par avoir : ${euro(creditedOn(creditFor))}` : "aucun avoir pour l'instant"}</span></div>
                 </div>
                 <label className="ed">Motif
                   <select value={creditForm.reason} onChange={(event) => setCreditForm({ ...creditForm, reason: event.target.value })}>
@@ -599,7 +671,7 @@ function FacturationContent() {
                   </select>
                 </label>
                 <div className="kp-seg" role="group" aria-label="Montant de l'avoir">
-                  <button type="button" className={creditForm.mode === "total" ? "on" : ""} aria-pressed={creditForm.mode === "total"} onClick={() => setCreditForm({ ...creditForm, mode: "total" })}>Total · {euro(remaining)}</button>
+                  <button type="button" className={creditForm.mode === "total" ? "on" : ""} aria-pressed={creditForm.mode === "total"} onClick={() => setCreditForm({ ...creditForm, mode: "total" })}>Total · {euroCts(remaining)}</button>
                   <button type="button" className={creditForm.mode === "partiel" ? "on" : ""} aria-pressed={creditForm.mode === "partiel"} onClick={() => setCreditForm({ ...creditForm, mode: "partiel" })}>Partiel</button>
                 </div>
                 {creditForm.mode === "partiel" ? (
@@ -607,6 +679,36 @@ function FacturationContent() {
                     <input type="number" min="0.01" max={remaining} step="0.01" value={creditForm.amount} onChange={(event) => setCreditForm({ ...creditForm, amount: event.target.value })} required />
                   </label>
                 ) : null}
+                {(() => {
+                  const orig = tauxFacture(creditFor);
+                  const ttc = creditForm.mode === "partiel" ? Number(creditForm.amount || 0) : remaining;
+                  const { ht, nouveauTtc } = avoirCorrige(ttc, orig, creditForm.nouveauTaux);
+                  return (
+                    <>
+                      <div className="ac-amt">
+                        <div><span>Travaux HT</span><b>− {euroCts(ht)}</b></div>
+                        <div><span>TVA {String(orig).replace(".", ",")} % (taux de la facture d'origine)</span><b>− {euroCts(Math.round((ttc - ht) * 100) / 100)}</b></div>
+                        <div className="big"><span>Total TTC</span><b>− {euroCts(ttc)}</b></div>
+                      </div>
+                      {creditForm.mode === "total" ? (
+                        <label className="checkline">
+                          <input type="checkbox" checked={creditForm.refaire} onChange={(event) => setCreditForm({ ...creditForm, refaire: event.target.checked })} />
+                          Refaire la facture corrigée ·{" "}
+                          <select value={creditForm.nouveauTaux} onChange={(event) => setCreditForm({ ...creditForm, nouveauTaux: Number(event.target.value) })} aria-label="Nouveau taux de TVA">
+                            {[20, 10, 5.5].map((t) => <option key={t} value={t}>TVA {String(t).replace(".", ",")} %</option>)}
+                          </select>{" "}
+                          · {euroCts(nouveauTtc)} TTC
+                        </label>
+                      ) : null}
+                      {creditForm.refaire && creditForm.mode === "total" ? (
+                        <label className="checkline">
+                          <input type="checkbox" checked={creditForm.envoyer} disabled={!creditFor.clientEmail} onChange={(event) => setCreditForm({ ...creditForm, envoyer: event.target.checked })} />
+                          Envoyer l'avoir et la nouvelle facture dans un seul message{creditFor.clientEmail ? ` à ${creditFor.clientEmail}` : " (pas d'e-mail)"}
+                        </label>
+                      ) : null}
+                    </>
+                  );
+                })()}
                 <label className="ed">Note (sur l'avoir)
                   <textarea rows={2} value={creditForm.notes} onChange={(event) => setCreditForm({ ...creditForm, notes: event.target.value })} maxLength={500} />
                 </label>
@@ -614,12 +716,27 @@ function FacturationContent() {
                 {modalError ? <p className="notice" role="alert">{modalError}</p> : null}
                 <div className="pm-act">
                   <button type="button" className="btn btn-sec" onClick={() => setCreditFor(null)}>Annuler</button>
-                  <button type="submit" className="btn btn-main" disabled={busy}>{busy ? "Création…" : "Créer l'avoir"}</button>
+                  <button type="submit" className="btn btn-main" disabled={busy}>{busy ? "Création…" : creditForm.refaire && creditForm.mode === "total" ? "Émettre l'avoir et la facture" : "Créer l'avoir"}</button>
                 </div>
               </form>
             </div>
           );
         })() : null}
+
+        {payFor ? (
+          <PaiementPanneau
+            invoice={payFor}
+            invoices={invoices || []}
+            quote={(quotes || []).find((q) => q.id === payFor.quoteId) || null}
+            onClose={() => setPayFor(null)}
+            onDone={(maj) => {
+              setInvoices((cur) => (cur || []).map((f) => (f.id === maj.id ? maj : f)));
+              const p = (maj.payments || [])[maj.payments.length - 1];
+              setMessage(`Paiement de ${euro(p?.amount)} enregistré sur ${maj.invoiceNumber}${maj.status === "Payee" ? ", facture payée" : ""}${p?.recuEnvoye ? ", reçu envoyé au client" : p?.recuErreur ? ` (reçu non envoyé : ${p.recuErreur})` : ""}.`);
+              setPayFor(null);
+            }}
+          />
+        ) : null}
 
         {remindFor ? (
           <div className="pmodal-bg" onClick={() => setRemindFor(null)}>
@@ -635,7 +752,7 @@ function FacturationContent() {
               {remindFor.remindersOff ? <p className="notice">Relances désactivées pour cette facture.</p> : null}
               <div className="kp-seg" role="group" aria-label="Niveau de relance">
                 {REMINDER_LEVELS.map((level) => (
-                  <button key={level.id} type="button" className={remindForm.level === level.id ? "on" : ""} aria-pressed={remindForm.level === level.id} title={level.hint} onClick={() => setRemindForm({ level: level.id, text: reminderText(level.id, remindFor) })}>{level.label}</button>
+                  <button key={level.id} type="button" className={remindForm.level === level.id ? "on" : ""} aria-pressed={remindForm.level === level.id} title={level.hint} onClick={() => setRemindForm({ level: level.id, text: reminderText(level.id, remindFor, quotes || []) })}>{level.label}</button>
                 ))}
               </div>
               <label className="ed">{remindForm.level === "demeure" ? "Courrier à envoyer en recommandé avec accusé de réception" : "Message (la facture est jointe à l'e-mail)"}

@@ -16,8 +16,13 @@ const _homeTabs = {'accueil': 0, 'devis': 1, 'chantiers': 2};
 const _routes = {
   'messages': '/messages',
   'factures': '/facturation',
+  'avenants': '/avenants',
   'fournitures': '/fournitures',
-  'bibliotheque': '/ouvrage-library',
+  'depenses': '/depenses',
+  'contacts': '/contacts',
+  'kojipage': '/kojipage',
+  'reseau': '/reseau-pro',
+  'bibliotheque': '/bibliotheque',
   'calendrier': '/calendrier',
   'planning': '/planning',
   'equipe': '/synchronization',
@@ -37,11 +42,21 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'chantiers', label: 'Chantiers', icon: KojiIcons.chantiers),
     KojiNavItem(id: 'devis', label: 'Devis', icon: KojiIcons.devis),
     KojiNavItem(id: 'messages', label: 'Messages', icon: KojiIcons.messages),
+    // Contacts (maquettes PRO-10 à 10.3) : carnet unique.
+    KojiNavItem(id: 'contacts', label: 'Contacts', icon: KojiIcons.contacts),
+    // KojiPage (maquettes PRO-13 à 13.4) : vitrine, demandes, carte de visite.
+    KojiNavItem(id: 'kojipage', label: 'KojiPage', icon: KojiIcons.kojipage),
+    // Réseau pro (maquettes PRO-14 et 14.1) : sous-traitance entre pros.
+    KojiNavItem(id: 'reseau', label: 'Réseau pro', icon: KojiIcons.hardHat),
   ]),
   KojiNavGroup(label: 'Gestion', items: [
     KojiNavItem(id: 'factures', label: 'Facturation', icon: KojiIcons.factures),
+    // Avenants (maquette PRO-05.1) : liste ; création depuis le chantier.
+    KojiNavItem(id: 'avenants', label: 'Avenants', icon: KojiIcons.avenant),
     KojiNavItem(
         id: 'fournitures', label: 'Fournitures', icon: KojiIcons.fournitures),
+    // Dépenses (maquettes PRO-09 à 09.4) : pièces, coût des chantiers.
+    KojiNavItem(id: 'depenses', label: 'Dépenses', icon: KojiIcons.comptabilite),
     KojiNavItem(
         id: 'bibliotheque',
         label: 'Bibliothèque koji',
@@ -89,7 +104,11 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/quote/messages') || starts('/messages')) return 'messages';
   if (starts('/quote')) return 'devis';
   if (starts('/fournitures')) return 'fournitures';
-  if (starts('/ouvrage-library')) return 'bibliotheque';
+  if (starts('/depenses')) return 'depenses';
+  if (starts('/contacts')) return 'contacts';
+  if (starts('/kojipage')) return 'kojipage';
+  if (starts('/reseau-pro')) return 'reseau';
+  if (starts('/ouvrage-library') || starts('/bibliotheque')) return 'bibliotheque';
   if (starts('/calendrier')) return 'calendrier';
   if (starts('/planning')) return 'planning';
   if (starts('/synchronization') || starts('/workers') || starts('/projects')) {

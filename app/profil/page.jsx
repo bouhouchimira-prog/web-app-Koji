@@ -340,7 +340,7 @@ export default function ProfilPage() {
           </div>
           <div className="acts">
             <Link href="/demarrage" className="btn btn-sec">Démarrage guidé</Link>
-            <Link href="/profil/carte-de-visite" className="btn btn-sec">Carte de visite</Link>
+            <Link href="/kojipage/carte" className="btn btn-sec">Carte de visite</Link>
             {tab !== "securite" ? <button type="submit" className="btn btn-main" disabled={saving}>{saving ? L.parametres.saving : L.parametres.save}</button> : null}
           </div>
         </div>
@@ -520,14 +520,14 @@ export default function ProfilPage() {
 
                   <section className="card">
                     <div className="card-h"><h2>Vu par vos clients</h2></div>
-                    <Link href="/profil/carte-de-visite" className="row pf-go">
+                    <Link href="/kojipage/carte" className="row pf-go">
                       <div className="t">
                         <strong>{L.parametres.businessCard}</strong>
                         <small>{L.parametres.businessCardSub}</small>
                       </div>
                       <span className="tag tag-e">Prête à imprimer</span>
                     </Link>
-                    <Link href="/profil/site-web" className="row pf-go">
+                    <Link href="/kojipage" className="row pf-go">
                       <div className="t">
                         <strong>KojiPage</strong>
                         <small>{websiteAccess ? siteUrlLabel || L.parametres.websiteSub : L.parametres.websiteUpsell}</small>

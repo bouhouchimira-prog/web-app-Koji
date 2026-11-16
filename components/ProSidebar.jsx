@@ -25,9 +25,9 @@ const GROUPS = [
   {
     label: "Clients",
     items: [
-      { href: "/profil/site-web", label: "KojiPage", icon: SHOP },
-      { label: "Messages", icon: "M4 5h16v11H9l-5 4z", soon: true },
-      { href: "/contacts", label: "Contacts", icon: PERSON, match: ["/contacts", "/clients"] }
+      { href: "/kojipage", label: "KojiPage", icon: SHOP },
+      { href: "/messages", label: "Messages", icon: "M4 5h16v11H9l-5 4z", badge: "messages" },
+      { href: "/contacts", label: "Contacts", icon: PERSON, match: ["/contacts", "/clients"], badge: "contacts" }
     ]
   },
   {
@@ -42,7 +42,7 @@ const GROUPS = [
   {
     label: "Business",
     items: [
-      { href: "/comptabilite", label: "Comptabilités", icon: "M5 20V10M12 20V4M19 20v-7" },
+      { href: "/depenses", label: "Dépenses", icon: "M5 20V10M12 20V4M19 20v-7" },
       { href: "/interventions", label: "Interventions", icon: "M14.7 6.3a4 4 0 0 0 5 5L12 19.1a2.1 2.1 0 0 1-3-3zM9.5 9.5 4 4" }
     ]
   },
@@ -51,7 +51,7 @@ const GROUPS = [
     items: [
       { href: "/archives", label: "Archives", icon: "M3 4h18v4H3zM5 8v12h14V8M10 12h4" },
       { href: "/corbeille", label: "Corbeille", icon: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" },
-      { href: "/profil", label: "Profil / Configuration", icon: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1", match: ["/profil", "/parametres", "/aide"], exclude: ["/profil/site-web"] }
+      { href: "/profil", label: "Profil / Configuration", icon: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1", match: ["/profil", "/parametres", "/aide"], exclude: ["/kojipage"] }
     ]
   }
 ];
@@ -74,6 +74,8 @@ export function ProSidebar({
   isLocked,
   hasNewMarketplaceOffers,
   devisBadge = 0,
+  contactsBadge = 0,
+  messagesBadge = 0,
   onAsk,
   account,
   menuOpen,
@@ -124,6 +126,12 @@ export function ProSidebar({
                   ) : null}
                   {!locked && item.badge === "devis" && devisBadge > 0 ? (
                     <span className="cnt" aria-label={`${devisBadge} devis à reprendre ou relancer`}>{devisBadge}</span>
+                  ) : null}
+                  {!locked && item.badge === "messages" && messagesBadge > 0 ? (
+                    <span className="cnt" aria-label={`${messagesBadge} message${messagesBadge > 1 ? "s" : ""} non lu${messagesBadge > 1 ? "s" : ""}`}>{messagesBadge}</span>
+                  ) : null}
+                  {!locked && item.badge === "contacts" && contactsBadge > 0 ? (
+                    <span className="cnt" aria-label={`${contactsBadge} contact${contactsBadge > 1 ? "s" : ""} à traiter`}>{contactsBadge}</span>
                   ) : null}
                   {!locked && item.badge === "radar" && hasNewMarketplaceOffers ? (
                     <span className="cnt" aria-label="Nouvelles offres">Nouveau</span>

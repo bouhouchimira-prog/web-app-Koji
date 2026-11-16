@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
+import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ProAvenantsScreen;
 import 'package:koji/apps/entreprise/chantiers/pro_fiche_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_shell.dart';
 import 'package:koji/core/route_args.dart';
@@ -9,15 +10,18 @@ import 'package:koji/features/archives/archives_screen.dart';
 import 'package:koji/features/auth/business_info_screen.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/auth/profession_selection_screen.dart';
-import 'package:koji/features/calendar/calendrier_screen.dart';
 import 'package:koji/features/demarrage/demarrage_screen.dart';
 import 'package:koji/features/calendar/data/calendar_event_model.dart';
 import 'package:koji/features/calendar/detail_planning_screen.dart';
 import 'package:koji/features/calendar/nouvel_evenement_screen.dart';
 import 'package:koji/features/factures/chantier_factures_screen.dart';
+import 'package:koji/features/factures/encaissements_screen.dart';
 import 'package:koji/features/factures/factures_screen.dart';
+import 'package:koji/features/factures/impayes_screen.dart';
 import 'package:koji/features/factures/nouvelle_facture_screen.dart';
-import 'package:koji/features/fournitures/fournitures_screen.dart';
+import 'package:koji/features/fournitures/pro/fournitures_chantier_screen.dart';
+import 'package:koji/features/fournitures/pro/fournitures_extra_screens.dart';
+import 'package:koji/features/fournitures/pro/fournitures_pro_screen.dart';
 import 'package:koji/features/help/help_screen.dart';
 import 'package:koji/features/home/home_screen.dart';
 import 'package:koji/features/interventions/intervention_detail_screen.dart';
@@ -39,10 +43,16 @@ import 'package:koji/features/quote/chantier_info_screen.dart';
 import 'package:koji/features/quote/chantier_rdv_screen.dart';
 import 'package:koji/features/quote/chantier_worker_activity_screen.dart';
 import 'package:koji/features/quote/client_details_screen.dart';
+import 'package:koji/features/bibliotheque/bibliotheque_screens.dart';
+import 'package:koji/features/calendrier_pro/calendrier_pro.dart';
+import 'package:koji/features/contacts/contacts_pro.dart';
+import 'package:koji/features/messages_pro/messages_pro.dart';
+import 'package:koji/features/kojipage/kojipage_pro.dart';
+import 'package:koji/features/reseau_pro/reseau_pro.dart';
+import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
 import 'package:koji/features/quote/quote_detail_screen.dart';
-import 'package:koji/features/quote/quote_messages_inbox_screen.dart';
 import 'package:koji/features/quote/quote_messages_screen.dart';
 import 'package:koji/features/quote/quote_success_screen.dart';
 import 'package:koji/features/quote/room_selection_screen.dart';
@@ -266,6 +276,22 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
               ),
             ),
             GoRoute(
+              path: encaissementsRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const EncaissementsScreen(),
+              ),
+            ),
+            GoRoute(
+              path: impayesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ImpayesScreen(),
+              ),
+            ),
+            GoRoute(
               path: '/chantier/facturation',
               pageBuilder: (context, state) {
                 final data = state.extra as Map<String, dynamic>? ?? {};
@@ -454,19 +480,159 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
               },
             ),
             GoRoute(
-              path: '/messages',
+              path: messagesProRoute,
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const QuoteMessagesInboxScreen(),
+                const MessagesProScreen(),
               ),
             ),
+            // Réseau pro et contrat de sous-traitance (PRO-14, 14.1).
+            GoRoute(
+              path: reseauProRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ReseauProScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/reseau-pro/echange/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                EchangeReseauScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/reseau-pro/contrat/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ContratReseauScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            // KojiPage (maquettes PRO-13 à 13.4).
+            GoRoute(
+              path: kojipageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const KojiPageScreen(),
+              ),
+            ),
+            GoRoute(
+              path: demandesKojiPageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const DemandesKojiPageScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/kojipage/demandes/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                DemandeKojiPageScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: nouvelleRealisationRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NouvelleRealisationScreen(),
+              ),
+            ),
+            GoRoute(
+              path: reglagesKojiPageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ReglagesKojiPageScreen(),
+              ),
+            ),
+            GoRoute(
+              path: carteKojiPageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const CarteKojiPageScreen(),
+              ),
+            ),
+            // Fil d'une conversation (maquette PRO-12).
+            GoRoute(
+              path: '/messages/fil/:cle',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                FilScreen(cle: Uri.decodeComponent(state.pathParameters['cle']!)),
+              ),
+            ),
+            GoRoute(
+              path: '/avenants',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ProAvenantsScreen(),
+              ),
+            ),
+            // Fournitures (maquettes PRO-07 à 07.6), sur l'API du site.
             GoRoute(
               path: '/fournitures',
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const FournituresScreen(),
+                FournituresProScreen(onglet: state.uri.queryParameters['onglet'] ?? 'catalogue'),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/article',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ArticleFormScreen(articleId: state.extra is String ? state.extra as String : null),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/chantier/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ChantierFournituresScreen(projectId: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/bons/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                BonScreen(bonId: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/livraison/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                LivraisonScreen(bonId: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/partenaires/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                PartenaireScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/fournitures/cloture/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ClotureResteScreen(projectId: state.pathParameters['id']!),
               ),
             ),
             GoRoute(
@@ -704,12 +870,21 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
               ),
             ),
             // ── Calendar routes ──────────────────────────────────────
+            // Calendrier (maquettes PRO-11 à 11.4), sur l'API du site.
             GoRoute(
-              path: '/calendrier',
+              path: calendrierProRoute,
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const CalendrierScreen(),
+                const CalendrierProScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/calendrier/chantier/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                PlanningChantierScreen(projectId: state.pathParameters['id']!, titre: state.extra is String ? state.extra as String : ''),
               ),
             ),
             GoRoute(
@@ -735,7 +910,62 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 );
               },
             ),
-            // Bibliothèque d'ouvrages (reusable works catalogue)
+            // Contacts (maquettes PRO-10 à 10.3), sur l'API du site.
+            GoRoute(
+              path: contactsRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const ContactsScreen()),
+            ),
+            GoRoute(
+              path: nouveauContactRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const AjouterContactScreen()),
+            ),
+            GoRoute(
+              path: '/contacts/fiche/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, FicheContactScreen(id: state.pathParameters['id']!)),
+            ),
+            // Dépenses (maquettes PRO-09 à 09.4), sur l'API du site.
+            GoRoute(
+              path: depensesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                DepensesScreen(onglet: state.uri.queryParameters['onglet'] ?? 'ranger'),
+              ),
+            ),
+            GoRoute(
+              path: '/depenses/chantier/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                CoutChantierScreen(projectId: state.pathParameters['id']!),
+              ),
+            ),
+            // Bibliothèque (maquettes PRO-08 à 08.3), sur l'API du site.
+            GoRoute(
+              path: bibliothequeRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                BibliothequeProScreen(onglet: state.uri.queryParameters['onglet'] ?? 'ouvrages'),
+              ),
+            ),
+            GoRoute(
+              path: ficheOuvrageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                FicheOuvrageScreen(id: '${state.extra ?? state.uri.queryParameters['id'] ?? ''}'),
+              ),
+            ),
+            GoRoute(
+              path: nouvelOuvrageRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const NouvelOuvrageScreen()),
+            ),
+            GoRoute(
+              path: tauxFacturesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const TauxFacturesScreen()),
+            ),
+            // Ancienne bibliothèque : sert encore de sélecteur depuis le devis.
             GoRoute(
               path: '/ouvrage-library',
               pageBuilder: (context, state) {
