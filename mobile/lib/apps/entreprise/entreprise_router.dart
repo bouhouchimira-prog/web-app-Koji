@@ -49,6 +49,7 @@ import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/messages_pro/messages_pro.dart';
 import 'package:koji/features/kojipage/kojipage_pro.dart';
 import 'package:koji/features/reseau_pro/reseau_pro.dart';
+import 'package:koji/features/compte/compte_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -485,6 +486,47 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const MessagesProScreen(),
+              ),
+            ),
+            // Paramètres (maquettes PRO-15 à 15.6).
+            GoRoute(
+              path: parametresRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ParametresScreen(),
+              ),
+            ),
+            GoRoute(
+              path: langueRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const LangueScreen(),
+              ),
+            ),
+            GoRoute(
+              path: notificationsRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NotificationsScreen(),
+              ),
+            ),
+            GoRoute(
+              path: devisFacturesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const DevisFacturesScreen(),
+              ),
+            ),
+            GoRoute(
+              path: abonnementRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const AbonnementScreen(),
               ),
             ),
             // Réseau pro et contrat de sous-traitance (PRO-14, 14.1).

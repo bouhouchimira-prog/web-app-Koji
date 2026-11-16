@@ -31,6 +31,7 @@ import { recordIaDevisOutcome } from "../../../lib/ia-devis-outcomes";
 import { checkTrialSendLimit, checkTrialEditLimit, persistTrialPatch } from "../../../lib/plan";
 import { buildWebUser } from "../../../lib/user-profile";
 import { sendClientMessageEmail, sendQuoteToClientEmail } from "../../../lib/mailer";
+import { cgvPourEnvoi } from "../../../lib/compte-serveur";
 import { compterDevis, messageRelance } from "../../../lib/devis-liste";
 import { acompteAPartirDu, finRetractation } from "../../../lib/signature-lieu";
 import { estTauxReduit } from "../../../lib/tva";
@@ -445,7 +446,9 @@ export async function PATCH(request) {
       const replyTo = emailValide(quote.company?.email)
         || emailValide((await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle()).data?.email)
         || undefined;
+      const cgv = await cgvPourEnvoi(auth.supabase, auth.userId).catch(() => null);
       const mailResult = await sendQuoteToClientEmail({
+        extraPdfs: cgv ? [cgv] : [],
         to: signatureAccess.email,
         subject: fixText(body.emailSubject || `Votre devis ${quote.quoteNumber}`),
         message: fixText(body.emailMessage || ""),

@@ -1,4 +1,5 @@
 import { badRequest, ok } from "../../../../../lib/http";
+import { disponibilitesDe, jourDeVisite } from "../../../../../lib/compte-pro";
 import { readDb } from "../../../../../lib/db";
 import { getVerifiedUserId } from "../../../../../lib/server-auth";
 import { hasConfirmedRdv } from "../../../../../lib/rdv";
@@ -39,6 +40,16 @@ function detailOffer(offer, rdvUnlocked, photosUnlocked) {
     rdvConfirmed: rdvUnlocked,
     ...clientContactFields(offer, rdvUnlocked)
   };
+}
+
+function reglesVisite(business = {}) {
+  if (!business.disponibilites?.visites) return null;
+  const v = disponibilitesDe(business).visites;
+  const [h1, m1] = v.de.split(":").map(Number);
+  const [h2] = v.a.split(":").map(Number);
+  const heures = [[h1, m1]];
+  if (h1 + 2 < h2) heures.push([h1 + 2, m1]);
+  return { jourOk: (jour) => jourDeVisite(business, jour), heures };
 }
 
 export async function GET(request, context) {
@@ -86,7 +97,7 @@ export async function GET(request, context) {
       publieLe: offre.publishedAt || offre.createdAt,
       ...decorerOffre(db, offre, ctx, budgets.get(offre.id), maintenant),
       solde: { ...ctx.solde, prixHt: PRIX_JETON_HT[ctx.palier] },
-      creneaux: creneauxProposes((evenements || []).map((e) => ({ startAt: e.start_at, endAt: e.end_at })), maintenant),
+      creneaux: creneauxProposes((evenements || []).map((e) => ({ startAt: e.start_at, endAt: e.end_at })), maintenant, 4, reglesVisite(business)),
       messagePropose: messagePositionnement({
         prenom: String(business.firstName || business.prenom || webUser?.name || "").split(" ")[0],
         entreprise: business.raisonSociale || "",

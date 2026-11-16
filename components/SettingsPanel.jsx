@@ -25,7 +25,7 @@ const LANGUAGES = [
 //   so the new items don't introduce a second visual language on that page.
 // - "compact" (default): the .settings-row list style, used where there's
 //   no .profile-block precedent to match (client/worker profiles).
-export function SettingsPanel({ accountType, variant = "compact" }) {
+export function SettingsPanel({ accountType, variant = "compact", sansLangue = false }) {
   const { L, lang, setLang } = useLocale();
   const [theme, setTheme] = useState("light");
   const [reportOpen, setReportOpen] = useState(false);
@@ -239,7 +239,7 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
 
     return (
       <>
-        <section className="card">
+        {sansLangue ? null : <section className="card">
           <div className="card-h"><h2>{L.settings.language}</h2></div>
           <p className="muted">{L.settings.languageSub}</p>
           <div className="pf-chips" role="group" aria-label={L.settings.language}>
@@ -249,7 +249,7 @@ export function SettingsPanel({ accountType, variant = "compact" }) {
               </button>
             ))}
           </div>
-        </section>
+        </section>}
 
         <section className="card">
           <div className="card-h"><h2>{L.settings.appearance}</h2></div>

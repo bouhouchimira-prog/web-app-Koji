@@ -24,15 +24,35 @@ function Fil({ cle, onLu, onRetour }) {
   const [details, setDetails] = useState(false);
   const [toutes, setToutes] = useState(false);
   const fin = useRef(null);
+  // Traduction (PRO-15.1) : messages reçus dans la langue de l'artisan,
+  // messages envoyés en français avec aperçu de ce que lira le client.
+  const [trad, setTrad] = useState({});
+  const [originaux, setOriginaux] = useState({});
+  const [apercu, setApercu] = useState(null);
   const charger = () => apiGet(`/api/messages?fil=${encodeURIComponent(cle)}`).then((x) => { setD(x); onLu(); }).catch((e) => setErreur(e.message));
   useEffect(() => { setD(null); setDetails(false); charger(); }, [cle]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fin.current?.scrollIntoView({ block: "end" }); }, [d]);
+  const langue = d?.langue && d.langue.langue !== "fr" ? d.langue : null;
+  useEffect(() => {
+    if (!langue?.entrant || !d) return;
+    const recus = d.jours.flatMap((j) => j.messages).filter((m) => !m.entreprise && m.texte && !trad[m.texte]).map((m) => m.texte);
+    if (!recus.length) return;
+    apiSend("/api/traduire", { textes: recus, vers: langue.langue, depuis: "fr", genre: "message" })
+      .then((x) => setTrad((t) => ({ ...t, ...Object.fromEntries(recus.map((o, i) => [o, x.traductions[i]])) })))
+      .catch(() => null);
+  }, [d, langue?.langue, langue?.entrant]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function envoyer() {
-    const t = texte.trim();
+  async function envoyer(dejaTraduit = "") {
+    let t = texte.trim();
     if (!t || !d) return;
     setBusy(true); setErreur("");
     try {
+      if (langue?.sortant && !dejaTraduit) {
+        const x = await apiSend("/api/traduire", { textes: [t], vers: "fr", depuis: langue.langue, genre: "message" });
+        if (langue.apercu) { setApercu({ original: t, traduit: x.traductions[0] }); setBusy(false); return; }
+        t = x.traductions[0] || t;
+      } else if (dejaTraduit) t = dejaTraduit;
+      setApercu(null);
       if (d.fil.echangeId) await apiSend("/api/reseau", { action: "message", echangeId: d.fil.echangeId, text: t });
       else if (d.fil.leadId) await apiSend("/api/kojipage/demandes", { action: "repondre", id: d.fil.leadId, texte: t });
       else if (d.fil.quoteId) await apiSend(`/api/quotes/${d.fil.quoteId}/messages`, { texte: t });
@@ -69,7 +89,16 @@ function Fil({ cle, onLu, onRetour }) {
           {d.jours.length === 0 ? <p className="m2-day">Pas encore de message : écrivez le premier.</p> : d.jours.map((j) => (
             <div key={j.jour} style={{ display: "contents" }}>
               <div className="m2-day">{j.titre}</div>
-              {j.messages.map((m) => <div key={m.id} className={`m2-m ${m.entreprise ? "me" : "th"}`}><div className="m2-b">{m.texte}</div><small>{m.heure}</small></div>)}
+              {j.messages.map((m) => {
+                const traduit = !m.entreprise && langue?.entrant ? trad[m.texte] : "";
+                const voir = langue?.original || originaux[m.id];
+                return (
+                  <div key={m.id} className={`m2-m ${m.entreprise ? "me" : "th"}`}>
+                    <div className="m2-b" dir="auto">{traduit && traduit !== m.texte ? traduit : m.texte}{traduit && traduit !== m.texte && voir ? <span className="m2-orig">Original en français : {m.texte}</span> : null}</div>
+                    <small>{m.heure}{traduit && traduit !== m.texte ? <> · traduit du français · <button type="button" className="m2-lien" onClick={() => setOriginaux((o) => ({ ...o, [m.id]: !o[m.id] }))}>{voir ? "masquer l'original" : "voir l'original"}</button></> : null}</small>
+                  </div>
+                );
+              })}
             </div>
           ))}
           <div ref={fin} />
@@ -89,10 +118,17 @@ function Fil({ cle, onLu, onRetour }) {
             </div>
           ) : null}
           {erreur ? <p className="err" role="alert">{erreur}</p> : null}
+          {apercu ? (
+            <div className="m2-koji m2-apercu">
+              <span>Le client va lire : « {apercu.traduit} »</span>
+              <button type="button" className="link" disabled={busy} onClick={() => envoyer(apercu.traduit)}>Envoyer</button>
+              <button type="button" className="m2-dis" onClick={() => { setTexte(apercu.traduit); setApercu(null); }}>Corriger la traduction</button>
+            </div>
+          ) : null}
           <div className="m2-cmp">
-            <textarea value={texte} onChange={(e) => setTexte(e.target.value)} placeholder={`Écrire à ${d.fil.titre}`} aria-label={`Écrire à ${d.fil.titre}`} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) envoyer(); }} />
+            <textarea value={texte} onChange={(e) => setTexte(e.target.value)} placeholder={`Écrire à ${d.fil.titre}`} aria-label={`Écrire à ${d.fil.titre}`} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) envoyer(); }} dir="auto" />
             {texte.trim() ? <button type="button" className="m2-dis" title="Garder comme réponse enregistrée" onClick={enregistrerReponse}>Garder</button> : null}
-            <button type="button" className="m2-ib send" title="Envoyer" disabled={busy || !texte.trim()} onClick={envoyer}><Envoyer /></button>
+            <button type="button" className="m2-ib send" title="Envoyer" disabled={busy || !texte.trim()} onClick={() => envoyer()}><Envoyer /></button>
           </div>
         </div>
       </section>

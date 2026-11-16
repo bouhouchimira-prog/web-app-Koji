@@ -8,6 +8,7 @@ import { AddressFields } from "../../components/AddressFields";
 import { SendQuoteFlow } from "../../components/SendQuoteFlow";
 import { DevisChatPanel } from "../../components/DevisChatPanel";
 import { apiGet, apiSend } from "../../lib/client-api";
+import { conditionsDefaut } from "../../lib/compte-pro";
 import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
@@ -204,6 +205,10 @@ function profileCompany(user) {
     bic: business.bic || "",
     bankHolder: business.bankHolder || business.raisonSociale || user?.name || "",
     paymentTerms: business.paymentTerms || "",
+    // Régime de TVA et médiateur (PRO-15.2) : repris dans les mentions du PDF.
+    regimeTva: business.regimeTva || "",
+    mediateurNom: business.mediateur?.nom || "",
+    mediateurSite: business.mediateur?.site || "",
     hourlyRate: daily > 0 ? round2(daily / hpd) : 0
   };
 }
@@ -525,6 +530,7 @@ export default function DevisEditor() {
   // entrees, somme des percent = 100.
   const [paymentMilestones, setPaymentMilestones] = useState(() => defaultPaymentMilestones());
   const [quoteVatRate, setQuoteVatRate] = useState(20);
+  const franchiseRef = useRef(false);
   // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
   const [tvaChoix, setTvaChoix] = useState({ client: "", local: "", travaux: "", commande: "" });
   const [tvaOuvert, setTvaOuvert] = useState(false);
@@ -600,6 +606,17 @@ export default function DevisEditor() {
         const defaultVat = Number(payload.user?.business?.defaultVatRate);
         if (!editQuoteIdFromUrl() && !vatManual && Number.isFinite(defaultVat) && defaultVat > 0) {
           setQuoteVatRate(defaultVat);
+        }
+        // Franchise en base (PRO-15.2) : un devis neuf est établi sans TVA.
+        franchiseRef.current = payload.user?.business?.regimeTva === "franchise";
+        if (franchiseRef.current && !editQuoteIdFromUrl() && !vatManual) setQuoteVatRate(0);
+        // Conditions par défaut du compte : validité et acompte d'un devis neuf.
+        if (!editQuoteIdFromUrl()) {
+          const defauts = conditionsDefaut(payload.user?.business || {});
+          setForm((f) => (Number(f.validityDays || 30) === 30 ? { ...f, validityDays: defauts.validiteJours } : f));
+          setPaymentMilestones((actuels) => (actuels.length === 2 && actuels[0].percent === 30 && actuels[1].percent === 70 && defauts.acomptePct !== 30
+            ? [{ ...actuels[0], percent: defauts.acomptePct }, { ...actuels[1], percent: 100 - defauts.acomptePct }]
+            : actuels));
         }
         // Majorations réglées dans Bibliothèque › Mes prix : même règle que la
         // TVA, uniquement pour un devis tout neuf.
@@ -1105,7 +1122,7 @@ export default function DevisEditor() {
     const client = choix.client || clientTvaCourant;
     const decision = decisionTva({ client, local: choix.local, travaux: choix.travaux });
     setTvaChoix(choix);
-    if (decision.taux != null) setQuoteVatRate(decision.taux);
+    if (decision.taux != null) setQuoteVatRate(franchiseRef.current ? 0 : decision.taux);
     if (decision.taux != null && decision.taux !== 10) {
       setLineSettings((current) => Object.fromEntries(Object.entries(current).map(([id, reglage]) => {
         if (!reglage || reglage.tauxTva == null) return [id, reglage];

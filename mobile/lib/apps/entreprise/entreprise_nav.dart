@@ -6,6 +6,7 @@ import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_shell.dart';
 import 'package:koji/features/account/account_deletion.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
+import 'package:koji/features/compte/compte_pro.dart' show confirmerDeconnexion;
 
 /// Tab shown by the entreprise home (`/home`): 0 tableau de bord, 1 devis,
 /// 2 chantiers. Shared by the side menu and the phone bottom bar.
@@ -30,7 +31,7 @@ const _routes = {
   'archives': '/archives',
   'profil': '/profile/company',
   'signature': '/signature',
-  'parametres': '/settings/pricing',
+  'parametres': '/parametres',
   'aide': '/aide',
 };
 
@@ -118,7 +119,7 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/archives')) return 'archives';
   if (starts('/profile')) return 'profil';
   if (starts('/signature')) return 'signature';
-  if (starts('/settings')) return 'parametres';
+  if (starts('/settings') || starts('/parametres')) return 'parametres';
   if (starts('/aide')) return 'aide';
   return null;
 }
@@ -134,6 +135,7 @@ Future<void> openEntrepriseNav(
     return;
   }
   if (id == 'deconnexion') {
+    if (!await confirmerDeconnexion(context, ref)) return;
     await ref.read(authProvider.notifier).signOut();
     router.go('/login');
     return;
