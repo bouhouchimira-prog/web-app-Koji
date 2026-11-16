@@ -10,6 +10,8 @@ import { startConfirmTypeFlow, advanceConfirmTypeFlow } from "../../../lib/koji-
 import { RENOVATION_METIERS } from "../../../lib/renovation-question-bank";
 import { logAlgoStat } from "../../../lib/assistant-algo-stats";
 import { adminInstructionBlock, requesterIsAdmin, setAssistantInstruction } from "../../../lib/ai-assistant-instructions";
+import { estQuestion, repondreQuestion } from "../../../lib/koji-questions";
+import { resolveEntreprise } from "../../../lib/entreprise-auth";
 
 // Assistant koji v2 (15 septembre) : pipeline a deux phases.
 // Phase 1 (IA, 1 appel) : classe le message parmi les 13 outils de
@@ -347,6 +349,7 @@ function describeOutcome(result) {
   if (result.outcome === "clarify") return result.question;
   if (result.outcome === "failed") return result.message;
   if (result.outcome === "unsupported") return result.message || "Je n'ai pas ce service.";
+  if (result.outcome === "answer") return result.message;
   if (result.outcome === "devisPageAction") return `✓ Ajouté sur le devis ouvert : ${result.label}.`;
   return "Je n'ai pas compris votre demande.";
 }
@@ -533,82 +536,25 @@ export async function POST(request) {
   const photos = Array.isArray(body.photos) ? body.photos.slice(0, 8) : [];
   const onDevisPage = body.pageContext?.page === "devis";
 
-  // Analyse de données (2 nov) : les trois questions " Qu'est-ce qui m'attend aujourd'hui ?",
-  // "Qui me doit de l'argent ?" et "Quels chantiers perdent de l'argent ?" sont
-  // traitées avant la classification IA, en lisant directement les données de
-  // l'utilisatrice sans utiliser l'IA — plus rapide et plus précis.
-  const messageLower = message.toLowerCase().trim();
-  const isWhatToday = messageLower.includes("qu'est-ce") && messageLower.includes("aujourd'hui");
-  const isWhoOwes = messageLower.includes("qui") && (messageLower.includes("doit") || messageLower.includes("devoir"));
-  const isLosingMoney = (messageLower.includes("chantier") || messageLower.includes("projet")) && messageLower.includes("perd");
-
-  if (isWhatToday || isWhoOwes || isLosingMoney) {
-    try {
-      const quotes = scopedItems(db.quotes || [], auth.userId);
-      const invoices = scopedItems(db.invoices || [], auth.userId);
-      const projects = scopedItems(db.projects || [], auth.userId);
-      const tasks = scopedItems(db.tasks || [], auth.userId);
-
-      let analysisMessage = "";
-
-      if (isWhatToday) {
-        // Qu'est-ce qui m'attend aujourd'hui ?
-        const today = new Date().toISOString().split("T")[0];
-        const todayTasks = tasks.filter((t) => !t.done && t.dueDate && t.dueDate.split("T")[0] === today);
-        const upcomingQuotes = quotes.filter((q) => q.status === "Envoye");
-
-        const parts = [];
-        if (todayTasks.length > 0) {
-          parts.push(`${todayTasks.length} tâche${todayTasks.length > 1 ? "s" : ""} à faire aujourd'hui`);
-        }
-        if (upcomingQuotes.length > 0) {
-          parts.push(`${upcomingQuotes.length} devis en attente de signature`);
-        }
-
-        analysisMessage = parts.length
-          ? `Votre jour : ${parts.join(" · ")}`
-          : "Rien d'urgent pour aujourd'hui.";
-      } else if (isWhoOwes) {
-        // Qui me doit de l'argent ?
-        const unpaidInvoices = invoices.filter((i) => i.status === "Emise");
-        const totalUnpaid = unpaidInvoices.reduce((sum, i) => sum + (Number(i.amountTtc) || 0), 0);
-
-        if (unpaidInvoices.length === 0) {
-          analysisMessage = "Tous vos paiements sont à jour.";
-        } else {
-          analysisMessage = `${unpaidInvoices.length} facture${unpaidInvoices.length > 1 ? "s" : ""} impayée${unpaidInvoices.length > 1 ? "s" : ""}, ${totalUnpaid.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} à encaisser.`;
-        }
-      } else if (isLosingMoney) {
-        // Quels chantiers perdent de l'argent ?
-        const expensesByProject = {};
-        for (const expense of scopedItems(db.expenses || [], auth.userId)) {
-          if (!expense.projectId) continue;
-          expensesByProject[expense.projectId] = (expensesByProject[expense.projectId] || 0) + (Number(expense.totalHt ?? expense.total) || 0);
-        }
-
-        const losingProjects = projects.filter((p) => {
-          const expenses = expensesByProject[p.id] || 0;
-          const quoteRevenue = quotes
-            .filter((q) => q.projectId === p.id && q.status === "Signe")
-            .reduce((sum, q) => sum + (Number(q.totalHt) || 0), 0);
-          return expenses > quoteRevenue;
-        });
-
-        if (losingProjects.length === 0) {
-          analysisMessage = "Aucun chantier ne perd d'argent — bonne gestion !";
-        } else {
-          analysisMessage = `${losingProjects.length} chantier${losingProjects.length > 1 ? "s" : ""} en déficit.`;
-        }
+  // Questions sur l'entreprise (PRO-18) : Koji lit les données par des
+  // outils en lecture seule (chiffres calculés par Koji, sources, actions à
+  // valider) — remplace les trois réponses codées en dur du 2 nov., qui
+  // lisaient d'anciennes collections. Les demandes de création, modification
+  // ou suppression gardent le pipeline de classification ci-dessous.
+  if (!isSecondRound && !photos.length && (body.mode === "question" || estQuestion(message))) {
+    const entreprise = await resolveEntreprise(request, body);
+    if (entreprise) {
+      try {
+        const historique = conversationId ? scopedItems(db.kojiAssistantMessages || [], auth.userId).filter((m) => m.conversationId === conversationId).slice(-6) : [];
+        const page = body.pageContext?.label ? { label: String(body.pageContext.label).slice(0, 160), ref: String(body.pageContext.ref || body.pageContext.chantierId || "").slice(0, 80) } : null;
+        const { reponse } = await repondreQuestion({ entreprise, db, question: message, page, historique });
+        const result = { outcome: "answer", message: reponse.constat, reponse };
+        // sansHistorique : question d'essai, rien n'est enregistré.
+        if (!body.sansHistorique) after(() => logTurn(auth.userId, message, result, conversationId, "questions-ia"));
+        return ok({ ...result, conversationId });
+      } catch (e) {
+        console.error("koji questions", e?.message);
       }
-
-      const result = {
-        outcome: "success",
-        message: analysisMessage
-      };
-      after(() => logTurn(auth.userId, message, result, conversationId, "analyse-data"));
-      return ok({ ...result, conversationId });
-    } catch {
-      // En cas d'erreur, on continue vers la classification IA normale
     }
   }
 

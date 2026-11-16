@@ -9,6 +9,7 @@ import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/entreprise_sidebar.dart';
 import 'package:koji/design/koji_shell.dart';
 import 'package:koji/design/koji_tokens.dart';
+import 'package:koji/features/koji/koji_assistant.dart';
 import 'package:koji/features/home/notifications/notifications_panel.dart';
 import 'package:koji/features/home/notifications/providers/notification_provider.dart';
 
@@ -35,9 +36,25 @@ class EntrepriseShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wide = MediaQuery.sizeOf(context).width >= KojiBreakpoints.wide;
+    final page = wide ? _webLayout(context, ref) : child;
     return EntrepriseActivityWatcher(
-      child: wide ? _webLayout(context, ref) : child,
+      child: _avecKoji(page, wide),
     );
+  }
+
+  // Koji sur chaque page (PRO-18.1) : bouton fixe en bas à droite, absent
+  // là où il gênerait (devis guidé, démarrage, signature).
+  static const _sansKoji = ['/quote/', '/demarrage', '/signature', '/business-info', '/profession'];
+  static const _sections = {'chantiers': 'Chantiers', 'facturation': 'Factures', 'depenses': 'Dépenses', 'equipe': 'Équipe', 'contacts': 'Contacts', 'calendrier': 'Calendrier', 'kojipage': 'KojiPage', 'reseau-pro': 'Réseau pro', 'intervention-rapide': 'Intervention', 'fournitures': 'Fournitures', 'bibliotheque': 'Bibliothèque'};
+
+  Widget _avecKoji(Widget page, bool wide) {
+    if (_sansKoji.any(location.startsWith)) return page;
+    final segments = Uri.parse(location).pathSegments;
+    final section = segments.isEmpty ? '' : _sections[segments.first] ?? '';
+    return Stack(children: [
+      Positioned.fill(child: page),
+      Positioned(right: wide ? 24 : 12, bottom: wide ? 24 : 88, child: KojiBoutonFlottant(page: section)),
+    ]);
   }
 
   Widget _webLayout(BuildContext context, WidgetRef ref) {

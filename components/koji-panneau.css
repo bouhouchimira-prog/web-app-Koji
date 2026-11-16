@@ -1,0 +1,63 @@
+/* Koji sur chaque page (maquettes PRO-18.1, 18.2) : bouton fixe en bas à
+   droite avec l'étoile jaune ; panneau de 430 px à droite, la page se
+   resserre sur grand écran (superposition en dessous de 1 280 px). */
+.koji-assistant-bubble{position:fixed;right:24px;bottom:24px;z-index:1300;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px 0 10px;width:auto;border-radius:2px;background:#171B1E;color:#FFFFFF;border:0;box-shadow:0 0 0 3px #F5F5F1;cursor:pointer;font:inherit}
+.koji-assistant-bubble b{font-size:14px;font-weight:700}
+.koji-assistant-bubble:focus-visible{outline:2px solid #FFC400;outline-offset:2px}
+.kp-etoile{width:24px;height:24px;display:grid;place-items:center;flex:none}
+.kp-etoile svg{width:16px;height:16px;fill:#FFC400}
+body.koji-ouvert .koji-assistant-bubble{display:none}
+
+.koji-assistant-panel{top:0;right:0;bottom:0;width:430px;max-width:100vw;max-height:none;border-radius:0;border:0;border-left:1px solid #CFCFC9;box-shadow:none;background:#FFFFFF;z-index:1350}
+.koji-assistant-panel .koji-assistant-panel-head{background:#171B1E;border-radius:0;padding:12px 14px}
+.kp-titre{display:inline-flex;align-items:center;gap:6px;color:#FFFFFF;font-size:15px}
+.kp-titre small{font-size:11px;font-weight:600;color:#C4C7CC;text-transform:uppercase;letter-spacing:.06em}
+.koji-assistant-panel .koji-assistant-panel-body{flex:1;overflow:auto;padding:14px 16px}
+.kp-ctx{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid #F0F0EB;font-size:12px;background:#FAFAF7}
+.kp-ctx span{color:#5B5F66;white-space:nowrap}
+.kp-ctx b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kp-ctx button{border:0;background:none;font-size:16px;cursor:pointer;color:#5B5F66;padding:0 4px}
+.kp-mention{margin:0;padding:6px 16px 10px;font-size:11px;color:#5B5F66;background:#FFFFFF}
+.koji-assistant-panel .koji-assistant-bar{border-radius:2px;margin:0 12px 4px}
+.koji-assistant-panel .koji-assistant-thread-user{background:#171B1E;color:#FFFFFF;border-radius:2px;max-width:88%}
+.koji-assistant-panel .koji-assistant-thread-assistant{background:#F4F4F0;color:#171B1E;border-radius:2px;max-width:100%}
+.koji-assistant-panel .kr-row{background:transparent;padding:0;width:100%}
+
+/* Réponse de Koji */
+.kr{display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#171B1E;border-left:3px solid #FFC400;padding:2px 0 2px 10px}
+.kr-mention{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#5B5F66}
+.kr-c{margin:0;line-height:1.5}
+.kr-ch{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.kr-ch>div{background:#FFFFFF;border:1px solid #E1E1DB;padding:6px 8px;display:flex;flex-direction:column}
+.kr-ch span{font-size:11px;color:#5B5F66}
+.kr-ch b{font-size:15px;font-variant-numeric:tabular-nums}
+.kr-p{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.kr-p li{display:flex;flex-direction:column;border:1px solid #171B1E;padding:6px 8px;background:#FFFFFF}
+.kr-p small{font-size:12px;color:#5B5F66}
+.kr-s{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+.kr-s span{color:#5B5F66}
+.kr-s button{border:1px solid #CFCFC9;background:#FFFFFF;padding:2px 8px;font:inherit;font-size:12px;cursor:pointer;border-radius:2px}
+.kr-as{display:flex;flex-direction:column;gap:8px}
+.kr-a{display:flex;align-items:center;gap:10px;justify-content:space-between;border:1px solid #CFCFC9;background:#FFFFFF;padding:8px 10px;flex-wrap:wrap}
+.kr-a>div:first-child{display:flex;flex-direction:column;min-width:0;flex:1}
+.kr-a small{font-size:12px;color:#5B5F66}
+.kr-m{flex-direction:column;align-items:stretch}
+.kr-t{margin:0;font-size:13px;line-height:1.45;background:#FAFAF7;padding:6px 8px;border:1px solid #F0F0EB}
+.kr-m textarea{width:100%;min-height:90px;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #CFCFC9;border-radius:2px}
+.kr-ab{display:flex;justify-content:flex-end;gap:8px}
+.kr-b{height:34px;padding:0 14px;border:0;background:#171B1E;color:#FFFFFF;font:inherit;font-weight:700;font-size:13px;border-radius:2px;cursor:pointer}
+.kr-b:disabled{opacity:.5}
+.kr-l{height:34px;padding:0 10px;border:1px solid #CFCFC9;background:#FFFFFF;font:inherit;font-size:13px;border-radius:2px;cursor:pointer}
+.kr-ok{color:#2F6B3A;font-weight:600}
+.kr-err{color:#B3261E}
+.kr-sg{display:flex;flex-wrap:wrap;gap:6px}
+.kr-sg button{border:1px solid #171B1E;background:#FFFFFF;padding:5px 10px;font:inherit;font-size:12px;border-radius:2px;cursor:pointer}
+
+@media (min-width:1280px){
+  body.koji-ouvert .pro main,body.koji-ouvert main.wide{margin-right:430px}
+}
+@media (max-width:760px){
+  .koji-assistant-bubble{right:12px;bottom:88px;padding:0;width:48px;height:48px;justify-content:center}
+  .koji-assistant-bubble b{display:none}
+  .koji-assistant-panel{width:100vw;border-left:0}
+}

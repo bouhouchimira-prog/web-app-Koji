@@ -10,6 +10,8 @@ import { useApi } from "../lib/use-api";
 import { ProSidebar } from "./ProSidebar";
 import KojiWordmark from "./KojiWordmark";
 import "./shell-layout.css";
+import { KojiReponse } from "./KojiReponse";
+import "./koji-panneau.css";
 import "../app/home-pro.css";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--f" });
@@ -330,6 +332,9 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
   const [kojiAssistantConversations, setKojiAssistantConversations] = useState([]);
   const [kojiAssistantConversationId, setKojiAssistantConversationId] = useState("");
   const [kojiAssistantMessages, setKojiAssistantMessages] = useState([]);
+  // Contexte « Sur cette page » (PRO-18.1) : section + titre de la page.
+  const [kojiPageLabel, setKojiPageLabel] = useState("");
+  const [kojiSansContexte, setKojiSansContexte] = useState(false);
   const [kojiAssistantDraft, setKojiAssistantDraft] = useState("");
   const [kojiAssistantBusy, setKojiAssistantBusy] = useState(false);
   const [kojiAssistantClarification, setKojiAssistantClarification] = useState(null);
@@ -396,6 +401,27 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
     document.addEventListener("keydown", openOnCtrlK);
     return () => document.removeEventListener("keydown", openOnCtrlK);
   }, [isPro]);
+
+  // « Sur cette page » : section d'après l'adresse, titre d'après la page.
+  useEffect(() => {
+    const SECTIONS = { chantiers: "Chantier", devis: "Devis", facturation: "Factures", contacts: "Contacts", clients: "Clients", equipe: "Équipe", depenses: "Dépenses", interventions: "Intervention", calendrier: "Calendrier", fournitures: "Fournitures", kojipage: "KojiPage", "reseau-pro": "Réseau pro", avenant: "Avenant", "bibliotheque-ouvrages": "Bibliothèque", messages: "Messages" };
+    const section = SECTIONS[String(pathname || "").split("/")[1] || ""] || "";
+    setKojiSansContexte(false);
+    if (!section) { setKojiPageLabel(""); return undefined; }
+    const lire = () => {
+      const titre = (document.querySelector("main h1, .head h1")?.textContent || "").trim().slice(0, 80);
+      setKojiPageLabel(titre && titre !== section ? `${section} · ${titre}` : section);
+    };
+    lire();
+    const t = setTimeout(lire, 1500);
+    return () => clearTimeout(t);
+  }, [pathname, kojiAssistantOpen]);
+
+  // Panneau ouvert : la page se resserre sur grand écran (PRO-18.2).
+  useEffect(() => {
+    document.body.classList.toggle("koji-ouvert", Boolean(kojiAssistantOpen && !hideAssistantWidget));
+    return () => document.body.classList.remove("koji-ouvert");
+  }, [kojiAssistantOpen, hideAssistantWidget]);
 
   useEffect(() => {
     if (!isPro) return undefined;
@@ -468,11 +494,13 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
     const chantierIdInUrl = pathname === "/chantiers" && typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("project")
       : "";
-    const pageContext = pathname?.startsWith("/devis")
+    const base = pathname?.startsWith("/devis")
       ? { page: "devis" }
       : chantierIdInUrl
         ? { page: "chantier", chantierId: chantierIdInUrl }
-        : undefined;
+        : {};
+    // « Sur cette page » (PRO-18.1) : Koji répond d'abord sur l'objet affiché.
+    const pageContext = kojiPageLabel && !kojiSansContexte ? { ...base, label: kojiPageLabel, ref: chantierIdInUrl || "" } : (base.page ? base : undefined);
     const payload = kojiAssistantClarification
       ? { message: value, conversationId: activeConversationId, conversation: { question: kojiAssistantClarification.question, originalMessage: kojiAssistantClarification.originalMessage, state: kojiAssistantClarification.state }, pageContext }
       : { message: value, conversationId: activeConversationId, photos: kojiAssistantPhotos, pageContext };
@@ -505,6 +533,10 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
       } else if (data.outcome === "devisPageAction") {
         window.dispatchEvent(new CustomEvent("koji-devis-page-action", { detail: data }));
         setKojiAssistantNotice(`✓ Ajouté sur le devis : ${data.label}`);
+        setKojiAssistantClarification(null);
+        setKojiAssistantLive(null);
+      } else if (data.outcome === "answer") {
+        // Réponse à une question (PRO-18) : affichée dans le fil.
         setKojiAssistantClarification(null);
         setKojiAssistantLive(null);
       } else if (data.outcome === "success") {
@@ -760,6 +792,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
             contactsBadge={contactsBadge}
             messagesBadge={messagesBadge}
             onAsk={() => { setDrawerOpen(false); toggleKojiAssistant(); }}
+            onAskQuestion={(question) => { setDrawerOpen(false); window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: question } })); }}
             account={{
               name: avatarLabel,
               initials: initialsFrom(avatarLabel),
@@ -806,10 +839,11 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
           type="button"
           className="koji-assistant-bubble"
           onClick={toggleKojiAssistant}
-          aria-label="Assistant koji"
+          aria-label="Demander à Koji, assistant IA"
           aria-expanded={kojiAssistantOpen}
         >
-          <KojiSymbol className="koji-assistant-bubble-icon" />
+          <span className="kp-etoile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg></span>
+          <b>Demander à Koji</b>
         </button>
       ) : null}
 
@@ -850,7 +884,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
                 </div>
               ) : null}
             </div>
-            <strong><KojiSymbol className="koji-assistant-panel-icon" /> KOJI</strong>
+            <strong className="kp-titre"><span className="kp-etoile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg></span> Koji <small>assistant IA</small></strong>
             <div className="koji-assistant-head-actions">
               <button
                 type="button"
@@ -870,18 +904,27 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
           </div>
 
           <>
+              {kojiPageLabel && !kojiSansContexte ? (
+                <div className="kp-ctx"><span>Sur cette page</span><b>{kojiPageLabel}</b><button type="button" aria-label="Retirer le contexte de la page" onClick={() => setKojiSansContexte(true)}>×</button></div>
+              ) : null}
               <div className="koji-assistant-panel-body">
                 {kojiAssistantMessages.length > 0 ? (
                   <div className="koji-assistant-thread">
-                    {kojiAssistantMessages.slice(-12).map((entry) => (
-                      <div key={entry.id} className={`koji-assistant-thread-row koji-assistant-thread-${entry.role}`}>
-                        {entry.message}
-                      </div>
+                    {kojiAssistantMessages.slice(-12).map((entry, k, liste) => (
+                      entry.role === "assistant" && entry.outcome === "answer" && entry.meta?.reponse ? (
+                        <div key={entry.id} className="koji-assistant-thread-row koji-assistant-thread-assistant kr-row">
+                          <KojiReponse r={entry.meta.reponse} dernier={k === liste.length - 1} onAsk={(q) => submitKojiAssistant(q)} />
+                        </div>
+                      ) : (
+                        <div key={entry.id} className={`koji-assistant-thread-row koji-assistant-thread-${entry.role}`}>
+                          {entry.message}
+                        </div>
+                      )
                     ))}
                   </div>
                 ) : (
                   <p className="koji-assistant-notice">
-                    {kojiGreeting(kojiUserName)} 👋 Demandez-moi de créer ou supprimer un RDV, un devis, une dépense, une tâche...
+                    {kojiGreeting(kojiUserName)}. Posez une question sur vos chantiers, devis, factures ou votre équipe, ou demandez-moi de créer un RDV, un devis, une dépense, une tâche…
                   </p>
                 )}
 
@@ -1037,7 +1080,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
                   type="text"
                   value={kojiAssistantDraft}
                   onChange={(event) => setKojiAssistantDraft(event.target.value)}
-                  placeholder={kojiAssistantClarification ? kojiAssistantClarification.question : "Demandez à l'assistant koji…"}
+                  placeholder={kojiAssistantClarification ? kojiAssistantClarification.question : "Écrire à Koji…"}
                   disabled={kojiAssistantBusy}
                 />
                 <label className="koji-assistant-bar-photo" title="Joindre une photo (facture, reçu...)">
@@ -1045,6 +1088,7 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
                   <input type="file" accept="image/*" multiple hidden onChange={handleKojiPhotoChange} disabled={kojiAssistantBusy} />
                 </label>
               </form>
+              <p className="kp-mention">Koji, assistant IA · peut se tromper : vérifiez avant d'envoyer. Rien ne part sans vous.</p>
             </>
         </div>
       ) : null}

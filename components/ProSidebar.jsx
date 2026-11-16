@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment } from "react";
+import { RechercheMenu } from "./RechercheMenu";
 import KojiWordmark from "./KojiWordmark";
 
 const PERSON = "M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0";
@@ -78,6 +79,7 @@ export function ProSidebar({
   contactsBadge = 0,
   messagesBadge = 0,
   onAsk,
+  onAskQuestion,
   account,
   menuOpen,
   onToggleMenu,
@@ -88,13 +90,15 @@ export function ProSidebar({
     <aside className={`side${open ? " open" : ""}`} aria-label="Navigation">
       <Link href="/" className="brand" aria-label="Koji, accueil"><KojiWordmark height={14} /></Link>
 
+      <RechercheMenu onAsk={onAskQuestion} />
+
       <button type="button" className="sx kj" onClick={onAsk}>
         <span className="kjs">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg>
         </span>
         <div>
           <b>Demander à Koji</b>
-          <small>ou rechercher · Ctrl K</small>
+          <small>assistant IA · Ctrl K</small>
         </div>
       </button>
 
