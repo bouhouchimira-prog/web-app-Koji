@@ -10,6 +10,8 @@ import { bonsDe } from "../../../lib/fournitures-serveur";
 import { importerClientsDesDevis } from "../../../lib/contacts-serveur";
 import { fixText } from "../../../lib/text";
 import { ETATS_DEMANDE, clientAffiche, etatDemande, texteProjet } from "../../../lib/kojipage";
+import { getSupabaseAdmin } from "../../../lib/supabase";
+import { accesReseau } from "../../../lib/reseau";
 
 // Messages (maquette PRO-12) : une seule messagerie pour les fils des devis
 // (le client écrit depuis sa page de signature ou Koji Client, table
@@ -73,6 +75,27 @@ async function charger(entreprise, db) {
       titre: clientAffiche(d).nom || "Client", sousTitre: `KojiPage · ${d.prestation || d.projet?.piece || "demande de devis"}`,
       messages: [{ id: `${d.id}-0`, texte: premier, le: d.createdAt, entreprise: false }, ...(d.messages || []).map((m, i) => ({ id: `${d.id}-${i + 1}`, texte: m.texte, le: m.le, entreprise: true }))]
     });
+  }
+  // Échanges du Réseau pro (PRO-14) : les fils « Pros » de la messagerie.
+  if (accesReseau(webUser)) {
+    const admin = getSupabaseAdmin();
+    const { data: echanges } = await admin.from("reseau_echanges").select("*").or(`user_a.eq.${userId},user_b.eq.${userId}`).order("updated_at", { ascending: false }).limit(100);
+    const idsE = (echanges || []).map((e) => e.id);
+    const [{ data: rm }, { data: besoins }] = idsE.length ? await Promise.all([
+      admin.from("reseau_messages").select("*").in("echange_id", idsE).order("created_at"),
+      admin.from("reseau_besoins").select("id,title,metier").in("id", [...new Set((echanges || []).map((e) => e.besoin_id).filter(Boolean))])
+    ]) : [{ data: [] }, { data: [] }];
+    const titreBesoin = new Map((besoins || []).map((b) => [b.id, [b.metier, b.title].filter(Boolean).join(" · ")]));
+    for (const e of echanges || []) {
+      const m = (rm || []).filter((x) => x.echange_id === e.id);
+      if (!m.length) continue;
+      fils.push({
+        cle: `reseau:${e.id}`, type: "reseau", pro: true, echangeId: e.id, projectId: "",
+        titre: (e.user_a === userId ? e.name_b : e.name_a) || "Entreprise", sousTitre: `Réseau pro · ${titreBesoin.get(e.besoin_id) || "contact direct"}`,
+        retenu: e.status === "retenu",
+        messages: m.map((x) => ({ id: x.id, texte: x.text, le: x.created_at, entreprise: x.from_user === userId }))
+      });
+    }
   }
   return { quotes, titres, adresses, fils, webUser };
 }
@@ -185,7 +208,7 @@ export async function GET(request) {
     const q = !fil && cle.startsWith("devis:") ? ctx.quotes.find((x) => x.id === cle.slice(6)) : null;
     const f = fil || (q ? { cle, type: "client", pro: false, quoteId: q.id, projectId: q.projectId || "", titre: q.client || "Client", sousTitre: ctx.titres.get(q.projectId) || "", messages: [] } : null);
     if (!f) return badRequest("Fil introuvable.", 404);
-    const contexte = f.type === "client" ? contexteDevis(db, userId, f, ctx) : f.type === "kojipage" ? (() => {
+    const contexte = f.type === "client" ? contexteDevis(db, userId, f, ctx) : f.type === "reseau" ? { chantier: "Réseau pro", etiquettes: [{ texte: "Réseau pro · sans jeton", alerte: false }, ...(f.retenu ? [{ texte: "Retenu", alerte: false }] : [])], details: [["Sujet", f.sousTitre.replace(/^Réseau pro · /, "")]], documents: [{ titre: "Ouvrir dans le Réseau pro", lien: `/reseau-pro?tab=echanges&e=${f.echangeId}` }], dansCeFil: `${f.titre} et vous, entre professionnels.` } : f.type === "kojipage" ? (() => {
       const d = (db.companySiteLeads || []).find((x) => x.id === f.leadId) || {};
       const etat = etatDemande(d);
       return { chantier: "Demande KojiPage", etiquettes: [{ texte: "Demande KojiPage · sans jeton", alerte: false }, { texte: ETATS_DEMANDE[etat], alerte: etat === "a_repondre" }], details: [["Demande", (d.projet ? texteProjet(d.projet) : d.message || "").slice(0, 200)], d.city ? ["Ville", d.city] : null].filter(Boolean), documents: [{ titre: "Fiche de la demande", lien: `/kojipage/demandes?id=${d.id}` }], dansCeFil: `${f.titre} et vous. Vos réponses partent par e-mail.` };
@@ -197,7 +220,7 @@ export async function GET(request) {
     db.messagesLus[userId] = { ...(db.messagesLus[userId] || {}), [cle]: new Date().toISOString() };
     const { s } = f.type === "client" ? await suggestion(db, userId, f, contexte) : { s: null };
     await writeDb(db);
-    return ok({ fil: { ...resumeFil(f, { luLe: new Date().toISOString(), aujourdhui: today() }), quoteId: f.quoteId || "", offreId: f.offreId || "", leadId: f.leadId || "" }, jours: parJour(f.messages, today()), contexte, suggestion: s, reponses: db.reponsesEnregistrees?.[userId] || REPONSES_DEFAUT });
+    return ok({ fil: { ...resumeFil(f, { luLe: new Date().toISOString(), aujourdhui: today() }), quoteId: f.quoteId || "", offreId: f.offreId || "", leadId: f.leadId || "", echangeId: f.echangeId || "" }, jours: parJour(f.messages, today()), contexte, suggestion: s, reponses: db.reponsesEnregistrees?.[userId] || REPONSES_DEFAUT });
   }
   return ok(vueListe(db, userId, ctx.fils));
 }

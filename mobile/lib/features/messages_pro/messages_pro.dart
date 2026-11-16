@@ -27,7 +27,9 @@ class MessagesRepository {
 
   Future<Json> liste() => _api.get('/api/messages');
   Future<Json> fil(String cle) => _api.get('/api/messages', query: {'fil': cle});
-  Future<Json> envoyer(Json fil, String texte) => _s(fil['leadId']).isNotEmpty
+  Future<Json> envoyer(Json fil, String texte) => _s(fil['echangeId']).isNotEmpty
+      ? _api.post('/api/reseau', {'action': 'message', 'echangeId': fil['echangeId'], 'text': texte})
+      : _s(fil['leadId']).isNotEmpty
       ? _api.post('/api/kojipage/demandes', {'action': 'repondre', 'id': fil['leadId'], 'texte': texte})
       : _s(fil['quoteId']).isNotEmpty
       ? _api.post('/api/quotes/${fil['quoteId']}/messages', {'texte': texte})
@@ -80,7 +82,7 @@ class _MessagesProScreenState extends ConsumerState<MessagesProScreen> {
           onChanged: (v) => setState(() => _filtre = v),
         ),
         if (fils.isEmpty)
-          KojiEmptyState(compact: true, icon: KojiIcons.messages, title: 'Aucune conversation', subtitle: _filtre == 'pros' ? 'Les échanges avec les sous-traitants et les fournisseurs arriveront avec le Réseau pro.' : 'Vos clients vous écrivent depuis leur devis ; les demandes du Radar arrivent ici aussi.'),
+          KojiEmptyState(compact: true, icon: KojiIcons.messages, title: 'Aucune conversation', subtitle: _filtre == 'pros' ? "Pas encore d'échange avec un pro. Répondez à un besoin ou contactez un pro dans le Réseau pro." : 'Vos clients vous écrivent depuis leur devis ; les demandes du Radar arrivent ici aussi.'),
         for (final f in fils)
           InkWell(
             onTap: () async {

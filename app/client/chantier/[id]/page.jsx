@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ClientTopbar } from "../../../../components/ClientTopbar";
 import { ClientFinChantier } from "../../../../components/ClientFinChantier";
 import { ClientAccordRealisation } from "../../../../components/ClientAccordRealisation";
+import { ClientSousTraitant } from "../../../../components/ClientSousTraitant";
 import "../../../../components/client-fin-chantier.css";
 import { useEffect, useRef, useState } from "react";
 import { euro, shortDate } from "../../../../lib/pricing";
@@ -392,6 +393,7 @@ export default function ClientChantierPage() {
 
           <ClientFinChantier quote={quote} entreprise={quote.company?.name || quote.companyName || ""} />
           <ClientAccordRealisation quoteId={quote.id} entreprise={quote.company?.name || quote.companyName || ""} />
+          <ClientSousTraitant quoteId={quote.id} />
 
           <div className="ccd-general-urgence">
             {genUrgSent ? (

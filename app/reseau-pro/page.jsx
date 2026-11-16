@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
-import { useApi } from "../../lib/use-api";
 import { euro } from "../../lib/pricing";
 import { fixText } from "../../lib/text";
 
@@ -60,8 +59,6 @@ export default function ReseauProPage() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const { data: tasks } = useApi("/api/tasks", "tasks");
-  const { data: projects } = useApi("/api/projects", "projects");
 
   async function reload() {
     try {
@@ -102,34 +99,16 @@ export default function ReseauProPage() {
   const visibleEchanges = besoinFilter ? echanges.filter((echange) => echange.besoinId === besoinFilter) : echanges;
   const openEchange = echanges.find((echange) => echange.id === openEchangeId) || null;
 
-  // « Mes lots sans intervenant » : tâches de mes chantiers sans personne
-  // affectée, regroupées par lot (même découpage que le planning).
-  const freeLots = useMemo(() => {
-    const groups = new Map();
-    tasks.filter((task) => !task.done && task.projectId && !(Array.isArray(task.workerIds) && task.workerIds.length)).forEach((task) => {
-      const lot = fixText(task.room || task.label || "Lot");
-      const key = `${task.projectId}|${lot}`;
-      const start = task.startDate || task.dueDate || "";
-      const end = task.endDate || task.dueDate || task.startDate || "";
-      const current = groups.get(key);
-      if (!current) {
-        const project = projects.find((item) => item.id === task.projectId);
-        groups.set(key, { key, projectId: task.projectId, projectTitle: fixText(project?.title || task.project || "Chantier"), lot, start, end });
-      } else {
-        if (start && (!current.start || start < current.start)) current.start = start;
-        if (end && end > current.end) current.end = end;
-      }
-    });
-    const published = new Set(besoins.filter((besoin) => besoin.mine && besoin.status === "ouvert").map((besoin) => `${besoin.projectTitle}|${besoin.lotLabel}`));
-    return [...groups.values()].map((group) => ({ ...group, published: published.has(`${group.projectTitle}|${group.lot}`) })).slice(0, 6);
-  }, [tasks, projects, besoins]);
+  // « Mes lots sans intervenant » : servis par l'API avec le montant du lot
+  // au devis signé et sa main-d'œuvre (budget indicatif du besoin).
+  const freeLots = (data?.lots || []).map((l) => ({ key: l.cle, projectId: l.projectId, projectTitle: l.projectTitle, lot: l.lot, start: l.debut, end: l.fin, totalHt: l.totalHt, moHt: l.moHt, published: l.publie }));
 
   function openPublish(lot = null) {
     setPublish({
       ...EMPTY_BESOIN,
       city: me?.city || "",
       metier: me?.professions?.[0] || "",
-      ...(lot ? { title: lot.lot, lotLabel: lot.lot, projectId: lot.projectId, projectTitle: lot.projectTitle, startDate: lot.start, endDate: lot.end } : {})
+      ...(lot ? { title: lot.lot, lotLabel: lot.lot, projectId: lot.projectId, projectTitle: lot.projectTitle, startDate: lot.start, endDate: lot.end, budgetHt: lot.moHt ? String(lot.moHt) : "", totalHt: lot.totalHt || 0 } : {})
     });
   }
 
@@ -212,9 +191,16 @@ export default function ReseauProPage() {
       <Shell variant="pro">
         <div className="head"><div className="stack"><span className="eyebrow">Entre professionnels · sans jetons</span><h1>Réseau pro</h1></div></div>
         <section className="card">
-          <div className="card-h"><h2>Inclus dans les offres Pro et Business</h2></div>
-          <p className="muted">Publiez vos besoins de sous-traitance et trouvez des pros disponibles près de vos chantiers, sans jetons ni quota.</p>
-          <div><Link className="btn btn-main" href="/parametres/abonnement">Voir les offres</Link></div>
+          <div className="card-h"><h2>{data.vitrine?.total ? `${plural(data.vitrine.total, "pro")} dans le réseau` : "Entre professionnels, à partir de Pro"}</h2><span className="tag tag-o">Pro</span></div>
+          {data.vitrine?.parMetier?.length ? <p>{data.vitrine.parMetier.map((m) => `${m.metier} ${m.n}`).join(" · ")}</p> : null}
+          <p className="muted">Publiez un besoin, trouvez un sous-traitant, proposez vos disponibilités. Sans jetons, sans quota.</p>
+          <div><Link className="btn btn-main" href="/parametres/abonnement">Passer à Pro</Link></div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h2>Comment ça marche</h2></div>
+          {[["Publiez un besoin", "Depuis un lot de chantier ou librement"], ["Recevez des réponses", "Kbis, URSSAF, décennale : dates déclarées par chaque entreprise"], ["Affectez le pro au lot", "Il entre dans vos Contacts, avec son contrat de sous-traitance"]].map(([t, s], i) => (
+            <div className="row" key={t}><span className="kcnt">{i + 1}</span><div className="t"><strong>{t}</strong><small>{s}</small></div></div>
+          ))}
         </section>
       </Shell>
     );
@@ -380,7 +366,7 @@ export default function ReseauProPage() {
             {freeLots.length === 0 ? (
               <p className="empty">Tous vos lots planifiés ont un intervenant.</p>
             ) : freeLots.map((lot) => (
-              <div className="kv" key={lot.key}><span>{lot.projectTitle}</span><b>{lot.lot}{lot.published ? " · besoin publié" : ""}</b></div>
+              <div className="kv" key={lot.key}><span>{lot.projectTitle}</span><b>{lot.lot}{lot.published ? " · besoin publié" : ""}{!lot.published ? <> <button type="button" className="link" onClick={() => openPublish(lot)}>Sous-traiter</button></> : null}</b></div>
             ))}
             {freeLots.some((lot) => !lot.published) ? (
               <button type="button" className="btn btn-sec rp-wide" onClick={() => openPublish(freeLots.find((lot) => !lot.published))}>Sous-traiter un lot</button>
@@ -393,7 +379,8 @@ export default function ReseauProPage() {
               <li>Pro et Business, sans jetons ni quota.</li>
               <li>Documents demandés : Kbis de moins de 3 mois, attestation URSSAF, décennale. Les dates sont déclarées par chaque entreprise ; Koji ne vérifie pas encore les pièces.</li>
               <li>Échanges dans Koji, notifiés à l'autre entreprise.</li>
-              <li>Contrat de sous-traitance : hors Koji pour l'instant.</li>
+              <li>Un pro retenu entre dans vos Contacts ; Koji prépare les conditions de sous-traitance, à faire valider avant signature.</li>
+              <li>Un échange déplacé ? « Signaler » prévient l'équipe Koji.</li>
             </ul>
           </section>
         </aside>
@@ -405,7 +392,7 @@ export default function ReseauProPage() {
             <div className="card-h"><h2>Publier un besoin</h2><button type="button" className="link" onClick={() => setPublish(null)}>Fermer</button></div>
             {publish.lotLabel ? (
               <div className="env-sum">
-                <div><span className="lab">Depuis le chantier</span><strong>{publish.projectTitle}</strong><span className="muted">{publish.lotLabel}</span></div>
+                <div><span className="lab">Depuis le chantier</span><strong>{publish.projectTitle}</strong><span className="muted">{publish.lotLabel}{publish.totalHt ? ` · ${euro(publish.totalHt)} HT au devis` : ""}</span></div>
                 <div><span className="lab">Dates du lot</span><strong>{dateRange(publish.startDate, publish.endDate)}</strong><span className="muted">planning du chantier</span></div>
               </div>
             ) : null}
@@ -534,6 +521,10 @@ export default function ReseauProPage() {
             </label>
             {notice ? <p className="notice" role="alert">{notice}</p> : null}
             <div className="pm-act">
+              <button type="button" className="link" disabled={busy} onClick={() => { const motif = window.prompt("Que voulez-vous signaler à l'équipe Koji ?"); if (motif) run({ action: "signaler", echangeId: openEchange.id, motif }, () => setNotice("Signalement envoyé à l'équipe Koji.")); }}>Signaler</button>
+              {openEchange.iOwnBesoin && openEchange.status === "retenu" ? (
+                <button type="button" className="btn btn-sec" disabled={busy} onClick={async () => { try { const r = await apiSend("/api/sous-traitance", { action: "preparer", echangeId: openEchange.id }); window.location.href = `/reseau-pro/contrat?id=${r.id}`; } catch (err) { setNotice(err.message); } }}>Préparer le contrat</button>
+              ) : null}
               {openEchange.iOwnBesoin && openEchange.status !== "retenu" ? (
                 <button type="button" className="btn btn-sec" disabled={busy} onClick={() => run({ action: "retenir", echangeId: openEchange.id }, () => setNotice(`${openEchange.other.companyName} est retenu ; le besoin passe en « pourvu ».`))}>Retenir ce pro</button>
               ) : null}

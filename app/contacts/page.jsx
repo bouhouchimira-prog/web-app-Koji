@@ -256,9 +256,11 @@ function Fiche({ id, onRetour, onChange }) {
               {(fiche.pro?.chantiers || []).map((ch) => <div className="kv" key={ch.projectId}><span>{ch.title}{ch.lot ? ` · ${ch.lot}` : ""}</span><b>{euro0(ch.ht)} HT</b></div>)}
               <div className="kv"><span>Cumul {new Date().getFullYear()}</span><b>{euro0(fiche.pro?.cumulAnnee)} HT</b></div>
               {fiche.pro?.autoliquidation ? <div className="kv"><span>TVA</span><b>autoliquidation · facture sans TVA</b></div> : null}
+              {(fiche.contrats || []).map((k) => <a className="kv" key={k.id} href={`/reseau-pro/contrat?id=${k.id}`}><span>Contrat · {k.lot || k.chantier}</span><b>{k.etat}</b></a>)}
               <div className="ct-aff">
                 <select value={affecter} onChange={(e) => setAffecter(e.target.value)} aria-label="Chantier"><option value="">Affecter à un chantier…</option>{fiche.tousChantiers.map((ch) => <option key={ch.projectId} value={ch.projectId}>{ch.title}</option>)}</select>
                 <button type="button" className="btn btn-sec" disabled={!affecter} onClick={() => act({ action: "affecter", id: c.id, projectId: affecter }, "Affecté au chantier.")}>Affecter</button>
+                <button type="button" className="btn btn-sec" disabled={!affecter} onClick={async () => { try { const r = await apiSend("/api/sous-traitance", { action: "preparer", contactId: c.id, projectId: affecter, lot: c.metier ? `lot ${c.metier}` : "" }); window.location.href = `/reseau-pro/contrat?id=${r.id}`; } catch (e) { setErreur(e.message); } }}>Préparer le contrat</button>
               </div>
               <small className="sm2">Contrat de sous-traitance et acceptation par le client : avec le Réseau pro.</small>
             </div>

@@ -33,7 +33,8 @@ function Fil({ cle, onLu, onRetour }) {
     if (!t || !d) return;
     setBusy(true); setErreur("");
     try {
-      if (d.fil.leadId) await apiSend("/api/kojipage/demandes", { action: "repondre", id: d.fil.leadId, texte: t });
+      if (d.fil.echangeId) await apiSend("/api/reseau", { action: "message", echangeId: d.fil.echangeId, text: t });
+      else if (d.fil.leadId) await apiSend("/api/kojipage/demandes", { action: "repondre", id: d.fil.leadId, texte: t });
       else if (d.fil.quoteId) await apiSend(`/api/quotes/${d.fil.quoteId}/messages`, { texte: t });
       else await apiSend(`/api/marketplace/offres/${d.fil.offreId}/messages`, { message: t });
       setTexte("");
@@ -59,8 +60,8 @@ function Fil({ cle, onLu, onRetour }) {
       <section className="m2-th">
         <button type="button" className="link m2-back" onClick={onRetour}>← Messages</button>
         <header className="m2-thh">
-          <div className="m2-who"><strong>{d.fil.titre}</strong><small>{[d.fil.leadId ? "demande KojiPage" : d.fil.quoteId ? "client" : "demande Radar", d.fil.sousTitre].filter(Boolean).join(" · ")}</small></div>
-          {c.projectId ? <Link className="link" href={`/chantiers?project=${c.projectId}`}>Ouvrir le chantier</Link> : d.fil.offreId ? <Link className="link" href={`/marketplace/${d.fil.offreId}`}>Ouvrir la demande</Link> : d.fil.leadId ? <Link className="link" href={`/kojipage/demandes?id=${d.fil.leadId}`}>Ouvrir la demande</Link> : null}
+          <div className="m2-who"><strong>{d.fil.titre}</strong><small>{[d.fil.echangeId ? "pro" : d.fil.leadId ? "demande KojiPage" : d.fil.quoteId ? "client" : "demande Radar", d.fil.sousTitre].filter(Boolean).join(" · ")}</small></div>
+          {c.projectId ? <Link className="link" href={`/chantiers?project=${c.projectId}`}>Ouvrir le chantier</Link> : d.fil.offreId ? <Link className="link" href={`/marketplace/${d.fil.offreId}`}>Ouvrir la demande</Link> : d.fil.leadId ? <Link className="link" href={`/kojipage/demandes?id=${d.fil.leadId}`}>Ouvrir la demande</Link> : d.fil.echangeId ? <Link className="link" href={`/reseau-pro?tab=echanges&e=${d.fil.echangeId}`}>Ouvrir dans le Réseau pro</Link> : null}
           <button type="button" className={`m2-ib${details ? " on" : ""}`} title="Détails" aria-pressed={details} onClick={() => setDetails((x) => !x)}><Info /></button>
         </header>
         {c.etiquettes?.length ? <div className="m2-ctx">{c.etiquettes.map((e) => <span key={e.texte} className={e.alerte ? "warn" : ""}>{e.texte}</span>)}</div> : null}
@@ -155,7 +156,7 @@ export default function Messages() {
           ) : (
             <div className="m2-items">
               {!data ? <p className="m2-vide">Chargement…</p> : fils.length === 0 ? (
-                <p className="m2-vide">{filtre === "pros" ? "Les échanges avec les sous-traitants et les fournisseurs arriveront avec le Réseau pro." : data.fils.length ? "Aucune conversation ne correspond." : "Pas encore de conversation. Vos clients vous écrivent depuis leur devis ; les demandes du Radar arrivent ici aussi."}</p>
+                <p className="m2-vide">{filtre === "pros" ? "Pas encore d'échange avec un pro. Répondez à un besoin ou contactez un pro dans le Réseau pro." : data.fils.length ? "Aucune conversation ne correspond." : "Pas encore de conversation. Vos clients vous écrivent depuis leur devis ; les demandes du Radar arrivent ici aussi."}</p>
               ) : fils.map((f) => (
                 <button type="button" key={f.cle} className={`m2-cv${sel === f.cle ? " on" : ""}${f.nonLus ? " un" : ""}`} onClick={() => setSel(f.cle)}>
                   <span className="m2-av">{f.initiales}</span>

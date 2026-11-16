@@ -48,6 +48,7 @@ import 'package:koji/features/calendrier_pro/calendrier_pro.dart';
 import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/messages_pro/messages_pro.dart';
 import 'package:koji/features/kojipage/kojipage_pro.dart';
+import 'package:koji/features/reseau_pro/reseau_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -484,6 +485,31 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const MessagesProScreen(),
+              ),
+            ),
+            // Réseau pro et contrat de sous-traitance (PRO-14, 14.1).
+            GoRoute(
+              path: reseauProRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ReseauProScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/reseau-pro/echange/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                EchangeReseauScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            GoRoute(
+              path: '/reseau-pro/contrat/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                ContratReseauScreen(id: state.pathParameters['id']!),
               ),
             ),
             // KojiPage (maquettes PRO-13 à 13.4).
