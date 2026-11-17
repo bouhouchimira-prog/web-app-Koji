@@ -3,6 +3,7 @@ import { readDb, scopedItems } from "../../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { getVerifiedWorkerId } from "../../../../lib/worker-session";
 import { resolveEntreprise } from "../../../../lib/entreprise-auth";
+import { getAuth } from "../../../../lib/server-auth";
 
 // Droit a la portabilite des donnees (RGPD art. 20, 30 septembre) — export
 // autoservice, contrairement a la suppression de compte (voir

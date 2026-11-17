@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { buildMissingPriceNotes, clearUnverifiedAiPrices } from "../../../lib/ai-devis-shape";
+import { isRdvUnlockedForOffer, maskedCityPostal } from "../../../lib/offer-privacy";
 import { fixText } from "../../../lib/text";
 
 // Devis pre-rempli par koji (decisions du 4 septembre) — une entreprise
@@ -51,6 +52,7 @@ export async function POST(request) {
 
   const { data: profile } = await auth.supabase.from("users").select("*").eq("id", auth.userId).maybeSingle();
   const webUser = buildWebUser({ id: auth.userId, email: profile?.email || "", profile });
+  const rdvUnlocked = isRdvUnlockedForOffer(db, chantierOffreId, auth.userId);
 
   const now = new Date().toISOString();
   const quoteNumber = await nextQuoteNumberFor(auth);
@@ -69,12 +71,12 @@ export async function POST(request) {
     userId: auth.userId,
     quoteNumber,
     versionNumber: "001",
-    client: fixText(offre.clientName || "Particulier"),
-    clientEmail: offre.clientEmail || "",
-    clientPhone: fixText(offre.clientPhone || ""),
+    client: rdvUnlocked ? fixText(offre.clientName || "Particulier") : "Particulier",
+    clientEmail: rdvUnlocked ? (offre.clientEmail || "") : "",
+    clientPhone: rdvUnlocked ? fixText(offre.clientPhone || "") : "",
     project: fixText(offre.description || "Chantier").slice(0, 80),
     projectId: "",
-    chantierAddress: fixText(offre.address || ""),
+    chantierAddress: rdvUnlocked ? fixText(offre.address || "") : maskedCityPostal(offre),
     workDescription: fixText(offre.description || expertise.workDescription || ""),
     validityDays: 30,
     company: webUser.business || {},

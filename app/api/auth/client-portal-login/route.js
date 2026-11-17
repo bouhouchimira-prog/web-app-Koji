@@ -30,6 +30,10 @@ export async function POST(request) {
     await recordFailedAttempt(SCOPE, identifier);
     return badRequest("Identifiant ou mot de passe incorrect.", 401);
   }
+  if (user.isActive === false) {
+    await recordFailedAttempt(SCOPE, identifier);
+    return badRequest("Ce compte n'est pas actif.", 401);
+  }
 
   const hasHash = Boolean(user.passwordHash && user.passwordSalt);
   const validHash = hasHash && verifyHashedPassword(password, user.passwordSalt, user.passwordHash);
