@@ -66,6 +66,8 @@
 .pro .kjh-c a:hover{background:var(--act2)}
 .pro .kjh-in{display:flex;justify-content:space-between;align-items:center;background:var(--card);color:var(--btn);padding:12px 14px;font-size:14px;border-radius:var(--r-touch);cursor:text}
 .pro .kjh-in svg{width:18px;height:18px;flex:none;stroke:var(--btn);stroke-width:1.5}
+/* Téléphone : le champ passe sous le texte (il débordait de l'écran). */
+@media (max-width:900px){.pro .kjh{grid-template-columns:auto minmax(0,1fr)}.pro .kjh-in{grid-column:1/-1}}
 
 /* Contenu */
 .pro main.wide{flex:1;min-width:0;display:flex;flex-direction:column;gap:24px;padding:40px 48px;background:var(--bg)}
@@ -2151,7 +2153,7 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .pro .avl-g{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
 .pro .avl-rules{display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--grey);line-height:1.5}
 .pro .avl-rules p{margin:0}
-@media (max-width:1100px){.pro .avl-g{grid-template-columns:1fr}}
+@media (max-width:1100px){.pro .avl-g{grid-template-columns:minmax(0,1fr)}}
 
 /* Liste vide (maquette PRO-19). */
 .pro .lv{background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:2px;padding:28px 24px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}

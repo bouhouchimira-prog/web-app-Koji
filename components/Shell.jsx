@@ -56,7 +56,9 @@ function getNavItems(L) {
 // que le reste du groupe premium.
 const PREMIUM_PATHS = ["/calendrier", "/planning", "/archives", "/bibliotheque-ouvrages", "/comptabilite", "/depenses", "/corbeille", "/contacts", "/clients", "/equipe", "/facturation", "/fournitures", "/interventions", "/avenant"];
 
-const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement"];
+// « Abonnement et jetons » (PRO-15.3) reste ouvert quand l'essai est terminé :
+// /abonnement y renvoie une entreprise connectée.
+const FREE_PATHS = ["/login", "/activate", "/set-password", "/abonnement", "/parametres/abonnement"];
 
 const NOTIF_TYPE_ICONS = {
   "quote.draft": "✏️",
