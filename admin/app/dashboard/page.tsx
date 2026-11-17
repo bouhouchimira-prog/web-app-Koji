@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { devis as lireDevis, estSigneDevis, etatWeb, utilisateurs } from '@/lib/bo/donnees'
+import { devis as lireDevis, estSigneDevis, etatWeb, particuliers as lireParticuliers, utilisateurs } from '@/lib/bo/donnees'
 import { moisParis, revenusDuMois } from '@/lib/bo/revenus'
 import { euros, maintenant } from '@/lib/bo/format'
 import { estEntreprise, fileVerifications, joursSemaine, offreDe, surTrenteJours } from '@/lib/bo/regles'
@@ -20,7 +20,8 @@ export default async function TableauDeBord() {
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const [comptes, tousDevis, db, revenus] = await Promise.all([utilisateurs(), lireDevis(), etatWeb(), revenusDuMois(moisParis())])
   const entreprises = comptes.filter(estEntreprise)
-  const particuliers = comptes.filter((u) => !estEntreprise(u))
+  // Particuliers du site et de l'app réunis (deux sources, voir lib/bo/donnees).
+  const particuliers = await lireParticuliers(comptes)
   const il7 = new Date(maintenant() - 7 * 86400000).toISOString()
   const il30 = new Date(maintenant() - 30 * 86400000).toISOString()
   const il48h = new Date(maintenant() - 48 * 3600000).toISOString()
@@ -38,7 +39,7 @@ export default async function TableauDeBord() {
   const positions = (db.chantierPositionnements || []) as Ligne[]
   const messages = (db.chantierOffreMessages || []) as Ligne[]
   const support = (db.technicalReports || []) as Ligne[]
-  const inscritsCli = surTrenteJours(particuliers, (u) => u.created_at, aujourdhui)
+  const inscritsCli = surTrenteJours(particuliers, (p) => p.creeLe, aujourdhui)
   const publiees30 = demandes.filter((d) => s(d.publishedAt || d.createdAt) >= il30)
   const avecPhotos = publiees30.filter((d) => Array.isArray(d.photos) && (d.photos as unknown[]).length).length
   const rdv30 = messages.filter((m) => s(m.rdvStatus) === 'accepted' && s(m.createdAt) >= il30).length
