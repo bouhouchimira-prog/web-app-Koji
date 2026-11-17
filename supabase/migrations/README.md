@@ -18,7 +18,7 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0009_protect_billing_fields.sql | Protection des champs de facturation contre les écritures utilisateur |
 | 0010_profil_a_l_inscription.sql | Création/réparation des profils utilisateur à l'inscription |
 | 0011_mention_tva_signature.sql | Mention TVA certifiée à la signature |
-| 0012_securiser_signature_rpc.sql | Contrôle de l'e-mail et interdiction d'écraser une signature via RPC |
+| 0012_securiser_signature_rpc.sql | Interdiction d'écraser une signature existante via RPC (e-mail non exigé, voir l'en-tête) |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
 Les fichiers SQL historiques restent dans `../admin/` et `../signature/` pour

@@ -25,11 +25,18 @@ describe("sécurité du parcours de signature", () => {
     assert.strictEqual(dto.includes("access.password"), false);
   });
 
-  it("les RPC contrôlent l'e-mail et interdisent d'écraser une signature", () => {
+  it("les RPC interdisent d'écraser une signature, sans bloquer les apps déjà publiées", () => {
     const sql = read("supabase/migrations/0012_securiser_signature_rpc.sql");
-    assert.strictEqual((sql.match(/signed_at IS NULL/g) || []).length, 2);
-    assert.ok((sql.match(/LOWER\(TRIM\(COALESCE\(p_email/g) || []).length >= 2);
-    assert.ok(sql.includes("REVOKE ALL ON FUNCTION submit_quote_signature"));
+    // Le code SQL seul, sans les commentaires qui expliquent la décision.
+    const code = sql.split(/\r?\n/).filter((line) => !line.trim().startsWith("--")).join("\n");
+    assert.strictEqual((code.match(/CREATE OR REPLACE FUNCTION submit_quote_signature/g) || []).length, 2);
+    assert.strictEqual((code.match(/AND signed_at IS NULL/g) || []).length, 2);
+    assert.ok(code.includes("REVOKE ALL ON FUNCTION submit_quote_signature"));
+    // Les apps publiées envoient p_email = '' : la fonction ne doit pas
+    // comparer l'e-mail, sinon leur signature serait refusée. p_email
+    // n'apparaît donc que dans les deux listes de paramètres.
+    assert.strictEqual(/client_email|metadata/.test(code), false);
+    assert.strictEqual((code.match(/p_email/g) || []).length, 2);
   });
 
   it("le mobile transmet l'e-mail réel du client à la RPC", () => {
