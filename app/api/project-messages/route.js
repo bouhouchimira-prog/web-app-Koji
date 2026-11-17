@@ -1,7 +1,7 @@
 import { ok } from "../../../lib/http";
 import { readDb } from "../../../lib/db";
 import { fixObjectText } from "../../../lib/text";
-import { getAuth, getVerifiedUserId } from "../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../lib/server-auth";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 
@@ -13,9 +13,7 @@ import { getSupabaseAdmin } from "../../../lib/supabase";
 // attached to one of its quotes (their portal token).
 
 async function companyCanSeeProject(request, projectId) {
-  const verifiedUserId = await getVerifiedUserId(request);
-  if (!verifiedUserId) return false;
-  const auth = getAuth(request);
+  const auth = await getVerifiedAuth(request);
   if (!auth) return false;
   const { data } = await auth.supabase.from("chantiers").select("id").eq("id", projectId).maybeSingle();
   return Boolean(data);
@@ -51,13 +49,10 @@ export async function GET(request) {
     // to the verified session (RLS also scopes it). A decoded JWT is never
     // enough here, because this route reads the shared outbox and its
     // temporary credentials.
-    const verifiedUserId = await getVerifiedUserId(request);
-    if (verifiedUserId) {
-      const auth = getAuth(request);
-      if (auth) {
-        const { data: quote } = await auth.supabase.from("quotes").select("id").eq("id", quoteId).maybeSingle();
-        authorized = Boolean(quote);
-      }
+    const auth = await getVerifiedAuth(request);
+    if (auth) {
+      const { data: quote } = await auth.supabase.from("quotes").select("id").eq("id", quoteId).maybeSingle();
+      authorized = Boolean(quote);
     }
   }
   if (!authorized) return ok({ messages: [] });
