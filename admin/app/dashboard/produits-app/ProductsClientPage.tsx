@@ -227,7 +227,7 @@ export default function ProductsClientPage({ initialProducts }: { initialProduct
               </button>
             </div>
 
-            <Link href={`/dashboard/products/${product.id}`} className="flex-1 flex flex-col">
+            <Link href={`/dashboard/produits-app/${product.id}`} className="flex-1 flex flex-col">
               <div className="flex justify-end mb-6 text-[#0E172C]">
                 <span className="text-[9px] font-bold tracking-widest text-[#0E172C] uppercase bg-gray-50 px-2 py-0.5 rounded-sm">{product.category || 'PRODUIT'}</span>
               </div>

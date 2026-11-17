@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { devis as lireDevis, estSigneDevis, etatWeb, utilisateurs } from '@/lib/bo/donnees'
+import { moisParis, revenusDuMois } from '@/lib/bo/revenus'
+import { euros, maintenant } from '@/lib/bo/format'
 import { estEntreprise, fileVerifications, joursSemaine, offreDe, surTrenteJours } from '@/lib/bo/regles'
 
 // Tableau de bord du back-office (maquette PRO-24.1) : les huit chiffres
@@ -16,12 +18,12 @@ const evo = (e: number | null) => (e === null ? '' : `${e >= 0 ? '+' : ''}${e} %
 
 export default async function TableauDeBord() {
   const aujourdhui = new Date().toISOString().slice(0, 10)
-  const [comptes, tousDevis, db] = await Promise.all([utilisateurs(), lireDevis(), etatWeb()])
+  const [comptes, tousDevis, db, revenus] = await Promise.all([utilisateurs(), lireDevis(), etatWeb(), revenusDuMois(moisParis())])
   const entreprises = comptes.filter(estEntreprise)
   const particuliers = comptes.filter((u) => !estEntreprise(u))
-  const il7 = new Date(Date.now() - 7 * 86400000).toISOString()
-  const il30 = new Date(Date.now() - 30 * 86400000).toISOString()
-  const il48h = new Date(Date.now() - 48 * 3600000).toISOString()
+  const il7 = new Date(maintenant() - 7 * 86400000).toISOString()
+  const il30 = new Date(maintenant() - 30 * 86400000).toISOString()
+  const il48h = new Date(maintenant() - 48 * 3600000).toISOString()
 
   const inscritsPro = surTrenteJours(entreprises, (u) => u.created_at, aujourdhui)
   const actives30 = new Set(tousDevis.filter((d) => s(d.created_at) >= il30).map((d) => d.user_id))
@@ -68,7 +70,7 @@ export default async function TableauDeBord() {
             <div><span>Devis signés · 30 j</span><b>{signes30.length}</b><small>{signes30.length ? `${eur(moyenne)} TTC en moyenne` : ''}</small></div>
             <div><span>Abonnements</span><b>{abonnes.length}</b><small>Pro {offres.filter((p) => p === 'pro').length} · Business {offres.filter((p) => p === 'business').length} · Start {offres.filter((p) => p === 'start').length}</small></div>
             <div><span>Jetons vendus · 30 j</span><b>{jetons}</b><small>achats Stripe</small></div>
-            <div><span>Revenus du mois</span><b>—</b><small>voir Revenus (Stripe)</small></div>
+            <div><span>Revenus du mois</span><b>{revenus.facturesLues ? euros(revenus.totaux.abonnements + revenus.totaux.jetons + revenus.totaux.remboursements) : '—'}</b><small>{revenus.facturesLues ? 'HT · abonnements et jetons' : 'factures Stripe non lisibles (voir Revenus)'}</small></div>
           </div>
           <div className="bo-card">
             <h2>À traiter · Pro</h2>

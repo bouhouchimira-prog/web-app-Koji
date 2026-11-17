@@ -18,8 +18,8 @@ const GROUPES: { label: string; univers?: 'pro' | 'client'; items: Item[] }[] = 
     items: [
       { label: 'Entreprises', href: '/dashboard/entreprises' },
       { label: 'Devis', href: '/dashboard/quotes' },
-      { label: 'Réseau pro', href: '/dashboard/reseau', bientot: true },
-      { label: 'Support Pro', href: '/dashboard/support-pro', bientot: true },
+      { label: 'Réseau pro', href: '/dashboard/reseau' },
+      { label: 'Support Pro', href: '/dashboard/support-pro' },
       { label: 'Prix et offres', href: '/dashboard/pricing' },
       { label: 'Revenus', href: '/dashboard/revenue' }
     ]
@@ -34,7 +34,7 @@ const GROUPES: { label: string; univers?: 'pro' | 'client'; items: Item[] }[] = 
     ]
   },
   { label: 'Partenaires', items: [{ label: 'Fournisseurs', href: '/dashboard/fournisseurs' }, { label: 'Produits', href: '/dashboard/products' }] },
-  { label: 'Transversal', items: [{ label: 'Communications', href: '/dashboard/communications' }, { label: 'Journal des accès', href: '/dashboard/journal', bientot: true }] }
+  { label: 'Transversal', items: [{ label: 'Communications', href: '/dashboard/communications' }, { label: 'Journal des accès', href: '/dashboard/journal' }] }
 ]
 
 export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {

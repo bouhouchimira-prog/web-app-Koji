@@ -26,7 +26,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     .single()
 
   if (!product) {
-    redirect('/dashboard/products')
+    redirect('/dashboard/produits-app')
   }
 
   return <ProductDetailClient product={product} />

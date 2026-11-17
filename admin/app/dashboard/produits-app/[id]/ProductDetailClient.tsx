@@ -43,7 +43,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const handleDelete = async () => {
     if (!confirm('Voulez-vous vraiment supprimer ce produit ?')) return
     await supabase.from('products').delete().eq('id', product.id)
-    router.push('/dashboard/products')
+    router.push('/dashboard/produits-app')
     router.refresh()
   }
 
@@ -92,7 +92,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   return (
     <div className="space-y-8 pb-10 relative">
       <div className="flex items-center gap-4 mb-2">
-        <Link href="/dashboard/products" className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-[#EDEDF3] text-gray-500 hover:text-[#16233F] transition-colors shadow-sm">
+        <Link href="/dashboard/produits-app" className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-[#EDEDF3] text-gray-500 hover:text-[#16233F] transition-colors shadow-sm">
            <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
         </Link>
         <h1 className="text-[26px] font-extrabold text-[#16233F] tracking-tight">Produits</h1>

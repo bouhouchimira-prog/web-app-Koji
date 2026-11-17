@@ -15,3 +15,4 @@ export function nomCourt(nom: string, email = '') {
 }
 
 export const ilYa30Jours = (maintenant = Date.now()) => new Date(maintenant - 30 * 86400000).toISOString()
+export const maintenant = () => Date.now()
