@@ -15,6 +15,10 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0006_users_typed_columns.sql | Colonnes typees sur users (unification source de verite) |
 | 0008_subscriptions.sql | Table subscriptions unifiee (billing) |
 | 0007_koji_ouvrages_columns.sql | Colonnes code/original_id/hourly_rate/coefficient sur koji_ouvrages |
+| 0009_protect_billing_fields.sql | Protection des champs de facturation contre les écritures utilisateur |
+| 0010_profil_a_l_inscription.sql | Création/réparation des profils utilisateur à l'inscription |
+| 0011_mention_tva_signature.sql | Mention TVA certifiée à la signature |
+| 0012_securiser_signature_rpc.sql | Contrôle de l'e-mail et interdiction d'écraser une signature via RPC |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
 Les fichiers SQL historiques restent dans `../admin/` et `../signature/` pour

@@ -24,6 +24,10 @@ export default function PublicSignaturePage() {
     let alive = true;
     fetch(`/api/signatures/${token}`, { cache: "no-store" })
       .then(async (response) => {
+        if (response.status === 401) {
+          window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`);
+          return;
+        }
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "Lien invalide.");
         if (alive) {
@@ -64,6 +68,10 @@ export default function PublicSignaturePage() {
   async function seRetracter() {
     setRetractation((r) => ({ ...r, envoi: true, erreur: "" }));
     const response = await fetch(`/api/signatures/${token}/retractation`, { method: "POST" });
+    if (response.status === 401) {
+      window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`);
+      return;
+    }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       setRetractation((r) => ({ ...r, envoi: false, erreur: payload.error || "La rétractation n'a pas pu être enregistrée." }));
@@ -90,6 +98,10 @@ export default function PublicSignaturePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, demandeExpresseLe: form.demandeExpresse ? form.demandeExpresseLe : "" })
     });
+    if (response.status === 401) {
+      window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`);
+      return;
+    }
     const payload = await response.json();
     if (!response.ok) {
       setError(payload.error || "Signature impossible.");
