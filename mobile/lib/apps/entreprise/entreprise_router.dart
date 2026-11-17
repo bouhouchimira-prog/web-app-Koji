@@ -22,7 +22,7 @@ import 'package:koji/features/factures/nouvelle_facture_screen.dart';
 import 'package:koji/features/fournitures/pro/fournitures_chantier_screen.dart';
 import 'package:koji/features/fournitures/pro/fournitures_extra_screens.dart';
 import 'package:koji/features/fournitures/pro/fournitures_pro_screen.dart';
-import 'package:koji/features/help/help_screen.dart';
+import 'package:koji/features/help/aide_pro.dart';
 import 'package:koji/features/home/home_screen.dart';
 import 'package:koji/features/interventions/intervention_detail_screen.dart';
 import 'package:koji/features/interventions/intervention_form_screen.dart';
@@ -1111,7 +1111,7 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
             GoRoute(
               path: '/aide',
               pageBuilder: (context, state) => _buildPageWithTransition(
-                  context, state, const KojiHelpScreen()),
+                  context, state, const AideProScreen()),
             ),
           ],
         ),

@@ -405,9 +405,14 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
   }, [isPro]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("koji") !== "1") return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("koji") !== "1") return;
     setKojiAssistantOpen(true);
-    setTimeout(() => kojiAssistantInputRef.current?.focus(), 300);
+    // Question venue de la page Aide (PRO-22) : posée directement.
+    const question = (params.get("q") || "").trim();
+    if (question && !question.endsWith(":")) setTimeout(() => window.dispatchEvent(new CustomEvent("koji-assistant-ask", { detail: { message: question } })), 800);
+    else { if (question) setKojiAssistantDraft(question + " "); setTimeout(() => kojiAssistantInputRef.current?.focus(), 300); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // « Sur cette page » : section d'après l'adresse, titre d'après la page.
