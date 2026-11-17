@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase' // Use server-side friendly client
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import DashboardShell from '@/components/layout/DashboardShell'
+import '../bo.css'
 
 // Helper to create server client for RSC
 async function createClientForServer() {

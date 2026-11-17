@@ -20,13 +20,13 @@ const FROM = process.env.SMTP_FROM || `Koji <${process.env.SMTP_USER || 'noreply
 // variables d'env) — sans les templates HTML specifiques a koji-web
 // (bienvenue, devis signe, etc.), juste l'envoi brut utilise par la page
 // Communications.
-export async function sendMail({ to, subject, text, html }: { to: string; subject: string; text?: string; html?: string }) {
+export async function sendMail({ to, subject, text, html, replyTo }: { to: string; subject: string; text?: string; html?: string; replyTo?: string }) {
   const t = buildTransporter()
   if (!t) {
     return { ok: false, error: 'SMTP non configuré (SMTP_HOST/SMTP_USER/SMTP_PASS manquants)' }
   }
   try {
-    await t.sendMail({ from: FROM, to, subject, text, html })
+    await t.sendMail({ from: FROM, to, subject, text, html, ...(replyTo ? { replyTo } : {}) })
     return { ok: true, error: null }
   } catch (err) {
     transporter = null
