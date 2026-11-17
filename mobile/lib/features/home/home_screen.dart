@@ -13,7 +13,7 @@ import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home.dart';
 import 'package:koji/core/theme.dart';
 import 'package:koji/design/koji_tokens.dart';
-import 'package:koji/features/home/notifications/notifications_panel.dart';
+import 'package:koji/features/notifications_pro/notifications_pro.dart' show notificationsCentreRoute;
 
 /// Entreprise home (`/home`): accueil (new Koji Pro DA), devis and chantiers
 /// tabs.
@@ -37,8 +37,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Open the notifications panel; tapping a notification jumps to the Devis tab.
   Future<void> _openNotifications() async {
-    final tapped = await NotificationsPanel.show(context);
-    if (tapped == true && mounted) _setTab(1);
+    // Centre de notifications (maquette PRO-23).
+    await context.push(notificationsCentreRoute);
   }
 
   void _onItemTapped(int index) {

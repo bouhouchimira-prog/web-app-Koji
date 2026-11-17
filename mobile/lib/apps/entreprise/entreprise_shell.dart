@@ -11,8 +11,7 @@ import 'package:koji/design/koji_shell.dart';
 import 'package:koji/design/hors_ligne.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/features/koji/koji_assistant.dart';
-import 'package:koji/features/home/notifications/notifications_panel.dart';
-import 'package:koji/features/home/notifications/providers/notification_provider.dart';
+import 'package:koji/features/notifications_pro/notifications_pro.dart' show notificationsCentreRoute, nonLuesCentreProvider;
 
 /// Frame of every signed-in entreprise page.
 ///
@@ -62,7 +61,7 @@ class EntrepriseShell extends ConsumerWidget {
     final p = context.koji;
     final tab = ref.watch(entrepriseHomeTabProvider);
     final account = ref.watch(currentAccountProvider).valueOrNull;
-    final unread = ref.watch(unreadNotificationsCountProvider);
+    final unread = ref.watch(nonLuesCentreProvider);
     final fullWidth = _fullWidthPaths.contains(location);
 
     return Material(
@@ -75,13 +74,7 @@ class EntrepriseShell extends ConsumerWidget {
             searchHint: 'Rechercher un chantier, un devis, un client…',
             onSearch: () => showEntrepriseSearch(context, ref),
             unreadCount: unread,
-            onNotifications: () async {
-              final tapped = await NotificationsPanel.show(context);
-              if (tapped == true && context.mounted) {
-                ref.read(entrepriseHomeTabProvider.notifier).state = 1;
-                GoRouter.of(context).go('/home');
-              }
-            },
+            onNotifications: () => GoRouter.of(context).push(notificationsCentreRoute),
             onAccount: () => openEntrepriseNav(context, ref, 'profil'),
           ),
           Expanded(

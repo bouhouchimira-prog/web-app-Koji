@@ -81,6 +81,7 @@ import 'package:koji/features/synchronization/synchronization_screen.dart';
 import 'package:koji/features/synchronization/worker_assignment_screen.dart';
 import 'package:koji/features/synchronization/worker_detail_screen.dart';
 import 'package:koji/features/synchronization/worker_list_screen.dart';
+import 'package:koji/features/notifications_pro/notifications_pro.dart';
 import 'package:koji/features/synchronization/worker_success_screen.dart';
 
 // Routes of the entreprise app (Koji Pro). Start / onboarding pages are
@@ -555,6 +556,23 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 SuiviInterventionScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            // Notifications (maquette PRO-23).
+            GoRoute(
+              path: notificationsCentreRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NotificationsCentreScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/notifications/detail/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                NotificationDetailProScreen(notification: (state.extra as Map<String, dynamic>?) ?? {'id': state.pathParameters['id']}),
               ),
             ),
             // Ma progression (maquette PRO-21).

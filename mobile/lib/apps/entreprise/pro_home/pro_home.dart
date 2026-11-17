@@ -15,7 +15,6 @@ import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/design/koji_widgets.dart' show kojiEuro;
 import 'package:koji/features/auth/repository/auth_repository.dart';
-import 'package:koji/features/home/notifications/providers/notification_provider.dart';
 import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
@@ -23,6 +22,7 @@ import 'package:koji/features/quote/quote_list_screen.dart'
     show userQuotesProvider;
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
 import 'package:koji/features/compte/compte_pro.dart' show compteProvider;
+import 'package:koji/features/notifications_pro/notifications_pro.dart' show nonLuesCentreProvider;
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 
 /// Koji Pro home in the new DA (mockups PRO-01 and PRO-01.2). Real data only:
@@ -716,7 +716,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
   /// Boutons flottants sur la carte (maquette « mtop ») : recherche, menu,
   /// et les notifications à droite.
   Widget _boutonsCarte(ProDa da) {
-    final unread = ref.watch(unreadNotificationsCountProvider);
+    final unread = ref.watch(nonLuesCentreProvider);
     Widget bouton(IconData icon, String label, VoidCallback? onTap) =>
         Semantics(
           button: true,

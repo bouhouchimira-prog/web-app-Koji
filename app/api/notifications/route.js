@@ -5,6 +5,7 @@ import { fixObjectText } from "../../../lib/text";
 import { sendClientAccessEmail } from "../../../lib/mailer";
 import { isEmail } from "../../../lib/validators";
 import { findUserById } from "../../../lib/users";
+import { categorieDe, estArchivee } from "../../../lib/notifications-pro";
 
 // Notifications are read by both company/pro accounts (Supabase session) and
 // particulier client-portal accounts (signed portal token, see
@@ -20,7 +21,9 @@ function normalizeNotification(notification) {
   return {
     ...fixObjectText(notification),
     read: Boolean(notification.read),
-    archived: Boolean(notification.archived)
+    // Archivée à la main, ou automatiquement après 30 jours (PRO-23).
+    archived: estArchivee(notification),
+    categorie: categorieDe(notification.type)
   };
 }
 
