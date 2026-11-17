@@ -15,6 +15,7 @@ const ITEMS = [
   { id: "langue", label: "Langue et traduction", href: "/parametres?section=langue" },
   { id: "notifications", label: "Notifications et sécurité", href: "/parametres?section=notifications" },
   { id: "abonnement", label: "Abonnement et jetons", href: "/parametres/abonnement" },
+  { id: "progression", label: "Ma progression", href: "/progression" },
   { id: "corbeille", label: "Éléments supprimés", href: "/corbeille" },
   { id: "donnees", label: "Mes données", href: "/parametres?section=donnees" },
   { id: "aide", label: "Aide et support", href: "/aide" }

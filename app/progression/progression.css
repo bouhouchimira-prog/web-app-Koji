@@ -1,0 +1,21 @@
+/* Ma progression (maquette PRO-21). */
+.pro .pg{display:flex;flex-direction:column;gap:18px}
+.pro .pg .head{display:flex;justify-content:space-between;align-items:flex-end}
+.pro .pg .head h1{margin:0}
+.pro .pg-g{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start}
+.pro .pg-pts{font-size:15px}
+.pro .pg-niv{list-style:none;margin:6px 0 12px;padding:0;display:flex;flex-direction:column;gap:6px}
+.pro .pg-niv li,.pro .pg-l li{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--grey)}
+.pro .pg-niv li.ok,.pro .pg-l li.ok{color:var(--ink)}
+.pro .pg-niv li.on{font-weight:700}
+.pro .pg-niv i,.pro .pg-l i,.pro .pg-d i{width:20px;height:20px;border:1px solid #8A8F98;border-radius:50%;display:grid;place-items:center;flex:none}
+.pro .pg-niv li.ok i,.pro .pg-l li.ok i,.pro .pg-d.ok i{background:#171B1E;border-color:#171B1E}
+.pro .pg i svg{width:12px;height:12px;stroke:#FFFFFF;fill:none;stroke-width:3}
+.pro .pg-l{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:8px}
+.pro .pg-next{margin:0 0 10px;font-size:14px;border-left:3px solid var(--ink);padding:6px 10px;background:var(--card)}
+.pro .pg-next span{display:block;font-size:12px;color:var(--grey)}
+.pro .pg-d{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);color:inherit;text-decoration:none;font-size:14px}
+.pro .pg-d b{font-size:13px;white-space:nowrap}
+.pro .pg-u{display:flex;flex-direction:column;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;color:var(--grey)}
+.pro .pg-u b{color:var(--ink)}
+@media (max-width:900px){.pro .pg-g{grid-template-columns:1fr}}

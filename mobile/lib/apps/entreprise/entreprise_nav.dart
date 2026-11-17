@@ -33,6 +33,7 @@ const _routes = {
   'signature': '/signature',
   'parametres': '/parametres',
   'aide': '/aide',
+  'progression': '/progression',
 };
 
 /// Menu of the entreprise app, grouped like the design's "Composant — Menu".
@@ -73,6 +74,8 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'archives', label: 'Archives', icon: KojiIcons.archives),
   ]),
   KojiNavGroup(label: 'Configuration', items: [
+    // Ma progression (maquette PRO-21).
+    KojiNavItem(id: 'progression', label: 'Ma progression', icon: KojiIcons.sparkle),
     KojiNavItem(id: 'profil', label: 'Profil', icon: KojiIcons.profil),
     KojiNavItem(
         id: 'signature', label: 'Ma signature', icon: KojiIcons.signature),
@@ -121,6 +124,7 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/signature')) return 'signature';
   if (starts('/settings') || starts('/parametres')) return 'parametres';
   if (starts('/aide')) return 'aide';
+  if (starts('/progression')) return 'progression';
   return null;
 }
 

@@ -53,6 +53,7 @@ const GROUPS = [
     items: [
       // PRO-19.1 : pas de menu Archives ni Corbeille (onglets d'archive dans
       // chaque liste, Paramètres › Éléments supprimés).
+      { href: "/progression", label: "Ma progression", icon: "M4 20V14M10 20V9M16 20V4M22 20H2" },
       { href: "/profil", label: "Profil / Configuration", icon: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1", match: ["/profil", "/parametres", "/aide"], exclude: ["/kojipage"] }
     ]
   }
