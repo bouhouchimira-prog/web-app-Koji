@@ -177,10 +177,10 @@ export function SiteFooter({ page = 'accueil' }) {
           <b>Koji</b>
           <a href="/a-propos">À propos</a>
           <a href="/entreprise/contact">Contact</a>
-          <a href="/legal">Mentions légales</a>
-          <a href="/legal">Conditions d'utilisation</a>
-          <a href="/legal">Confidentialité</a>
-          <a href="/legal">Cookies</a>
+          <a href="/legal/mentions-legales">Mentions légales</a>
+          <a href="/legal/conditions-professionnels">Conditions d'utilisation</a>
+          <a href="/legal/confidentialite">Confidentialité</a>
+          <a href="/legal/cookies">Cookies</a>
         </div>
         <div className="lp-fl">
           <span>© 2026 Koji</span>

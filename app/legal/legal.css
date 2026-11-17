@@ -1,0 +1,20 @@
+/* Pages légales (maquette PRO-20). */
+.pro.lg .lg-g{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;align-items:start}
+.pro.lg .lg-nav{display:flex;flex-direction:column;gap:2px;position:sticky;top:16px}
+.pro.lg .lg-nav a{padding:9px 12px;color:var(--ink);text-decoration:none;font-size:14px;border-left:3px solid transparent}
+.pro.lg .lg-nav a:hover{background:var(--soft)}
+.pro.lg .lg-nav a.on{border-left-color:var(--ink);font-weight:700;background:var(--card)}
+.pro.lg .lg-doc{background:var(--card);border:1px solid var(--frame);border-top:2px solid var(--ink);border-radius:2px;padding:24px 28px;min-width:0}
+.pro.lg .lg-doc h1{margin:4px 0 16px;font-size:30px}
+.pro.lg .lg-s{padding:14px 0;border-top:1px solid var(--line)}
+.pro.lg .lg-s h2{margin:0 0 8px;font-size:17px}
+.pro.lg .lg-s p{margin:0 0 10px;font-size:14px;line-height:1.65}
+.pro.lg .lg-gris{background:#ECECE7;color:#5B5F66;padding:10px 12px;border-radius:2px}
+.pro.lg .lg-note{margin:16px 0 0;font-size:12px;color:var(--grey);border-left:3px solid var(--ink);padding:6px 10px}
+@media (max-width:760px){
+  .pro.lg .lg-g{grid-template-columns:1fr}
+  .pro.lg .lg-nav{position:static;flex-direction:row;overflow-x:auto;gap:4px}
+  .pro.lg .lg-nav a{white-space:nowrap;border-left:0;border-bottom:3px solid transparent}
+  .pro.lg .lg-nav a.on{border-bottom-color:var(--ink)}
+  .pro.lg .lg-doc{padding:18px 16px}
+}

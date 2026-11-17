@@ -584,7 +584,7 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
           value: _acceptedTerms,
           onChanged: (v) => setState(() => _acceptedTerms = v),
           title: GestureDetector(
-            onTap: () => _openUrl('${KojiWebApiConfig.baseUrl}/legal'),
+            onTap: () => _openUrl('${KojiWebApiConfig.baseUrl}/legal/conditions-professionnels'),
             child: Text.rich(
                 TextSpan(children: [
                   const TextSpan(text: "J'accepte les "),

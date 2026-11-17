@@ -50,7 +50,7 @@ export function AProposPage() {
           </ul>
           <h2>Qui</h2>
           <p>
-            Koji est édité par <b>ABL Expert Renov</b>, entreprise de rénovation à Paris, et fondé par un entrepreneur du bâtiment. Les informations légales de l'éditeur sont dans les <a href="/legal" className="lp-ul">mentions légales</a>.
+            Koji est édité par <b>ABL Expert Renov</b>, entreprise de rénovation à Paris, et fondé par un entrepreneur du bâtiment. Les informations légales de l'éditeur sont dans les <a href="/legal/mentions-legales" className="lp-ul">mentions légales</a>.
           </p>
         </div>
         <aside className="lp-abs">

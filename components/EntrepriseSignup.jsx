@@ -100,8 +100,8 @@ export function EntrepriseSignup({ L, onDone }) {
         <label className="el-ck">
           <input type="checkbox" checked={accepted} onChange={(e) => { setAccepted(e.target.checked); setError(""); }} />
           <span>
-            <b>J'accepte les <a href="/legal" target="_blank" rel="noopener noreferrer">conditions d'utilisation</a></b>
-            <small>et j'ai lu la <a href="/legal" target="_blank" rel="noopener noreferrer">politique de confidentialité</a>. Vos données servent à votre compte Koji ; ABL Expert Renov, éditeur de Koji, en est responsable.</small>
+            <b>J'accepte les <a href="/legal/conditions-professionnels" target="_blank" rel="noopener noreferrer">conditions d'utilisation</a></b>
+            <small>et j'ai lu la <a href="/legal/confidentialite" target="_blank" rel="noopener noreferrer">politique de confidentialité</a>. Vos données servent à votre compte Koji ; ABL Expert Renov, éditeur de Koji, en est responsable.</small>
           </span>
         </label>
 

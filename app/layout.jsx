@@ -1,5 +1,6 @@
 import "./globals.css";
 import { I18nProvider } from "../lib/i18n";
+import { BandeauCookies } from "../components/BandeauCookies";
 import { AUTH_LINK_REDIRECT_SOURCE } from "../lib/auth-link-redirect";
 
 export const metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <I18nProvider>{children}</I18nProvider>
+        <BandeauCookies />
       </body>
     </html>
   );

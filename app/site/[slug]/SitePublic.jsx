@@ -120,7 +120,7 @@ export function PiedDePage({ site }) {
   return (
     <footer className="kps-f">
       <span>Page hébergée par Koji · {site.url.replace(/^https?:\/\//, "")}</span>
-      <a href="/legal">Mentions légales</a>
+      <a href="/legal/mentions-legales">Mentions légales</a>
       <a href={`mailto:contact@getkoji.io?subject=${encodeURIComponent(`Signalement de la page ${site.slug}`)}`}>Signaler</a>
     </footer>
   );

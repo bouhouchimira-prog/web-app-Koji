@@ -91,7 +91,7 @@ export function ContactForm() {
         {state.status === 'sending' ? 'Envoi…' : 'Envoyer'}
       </button>
       <small className="lp-fine">
-        Réponse sous un jour ouvré. Vos coordonnées servent à cette demande, pas à autre chose : ABL Expert Renov, éditeur de Koji, les garde le temps de vous répondre et de suivre l'échange. <a href="/legal" className="lp-ul">Confidentialité et vos droits</a>
+        Réponse sous un jour ouvré. Vos coordonnées servent à cette demande, pas à autre chose : ABL Expert Renov, éditeur de Koji, les garde le temps de vous répondre et de suivre l'échange. <a href="/legal/confidentialite" className="lp-ul">Confidentialité et vos droits</a>
       </small>
     </form>
   );
