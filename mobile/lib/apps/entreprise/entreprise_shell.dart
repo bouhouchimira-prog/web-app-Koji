@@ -8,6 +8,7 @@ import 'package:koji/apps/entreprise/entreprise_nav.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/entreprise_sidebar.dart';
 import 'package:koji/design/koji_shell.dart';
+import 'package:koji/design/hors_ligne.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/features/koji/koji_assistant.dart';
 import 'package:koji/features/home/notifications/notifications_panel.dart';
@@ -38,7 +39,7 @@ class EntrepriseShell extends ConsumerWidget {
     final wide = MediaQuery.sizeOf(context).width >= KojiBreakpoints.wide;
     final page = wide ? _webLayout(context, ref) : child;
     return EntrepriseActivityWatcher(
-      child: _avecKoji(page, wide),
+      child: BandeauHorsLigne(child: _avecKoji(page, wide)),
     );
   }
 

@@ -636,6 +636,8 @@ export async function PATCH(request) {
   }
 
   if (action === "delete") {
+    // PRO-19.1 : un devis signé ne se supprime jamais (nouvelle version ou avenant).
+    if (quote.status === "Signe" || quote.signatureStatus === "Signe") return badRequest("Un devis signé ne se supprime pas : faites une nouvelle version ou un avenant.", 409);
     const { error: delError } = await auth.supabase.from("quotes").delete().eq("id", body.id);
     if (delError) return badRequest(`Suppression impossible: ${delError.message}`, 500);
     removeDraftNotification(sideDb, quote.id, auth.userId);

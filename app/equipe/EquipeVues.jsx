@@ -34,6 +34,7 @@ export function EnTete({ eyebrow, titre, onglet, aValider, actions }) {
           <nav className="wtabs" aria-label="Équipe">
             <Link href="/equipe" className={onglet === "aujourdhui" ? "on" : ""}>Aujourd'hui</Link>
             <Link href="/equipe/heures" className={onglet === "heures" ? "on" : ""}>Heures{aValider ? <span>à valider</span> : null}</Link>
+            <Link href="/equipe/sortis" className={onglet === "sortis" ? "on" : ""}>Sortis</Link>
           </nav>
         </div>
       ) : null}
@@ -384,5 +385,29 @@ export function Ajouter({ roles, setErreur, onFait }) {
         )}
       </div>
     </div>
+  );
+}
+
+// PRO-19.1 : compagnons sortis (fin de contrat) ; heures et photos conservées.
+export function Sortis({ setErreur, setMessage }) {
+  const [d, setD] = useState(null);
+  const charger = () => apiGet("/api/equipe?sortis=1").then(setD).catch((e) => setErreur(e.message));
+  useEffect(() => { charger(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  async function reintegrer(w) {
+    try { await apiSend("/api/equipe", { action: "reintegrer", id: w.id }); setMessage(`${w.nom} est de retour dans l'équipe.`); await charger(); } catch (e) { setErreur(e.message); }
+  }
+  return (
+    <>
+      <EnTete eyebrow="Fin de contrat" titre="Sortis" onglet="sortis" />
+      <div className="card">
+        {!d ? <p className="muted">Chargement…</p> : d.sortis.length ? d.sortis.map((w) => (
+          <div key={w.id} className="eq-row off" style={{ gridTemplateColumns: "32px minmax(0,1fr) auto" }}>
+            <span className="eq-av">{initiales(w.nom)}</span>
+            <div className="w"><strong>{w.nom}</strong><small>{w.metier}{w.sortiLe ? ` · sorti le ${dateCourte(w.sortiLe)}` : ""}</small></div>
+            <button type="button" className="btn btn-sec" onClick={() => reintegrer(w)}>Réintégrer</button>
+          </div>
+        )) : <p className="eq-p2 muted">Aucun compagnon sorti. Un compagnon retiré de l'équipe arrive ici ; ses heures et ses photos restent conservées.</p>}
+      </div>
+    </>
   );
 }

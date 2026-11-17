@@ -13,6 +13,7 @@ import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/depenses/depenses_logic.dart' show Json, euro, jourCourt, num2;
 import 'package:koji/features/factures/factures_widgets.dart' show FactureKv, errorText, showFacturesMessage;
+import 'package:koji/design/liste_vide.dart';
 import 'package:koji/features/factures/impayes_screen.dart' show impayesRoute;
 
 // Contacts de Koji Pro (maquettes PRO-10 à 10.3) sur l'API du site
@@ -84,8 +85,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final d = async.value!;
     final k = Map<String, dynamic>.from(d['compteurs'] as Map? ?? const {});
     final q = _q.trim().toLowerCase();
-    final liste = _liste(d['contacts']).where((c) {
-      final ok = _onglet == 'tous' || (_onglet == 'afaire' && c['aFaire'] == true) || (_onglet == 'clients' && c['pro'] != true) || (_onglet == 'pros' && c['pro'] == true);
+    // Onglet d'archive « Inactifs » (PRO-19.1), toujours en dernier.
+    final liste = _liste(_onglet == 'inactifs' ? d['inactifs'] : d['contacts']).where((c) {
+      final ok = _onglet == 'tous' || _onglet == 'inactifs' || (_onglet == 'afaire' && c['aFaire'] == true) || (_onglet == 'clients' && c['pro'] != true) || (_onglet == 'pros' && c['pro'] == true);
       return ok && (q.isEmpty || '${c['nom']} ${c['telephone']} ${c['sousTitre']}'.toLowerCase().contains(q));
     }).toList()
       ..sort((a, b) => (b['aFaire'] == true ? 1 : 0).compareTo(a['aFaire'] == true ? 1 : 0) != 0 ? (b['aFaire'] == true ? 1 : 0).compareTo(a['aFaire'] == true ? 1 : 0) : _s(b['dernier']).compareTo(_s(a['dernier'])));
@@ -101,11 +103,14 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       main: [
         TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Nom, téléphone, chantier', isDense: true), onChanged: (v) => setState(() => _q = v)),
         KojiFilterChips<String>(
-          options: {'tous': 'Tous', 'afaire': 'À faire ${num2(k['aFaire']).round()}', 'clients': 'Clients', 'pros': 'Pros'},
+          options: {'tous': 'Tous', 'afaire': 'À faire ${num2(k['aFaire']).round()}', 'clients': 'Clients', 'pros': 'Pros', 'inactifs': 'Inactifs ${num2(k['inactifs']).round()}'},
           value: _onglet,
           onChanged: (v) => setState(() => _onglet = v),
         ),
-        if (liste.isEmpty) const KojiEmptyState(compact: true, icon: KojiIcons.contacts, title: 'Aucun contact', subtitle: 'Les clients de vos devis arrivent seuls ; ajoutez vos sous-traitants et fournisseurs.'),
+        if (liste.isEmpty && _liste(d['contacts']).isEmpty)
+          ListeVide(titre: 'Aucun contact', texte: "Clients et sous-traitants s'ajoutent seuls avec vos devis.", action: 'Ajouter un contact', onAction: () => context.push(nouveauContactRoute))
+        else if (liste.isEmpty)
+          const KojiEmptyState(compact: true, icon: KojiIcons.contacts, title: 'Aucun contact', subtitle: 'Aucun contact ne correspond.'),
         for (final c in liste)
           InkWell(
             onTap: () => context.push(ficheContactRoute(_s(c['id']))),

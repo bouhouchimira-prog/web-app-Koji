@@ -26,6 +26,7 @@ import { demandeDevisGuide } from "../../lib/visite-mode";
 import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
+import { annoncerSuppression } from "../../lib/annuler-suppression";
 import catalog from "../../data/catalog-ouvrages.json";
 
 const ROOM_SUGGESTIONS = ["Salon", "Cuisine", "Chambre", "Salle de bain", "Bureau", "Exterieur"];
@@ -2702,14 +2703,20 @@ export default function DevisEditor() {
 
   async function handleDeleteQuote() {
     if (!generatedQuote?.id) return;
-    if (!window.confirm("Supprimer définitivement ce devis ? Cette action est irréversible.")) {
-      notify("Action annulée.", "info");
+    // PRO-19.1 : seuls les brouillons se suppriment ; « Annuler » 10 s, puis
+    // 30 jours dans Paramètres › Éléments supprimés (corbeille).
+    const q = generatedQuote;
+    if (q.status === "Signe" || q.signatureStatus === "Signe" || q.sentAt) {
+      notify("Un devis envoyé ou signé ne se supprime pas : il expire, ou se remplace par une nouvelle version ou un avenant.", "info");
       return;
     }
     try {
-      await apiSend("/api/quotes", { id: generatedQuote.id, action: "delete" }, "PATCH");
-      setQuotes((current) => current.filter((item) => item.id !== generatedQuote.id));
-      notify("Devis supprimé.", "success");
+      await apiSend("/api/quotes", { id: q.id, action: "archive" }, "PATCH");
+      setQuotes((current) => current.filter((item) => item.id !== q.id));
+      annoncerSuppression({
+        label: `Devis${q.quoteNumber ? ` ${q.quoteNumber}` : ""} supprimé`,
+        annuler: async () => { await apiSend("/api/quotes", { id: q.id, action: "restore", status: "Brouillon" }, "PATCH"); window.location.assign(`/devis?id=${q.id}`); }
+      });
       router.push("/devis");
     } catch (error) {
       notify(error.message || "Impossible de supprimer le devis.", "error");

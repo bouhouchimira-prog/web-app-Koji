@@ -70,3 +70,12 @@ describe("Koji répond (PRO-18)", () => {
     assert.equal(appels[1].messages.at(-1).content[0].type, "tool_result");
   });
 });
+
+import { contactInactif } from "../../lib/contacts-pro.js";
+describe("Archivage (PRO-19.1)", () => {
+  it("contact inactif après 24 mois sans échange", () => {
+    assert.equal(contactInactif({ createdAt: "2024-01-10" }, [], "2026-11-17"), true);
+    assert.equal(contactInactif({ createdAt: "2024-01-10" }, [{ quand: "2025-06-01" }], "2026-11-17"), false);
+    assert.equal(contactInactif({}, [], "2026-11-17"), false);
+  });
+});

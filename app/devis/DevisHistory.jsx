@@ -8,6 +8,7 @@ import { Shell } from "../../components/Shell";
 import { useLocale } from "../../lib/i18n";
 import { useApi } from "../../lib/use-api";
 import { apiSend } from "../../lib/client-api";
+import { ListeVide } from "../../components/ListeVide";
 import { ONGLETS_DEVIS, RELANCE_JOURS, VALIDITE_JOURS, actionDevis, compterDevis, derniereAction, ongletDevis, resumeDevis, statutDevis } from "../../lib/devis-liste";
 
 // Liste des devis, maquette PRO-03 : onglets, statut, dernière action et
@@ -125,7 +126,9 @@ export default function DevisHistory() {
         </label>
       </div>
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && !query.trim() && Array.isArray(quotes) && quotes.length === 0 ? (
+        <ListeVide titre="Aucun devis" texte="Koji vous pose les questions, vous validez les lignes." action={{ label: "Démarrer un devis guidé", href: "/devis?new=1&mode=ia" }} />
+      ) : rows.length === 0 ? (
         <div className="tbl">
           <div className="empty">{query.trim() ? "Aucun devis ne correspond à cette recherche." : L.devis.noQuotes}</div>
         </div>

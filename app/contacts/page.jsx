@@ -6,6 +6,8 @@ import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
 import { fichierPourEnvoi } from "../../lib/fichier-client";
 import "../fournitures/fournitures.css";
+import { ListeVide } from "../../components/ListeVide";
+import { annoncerSuppression } from "../../lib/annuler-suppression";
 import "./contacts.css";
 
 // Contacts (maquettes PRO-10 à 10.3) : carnet unique (clients,
@@ -33,7 +35,7 @@ function Liste({ data, sel, onSel, onAjouter }) {
   const [type, setType] = useState("");
   const liste = useMemo(() => {
     const t = q.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    let l = data.contacts.filter((c) => (onglet === "tous" || (onglet === "afaire" && c.aFaire) || (onglet === "clients" && !c.pro) || (onglet === "pros" && c.pro)) && (!type || c.type === type));
+    let l = (onglet === "inactifs" ? data.inactifs || [] : data.contacts).filter((c) => (onglet === "tous" || onglet === "inactifs" || (onglet === "afaire" && c.aFaire) || (onglet === "clients" && !c.pro) || (onglet === "pros" && c.pro)) && (!type || c.type === type));
     if (t) l = l.filter((c) => `${c.nom} ${c.telephone} ${c.email} ${c.sousTitre}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s/g, "").includes(t.replace(/\s/g, "")));
     return [...l].sort((a, b) => tri === "nom" ? a.nom.localeCompare(b.nom, "fr") : tri === "recent" ? String(b.dernier).localeCompare(String(a.dernier)) : (b.aFaire - a.aFaire) || Boolean(b.flag) - Boolean(a.flag) || String(b.dernier).localeCompare(String(a.dernier)));
   }, [data, q, onglet, tri, type]);
@@ -44,7 +46,7 @@ function Liste({ data, sel, onSel, onAjouter }) {
         <div className="ct-top"><h1>Contacts</h1><button type="button" className="btn btn-main ct-add" onClick={onAjouter}>Ajouter</button></div>
         <label className="ct-srch"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone, SIREN, chantier" aria-label="Rechercher un contact" /></label>
         <div className="ct-seg" role="tablist">
-          {[["tous", `Tous ${k.tous}`], ["afaire", `À faire ${k.aFaire}`], ["clients", `Clients ${k.clients}`], ["pros", `Pros ${k.pros}`]].map(([id, l]) => <button type="button" key={id} role="tab" aria-selected={onglet === id} className={onglet === id ? "on" : ""} onClick={() => setOnglet(id)}>{l}</button>)}
+          {[["tous", `Tous ${k.tous}`], ["afaire", `À faire ${k.aFaire}`], ["clients", `Clients ${k.clients}`], ["pros", `Pros ${k.pros}`], ["inactifs", `Inactifs ${k.inactifs || 0}`]].map(([id, l]) => <button type="button" key={id} role="tab" aria-selected={onglet === id} className={onglet === id ? "on" : ""} onClick={() => setOnglet(id)}>{l}</button>)}
         </div>
       </div>
       <div className="ct-sub">
@@ -52,7 +54,7 @@ function Liste({ data, sel, onSel, onAjouter }) {
         <label>Type : <select value={type} onChange={(e) => setType(e.target.value)}><option value="">tous</option>{Object.entries(TYPES).map(([v, l]) => <option key={v} value={v}>{l.toLowerCase()}</option>)}</select></label>
       </div>
       <div className="ct-items">
-        {liste.length === 0 ? <p className="ct-vide">{data.contacts.length ? "Aucun contact ne correspond." : "Votre carnet est vide : les clients de vos devis y arrivent seuls. Ajoutez vos sous-traitants et fournisseurs."}</p> : liste.map((c) => (
+        {liste.length === 0 ? (data.contacts.length ? <p className="ct-vide">Aucun contact ne correspond.</p> : <ListeVide titre="Aucun contact" texte="Clients et sous-traitants s'ajoutent seuls avec vos devis." action={{ label: "Ajouter un contact", onClick: () => onAjouter() }} alternative={{ label: "Importer un fichier", onClick: () => onAjouter("fichier") }} />) : liste.map((c) => (
           <button type="button" key={c.id} className={`ct-li2${sel === c.id ? " on" : ""}`} onClick={() => onSel(c.id)}>
             <span className={`ct-av ${AV[c.type] || "cli"}`}>{c.initiales}</span>
             <div className="b">
@@ -337,7 +339,7 @@ function Fiche({ id, onRetour, onChange }) {
       <div className="ct-foot">
         <button type="button" className="btn btn-sec" onClick={() => setEdition(true)}>Modifier la fiche</button>
         {fiche.type === "client" && c.email ? <button type="button" className="link" onClick={async () => { try { await apiSend("/api/contacts", { id: c.id, action: c.linkedUserId ? "resetCredentials" : "createAccess" }, "PATCH"); setMessage("Accès Koji Client envoyé."); } catch (e) { setMessage(e.message); } }}>{c.linkedUserId ? "Renvoyer l'accès Koji Client" : "Créer l'accès Koji Client"}</button> : null}
-        <button type="button" className="link" onClick={async () => { try { await apiSend("/api/contacts", { id: c.id, action: "archive" }, "PATCH"); onChange(); onRetour(); } catch (e) { setMessage(e.message); } }}>Archiver</button>
+        <button type="button" className="link" onClick={async () => { try { await apiSend("/api/contacts", { id: c.id, action: "archive" }, "PATCH"); annoncerSuppression({ label: `${c.firstName || c.companyName || c.lastName || "Contact"} archivé`, annuler: async () => { await apiSend("/api/contacts", { id: c.id, action: "restore" }, "PATCH"); onChange(); } }); onChange(); onRetour(); } catch (e) { setMessage(e.message); } }}>Archiver</button>
       </div>
       {edition ? <Edition fiche={fiche} onFermer={() => setEdition(false)} onFait={async (m) => { setEdition(false); await recharger(m); }} /> : null}
     </section>
@@ -346,8 +348,8 @@ function Fiche({ id, onRetour, onChange }) {
 
 const VIDE = { type: "societe", roles: ["sous_traitant"], companyName: "", contactPerson: "", firstName: "", lastName: "", phone: "", email: "", siret: "", address: "", metier: "" };
 
-function Ajouter({ onFermer, onCree }) {
-  const [src, setSrc] = useState("carte");
+function Ajouter({ onFermer, onCree, source = "carte" }) {
+  const [src, setSrc] = useState(source);
   const [f, setF] = useState(VIDE);
   const [lu, setLu] = useState(null);
   const [dup, setDup] = useState(null);
@@ -455,11 +457,11 @@ export default function Contacts() {
       {message ? <p className="notice ct-msg" role="status">{message}</p> : null}
       {!data ? <p className="muted">Chargement…</p> : (
         <div className={`ct-grid${sel ? " has-sel" : ""}`}>
-          <Liste data={data} sel={sel} onSel={setSel} onAjouter={() => setAjout(true)} />
+          <Liste data={data} sel={sel} onSel={setSel} onAjouter={(source) => setAjout(typeof source === "string" ? source : true)} />
           {sel ? <Fiche key={sel} id={sel} onRetour={() => setSel("")} onChange={charger} /> : <section className="ct-f ct-f-vide"><p className="muted">Choisissez un contact. Les clients de vos devis arrivent seuls dans le carnet.</p></section>}
         </div>
       )}
-      {ajout ? <Ajouter onFermer={() => setAjout(false)} onCree={async (m, id) => { setAjout(false); setMessage(m); await charger(); if (id) setSel(id); }} /> : null}
+      {ajout ? <Ajouter source={typeof ajout === "string" ? ajout : "carte"} onFermer={() => setAjout(false)} onCree={async (m, id) => { setAjout(false); setMessage(m); await charger(); if (id) setSel(id); }} /> : null}
     </Shell>
   );
 }

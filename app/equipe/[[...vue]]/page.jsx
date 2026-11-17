@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Shell } from "../../../components/Shell";
 import { apiGet } from "../../../lib/client-api";
-import { Ajouter, Aujourdhui, EnTete, Fiche, Heures } from "../EquipeVues";
+import { Ajouter, Aujourdhui, EnTete, Fiche, Heures, Sortis } from "../EquipeVues";
 import "../equipe.css";
 
 // Équipe (maquettes PRO-16 à 16.3) : /equipe (aujourd'hui), /equipe/heures,
@@ -21,7 +21,7 @@ export default function EquipePage() {
   useEffect(() => { charger(); }, []);
   useEffect(() => { setErreur(""); setMessage(""); }, [vue]);
 
-  const fiche = vue && !["heures", "nouveau"].includes(vue);
+  const fiche = vue && !["heures", "nouveau", "sortis"].includes(vue);
   const bandeaux = (
     <>
       {erreur ? <p className="err" role="alert">{erreur} <button type="button" className="link" onClick={() => setErreur("")}>Fermer</button></p> : null}
@@ -36,6 +36,11 @@ export default function EquipePage() {
             <Link className="link" href="/equipe" style={{ alignSelf: "flex-start" }}>‹ Équipe</Link>
             {bandeaux}
             <Fiche id={vue} setErreur={setErreur} setMessage={setMessage} />
+          </>
+        ) : vue === "sortis" ? (
+          <>
+            {bandeaux}
+            <Sortis setErreur={setErreur} setMessage={setMessage} />
           </>
         ) : vue === "heures" ? (
           <>

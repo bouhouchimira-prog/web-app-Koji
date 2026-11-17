@@ -8,6 +8,8 @@ import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/design/liste_vide.dart';
+import 'package:koji/apps/entreprise/entreprise_nav.dart' show openEntrepriseNav;
 import 'package:koji/design/koji_brand_marks.dart';
 
 /// Données de la liste, lues sur le site comme la fiche chantier : chantiers,
@@ -126,6 +128,15 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(strokeWidth: 2))),
+            )
+          else if (visibles.isEmpty && lignes.isEmpty && cherche.isEmpty)
+            ListeVide(
+              titre: "Aucun chantier pour l'instant",
+              texte: 'Un chantier se crée tout seul quand un client signe un devis. Commencez par un devis ou trouvez un chantier sur le Radar.',
+              action: 'Démarrer un devis guidé',
+              onAction: () => context.push('/quote/room-selection', extra: <String>[]),
+              alternative: 'Voir le Radar des chantiers',
+              onAlternative: () => openEntrepriseNav(context, ref, 'accueil'),
             )
           else if (visibles.isEmpty)
             _message(

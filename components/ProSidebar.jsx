@@ -51,8 +51,8 @@ const GROUPS = [
   {
     label: "Autre",
     items: [
-      { href: "/archives", label: "Archives", icon: "M3 4h18v4H3zM5 8v12h14V8M10 12h4" },
-      { href: "/corbeille", label: "Corbeille", icon: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" },
+      // PRO-19.1 : pas de menu Archives ni Corbeille (onglets d'archive dans
+      // chaque liste, Paramètres › Éléments supprimés).
       { href: "/profil", label: "Profil / Configuration", icon: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1", match: ["/profil", "/parametres", "/aide"], exclude: ["/kojipage"] }
     ]
   }

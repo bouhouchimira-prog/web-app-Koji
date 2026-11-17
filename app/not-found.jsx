@@ -13,6 +13,7 @@ export default function NotFound() {
         </div>
         <div className="hact">
           <Link href="/" className="btn btn-main">Retour à l'accueil</Link>
+          <Link href="/?koji=1" className="btn btn-sec">Rechercher</Link>
         </div>
       </div>
     </div>

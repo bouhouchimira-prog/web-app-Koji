@@ -11,6 +11,8 @@ import { ProSidebar } from "./ProSidebar";
 import KojiWordmark from "./KojiWordmark";
 import "./shell-layout.css";
 import { KojiReponse } from "./KojiReponse";
+import { HorsLigne } from "./HorsLigne";
+import { AnnulerSuppression } from "./AnnulerSuppression";
 import "./koji-panneau.css";
 import "../app/home-pro.css";
 
@@ -402,6 +404,12 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
     return () => document.removeEventListener("keydown", openOnCtrlK);
   }, [isPro]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("koji") !== "1") return;
+    setKojiAssistantOpen(true);
+    setTimeout(() => kojiAssistantInputRef.current?.focus(), 300);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // « Sur cette page » : section d'après l'adresse, titre d'après la page.
   useEffect(() => {
     const SECTIONS = { chantiers: "Chantier", devis: "Devis", facturation: "Factures", contacts: "Contacts", clients: "Clients", equipe: "Équipe", depenses: "Dépenses", interventions: "Intervention", calendrier: "Calendrier", fournitures: "Fournitures", kojipage: "KojiPage", "reseau-pro": "Réseau pro", avenant: "Avenant", "bibliotheque-ouvrages": "Bibliothèque", messages: "Messages" };
@@ -772,6 +780,8 @@ export function Shell({ children, variant, assistantWindowOpen, hideAssistantWid
 
   return (
     <div className={isPro ? `pro ${dmSans.variable}` : "web-shell"}>
+      <HorsLigne />
+      <AnnulerSuppression />
       {isFocus ? (
         <div className="app dv">{children}</div>
       ) : (

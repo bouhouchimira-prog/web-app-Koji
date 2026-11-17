@@ -29,10 +29,14 @@ async function contexte(request, body) {
 
 function liste(db, ctx, userId, { archives = false } = {}) {
   const aujourdhui = today();
-  const lignes = (db.contacts || []).filter((c) => c.userId === userId && (archives || !c.archived)).map((c) => ligneCarnet(c, ctx, aujourdhui).ligne);
+  const toutes = (db.contacts || []).filter((c) => c.userId === userId).map((c) => ligneCarnet(c, ctx, aujourdhui).ligne);
+  // Onglet d'archive « Inactifs » (PRO-19.1), toujours en dernier.
+  const lignes = archives ? toutes : toutes.filter((l) => !l.inactif);
+  const inactifs = toutes.filter((l) => l.inactif);
   return {
     contacts: lignes,
-    compteurs: { tous: lignes.length, aFaire: lignes.filter((l) => l.aFaire).length, clients: lignes.filter((l) => !l.pro).length, pros: lignes.filter((l) => l.pro).length }
+    inactifs,
+    compteurs: { inactifs: inactifs.length, tous: lignes.length, aFaire: lignes.filter((l) => l.aFaire).length, clients: lignes.filter((l) => !l.pro).length, pros: lignes.filter((l) => l.pro).length }
   };
 }
 

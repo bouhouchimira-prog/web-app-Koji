@@ -19,6 +19,7 @@ import { euro, shortDate } from "../../lib/pricing";
 import { AvenantPanneau } from "../../components/AvenantPanneau";
 import { SituationPanneau } from "../../components/SituationPanneau";
 import { useApi } from "../../lib/use-api";
+import { ListeVide } from "../../components/ListeVide";
 import { ONGLETS_CHANTIERS, compterOnglets, lignesChantiers } from "../../lib/chantiers-liste";
 
 function TaskMessageThread({ task, projectDocuments, workers }) {
@@ -2661,7 +2662,9 @@ export default function ProjectsTrackingPage() {
         </label>
       </div>
 
-      {chantierRows.length === 0 ? (
+      {chantierRows.length === 0 && !chantierQuery.trim() && lignesListe.length === 0 ? (
+        <ListeVide titre="Aucun chantier pour l'instant" texte="Un chantier se crée tout seul quand un client signe un devis. Commencez par un devis ou trouvez un chantier sur le Radar." action={{ label: "Démarrer un devis guidé", href: "/devis?new=1&mode=ia" }} alternative={{ label: "Voir le Radar des chantiers", href: "/marketplace" }} />
+      ) : chantierRows.length === 0 ? (
         <div className="tbl">
           <div className="empty">
             {chantierQuery.trim()

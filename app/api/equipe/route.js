@@ -43,6 +43,12 @@ export async function GET(request) {
   const maintenant = new Date().toISOString();
   const r = resumeEquipe(db, userId, { chantiers, maintenant });
 
+  // Onglet d'archive « Sortis » (PRO-19.1) : fin de contrat, heures conservées.
+  if (url.searchParams.get("sortis") === "1") {
+    const sortis = (db.workers || []).filter((w) => w.userId === userId && w.active === false && !/sous.?traitant/i.test(String(w.type || "")));
+    return ok({ sortis: sortis.map((w) => ({ id: w.id, nom: w.name || "Compagnon", metier: w.profession || w.role || "", sortiLe: j10(w.sortiLe || w.updatedAt), heures: r.entries.filter((e) => e.workerId === w.id).length })) });
+  }
+
   const id = url.searchParams.get("id");
   if (id) {
     const w = r.equipe.find((x) => x.id === id);
@@ -238,6 +244,15 @@ export async function POST(request) {
     return ok({ ok: true, to });
   }
 
+  if (action === "reintegrer") {
+    const sorti = (db.workers || []).find((x) => x.id === body.id && x.userId === userId && x.active === false);
+    if (!sorti) return badRequest("Compagnon introuvable.", 404);
+    Object.assign(sorti, { active: true, sortiLe: "", updatedAt: maintenant });
+    trace("worker.restored", `Réintégré dans l'équipe : ${sorti.name}`, sorti.id);
+    await writeDb(db);
+    return ok({ ok: true });
+  }
+
   if (!w) return badRequest("Compagnon introuvable.", 404);
 
   if (action === "inviter") {
@@ -280,6 +295,7 @@ export async function POST(request) {
 
   if (action === "retirer") {
     w.active = false;
+    w.sortiLe = maintenant;
     w.invitation = null;
     w.updatedAt = maintenant;
     trace("worker.removed", `Retiré de l'équipe : ${w.name}`, w.id);
