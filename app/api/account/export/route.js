@@ -3,7 +3,6 @@ import { readDb, scopedItems } from "../../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { getVerifiedWorkerId } from "../../../../lib/worker-session";
 import { resolveEntreprise } from "../../../../lib/entreprise-auth";
-import { getAuth } from "../../../../lib/server-auth";
 
 // Droit a la portabilite des donnees (RGPD art. 20, 30 septembre) — export
 // autoservice, contrairement a la suppression de compte (voir
@@ -33,7 +32,11 @@ function stripSecrets(record) {
 }
 
 async function exportEntreprise(request, db) {
-  const auth = getAuth(request);
+  // Identité confirmée par Supabase Auth, jamais un jeton simplement décodé :
+  // une partie de l'export (équipe, contacts, tâches, dépenses…) vient du
+  // stockage commun, que seul cet identifiant cloisonne. Avec un jeton
+  // fabriqué, on aurait pu télécharger les données d'une autre entreprise.
+  const auth = await resolveEntreprise(request);
   if (!auth) return null;
 
   const { data: profile } = await auth.supabase.from("users").select("email, business_info").eq("id", auth.userId).maybeSingle();

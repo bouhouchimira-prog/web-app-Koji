@@ -15,7 +15,6 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0006_users_typed_columns.sql | Colonnes typees sur users (unification source de verite) |
 | 0008_subscriptions.sql | Table subscriptions unifiee (billing) |
 | 0007_koji_ouvrages_columns.sql | Colonnes code/original_id/hourly_rate/coefficient sur koji_ouvrages |
-| 0013_securiser_rpc_signature.sql | Sécurise la variante historique à 3 paramètres de signature |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
 Les fichiers SQL historiques restent dans `../admin/` et `../signature/` pour

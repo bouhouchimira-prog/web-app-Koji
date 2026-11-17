@@ -30,10 +30,6 @@ export async function POST(request) {
     await recordFailedAttempt(SCOPE, identifier);
     return badRequest("Identifiant ou mot de passe incorrect.", 401);
   }
-  if (user.isActive === false) {
-    await recordFailedAttempt(SCOPE, identifier);
-    return badRequest("Ce compte n'est pas actif.", 401);
-  }
 
   const hasHash = Boolean(user.passwordHash && user.passwordSalt);
   const validHash = hasHash && verifyHashedPassword(password, user.passwordSalt, user.passwordHash);
@@ -44,6 +40,9 @@ export async function POST(request) {
     await recordFailedAttempt(SCOPE, identifier);
     return badRequest("Identifiant ou mot de passe incorrect.", 401);
   }
+  // Compte désactivé : refusé seulement une fois le mot de passe prouvé, pour
+  // ne pas révéler à un inconnu qu'un identifiant existe et qu'il est inactif.
+  if (user.isActive === false) return badRequest("Ce compte n'est pas actif.", 401);
   await clearRateLimit(SCOPE, identifier);
 
   if (validLegacyPlaintext) {
