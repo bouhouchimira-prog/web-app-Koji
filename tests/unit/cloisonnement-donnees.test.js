@@ -115,6 +115,14 @@ describe("cloisonnement — garde-fous sur les routes", () => {
     assert.ok(/await resolveEntreprise\(request\)/.test(source));
   });
 
+  it("les messages lus par quoteId exigent que le devis soit celui de la session", () => {
+    const source = read("app/api/project-messages/route.js");
+    assert.ok(/if \(!projectId && !\(await companyOwnsQuote\(request, quoteId\)\)\) return ok\(\{ messages: \[\] \}\);/.test(source));
+    const helper = source.slice(source.indexOf("async function companyOwnsQuote"), source.indexOf("export async function GET"));
+    assert.ok(/await getVerifiedAuth\(request\)/.test(helper));
+    assert.ok(/auth\.supabase\.from\("quotes"\)\.select\("id"\)\.eq\("id", quoteId\)/.test(helper));
+  });
+
   it("le téléphone ne donne plus accès aux devis d'un client", () => {
     for (const file of [
       "lib/portal-acces.js",

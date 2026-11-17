@@ -35,27 +35,31 @@ async function portalClientCanSeeProject(request, projectId) {
   });
 }
 
+// Le devis est-il celui de l'entreprise connectée ? La lecture passe par la
+// session vérifiée : Supabase (RLS) ne renvoie un devis qu'à son entreprise.
+async function companyOwnsQuote(request, quoteId) {
+  const auth = await getVerifiedAuth(request);
+  if (!auth) return false;
+  const { data } = await auth.supabase.from("quotes").select("id").eq("id", quoteId).maybeSingle();
+  return Boolean(data);
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") || "";
   const quoteId = url.searchParams.get("quoteId") || "";
   if (!projectId && !quoteId) return ok({ messages: [] });
 
-  let authorized = false;
-  if (projectId) {
-    authorized = (await companyCanSeeProject(request, projectId)) || (await portalClientCanSeeProject(request, projectId));
-  } else {
-    // quoteId-only callers are internal/company today: the quote must belong
-    // to the verified session (RLS also scopes it). A decoded JWT is never
-    // enough here, because this route reads the shared outbox and its
-    // temporary credentials.
-    const auth = await getVerifiedAuth(request);
-    if (auth) {
-      const { data: quote } = await auth.supabase.from("quotes").select("id").eq("id", quoteId).maybeSingle();
-      authorized = Boolean(quote);
-    }
-  }
+  const authorized = projectId
+    ? (await companyCanSeeProject(request, projectId)) || (await portalClientCanSeeProject(request, projectId))
+    : Boolean(await getVerifiedAuth(request)); // quoteId-only callers are all internal/company today
   if (!authorized) return ok({ messages: [] });
+
+  // Par quoteId seul, une session valide ne suffit pas : le devis doit être
+  // celui de cette entreprise, car la suite lit la boîte d'envoi commune et
+  // ses identifiants provisoires. (Contrôle écrit à part des lignes
+  // ci-dessus, qui restent celles du lot « identité vérifiée ».)
+  if (!projectId && !(await companyOwnsQuote(request, quoteId))) return ok({ messages: [] });
 
   const db = await readDb();
   const matches = (item) => (projectId && item.projectId === projectId) || (quoteId && item.quoteId === quoteId);
