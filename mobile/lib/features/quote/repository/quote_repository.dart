@@ -521,7 +521,9 @@ class QuoteRepository {
   /// Used as a fallback when the realtime channel fails to join (e.g.
   /// RealtimeSubscribeException timedOut on flaky networks).
   Future<List<Map<String, dynamic>>> getUserQuotesOnce(String userId) async {
-    await OfflineCacheService.instance.initialize();
+    await OfflineCacheService.instance.initialize(
+      userId: SupabaseConfig.client.auth.currentUser?.id,
+    );
     try {
       final data = await _supabase
           .from('quotes')

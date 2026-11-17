@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:koji/features/fournitures/models/fourniture_model.dart';
+import 'package:koji/core/supabase_config.dart';
 import 'package:koji/features/offline/offline_cache_service.dart';
 
 class FournitureRepository {
@@ -63,7 +64,9 @@ class FournitureRepository {
   // ─── FOURNITURES ──────────────────────────
 
   Future<List<Fourniture>> getAllFournitures() async {
-    await OfflineCacheService.instance.initialize();
+    await OfflineCacheService.instance.initialize(
+      userId: SupabaseConfig.client.auth.currentUser?.id,
+    );
     try {
       final data = await _client
           .from('fournitures')
