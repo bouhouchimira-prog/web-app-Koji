@@ -20,7 +20,7 @@ export default function ProgressionPage() {
     <Shell variant="pro">
       <ProAccountNav current="progression" />
       <div className="pg">
-        <div className="head"><div className="stack"><span className="eyebrow">Profil et compte</span><h1>Ma progression</h1></div></div>
+        <div className="head"><div className="stack"><span className="eyebrow">Profil et compte</span><h1>Ma progression</h1></div><Link className="btn" href="/parcours">Premier mois</Link></div>
         {erreur ? <p className="err" role="alert">{erreur}</p> : null}
         {!d ? <p className="muted">Chargement…</p> : (
           <>

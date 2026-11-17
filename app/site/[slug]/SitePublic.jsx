@@ -59,6 +59,7 @@ export function Badges({ site }) {
     <div className="kps-badges">
       {site.verifie ? <span>Vérifié par Koji</span> : null}
       {site.decennale ? <span>Décennale vérifiée</span> : null}
+      {site.chantiersLivres ? <span>{site.chantiersLivres} chantier{site.chantiersLivres > 1 ? "s" : ""} livré{site.chantiersLivres > 1 ? "s" : ""} avec PV</span> : null}
       {site.avisStats?.nombre ? <span>{fmtNote(site.avisStats.moyenne)} · {site.avisStats.nombre} avis</span> : null}
       {site.sections.horaires && site.delaiReponse != null ? <span>Répond en {delaiTexte(site.delaiReponse)} en moyenne</span> : null}
     </div>

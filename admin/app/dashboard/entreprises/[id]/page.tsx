@@ -26,7 +26,7 @@ export default async function FicheEntreprise({ params }: { params: Promise<{ id
   const docs = documentsDe(u)
   const positions = ((db.chantierPositionnements || []) as Ligne[]).filter((p) => s(p.entrepriseUserId) === id)
   const rdv = ((db.chantierOffreMessages || []) as Ligne[]).filter((m) => s(m.entrepriseUserId) === id && s(m.rdvStatus) === 'accepted').length
-  const jetons = ((db.jetonsAchats || []) as Ligne[]).filter((a) => s(a.userId) === id).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
+  const jetons = ((db.jetonsAchats || []) as Ligne[]).filter((a) => s(a.userId) === id && !a.offert).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
   const avis = ((db.avis || []) as Ligne[]).filter((a) => s(a.userId) === id && a.verifie)
   const moyenneAvis = avis.length ? avis.reduce((t, a) => t + (Number(a.note) || 0), 0) / avis.length : 0
   const journal = ((db.history || []) as Ligne[]).filter((h) => s(h.userId) === id).sort((a, b) => s(b.createdAt).localeCompare(s(a.createdAt))).slice(0, 10)

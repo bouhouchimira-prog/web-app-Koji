@@ -161,6 +161,9 @@ function DashboardHome() {
   const [toutAfficher, setToutAfficher] = useState(false);
   const [assistantWindowOpen, setAssistantWindowOpen] = useState(false);
   const [assistantDraft, setAssistantDraft] = useState("");
+  // Premier mois (maquette PRO-26, version 1) : une ligne tant que le mois dure.
+  const [premierMois, setPremierMois] = useState(null);
+  useEffect(() => { apiGet("/api/parcours").then(setPremierMois).catch(() => {}); }, []);
 
   // Offres et zone de travail (centre et légende de la carte) en un appel.
   useEffect(() => {
@@ -406,6 +409,13 @@ function DashboardHome() {
           <span className="kp-eyebrow">{eyebrow}</span>
           <h1>{prenom ? `Bonjour, ${prenom}.` : "Bonjour."}</h1>
         </header>
+
+        {premierMois?.fenetre?.ouverte && premierMois.faites < premierMois.total ? (
+          <Link href="/parcours" className="kp-pm">
+            <span><b>Premier mois · {premierMois.faites} étape{premierMois.faites > 1 ? "s" : ""} sur {premierMois.total}</b>{premierMois.jetonsOfferts} jeton{premierMois.jetonsOfferts > 1 ? "s" : ""} offert{premierMois.jetonsOfferts > 1 ? "s" : ""} sur {premierMois.jetonsTotal} · il reste {premierMois.fenetre.joursRestants} jour{premierMois.fenetre.joursRestants > 1 ? "s" : ""}</span>
+            {premierMois.prochaine ? <em>Prochaine étape : {premierMois.prochaine.titre}</em> : null}
+          </Link>
+        ) : null}
 
         <div className="kjh" onClick={() => setAssistantWindowOpen(true)}>
           <span className="kjs">

@@ -2166,3 +2166,9 @@ body:has(.env-panel) .koji-assistant-bubble{display:none!important}
 .as{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1500;display:flex;align-items:center;gap:14px;background:#171B1E;color:#FFFFFF;padding:10px 14px;border-radius:2px;font-size:14px;max-width:calc(100vw - 32px)}
 .as button{border:0;background:none;color:#FFC400;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
 .as small{color:#C4C7CC;font-variant-numeric:tabular-nums}
+
+/* Premier mois (PRO-26, version 1) : ligne sous le bonjour. */
+.kp-pm{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#171B1E;color:#FFFFFF;padding:12px 16px;margin-bottom:14px;text-decoration:none}
+.kp-pm span{display:flex;flex-direction:column;font-size:12px;color:#C4C7CC}
+.kp-pm b{font-size:14px;color:#FFFFFF}
+.kp-pm em{font-style:normal;font-size:13px;font-weight:600;border-bottom:2px solid #FFC400}

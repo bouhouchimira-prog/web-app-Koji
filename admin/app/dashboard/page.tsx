@@ -32,7 +32,7 @@ export default async function TableauDeBord() {
   const moyenne = signes30.length ? signes30.reduce((t, d) => t + (Number(d.total_ttc) || 0), 0) / signes30.length : 0
   const offres = entreprises.map((u) => offreDe(u, aujourdhui).plan)
   const abonnes = offres.filter((p) => ['start', 'pro', 'business'].includes(p))
-  const jetons = ((db.jetonsAchats || []) as Ligne[]).filter((a) => s(a.le) >= il30).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
+  const jetons = ((db.jetonsAchats || []) as Ligne[]).filter((a) => s(a.le) >= il30 && !a.offert).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
 
   const demandes = (db.chantierOffres || []) as Ligne[]
   const positions = (db.chantierPositionnements || []) as Ligne[]

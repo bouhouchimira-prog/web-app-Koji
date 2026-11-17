@@ -53,6 +53,7 @@ import 'package:koji/features/equipe/equipe_pro.dart';
 import 'package:koji/features/intervention_rapide/intervention_rapide.dart';
 import 'package:koji/features/compte/compte_pro.dart';
 import 'package:koji/features/compte/progression_pro.dart';
+import 'package:koji/features/compte/premier_mois_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -573,6 +574,15 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 NotificationDetailProScreen(notification: (state.extra as Map<String, dynamic>?) ?? {'id': state.pathParameters['id']}),
+              ),
+            ),
+            // Mon parcours · Premier mois (maquette PRO-26, version 1).
+            GoRoute(
+              path: premierMoisRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const PremierMoisScreen(),
               ),
             ),
             // Ma progression (maquette PRO-21).

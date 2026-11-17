@@ -65,11 +65,12 @@ export async function revenusDuMois(mois: string) {
   const db = await etatWeb()
   for (const a of (db.jetonsAchats || []) as Record<string, unknown>[]) {
     const quand = String(a.le || '')
-    if (!dans(quand)) continue
+    // Jetons offerts (Premier mois, PRO-26) : ni vente ni chiffre d'affaires.
+    if (!dans(quand) || a.offert) continue
     const ttc = Number(a.montantTtc) || 0
     mouvements.push({ quand, type: 'jetons', reference: String(a.sessionId || a.id || ''), client: String(a.userId || ''), ht: ttc / (1 + TVA), ttc })
   }
-  const jetonsVendus = ((db.jetonsAchats || []) as Record<string, unknown>[]).filter((a) => dans(String(a.le || ''))).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
+  const jetonsVendus = ((db.jetonsAchats || []) as Record<string, unknown>[]).filter((a) => dans(String(a.le || '')) && !a.offert).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
 
   mouvements.sort((a, b) => b.quand.localeCompare(a.quand))
   const somme = (type: Mouvement['type']) => mouvements.filter((m) => m.type === type).reduce((t, m) => t + m.ht, 0)

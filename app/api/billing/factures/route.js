@@ -17,7 +17,7 @@ export async function GET(request) {
   const customerId = profile?.business_info?._stripeCustomerId || "";
   const db = await readDb();
   const achats = (db.jetonsAchats || []).filter((a) => a.userId === entreprise.userId).sort((a, b) => String(b.le).localeCompare(String(a.le))).slice(0, 12);
-  const vide = { abonnement: null, factures: [], jetons: achats.map((a) => ({ id: a.id, le: a.le, quantite: a.quantite, ttc: a.montantTtc, recu: "" })) };
+  const vide = { abonnement: null, factures: [], jetons: achats.map((a) => ({ id: a.id, le: a.le, quantite: a.quantite, ttc: a.montantTtc, recu: "", offert: a.offert || "" })) };
   if (!hasStripe || !customerId) return ok(vide);
   let stripe;
   try { stripe = getStripe(); } catch { return ok(vide); }
@@ -50,6 +50,7 @@ export async function GET(request) {
     // Reçus des achats de jetons (paiements Stripe Checkout).
     const jetons = await Promise.all(achats.map(async (a) => {
       let recu = "";
+      if (a.offert) return { id: a.id, le: a.le, quantite: a.quantite, ttc: 0, recu: "", offert: a.offert };
       try {
         const session = await stripe.checkout.sessions.retrieve(a.sessionId, { expand: ["payment_intent.latest_charge"] });
         recu = session.payment_intent?.latest_charge?.receipt_url || "";

@@ -22,6 +22,7 @@ import 'package:koji/features/quote/quote_list_screen.dart'
     show userQuotesProvider;
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
 import 'package:koji/features/compte/compte_pro.dart' show compteProvider;
+import 'package:koji/features/compte/premier_mois_pro.dart' show premierMoisProvider, premierMoisRoute;
 import 'package:koji/features/notifications_pro/notifications_pro.dart' show nonLuesCentreProvider;
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 
@@ -641,6 +642,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
                   const SizedBox(height: 4),
                   Text(eyebrow, style: da.text(12, color: da.grey)),
                   const SizedBox(height: 10),
+                  _premierMois(da),
                   _pourCommencer(da),
                   ProPrimaryButton(
                     label: 'Démarrer un devis guidé',
@@ -676,6 +678,33 @@ class _ProHomeState extends ConsumerState<ProHome> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Premier mois (PRO-26, version 1) : une ligne tant que le mois dure.
+  Widget _premierMois(ProDa da) {
+    final d = ref.watch(premierMoisProvider).valueOrNull;
+    if (d == null) return const SizedBox.shrink();
+    final f = d['fenetre'] is Map ? Map<String, dynamic>.from(d['fenetre'] as Map) : const <String, dynamic>{};
+    final faites = (d['faites'] as num?)?.round() ?? 0;
+    final total = (d['total'] as num?)?.round() ?? 0;
+    if (f['ouverte'] != true || total == 0 || faites >= total) return const SizedBox.shrink();
+    final offerts = (d['jetonsOfferts'] as num?)?.round() ?? 0;
+    final restants = (f['joursRestants'] as num?)?.round() ?? 0;
+    final prochaine = d['prochaine'] is Map ? '${(d['prochaine'] as Map)['titre']}' : '';
+    return InkWell(
+      onTap: () => context.push(premierMoisRoute),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        color: const Color(0xFF171B1E),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Premier mois · $faites sur $total', style: da.text(15, weight: FontWeight.w700, color: Colors.white)),
+          Text('$offerts jeton${offerts > 1 ? 's' : ''} offert${offerts > 1 ? 's' : ''} sur ${d['jetonsTotal']} · il reste $restants jour${restants > 1 ? 's' : ''}', style: da.text(12, color: const Color(0xFFC4C7CC))),
+          if (prochaine.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Prochaine étape : $prochaine', style: da.text(13, weight: FontWeight.w600, color: Colors.white))),
+        ]),
+      ),
     );
   }
 

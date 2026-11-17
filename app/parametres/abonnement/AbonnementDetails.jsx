@@ -47,7 +47,7 @@ export function AbonnementDetails({ plan }) {
           <div className="row" key={x.numero}><div className="t"><strong>{x.numero}</strong><small>{dateCourte(x.le)} · {x.libelle}{x.payee ? "" : " · à payer"}</small></div><b>{euros(x.ttc)}</b>{x.pdf ? <a className="link" href={x.pdf} target="_blank" rel="noreferrer">PDF</a> : null}</div>
         ))}
         {(f?.jetons || []).map((x) => (
-          <div className="row" key={x.id}><div className="t"><strong>{x.quantite} jetons</strong><small>{dateCourte(x.le)} · achat de jetons</small></div><b>{euros(x.ttc)}</b>{x.recu ? <a className="link" href={x.recu} target="_blank" rel="noreferrer">Reçu</a> : null}</div>
+          <div className="row" key={x.id}><div className="t"><strong>{x.quantite} jetons</strong><small>{dateCourte(x.le)} · {x.offert ? "offerts · premier mois" : "achat de jetons"}</small></div><b>{euros(x.ttc)}</b>{x.recu ? <a className="link" href={x.recu} target="_blank" rel="noreferrer">Reçu</a> : null}</div>
         ))}
       </section>
     </>
