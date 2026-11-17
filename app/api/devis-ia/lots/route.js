@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { badRequest, ok } from "../../../../lib/http";
-import { getAuth } from "../../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../../lib/server-auth";
 import { parseAiJson } from "../../../../lib/ai-json";
 import { parsePhoto } from "../../../../lib/ai-photo";
 import { fixText } from "../../../../lib/text";
@@ -32,7 +32,7 @@ function validateLots(parsed) {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const description = fixText(body.description || "");

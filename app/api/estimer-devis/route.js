@@ -1,6 +1,6 @@
 import { badRequest, ok } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
-import { getAuth } from "../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../lib/server-auth";
 import { buildWebUser } from "../../../lib/user-profile";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
@@ -28,7 +28,7 @@ import { fixText } from "../../../lib/text";
 // est appelee sans etre passee par l'ecran de revue.
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const chantierOffreId = String(body.chantierOffreId || "");

@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { getAuth } from "../../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../../lib/server-auth";
 import { getStripe } from "../../../../lib/stripe";
 
 // Onboarding Stripe Connect (comptes Standard) pour recevoir les paiements
@@ -11,7 +11,7 @@ import { getStripe } from "../../../../lib/stripe";
 // Connect dans son Dashboard Stripe avant que stripe.accounts.create ne
 // fonctionne.
 export async function GET(request) {
-  const auth = getAuth(request);
+  const auth = await getVerifiedAuth(request);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const { data: profile, error } = await auth.supabase
@@ -30,7 +30,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   let stripe;

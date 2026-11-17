@@ -2,7 +2,7 @@ import { badRequest, ok } from "../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
-import { getAuth } from "../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../lib/server-auth";
 import { isVerifiedUserAdmin } from "../../../lib/admin-account";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
@@ -224,7 +224,7 @@ function withClientPortalAccess(quote, db) {
 }
 
 export async function GET(request) {
-  const auth = getAuth(request);
+  const auth = await getVerifiedAuth(request);
   const year = new Date().getFullYear();
   if (!auth) return ok({ quotes: [], nextQuoteNumber: `${year}_1049` });
 
@@ -262,7 +262,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const body = await request.json();
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const now = new Date().toISOString();
@@ -342,7 +342,7 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   const body = await request.json();
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
   if (!body.id) return badRequest("Identifiant du devis manquant.");
 

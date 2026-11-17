@@ -1,7 +1,7 @@
 import { ok } from "../../../lib/http";
 import { readDb } from "../../../lib/db";
 import { fixObjectText } from "../../../lib/text";
-import { getAuth } from "../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../lib/server-auth";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 
@@ -13,7 +13,7 @@ import { getSupabaseAdmin } from "../../../lib/supabase";
 // attached to one of its quotes (their portal token).
 
 async function companyCanSeeProject(request, projectId) {
-  const auth = getAuth(request);
+  const auth = await getVerifiedAuth(request);
   if (!auth) return false;
   const { data } = await auth.supabase.from("chantiers").select("id").eq("id", projectId).maybeSingle();
   return Boolean(data);
@@ -46,7 +46,7 @@ export async function GET(request) {
 
   const authorized = projectId
     ? (await companyCanSeeProject(request, projectId)) || (await portalClientCanSeeProject(request, projectId))
-    : Boolean(getAuth(request)); // quoteId-only callers are all internal/company today
+    : Boolean(await getVerifiedAuth(request)); // quoteId-only callers are all internal/company today
   if (!authorized) return ok({ messages: [] });
 
   const db = await readDb();

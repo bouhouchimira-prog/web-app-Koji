@@ -1,9 +1,9 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { getAuth } from "../../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../../lib/server-auth";
 import { getStripe, priceIdFor } from "../../../../lib/stripe";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 
-// Uses getAuth (Supabase Auth session cookie) on purpose: only entreprise
+// Uses getVerifiedAuth (Supabase Auth session cookie) on purpose: only entreprise
 // accounts authenticate that way, so particulier/ouvrier sessions (which use
 // separate cookies, see lib/portal-session.js / lib/worker-session.js) get a
 // clean 401 here instead of being able to trigger a real charge for a plan
@@ -14,7 +14,7 @@ const VALID_PLANS = new Set(["pro", "business"]);
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const interval = VALID_INTERVALS.has(body.interval) ? body.interval : "month";
