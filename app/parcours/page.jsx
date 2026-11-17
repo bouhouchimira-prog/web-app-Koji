@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Shell } from "../../components/Shell";
-import { ProAccountNav } from "../../components/ProAccountNav";
 import { apiGet } from "../../lib/client-api";
 import "./parcours.css";
 
@@ -20,7 +19,6 @@ export default function ParcoursPage() {
   const f = d?.fenetre;
   return (
     <Shell variant="pro">
-      <ProAccountNav current="progression" />
       <div className="pm">
         <div className="head"><div className="stack"><span className="eyebrow">Mon parcours</span><h1>Premier mois : les huit étapes</h1></div></div>
         {erreur ? <p className="err" role="alert">{erreur}</p> : null}
