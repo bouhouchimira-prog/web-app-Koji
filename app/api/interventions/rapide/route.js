@@ -8,6 +8,7 @@ import { buildInvoicePdf, invoiceDocumentFilename } from "../../../../lib/docume
 import { ajouterPaiement } from "../../../../lib/encaissements";
 import { fixText } from "../../../../lib/text";
 import { arriveeVers, etapeDe, lienItineraire, mentionDevis, MENTION_EN_PLUS, messagePrix, MOYENS_PAIEMENT, nettoyerLignes, nomContact, PIECES, prixValides, totalLignes } from "../../../../lib/intervention-rapide";
+import { avecProfil } from "../../../../lib/document-profil.js";
 
 // Intervention rapide (maquette PRO-17.1) : un client appelle directement.
 // GET → prix d'intervention et interventions rapides ; GET ?id= → une
@@ -200,6 +201,7 @@ export async function POST(request) {
     if (!f) return badRequest("Facture introuvable.");
     const to = s(body.to || i.email, 120);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return badRequest("Ajoutez l'e-mail du client pour lui envoyer la facture.");
+    await avecProfil(db, userId);
     const r = await sendInvoiceReminderEmail({
       to, subject: `Facture ${f.invoiceNumber}`,
       message: `Bonjour,\n\nVoici la facture de l'intervention du ${new Date(i.createdAt).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} (${i.probleme || "dépannage"}).${f.status === "Payee" ? " Elle est réglée, merci." : ""}\n\n${nom}`,

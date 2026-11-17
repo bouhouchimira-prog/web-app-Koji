@@ -5,6 +5,7 @@ import { getAuth } from "../../../../../lib/server-auth";
 import { mapQuote } from "../../../../../lib/quote-mapping";
 import { buildAvenantPdf, avenantDocumentFilename } from "../../../../../lib/document-generator";
 import { fixObjectText } from "../../../../../lib/text";
+import { avecProfil } from "../../../../../lib/document-profil.js";
 
 export async function GET(request, context) {
   const { id } = await context.params;
@@ -30,6 +31,7 @@ export async function GET(request, context) {
     .maybeSingle();
   const quote = quoteRow ? fixObjectText(mapQuote(quoteRow)) : null;
 
+  await avecProfil(db, avenant.userId);
   const buffer = buildAvenantPdf({ avenant: fixObjectText(avenant), quote, db });
   const filename = avenantDocumentFilename(avenant);
 

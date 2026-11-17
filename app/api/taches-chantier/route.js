@@ -6,6 +6,7 @@ import { adresseChantier, chantierAMoi, devisDuChantier } from "../../../lib/clo
 import { ligneTache, tachesParLot } from "../../../lib/taches-chantier";
 import { buildFeuilleChantierPdf } from "../../../lib/document-generator";
 import { sanitizeFilename } from "../../../lib/document-generator/shared";
+import { avecProfil } from "../../../lib/document-profil.js";
 
 // « Imprimer la liste » (maquette PRO-02.7) : feuille de chantier en PDF,
 // les tâches par lot avec une case à cocher, pour les compagnons sans
@@ -26,6 +27,7 @@ export async function GET(request) {
     taches: lot.taches.map((t) => ({ label: t.label || "Tâche", ligne: ligneTache(t, aujourdhui), fait: Boolean(t.done) }))
   }));
   const titre = chantier.reference || "Chantier";
+  await avecProfil(db, userId);
   const pdf = buildFeuilleChantierPdf({ chantier: { titre, adresse: adresseChantier(chantier) }, lots, devis, db, userId });
   return new NextResponse(pdf, {
     headers: {

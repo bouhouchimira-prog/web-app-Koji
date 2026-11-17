@@ -474,14 +474,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
           if (s.mentionTva.isNotEmpty) data['mentionTva'] = true;
           if (fin.isNotEmpty && clientType == 'particulier') data['retractation'] = {'jusquau': DateFormat('dd/MM/yyyy').format(DateTime.parse(fin))};
           _devisSigneSurPlace = data;
-          if (s.exemplaireEmail.isNotEmpty) {
-            try {
-              final doc = await DevisPdfService().generate(quoteData: data, logoPath: _logoPath);
-              pdf = base64Encode(await doc.save());
-            } catch (_) {
-              // Sans PDF, l'e-mail part quand même ; le PDF reste à imprimer.
-            }
-          }
+          // Exemplaire du client (PRO-25) : le serveur fait le devis signé au
+          // gabarit du site quand l'app n'envoie pas de PDF (pdf reste vide).
           try {
             final r = await api.signerDevisApp({
               'quoteId': _idDevis,
@@ -683,15 +677,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     } catch (e) {
       return e.toString();
     }
-    var pdf = '';
-    if (c.email) {
-      try {
-        final doc = await DevisPdfService().generate(quoteData: _buildQuoteData(), logoPath: _logoPath);
-        pdf = base64Encode(await doc.save());
-      } catch (e) {
-        return "Le PDF n'a pas pu être préparé : $e";
-      }
-    }
+    // Le PDF joint est fait par le serveur, au gabarit du site (PRO-25).
+    const pdf = '';
     try {
       final r = await ref.read(proKojiWebProvider).envoyerDevisApp({
         'quoteId': _idDevis,
@@ -1446,11 +1433,30 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     return quoteData;
   }
 
+  Future<Uint8List?> _pdfDuSite({bool enregistrer = true}) async {
+    try {
+      if (enregistrer) await _enregistrerAuto();
+      final id = _idDevis;
+      if (id == null) return null;
+      final bytes = await ref.read(kojiProApiProvider).getBytes('/api/quotes/$id/documents', query: {'type': 'devis', 'format': 'pdf'});
+      return bytes.length > 4 ? bytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ── Aperçu PDF : génère le devis (sans enregistrer) et l'ouvre en aperçu ────
   /// Devis signé sur place (PRO-03.7), pour l'imprimer tel que signé.
   Map<String, dynamic>? _devisSigneSurPlace;
 
   Future<void> _previewPdf([Map<String, dynamic>? donnees]) async {
+    // Le PDF du site (gabarit Pro, PRO-25) dès que le devis est enregistré ;
+    // sans réseau ou sans enregistrement possible, la version de l'app.
+    final site = await _pdfDuSite(enregistrer: donnees == null);
+    if (site != null) {
+      await Printing.layoutPdf(onLayout: (_) async => site, name: 'Devis_$_quoteNumber.pdf');
+      return;
+    }
     try {
       final quoteData = donnees ?? _buildQuoteData();
       // Le service charge le logo depuis logoPath si besoin (réseau).

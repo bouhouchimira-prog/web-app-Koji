@@ -3,6 +3,7 @@ import { badRequest } from "../../../../lib/http";
 import { getUserScope, readDb, scopedItems } from "../../../../lib/db";
 import { loadInvoiceContext } from "../../../../lib/invoice-context";
 import { buildInvoicePdf, invoiceDocumentFilename } from "../../../../lib/document-generator";
+import { avecProfil } from "../../../../lib/document-profil.js";
 
 export async function GET(request) {
   const db = await readDb();
@@ -14,6 +15,7 @@ export async function GET(request) {
   if (!invoice) return badRequest("Facture introuvable.", 404);
 
   const { quote, project } = await loadInvoiceContext(invoice);
+  await avecProfil(db, invoice.userId);
   const pdfBuffer = buildInvoicePdf({ invoice, quote, project, db });
   const filename = invoiceDocumentFilename(invoice);
 

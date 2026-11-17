@@ -9,6 +9,7 @@ import { lotsDuDevis } from "../../../lib/planning-chantier";
 import { reservesNonLevees } from "../../../lib/reserves";
 import { TAUX_RETENUE, TYPE_FACTURE_SOLDE, euro, jourDeParis, montantsSolde, plusAns, travauxReceptionnes } from "../../../lib/cloture-chantier";
 import { buildPvReceptionPdf, pvReceptionFilename } from "../../../lib/document-generator";
+import { avecProfil } from "../../../lib/document-profil.js";
 
 // Clôture d'un chantier (maquette PRO-02.4), site et app Koji Pro.
 // GET ?projectId= → { cloture } · GET ?projectId=&pdf=1 → PV de réception.
@@ -73,6 +74,7 @@ export async function GET(request) {
 
   if (!cloture?.pv?.signeLe) return badRequest("Le procès-verbal n'est pas encore signé.", 404);
   const devis = await devisDuChantier(projectId);
+  await avecProfil(db, userId);
   const pdf = buildPvReceptionPdf({
     pv: { ...cloture.pv, signatureClient: await telecharger(cloture.pv.signatureClient), signaturePro: await telecharger(cloture.pv.signaturePro) },
     chantier: { titre: chantier.reference || "Chantier", adresse: [chantier.street, chantier.postal_code, chantier.city].filter(Boolean).join(", ") },

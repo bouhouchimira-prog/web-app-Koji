@@ -10,6 +10,7 @@ import { sendInvoiceReminderEmail } from "../../../lib/mailer";
 import { demanderAvis } from "../../../lib/avis-serveur";
 import { calculerSituation } from "../../../lib/situation-travaux";
 import { computeQuoteItem } from "../../../lib/quote-calculations";
+import { avecProfil } from "../../../lib/document-profil.js";
 
 // Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
 // shared with the mobile app), so this fetches the two via the service_role
@@ -446,6 +447,7 @@ export async function PATCH(request) {
       invoice.clientEmail = to;
       const { quote, project } = await loadInvoiceContext(invoice);
       const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      await avecProfil(db, invoice.userId);
       // Le PDF joint est celui de la facture émise (statut et date d'émission).
       invoice.status = "Emise";
       invoice.issuedAt = now;
@@ -481,6 +483,7 @@ export async function PATCH(request) {
       if (!text) return badRequest("Le message de relance est vide.");
       const { quote, project } = await loadInvoiceContext(invoice);
       const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      await avecProfil(db, invoice.userId);
       const sent = await sendInvoiceReminderEmail({
         to: invoice.clientEmail,
         subject: `${REMINDER_LABELS[level]} : facture ${invoice.invoiceNumber}`,
@@ -533,6 +536,7 @@ export async function PATCH(request) {
     ajout.paiement.resteChantier = resteChantier;
     if (body.recu === true && invoice.clientEmail) {
       const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
+      await avecProfil(db, invoice.userId);
       const resteFacture = resteDu(invoice, credite);
       const sent = await sendInvoiceReminderEmail({
         to: invoice.clientEmail,

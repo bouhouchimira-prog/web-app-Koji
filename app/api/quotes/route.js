@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
 import { nomFichierDevis } from "../../../lib/devis-envoi";
+import { avecProfil } from "../../../lib/document-profil.js";
 
 // Réponses TVA du devis (PRO-03.5) : seulement les valeurs connues.
 function tvaPropre(v) {
@@ -734,6 +735,7 @@ export async function PATCH(request) {
   let exemplaire = null;
   if (surPlace && responseQuote.consentements?.exemplaireEmail && responseQuote.clientEmail) {
     try {
+      await avecProfil(sideDb, responseQuote.userId);
       const pdf = buildQuotePdf({ quote: responseQuote, project: null, db: sideDb });
       const sent = await sendClientMessageEmail({
         to: responseQuote.clientEmail,

@@ -10,6 +10,9 @@ import {
   buildSuppliesWordHtml,
   quoteDocumentFilename
 } from "../../../../../lib/document-generator";
+import { avecProfil } from "../../../../../lib/document-profil.js";
+import { avecLignesApp } from "../../../../../lib/devis-app-lignes.js";
+import { getSupabaseAdmin } from "../../../../../lib/supabase.js";
 import { fixObjectText } from "../../../../../lib/text";
 import { checkTrialGenerateLimit, checkTrialEditLimit, persistTrialPatch } from "../../../../../lib/plan";
 import { buildWebUser } from "../../../../../lib/user-profile";
@@ -42,9 +45,11 @@ export async function GET(request, context) {
     .maybeSingle();
   if (error) return badRequest(`Lecture du devis impossible: ${error.message}`, 500);
   if (!row) return badRequest("Devis introuvable.", 404);
-  const quote = fixObjectText(mapQuote(row));
+  // Devis de l'app : lignes lues dans quote_rooms / quote_tasks (PRO-25).
+  const quote = fixObjectText(await avecLignesApp(getSupabaseAdmin(), mapQuote(row)));
 
   const db = await readDb();
+  await avecProfil(db, auth.userId);
 
   // Masque les coordonnees du client dans le PDF/Word tant que le RDV n'est
   // pas confirme sur l'offre Radar des Chantiers d'origine (12 oct, demande
