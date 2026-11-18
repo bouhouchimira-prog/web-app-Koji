@@ -101,7 +101,13 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
             // quote_messages). ClientMessagesPage (per-devis list) has no
             // confirmed site equivalent at this route; kept but no longer
             // wired here — see the mobile mission report for this call.
-            _page('/client/messages', (_) => const ClientMessagesInboxScreen()),
+            // « ?fil=demande:entreprise » ouvre un fil (notification).
+            _page(
+              '/client/messages',
+              (state) => ClientMessagesInboxScreen(
+                fil: state.uri.queryParameters['fil'],
+              ),
+            ),
             _page(
               '/client/messages/:quoteId',
               (state) => ClientChatScreen(

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
+import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
 
 // Outils communs aux tests de l'app Koji (charte Client) : polices de la
 // charte, cadre téléphone des images de référence, session du site simulée.
@@ -43,6 +44,100 @@ class ApiConnectee extends KojiWebApiClient {
 
   @override
   bool get isLoggedIn => true;
+}
+
+/// Le dépôt du site simulé : données fournies par le test, chaque appel
+/// noté dans [appels] (« nom:argument »), rien ne part sur le réseau.
+class DepotSimule extends MarketplaceRepository {
+  DepotSimule({
+    this.fils = const [],
+    this.notifications = const [],
+    this.profil = const {},
+    this.erreurEnvoi,
+  }) : super(ApiConnectee());
+
+  List<Map<String, dynamic>> fils;
+  List<Map<String, dynamic>> notifications;
+  Map<String, dynamic> profil;
+
+  /// Erreur renvoyée par les envois (messages, profil…), quand donnée.
+  Object? erreurEnvoi;
+
+  final appels = <String>[];
+
+  /// Derniers champs envoyés à /api/client/profile.
+  Map<String, dynamic>? profilEnvoye;
+
+  Future<T> _envoi<T>(String appel, T resultat) async {
+    appels.add(appel);
+    if (erreurEnvoi != null) throw erreurEnvoi!;
+    return resultat;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getClientMessages() async => fils;
+
+  @override
+  Future<List<Map<String, dynamic>>> getNotifications() async => notifications;
+
+  @override
+  Future<Map<String, dynamic>> getClientProfile() async => profil;
+
+  @override
+  Future<void> markNotificationRead(String id) => _envoi('lu:$id', null);
+
+  @override
+  Future<void> markAllNotificationsRead() => _envoi('tout-lu', null);
+
+  @override
+  Future<void> deleteNotification(String id) => _envoi('supprime:$id', null);
+
+  @override
+  Future<Map<String, dynamic>> sendMessage(String offerId,
+          {required String entrepriseUserId, required String message}) =>
+      _envoi('message:$offerId:$entrepriseUserId:$message', {});
+
+  @override
+  Future<Map<String, dynamic>> respondRdv(String offerId,
+          {required String entrepriseUserId,
+          required String respondsToId,
+          required bool accepted}) =>
+      _envoi('rdv:$respondsToId:$accepted', {});
+
+  @override
+  Future<Map<String, dynamic>> grantPhotos(String offerId,
+          {required String entrepriseUserId}) =>
+      _envoi('photos:$offerId:$entrepriseUserId', {});
+
+  @override
+  Future<Map<String, dynamic>> updateClientProfile({
+    Map<String, dynamic>? personal,
+    String? profileKind,
+    Map<String, dynamic>? pro,
+    String? password,
+    String? currentPassword,
+  }) {
+    profilEnvoye = {
+      if (personal != null) 'personal': personal,
+      if (profileKind != null) 'profileKind': profileKind,
+      if (pro != null) 'pro': pro,
+      if (password != null) 'password': password,
+      if (currentPassword != null) 'currentPassword': currentPassword,
+    };
+    return _envoi('profil', profil);
+  }
+
+  @override
+  Future<Uint8List> getAccountExportJson() =>
+      _envoi('export', Uint8List.fromList('{}'.codeUnits));
+
+  @override
+  Future<void> requestAccountDeletion(String reason) =>
+      _envoi('suppression', null);
+
+  @override
+  Future<void> sendSupportReport(String message) =>
+      _envoi('signalement:$message', null);
 }
 
 /// Pas de session du site, et pas de réseau non plus.

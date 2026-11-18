@@ -58,6 +58,16 @@ abstract final class ClIcones {
   static const plus = KojiIcons.plus;
   static const paiements = 'M4 7h16v12H4zM4 11h16';
   static const profil = KojiIcons.profil;
+
+  // Pictogrammes des notifications (`.cnf-ic`) et des lignes de liste.
+  static const cloche = 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4';
+  static const devis = 'M6 3h9l4 4v14H6zM9 12h6M9 16h6';
+  static const document = 'M6 3h9l4 4v14H6zM14 3v5h5';
+  static const calendrier = 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4';
+  static const paiement = 'M3 7h18v11H3zM3 11h18M7 15h3';
+  static const lieu =
+      'M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10zM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z';
+  static const drapeau = 'M5 21V4h11l-1.5 3.5L16 11H5';
 }
 
 /// Bandeau du haut (`.cl-top`) : mot-symbole sable, « Bonjour {nom} », et la
@@ -174,7 +184,8 @@ class _Cloche extends StatelessWidget {
   }
 }
 
-/// Barre avec retour (`.cl-bar`) : « ‹ », titre en serif, sous-titre.
+/// Barre avec retour (`.cl-bar`) : « ‹ », titre en serif, sous-titre. Sans
+/// [onRetour] (racine d'un onglet), pas de « ‹ ».
 class ClBarre extends StatelessWidget {
   const ClBarre({
     super.key,
@@ -185,7 +196,7 @@ class ClBarre extends StatelessWidget {
 
   final String titre;
   final String sousTitre;
-  final VoidCallback onRetour;
+  final VoidCallback? onRetour;
 
   @override
   Widget build(BuildContext context) {
@@ -194,25 +205,26 @@ class ClBarre extends StatelessWidget {
       value: SystemUiOverlayStyle.light,
       child: Container(
         color: ClCharte.marine,
-        padding: EdgeInsets.only(top: haut),
+        padding: EdgeInsets.only(top: haut, left: onRetour == null ? 16 : 0),
         child: Row(
           children: [
-            Semantics(
-              container: true,
-              button: true,
-              label: 'Retour',
-              excludeSemantics: true,
-              child: GestureDetector(
-                onTap: onRetour,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-                  child: Text('‹',
-                      style: ClCharte.texte(24,
-                          couleur: ClCharte.blanc, hauteur: 1.1)),
+            if (onRetour != null)
+              Semantics(
+                container: true,
+                button: true,
+                label: 'Retour',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: onRetour,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+                    child: Text('‹',
+                        style: ClCharte.texte(24,
+                            couleur: ClCharte.blanc, hauteur: 1.1)),
+                  ),
                 ),
               ),
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 16, 16, 16),
@@ -245,18 +257,24 @@ class ClBarre extends StatelessWidget {
 
 /// Action principale (`.cl-btn`, une seule par écran) ou secondaire
 /// (`.cw-sec`). Pleine largeur ; inactive quand [onPressed] est nul.
+/// [contour] : action destructrice (`.cl-del`), grande mais jamais pleine.
+/// [compact] : petit bouton posé dans une bulle ou une carte.
 class ClBouton extends StatelessWidget {
   const ClBouton(
     this.label, {
     super.key,
     required this.onPressed,
     this.secondaire = false,
+    this.contour = false,
+    this.compact = false,
     this.charge = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool secondaire;
+  final bool contour;
+  final bool compact;
 
   /// Envoi en cours : le bouton tourne et n'écoute plus.
   final bool charge;
@@ -266,17 +284,24 @@ class ClBouton extends StatelessWidget {
     final actif = onPressed != null && !charge;
     final marine =
         ClCharte.marine.withValues(alpha: onPressed == null ? 0.35 : 1);
-    final encre = secondaire ? marine : ClCharte.blanc;
+    final trait = secondaire || contour;
+    final encre = trait ? marine : ClCharte.blanc;
+    final hauteur = compact ? 36.0 : (secondaire ? 42.0 : 52.0);
+    final taille = compact || secondaire ? 14.0 : 16.0;
     return Semantics(
       button: true,
       enabled: actif,
       child: Material(
-        color: secondaire ? Colors.transparent : marine,
-        shape: secondaire ? Border.all(color: marine) : null,
+        color: contour
+            ? ClCharte.blanc
+            : (secondaire ? Colors.transparent : marine),
+        shape: trait
+            ? Border.all(color: marine, width: contour ? 1.5 : 1)
+            : null,
         child: InkWell(
           onTap: actif ? onPressed : null,
           child: Container(
-            height: secondaire ? 42 : 52,
+            height: hauteur,
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: charge
@@ -291,7 +316,7 @@ class ClBouton extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: ClCharte.texte(secondaire ? 14 : 16,
+                    style: ClCharte.texte(taille,
                         graisse: FontWeight.w600, couleur: encre, hauteur: 1.2),
                   ),
           ),
@@ -605,6 +630,8 @@ class ClChamp extends StatelessWidget {
     this.textInputAction,
     this.onChanged,
     this.onSubmitted,
+    this.masque = false,
+    this.lectureSeule = false,
   });
 
   final String label;
@@ -616,11 +643,19 @@ class ClChamp extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
+  /// Mot de passe : caractères masqués.
+  final bool masque;
+
+  /// Valeur affichée mais non modifiable (cadre gris).
+  final bool lectureSeule;
+
   @override
   Widget build(BuildContext context) {
     OutlineInputBorder cadre(double trait) => OutlineInputBorder(
           borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: ClCharte.marine, width: trait),
+          borderSide: BorderSide(
+              color: lectureSeule ? ClCharte.ligne : ClCharte.marine,
+              width: trait),
         );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,13 +665,16 @@ class ClChamp extends StatelessWidget {
         const SizedBox(height: 4),
         TextField(
           controller: controller,
-          maxLines: maxLines,
+          maxLines: masque ? 1 : maxLines,
+          obscureText: masque,
+          readOnly: lectureSeule,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           cursorColor: ClCharte.marine,
-          style: ClCharte.texte(15),
+          style: ClCharte.texte(15,
+              couleur: lectureSeule ? ClCharte.gris : ClCharte.marine),
           decoration: InputDecoration(
             isDense: true,
             filled: true,
@@ -647,7 +685,7 @@ class ClChamp extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             border: cadre(1),
             enabledBorder: cadre(1),
-            focusedBorder: cadre(2),
+            focusedBorder: cadre(lectureSeule ? 1 : 2),
           ),
         ),
       ],
@@ -701,5 +739,443 @@ class ClCorps extends StatelessWidget {
       );
     }
     return liste;
+  }
+}
+
+/// Garde une largeur de lecture sur grand écran (la coquille y pose déjà
+/// son menu) ; sans effet sur un téléphone.
+class ClLargeur extends StatelessWidget {
+  const ClLargeur({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      if (c.maxWidth <= 760) return child;
+      return Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(width: 720, child: child),
+      );
+    });
+  }
+}
+
+/// Écran de la charte : barre marine (`.cl-bar`), corps, et [bas] collé en
+/// bas de l'écran (champ de saisie, action principale).
+class ClEcran extends StatelessWidget {
+  const ClEcran({
+    super.key,
+    required this.titre,
+    this.sousTitre = '',
+    this.onRetour,
+    required this.corps,
+    this.bas,
+  });
+
+  final String titre;
+  final String sousTitre;
+  final VoidCallback? onRetour;
+  final Widget corps;
+  final Widget? bas;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ClCharte.riz,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClBarre(titre: titre, sousTitre: sousTitre, onRetour: onRetour),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: ClLargeur(child: corps),
+            ),
+          ),
+          if (bas != null)
+            SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+              child: ClLargeur(child: bas!),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ligne de liste (`.cl-row`) : pictogramme facultatif, titre, détail gris,
+/// et à droite « › » quand elle s'ouvre, ou [fin] (coche, valeur…).
+class ClRangee extends StatelessWidget {
+  const ClRangee({
+    super.key,
+    required this.titre,
+    this.detail = '',
+    this.icone,
+    this.fin,
+    this.onTap,
+  });
+
+  final String titre;
+  final String detail;
+  final String? icone;
+  final Widget? fin;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final droite = fin ??
+        (onTap == null
+            ? null
+            : Text('›',
+                style: ClCharte.texte(20, couleur: ClCharte.gris, hauteur: 1)));
+    return Semantics(
+      button: onTap != null,
+      child: Material(
+        color: ClCharte.blanc,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(border: Border.all(color: ClCharte.ligne)),
+            child: Row(
+              children: [
+                if (icone != null) ...[
+                  KojiIcon(icone!, size: 20, color: ClCharte.marine),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titre,
+                          style: ClCharte.texte(14, graisse: FontWeight.w700)),
+                      if (detail.isNotEmpty)
+                        Text(detail,
+                            style: ClCharte.texte(12, couleur: ClCharte.gris)),
+                    ],
+                  ),
+                ),
+                if (droite != null) ...[const SizedBox(width: 12), droite],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Intitulé de section (`.cl-sec`) au-dessus d'un groupe de lignes.
+class ClSection extends StatelessWidget {
+  const ClSection(this.texte, {super.key});
+
+  final String texte;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(texte,
+            style: ClCharte.texte(12,
+                graisse: FontWeight.w600, couleur: ClCharte.gris)),
+      );
+}
+
+/// Lien souligné (`.cl-l`).
+class ClLien extends StatelessWidget {
+  const ClLien(this.texte, {super.key, required this.onTap, this.taille = 13});
+
+  final String texte;
+  final VoidCallback onTap;
+  final double taille;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      link: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            texte,
+            style: ClCharte.texte(taille).copyWith(
+              decoration: TextDecoration.underline,
+              decorationColor: ClCharte.marine,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bulle d'un fil (`.cl-bub`) : reçue (blanche, à gauche) ou envoyée
+/// (marine, à droite), 82 % de la largeur au plus. [note] : heure, en petit.
+class ClBulle extends StatelessWidget {
+  const ClBulle({
+    super.key,
+    required this.texte,
+    this.envoyee = false,
+    this.auteur = '',
+    this.note = '',
+    this.actions,
+  });
+
+  final String texte;
+  final bool envoyee;
+  final String auteur;
+  final String note;
+
+  /// Boutons sous le texte (répondre à un rendez-vous…).
+  final Widget? actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final encre = envoyee ? ClCharte.blanc : ClCharte.marine;
+    return LayoutBuilder(builder: (context, c) {
+      return Align(
+        alignment: envoyee ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: c.maxWidth * 0.82),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: envoyee ? ClCharte.marine : ClCharte.blanc,
+              border: envoyee ? null : Border.all(color: ClCharte.ligne),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (auteur.isNotEmpty) ...[
+                  Text(auteur,
+                      style: ClCharte.texte(12,
+                          graisse: FontWeight.w700, couleur: encre)),
+                  const SizedBox(height: 3),
+                ],
+                Text(texte,
+                    style: ClCharte.texte(14, couleur: encre, hauteur: 1.45)),
+                if (note.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(note,
+                      style: ClCharte.texte(11,
+                          couleur:
+                              envoyee ? ClCharte.clair : ClCharte.gris)),
+                ],
+                if (actions != null) ...[
+                  const SizedBox(height: 8),
+                  actions!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
+
+/// Champ d'écriture d'un fil (`.cl-in`) : cadre marine, bouton d'envoi.
+class ClSaisie extends StatelessWidget {
+  const ClSaisie({
+    super.key,
+    required this.controller,
+    required this.onEnvoyer,
+    this.hint = 'Écrire un message…',
+    this.envoi = false,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onEnvoyer;
+  final String hint;
+
+  /// Envoi en cours : le bouton tourne et n'écoute plus.
+  final bool envoi;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ClCharte.blanc,
+        border: Border.all(color: ClCharte.marine),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              onSubmitted: envoi ? null : (_) => onEnvoyer(),
+              cursorColor: ClCharte.marine,
+              style: ClCharte.texte(14),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                hintText: hint,
+                hintStyle: ClCharte.texte(14, couleur: ClCharte.gris),
+                contentPadding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ),
+          Semantics(
+            container: true,
+            button: true,
+            label: 'Envoyer',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: envoi ? null : onEnvoyer,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: envoi
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: ClCharte.marine),
+                      )
+                    : const KojiIcon(KojiIcons.send,
+                        size: 18, color: ClCharte.marine),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Carré d'un pictogramme de notification (`.cnf-ic`) ; [grand] : celui du
+/// détail, marine.
+class ClPicto extends StatelessWidget {
+  const ClPicto(this.icone, {super.key, this.grand = false});
+
+  final String icone;
+  final bool grand;
+
+  @override
+  Widget build(BuildContext context) {
+    final cote = grand ? 52.0 : 36.0;
+    return Container(
+      width: cote,
+      height: cote,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: grand ? ClCharte.marine : ClCharte.riz,
+        border: Border.all(color: grand ? ClCharte.marine : ClCharte.ligne),
+      ),
+      child: KojiIcon(icone,
+          size: grand ? 24 : 18, color: grand ? ClCharte.riz : ClCharte.marine),
+    );
+  }
+}
+
+/// Intitulé de jour d'une liste (`.cnf-day`) : « Aujourd'hui », « Hier »…
+class ClJour extends StatelessWidget {
+  const ClJour(this.texte, {super.key});
+
+  final String texte;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 6, 2, 8),
+        child: Text(texte,
+            style: ClCharte.texte(12,
+                graisse: FontWeight.w600, couleur: ClCharte.gris)),
+      );
+}
+
+/// Ligne d'une notification (`.cnf-r`) : pictogramme, titre (gras si non
+/// lue), une ligne de détail, l'heure et le point marine des non lues. Les
+/// lignes d'un même jour se touchent : seule la [premiere] a un filet haut.
+class ClLigneNotification extends StatelessWidget {
+  const ClLigneNotification({
+    super.key,
+    required this.icone,
+    required this.titre,
+    this.detail = '',
+    this.heure = '',
+    this.nonLue = false,
+    this.premiere = true,
+    this.onTap,
+  });
+
+  final String icone;
+  final String titre;
+  final String detail;
+  final String heure;
+  final bool nonLue;
+  final bool premiere;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const filet = BorderSide(color: ClCharte.ligne);
+    return Semantics(
+      button: onTap != null,
+      label: nonLue ? 'Non lue' : null,
+      child: Material(
+        color: ClCharte.blanc,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                top: premiere ? filet : BorderSide.none,
+                left: filet,
+                right: filet,
+                bottom: filet,
+              ),
+            ),
+            child: Row(
+              children: [
+                ClPicto(icone),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titre,
+                          style: ClCharte.texte(14,
+                              graisse:
+                                  nonLue ? FontWeight.w700 : FontWeight.w500)),
+                      if (detail.isNotEmpty)
+                        Text(detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: ClCharte.texte(12, couleur: ClCharte.gris)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (heure.isNotEmpty)
+                  Text(heure, style: ClCharte.texte(12, couleur: ClCharte.gris)),
+                if (nonLue) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: ClCharte.marine,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,332 +1,276 @@
 "use client";
 
-import { ClientTopbar } from "../../../components/ClientTopbar";
-import { useEffect, useState } from "react";
-import { useLocale } from "../../../lib/i18n";
+import Link from "next/link";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ClientTopbar, CHARTE_CLIENT } from "../../../components/ClientTopbar";
+import { ClientDonnees, ClientSuppression } from "../../../components/ClientDonnees";
+import { ligneCoordonnees, ligneLogement, nomAffiche } from "../../../lib/profil-client";
+import { CE_QUE_KOJI_ENVOIE, OU_LES_RETROUVER } from "../../../lib/notifications-client";
+import "../cli03.css";
 
-const FIELD_DEFS = [
-  { key: "firstName",  label: "Prénom" },
-  { key: "lastName",   label: "Nom" },
-  { key: "phone",      label: "Téléphone", hint: "Visible uniquement par l'artisan que vous retenez." },
-  { key: "address",    label: "Adresse" },
-  { key: "city",       label: "Ville" },
-  { key: "postalCode", label: "Code postal" },
-];
+// Koji Client · Profil (maquette CLI-03). Ordinateur : la liste à gauche,
+// la rubrique choisie à droite. Téléphone : la liste, puis chaque rubrique
+// en plein écran (/client/profil?rubrique=…). Données : /api/client/profile
+// (session du particulier). « Mon logement » enregistre l'adresse et
+// l'ancienneté déclarée (plus de 2 ans : TVA réduite).
 
-const PRO_FIELD_DEFS = [
-  { key: "raisonSociale", label: "Raison sociale" },
-  { key: "siret", label: "SIRET" },
-];
-
-const ORG_TYPES = ["Entreprise", "Agence d'architecture", "Maître d'œuvre", "Syndic / bailleur", "Autre"];
-const CHANTIERS_PAR_AN = ["1 à 5", "6 à 20", "Plus de 20"];
-
-function getStoredUser() {
+function compteLocal() {
   if (typeof window === "undefined") return null;
   try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
 }
 
-function EyeIcon({ open }) {
-  return open ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-    </svg>
-  ) : (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
+const RUBRIQUES = ["coordonnees", "logement", "langue", "notifications", "donnees", "motdepasse"];
+const TITRES = { coordonnees: "Coordonnées", logement: "Mon logement", langue: "Langue", notifications: "Notifications", donnees: "Mes données", motdepasse: "Mot de passe", suppression: "Supprimer mon compte" };
+
+async function enregistrer(corps) {
+  const r = await fetch("/api/client/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(corps) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || "Impossible d'enregistrer.");
+  return data.user;
+}
+
+function useEnvoi(onUser) {
+  const [etat, setEtat] = useState({ envoi: false, ok: false, erreur: "" });
+  async function lancer(corps) {
+    setEtat({ envoi: true, ok: false, erreur: "" });
+    try {
+      const user = await enregistrer(corps);
+      onUser(user);
+      setEtat({ envoi: false, ok: true, erreur: "" });
+      return true;
+    } catch (e) {
+      setEtat({ envoi: false, ok: false, erreur: e.message });
+      return false;
+    }
+  }
+  return [etat, lancer];
+}
+
+function Retour({ etat }) {
+  if (etat.erreur) return <p className="kc3-err" role="alert">{etat.erreur}</p>;
+  if (etat.ok) return <p className="kc3-ok" role="status">Enregistré.</p>;
+  return null;
+}
+
+function Coordonnees({ user, onUser }) {
+  const [p, setP] = useState({ firstName: user.personal?.firstName || "", lastName: user.personal?.lastName || "", phone: user.personal?.phone || "" });
+  const [etat, lancer] = useEnvoi(onUser);
+  const champ = (cle) => (e) => setP((x) => ({ ...x, [cle]: e.target.value }));
+  return (
+    <form className="kc3-list" onSubmit={(e) => { e.preventDefault(); lancer({ personal: p }); }}>
+      <div className="kc3-duo">
+        <div className="kc-fld"><label htmlFor="kc3-prenom">Prénom</label><input id="kc3-prenom" value={p.firstName} onChange={champ("firstName")} autoComplete="given-name" maxLength={200} /></div>
+        <div className="kc-fld"><label htmlFor="kc3-nom">Nom</label><input id="kc3-nom" value={p.lastName} onChange={champ("lastName")} autoComplete="family-name" maxLength={200} /></div>
+      </div>
+      <div className="kc-fld"><label htmlFor="kc3-tel">Téléphone</label><input id="kc3-tel" type="tel" value={p.phone} onChange={champ("phone")} autoComplete="tel" maxLength={40} /></div>
+      <div className="kc-fld"><label htmlFor="kc3-mail">E-mail</label><input id="kc3-mail" value={user.email || ""} readOnly /></div>
+      <p className="kc-s">Pour changer d'adresse e-mail, écrivez à contact@getkoji.io.</p>
+      <Retour etat={etat} />
+      <button type="submit" className="kc-btn sm" disabled={etat.envoi}>{etat.envoi ? "Enregistrement…" : "Enregistrer"}</button>
+      <p className="kc-n" style={{ marginTop: 2 }}>Votre téléphone n'est transmis qu'à l'entreprise avec laquelle un rendez-vous est confirmé.</p>
+    </form>
   );
 }
 
-function CheckDot({ done }) {
+function Logement({ user, onUser }) {
+  const [p, setP] = useState({ address: user.personal?.address || "", postalCode: user.personal?.postalCode || "", city: user.personal?.city || "" });
+  const [age, setAge] = useState(user.logement?.plusDeDeuxAns ?? null);
+  const [etat, lancer] = useEnvoi(onUser);
+  const champ = (cle) => (e) => setP((x) => ({ ...x, [cle]: e.target.value }));
+  const choix = [[true, "Oui"], [false, "Non, il est neuf"], [null, "Je ne sais pas"]];
   return (
-    <span className="profile-checklist-dot">
-      {done ? (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-      ) : null}
-    </span>
+    <form className="kc3-list" onSubmit={(e) => { e.preventDefault(); lancer({ personal: p, logement: { plusDeDeuxAns: age } }); }}>
+      <div className="kc-fld"><label htmlFor="kc3-adr">Adresse</label><input id="kc3-adr" value={p.address} onChange={champ("address")} autoComplete="street-address" maxLength={200} /></div>
+      <div className="kc3-duo cp">
+        <div className="kc-fld"><label htmlFor="kc3-cp">Code postal</label><input id="kc3-cp" value={p.postalCode} onChange={champ("postalCode")} autoComplete="postal-code" inputMode="numeric" maxLength={10} /></div>
+        <div className="kc-fld"><label htmlFor="kc3-ville">Ville</label><input id="kc3-ville" value={p.city} onChange={champ("city")} autoComplete="address-level2" maxLength={200} /></div>
+      </div>
+      <div className="kc-fld">
+        <label id="kc3-age">Le logement a-t-il plus de 2 ans ?</label>
+        <div className="kc3-choix" role="radiogroup" aria-labelledby="kc3-age">
+          {choix.map(([v, l]) => <button key={l} type="button" role="radio" aria-checked={age === v} className={age === v ? "on" : ""} onClick={() => setAge(v)}>{l}</button>)}
+        </div>
+      </div>
+      <div className="kc-info">Dans un logement achevé depuis plus de 2 ans, la plupart des travaux de rénovation sont à 10 % de TVA au lieu de 20 %. L'entreprise confirme le taux sur son devis.</div>
+      <Retour etat={etat} />
+      <button type="submit" className="kc-btn sm" disabled={etat.envoi}>{etat.envoi ? "Enregistrement…" : "Enregistrer"}</button>
+    </form>
+  );
+}
+
+function MotDePasse({ onUser }) {
+  const [actuel, setActuel] = useState("");
+  const [nouveau, setNouveau] = useState("");
+  const [etat, lancer] = useEnvoi(onUser);
+  async function valider(e) {
+    e.preventDefault();
+    if (await lancer({ password: nouveau.trim(), currentPassword: actuel.trim() || undefined })) { setActuel(""); setNouveau(""); }
+  }
+  return (
+    <form className="kc3-list" onSubmit={valider}>
+      <p className="kc-s">Le mot de passe est facultatif : vous pouvez aussi retrouver votre projet avec un code reçu par e-mail.</p>
+      <div className="kc-fld"><label htmlFor="kc3-mdp1">Mot de passe actuel</label><input id="kc3-mdp1" type="password" value={actuel} onChange={(e) => setActuel(e.target.value)} autoComplete="current-password" /></div>
+      <p className="kc-s">Laissez vide si vous n'en avez jamais choisi.</p>
+      <div className="kc-fld"><label htmlFor="kc3-mdp2">Nouveau mot de passe</label><input id="kc3-mdp2" type="password" value={nouveau} onChange={(e) => setNouveau(e.target.value)} autoComplete="new-password" minLength={8} /></div>
+      <p className="kc-s">8 caractères au moins.</p>
+      <Retour etat={etat} />
+      <button type="submit" className="kc-btn sm" disabled={etat.envoi || nouveau.trim().length < 8}>{etat.envoi ? "Enregistrement…" : "Changer le mot de passe"}</button>
+    </form>
+  );
+}
+
+function Langue() {
+  return (
+    <div className="kc3-list">
+      <div className="kc3-row fixe"><div><strong>Français</strong><small>Koji Client est en français</small></div></div>
+      <p className="kc-p">Les compagnons qui écrivent dans une autre langue peuvent faire traduire leurs messages en français avant de vous les envoyer. En cas de doute, le texte original fait foi : demandez-le à l'entreprise.</p>
+    </div>
+  );
+}
+
+function Notifications() {
+  return (
+    <div className="kc3-list">
+      <p className="kc-p">{CE_QUE_KOJI_ENVOIE}</p>
+      <p className="kc-p">{OU_LES_RETROUVER}</p>
+      <Link className="kc-sec" href="/client/notifications">Voir mes notifications</Link>
+    </div>
+  );
+}
+
+function Profil() {
+  const params = useSearchParams();
+  const demandee = params.get("rubrique") || "";
+  const [etat, setEtat] = useState("chargement"); // chargement | pret | erreur | deconnecte
+  const [user, setUser] = useState(null);
+  const [suppression, setSuppression] = useState(false);
+
+  const charger = useCallback(() => {
+    const local = compteLocal();
+    if (!local?.id) { setEtat("deconnecte"); return; }
+    fetch("/api/client/profile", { credentials: "same-origin" })
+      .then(async (r) => {
+        if (r.status === 401) { setEtat("deconnecte"); return; }
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.user) throw new Error(data.error || "Lecture impossible.");
+        setUser(data.user);
+        setEtat("pret");
+      })
+      .catch(() => setEtat("erreur"));
+  }, []);
+  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => { setSuppression(demandee === "suppression"); }, [demandee]);
+
+  // Profil enregistré : la copie locale (nom affiché dans le bandeau) suit.
+  function majUser(nouveau) {
+    if (!nouveau) return;
+    setUser(nouveau);
+    try {
+      const local = compteLocal() || {};
+      localStorage.setItem("koji-user", JSON.stringify({ ...local, name: nouveau.name, personal: nouveau.personal }));
+    } catch { /* stockage indisponible */ }
+  }
+
+  if (etat === "deconnecte") {
+    return (
+      <div className={`${CHARTE_CLIENT} kc sans-barre`}>
+        <header className={`${CHARTE_CLIENT} kc-bar`} style={{ display: "flex" }}>
+          <div><strong>Profil</strong><small>connexion nécessaire</small></div>
+        </header>
+        <main className="kc-m">
+          <div className="kc-body" style={{ maxWidth: 520 }}>
+            <p className="kc-p">Connectez-vous pour retrouver votre profil.</p>
+            <Link className="kc-btn" href="/login?type=particulier">Se connecter</Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const rubrique = demandee === "suppression" ? "donnees" : RUBRIQUES.includes(demandee) ? demandee : "";
+  const active = rubrique || "coordonnees"; // ordinateur : Coordonnées par défaut
+  const nom = user ? nomAffiche(user) : "";
+  const lignes = user ? [
+    ["coordonnees", "Coordonnées", ligneCoordonnees(user)],
+    ["logement", "Mon logement", ligneLogement(user)],
+    ["langue", "Langue", "français"],
+    ["notifications", "Notifications", "dans Koji · pas encore par e-mail"],
+    ["donnees", "Mes données", "télécharger, supprimer mon compte"],
+    ["motdepasse", "Mot de passe", "facultatif · connexion par code possible"]
+  ] : [];
+
+  const contenu = (cle, tel) => {
+    if (!user) return null;
+    if (cle === "coordonnees") return <Coordonnees user={user} onUser={majUser} />;
+    if (cle === "logement") return <Logement user={user} onUser={majUser} />;
+    if (cle === "langue") return <Langue />;
+    if (cle === "notifications") return <Notifications />;
+    if (cle === "motdepasse") return <MotDePasse onUser={majUser} />;
+    if (cle === "donnees") {
+      return suppression
+        ? <ClientSuppression onGarder={() => (tel ? window.history.back() : setSuppression(false))} />
+        : tel ? <ClientDonnees lienSupprimer="/client/profil?rubrique=suppression" /> : <ClientDonnees onSupprimer={() => setSuppression(true)} />;
+    }
+    return null;
+  };
+
+  const liste = (tel) => (
+    <div className="kc3-list">
+      {lignes.map(([cle, titre, detail]) => (
+        <Link key={cle} href={`/client/profil?rubrique=${cle}`} scroll={false} className={`kc3-row${!tel && cle === active ? " on" : ""}`} aria-current={!tel && cle === active ? "true" : undefined}>
+          <div><strong>{titre}</strong><small>{detail}</small></div><span aria-hidden="true">›</span>
+        </Link>
+      ))}
+    </div>
+  );
+
+  const titreTel = demandee === "suppression" ? TITRES.suppression : rubrique ? TITRES[rubrique] : "Profil";
+  const titrePanneau = active === "donnees" && suppression ? TITRES.suppression : TITRES[active];
+
+  return (
+    <div className={`${CHARTE_CLIENT} kc`}>
+      <ClientTopbar titre={titreTel} sousTitre={nom} backHref={demandee === "suppression" ? "/client/profil?rubrique=donnees" : rubrique ? "/client/profil" : "/client"} />
+      <main className="kc-m">
+        {/* Ordinateur */}
+        <div className="kc-d">
+          <h1 className="kc-h">Profil</h1>
+          {etat === "erreur" ? (
+            <div className="kc-err"><span>Votre profil n'a pas pu être chargé.</span><button type="button" className="kc-sec" onClick={charger}>Réessayer</button></div>
+          ) : etat === "chargement" ? (
+            <p className="kc-vide">Chargement de votre profil…</p>
+          ) : (
+            <div className="kc3-cols">
+              {liste(false)}
+              <section className="kc3-pan" aria-label={titrePanneau}>
+                <h3>{titrePanneau}</h3>
+                {contenu(active, false)}
+              </section>
+            </div>
+          )}
+        </div>
+
+        {/* Téléphone */}
+        <div className="kc-t kc-body">
+          {etat === "erreur" ? (
+            <>
+              <p className="kc-s">Votre profil n'a pas pu être chargé.</p>
+              <button type="button" className="kc-sec" onClick={charger}>Réessayer</button>
+            </>
+          ) : etat === "chargement" ? (
+            <p className="kc-s">Chargement de votre profil…</p>
+          ) : rubrique ? contenu(rubrique, true) : (
+            <>
+              {liste(true)}
+              <p className="kc-s" style={{ marginTop: 6 }}><Link className="kc3-lien" href="/client/parametres">Paramètres</Link> · <Link className="kc3-lien" href="/client/aide">Aide</Link></p>
+            </>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
 
 export default function ClientProfilePage() {
-  const { L } = useLocale();
-  const [user, setUser] = useState(null);
-  const [personal, setPersonal] = useState({});
-  const [profileKind, setProfileKind] = useState("particulier");
-  const [pro, setPro] = useState({});
-  const [saved, setSaved] = useState(false);
-  const [quotes, setQuotes] = useState([]);
-  const [offres, setOffres] = useState([]);
-  const [newPassword, setNewPassword] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteReason, setDeleteReason] = useState("");
-  const [deleteSent, setDeleteSent] = useState(false);
-  const [deleteSending, setDeleteSending] = useState(false);
-
-  useEffect(() => {
-    const stored = getStoredUser();
-    setUser(stored);
-    setPersonal(stored?.personal || {});
-    setProfileKind(stored?.profileKind || "particulier");
-    setPro(stored?.pro || {});
-    if (stored?.email) {
-      fetch("/api/client/quotes").then((r) => r.json()).then((data) => setQuotes(data.quotes || [])).catch(() => {});
-      fetch("/api/chantier-offres").then((r) => r.json()).then((data) => setOffres(data.offres || [])).catch(() => {});
-    }
-  }, []);
-
-  async function saveProfile(event) {
-    event.preventDefault();
-    if (!user?.email) return;
-    setError("");
-    const response = await fetch("/api/client/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        personal,
-        profileKind,
-        pro: profileKind === "professionnel" ? pro : undefined,
-        password: newPassword.trim() || undefined,
-        currentPassword: currentPassword.trim() || undefined
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error || "Impossible d'enregistrer.");
-      return;
-    }
-    if (data.user) {
-      localStorage.setItem("koji-user", JSON.stringify(data.user));
-      setUser(data.user);
-      setNewPassword("");
-      setCurrentPassword("");
-      setShowPassword(false);
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 1800);
-    }
-  }
-
-  async function submitDelete(event) {
-    event.preventDefault();
-    setDeleteSending(true);
-    try {
-      const response = await fetch("/api/account/deletion-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: deleteReason.trim(), accountType: "particulier" })
-      });
-      if (!response.ok) throw new Error();
-      setDeleteSent(true);
-      setDeleteReason("");
-      window.setTimeout(() => setDeleteOpen(false), 1800);
-    } catch {
-      setError("Impossible d'envoyer la demande. Réessayez.");
-    } finally {
-      setDeleteSending(false);
-    }
-  }
-
-  const initial = (personal.firstName || personal.lastName || user?.email || "?")[0].toUpperCase();
-  const fullName = [personal.firstName, personal.lastName].filter(Boolean).join(" ") || user?.email || "";
-
-  const signedQuotes = quotes.filter((q) => q.status === "Signe" || q.signatureStatus === "Signe");
-  const checklist = [
-    { label: "Compte créé", done: true },
-    { label: "Prénom et nom", done: Boolean(personal.firstName && personal.lastName) },
-    { label: "Téléphone", done: Boolean(personal.phone) },
-    { label: "Adresse", done: Boolean(personal.address && personal.city && personal.postalCode) },
-  ];
-  const completion = Math.round((checklist.filter((c) => c.done).length / checklist.length) * 100);
-
-  return (
-    <main className="client-space">
-      <ClientTopbar showBack backHref="/client" />
-
-      <div className="ct-profil-header">
-        <div className="ct-profil-avatar">{initial}</div>
-        <div className="ct-profil-header-info">
-          <strong>{fullName}</strong>
-          <span>{user?.email}</span>
-        </div>
-      </div>
-
-      <div className="fournitures-dashboard-body" style={{ marginTop: 16 }}>
-        <form className="fournitures-main-card" onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div>
-            <p className="ct-profil-section-label">Vous êtes</p>
-            <div className="account-kind-row">
-              <button type="button" className={`account-kind-option${profileKind === "particulier" ? " active" : ""}`} onClick={() => setProfileKind("particulier")}>
-                <span className="account-kind-dot">{profileKind === "particulier" ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : null}</span>
-                <span>
-                  <strong>Particulier</strong>
-                  <small>Je veux faire des travaux chez moi.</small>
-                </span>
-              </button>
-              <button type="button" className={`account-kind-option${profileKind === "professionnel" ? " active" : ""}`} onClick={() => setProfileKind("professionnel")}>
-                <span className="account-kind-dot">{profileKind === "professionnel" ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12.5l4.5 4.5L19 7" /></svg> : null}</span>
-                <span>
-                  <strong>Professionnel</strong>
-                  <small>Entreprise, agence d'architecture, maître d'œuvre… avec plusieurs chantiers.</small>
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <p className="ct-profil-section-label">{L.clientSpace.myInfo}</p>
-            <div className="client-form-grid">
-              <label>
-                {L.clientSpace.identifierLabel}
-                <input value={user?.portalIdentifier || ""} disabled />
-              </label>
-              <label>
-                {L.clientSpace.emailLabel}
-                <input value={user?.email || ""} disabled />
-              </label>
-              {FIELD_DEFS.map(({ key, label, hint }) => (
-                <label key={key}>
-                  {label}
-                  <input
-                    value={personal[key] || ""}
-                    onChange={(e) => setPersonal((prev) => ({ ...prev, [key]: e.target.value }))}
-                  />
-                  {hint ? <small className="ct-profil-field-hint">{hint}</small> : null}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {profileKind === "professionnel" ? (
-            <div>
-              <p className="ct-profil-section-label">Ma structure</p>
-              <div className="client-form-grid">
-                {PRO_FIELD_DEFS.map(({ key, label }) => (
-                  <label key={key}>
-                    {label}
-                    <input value={pro[key] || ""} onChange={(e) => setPro((prev) => ({ ...prev, [key]: e.target.value }))} />
-                  </label>
-                ))}
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <small className="ct-profil-field-hint">Type d'organisation</small>
-                <div className="fournitures-filter-tabs" style={{ marginTop: 6 }}>
-                  {ORG_TYPES.map((type) => (
-                    <button type="button" key={type} className={pro.orgType === type ? "active" : ""} onClick={() => setPro((prev) => ({ ...prev, orgType: type }))}>{type}</button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <small className="ct-profil-field-hint">Chantiers par an</small>
-                <div className="fournitures-filter-tabs" style={{ marginTop: 6 }}>
-                  {CHANTIERS_PAR_AN.map((range) => (
-                    <button type="button" key={range} className={pro.chantiersParAn === range ? "active" : ""} onClick={() => setPro((prev) => ({ ...prev, chantiersParAn: range }))}>{range}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <div>
-            <p className="ct-profil-section-label">Sécurité</p>
-            <div className="client-form-grid">
-              <label>
-                Mot de passe actuel
-                <div className="auth-input-wrap">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={(e) => { setCurrentPassword(e.target.value); setError(""); }}
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <small className="ct-profil-field-hint">Nécessaire uniquement pour changer de mot de passe.</small>
-              </label>
-              <label>
-                {L.clientSpace.newPasswordLabel}
-                <div className="auth-input-wrap">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => { setNewPassword(e.target.value); setError(""); }}
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                  />
-                  <button type="button" className="auth-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label={L.auth.showHide}>
-                    <EyeIcon open={showPassword} />
-                  </button>
-                </div>
-                <small className="ct-profil-field-hint">{L.clientSpace.newPasswordHint}</small>
-              </label>
-            </div>
-          </div>
-
-          {error ? <p className="auth-error">{error}</p> : null}
-          <div>
-            <button className="primary-button" type="submit">{L.clientSpace.saveProfile}</button>
-            {saved && <p className="save-feedback">{L.clientSpace.profileSaved}</p>}
-          </div>
-        </form>
-
-        <div>
-          <div className="fournitures-sidebar-card">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <strong className="title-chip">Profil complété</strong>
-              <strong>{completion}%</strong>
-            </div>
-            <div className="ct-progress-bar"><div style={{ width: `${completion}%` }} /></div>
-            <div style={{ marginTop: 10 }}>
-              {checklist.map((item) => (
-                <div key={item.label} className={`profile-checklist-row${item.done ? "" : " pending"}`}>
-                  <CheckDot done={item.done} />
-                  {item.label}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="fournitures-sidebar-card">
-            <strong className="title-chip">Mes projets</strong>
-            <div className="mini-stat-grid" style={{ marginTop: 10 }}>
-              <div className="mini-stat-box">
-                <small>Offres publiées</small>
-                <strong>{offres.length}</strong>
-              </div>
-              <div className="mini-stat-box">
-                <small>Devis signés</small>
-                <strong>{signedQuotes.length}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="danger-card">
-            <strong>Supprimer mon compte</strong>
-            <p>Votre profil, vos offres et vos échanges seront supprimés définitivement. Cette action est irréversible.</p>
-            <button type="button" className="button secondary profile-link-button" onClick={() => { setDeleteOpen(true); setDeleteSent(false); }}>Supprimer mon compte</button>
-          </div>
-        </div>
-      </div>
-
-      {deleteOpen ? (
-        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setDeleteOpen(false)}>
-          <div className="mini-modal" onClick={(event) => event.stopPropagation()}>
-            <h2>Supprimer mon compte</h2>
-            <p className="muted">Décrivez brièvement la raison (optionnel) — votre demande sera traitée par notre équipe.</p>
-            <form onSubmit={submitDelete} className="settings-report-form">
-              <textarea rows={3} className="profile-textarea" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} autoFocus />
-              {deleteSent ? <p className="profile-message">Demande envoyée.</p> : null}
-              <div>
-                <button type="button" onClick={() => setDeleteOpen(false)}>Annuler</button>
-                <button type="submit" disabled={deleteSending}>Envoyer</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
-    </main>
-  );
+  return <Suspense fallback={null}><Profil /></Suspense>;
 }

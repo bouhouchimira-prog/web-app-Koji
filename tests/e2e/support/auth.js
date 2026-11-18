@@ -31,7 +31,7 @@ async function loginEntreprise(driver, email = config.entreprise.email, password
 // qui se connecte avec ses identifiants OUV sur ce meme formulaire).
 async function loginParticulier(driver, email = config.particulier.email, password = config.particulier.password) {
   await clearSession(driver);
-  await goto(driver, "/login?type=particulier");
+  await goto(driver, "/login?type=particulier&mode=motdepasse");
 
   const identifierInput = await waitClickable(driver, By.css("input[autocomplete='username']"));
   await identifierInput.sendKeys(email);

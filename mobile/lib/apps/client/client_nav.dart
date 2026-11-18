@@ -34,6 +34,18 @@ const clientTabPaths = [
   '/client/profil',
 ];
 
+/// Onglet allumé dans la barre du bas pour [location] : l'onglet lui-même,
+/// ou celui d'où l'on vient (Paramètres et Aide depuis Profil, Notifications
+/// depuis Projets, maquettes CLI-04 et CLI-06). Nul : page plein écran.
+String? clientOngletDe(String location) {
+  if (clientTabPaths.contains(location)) return location;
+  return switch (location) {
+    '/client/parametres' || '/client/aide' => '/client/profil',
+    '/client/notifications' => '/client-home',
+    _ => null,
+  };
+}
+
 /// Menu of the client app (design: "Client — Menu (composant)").
 List<KojiNavGroup> clientNavGroups({int pendingDevis = 0}) => [
       KojiNavGroup(label: 'Principales', items: [

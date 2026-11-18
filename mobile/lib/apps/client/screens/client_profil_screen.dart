@@ -2,24 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:koji/app/account_provider.dart';
 import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/apps/client/client_nav.dart';
-import 'package:koji/apps/client/client_widgets.dart';
-import 'package:koji/design/koji_icons.dart';
-import 'package:koji/design/koji_page.dart';
-import 'package:koji/design/koji_tokens.dart';
-import 'package:koji/design/koji_widgets.dart';
+import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
 
-enum _Kind { particulier, professionnel }
+String _s(dynamic v) => v is String ? v.trim() : '';
 
-/// "Mon profil" (app/client/profil/page.jsx, lu en entier). Remplace
-/// l'ancien écran, qui éditait la table Supabase `users` — les vraies
-/// coordonnées d'un compte particulier (prénom/nom/téléphone/adresse, type
-/// de compte, mot de passe) vivent dans le système cookie de koji-web
-/// (lib/particulier-users.js), pas dans Supabase. Voir le rapport de
-/// mission pour le détail de cet écart.
+/// « 06 •• •• 41 18 » : les deux premiers et les quatre derniers chiffres.
+String masquerTelephone(String tel) {
+  var chiffres = tel.replaceAll(RegExp(r'\D'), '');
+  // +33 6… s'écrit 06…
+  if (chiffres.length == 11 && chiffres.startsWith('33')) {
+    chiffres = '0${chiffres.substring(2)}';
+  }
+  if (chiffres.length < 8) return chiffres.isEmpty ? '' : '•• ••';
+  final fin = chiffres.substring(chiffres.length - 4);
+  return '${chiffres.substring(0, 2)} •• •• ${fin.substring(0, 2)} ${fin.substring(2)}';
+}
+
+/// « s••••@••••.fr » : la première lettre et l'extension.
+String masquerEmail(String email) {
+  final at = email.indexOf('@');
+  if (at < 1) return '';
+  final point = email.lastIndexOf('.');
+  final ext = point > at ? email.substring(point) : '';
+  return '${email[0]}••••@••••$ext';
+}
+
+enum _Vue { liste, coordonnees, logement }
+
+/// « Profil » (maquette CLI-03) : Coordonnées masquées, Mon logement, Mes
+/// données, puis Aide. Les champs viennent du compte du site
+/// (/api/client/profile, lib/particulier-users.js) : prénom, nom, téléphone,
+/// adresse, code postal, ville, mot de passe. Langue et réglages des
+/// notifications n'existent pas encore : leurs lignes sont absentes.
 class ClientProfilScreen extends ConsumerStatefulWidget {
   const ClientProfilScreen({super.key});
 
@@ -28,343 +47,267 @@ class ClientProfilScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientProfilScreenState extends ConsumerState<ClientProfilScreen> {
-  final _firstName = TextEditingController();
-  final _lastName = TextEditingController();
-  final _phone = TextEditingController();
-  final _address = TextEditingController();
-  final _city = TextEditingController();
-  final _postalCode = TextEditingController();
-  final _raisonSociale = TextEditingController();
-  final _siret = TextEditingController();
-  final _currentPassword = TextEditingController();
-  final _newPassword = TextEditingController();
+  final _prenom = TextEditingController();
+  final _nom = TextEditingController();
+  final _telephone = TextEditingController();
+  final _email = TextEditingController();
+  final _adresse = TextEditingController();
+  final _codePostal = TextEditingController();
+  final _ville = TextEditingController();
+  final _motDePasse = TextEditingController();
+  final _nouveauMotDePasse = TextEditingController();
 
-  bool _filled = false;
-  _Kind _kind = _Kind.particulier;
-  bool _saving = false;
-  String? _error;
-  String? _email;
+  _Vue _vue = _Vue.liste;
+  bool _rempli = false;
+  bool _enregistrement = false;
+  String? _erreur;
 
   @override
   void dispose() {
-    _firstName.dispose();
-    _lastName.dispose();
-    _phone.dispose();
-    _address.dispose();
-    _city.dispose();
-    _postalCode.dispose();
-    _raisonSociale.dispose();
-    _siret.dispose();
-    _currentPassword.dispose();
-    _newPassword.dispose();
+    for (final c in [
+      _prenom,
+      _nom,
+      _telephone,
+      _email,
+      _adresse,
+      _codePostal,
+      _ville,
+      _motDePasse,
+      _nouveauMotDePasse,
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  void _fill(Map<String, dynamic> user) {
-    if (_filled) return;
-    _filled = true;
-    _email = user['email'] as String?;
-    final personal = (user['personal'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final pro = (user['pro'] as Map?)?.cast<String, dynamic>() ?? const {};
-    _firstName.text = (personal['firstName'] as String?) ?? '';
-    _lastName.text = (personal['lastName'] as String?) ?? '';
-    _phone.text = (personal['phone'] as String?) ?? '';
-    _address.text = (personal['address'] as String?) ?? '';
-    _city.text = (personal['city'] as String?) ?? '';
-    _postalCode.text = (personal['postalCode'] as String?) ?? '';
-    _raisonSociale.text = (pro['raisonSociale'] as String?) ?? '';
-    _siret.text = (pro['siret'] as String?) ?? '';
-    _kind = user['profileKind'] == 'professionnel'
-        ? _Kind.professionnel
-        : _Kind.particulier;
+  void _remplir(Map<String, dynamic> user) {
+    if (_rempli) return;
+    _rempli = true;
+    final perso = user['personal'] is Map
+        ? (user['personal'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    _email.text = _s(user['email']);
+    _prenom.text = _s(perso['firstName']);
+    _nom.text = _s(perso['lastName']);
+    _telephone.text = _s(perso['phone']);
+    _adresse.text = _s(perso['address']);
+    _codePostal.text = _s(perso['postalCode']);
+    _ville.text = _s(perso['city']);
   }
 
-  Future<void> _save() async {
+  void _ouvrirVue(_Vue vue) => setState(() {
+        _vue = vue;
+        _erreur = null;
+      });
+
+  /// Enregistre les coordonnées et l'adresse ; le type de compte et la
+  /// structure déjà saisis ne sont pas envoyés, donc restent tels quels.
+  Future<void> _enregistrer() async {
+    final nouveau = _nouveauMotDePasse.text.trim();
+    final actuel = _motDePasse.text.trim();
     setState(() {
-      _saving = true;
-      _error = null;
+      _enregistrement = true;
+      _erreur = null;
     });
     try {
       await ref.read(marketplaceRepositoryProvider).updateClientProfile(
-        personal: {
-          'firstName': _firstName.text.trim(),
-          'lastName': _lastName.text.trim(),
-          'phone': _phone.text.trim(),
-          'address': _address.text.trim(),
-          'city': _city.text.trim(),
-          'postalCode': _postalCode.text.trim(),
-        },
-        profileKind: _kind == _Kind.professionnel ? 'professionnel' : 'particulier',
-        pro: _kind == _Kind.professionnel
-            ? {
-                'raisonSociale': _raisonSociale.text.trim(),
-                'siret': _siret.text.trim(),
-              }
-            : null,
-        password: _newPassword.text.trim().isEmpty ? null : _newPassword.text.trim(),
-        currentPassword:
-            _currentPassword.text.trim().isEmpty ? null : _currentPassword.text.trim(),
-      );
-      _newPassword.clear();
-      _currentPassword.clear();
+            personal: {
+              'firstName': _prenom.text.trim(),
+              'lastName': _nom.text.trim(),
+              'phone': _telephone.text.trim(),
+              'address': _adresse.text.trim(),
+              'city': _ville.text.trim(),
+              'postalCode': _codePostal.text.trim(),
+            },
+            password: nouveau.isEmpty ? null : nouveau,
+            currentPassword: actuel.isEmpty ? null : actuel,
+          );
+      _motDePasse.clear();
+      _nouveauMotDePasse.clear();
       ref.invalidate(clientPortalProfileProvider);
       if (!mounted) return;
+      setState(() => _vue = _Vue.liste);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Profil enregistré')));
+          .showSnackBar(const SnackBar(content: Text('Profil enregistré.')));
     } catch (err) {
-      setState(() => _error =
-          err is KojiWebApiException ? err.message : "Impossible d'enregistrer.");
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _confirmDelete() async {
-    final reasonController = TextEditingController();
-    final sent = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer mon compte'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Votre profil, vos offres et vos échanges seront supprimés '
-              'définitivement. Cette action est irréversible.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                  hintText: 'Décrivez brièvement la raison (optionnel)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Envoyer')),
-        ],
-      ),
-    );
-    if (sent != true || !mounted) return;
-    try {
-      await ref
-          .read(marketplaceRepositoryProvider)
-          .requestAccountDeletion(reasonController.text.trim());
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Demande envoyée.')),
-      );
-    } catch (err) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err is KojiWebApiException
+      if (mounted) {
+        setState(() => _erreur = err is KojiWebApiException
             ? err.message
-            : "Impossible d'envoyer la demande. Réessayez."),
-      ));
+            : "Impossible d'enregistrer.");
+      }
+    } finally {
+      if (mounted) setState(() => _enregistrement = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final p = context.koji;
-    final profileAsync = ref.watch(clientPortalProfileProvider);
-    final user = profileAsync.valueOrNull;
-    if (user != null) _fill(user);
+    final connecte = ref.watch(kojiWebApiClientProvider).isLoggedIn;
+    final account = ref.watch(currentAccountProvider).valueOrNull;
+    final AsyncValue<Map<String, dynamic>> async = connecte
+        ? ref.watch(clientPortalProfileProvider)
+        : const AsyncData(<String, dynamic>{});
+    final user = connecte ? async.valueOrNull : null;
+    if (user != null) _remplir(user);
 
-    final steps = [
-      ('Compte créé', true),
-      ('Prénom et nom', _firstName.text.trim().isNotEmpty && _lastName.text.trim().isNotEmpty),
-      ('Téléphone', _phone.text.trim().isNotEmpty),
-      ('Adresse', _address.text.trim().isNotEmpty && _city.text.trim().isNotEmpty),
+    final nomComplet = [_prenom.text.trim(), _nom.text.trim()]
+        .where((p) => p.isNotEmpty)
+        .join(' ');
+    final sousTitre = nomComplet.isNotEmpty
+        ? nomComplet
+        : (user != null ? _s(user['name']) : (account?.displayName ?? ''));
+
+    return PopScope(
+      canPop: _vue == _Vue.liste,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _ouvrirVue(_Vue.liste);
+      },
+      child: switch (_vue) {
+        _Vue.liste => _liste(connecte, async, user, sousTitre),
+        _Vue.coordonnees => _coordonnees(sousTitre),
+        _Vue.logement => _logement(sousTitre),
+      },
+    );
+  }
+
+  Widget _liste(bool connecte, AsyncValue<Map<String, dynamic>> async,
+      Map<String, dynamic>? user, String sousTitre) {
+    final coordonnees = [
+      masquerTelephone(_telephone.text),
+      masquerEmail(_email.text),
+    ].where((p) => p.isNotEmpty).join(' · ');
+    final logement = [
+      _adresse.text.trim(),
+      [_codePostal.text.trim(), _ville.text.trim()]
+          .where((p) => p.isNotEmpty)
+          .join(' '),
+    ].where((p) => p.isNotEmpty).join(', ');
+
+    final blocs = <Widget>[
+      if (!connecte) ...[
+        const ClInfo('Connectez-vous à votre espace Koji pour voir et modifier '
+            'vos coordonnées.'),
+        ClBouton('Se connecter',
+            onPressed: () => context.push('/client/marketplace/login')),
+      ] else if (user == null && async.isLoading)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: ClCharte.marine),
+            ),
+          ),
+        )
+      else if (user == null) ...[
+        Text('Impossible de charger votre profil.',
+            style: ClCharte.texte(14, couleur: ClCharte.gris)),
+        ClBouton('Réessayer',
+            secondaire: true,
+            onPressed: () => ref.invalidate(clientPortalProfileProvider)),
+      ] else ...[
+        ClRangee(
+          titre: 'Coordonnées',
+          detail: coordonnees.isEmpty ? 'à compléter' : coordonnees,
+          onTap: () => _ouvrirVue(_Vue.coordonnees),
+        ),
+        ClRangee(
+          titre: 'Mon logement',
+          detail: logement.isEmpty ? 'adresse à compléter' : logement,
+          onTap: () => _ouvrirVue(_Vue.logement),
+        ),
+      ],
+      ClRangee(
+        titre: 'Mes données',
+        detail: 'télécharger, supprimer mon compte',
+        onTap: () => context.push('/client/parametres'),
+      ),
+      ClRangee(
+        titre: 'Aide',
+        detail: 'questions fréquentes, contacter Koji',
+        onTap: () => context.push('/client/aide'),
+      ),
+      ClBouton('Se déconnecter',
+          secondaire: true,
+          onPressed: () => openClientNav(context, ref, 'deconnexion')),
     ];
-    final completion = steps.where((s) => s.$2).length / steps.length;
 
-    if (profileAsync.isLoading && user == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-    if (profileAsync.hasError) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: Center(
-          child: KojiEmptyState(
-            icon: KojiIcons.alert,
-            title: 'Impossible de charger votre profil',
-            subtitle: '${profileAsync.error}',
-            action: KojiButton(
-              label: 'Réessayer',
-              variant: KojiButtonVariant.secondary,
-              onPressed: () => ref.invalidate(clientPortalProfileProvider),
-            ),
-          ),
-        ),
-      );
-    }
+    return ClEcran(
+      titre: 'Profil',
+      sousTitre: sousTitre,
+      onRetour: () => context.go('/client-home'),
+      corps: ClCorps(
+        onRefresh: connecte
+            ? () async => ref.invalidate(clientPortalProfileProvider)
+            : null,
+        children: blocs,
+      ),
+    );
+  }
 
-    return KojiPage(
-      title: 'Mon profil',
-      subtitle: _email,
-      main: [
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const KojiSectionTitle('Vous êtes'),
-              const SizedBox(height: 10),
-              KojiSegmented<_Kind>(
-                options: const {
-                  _Kind.particulier: 'Particulier',
-                  _Kind.professionnel: 'Professionnel',
-                },
-                value: _kind,
-                onChanged: (k) => setState(() => _kind = k),
-              ),
-              const SizedBox(height: 20),
-              const KojiSectionTitle('Mes informations'),
-              const SizedBox(height: 14),
-              KojiField(label: 'Prénom', controller: _firstName),
-              const SizedBox(height: 12),
-              KojiField(label: 'Nom', controller: _lastName),
-              const SizedBox(height: 12),
-              KojiField(
-                label: 'Téléphone',
-                controller: _phone,
-                keyboardType: TextInputType.phone,
-                helper: "Visible uniquement par l'artisan que vous retenez.",
-              ),
-              const SizedBox(height: 12),
-              KojiField(label: 'Adresse', controller: _address),
-              const SizedBox(height: 12),
-              KojiField(label: 'Ville', controller: _city),
-              const SizedBox(height: 12),
-              KojiField(label: 'Code postal', controller: _postalCode),
-              if (_kind == _Kind.professionnel) ...[
-                const SizedBox(height: 20),
-                const KojiSectionTitle('Ma structure'),
-                const SizedBox(height: 14),
-                KojiField(label: 'Raison sociale', controller: _raisonSociale),
-                const SizedBox(height: 12),
-                KojiField(label: 'SIRET', controller: _siret),
-              ],
-              const SizedBox(height: 20),
-              const KojiSectionTitle('Sécurité'),
-              const SizedBox(height: 14),
-              KojiField(
-                label: 'Mot de passe actuel',
-                controller: _currentPassword,
-                obscure: true,
-                helper: 'Nécessaire uniquement pour changer de mot de passe.',
-              ),
-              const SizedBox(height: 12),
-              KojiField(
-                label: 'Nouveau mot de passe',
-                controller: _newPassword,
-                obscure: true,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: Colors.red)),
-              ],
-              const SizedBox(height: 20),
-              Align(
-                alignment: Alignment.centerRight,
-                child: KojiButton(
-                  label: 'Enregistrer les modifications',
-                  loading: _saving,
-                  onPressed: _save,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-      side: [
-        if (MediaQuery.sizeOf(context).width < KojiBreakpoints.wide)
-          KojiCard(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(
-              children: [
-                for (final (icon, label, route) in const [
-                  (KojiIcons.parametres, 'Paramètres', '/client/parametres'),
-                  (KojiIcons.aide, 'Aide', '/client/aide'),
-                ])
-                  ListTile(
-                    leading: KojiIcon(icon, size: 19, color: p.heading),
-                    title: Text(label,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, color: p.ink)),
-                    trailing: KojiIcon(KojiIcons.chevronRight,
-                        size: 16, color: p.faint),
-                    onTap: () => context.push(route),
-                  ),
-              ],
-            ),
-          ),
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(child: KojiSectionTitle('Profil complété')),
-                  Text(
-                    '${(completion * 100).round()} %',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: p.heading,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              KojiProgressBar(value: completion),
-              const SizedBox(height: 12),
-              for (final (label, done) in steps) KojiCheckLine(label, done: done),
-            ],
-          ),
-        ),
-        KojiCard(
-          color: p.toneBg(KojiTone.coral),
-          borderColor: p.toneFg(KojiTone.coral).withValues(alpha: 0.3),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Supprimer mon compte',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: p.toneFg(KojiTone.coral))),
-              const SizedBox(height: 6),
-              Text(
-                'Votre profil, vos offres et vos échanges seront supprimés '
-                'définitivement. Cette action est irréversible.',
-                style: TextStyle(fontSize: 12.5, color: p.ink, height: 1.4),
-              ),
-              const SizedBox(height: 10),
-              KojiButton(
-                label: 'Supprimer mon compte',
-                variant: KojiButtonVariant.secondary,
-                onPressed: _confirmDelete,
-              ),
-            ],
-          ),
-        ),
-        KojiButton(
-          label: 'Se déconnecter',
-          variant: KojiButtonVariant.secondary,
-          leadingIcon: KojiIcons.deconnexion,
-          expand: true,
-          onPressed: () => openClientNav(context, ref, 'deconnexion'),
-        ),
-      ],
+  Widget _coordonnees(String sousTitre) {
+    return ClEcran(
+      titre: 'Coordonnées',
+      sousTitre: sousTitre,
+      onRetour: () => _ouvrirVue(_Vue.liste),
+      corps: ClCorps(children: [
+        ClChamp(
+            label: 'Prénom',
+            controller: _prenom,
+            textInputAction: TextInputAction.next),
+        ClChamp(
+            label: 'Nom',
+            controller: _nom,
+            textInputAction: TextInputAction.next),
+        ClChamp(
+            label: 'Téléphone',
+            controller: _telephone,
+            keyboardType: TextInputType.phone),
+        ClChamp(label: 'E-mail', controller: _email, lectureSeule: true),
+        const ClSection('Mot de passe'),
+        ClChamp(
+            label: 'Mot de passe actuel', controller: _motDePasse, masque: true),
+        ClChamp(
+            label: 'Nouveau mot de passe',
+            controller: _nouveauMotDePasse,
+            masque: true),
+        Text("Laissez-les vides pour garder votre mot de passe.",
+            style: ClCharte.texte(12, couleur: ClCharte.gris)),
+        if (_erreur != null)
+          Text(_erreur!, style: ClCharte.texte(13, graisse: FontWeight.w600)),
+        ClBouton('Enregistrer',
+            charge: _enregistrement, onPressed: _enregistrer),
+        Text(
+            "Votre téléphone n'est transmis qu'à l'entreprise avec laquelle un "
+            'rendez-vous est confirmé.',
+            style: ClCharte.texte(12, couleur: ClCharte.gris)),
+      ]),
+    );
+  }
+
+  Widget _logement(String sousTitre) {
+    return ClEcran(
+      titre: 'Mon logement',
+      sousTitre: sousTitre,
+      onRetour: () => _ouvrirVue(_Vue.liste),
+      corps: ClCorps(children: [
+        ClChamp(
+            label: 'Adresse',
+            controller: _adresse,
+            textInputAction: TextInputAction.next),
+        ClChamp(
+            label: 'Code postal',
+            controller: _codePostal,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next),
+        ClChamp(label: 'Ville', controller: _ville),
+        if (_erreur != null)
+          Text(_erreur!, style: ClCharte.texte(13, graisse: FontWeight.w600)),
+        ClBouton('Enregistrer',
+            charge: _enregistrement, onPressed: _enregistrer),
+      ]),
     );
   }
 }

@@ -1,196 +1,284 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
-import 'package:koji/design/koji_icons.dart';
-import 'package:koji/design/koji_page.dart';
-import 'package:koji/design/koji_tokens.dart';
-import 'package:koji/design/koji_widgets.dart';
+import 'package:koji/app/koji_web_api_client.dart';
+import 'package:koji/apps/client/client_dates.dart';
+import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
 
-const _typeLabel = {
+String _s(dynamic v) => v is String ? v.trim() : '';
+
+/// Nom de la famille d'une notification, quand le site n'a pas mis de titre.
+const _famille = {
   'radar.message': 'Nouveau message',
-  'radar.expertise_publiee': 'Chantier publié',
   'radar.positionnement': 'Entreprise positionnée',
-  'client.task_started': 'Travaux démarrés',
-  'client.task_to_validate': 'Tâche à valider',
+  'radar.expertise_publiee': 'Demande publiée',
 };
 
-/// "Notifications" (/client/notifications, pas de maquette) — gabarit :
-/// mêmes actions que la cloche du menu sur le site (lire, supprimer), via
-/// /api/notifications (même route que le marquage "lu" de la boîte
-/// Messages).
-class ClientNotificationsScreen extends ConsumerWidget {
-  const ClientNotificationsScreen({super.key});
+String _icone(dynamic type) => switch (type) {
+      'radar.message' => ClIcones.messages,
+      'radar.positionnement' => ClIcones.lieu,
+      'radar.rdv_confirme' => ClIcones.calendrier,
+      'radar.expertise_publiee' => ClIcones.devis,
+      _ => ClIcones.cloche,
+    };
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notificationsAsync = ref.watch(clientNotificationsProvider);
-    final notifications = notificationsAsync.valueOrNull ?? const [];
-    final unread = notifications.where((n) => n['read'] != true).length;
-
-    Future<void> markRead(String id) async {
-      await ref.read(marketplaceRepositoryProvider).markNotificationRead(id);
-      ref.invalidate(clientNotificationsProvider);
-    }
-
-    Future<void> delete(String id) async {
-      await ref.read(marketplaceRepositoryProvider).deleteNotification(id);
-      ref.invalidate(clientNotificationsProvider);
-    }
-
-    return KojiPage(
-      title: 'Notifications',
-      subtitle: unread == 0
-          ? 'Tout est lu.'
-          : '$unread notification${unread > 1 ? 's' : ''} non lue'
-              '${unread > 1 ? 's' : ''}.',
-      appBarOnPhone: true,
-      onRefresh: () async => ref.invalidate(clientNotificationsProvider),
-      actions: [
-        if (unread > 0)
-          KojiButton(
-            label: 'Tout marquer comme lu',
-            variant: KojiButtonVariant.secondary,
-            onPressed: () async {
-              await ref
-                  .read(marketplaceRepositoryProvider)
-                  .markAllNotificationsRead();
-              ref.invalidate(clientNotificationsProvider);
-            },
-          ),
-      ],
-      main: [
-        if (notificationsAsync.isLoading && notifications.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          )
-        else if (notificationsAsync.hasError)
-          KojiCard(
-            child: KojiEmptyState(
-              icon: KojiIcons.alert,
-              title: 'Impossible de charger vos notifications',
-              action: KojiButton(
-                label: 'Réessayer',
-                variant: KojiButtonVariant.secondary,
-                onPressed: () => ref.invalidate(clientNotificationsProvider),
-              ),
-            ),
-          )
-        else if (notifications.isEmpty)
-          const KojiCard(
-            child: KojiEmptyState(
-              icon: KojiIcons.bell,
-              title: 'Aucune notification',
-            ),
-          )
-        else
-          KojiCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final (i, n) in notifications.indexed) ...[
-                  if (i > 0) const Divider(height: 18),
-                  _NotificationRow(
-                    notification: n,
-                    onMarkRead: () => markRead(n['id'] as String),
-                    onDelete: () => delete(n['id'] as String),
-                    onTap: () {
-                      if (n['read'] != true) markRead(n['id'] as String);
-                      final offerId = n['offerId'] as String?;
-                      if (offerId != null) {
-                        context.push('/client/marketplace/$offerId');
-                      }
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-      ],
-    );
-  }
+String _titre(Map<String, dynamic> n) {
+  final titre = _s(n['title']);
+  if (titre.isNotEmpty) return titre;
+  return _famille[n['type']] ?? 'Notification';
 }
 
-class _NotificationRow extends StatelessWidget {
-  const _NotificationRow({
-    required this.notification,
-    required this.onMarkRead,
-    required this.onDelete,
-    required this.onTap,
-  });
+/// L'action réelle d'une notification : ouvrir le fil, les propositions ou
+/// la demande. Nulle quand rien ne s'ouvre.
+(String, String)? _action(Map<String, dynamic> n) {
+  final offerId = _s(n['offerId']);
+  final entreprise = _s(n['entrepriseUserId']);
+  if (n['type'] == 'radar.message' && offerId.isNotEmpty && entreprise.isNotEmpty) {
+    return ('Ouvrir la conversation', _lienFil(offerId, entreprise));
+  }
+  if (n['type'] == 'radar.positionnement' && offerId.isNotEmpty) {
+    return ('Voir les propositions', '/client/projet/${Uri.encodeComponent(offerId)}');
+  }
+  if (offerId.isNotEmpty) {
+    return ('Voir la demande', '/client/marketplace/${Uri.encodeComponent(offerId)}');
+  }
+  return null;
+}
 
-  final Map<String, dynamic> notification;
-  final VoidCallback onMarkRead;
-  final VoidCallback onDelete;
-  final VoidCallback onTap;
+String _lienFil(String offerId, String entreprise) =>
+    '/client/messages?fil=${Uri.encodeQueryComponent('$offerId:$entreprise')}';
+
+/// « Notifications » (maquette CLI-04) : liste par jour, non lue en gras avec
+/// un point marine, « Tout marquer lu » ; le détail donne le fait en serif,
+/// une action marine (la vraie : fil, propositions, demande) et « Écrire à
+/// l'entreprise » quand un fil existe. Données : /api/notifications.
+class ClientNotificationsScreen extends ConsumerStatefulWidget {
+  const ClientNotificationsScreen({super.key, this.maintenant});
+
+  /// Horloge figée des tests.
+  final DateTime? maintenant;
+
+  @override
+  ConsumerState<ClientNotificationsScreen> createState() =>
+      _ClientNotificationsScreenState();
+}
+
+class _ClientNotificationsScreenState
+    extends ConsumerState<ClientNotificationsScreen> {
+  String? _ouverte;
+
+  MarketplaceRepository get _repo => ref.read(marketplaceRepositoryProvider);
+
+  void _retour() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/client-home');
+    }
+  }
+
+  Future<void> _ouvrir(Map<String, dynamic> n) async {
+    setState(() => _ouverte = _s(n['id']));
+    if (n['read'] == true) return;
+    try {
+      await _repo.markNotificationRead(n['id'] as String);
+      ref.invalidate(clientNotificationsProvider);
+    } catch (_) {
+      // Lire n'empêche rien : la notification reste non lue.
+    }
+  }
+
+  Future<void> _toutLire() async {
+    try {
+      await _repo.markAllNotificationsRead();
+    } catch (_) {
+      // L'actualisation montre ce qui a pu être enregistré.
+    }
+    ref.invalidate(clientNotificationsProvider);
+  }
+
+  Future<void> _supprimer(Map<String, dynamic> n) async {
+    try {
+      await _repo.deleteNotification(n['id'] as String);
+      if (mounted) setState(() => _ouverte = null);
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(err is KojiWebApiException
+            ? err.message
+            : 'Impossible de supprimer la notification.'),
+      ));
+    }
+    ref.invalidate(clientNotificationsProvider);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final p = context.koji;
-    final read = notification['read'] == true;
-    final title = (notification['title'] as String?) ??
-        _typeLabel[notification['type']] ??
-        'Notification';
-    final message = (notification['message'] as String?) ?? '';
-    final createdAt = DateTime.tryParse('${notification['createdAt']}');
+    final connecte = ref.watch(kojiWebApiClientProvider).isLoggedIn;
+    final AsyncValue<List<Map<String, dynamic>>> async = connecte
+        ? ref.watch(clientNotificationsProvider)
+        : const AsyncData(<Map<String, dynamic>>[]);
+    final liste = [...(async.valueOrNull ?? const <Map<String, dynamic>>[])]
+      ..sort((a, b) => _s(b['createdAt']).compareTo(_s(a['createdAt'])));
+    Map<String, dynamic>? ouverte;
+    for (final n in liste) {
+      if (_s(n['id']) == _ouverte) ouverte = n;
+    }
+    final maintenant = widget.maintenant ?? DateTime.now();
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
+    return PopScope(
+      canPop: ouverte == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _ouverte = null);
+      },
+      child: ouverte == null
+          ? _liste(async, liste, maintenant)
+          : _detail(ouverte, maintenant),
+    );
+  }
+
+  Widget _liste(AsyncValue<List<Map<String, dynamic>>> async,
+      List<Map<String, dynamic>> liste, DateTime maintenant) {
+    final nonLues = liste.where((n) => n['read'] != true).length;
+    Future<void> actualiser() async =>
+        ref.invalidate(clientNotificationsProvider);
+
+    // Groupes dans l'ordre de la liste (la plus récente d'abord).
+    final groupes = <String, List<Map<String, dynamic>>>{};
+    for (final n in liste) {
+      groupes
+          .putIfAbsent(groupeDuJour(lireDate(n['createdAt']), maintenant),
+              () => [])
+          .add(n);
+    }
+
+    final Widget corps;
+    if (liste.isEmpty && async.isLoading) {
+      corps = const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: ClCharte.marine),
+        ),
+      );
+    } else if (liste.isEmpty && async.hasError) {
+      corps = ClCorps(children: [
+        Text('Impossible de charger vos notifications.',
+            style: ClCharte.texte(14, couleur: ClCharte.gris)),
+        ClBouton('Réessayer', secondaire: true, onPressed: actualiser),
+      ]);
+    } else {
+      corps = ClCorps(onRefresh: actualiser, children: [
+        if (liste.isEmpty)
+          Text('Aucune notification pour le moment.',
+              style: ClCharte.texte(14, couleur: ClCharte.gris))
+        else
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  switch (nonLues) {
+                    0 => 'Tout est lu',
+                    1 => '1 non lue',
+                    _ => '$nonLues non lues',
+                  },
+                  style: ClCharte.texte(13, couleur: ClCharte.gris),
+                ),
+              ),
+              if (nonLues > 0) ClLien('Tout marquer lu', onTap: _toutLire),
+            ],
+          ),
+        for (final MapEntry(key: jour, value: notifs) in groupes.entries)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClJour(jour),
+              for (final (i, n) in notifs.indexed)
+                ClLigneNotification(
+                  icone: _icone(n['type']),
+                  titre: _titre(n),
+                  detail: _s(n['message']),
+                  heure: switch (lireDate(n['createdAt'])) {
+                    final d? => dateDeListe(d, maintenant),
+                    null => '',
+                  },
+                  nonLue: n['read'] != true,
+                  premiere: i == 0,
+                  onTap: () => _ouvrir(n),
+                ),
+            ],
+          ),
+        const ClInfo('Koji vous prévient quand une entreprise vous écrit ou '
+            'se positionne sur votre demande. Jamais de publicité.'),
+      ]);
+    }
+
+    return ClEcran(titre: 'Notifications', onRetour: _retour, corps: corps);
+  }
+
+  Widget _detail(Map<String, dynamic> n, DateTime maintenant) {
+    final action = _action(n);
+    final date = lireDate(n['createdAt']);
+    final entreprise = _s(n['entrepriseName']);
+    final offerId = _s(n['offerId']);
+    final entrepriseUserId = _s(n['entrepriseUserId']);
+
+    // « Écrire à l'entreprise » seulement si un fil existe déjà avec elle.
+    var filExiste = false;
+    if (n['type'] != 'radar.message' &&
+        offerId.isNotEmpty &&
+        entrepriseUserId.isNotEmpty) {
+      final fils = ref.watch(clientMessagesInboxProvider).valueOrNull ?? const [];
+      filExiste = fils.any((f) =>
+          f['offerId'] == offerId && f['entrepriseUserId'] == entrepriseUserId);
+    }
+
+    return ClEcran(
+      titre: _famille[n['type']] ?? 'Notification',
+      sousTitre: [
+        if (entreprise.isNotEmpty) entreprise,
+        if (date != null) horodatage(date, maintenant, aujourdhui: true),
+      ].join(' · '),
+      onRetour: () => setState(() => _ouverte = null),
+      corps: ClCorps(children: [
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(top: 6),
-              decoration: BoxDecoration(
-                color: read ? Colors.transparent : p.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: read ? FontWeight.w600 : FontWeight.w800,
-                      color: p.ink,
-                    ),
-                  ),
-                  if (message.isNotEmpty)
-                    Text(
-                      message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12.5, color: p.muted),
-                    ),
-                  if (createdAt != null)
-                    Text(
-                      DateFormat('d MMM y · HH:mm', 'fr_FR').format(createdAt),
-                      style: TextStyle(fontSize: 11.5, color: p.faint),
-                    ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: KojiIcon(KojiIcons.close, size: 15, color: p.muted),
-              onPressed: onDelete,
-              tooltip: 'Supprimer',
-            ),
+            ClPicto(_icone(n['type']), grand: true),
+            const SizedBox(height: 12),
+            Text(_titre(n), style: ClCharte.titre(22)),
+            if (_s(n['message']).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_s(n['message']),
+                  style: ClCharte.texte(14, hauteur: 1.5)),
+            ],
           ],
         ),
-      ),
+        const SizedBox(height: 4),
+        if (action != null)
+          ClBouton(action.$1, onPressed: () {
+            final (_, lien) = action;
+            if (lien.startsWith('/client/messages')) {
+              context.go(lien);
+            } else {
+              context.push(lien);
+            }
+          }),
+        if (filExiste)
+          ClBouton("Écrire à l'entreprise",
+              secondaire: true,
+              onPressed: () =>
+                  context.go(_lienFil(offerId, entrepriseUserId))),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ClLien('Supprimer cette notification',
+              taille: 12, onTap: () => _supprimer(n)),
+        ),
+      ]),
     );
   }
 }

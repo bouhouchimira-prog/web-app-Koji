@@ -3,6 +3,9 @@ import { publicUser } from "../../../../lib/db";
 import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { hashPassword, verifyHashedPassword } from "../../../../lib/password-hash";
+import { fixText } from "../../../../lib/text";
+
+const CHAMPS_PERSONNELS = ["firstName", "lastName", "phone", "address", "city", "postalCode"];
 
 // Ne touche que les comptes (lib/particulier-users.js, 4 oct) — saute le
 // gros bloc partage koji_web_state, inutile ici.
@@ -24,9 +27,22 @@ export async function PATCH(request) {
   const user = users.find((entry) => entry.id === userId);
   if (!user) return badRequest("Profil client introuvable.", 404);
 
-  const personal = body.personal || {};
+  // Champs du profil seulement, en texte court (CLI-03) : avant, n'importe
+  // quelle clé envoyée était recopiée telle quelle dans le compte.
+  const personal = {};
+  for (const cle of CHAMPS_PERSONNELS) {
+    if (body.personal && typeof body.personal[cle] === "string") personal[cle] = fixText(body.personal[cle]).trim().slice(0, 200);
+  }
   user.accountType = "particulier";
   user.personal = { ...user.personal, ...personal };
+
+  // Mon logement (maquette CLI-03) : plus de 2 ans ou non, déclaré par le
+  // client (taux de TVA réduit). true | false | null (ne sait pas).
+  if (body.logement && typeof body.logement === "object" && "plusDeDeuxAns" in body.logement) {
+    const v = body.logement.plusDeDeuxAns;
+    if (v !== true && v !== false && v !== null) return badRequest("Ancienneté du logement invalide.");
+    user.logement = { ...(user.logement || {}), plusDeDeuxAns: v, majLe: new Date().toISOString() };
+  }
   const fullName = [user.personal.firstName, user.personal.lastName].filter(Boolean).join(" ").trim();
   if (fullName) user.name = fullName;
 

@@ -17,7 +17,8 @@ import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 ///
 /// * Wide screens: navy top band + client side menu on the warm page
 ///   background (design: "Interface client").
-/// * Phones: the main pages ([clientTabPaths]) share the bottom bar of the
+/// * Phones: the main pages ([clientTabPaths], and those opened from them,
+///   see [clientOngletDe]) share the bottom bar of the
 ///   client charter ([ClientBottomBar]); deeper pages (chat, signature…) are
 ///   full screen.
 class ClientShell extends ConsumerWidget {
@@ -41,7 +42,8 @@ class ClientShell extends ConsumerWidget {
     final wide = MediaQuery.sizeOf(context).width >= KojiBreakpoints.wide;
     if (wide) return _webLayout(context, ref);
 
-    if (!clientTabPaths.contains(location)) return child;
+    final onglet = clientOngletDe(location);
+    if (onglet == null) return child;
     final bas = MediaQuery.paddingOf(context).bottom;
     return Stack(
       children: [
@@ -56,7 +58,7 @@ class ClientShell extends ConsumerWidget {
           right: 0,
           bottom: 0,
           child: ClientBottomBar(
-            location: location,
+            location: onglet,
             onSelect: (path) => context.go(path),
             onNouveau: () => ouvrirNouveauProjet(context, ref),
           ),

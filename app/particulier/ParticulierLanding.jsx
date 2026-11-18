@@ -16,7 +16,9 @@ import './landing.css';
 //
 // Page rendue côté serveur, sans JavaScript (référencement).
 
-const DECRIRE = '/login?type=particulier';
+// « Décrire mon projet » : création de l'accès ; « Retrouver mon projet » :
+// code reçu par e-mail (CLI-05).
+const DECRIRE = '/login?type=particulier&mode=inscription';
 const RETROUVER = '/login?type=particulier';
 const ENTREPRISE = '/entreprise';
 const CONTACT = 'mailto:contact@getkoji.io';

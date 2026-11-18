@@ -8,6 +8,7 @@ import { EntrepriseLogin } from "../../components/EntrepriseLogin";
 import { SsoButtons } from "../../components/SsoButtons";
 import { EntrepriseAuthLayout } from "../../components/EntrepriseAuthLayout";
 import { LangSwitcher } from "../../components/LangSwitcher";
+import { RetrouverMonProjet } from "../../components/RetrouverMonProjet";
 import { apiSend } from "../../lib/client-api";
 import { useLocale } from "../../lib/i18n";
 import "../home-pro.css";
@@ -343,8 +344,8 @@ function ParticulierSignup({ L, onBack, sso }) {
 // inscription sur place, sans jamais quitter /login. Porte lui-meme les
 // onglets Connexion/Creer un compte et le badge "Espace particulier" (18
 // oct, nouveau design) puisque c'est lui qui possede l'etat `mode`.
-function KojiPanel({ L, onSwitchProfile, sso }) {
-  const [mode, setMode] = useState("login");
+function KojiPanel({ L, onSwitchProfile, sso, initialMode = "login" }) {
+  const [mode, setMode] = useState(initialMode);
   return (
     <>
       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--grey)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12, display: "inline-block" }}>{L.auth.espaceParticulier}</span>
@@ -379,6 +380,9 @@ function KojiPanel({ L, onSwitchProfile, sso }) {
         </button>
       </div>
       {mode === "login" ? <ParticulierLogin L={L} sso={sso} /> : <ParticulierSignup L={L} onBack={() => setMode("login")} sso={sso} />}
+      <p style={{ fontSize: 13, color: "var(--grey)", margin: "20px 0 0" }}>
+        Sans mot de passe : <Link className="link" href="/login?type=particulier">retrouver mon projet avec un code reçu par e-mail</Link>
+      </p>
       {onSwitchProfile ? (
         <SwitchProfileCard label={L.auth.switchToEntrepriseLabel} cta={L.auth.switchToEntrepriseCta} onClick={onSwitchProfile} />
       ) : null}
@@ -411,6 +415,12 @@ function LoginScreen() {
     );
   }
 
+  // Koji Client (maquette CLI-05) : « Retrouver mon projet » par code reçu
+  // par e-mail. La connexion par mot de passe (et Google) et la création de
+  // compte restent là : ?mode=motdepasse, ?mode=inscription.
+  const modeParticulier = params.get("mode");
+  if (modeParticulier !== "motdepasse" && modeParticulier !== "inscription") return <RetrouverMonProjet />;
+
   const sso = <SsoButtons profile={profile} L={L} />;
 
   return (
@@ -442,7 +452,7 @@ function LoginScreen() {
             <LangSwitcher />
           </div>
 
-          <KojiPanel L={L} sso={sso} onSwitchProfile={() => setProfile("entreprise")} />
+          <KojiPanel key={modeParticulier} L={L} sso={sso} initialMode={modeParticulier === "inscription" ? "signup" : "login"} onSwitchProfile={() => setProfile("entreprise")} />
 
           <p style={{
             fontSize: 13,
@@ -452,7 +462,7 @@ function LoginScreen() {
             borderTop: "1px solid var(--line)",
             paddingTop: 24
           }}>
-            Besoin d'aide ? <a href="mailto:entreprise@getkoji.io" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>entreprise@getkoji.io</a>
+            Besoin d'aide ? <a href="mailto:contact@getkoji.io" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>contact@getkoji.io</a>
           </p>
         </div>
       </section>
