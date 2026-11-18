@@ -1386,6 +1386,18 @@
       "theme": "Sécurité",
       "title": "Relecture et contrôle des correctifs de sécurité (18 novembre)",
       "detail": "Les quatre correctifs ont été relus avant leur mise en ligne. Quatre erreurs trouvées et corrigées : un filtre d'adresses qui ne filtrait presque rien, un export réparé sans vérification d'identité, un conflit entre deux lots, une migration qui aurait bloqué la signature dans l'app déjà publiée. Après fusion : 382 tests du site et 228 tests de l'app passent, le site compile."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Back-office : chaque page vérifie l'accès (faille corrigée le 18 novembre)",
+      "detail": "Les pages du back-office construites le 17 novembre ne vérifiaient l'accès qu'à un seul endroit, commun à toutes. Une requête fabriquée à la main, sans connexion, pouvait recevoir le contenu d'une page (noms, adresses e-mail, listes de devis et de demandes). Trouvé le 18 novembre en cherchant pourquoi le journal des accès restait vide, corrigé et mis en ligne dans l'heure : chaque page et chaque lecture de données vérifie maintenant la session. Contrôle en production : les 26 pages renvoient vers la connexion sans aucune donnée. Exposition : du 17 novembre vers 17 h 30 au 18 novembre vers 12 h 20. Les journaux de l'hébergeur ne couvrent que les 12 dernières heures : sur cette période, aucune requête autre que celles de l'administratrice et du contrôle. Les 7 premières heures ne peuvent pas être vérifiées."
+    },
+    {
+      "category": "backend",
+      "theme": "Back-office",
+      "title": "Back-office : l'ouverture d'un devis s'inscrit au journal des accès",
+      "detail": "La page de détail d'un devis lisait le devis avec les droits du compte connecté : la base refusait, la page revenait à la liste et rien n'était inscrit au journal. Elle lit maintenant le devis avec la clé du back-office, après le contrôle d'accès, et inscrit la lecture au journal avec le compte qui l'a faite. Les listes ne préchargent plus les fiches, pour ne pas inscrire des lectures qui n'ont pas eu lieu. Reste à confirmer par une ouverture réelle depuis le back-office."
     }
   ]
 }
