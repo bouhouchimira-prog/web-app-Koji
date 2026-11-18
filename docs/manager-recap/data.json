@@ -1458,6 +1458,12 @@
       "theme": "Koji Client (novembre 2026)",
       "title": "« Retrouver mon projet » : connexion par code reçu par e-mail",
       "detail": "Le particulier peut se connecter sans mot de passe : il saisit son adresse, reçoit un code à 6 chiffres valable 10 minutes, et le saisit. Limites : 5 essais par code, 1 envoi par minute et 5 par heure. Ni l'adresse ni le code ne sont gardés en clair. La réponse est la même, et arrive aussi vite, que l'adresse ait un compte ou non, pour qu'on ne puisse pas deviner qui est client. Le mot de passe reste possible. Correctif au passage : le profil ne renvoie plus au navigateur le jeton « mot de passe oublié »."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "App Koji : page du devis et du chantier, paiements et « Retrouver mon projet »",
+      "detail": "L'app Koji reprend la page du site en quatre onglets (Devis, Chantier, Paiements, Documents) : le particulier lit son devis, le signe au doigt depuis son téléphone, suit le chantier et ouvre ses factures et documents. Un onglet Paiements regroupe tous les chantiers (pas de paiement en ligne). « Retrouver mon projet » permet de se connecter avec un code reçu par e-mail, sans mot de passe. Un chantier connu à la fois de l'app et du site n'apparaît plus qu'une fois. Les liens de signature reçus par e-mail s'ouvrent toujours dans le navigateur."
     }
   ]
 }
