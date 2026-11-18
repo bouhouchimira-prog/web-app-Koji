@@ -61,21 +61,26 @@ void main() {
       );
       await tester.pump();
 
-      // Barre de la charte Client : Projets, Messages, « + », Profil.
+      // Barre de la charte Client : Projets, Messages, « + », Paiements,
+      // Profil (maquette CLI-02).
       expect(find.byType(ClientBottomBar), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
       expect(find.text('Projets'), findsOneWidget);
       expect(find.text('Messages'), findsOneWidget);
       expect(find.text('Profil'), findsOneWidget);
       expect(find.bySemanticsLabel('Nouveau projet'), findsOneWidget);
-      // Devis et Chantiers ont quitté la barre ; Paiements attend son écran.
+      // Devis et Chantiers ont quitté la barre.
       expect(find.text('Accueil'), findsNothing);
       expect(find.text('Devis'), findsNothing);
       expect(find.text('Chantiers'), findsNothing);
-      expect(paiementsPret, isFalse);
-      expect(find.text('Paiements'), findsNothing);
-      expect(clientTabPaths,
-          ['/client-home', '/client/messages', '/client/profil']);
+      expect(paiementsPret, isTrue);
+      expect(find.text('Paiements'), findsOneWidget);
+      expect(clientTabPaths, [
+        '/client-home',
+        '/client/messages',
+        '/client/paiements',
+        '/client/profil',
+      ]);
       expect(tester.takeException(), isNull);
     },
   );

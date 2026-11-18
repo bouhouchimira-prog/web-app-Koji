@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/app/koji_web_api_config.dart';
+import 'package:koji/apps/client/client_chantier_widgets.dart';
 import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 
@@ -37,13 +38,19 @@ class _ClientPropositionsScreenState
     }
   }
 
-  /// Action de la proposition choisie. « signer » ouvre la page du devis
-  /// dans le navigateur ; « rdv » et « voir » mènent au détail de la demande
-  /// (échanges, rendez-vous, paiements).
+  /// Action de la proposition choisie. Un lien `/client/chantier/{id}`
+  /// (« Voir et signer », « Voir le chantier ») ouvre la page du devis dans
+  /// l'app (CLI-02) ; un autre lien de signature, le navigateur ; « rdv » et
+  /// « voir » mènent au détail de la demande (échanges, rendez-vous).
   Future<void> _ouvrir(Map<String, dynamic> proposition) async {
     final action = proposition['action'];
     final type = action is Map ? action['type'] : null;
     final lien = action is Map ? _s(action['lien']) : '';
+    final route = routeAppDuLienSite(lien);
+    if (route != null && route.startsWith('/client/devis/')) {
+      context.push(route);
+      return;
+    }
     if (type == 'signer' && lien.isNotEmpty) {
       final uri = Uri.tryParse(
           lien.startsWith('/') ? '${KojiWebApiConfig.baseUrl}$lien' : lien);

@@ -114,11 +114,49 @@ class KojiWebApiClient {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'identifier': identifier, 'password': password}),
     );
+    return _garderSession(res, 'Connexion impossible.');
+  }
+
+  /// « Retrouver mon projet » (CLI-05), étape 1 : POST
+  /// /api/auth/particulier-code. Le site répond toujours la même chose, que
+  /// l'adresse existe ou non ; seule une panne réseau ou serveur lève une
+  /// erreur.
+  Future<void> demanderCodeParticulier(String email) async {
+    final res = await _http.post(
+      _uri('/api/auth/particulier-code'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    if (res.statusCode >= 400) {
+      throw KojiWebApiException(res.statusCode, 'Erreur serveur (${res.statusCode}).');
+    }
+  }
+
+  /// Étape 2 : POST /api/auth/particulier-code/verifier. Même réponse et même
+  /// cookie `koji_portal_session` que [login], gardés de la même façon.
+  Future<Map<String, dynamic>> connexionParCode({
+    required String email,
+    required String code,
+  }) async {
+    final res = await _http.post(
+      _uri('/api/auth/particulier-code/verifier'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'code': code}),
+    );
+    return _garderSession(res, 'Code incorrect ou expiré.');
+  }
+
+  /// Réponse d'une connexion (mot de passe ou code) : garde le cookie de
+  /// session et le nom du compte, ou lève l'erreur du site.
+  Future<Map<String, dynamic>> _garderSession(
+    http.Response res,
+    String erreurParDefaut,
+  ) async {
     final body = _decodeJson(res.body);
     if (res.statusCode >= 400) {
       throw KojiWebApiException(
         res.statusCode,
-        (body?['error'] as String?) ?? 'Connexion impossible.',
+        (body?['error'] as String?) ?? erreurParDefaut,
       );
     }
     final cookie = _extractCookie(res.headers['set-cookie']);

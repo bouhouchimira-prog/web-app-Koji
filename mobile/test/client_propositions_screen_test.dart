@@ -15,7 +15,7 @@ import 'client_charte_support.dart';
 // ne part sur le réseau. Aucun prix n'est calculé dans l'app.
 
 Map<String, dynamic> _proposition(String id, String nom, String prix,
-        {String note = '', String type = 'rdv', String de = ''}) =>
+        {String note = '', String type = 'rdv', String de = '', String? lien}) =>
     {
       'entrepriseId': id,
       'nom': nom,
@@ -26,18 +26,23 @@ Map<String, dynamic> _proposition(String id, String nom, String prix,
         'type': type,
         'libelle': type == 'signer' ? 'Voir et signer' : 'Prendre rendez-vous',
         'principale': type == 'signer',
-        'lien': '/client/radar/radar-17?entreprise=$id',
+        'lien': lien ?? '/client/radar/radar-17?entreprise=$id',
       },
       'voir': 'Voir la proposition $de',
     };
 
-Map<String, dynamic> _vue({bool vide = false}) => {
+Map<String, dynamic> _vue({bool vide = false, bool aSigner = false}) => {
       'projet': {'id': 'radar-17', 'titre': 'Salle de bain, Paris 10e', 'etat': 'a_choisir'},
       'titre': vide ? 'Aucune proposition' : '3 propositions',
       'propositions': vide
           ? <Map<String, dynamic>>[]
           : [
-              _proposition('u1', 'ABL Expert Renov', '6 034,82 €', type: 'voir', de: "d'ABL Expert Renov"),
+              aSigner
+                  // « Voir et signer » : le lien du site mène toujours à
+                  // /client/chantier/{quoteId} (commit e8691a3).
+                  ? _proposition('u1', 'ABL Expert Renov', '6 034,82 €',
+                      type: 'signer', de: "d'ABL Expert Renov", lien: '/client/chantier/q_41')
+                  : _proposition('u1', 'ABL Expert Renov', '6 034,82 €', type: 'voir', de: "d'ABL Expert Renov"),
               _proposition('u2', 'Rénov Est', '5 650,00 €', note: 'estimation avant visite', de: 'de Rénov Est'),
               _proposition('u3', 'Atelier Bain', 'à venir', de: "d'Atelier Bain"),
             ],
@@ -46,10 +51,10 @@ Map<String, dynamic> _vue({bool vide = false}) => {
           'Les entreprises sont classées par date de réponse, pas par paiement.',
     };
 
-List<Override> _donnees({bool vide = false, bool connecte = true}) => [
+List<Override> _donnees({bool vide = false, bool connecte = true, bool aSigner = false}) => [
       kojiWebApiClientProvider
           .overrideWithValue(connecte ? ApiConnectee() : ApiDeconnectee()),
-      clientPropositionsProvider('radar-17').overrideWith((ref) async => _vue(vide: vide)),
+      clientPropositionsProvider('radar-17').overrideWith((ref) async => _vue(vide: vide, aSigner: aSigner)),
     ];
 
 Widget _avecRouteur(List<Override> overrides) {
@@ -61,7 +66,7 @@ Widget _avecRouteur(List<Override> overrides) {
         path: '/client/projet/:offerId',
         builder: (_, s) => ClientPropositionsScreen(offerId: s.pathParameters['offerId']!),
       ),
-      for (final chemin in ['/client/marketplace/:offerId', '/client/marketplace/login', '/client-home'])
+      for (final chemin in ['/client/marketplace/:offerId', '/client/marketplace/login', '/client-home', '/client/devis/:quoteId'])
         GoRoute(path: chemin, builder: (_, s) => arrivee(s)),
     ],
   );
@@ -109,6 +114,16 @@ void main() {
     await tester.tap(find.text('Voir la proposition de Rénov Est'));
     await tester.pumpAndSettle();
     expect(find.text('→ /client/marketplace/radar-17'), findsOneWidget);
+  });
+
+  testWidgets('« Voir et signer » vers /client/chantier/{id} : la page du devis dans l\'app',
+      (tester) async {
+    cadreTelephone(tester);
+    await tester.pumpWidget(_avecRouteur(_donnees(aSigner: true)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Voir la proposition d'ABL Expert Renov"));
+    await tester.pumpAndSettle();
+    expect(find.text('→ /client/devis/q_41'), findsOneWidget);
   });
 
   testWidgets('aucune proposition : le texte du site, pas de bouton', (tester) async {

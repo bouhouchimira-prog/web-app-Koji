@@ -91,9 +91,14 @@ final proFicheChantierProvider = FutureProvider.autoDispose
 /// ouvrages (« Marquer fait »). Budget, dépenses et suivi des ouvriers
 /// restent dans les outils du chantier (lien en bas).
 class ProFicheChantierScreen extends ConsumerStatefulWidget {
-  const ProFicheChantierScreen({super.key, required this.projectId});
+  const ProFicheChantierScreen(
+      {super.key, required this.projectId, this.aujourdhui});
 
   final String projectId;
+
+  /// Jour de référence (« yyyy-MM-dd ») ; aujourd'hui par défaut. Fixé par
+  /// les tests pour que l'image de référence ne change pas avec la date.
+  final String? aujourdhui;
 
   @override
   ConsumerState<ProFicheChantierScreen> createState() =>
@@ -293,7 +298,8 @@ class _ProFicheChantierScreenState
     final lots = lotsFiche(d.devis, d.taches);
     final resume = resumeFiche(
         devis: d.devis, lots: lots, taches: d.taches, factures: d.factures);
-    final aujourdhui = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final aujourdhui = widget.aujourdhui ??
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
     final aTraiter = aTraiterFiche(
         alertes: d.alertes,
         factures: d.factures,

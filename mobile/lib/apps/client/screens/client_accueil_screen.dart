@@ -38,13 +38,25 @@ class ClientAccueilScreen extends ConsumerWidget {
                 .length ??
             0;
 
-    final chantiers = ClientChantier.group(tasksAsync.valueOrNull ?? const []);
     final donnees = projetsAsync.valueOrNull ?? const <String, dynamic>{};
-    // Les chantiers viennent déjà de l'app : du site, on ne garde que les
-    // demandes et les brouillons, pour ne rien afficher en double.
+    // Un chantier signé sur le site est aussi suivi dans l'app (même
+    // identifiant de chantier) : on garde la carte du site, plus complète.
+    final duSite = ((donnees['projets'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((p) => _s(p['projectId']))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final chantiers = ClientChantier.group(tasksAsync.valueOrNull ?? const [])
+        .where((c) => c.id == null || !duSite.contains(c.id))
+        .toList();
+    // Deux sources distinctes : les chantiers suivis dans l'app (tables
+    // chantiers de Koji Pro, écran /client/chantier/:key) et ce que le site
+    // connaît du compte (devis à signer et chantiers signés, demandes,
+    // brouillons). Les devis du site s'ouvrent sur /client/devis/:quoteId.
     final projets = ((donnees['projets'] as List?) ?? const [])
         .whereType<Map<String, dynamic>>()
-        .where((p) => p['type'] == 'offre' || p['type'] == 'brouillon')
+        .where((p) => const {'chantier', 'offre', 'brouillon'}
+            .contains(p['type']))
         .toList();
 
     final bonjour = _s(donnees['bonjour']);
@@ -143,22 +155,25 @@ class ClientAccueilScreen extends ConsumerWidget {
     );
   }
 
-  /// Demande ou brouillon du site : titre, détail et étiquette tels quels.
+  /// Devis, demande ou brouillon du site : titre, détail et étiquette tels
+  /// quels.
   Widget _carteProjet(BuildContext context, Map<String, dynamic> p) {
     final id = _s(p['id']);
-    final brouillon = p['type'] == 'brouillon';
+    final route = switch (p['type']) {
+      // Le brouillon se reprend dans l'assistant, avec son identifiant.
+      'brouillon' =>
+        '/client/marketplace/new?draftId=${Uri.encodeQueryComponent(id)}',
+      // Devis à signer ou chantier du site : la page CLI-02.
+      'chantier' => '/client/devis/${Uri.encodeComponent(id)}',
+      _ => '/client/projet/${Uri.encodeComponent(id)}',
+    };
     return ClCarteProjet(
       titre: _s(p['titre']),
       detail: _s(p['detail']),
       etiquette: _s(p['etiquette']),
       etiquettePleine: p['etiquettePleine'] != false,
       attenue: p['attenue'] == true,
-      onTap: id.isEmpty
-          ? null
-          : () => context.push(brouillon
-              // Le brouillon se reprend dans l'assistant, avec son identifiant.
-              ? '/client/marketplace/new?draftId=${Uri.encodeQueryComponent(id)}'
-              : '/client/projet/${Uri.encodeComponent(id)}'),
+      onTap: id.isEmpty ? null : () => context.push(route),
     );
   }
 }

@@ -53,12 +53,29 @@ class DepotSimule extends MarketplaceRepository {
     this.fils = const [],
     this.notifications = const [],
     this.profil = const {},
+    this.chantier = const {},
+    this.paiements = const {},
+    this.reponseSignature = const {},
     this.erreurEnvoi,
+    this.erreurLecture,
   }) : super(ApiConnectee());
 
   List<Map<String, dynamic>> fils;
   List<Map<String, dynamic>> notifications;
   Map<String, dynamic> profil;
+
+  /// Réponse de /api/client/chantier/{id} et de /api/client/paiements.
+  Map<String, dynamic> chantier;
+  Map<String, dynamic> paiements;
+
+  /// Réponse de …/signer.
+  Map<String, dynamic> reponseSignature;
+
+  /// Erreur renvoyée par les lectures (chantier, paiements), quand donnée.
+  Object? erreurLecture;
+
+  /// Derniers champs envoyés à …/signer.
+  Map<String, dynamic>? signatureEnvoyee;
 
   /// Erreur renvoyée par les envois (messages, profil…), quand donnée.
   Object? erreurEnvoi;
@@ -138,6 +155,45 @@ class DepotSimule extends MarketplaceRepository {
   @override
   Future<void> sendSupportReport(String message) =>
       _envoi('signalement:$message', null);
+
+  @override
+  Future<Map<String, dynamic>> getChantierClient(String quoteId) async {
+    appels.add('chantier:$quoteId');
+    if (erreurLecture != null) throw erreurLecture!;
+    return chantier;
+  }
+
+  @override
+  Future<Map<String, dynamic>> getPaiementsClient() async {
+    appels.add('paiements');
+    if (erreurLecture != null) throw erreurLecture!;
+    return paiements;
+  }
+
+  @override
+  Future<Map<String, dynamic>> signerDevisClient(
+    String quoteId, {
+    required bool mentionTva,
+    required bool demandeExpresse,
+    required bool consent,
+    required String signature,
+  }) {
+    signatureEnvoyee = {
+      'mentionTva': mentionTva,
+      'demandeExpresse': demandeExpresse,
+      'consent': consent,
+      'signature': signature,
+    };
+    return _envoi('signer:$quoteId', reponseSignature);
+  }
+
+  @override
+  Future<void> signalerChantier({
+    required String quoteId,
+    required String projectId,
+    required String message,
+  }) =>
+      _envoi('alerte:$quoteId:$projectId:$message', null);
 }
 
 /// Pas de session du site, et pas de réseau non plus.

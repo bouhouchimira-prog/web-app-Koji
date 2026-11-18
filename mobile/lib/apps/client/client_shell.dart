@@ -32,6 +32,7 @@ class ClientShell extends ConsumerWidget {
     '/client/devis',
     '/client/chantiers',
     '/client/messages',
+    '/client/paiements',
     '/client/profil',
     '/client/parametres',
     '/client/aide',
@@ -44,27 +45,7 @@ class ClientShell extends ConsumerWidget {
 
     final onglet = clientOngletDe(location);
     if (onglet == null) return child;
-    final bas = MediaQuery.paddingOf(context).bottom;
-    return Stack(
-      children: [
-        Scaffold(
-          body: child,
-          // Place de la barre ; elle est dessinée par-dessus, parce que le
-          // « + » dépasse sur la page.
-          bottomNavigationBar: SizedBox(height: ClientBottomBar.hauteur + bas),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: ClientBottomBar(
-            location: onglet,
-            onSelect: (path) => context.go(path),
-            onNouveau: () => ouvrirNouveauProjet(context, ref),
-          ),
-        ),
-      ],
-    );
+    return ClientPageAvecBarre(onglet: onglet, child: child);
   }
 
   Widget _webLayout(BuildContext context, WidgetRef ref) {
@@ -115,6 +96,45 @@ class ClientShell extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Page de téléphone avec la barre du bas, [onglet] allumé. Sert à la
+/// coquille et aux pages plein écran qui la montrent selon leur état
+/// (page d'un chantier, maquette CLI-02).
+class ClientPageAvecBarre extends ConsumerWidget {
+  const ClientPageAvecBarre({
+    super.key,
+    required this.onglet,
+    required this.child,
+  });
+
+  final String onglet;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bas = MediaQuery.paddingOf(context).bottom;
+    return Stack(
+      children: [
+        Scaffold(
+          body: child,
+          // Place de la barre ; elle est dessinée par-dessus, parce que le
+          // « + » dépasse sur la page.
+          bottomNavigationBar: SizedBox(height: ClientBottomBar.hauteur + bas),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: ClientBottomBar(
+            location: onglet,
+            onSelect: (path) => context.go(path),
+            onNouveau: () => ouvrirNouveauProjet(context, ref),
+          ),
+        ),
+      ],
     );
   }
 }

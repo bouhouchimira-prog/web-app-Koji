@@ -37,7 +37,7 @@ const _taches = [
 Map<String, dynamic> _projets() => {
       'bonjour': 'Mme Lefèvre',
       'projets': [
-        // Les chantiers du site ne sont pas repris : l'app a déjà les siens.
+        // Devis ou chantier du site : ouvre la page CLI-02 de l'app.
         {
           'cle': 'chantier:q_1',
           'type': 'chantier',
@@ -127,6 +127,7 @@ Widget _avecRouteur(List<Override> overrides) {
         '/client/marketplace/new',
         '/client/marketplace/login',
         '/client/chantier/:key',
+        '/client/devis/:quoteId',
         '/client/notifications',
       ])
         GoRoute(path: chemin, builder: (_, s) => arrivee(s)),
@@ -177,12 +178,18 @@ void main() {
 
     // Le bonjour du site passe avant le prénom du compte.
     expect(find.text('Bonjour Mme Lefèvre'), findsOneWidget);
-    expect(find.byType(ClCarteProjet), findsNWidgets(3));
+    expect(find.byType(ClCarteProjet), findsNWidgets(4));
 
     // Chantier de l'app : référence, tâches et état.
     expect(find.text('Rénovation salle de bain'), findsOneWidget);
     expect(find.text('1 / 2 tâches · En cours'), findsOneWidget);
-    expect(tester.widget<ClEtiquette>(find.widgetWithText(ClEtiquette, 'En cours')).pleine, isTrue);
+    expect(
+        tester
+            .widget<ClEtiquette>(find.descendant(
+                of: find.widgetWithText(ClCarteProjet, 'Rénovation salle de bain'),
+                matching: find.byType(ClEtiquette)))
+            .pleine,
+        isTrue);
 
     // Demande : étiquette pleine.
     expect(find.text('Salle de bain, Paris 10e'), findsOneWidget);
@@ -199,10 +206,24 @@ void main() {
       0.75,
     );
 
-    // Les chantiers du site ne font pas doublon avec ceux de l'app.
-    expect(find.text('Chantier du site'), findsNothing);
+    // Le chantier du site (une autre source que ceux de l'app) a sa carte.
+    expect(find.text('Chantier du site'), findsOneWidget);
+    expect(find.text('ABL Expert Renov · chantier en cours · jour 6 sur 18'), findsOneWidget);
     expect(find.text("Vous n'avez pas encore de projet."), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('même chantier dans l’app et sur le site : une seule carte, celle du site',
+      (tester) async {
+    cadreTelephone(tester);
+    final donnees = _projets();
+    (donnees['projets'] as List).first['projectId'] = 'c1';
+    await tester.pumpWidget(_ecran(_donnees(taches: _taches, projets: () async => donnees)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chantier du site'), findsOneWidget);
+    expect(find.text('Rénovation salle de bain'), findsNothing);
+    expect(find.byType(ClCarteProjet), findsNWidgets(3));
   });
 
   testWidgets('sans session du site : le site n\'est pas interrogé, les chantiers restent',
@@ -273,6 +294,7 @@ void main() {
     await ouvrir(find.text('Salle de bain, Paris 10e'), '/client/projet/radar-17');
     await ouvrir(find.text('Peinture du séjour'), '/client/marketplace/new?draftId=radar-draft-9');
     await ouvrir(find.text('Rénovation salle de bain'), '/client/chantier/c1');
+    await ouvrir(find.text('Chantier du site'), '/client/devis/q_1');
     await ouvrir(find.text('Nouveau projet'), '/client/marketplace/new');
     await ouvrir(find.text('Nouveau projet'), '/client/marketplace/login', connecte: false);
     await ouvrir(find.bySemanticsLabel('Notifications, 1 non lue'), '/client/notifications');

@@ -46,6 +46,75 @@ class MarketplaceRepository {
     ) as Map<String, dynamic>;
   }
 
+  // --- Koji Client · signer, suivre, payer (maquette CLI-02) --------------
+  // Gabarit web : app/client/chantier/[id]/page.jsx et lib/chantier-client.js.
+  // Tous les libellés et montants viennent du site, déjà formatés.
+
+  /// Un devis ou chantier du particulier : `devis`, `chantier`, `paiements`,
+  /// `documents`, `contact`… (GET /api/client/chantier/{quoteId}).
+  Future<Map<String, dynamic>> getChantierClient(String quoteId) async {
+    return await _api.get(
+      '/api/client/chantier/${Uri.encodeComponent(quoteId)}',
+    ) as Map<String, dynamic>;
+  }
+
+  /// Signature depuis l'onglet Devis : cases et image PNG (data URL). Renvoie
+  /// `{ ok, exemplaire: { envoye }, vue }`, `vue` ayant la forme du GET.
+  Future<Map<String, dynamic>> signerDevisClient(
+    String quoteId, {
+    required bool mentionTva,
+    required bool demandeExpresse,
+    required bool consent,
+    required String signature,
+  }) async {
+    return await _api.postJson(
+      '/api/client/chantier/${Uri.encodeComponent(quoteId)}/signer',
+      {
+        'mentionTva': mentionTva,
+        'demandeExpresse': demandeExpresse,
+        'consent': consent,
+        'signature': signature,
+      },
+    ) as Map<String, dynamic>;
+  }
+
+  /// « Paiements » de tous les chantiers : `groupes`, `aPayer`, `vide`,
+  /// `note` (GET /api/client/paiements).
+  Future<Map<String, dynamic>> getPaiementsClient() async {
+    return await _api.get('/api/client/paiements') as Map<String, dynamic>;
+  }
+
+  /// Un fichier de l'espace client (devis, facture, PV, décennale), lu avec
+  /// la session. Seuls les chemins /api/client/ du site sont acceptés : la
+  /// session ne part jamais ailleurs.
+  Future<Uint8List> getFichierClient(String chemin) {
+    final uri = Uri.tryParse(chemin);
+    if (uri == null || uri.hasScheme || !uri.path.startsWith('/api/client/')) {
+      throw KojiWebApiException(400, 'Document indisponible.');
+    }
+    return _api.getBytes(uri.path,
+        query: uri.queryParameters.isEmpty ? null : uri.queryParameters);
+  }
+
+  /// « Signaler quelque chose » sur un chantier avant la réception : arrive
+  /// à l'entreprise comme une alerte (POST /api/urgent-alerts, session).
+  Future<void> signalerChantier({
+    required String quoteId,
+    required String projectId,
+    required String message,
+  }) {
+    final nom = _api.accountFirstName;
+    return _api.postJson('/api/urgent-alerts', {
+      'source': 'client',
+      'type': 'autre',
+      'message': message,
+      'quoteId': quoteId,
+      'projectId': projectId,
+      'taskIds': const <String>[],
+      if (nom.isNotEmpty) 'senderName': nom,
+    });
+  }
+
   /// Entreprises that positioned themselves on this offer (read-only here —
   /// accepting/declining a position is a later step of the plan).
   Future<List<Map<String, dynamic>>> getPositions(String offerId) async {

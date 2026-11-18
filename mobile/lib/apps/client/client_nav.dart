@@ -12,16 +12,16 @@ const _routes = {
   'devis': '/client/devis',
   'chantiers': '/client/chantiers',
   'messages': '/client/messages',
+  'paiements': '/client/paiements',
   'marketplace': '/client/marketplace',
   'profil': '/client/profil',
   'parametres': '/client/parametres',
   'aide': '/client/aide',
 };
 
-/// « Paiements » (maquette CLI-02) n'a pas encore d'écran : tant que c'est
-/// faux, l'onglet est masqué et la barre montre Projets, Messages, « + »,
-/// Profil. À passer à vrai avec la route '/client/paiements'.
-const paiementsPret = false;
+/// « Paiements » (maquette CLI-02) : l'onglet de la barre du bas, route
+/// '/client/paiements' (ClientPaiementsScreen). Faux : onglet masqué.
+const paiementsPret = true;
 
 /// Onglets du téléphone, dans l'ordre de la barre du bas (maquette `.cl-tb`) ;
 /// seules ces pages l'affichent. Le « + » central n'est pas un onglet : il
@@ -61,6 +61,9 @@ List<KojiNavGroup> clientNavGroups({int pendingDevis = 0}) => [
             id: 'chantiers', label: 'Mes chantiers', icon: KojiIcons.chantiers),
         const KojiNavItem(
             id: 'messages', label: 'Messages', icon: KojiIcons.messages),
+        if (paiementsPret)
+          const KojiNavItem(
+              id: 'paiements', label: 'Paiements', icon: KojiIcons.euro),
         const KojiNavItem(
             id: 'marketplace',
             label: 'Radar des Chantiers',

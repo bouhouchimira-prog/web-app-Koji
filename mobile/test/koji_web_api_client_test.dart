@@ -140,4 +140,81 @@ void main() {
       expect(seenCookie, 'koji_portal_session=xyz');
     });
   });
+
+  group('« Retrouver mon projet » : code par e-mail', () {
+    test('demanderCodeParticulier poste l\'adresse, sans session', () async {
+      final vus = <http.Request>[];
+      final api = KojiWebApiClient(
+        httpClient: MockClient((request) async {
+          vus.add(request);
+          return http.Response(
+            jsonEncode({'envoye': true, 'message': 'Si cette adresse...'}),
+            200,
+          );
+        }),
+        storage: const FlutterSecureStorage(),
+      );
+      await api.demanderCodeParticulier('sophie@exemple.fr');
+      expect(vus.single.url.path, '/api/auth/particulier-code');
+      expect(jsonDecode(vus.single.body), {'email': 'sophie@exemple.fr'});
+      expect(api.isLoggedIn, isFalse);
+    });
+
+    test('connexionParCode garde le cookie comme la connexion par mot de passe',
+        () async {
+      String? cookieRenvoye;
+      final api = KojiWebApiClient(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/api/auth/particulier-code/verifier') {
+            expect(jsonDecode(request.body),
+                {'email': 'sophie@exemple.fr', 'code': '730512'});
+            return http.Response(
+              jsonEncode({
+                'kind': 'client',
+                'account': {'id': 'u1', 'name': 'Sophie Lefèvre'},
+              }),
+              200,
+              headers: {
+                'set-cookie':
+                    'koji_portal_session=code.jeton; Path=/; HttpOnly; SameSite=Lax',
+              },
+            );
+          }
+          cookieRenvoye = request.headers['Cookie'];
+          return http.Response(jsonEncode({'ok': true}), 200);
+        }),
+        storage: const FlutterSecureStorage(),
+      );
+      final compte =
+          await api.connexionParCode(email: 'sophie@exemple.fr', code: '730512');
+      expect(compte['kind'], 'client');
+      expect(api.isLoggedIn, isTrue);
+      expect(api.accountFirstName, 'Sophie');
+      await api.get('/api/client/paiements');
+      expect(cookieRenvoye, 'koji_portal_session=code.jeton');
+
+      // Gardé aussi d'un lancement à l'autre (même stockage que le mot de passe).
+      final relance = KojiWebApiClient(
+        httpClient: MockClient((_) async => http.Response('{}', 200)),
+        storage: const FlutterSecureStorage(),
+      );
+      await relance.restoreSession();
+      expect(relance.isLoggedIn, isTrue);
+    });
+
+    test('code faux : le message du site, pas de session', () async {
+      final api = KojiWebApiClient(
+        httpClient: MockClient((_) async => http.Response(
+            jsonEncode({'error': 'Code incorrect ou expiré.'}), 401)),
+        storage: const FlutterSecureStorage(),
+      );
+      await api.logout();
+      await expectLater(
+        api.connexionParCode(email: 'a@a.fr', code: '000000'),
+        throwsA(isA<KojiWebApiException>()
+            .having((e) => e.message, 'message', 'Code incorrect ou expiré.')),
+      );
+      expect(api.isLoggedIn, isFalse);
+    });
+  });
 }

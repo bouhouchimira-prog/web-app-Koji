@@ -24,6 +24,18 @@ final clientPropositionsProvider = FutureProvider.autoDispose
   return ref.read(marketplaceRepositoryProvider).getPropositions(offerId);
 });
 
+/// Un devis ou chantier du site (/api/client/chantier/{quoteId}).
+final clientChantierSiteProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, quoteId) {
+  return ref.read(marketplaceRepositoryProvider).getChantierClient(quoteId);
+});
+
+/// « Paiements » de tous les chantiers (/api/client/paiements).
+final clientPaiementsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
+  return ref.read(marketplaceRepositoryProvider).getPaiementsClient();
+});
+
 final marketplaceOfferPositionsProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, offerId) {
   return ref.read(marketplaceRepositoryProvider).getPositions(offerId);
