@@ -8,6 +8,7 @@ import { makeToken } from "../../../lib/db";
 import { sendClientMessageEmail } from "../../../lib/mailer";
 import { buildAvenantPdf, avenantDocumentFilename } from "../../../lib/document-generator";
 import { numeroCourt } from "../../../lib/avenant-koji";
+import { avecProfil } from "../../../lib/document-profil.js";
 
 // Avenants (contract amendments) attach to an already-SIGNED devis and carry
 // only the delta — see lib/avenant-mapping.js for the numbering/totals
@@ -167,6 +168,7 @@ export async function PATCH(request) {
         const supabase = getSupabaseAdmin();
         const { data: quoteRow } = await supabase.from("quotes").select("*").eq("id", avenant.quoteId).maybeSingle();
         const quote = quoteRow ? fixObjectText(mapQuote(quoteRow)) : null;
+        await avecProfil(db, avenant.userId);
         const pdf = buildAvenantPdf({ avenant: fixObjectText(avenant), quote, db });
         const r = await sendClientMessageEmail({
           to: avenant.clientEmail,

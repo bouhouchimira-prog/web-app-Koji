@@ -1,0 +1,38 @@
+/* Aide et support (maquette PRO-22). */
+.pro.ai{display:flex;flex-direction:column;gap:18px}
+.pro.ai .head{margin-bottom:0}
+.pro .ai-k{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;background:#171B1E;color:#FFFFFF;padding:16px 18px;border-radius:2px}
+.pro .ai-k label b{display:block;font-size:16px;margin-bottom:6px}
+.pro .ai-k input{width:100%;height:42px;border:0;border-radius:2px;padding:0 12px;font:inherit;font-size:14px}
+.pro .ai-s{width:44px;height:44px;display:grid;place-items:center}
+.pro .ai-s svg{width:26px;height:26px;fill:#FFC400}
+.pro .ai-k .btn-main{height:42px}
+.pro .ai-g{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.pro .ai-themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.pro .ai-t{display:flex;flex-direction:column;gap:4px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;margin:0;min-height:120px}
+.pro .ai-t b{font-size:16px}
+.pro .ai-t small{font-size:13px;color:var(--grey)}
+.pro .ai-t .link{margin-top:auto;align-self:flex-start;font-size:12px}
+.pro .ai-t.on{box-shadow:inset 0 0 0 2px var(--ink)}
+.pro .ai-side{display:flex;flex-direction:column;gap:14px}
+.pro .ai-side textarea{width:100%;min-height:96px;border:1px solid #D9D9D4;border-radius:2px;padding:8px 10px;font:inherit;margin:8px 0}
+.pro .ai-c{display:flex;flex-direction:column;padding:8px 0;border-bottom:1px solid var(--line)}
+.pro .ai-c small{font-size:12px;color:var(--grey)}
+.pro .ai-side .btn-main{margin-top:10px;width:100%;justify-content:center}
+.pro .ai-ok{font-size:13px;border-left:3px solid var(--ink);padding:6px 10px}
+.pro .ai-e{display:flex;align-items:center;gap:8px;font-weight:700;margin:0 0 6px}
+.pro .ai-e i{width:10px;height:10px;border-radius:50%;background:#2F6B3A}
+.pro .ai-e.ko i{background:#B86E00}
+.pro .ai-gd .ai-q{border-bottom:1px solid var(--line);padding:10px 0}
+.pro .ai-gd summary{cursor:pointer;font-weight:600}
+.pro .ai-gd p{margin:6px 0 0;font-size:14px;line-height:1.55;color:#3A3E44}
+@media (max-width:980px){
+  .pro .ai-g{grid-template-columns:1fr}
+  .pro .ai-themes{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:560px){
+  .pro .ai-k{grid-template-columns:1fr}
+  .pro .ai-s{display:none}
+  .pro .ai-themes{grid-template-columns:1fr}
+  .pro .ai-t{min-height:0}
+}

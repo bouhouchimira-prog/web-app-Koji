@@ -10,17 +10,20 @@ import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/radar/pro_radar_screens.dart' show ouvrirFicheRadar, ouvrirMesPositions;
 import 'package:koji/apps/entreprise/pro_home/chiffres_du_mois.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
+import 'package:koji/features/intervention_rapide/intervention_rapide.dart' show nouvelleInterventionRoute;
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
 import 'package:koji/apps/entreprise/pro_home/radar_carte.dart';
 import 'package:koji/design/koji_widgets.dart' show kojiEuro;
 import 'package:koji/features/auth/repository/auth_repository.dart';
-import 'package:koji/features/home/notifications/providers/notification_provider.dart';
 import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart'
     show userQuotesProvider;
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
+import 'package:koji/features/compte/compte_pro.dart' show compteProvider;
+import 'package:koji/features/compte/premier_mois_pro.dart' show premierMoisProvider, premierMoisRoute;
+import 'package:koji/features/notifications_pro/notifications_pro.dart' show nonLuesCentreProvider;
 import 'package:koji/features/synchronization/data/scheduled_task_repository.dart';
 
 /// Koji Pro home in the new DA (mockups PRO-01 and PRO-01.2). Real data only:
@@ -545,6 +548,17 @@ class _ProHomeState extends ConsumerState<ProHome> {
               expand: true,
               onPressed: _devisGuide,
             ),
+            const SizedBox(height: 8),
+            // PRO-17.1 : un client appelle, intervention en un geste.
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(nouvelleInterventionRoute),
+                icon: const Icon(Icons.bolt, size: 18),
+                label: const Text('Nouvelle intervention'),
+              ),
+            ),
             if (brouillon != null) ...[
               const SizedBox(height: 10),
               _lienBrouillon(da, brouillon),
@@ -628,12 +642,25 @@ class _ProHomeState extends ConsumerState<ProHome> {
                   const SizedBox(height: 4),
                   Text(eyebrow, style: da.text(12, color: da.grey)),
                   const SizedBox(height: 10),
+                  _premierMois(da),
+                  _pourCommencer(da),
                   ProPrimaryButton(
                     label: 'Démarrer un devis guidé',
                     icon: Icons.add,
                     height: 46,
                     expand: true,
                     onPressed: _devisGuide,
+                  ),
+                  const SizedBox(height: 8),
+                  // PRO-17.1 : un client appelle, intervention en un geste.
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.push(nouvelleInterventionRoute),
+                      icon: const Icon(Icons.bolt, size: 18),
+                      label: const Text('Nouvelle intervention'),
+                    ),
                   ),
                   if (brouillon != null) ...[
                     const SizedBox(height: 10),
@@ -654,10 +681,71 @@ class _ProHomeState extends ConsumerState<ProHome> {
     );
   }
 
+  /// Premier mois (PRO-26, version 1) : une ligne tant que le mois dure.
+  Widget _premierMois(ProDa da) {
+    final d = ref.watch(premierMoisProvider).valueOrNull;
+    if (d == null) return const SizedBox.shrink();
+    final f = d['fenetre'] is Map ? Map<String, dynamic>.from(d['fenetre'] as Map) : const <String, dynamic>{};
+    final faites = (d['faites'] as num?)?.round() ?? 0;
+    final total = (d['total'] as num?)?.round() ?? 0;
+    if (f['ouverte'] != true || total == 0 || faites >= total) return const SizedBox.shrink();
+    final offerts = (d['jetonsOfferts'] as num?)?.round() ?? 0;
+    final restants = (f['joursRestants'] as num?)?.round() ?? 0;
+    final prochaine = d['prochaine'] is Map ? '${(d['prochaine'] as Map)['titre']}' : '';
+    return InkWell(
+      onTap: () => context.push(premierMoisRoute),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        color: const Color(0xFF171B1E),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Premier mois · $faites sur $total', style: da.text(15, weight: FontWeight.w700, color: Colors.white)),
+          Text('$offerts jeton${offerts > 1 ? 's' : ''} offert${offerts > 1 ? 's' : ''} sur ${d['jetonsTotal']} · il reste $restants jour${restants > 1 ? 's' : ''}', style: da.text(12, color: const Color(0xFFC4C7CC))),
+          if (prochaine.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Prochaine étape : $prochaine', style: da.text(13, weight: FontWeight.w600, color: Colors.white))),
+        ]),
+      ),
+    );
+  }
+
+  /// Premier jour (PRO-19) : « Pour commencer » tant que le démarrage guidé
+  /// (profil) n'est pas fini.
+  Widget _pourCommencer(ProDa da) {
+    final etapes = ref.watch(compteProvider).valueOrNull?['etapes'];
+    if (etapes is! Map) return const SizedBox.shrink();
+    final faites = (etapes['faites'] as num?)?.round() ?? 0;
+    final total = (etapes['total'] as num?)?.round() ?? 0;
+    if (total == 0 || faites >= total) return const SizedBox.shrink();
+    Widget ligne(String titre, String detail, VoidCallback onTap) => InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(titre, style: da.text(14, weight: FontWeight.w600)),
+                Text(detail, style: da.text(12, color: da.grey)),
+              ])),
+              const Icon(Icons.chevron_right, size: 18),
+            ]),
+          ),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFF171B1E), width: 2), left: BorderSide(color: Color(0xFFCFCFC9)), right: BorderSide(color: Color(0xFFCFCFC9)), bottom: BorderSide(color: Color(0xFFCFCFC9)))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Votre compte est prêt à ${(faites * 100 / total).round()} %.', style: da.text(13, color: da.grey)),
+        Text('Pour commencer', style: da.text(16, weight: FontWeight.w700)),
+        ligne('Finir le démarrage guidé', '$faites étapes sur $total', () => context.push('/profile/company')),
+        ligne('Faire un premier devis avec Koji', '10 minutes', _devisGuide),
+      ]),
+    );
+  }
+
   /// Boutons flottants sur la carte (maquette « mtop ») : recherche, menu,
   /// et les notifications à droite.
   Widget _boutonsCarte(ProDa da) {
-    final unread = ref.watch(unreadNotificationsCountProvider);
+    final unread = ref.watch(nonLuesCentreProvider);
     Widget bouton(IconData icon, String label, VoidCallback? onTap) =>
         Semantics(
           button: true,

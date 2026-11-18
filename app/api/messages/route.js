@@ -11,6 +11,7 @@ import { importerClientsDesDevis } from "../../../lib/contacts-serveur";
 import { fixText } from "../../../lib/text";
 import { ETATS_DEMANDE, clientAffiche, etatDemande, texteProjet } from "../../../lib/kojipage";
 import { getSupabaseAdmin } from "../../../lib/supabase";
+import { prefsCompte } from "../../../lib/compte-serveur";
 import { accesReseau } from "../../../lib/reseau";
 
 // Messages (maquette PRO-12) : une seule messagerie pour les fils des devis
@@ -220,7 +221,7 @@ export async function GET(request) {
     db.messagesLus[userId] = { ...(db.messagesLus[userId] || {}), [cle]: new Date().toISOString() };
     const { s } = f.type === "client" ? await suggestion(db, userId, f, contexte) : { s: null };
     await writeDb(db);
-    return ok({ fil: { ...resumeFil(f, { luLe: new Date().toISOString(), aujourdhui: today() }), quoteId: f.quoteId || "", offreId: f.offreId || "", leadId: f.leadId || "", echangeId: f.echangeId || "" }, jours: parJour(f.messages, today()), contexte, suggestion: s, reponses: db.reponsesEnregistrees?.[userId] || REPONSES_DEFAUT });
+    return ok({ fil: { ...resumeFil(f, { luLe: new Date().toISOString(), aujourdhui: today() }), quoteId: f.quoteId || "", offreId: f.offreId || "", leadId: f.leadId || "", echangeId: f.echangeId || "" }, jours: parJour(f.messages, today()), contexte, suggestion: s, langue: prefsCompte(db, userId).langue, reponses: db.reponsesEnregistrees?.[userId] || REPONSES_DEFAUT });
   }
   return ok(vueListe(db, userId, ctx.fils));
 }

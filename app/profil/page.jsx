@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddressFields } from "../../components/AddressFields";
+import { DevisFactures, DisponibilitesCard, EtapesProfil, IdentiteResume, QualificationsCard } from "./ProfilSections";
 import { ProAccountNav } from "../../components/ProAccountNav";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
@@ -68,14 +69,6 @@ function readLocalUser() {
   }
 }
 
-// Gratuit pour les admins, sinon reserve a l'option payante "Site web Koji"
-// — meme condition que hasWebsiteAccess cote serveur (app/api/site/route.js).
-// Utilise seulement pour le libelle de la carte "Site web" ci-dessous (la
-// page /profil/site-web gere elle-meme le blocage reel cote donnees).
-function hasWebsiteAccess(user) {
-  return Boolean(user?.addonWebsite || user?.isAdmin);
-}
-
 function initials(name = "") {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "KO";
@@ -126,18 +119,17 @@ export default function ProfilPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const websiteAccess = hasWebsiteAccess(user);
 
   // Juste de quoi afficher la carte "Site web" (slug + statut publie) sur ce
   // tableau de bord — l'editeur complet (photos, description...) vit sur
   // /profil/site-web, qui refait son propre GET /api/site.
   const [siteSummary, setSiteSummary] = useState(null);
+  // KojiPage (PRO-13) : incluse dans toutes les offres, statut lu sur /api/kojipage.
   useEffect(() => {
-    if (!websiteAccess) return;
     let alive = true;
-    apiGet("/api/site").then((payload) => { if (alive) setSiteSummary(payload.site); }).catch(() => {});
+    apiGet("/api/kojipage").then((payload) => { if (alive) setSiteSummary({ slug: payload.site?.slug, published: payload.enLigne }); }).catch(() => {});
     return () => { alive = false; };
-  }, [websiteAccess]);
+  }, []);
   const sitePublished = Boolean(siteSummary?.published);
   const siteUrlLabel = siteSummary?.slug && typeof window !== "undefined" ? `${window.location.host}/site/${siteSummary.slug}` : "";
 
@@ -348,30 +340,16 @@ export default function ProfilPage() {
         {message ? <p className="notice" role="status">{message}</p> : null}
 
         <div className="pf-g">
-          <ProAccountNav current={tab} onPick={pickTab} badges={{ entreprise: `${completude.pct} %` }} />
+          <ProAccountNav current={tab} onPick={pickTab} badges={{}} />
 
           <div className="pf-c">
             {tab === "entreprise" ? (
               <>
-                <div className="pf-done2">
-                  <div className="t">
-                    <strong>Profil complété à {completude.pct} %</strong>
-                    <small>{completude.missing ? `Ajoutez ${completude.missing.label} pour atteindre 100 %.` : "Votre profil est complet."}</small>
-                    <div className="bar"><i style={{ width: `${completude.pct}%` }} /></div>
-                  </div>
-                  <div className="pf-sts">
-                    {completude.items.map((item) => (
-                      <span key={item.key} className={`pf-st${item.done ? " ok" : ""}`}>
-                        {item.done ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg> : null}
-                        <b>{item.short}</b>
-                        <small>{item.done ? "renseigné" : "à compléter"}</small>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <EtapesProfil rafraichir={user} />
 
                 <section className="card">
                   <div className="card-h"><h2>Identité</h2><span className="sm2">reprise sur vos devis et factures</span></div>
+                  <IdentiteResume business={business} />
                   <div className="fgrid">
                     <label className="full">{L.parametres.raisonSociale}
                       <input value={business.raisonSociale} onChange={(event) => setField("raisonSociale", event.target.value)} placeholder={L.parametres.raisonSociale} />
@@ -495,6 +473,8 @@ export default function ProfilPage() {
                 </div>
 
                 <div className="pf-g2">
+                  <QualificationsCard business={business} setField={setField} />
+                  <DisponibilitesCard business={business} setField={setField} />
                   <section className="card">
                     <div className="card-h"><h2>Image</h2></div>
                     <div className="pf-logo">
@@ -525,63 +505,21 @@ export default function ProfilPage() {
                         <strong>{L.parametres.businessCard}</strong>
                         <small>{L.parametres.businessCardSub}</small>
                       </div>
-                      <span className="tag tag-e">Prête à imprimer</span>
+                      <span className="tag tag-e">Ouvrir</span>
                     </Link>
                     <Link href="/kojipage" className="row pf-go">
                       <div className="t">
                         <strong>KojiPage</strong>
-                        <small>{websiteAccess ? siteUrlLabel || L.parametres.websiteSub : L.parametres.websiteUpsell}</small>
+                        <small>{siteUrlLabel || "Votre vitrine : réalisations, prestations, avis, demandes de devis"}</small>
                       </div>
-                      {websiteAccess ? <span className={sitePublished ? "tag tag-b" : "tag tag-o"}>{sitePublished ? "En ligne" : "Brouillon"}</span> : <span className="tag tag-o">Option payante</span>}
+                      <span className={sitePublished ? "tag tag-b" : "tag tag-o"}>{sitePublished ? "En ligne" : "Pas encore en ligne"}</span>
                     </Link>
                   </section>
                 </div>
               </>
             ) : null}
 
-            {tab === "devis" ? (
-              <>
-                <section className="card">
-                  <div className="card-h"><h2>{L.parametres.pricing}</h2></div>
-                  <div className="kv"><span>Taux horaire</span><b>{`${hourlyCost.toFixed(2).replace(".", ",")} € / h`}</b></div>
-                  <div className="kv"><span>TVA par défaut</span><b>{business.defaultVatRate ?? 20} %</b></div>
-                  <p className="muted">Vos prix se règlent dans la Bibliothèque, au même endroit que vos ouvrages.</p>
-                  <div><Link href="/bibliotheque-ouvrages/mes-prix" className="btn btn-sec">Ouvrir Mes prix</Link></div>
-                </section>
-
-                <section className="card">
-                  <div className="card-h"><h2>{L.parametres.bank}</h2></div>
-                  <p className="muted">{L.parametres.bankSub}</p>
-                  <div className="fgrid">
-                    <label className="full">{L.parametres.iban}
-                      <input value={business.iban || ""} onChange={(event) => setField("iban", event.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" />
-                    </label>
-                    <label>{L.parametres.bic}
-                      <input value={business.bic || ""} onChange={(event) => setField("bic", event.target.value)} placeholder="BNPAFRPP" />
-                    </label>
-                    <label>{L.parametres.bankHolder}
-                      <input value={business.bankHolder || ""} onChange={(event) => setField("bankHolder", event.target.value)} placeholder={L.parametres.bankHolder} />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="card">
-                  <div className="card-h"><h2>{L.parametres.paymentTerms}</h2></div>
-                  <p className="muted">{L.parametres.paymentTermsSub}</p>
-                  <div className="fgrid">
-                    <label className="full">{L.parametres.paymentTermsLabel}
-                      <textarea rows={4} value={business.paymentTerms || ""} onChange={(event) => setField("paymentTerms", event.target.value)} placeholder={L.parametres.paymentTermsLabel} />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="card">
-                  <div className="card-h"><h2>{L.parametres.signatures}</h2></div>
-                  <p className="muted">{L.parametres.signaturesSub}</p>
-                  <div><Link href="/signature" className="btn btn-sec">{L.parametres.openSignatures}</Link></div>
-                </section>
-              </>
-            ) : null}
+            {tab === "devis" ? <DevisFactures business={business} setField={setField} labels={L.parametres} /> : null}
 
             {tab === "securite" ? (
               <section className="card">

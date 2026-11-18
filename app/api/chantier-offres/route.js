@@ -1,4 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
+import { normaliserPrefs } from "../../../lib/compte-pro";
 import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../lib/portal-session";
 import { getSupabaseAdmin } from "../../../lib/supabase";
@@ -198,9 +199,11 @@ export async function POST(request) {
   // de l'offre elle-meme si l'envoi echoue partiellement.
   supabaseAdmin
     .from("users")
-    .select("email")
+    .select("id, email")
     .then(({ data: entreprises }) => {
-      const emails = (entreprises || []).map((e) => e.email).filter(Boolean);
+      // Réglage « Un nouveau chantier dans votre zone » (PRO-15.4) : pas
+      // d'e-mail pour un compte qui l'a coupé.
+      const emails = (entreprises || []).filter((e) => normaliserPrefs(db.comptePrefs?.[e.id]?.notifications).evenements.chantier_zone.email).map((e) => e.email).filter(Boolean);
       if (emails.length === 0) return;
       return sendNewOfferEmailToEntreprises({
         emails,

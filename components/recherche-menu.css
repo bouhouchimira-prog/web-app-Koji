@@ -1,0 +1,19 @@
+/* Recherche simple du menu (maquettes PRO-18, 18.1). */
+.rm{position:relative;margin:0 0 10px}
+.rm-f{display:flex;align-items:center;gap:8px;height:38px;padding:0 10px;border:1px solid rgba(255,255,255,.18);border-radius:2px;background:rgba(255,255,255,.06);color:#FFFFFF;cursor:text}
+.rm-f svg{width:15px;height:15px;stroke:#C4C7CC;fill:none;stroke-width:2;flex:none}
+.rm-f input{flex:1;min-width:0;border:0;background:transparent;color:#FFFFFF;font:inherit;font-size:14px;outline:none}
+.rm-f input::placeholder{color:#C4C7CC}
+.rm-f:focus-within{border-color:#FFC400}
+.rm-d{position:absolute;left:0;top:42px;width:min(420px,calc(100vw - 32px));max-height:70vh;overflow:auto;background:#FFFFFF;color:#171B1E;border:1px solid #CFCFC9;border-top:2px solid #171B1E;border-radius:2px;z-index:80;padding:6px 0;box-shadow:0 8px 24px rgba(23,27,30,.18)}
+.rm-g{padding:4px 0;border-bottom:1px solid #F0F0EB}
+.rm-l{display:block;padding:4px 12px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5B5F66}
+.rm-i{display:flex;align-items:baseline;gap:8px;width:100%;padding:7px 12px;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:inherit}
+.rm-i:hover,.rm-i[aria-selected="true"]{background:#F1F1EC}
+.rm-i b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rm-i small{font-size:12px;color:#5B5F66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rm-k{align-items:center;margin-top:2px}
+.rm-k kbd{margin-left:auto;font:inherit;font-size:11px;border:1px solid #CFCFC9;padding:1px 6px;border-radius:2px;color:#5B5F66}
+.rm-s{width:22px;height:22px;display:grid;place-items:center;background:#171B1E;flex:none}
+.rm-s svg{width:13px;height:13px;fill:#FFC400}
+.rm-v{margin:0;padding:8px 12px;font-size:13px;color:#5B5F66}

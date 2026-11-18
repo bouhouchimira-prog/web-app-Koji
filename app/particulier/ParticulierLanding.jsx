@@ -281,10 +281,10 @@ export function ParticulierLanding() {
           <b>Koji</b>
           <a href="/a-propos">À propos</a>
           <a href={CONTACT}>Contact</a>
-          <a href="/legal">Mentions légales</a>
-          <a href="/legal">Conditions particuliers</a>
-          <a href="/legal">Confidentialité</a>
-          <a href="/legal">Cookies</a>
+          <a href="/legal/mentions-legales">Mentions légales</a>
+          <a href="/legal/conditions-particuliers">Conditions particuliers</a>
+          <a href="/legal/confidentialite">Confidentialité</a>
+          <a href="/legal/cookies">Cookies</a>
         </div>
         <div className="lc-fl">
           <span>© 2026 Koji</span>

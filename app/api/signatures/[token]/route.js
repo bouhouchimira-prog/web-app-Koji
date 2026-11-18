@@ -10,6 +10,7 @@ import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
 import { ensureClientPortalAccess, normalizeEmail } from "../../../../lib/client-portal-access";
 import { getVerifiedUserId } from "../../../../lib/server-auth";
+import { getVerifiedSignatureToken, signatureAccessExpired } from "../../../../lib/signature-session";
 
 // The signing client has no Koji session (they're not one of the company's
 // Supabase-authenticated users), so this can't use a per-user token — it
@@ -40,46 +41,68 @@ async function markViewed(request, quote) {
   return { ...quote, viewedAt };
 }
 
+async function publicQuoteView(quote) {
+  return {
+    id: quote.id,
+    quoteNumber: quote.quoteNumber,
+    client: fixText(quote.client),
+    clientEmail: quote.clientEmail,
+    project: fixText(quote.project),
+    rooms: fixObjectText(quote.rooms || []),
+    items: fixObjectText(quote.items || []),
+    totalHt: quote.totalHt,
+    totalTtc: quote.totalTtc,
+    status: quote.status,
+    signatureStatus: quote.signatureStatus,
+    sentAt: quote.sentAt,
+    signedAt: quote.signedAt,
+    signerName: quote.signerName,
+    clientPhone: fixText(quote.clientPhone || ""),
+    clientPortalUserId: quote.clientPortalUserId || "",
+    clientPortalAccessSentAt: quote.clientPortalAccessSentAt || "",
+    signaturePlace: fixText(quote.signaturePlace || ""),
+    signerMessage: fixText(quote.signerMessage || ""),
+    vatRate: quote.vatRate,
+    autoliquidation: quote.autoliquidation === true,
+    mentionTva: quote.mentionTva === true,
+    versions: Array.isArray(quote.versions) ? quote.versions : [],
+    clientType: quote.clientType,
+    startDate: quote.startDate || "",
+    retractationJusquau: quote.retractationJusquau || "",
+    retracteLe: quote.retracteLe || "",
+    demarrageDemande: quote.demarrageDemande || "",
+    company: await entreprise(quote)
+  };
+}
+
+function publicClientAccess(access) {
+  if (!access) return null;
+  return {
+    sentByEmail: access.sentByEmail === true,
+    sentBySms: access.sentBySms === true,
+    existingAccount: access.existingAccount === true,
+    loginUrl: access.loginUrl || "",
+    portalUrl: access.portalUrl || ""
+  };
+}
+
+function authorizeSignatureRequest(request, token) {
+  if (!getVerifiedSignatureToken(request, token)) {
+    return badRequest("Session de signature expirée. Reconnectez-vous avec vos identifiants.", 401);
+  }
+  return null;
+}
+
 export async function GET(request, context) {
   const { token } = await context.params;
+  const denied = authorizeSignatureRequest(request, token);
+  if (denied) return denied;
   const found = await findQuoteByToken(token);
   if (!found) return badRequest("Lien de signature invalide.", 404);
+  if (signatureAccessExpired(found)) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
   const quote = await markViewed(request, found);
 
-  return ok({
-    quote: {
-      id: quote.id,
-      quoteNumber: quote.quoteNumber,
-      client: fixText(quote.client),
-      clientEmail: quote.clientEmail,
-      project: fixText(quote.project),
-      rooms: fixObjectText(quote.rooms || []),
-      items: fixObjectText(quote.items || []),
-      totalHt: quote.totalHt,
-      totalTtc: quote.totalTtc,
-      status: quote.status,
-      signatureStatus: quote.signatureStatus,
-      sentAt: quote.sentAt,
-      signedAt: quote.signedAt,
-      signerName: quote.signerName,
-      clientPhone: fixText(quote.clientPhone || ""),
-      clientPortalUserId: quote.clientPortalUserId || "",
-      clientPortalAccessSentAt: quote.clientPortalAccessSentAt || "",
-      signaturePlace: fixText(quote.signaturePlace || ""),
-      signerMessage: fixText(quote.signerMessage || ""),
-      // TVA (PRO-03.5), versions (PRO-03.6), rétractation (PRO-03.7).
-      vatRate: quote.vatRate,
-      autoliquidation: quote.autoliquidation === true,
-      mentionTva: quote.mentionTva === true,
-      versions: Array.isArray(quote.versions) ? quote.versions : [],
-      clientType: quote.clientType,
-      startDate: quote.startDate || "",
-      retractationJusquau: quote.retractationJusquau || "",
-      retracteLe: quote.retracteLe || "",
-      demarrageDemande: quote.demarrageDemande || "",
-      company: await entreprise(quote)
-    }
-  });
+  return ok({ quote: await publicQuoteView(quote) });
 }
 
 // Coordonnées de l'entreprise pour le formulaire de rétractation : celles du
@@ -102,10 +125,15 @@ async function entreprise(quote) {
 
 export async function POST(request, context) {
   const { token } = await context.params;
+  const denied = authorizeSignatureRequest(request, token);
+  if (denied) return denied;
   const body = await request.json();
   const quote = await findQuoteByToken(token);
   if (!quote) return badRequest("Lien de signature invalide.", 404);
-  if (quote.signatureStatus === "Signe") return ok({ quote: fixObjectText(quote), clientAccess: quote.clientPortalAccess || null });
+  if (signatureAccessExpired(quote)) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
+  if (quote.signatureStatus === "Signe") {
+    return ok({ quote: await publicQuoteView(quote), clientAccess: publicClientAccess(quote.clientPortalAccess) });
+  }
   if (!body.consent) return badRequest("La validation client est obligatoire.");
   // TVA à taux réduit (PRO-03.5) : la mention doit être certifiée.
   const mentionAttendue = !quote.autoliquidation
@@ -217,6 +245,6 @@ export async function POST(request, context) {
   const { data: updatedRow, error } = await supabase.from("quotes").update(row).eq("id", updated.id).select().single();
   if (error) return badRequest(`Enregistrement de la signature impossible: ${error.message}`, 500);
 
-  return ok({ quote: fixObjectText(mapQuote(updatedRow)), clientAccess });
+  return ok({ quote: await publicQuoteView(mapQuote(updatedRow)), clientAccess: publicClientAccess(clientAccess) });
 }
 

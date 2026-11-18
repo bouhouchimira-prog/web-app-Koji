@@ -22,7 +22,7 @@ import 'package:koji/features/factures/nouvelle_facture_screen.dart';
 import 'package:koji/features/fournitures/pro/fournitures_chantier_screen.dart';
 import 'package:koji/features/fournitures/pro/fournitures_extra_screens.dart';
 import 'package:koji/features/fournitures/pro/fournitures_pro_screen.dart';
-import 'package:koji/features/help/help_screen.dart';
+import 'package:koji/features/help/aide_pro.dart';
 import 'package:koji/features/home/home_screen.dart';
 import 'package:koji/features/interventions/intervention_detail_screen.dart';
 import 'package:koji/features/interventions/intervention_form_screen.dart';
@@ -49,6 +49,11 @@ import 'package:koji/features/contacts/contacts_pro.dart';
 import 'package:koji/features/messages_pro/messages_pro.dart';
 import 'package:koji/features/kojipage/kojipage_pro.dart';
 import 'package:koji/features/reseau_pro/reseau_pro.dart';
+import 'package:koji/features/equipe/equipe_pro.dart';
+import 'package:koji/features/intervention_rapide/intervention_rapide.dart';
+import 'package:koji/features/compte/compte_pro.dart';
+import 'package:koji/features/compte/progression_pro.dart';
+import 'package:koji/features/compte/premier_mois_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -77,6 +82,7 @@ import 'package:koji/features/synchronization/synchronization_screen.dart';
 import 'package:koji/features/synchronization/worker_assignment_screen.dart';
 import 'package:koji/features/synchronization/worker_detail_screen.dart';
 import 'package:koji/features/synchronization/worker_list_screen.dart';
+import 'package:koji/features/notifications_pro/notifications_pro.dart';
 import 'package:koji/features/synchronization/worker_success_screen.dart';
 
 // Routes of the entreprise app (Koji Pro). Start / onboarding pages are
@@ -485,6 +491,140 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 context,
                 state,
                 const MessagesProScreen(),
+              ),
+            ),
+            // Paramètres (maquettes PRO-15 à 15.6).
+            GoRoute(
+              path: parametresRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ParametresScreen(),
+              ),
+            ),
+            GoRoute(
+              path: langueRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const LangueScreen(),
+              ),
+            ),
+            GoRoute(
+              path: notificationsRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NotificationsScreen(),
+              ),
+            ),
+            GoRoute(
+              path: devisFacturesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const DevisFacturesScreen(),
+              ),
+            ),
+            GoRoute(
+              path: abonnementRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const AbonnementScreen(),
+              ),
+            ),
+            // Intervention rapide (maquette PRO-17.1).
+            GoRoute(
+              path: interventionsRapidesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const InterventionsRapidesScreen(),
+              ),
+            ),
+            GoRoute(
+              path: nouvelleInterventionRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NouvelleInterventionScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/intervention-rapide/suivi/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                SuiviInterventionScreen(id: state.pathParameters['id']!),
+              ),
+            ),
+            // Notifications (maquette PRO-23).
+            GoRoute(
+              path: notificationsCentreRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const NotificationsCentreScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/notifications/detail/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                NotificationDetailProScreen(notification: (state.extra as Map<String, dynamic>?) ?? {'id': state.pathParameters['id']}),
+              ),
+            ),
+            // Mon parcours · Premier mois (maquette PRO-26, version 1).
+            GoRoute(
+              path: premierMoisRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const PremierMoisScreen(),
+              ),
+            ),
+            // Ma progression (maquette PRO-21).
+            GoRoute(
+              path: progressionRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const ProgressionScreen(),
+              ),
+            ),
+            // Équipe (maquettes PRO-16 à 16.3).
+            GoRoute(
+              path: equipeRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const EquipeScreen(),
+              ),
+            ),
+            GoRoute(
+              path: heuresEquipeRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const HeuresEquipeScreen(),
+              ),
+            ),
+            GoRoute(
+              path: ajouterCompagnonRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                const AjouterCompagnonScreen(),
+              ),
+            ),
+            GoRoute(
+              path: '/equipe/fiche/:id',
+              pageBuilder: (context, state) => _buildPageWithTransition(
+                context,
+                state,
+                FicheCompagnonScreen(id: state.pathParameters['id']!),
               ),
             ),
             // Réseau pro et contrat de sous-traitance (PRO-14, 14.1).
@@ -999,7 +1139,7 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
             GoRoute(
               path: '/aide',
               pageBuilder: (context, state) => _buildPageWithTransition(
-                  context, state, const KojiHelpScreen()),
+                  context, state, const AideProScreen()),
             ),
           ],
         ),

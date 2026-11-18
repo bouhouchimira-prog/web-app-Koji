@@ -6,6 +6,7 @@ import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_shell.dart';
 import 'package:koji/features/account/account_deletion.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
+import 'package:koji/features/compte/compte_pro.dart' show confirmerDeconnexion;
 
 /// Tab shown by the entreprise home (`/home`): 0 tableau de bord, 1 devis,
 /// 2 chantiers. Shared by the side menu and the phone bottom bar.
@@ -25,13 +26,14 @@ const _routes = {
   'bibliotheque': '/bibliotheque',
   'calendrier': '/calendrier',
   'planning': '/planning',
-  'equipe': '/synchronization',
+  'equipe': '/equipe',
   'interventions': '/interventions',
   'archives': '/archives',
   'profil': '/profile/company',
   'signature': '/signature',
-  'parametres': '/settings/pricing',
+  'parametres': '/parametres',
   'aide': '/aide',
+  'progression': '/progression',
 };
 
 /// Menu of the entreprise app, grouped like the design's "Composant — Menu".
@@ -72,6 +74,8 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'archives', label: 'Archives', icon: KojiIcons.archives),
   ]),
   KojiNavGroup(label: 'Configuration', items: [
+    // Ma progression (maquette PRO-21).
+    KojiNavItem(id: 'progression', label: 'Ma progression', icon: KojiIcons.sparkle),
     KojiNavItem(id: 'profil', label: 'Profil', icon: KojiIcons.profil),
     KojiNavItem(
         id: 'signature', label: 'Ma signature', icon: KojiIcons.signature),
@@ -111,15 +115,16 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/ouvrage-library') || starts('/bibliotheque')) return 'bibliotheque';
   if (starts('/calendrier')) return 'calendrier';
   if (starts('/planning')) return 'planning';
-  if (starts('/synchronization') || starts('/workers') || starts('/projects')) {
+  if (starts('/equipe') || starts('/synchronization') || starts('/workers') || starts('/projects')) {
     return 'equipe';
   }
-  if (starts('/interventions')) return 'interventions';
+  if (starts('/interventions') || starts('/intervention-rapide')) return 'interventions';
   if (starts('/archives')) return 'archives';
   if (starts('/profile')) return 'profil';
   if (starts('/signature')) return 'signature';
-  if (starts('/settings')) return 'parametres';
+  if (starts('/settings') || starts('/parametres')) return 'parametres';
   if (starts('/aide')) return 'aide';
+  if (starts('/progression')) return 'progression';
   return null;
 }
 
@@ -134,6 +139,7 @@ Future<void> openEntrepriseNav(
     return;
   }
   if (id == 'deconnexion') {
+    if (!await confirmerDeconnexion(context, ref)) return;
     await ref.read(authProvider.notifier).signOut();
     router.go('/login');
     return;

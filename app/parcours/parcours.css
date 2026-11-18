@@ -1,0 +1,27 @@
+/* Mon parcours · Premier mois (maquette PRO-26, version 1). */
+.pm-band{display:grid;grid-template-columns:1.2fr 1fr;gap:24px;align-items:center;background:#171B1E;color:#FFFFFF;padding:22px 24px;margin-bottom:16px}
+.pm-band .eyebrow{color:#C4C7CC}
+.pm-band h2{margin:2px 0 4px;font-size:28px;letter-spacing:-.02em;color:#FFFFFF}
+.pm-band small{display:block;font-size:12px;color:#C4C7CC}
+.pm-xp{display:block;height:4px;background:#3A3F43;margin:8px 0 6px}
+.pm-xp b{display:block;height:100%;background:#FFC400}
+.pm-next{display:flex;flex-direction:column;gap:4px;align-items:flex-start;border-left:1px solid #3A3F43;padding-left:24px}
+.pm-next b{font-size:16px}
+.pm-next small{margin-bottom:6px}
+.pm-next .btn{background:#FFC400;border-color:#FFC400;color:#171B1E}
+.pm-g{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start}
+.pm-list{padding:4px 16px}
+.pm-e{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid #F0F0EB;color:inherit;text-decoration:none}
+.pm-e:first-child{border-top:0}
+.pm-e>div{display:flex;flex-direction:column}
+.pm-e b{font-size:14px}
+.pm-e small{font-size:12px;color:#5B5F66}
+.pm-i{width:26px;height:26px;border:1.5px solid #CFCFC9;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#5B5F66}
+.pm-i.on{background:#171B1E;border-color:#171B1E}
+.pm-i svg{width:14px;height:14px;stroke:#FFC400;fill:none;stroke-width:2.4}
+.pm-d{font-size:12px;color:#5B5F66;white-space:nowrap;text-align:right}
+.pm-d em{display:block;font-style:normal;color:#171B1E;font-weight:600}
+.pm-side{display:flex;flex-direction:column;gap:16px}
+.pm-ul{margin:0;padding-left:18px;font-size:13px;color:#3A3F44;display:flex;flex-direction:column;gap:6px}
+.pm-fin{border-left:3px solid #171B1E;background:#FFFFFF;padding:10px 14px;font-size:13px;margin-bottom:16px}
+@media (max-width:900px){.pm-band,.pm-g{grid-template-columns:1fr}.pm-next{border-left:0;padding-left:0;border-top:1px solid #3A3F43;padding-top:14px}}

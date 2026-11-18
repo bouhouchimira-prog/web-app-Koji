@@ -32,7 +32,11 @@ function stripSecrets(record) {
 }
 
 async function exportEntreprise(request, db) {
-  const auth = getAuth(request);
+  // Identité confirmée par Supabase Auth, jamais un jeton simplement décodé :
+  // une partie de l'export (équipe, contacts, tâches, dépenses…) vient du
+  // stockage commun, que seul cet identifiant cloisonne. Avec un jeton
+  // fabriqué, on aurait pu télécharger les données d'une autre entreprise.
+  const auth = await resolveEntreprise(request);
   if (!auth) return null;
 
   const { data: profile } = await auth.supabase.from("users").select("email, business_info").eq("id", auth.userId).maybeSingle();

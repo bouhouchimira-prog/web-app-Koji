@@ -6,12 +6,18 @@ import { useEffect, useRef } from "react";
 // Navigation commune aux pages du compte (DA Koji Pro, maquette PRO-15) :
 // les onglets du profil changent de section sans recharger (onPick) ; les
 // autres entrées sont des pages à part.
+// Paramètres (maquette PRO-15.6) : une seule navigation, une entrée par
+// section ; les pages existantes en deviennent les sections.
 const ITEMS = [
   { id: "entreprise", label: "Mon entreprise", href: "/profil" },
+  { id: "profil", label: "Mon profil", href: "/parametres?section=profil" },
   { id: "devis", label: "Devis et factures", href: "/profil?tab=devis" },
-  { id: "securite", label: "Sécurité", href: "/profil?tab=securite" },
-  { id: "abonnement", label: "Abonnement", href: "/parametres/abonnement" },
-  { id: "preferences", label: "Préférences et compte", href: "/parametres" },
+  { id: "langue", label: "Langue et traduction", href: "/parametres?section=langue" },
+  { id: "notifications", label: "Notifications et sécurité", href: "/parametres?section=notifications" },
+  { id: "abonnement", label: "Abonnement et jetons", href: "/parametres/abonnement" },
+  { id: "progression", label: "Ma progression", href: "/progression" },
+  { id: "corbeille", label: "Éléments supprimés", href: "/corbeille" },
+  { id: "donnees", label: "Mes données", href: "/parametres?section=donnees" },
   { id: "aide", label: "Aide et support", href: "/aide" }
 ];
 
@@ -33,7 +39,7 @@ export function ProAccountNav({ current, onPick, badges = {} }) {
     <nav ref={navRef} className="pf-nav" aria-label="Profil et compte">
       {ITEMS.map((item) => {
         const inner = <>{item.label}{badges[item.id] ? <span>{badges[item.id]}</span> : null}</>;
-        const on = current === item.id;
+        const on = current === item.id || (current === "securite" && item.id === "profil");
         if (onPick && PROFILE_TABS.includes(item.id)) {
           return (
             <button key={item.id} type="button" className={on ? "on" : ""} aria-current={on ? "page" : undefined} onClick={() => onPick(item.id)}>

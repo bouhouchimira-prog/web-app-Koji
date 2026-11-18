@@ -1,0 +1,43 @@
+/* Intervention rapide (maquette PRO-17.1). Classes « ir- ». */
+.pro .ir{display:flex;flex-direction:column;gap:18px;max-width:760px}
+.pro .ir .head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.pro .ir .head .stack{display:flex;flex-direction:column}
+.pro .ir .head h1{margin:0}
+.pro .ir-f{display:flex;flex-direction:column;gap:3px;margin-bottom:12px;min-width:0}
+.pro .ir-f label{font-size:12px;color:var(--grey)}
+.pro .ir-f input,.pro .ir-f textarea,.pro .ir-f select{height:42px;padding:0 10px;border:1px solid #D9D9D4;border-radius:2px;font:inherit;font-size:15px;background:var(--card);width:100%;min-width:0}
+.pro .ir-f textarea{height:auto;min-height:72px;padding:8px 10px}
+.pro .ir-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pro .ir-seg{display:flex;gap:8px;flex-wrap:wrap}
+.pro .ir-seg button{flex:1;min-width:140px;height:42px;border:1px solid #D9D9D4;background:var(--card);border-radius:2px;font:inherit;font-weight:600;cursor:pointer}
+.pro .ir-seg button.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.pro .ir-msg{background:#FAFAF7;border:1px solid var(--line);padding:10px 12px;font-size:14px;line-height:1.5;word-break:break-word}
+.pro .ir-big{height:52px!important;font-size:16px!important;width:100%;justify-content:center}
+.pro .ir-et{display:flex;flex-direction:column;gap:0}
+.pro .ir-et>div{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.pro .ir-et>div:last-child{border-bottom:0}
+.pro .ir-et i{width:22px;height:22px;border-radius:50%;border:1px solid #8A8F98;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700}
+.pro .ir-et .ok i{background:#171B1E;border-color:#171B1E;color:#FFFFFF}
+.pro .ir-et .on i{border:2px solid #171B1E}
+.pro .ir-et strong{font-size:14px;display:block}
+.pro .ir-et small{font-size:12px;color:var(--grey)}
+.pro .ir-acts{display:flex;gap:10px;flex-wrap:wrap}
+.pro .ir-acts>*{flex:1;min-width:120px;justify-content:center}
+.pro .ir-l{display:grid;grid-template-columns:minmax(0,1fr) 110px 28px;gap:8px;align-items:center;margin-bottom:8px}
+.pro .ir-l input{height:38px;padding:0 8px;border:1px solid #D9D9D4;border-radius:2px;font:inherit;min-width:0}
+.pro .ir-l input.r{text-align:right}
+.pro .ir-l button{background:none;border:0;cursor:pointer;font-size:16px;color:var(--grey)}
+.pro .ir-tot{display:flex;justify-content:space-between;font-weight:700;padding:8px 0;border-top:1px solid var(--ink);margin-top:4px}
+.pro .ir-note{border-left:3px solid var(--ink);padding:8px 12px;font-size:13px;background:var(--card)}
+.pro .ir-sig{border:1px dashed #8A8F98;background:#FFFFFF;width:100%;height:150px;touch-action:none;display:block;cursor:crosshair}
+.pro .ir-ph{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.pro .ir-ph figure{margin:0;position:relative}
+.pro .ir-ph img{width:100%;height:110px;object-fit:cover;display:block;background:#D9D9D4}
+.pro .ir-ph figcaption{position:absolute;left:6px;bottom:6px;background:#171B1E;color:#FFFFFF;font-size:11px;padding:2px 6px;font-weight:600}
+.pro .ir-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}
+.pro .ir-row div{display:flex;flex-direction:column;min-width:0}
+.pro .ir-row strong{font-size:14px}
+.pro .ir-row small{font-size:12px;color:var(--grey)}
+@media (max-width:640px){
+  .pro .ir-2{grid-template-columns:1fr}
+}

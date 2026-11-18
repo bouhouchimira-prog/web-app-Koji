@@ -103,8 +103,11 @@ export async function POST(request) {
     {
       activationRequired: true,
       emailSent: mailResult.ok,
-      // SMTP non configure en local: permet quand meme de tester le parcours.
-      directActivationUrl: mailResult.ok ? undefined : activationUrl,
+      // En production, ne jamais exposer un lien d'activation direct si l'e-mail
+      // n'a pas pu partir : cela contournerait la verification de l'adresse.
+      directActivationUrl: process.env.NODE_ENV === "production"
+        ? undefined
+        : (mailResult.ok ? undefined : activationUrl),
       message: "Compte créé. Vérifiez votre boîte mail pour activer votre compte."
     },
     201

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { badRequest } from "../../../../lib/http";
 import { getUserScope, readDb, scopedItems } from "../../../../lib/db";
 import { buildInterventionPdf, interventionDocumentFilename } from "../../../../lib/document-generator";
+import { avecProfil } from "../../../../lib/document-profil.js";
 
 export async function GET(request) {
   const db = await readDb();
@@ -12,6 +13,7 @@ export async function GET(request) {
   const intervention = scopedItems(db.interventions, userId).find((item) => item.id === id);
   if (!intervention) return badRequest("Intervention introuvable.", 404);
 
+  await avecProfil(db, intervention.userId);
   const pdfBuffer = buildInterventionPdf({ intervention, db });
   const filename = interventionDocumentFilename(intervention);
 

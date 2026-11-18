@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote } from "../../../../lib/quote-mapping";
 import { hashPassword, verifyHashedPassword } from "../../../../lib/password-hash";
 import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt } from "../../../../lib/rate-limit";
+import { issueSignatureToken } from "../../../../lib/signature-session";
+import { setSessionCookie } from "../../../../lib/session-cookies";
 
 const SCOPE = "signature-login";
 
@@ -67,5 +69,11 @@ export async function POST(request) {
     return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
   }
 
-  return ok({ signatureToken: quote.signatureToken, quoteNumber: quote.quoteNumber });
+  const ttlMs = expiresAt ? new Date(expiresAt).getTime() - Date.now() : undefined;
+  const sessionToken = issueSignatureToken(quote.signatureToken, ttlMs);
+  if (!sessionToken) return badRequest("Session de signature indisponible.", 500);
+
+  const response = ok({ signatureToken: quote.signatureToken, quoteNumber: quote.quoteNumber });
+  setSessionCookie(response, "signature", sessionToken);
+  return response;
 }

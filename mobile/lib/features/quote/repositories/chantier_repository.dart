@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:koji/core/supabase_config.dart';
 import 'package:koji/features/offline/offline_cache_service.dart';
 
 class ChantierRepository {
@@ -151,7 +152,9 @@ class ChantierRepository {
   /// One-shot REST fetch — same rows as [streamChantiers]. Fallback for when
   /// the realtime channel fails to join (RealtimeSubscribeException timedOut).
   Future<List<Map<String, dynamic>>> getChantiersOnce(String userId) async {
-    await OfflineCacheService.instance.initialize();
+    await OfflineCacheService.instance.initialize(
+      userId: SupabaseConfig.client.auth.currentUser?.id,
+    );
     try {
       final response = await _client
           .from('chantiers')

@@ -546,6 +546,7 @@ export default function InterventionsPage() {
           <span className="muted">Vos rapports d'intervention, du constat à la facturation.</span>
         </div>
         <div className="acts">
+          <a className="btn btn-sec" href="/interventions/rapide">Interventions rapides</a>
           <button type="button" className="btn btn-main" onClick={openCreate}><PlusIcon />{L.interventions.newTitle}</button>
         </div>
       </div>

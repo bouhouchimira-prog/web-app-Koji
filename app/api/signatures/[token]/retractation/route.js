@@ -4,6 +4,7 @@ import { fixText } from "../../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../../lib/supabase";
 import { mapQuote } from "../../../../../lib/quote-mapping";
 import { sendClientMessageEmail } from "../../../../../lib/mailer";
+import { getVerifiedSignatureToken, signatureAccessExpired } from "../../../../../lib/signature-session";
 
 // « Me rétracter » (maquette PRO-03.7) : le client particulier annule le
 // devis signé, sans motif, jusqu'à la fin du délai (inclus). Devis annulé,
@@ -12,6 +13,9 @@ import { sendClientMessageEmail } from "../../../../../lib/mailer";
 export async function POST(request, context) {
   const { token } = await context.params;
   if (!token) return badRequest("Lien de signature invalide.", 404);
+  if (!getVerifiedSignatureToken(request, token)) {
+    return badRequest("Session de signature expirée. Reconnectez-vous avec vos identifiants.", 401);
+  }
   const supabase = getSupabaseAdmin();
   const { data: row, error } = await supabase
     .from("quotes")
@@ -21,6 +25,7 @@ export async function POST(request, context) {
   if (error) return badRequest("Rétractation impossible pour le moment.", 500);
   if (!row) return badRequest("Lien de signature invalide.", 404);
   const quote = mapQuote(row);
+  if (signatureAccessExpired(quote)) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
 
   const jour = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
   if (quote.retracteLe) return ok({ quote: vuClient(quote) });

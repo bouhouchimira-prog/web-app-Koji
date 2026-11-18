@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { AbonnementDetails } from "./AbonnementDetails";
 import { useSearchParams } from "next/navigation";
 import { ProAccountNav } from "../../../components/ProAccountNav";
 import { Shell } from "../../../components/Shell";
@@ -157,6 +158,7 @@ function ParametresAbonnementContent() {
                   ) : null}
                 </section>
               </div>
+              <AbonnementDetails plan={currentPlan} />
             </>
           )}
         </div>

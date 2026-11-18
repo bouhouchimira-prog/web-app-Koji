@@ -13,6 +13,7 @@ import { avoirCorrige } from "../../lib/situation-travaux";
 import { texteRelance } from "../../lib/relances";
 import { resteDu } from "../../lib/encaissements";
 import { PaiementPanneau, creditsSur } from "../../components/PaiementPanneau";
+import { ListeVide } from "../../components/ListeVide";
 import { EncaissementsOnglet } from "../../components/EncaissementsOnglet";
 
 // Factures, maquette PRO-06 (DA Koji Pro, 30 oct) : liste avec onglets, et
@@ -26,8 +27,9 @@ const INVOICE_TABS = [
   { id: "encaissements", label: "Encaissements" },
   { id: "Retard", label: "En retard" },
   { id: "Emise", label: "À échéance" },
-  { id: "Payee", label: "Payées" },
-  { id: "Brouillon", label: "Brouillons" }
+  { id: "Brouillon", label: "Brouillons" },
+  // Onglet d'archive en dernier (PRO-19.1).
+  { id: "Payee", label: "Payées" }
 ];
 
 const STATUS_LABELS = { Brouillon: "Brouillon", Emise: "Envoyée", Payee: "Payée", Retard: "En retard", Annulee: "Annulée", Avoir: "Avoir" };
@@ -575,6 +577,8 @@ function FacturationContent() {
             onVoir={(invoice) => downloadInvoicePdf(invoice)}
             onInvoicesChange={(maj) => setInvoices((cur) => (cur || []).map((f) => (f.id === maj.id ? maj : f)))}
           />
+        ) : rows.length === 0 && !query.trim() && Array.isArray(invoices) && invoices.length === 0 ? (
+          <ListeVide titre="Aucune facture" texte="Elles se créent depuis un devis signé : acompte, situation, solde." action={{ label: "Voir mes devis", href: "/devis" }} />
         ) : rows.length === 0 ? (
           <div className="tbl">
             <div className="empty">{query.trim() ? "Aucune facture ne correspond à cette recherche." : L.facturation.noInvoices}</div>

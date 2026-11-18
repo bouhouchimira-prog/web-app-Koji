@@ -161,6 +161,9 @@ class VisiteStore extends ChangeNotifier {
     if (!_ferme) notifyListeners();
   }
 
+  /// Relevés pris hors ligne pas encore envoyés (déconnexion, PRO-15.6).
+  int get relevesEnAttente => _visites.values.where((v) => '${v['debut']}'.isNotEmpty).fold<int>(0, (n, v) => n + enAttente(v));
+
   List<Visite> get visites => _visites.values.toList()..sort((a, b) => '${b['rdvLe'] ?? b['creeLe']}'.compareTo('${a['rdvLe'] ?? a['creeLe']}'));
 
   Visite? lire(String id) => _visites[id];

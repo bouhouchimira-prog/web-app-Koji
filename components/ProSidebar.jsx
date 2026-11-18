@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment } from "react";
+import { RechercheMenu } from "./RechercheMenu";
 import KojiWordmark from "./KojiWordmark";
 
 const PERSON = "M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0";
@@ -43,14 +44,16 @@ const GROUPS = [
     label: "Business",
     items: [
       { href: "/depenses", label: "Dépenses", icon: "M5 20V10M12 20V4M19 20v-7" },
+      { href: "/equipe", label: "Équipe", icon: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5" },
       { href: "/interventions", label: "Interventions", icon: "M14.7 6.3a4 4 0 0 0 5 5L12 19.1a2.1 2.1 0 0 1-3-3zM9.5 9.5 4 4" }
     ]
   },
   {
     label: "Autre",
     items: [
-      { href: "/archives", label: "Archives", icon: "M3 4h18v4H3zM5 8v12h14V8M10 12h4" },
-      { href: "/corbeille", label: "Corbeille", icon: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" },
+      // PRO-19.1 : pas de menu Archives ni Corbeille (onglets d'archive dans
+      // chaque liste, Paramètres › Éléments supprimés).
+      { href: "/progression", label: "Ma progression", icon: "M4 20V14M10 20V9M16 20V4M22 20H2" },
       { href: "/profil", label: "Profil / Configuration", icon: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1", match: ["/profil", "/parametres", "/aide"], exclude: ["/kojipage"] }
     ]
   }
@@ -77,6 +80,7 @@ export function ProSidebar({
   contactsBadge = 0,
   messagesBadge = 0,
   onAsk,
+  onAskQuestion,
   account,
   menuOpen,
   onToggleMenu,
@@ -87,13 +91,15 @@ export function ProSidebar({
     <aside className={`side${open ? " open" : ""}`} aria-label="Navigation">
       <Link href="/" className="brand" aria-label="Koji, accueil"><KojiWordmark height={14} /></Link>
 
+      <RechercheMenu onAsk={onAskQuestion} />
+
       <button type="button" className="sx kj" onClick={onAsk}>
         <span className="kjs">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg>
         </span>
         <div>
           <b>Demander à Koji</b>
-          <small>ou rechercher · Ctrl K</small>
+          <small>assistant IA · Ctrl K</small>
         </div>
       </button>
 

@@ -2,7 +2,7 @@
   "meta": {
     "title": "Koji Web — Récapitulatif technique",
     "subtitle": "Développement produit — Frontend, Backend & Base de données",
-    "periodLabel": "Juin - Juillet 2026",
+    "periodLabel": "Juin - Novembre 2026",
     "preparedFor": "Management",
     "preparedBy": "Équipe développement Koji Web"
   },
@@ -1173,24 +1173,6 @@
     },
     {
       "category": "frontend",
-      "theme": "Koji Pro - Refonte complète",
-      "title": "Refonte intégrale du dashboard entreprise (50 pages web)",
-      "detail": "Le dashboard Koji Pro a été entièrement refondu selon la nouvelle DA : 50 pages répartis sur 12 modules (Chantiers, Devis, Facturation, Fournitures, Bibliothèque, Comptabilité, Contacts, Calendrier, KojiPage, Profil, Équipe, Urgences). Chaque module et sous-page respecte le design system PRO-01 à PRO-17, avec KPIs, listes, fiches détail et formulaires cohérents."
-    },
-    {
-      "category": "frontend",
-      "theme": "Koji Pro - Refonte complète",
-      "title": "Refonte intégrale de l'app mobile entreprise (5 fichiers Flutter)",
-      "detail": "L'application mobile Koji Pro a été refondée sur 5 fichiers (Accueil, Listes Devis/Clients/Équipe/Facturation, Assistant IA Devis, Profil et Paramètres, Options avancées). Tous les écrans utilisent le nouveau design system KOJI Pro (couleurs, composants, KPI cards mobiles, mise en page responsive)."
-    },
-    {
-      "category": "backend",
-      "theme": "Koji Pro - Refonte complète",
-      "title": "Validation et tests de la refonte Koji Pro",
-      "detail": "Tests Playwright pour le web : 16/16 pages PRO passent les validations (sélecteurs CSS, KPIs, listes, formulaires). Tests Flutter : 0 erreurs de compilation (flutter analyze). Tous les composants respectent la DA et les spécifications PRO-01 à PRO-17."
-    },
-    {
-      "category": "frontend",
       "theme": "Nouveau domaine getkoji.io",
       "title": "Passage du domaine kojibuild.com à getkoji.io",
       "detail": "Toutes les adresses visibles par les utilisateurs utilisent désormais getkoji.io : contact du support (contact@getkoji.io), e-mails automatiques, sous-domaines entreprise.getkoji.io et particulier.getkoji.io, textes légaux et applications mobiles. Les identifiants des applications sur le Play Store et l'App Store ne changent pas. Les réglages des services externes (Vercel, Supabase, Google, Stripe, stores) restent à basculer à la main."
@@ -1200,6 +1182,210 @@
       "theme": "Connexion et comptes",
       "title": "Connexion, inscription et mot de passe oublié réparés (retour testeur du 12 novembre)",
       "detail": "Un testeur ne pouvait ni se connecter, ni créer de compte, ni réinitialiser son mot de passe dans les apps. Cause principale : depuis un ancien script, la création d’un compte n’enregistrait plus la fiche de l’utilisateur (5 comptes sur 24 concernés), si bien que l’e-mail de mot de passe oublié ne partait pas et que le lien d’activation du site ne marchait pas. Désormais la fiche manquante est recréée automatiquement (connexion, inscription, mot de passe oublié), et un script de base de données remet en place la création automatique. Dans les apps : mot de passe oublié passe par getkoji.io (l’ancien lien ne menait nulle part), message clair si l’adresse a déjà un compte ou si la connexion Google échoue, au lieu de « Une erreur est survenue »."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Une refonte refaite page par page, sur le site et dans l'app",
+      "detail": "Le lot du 31 octobre (50 pages annoncées) s'est révélé factice à l'audit du 1er novembre : des écrans remplis de données d'exemple. Tout a été refait depuis le 9 novembre, écran par écran, en suivant la maquette « KOJI Pro pages » : 105 écrans Koji Pro, chacun avec ses vraies données, sur le site et dans l'app Koji Pro en même temps."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Connexion, création de compte et démarrage guidé",
+      "detail": "Nouvelle page de connexion et d'inscription, mot de passe oublié et activation, puis un démarrage en six étapes (entreprise, métiers et zone, prix, décennale, logo, IBAN) qui dit ce que chaque étape débloque."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Accueil et chiffres du mois",
+      "detail": "L'accueil montre le devis guidé, les indicateurs, le Radar des chantiers avec sa carte, ce qui est à traiter, et les chiffres du mois calculés depuis les vraies factures."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Chantiers : de l'ouverture à la clôture",
+      "detail": "Liste et fiche chantier, photos avant / après, réserves, réception avec procès-verbal signé, dossier de fin de chantier, demande d'avis et tâches du chantier."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Devis : guidé, envoyé, signé",
+      "detail": "Devis guidé avec Koji, envoi par e-mail ou lien, suivi après l'envoi, facture d'acompte, TVA choisie automatiquement, versions du devis, signature en ligne ou sur place avec le délai de rétractation, et mode visite."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Radar des chantiers et jetons",
+      "detail": "Le Radar affiche les demandes des particuliers autour de l'entreprise. Les jetons sont réels : réservés à la prise de position, débités quand le rendez-vous est confirmé, rendus sinon."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Avenants, factures et encaissements",
+      "detail": "Avenants avec signature du client, situations de travaux, factures d'avoir, relances et mise en demeure, suivi des encaissements et reçus de paiement."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Fournitures et bons de commande",
+      "detail": "Fournitures par chantier, stock léger, réception des livraisons, bons de commande envoyés au fournisseur, et fournisseurs partenaires Koji."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Bibliothèque de prix",
+      "detail": "Bibliothèque d'ouvrages par famille, création d'ouvrage, page « Mes prix » et taux calculés d'après les factures de l'entreprise."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Dépenses et export pour le comptable",
+      "detail": "Pièces à ranger, coût par chantier, factures reçues, et export mensuel envoyé au comptable."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Contacts, calendrier et messages",
+      "detail": "Carnet de contacts avec fiches par type et vigilance des sous-traitants (URSSAF, Kbis), calendrier et planning avec export PDF, et messagerie avec les clients, traduite si besoin."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "KojiPage et carte de visite",
+      "detail": "La page publique de l'entreprise : réalisations, prestations, avis, demandes reçues, réglages, carte de visite, et demande de devis avec l'assistant."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Réseau pro et sous-traitance",
+      "detail": "Échanges entre entreprises : besoins publiés, réponses, et préparation d'un contrat de sous-traitance présenté au client."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Profil, paramètres et abonnement",
+      "detail": "Mon entreprise, langue et traduction, réglages des devis et factures avec les mentions obligatoires, abonnement et jetons, notifications, éléments supprimés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Équipe et vue compagnon",
+      "detail": "Qui est où aujourd'hui, fiche compagnon, heures de la semaine, invitation par lien, et une vue simplifiée pour le compagnon sur téléphone ou ordinateur."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Intervention rapide",
+      "detail": "Pour un dépannage : prix de l'artisan acceptés par le client par un lien, intervention, puis facture. La place de marché « Urgences » de la maquette est mise de côté sur décision."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Recherche et assistant Koji partout",
+      "detail": "Une recherche dans le menu et l'assistant Koji sur chaque page : il répond aux questions sur le compte (marges, impayés, planning) à partir des vraies données."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "États vides, hors ligne, archivage",
+      "detail": "Chaque liste vide explique quoi faire, un bandeau prévient quand le réseau manque, et l'archivage ou la suppression suivent une règle par outil, avec un « Annuler » de dix secondes."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Pages légales, progression, aide, notifications",
+      "detail": "Une page par document légal avec bandeau cookies, « Ma progression » avec niveaux et défis de la semaine, « Aide et support » avec l'état du service, et un centre de notifications groupé par jour."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Back-office sur admin.getkoji.io",
+      "detail": "Les 16 pages du back-office : tableau de bord, entreprises et vérification des documents, devis, réseau pro, support, prix et offres, revenus, particuliers, demandes, conversations, fournisseurs, produits, communications, journal des accès."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Documents PDF au nouveau gabarit",
+      "detail": "Devis, facture de situation, procès-verbal de réception et bon de commande suivent le gabarit A4 de la maquette ; les autres documents (avoir, reçu, avenant, fournitures, intervention) aussi. L'app reçoit désormais le même PDF que le site."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Mon parcours : le premier mois",
+      "detail": "Huit étapes faites sur de vrais chantiers, constatées par Koji, qui offrent des jetons du Radar à l'étape accomplie. Grades, hauts faits et talents sont prévus pour une version 2."
+    },
+    {
+      "category": "frontend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Site public",
+      "detail": "Porte d'entrée, accueil entreprises et particuliers, tarifs, pages métiers, contact et démonstration, à propos. La page Ressources est construite mais pas encore lancée."
+    },
+    {
+      "category": "backend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Un seul générateur de documents pour le site et l'app",
+      "detail": "Le serveur fabrique tous les PDF. Il sait lire les devis faits dans l'app, et prend l'identité et l'assurance décennale sur le profil de la bonne entreprise (un défaut pouvait faire apparaître l'identité d'un autre compte ; il est corrigé)."
+    },
+    {
+      "category": "backend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Envois automatiques",
+      "detail": "Résumé du lundi, rappel des documents qui expirent et envoi mensuel au comptable partent seuls, selon les réglages de chaque entreprise. Les relances de factures à J+3 et J+15 existent aussi, désactivées par défaut."
+    },
+    {
+      "category": "backend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Back-office en lecture seule et accès tracés",
+      "detail": "Le back-office lit les données réelles sans jamais modifier la base du site. Chaque ouverture d'une conversation, d'un devis ou d'une demande de support, et chaque export, s'inscrit dans un journal des accès."
+    },
+    {
+      "category": "backend",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Contrôle général du 17 novembre",
+      "detail": "302 tests du site et 228 tests de l'app passent. 64 pages Koji Pro ont été ouvertes une par une sur le site en ligne (aucune erreur) et 68 liens internes vérifiés (aucun cassé). Quatre défauts trouvés et corrigés : deux pages qui débordaient sur téléphone, une ancienne page d'abonnement restée dans l'ancienne charte, un écran sans lien de retour."
+    },
+    {
+      "category": "database",
+      "theme": "Refonte Koji Pro (novembre 2026)",
+      "title": "Migrations de novembre",
+      "detail": "Profil créé correctement à l'inscription (migration 0010) et mention de TVA enregistrée à la signature (migration 0011), toutes deux exécutées. La table du journal des accès du back-office est créée dans Supabase (18 novembre)."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Sessions vérifiées sur les routes sensibles (correctif prioritaire 1)",
+      "detail": "Neuf routes du site (devis, messages de chantier, fournitures, devis par l'IA, estimation du Radar, paiement Stripe) lisaient l'identité dans le jeton de session sans la faire confirmer. Elles demandent maintenant confirmation à Supabase à chaque appel : un jeton fabriqué est refusé, y compris pour l'accès administrateur. 15 tests ajoutés."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Signature en ligne : le lien seul ne suffit plus (correctif prioritaire 2)",
+      "detail": "La page de signature d'un devis s'ouvre seulement après connexion avec l'identifiant et le mot de passe reçus par le client, pour une session de 2 heures. Le mot de passe du portail n'apparaît plus dans la réponse du site. Quand un devis est rattaché à un compte client qui existe déjà, ce compte n'est plus réinitialisé ni réactivé : le client garde son mot de passe. 12 tests ajoutés."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Cloisonnement des données et confidentialité du Radar (correctif prioritaire 3)",
+      "detail": "Un numéro de téléphone ne donne plus accès aux devis d'un client. Sur le Radar, seul le particulier peut confirmer un rendez-vous ou ouvrir ses photos, et ses coordonnées restent masquées avant le rendez-vous. L'import d'une fourniture par lien ne peut plus viser une adresse interne au serveur. L'export des données d'une entreprise, en panne, est réparé et réservé à l'identité vérifiée. Le lien d'activation d'un compte n'est jamais affiché en production. 53 tests ajoutés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Sécurité",
+      "title": "App : cache hors ligne propre à chaque compte (correctif prioritaire 4)",
+      "detail": "Sur un téléphone partagé, les devis et clients gardés pour le mode hors ligne pouvaient s'afficher pour le compte suivant. Le cache appartient maintenant à un seul compte : il est vidé au changement de compte et à la déconnexion. Arrive chez les utilisateurs avec le prochain build de l'app."
+    },
+    {
+      "category": "database",
+      "theme": "Sécurité",
+      "title": "Migration 0012 : une signature ne peut plus être écrasée",
+      "detail": "La fonction qui enregistre la signature d'un devis depuis l'app refuse désormais un devis déjà signé, au lieu de remplacer la première signature. À exécuter dans Supabase."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Relecture et contrôle des correctifs de sécurité (18 novembre)",
+      "detail": "Les quatre correctifs ont été relus avant leur mise en ligne. Quatre erreurs trouvées et corrigées : un filtre d'adresses qui ne filtrait presque rien, un export réparé sans vérification d'identité, un conflit entre deux lots, une migration qui aurait bloqué la signature dans l'app déjà publiée. Après fusion : 382 tests du site et 228 tests de l'app passent, le site compile."
     }
   ]
 }

@@ -44,7 +44,9 @@ class ClientRepository {
   Future<List<Map<String, dynamic>>> getQuotes() async {
     final uid = _uid;
     if (uid == null) return [];
-    await OfflineCacheService.instance.initialize();
+    await OfflineCacheService.instance.initialize(
+      userId: SupabaseConfig.client.auth.currentUser?.id,
+    );
     try {
       final result = await _userRepository.getClientQuotes(uid, email: clientEmail);
       // ignore: unawaited_futures

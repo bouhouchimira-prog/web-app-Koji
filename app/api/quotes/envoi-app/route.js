@@ -5,6 +5,7 @@ import { sendQuoteToClientEmail } from "../../../../lib/mailer";
 import { nomFichierDevis } from "../../../../lib/devis-envoi";
 import { checkTrialSendLimit, persistTrialPatch } from "../../../../lib/plan";
 import { buildWebUser } from "../../../../lib/user-profile";
+import { pdfDevisServeur } from "../../../../lib/devis-pdf-serveur";
 
 // Envoyer le devis depuis l'app Koji Pro (maquette PRO-03.2). Les devis de
 // l'app rangent leurs lignes dans quote_rooms / quote_tasks (pas dans
@@ -27,7 +28,7 @@ export async function POST(request) {
   if (!id) return badRequest("Devis manquant.");
   const { data: row, error } = await auth.supabase
     .from("quotes")
-    .select("id, user_id, status, reference, metadata, web_extras, access_code, access_password")
+    .select("*")
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle();
@@ -57,18 +58,20 @@ export async function POST(request) {
     const pdf = Buffer.from(String(body.pdfBase64 || ""), "base64");
     if (pdf.length > PDF_MAX) return badRequest("PDF trop lourd.");
     const pdfValide = pdf.length > 4 && pdf.subarray(0, 4).toString("latin1") === "%PDF";
+    // Sans PDF de l'app, le serveur fait celui du site (gabarit Pro, PRO-25).
+    const pdfJoint = pdfValide ? pdf : await pdfDevisServeur(row).catch(() => null);
     const replyTo = emailValide(metadata.company?.email) || emailValide(profil?.email) || undefined;
     const resultat = await sendQuoteToClientEmail({
       to: adresse,
       subject: fixText(body.subject || `Devis ${numero}`),
       message: fixText(body.message || ""),
       quoteNumber: numero,
-      pdfBuffer: pdfValide ? pdf : null,
+      pdfBuffer: pdfJoint,
       pdfFilename: nomFichierDevis(numero, client.name),
       signatureUrl: metadata.signature_url || "",
       identifier: row.access_code || "",
       password: row.access_password || "",
-      includePdf: pdfValide,
+      includePdf: Boolean(pdfJoint),
       includeSignatureLink: kojiClient && Boolean(metadata.signature_url),
       includeCredentials: kojiClient && Boolean(row.access_code),
       replyTo

@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { getAuth, isUuid } from "../../../lib/server-auth";
+import { getVerifiedAuth, isUuid } from "../../../lib/server-auth";
 import { importSupplyFromUrl } from "../../../lib/supply-import";
 
 // Supplies live in the shared `fournitures` table used by the koji-main
@@ -49,7 +49,7 @@ function mapFourniture(row) {
 }
 
 export async function GET(request) {
-  const auth = getAuth(request);
+  const auth = await getVerifiedAuth(request);
   if (!auth) return ok({ supplies: [] });
 
   const { data, error } = await auth.supabase
@@ -62,7 +62,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const body = await request.json();
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const imported = body.importUrl || body.sourceUrl ? await importSupplyFromUrl(body.importUrl || body.sourceUrl) : {};
@@ -98,7 +98,7 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   const body = await request.json();
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
   if (!body.id) return badRequest("Identifiant de la fourniture manquant.");
 

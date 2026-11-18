@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { badRequest } from "../../../../lib/http";
 import { getUserScope, readDb, scopedItems } from "../../../../lib/db";
 import { buildWorkerHoursPdf, workerHoursDocumentFilename } from "../../../../lib/document-generator";
+import { avecProfil } from "../../../../lib/document-profil.js";
 
 export async function GET(request) {
   const db = await readDb();
@@ -14,6 +15,7 @@ export async function GET(request) {
   if (!worker) return badRequest("Ouvrier introuvable.", 404);
 
   const entries = scopedItems(db.attendanceEntries, userId).filter((entry) => entry.workerId === workerId);
+  await avecProfil(db, worker.userId);
   const pdfBuffer = buildWorkerHoursPdf({ worker, entries, month, db });
   const filename = workerHoursDocumentFilename(worker, month);
 

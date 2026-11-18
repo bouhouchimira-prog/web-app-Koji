@@ -6,6 +6,7 @@ import { mapQuote } from "../../../../../../lib/quote-mapping";
 import { getVerifiedPortalUserId } from "../../../../../../lib/portal-session";
 import { buildQuotePdf, quoteDocumentFilename } from "../../../../../../lib/document-generator";
 import { fixObjectText } from "../../../../../../lib/text";
+import { avecProfil } from "../../../../../../lib/document-profil.js";
 
 // Client-portal equivalent of app/api/quotes/[id]/documents/route.js: that
 // route requires a company Supabase session (getAuth), which a particulier
@@ -22,12 +23,10 @@ function normalizePhone(value = "") {
 }
 
 function quoteBelongsToClient(quote, project, user, email) {
-  const phone = normalizePhone(user?.phone || user?.personal?.phone);
   if (user?.id && quote.clientPortalUserId === user.id) return true;
   if (user?.clientAccess?.quoteIds?.includes(quote.id)) return true;
   if (user?.clientAccess?.projectIds?.includes(quote.projectId)) return true;
   if (email && (normalizeEmail(quote.clientEmail) === email || normalizeEmail(project?.clientEmail) === email)) return true;
-  if (phone && (normalizePhone(quote.clientPhone) === phone || normalizePhone(project?.clientPhone) === phone)) return true;
   return false;
 }
 
@@ -66,6 +65,7 @@ export async function GET(request, context) {
   }
 
   const filename = quoteDocumentFilename(quote, "quote", "pdf");
+  await avecProfil(db, quote.userId);
   const buffer = buildQuotePdf({ quote, project, db, documentType: "devis" });
   return new NextResponse(buffer, {
     headers: {

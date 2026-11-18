@@ -1,149 +1,105 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { LayoutDashboard, Users, FileText, Package, Banknote, CheckCircle2, XCircle, UserPlus, Truck } from 'lucide-react'
+import Link from 'next/link'
+import { devis as lireDevis, estSigneDevis, etatWeb, particuliers as lireParticuliers, utilisateurs } from '@/lib/bo/donnees'
+import { moisParis, revenusDuMois } from '@/lib/bo/revenus'
+import { euros, maintenant } from '@/lib/bo/format'
+import { estEntreprise, fileVerifications, joursSemaine, offreDe, surTrenteJours } from '@/lib/bo/regles'
 
-function formatEuro(value: number) {
-  return value.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €'
-}
+// Tableau de bord du back-office (maquette PRO-24.1) : les huit chiffres
+// décidés le 4 nov., deux univers côte à côte (Koji Pro, Koji Client), les
+// alertes à traiter et l'activité de la semaine. Agrégats seulement : aucun
+// nom de particulier ici.
+export const dynamic = 'force-dynamic'
 
-function timeAgo(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const mins = Math.round(diffMs / 60000)
-  if (mins < 1) return "à l'instant"
-  if (mins < 60) return `Il y a ${mins} min`
-  const hours = Math.round(mins / 60)
-  if (hours < 24) return `Il y a ${hours} h`
-  const days = Math.round(hours / 24)
-  if (days === 1) return 'Hier'
-  return `Il y a ${days} j`
-}
+type Ligne = Record<string, unknown>
+const s = (v: unknown) => String(v ?? '')
+const j10 = (v: unknown) => s(v).slice(0, 10)
+const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`
+const evo = (e: number | null) => (e === null ? '' : `${e >= 0 ? '+' : ''}${e} %`)
 
-function isSigned(status: string | null) {
-  const key = (status || '').toLowerCase()
-  return ['signed', 'signe', 'signé', 'accepted', 'accepte'].includes(key)
-}
-function isRefused(status: string | null) {
-  const key = (status || '').toLowerCase()
-  return ['refused', 'refuse', 'refusé', 'rejected'].includes(key)
-}
+export default async function TableauDeBord() {
+  const aujourdhui = new Date().toISOString().slice(0, 10)
+  const [comptes, tousDevis, db, revenus] = await Promise.all([utilisateurs(), lireDevis(), etatWeb(), revenusDuMois(moisParis())])
+  const entreprises = comptes.filter(estEntreprise)
+  // Particuliers du site et de l'app réunis (deux sources, voir lib/bo/donnees).
+  const particuliers = await lireParticuliers(comptes)
+  const il7 = new Date(maintenant() - 7 * 86400000).toISOString()
+  const il30 = new Date(maintenant() - 30 * 86400000).toISOString()
+  const il48h = new Date(maintenant() - 48 * 3600000).toISOString()
 
-// Refonte maquette (25 oct, AdminDashboard.dc.html) — garde les vraies
-// requetes deja en place (users/quotes/products counts), corrige un bug
-// trouve en route (la carte "Volume en cours" affichait un montant
-// "€28 342,3" code en dur, alors que la vraie valeur etait deja calculee
-// dans potentialValue sans jamais etre utilisee), et construit une vraie
-// "Activite recente" a partir des derniers devis/utilisateurs reels
-// (plutot que la liste entierement inventee de la version precedente).
-export default async function DashboardPage() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll() }, setAll() { } } }
-  )
+  const inscritsPro = surTrenteJours(entreprises, (u) => u.created_at, aujourdhui)
+  const actives30 = new Set(tousDevis.filter((d) => s(d.created_at) >= il30).map((d) => d.user_id))
+  const actives7 = new Set(tousDevis.filter((d) => s(d.created_at) >= il7).map((d) => d.user_id))
+  const signes30 = tousDevis.filter((d) => estSigneDevis(d) && s(d.signed_at || d.created_at) >= il30)
+  const moyenne = signes30.length ? signes30.reduce((t, d) => t + (Number(d.total_ttc) || 0), 0) / signes30.length : 0
+  const offres = entreprises.map((u) => offreDe(u, aujourdhui).plan)
+  const abonnes = offres.filter((p) => ['start', 'pro', 'business'].includes(p))
+  const jetons = ((db.jetonsAchats || []) as Ligne[]).filter((a) => s(a.le) >= il30 && !a.offert).reduce((t, a) => t + (Number(a.quantite) || 0), 0)
 
-  const [
-    { count: usersCount },
-    { count: quotesCount },
-    { count: productsCount },
-    { data: activeQuotes },
-    { data: recentQuotes },
-    { data: recentUsers },
-  ] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }),
-    supabase.from('quotes').select('*', { count: 'exact', head: true }),
-    supabase.from('products').select('*', { count: 'exact', head: true }),
-    supabase.from('quotes').select('total_amount').eq('status', 'en_cours'),
-    supabase.from('quotes').select('client_name, total_amount, status, created_at').order('created_at', { ascending: false }).limit(5),
-    supabase.from('users').select('email, profession, is_pro, created_at').order('created_at', { ascending: false }).limit(5),
-  ])
+  const demandes = (db.chantierOffres || []) as Ligne[]
+  const positions = (db.chantierPositionnements || []) as Ligne[]
+  const messages = (db.chantierOffreMessages || []) as Ligne[]
+  const support = (db.technicalReports || []) as Ligne[]
+  const inscritsCli = surTrenteJours(particuliers, (p) => p.creeLe, aujourdhui)
+  const publiees30 = demandes.filter((d) => s(d.publishedAt || d.createdAt) >= il30)
+  const avecPhotos = publiees30.filter((d) => Array.isArray(d.photos) && (d.photos as unknown[]).length).length
+  const rdv30 = messages.filter((m) => s(m.rdvStatus) === 'accepted' && s(m.createdAt) >= il30).length
+  const posPar = new Map<string, number>()
+  for (const p of positions) posPar.set(s(p.offerId), (posPar.get(s(p.offerId)) || 0) + 1)
+  const sansReponse = demandes.filter((d) => s(d.status) === 'Publiee' && s(d.publishedAt || d.createdAt) < il48h && !posPar.get(s(d.id)))
+  const zones = [...new Set(sansReponse.map((d) => s(d.postalCode).slice(0, 2)).filter(Boolean))].slice(0, 4)
+  const moyennePos = demandes.length ? [...posPar.values()].reduce((a, b) => a + b, 0) / demandes.length : 0
+  const supportOuvert = (type: 'pro' | 'client') => support.filter((r) => s(r.status || 'ouvert') !== 'resolu' && (type === 'client' ? s(r.accountType) === 'particulier' : s(r.accountType) !== 'particulier')).length
+  const verifs = fileVerifications(entreprises, aujourdhui)
+  const decExpirees = verifs.filter((v) => v.doc === 'decennale' && v.etat === 'expire').length
+  const aValider = verifs.filter((v) => v.etat === 'a_valider').length
 
-  const potentialValue = activeQuotes?.reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0) || 0
-
-  type Activity = { icon: any; title: string; sub: string; at: string }
-  const activities: Activity[] = [
-    ...(recentQuotes || []).map((q): Activity => ({
-      icon: isSigned(q.status) ? CheckCircle2 : isRefused(q.status) ? XCircle : FileText,
-      title: isSigned(q.status) ? 'Devis signé' : isRefused(q.status) ? 'Devis refusé' : 'Nouveau devis créé',
-      sub: `${q.client_name || 'Nouveau prospect'} · ${formatEuro(Number(q.total_amount || 0))}`,
-      at: q.created_at,
-    })),
-    ...(recentUsers || []).map((u): Activity => ({
-      icon: UserPlus,
-      title: u.is_pro ? 'Nouvel utilisateur Pro' : 'Nouvel utilisateur',
-      sub: `${u.email} · ${u.profession || 'Particulier'}`,
-      at: u.created_at,
-    })),
-  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 6)
+  const jours = joursSemaine(aujourdhui)
+  const parJour = jours.map((j) => demandes.filter((d) => j10(d.publishedAt || d.createdAt) === j).length)
+  const max = Math.max(1, ...parJour)
+  const noms = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
+  const date = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }).format(new Date())
 
   return (
-    <div className="space-y-5 pb-10">
-      <div>
-        <h1 className="text-[26px] font-extrabold text-[#16233F] tracking-tight">Vue d’ensemble</h1>
-        <p className="text-[14px] text-gray-500 mt-1">Bon retour. Voici ce qui se passe aujourd’hui.</p>
-      </div>
-
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { icon: Users, label: 'Utilisateurs', value: usersCount || 0 },
-          { icon: FileText, label: 'Devis', value: quotesCount || 0 },
-          { icon: Banknote, label: 'Volume en cours', value: formatEuro(potentialValue), sub: 'HT, devis en attente' },
-          { icon: Package, label: 'Produits', value: productsCount || 0, sub: 'au catalogue' },
-        ].map((kpi) => (
-          <div key={kpi.label} className="bg-white border border-[#EDEDF3] rounded-2xl p-4 flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-gray-400">
-              <kpi.icon className="w-4 h-4" />
-              <span className="text-[12px] font-semibold">{kpi.label}</span>
-            </div>
-            <span className="text-[24px] font-extrabold text-[#16233F]">{kpi.value}</span>
-            {kpi.sub && <span className="text-[12px] text-gray-500">{kpi.sub}</span>}
+    <div className="bo">
+      <div className="bo-h"><div><span className="bo-eyebrow">{date.charAt(0).toUpperCase() + date.slice(1)}</span><h1>Tableau de bord</h1></div></div>
+      <div className="bo-g2">
+        <section className="bo">
+          <span className="bo-eyebrow"><span className="bo-u">Koji Pro</span> entreprises</span>
+          <div className="bo-kpis">
+            <div><span>Inscriptions entreprises · 30 j</span><b>{inscritsPro.n}</b><small>{evo(inscritsPro.evolution)}</small></div>
+            <div><span>Entreprises actives</span><b>{actives30.size}</b><small>{actives7.size} cette semaine</small></div>
+            <div><span>Devis signés · 30 j</span><b>{signes30.length}</b><small>{signes30.length ? `${eur(moyenne)} TTC en moyenne` : ''}</small></div>
+            <div><span>Abonnements</span><b>{abonnes.length}</b><small>Pro {offres.filter((p) => p === 'pro').length} · Business {offres.filter((p) => p === 'business').length} · Start {offres.filter((p) => p === 'start').length}</small></div>
+            <div><span>Jetons vendus · 30 j</span><b>{jetons}</b><small>achats Stripe</small></div>
+            <div><span>Revenus du mois</span><b>{revenus.facturesLues ? euros(revenus.totaux.abonnements + revenus.totaux.jetons + revenus.totaux.remboursements) : '—'}</b><small>{revenus.facturesLues ? 'HT · abonnements et jetons' : 'factures Stripe non lisibles (voir Revenus)'}</small></div>
           </div>
-        ))}
-      </div>
-
-      <div className="flex gap-5 items-start">
-        <div className="flex-[1.7] min-w-0 bg-white border border-[#EDEDF3] rounded-[18px] p-6 flex flex-col gap-1">
-          <span className="text-[16px] font-extrabold text-[#16233F] mb-2">Activité récente</span>
-          {activities.length === 0 && <p className="text-[13.5px] text-gray-500 py-4">Aucune activité pour l’instant.</p>}
-          {activities.map((item, idx) => (
-            <div key={idx} className={`flex items-center gap-3.5 py-3 ${idx < activities.length - 1 ? 'border-b border-[#F4F4F8]' : ''}`}>
-              <div className="w-10 h-10 rounded-[11px] bg-[#EDEFFB] flex items-center justify-center shrink-0">
-                <item.icon className="w-[18px] h-[18px] text-[#16233F]" strokeWidth={1.8} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-bold text-[#1E2430] truncate">{item.title}</div>
-                <div className="text-[12.5px] text-gray-500 mt-0.5 truncate">{item.sub}</div>
-              </div>
-              <span className="text-[12.5px] text-gray-400 shrink-0">{timeAgo(item.at)}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex-1 min-w-0 flex flex-col gap-5">
-          <div className="bg-white border border-[#EDEDF3] rounded-[18px] p-6 flex flex-col gap-2.5">
-            <span className="text-[16px] font-extrabold text-[#16233F] mb-1.5">Actions rapides</span>
-            {[
-              { icon: Package, label: 'Ajouter un produit', href: '/dashboard/products' },
-              { icon: Truck, label: 'Ajouter un fournisseur', href: '/dashboard/fournisseurs' },
-              { icon: LayoutDashboard, label: 'Ajouter une fourniture', href: '/dashboard/fournitures' },
-            ].map((action) => (
-              <a key={action.label} href={action.href} className="flex items-center gap-3 p-3 rounded-xl bg-[#F6F7FB]">
-                <action.icon className="w-[18px] h-[18px] text-[#16233F]" strokeWidth={1.8} />
-                <span className="flex-1 text-[14px] font-bold text-[#1E2430]">{action.label}</span>
-                <span className="text-gray-400">›</span>
-              </a>
-            ))}
+          <div className="bo-card">
+            <h2>À traiter · Pro</h2>
+            <div className="bo-alerte"><div><b>{decExpirees} décennale{decExpirees > 1 ? 's' : ''} expirée{decExpirees > 1 ? 's' : ''}</b><small>{aValider} document{aValider > 1 ? 's' : ''} reçu{aValider > 1 ? 's' : ''} à valider</small></div><Link className="bo-tag plein" href="/dashboard/entreprises/verifications">{decExpirees ? 'Bloquant' : 'Voir'}</Link></div>
+            <div className="bo-alerte"><div><b>{supportOuvert('pro')} demande{supportOuvert('pro') > 1 ? 's' : ''} de support ouverte{supportOuvert('pro') > 1 ? 's' : ''}</b><small>entreprises</small></div><span className="bo-tag">À lire</span></div>
           </div>
-
-          {(productsCount || 0) === 0 && (
-            <div className="bg-[#F3EEE6] rounded-[18px] p-6 flex flex-col gap-2">
-              <span className="text-[11.5px] font-bold tracking-wide text-[#8A5A00]">À SURVEILLER</span>
-              <span className="text-[15px] font-bold text-[#16233F] leading-relaxed">
-                Le catalogue produits est vide. Ajoutez les premiers articles pour les proposer aux artisans.
-              </span>
-            </div>
-          )}
-        </div>
+        </section>
+        <section className="bo">
+          <span className="bo-eyebrow"><span className="bo-u client">Koji Client</span> particuliers</span>
+          <div className="bo-kpis">
+            <div><span>Inscriptions particuliers · 30 j</span><b>{inscritsCli.n}</b><small>{evo(inscritsCli.evolution)}</small></div>
+            <div><span>Demandes publiées · 30 j</span><b>{publiees30.length}</b><small>{publiees30.length ? `${Math.round((avecPhotos / publiees30.length) * 100)} % avec photos` : ''}</small></div>
+            <div><span>Rendez-vous confirmés · 30 j</span><b>{rdv30}</b><small>{publiees30.length ? `${Math.round((rdv30 / publiees30.length) * 100)} % des demandes` : ''}</small></div>
+            <div><span>Sans réponse depuis 48 h</span><b>{sansReponse.length}</b><small>{zones.length ? `zones ${zones.join(', ')}` : ''}</small></div>
+            <div><span>Propositions par demande</span><b>{moyennePos.toFixed(1).replace('.', ',')}</b><small>sur 3 au plus</small></div>
+            <div><span>Signalements ouverts</span><b>—</b><small>signalement pas encore disponible</small></div>
+          </div>
+          <div className="bo-card">
+            <h2>À traiter · Client</h2>
+            <div className="bo-alerte"><div><b>{sansReponse.length} demande{sansReponse.length > 1 ? 's' : ''} sans réponse depuis 48 h</b><small>aucune entreprise positionnée</small></div><span className="bo-tag">Échéance</span></div>
+            <div className="bo-alerte"><div><b>{supportOuvert('client')} demande{supportOuvert('client') > 1 ? 's' : ''} de support ouverte{supportOuvert('client') > 1 ? 's' : ''}</b><small>particuliers</small></div><span className="bo-tag">À lire</span></div>
+          </div>
+        </section>
+      </div>
+      <div className="bo-card">
+        <h2>Activité de la semaine</h2>
+        <div className="bo-barres">{parJour.map((n, i) => <div key={jours[i]}><b>{n || ''}</b><i style={{ height: `${(n / max) * 100}%` }} /><span>{noms[i]}</span></div>)}</div>
+        <p className="bo-note">Demandes publiées par jour (Koji Client).</p>
       </div>
     </div>
   )

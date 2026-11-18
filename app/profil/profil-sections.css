@@ -1,0 +1,27 @@
+/* Sections du profil (maquettes PRO-15 et PRO-15.2). */
+.pro .pf-etapes .pf-sts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pro .pf-qual{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.pro .pf-qual .pair{display:flex;gap:8px;align-items:center}
+.pro .pf-dispo{display:grid;grid-template-columns:minmax(160px,1fr) auto auto;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.pro .pf-dispo .t{display:flex;flex-direction:column;gap:2px}
+.pro .pf-dispo .t small{color:var(--grey);font-size:12px}
+.pro .pf-dispo .pair{display:flex;gap:6px}
+.pro .pf-dispo input{height:36px;padding:0 8px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);color:var(--ink);font:inherit;font-size:13px}
+.pro .pf-jours{display:flex;flex-wrap:wrap;gap:4px}
+.pro .pf-jours button{min-width:40px;height:32px;padding:0 6px;background:var(--card);border:1px solid var(--btn);border-radius:var(--r-touch);color:var(--grey);font:inherit;font-size:12px;cursor:pointer}
+.pro .pf-jours button.on{background:var(--ink);border-color:var(--ink);color:var(--card)}
+.pro .pf-regimes{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.pro .pf-regimes button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-touch);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.pro .pf-regimes button small{color:var(--grey);font-size:12px}
+.pro .pf-regimes button.on{border:2px solid var(--ink);background:var(--soft)}
+.pro .pf-mention .pf-coche{display:inline-grid;place-items:center;width:22px;height:22px;flex:none;border:1px solid var(--grey);border-radius:var(--r-touch);color:var(--grey);font-size:12px;font-weight:700}
+.pro .pf-mention.ok .pf-coche{background:var(--ink);border-color:var(--ink);color:var(--card)}
+.pro .pf-med{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:12px 14px;background:var(--soft);border-left:3px solid var(--ink)}
+.pro .pf-med.alerte{border-left-color:var(--prim)}
+.pro .pf-med small{color:var(--grey);font-size:12.5px}
+.pro .pf-prix{flex-direction:row;align-items:center;justify-content:space-between}
+@media (max-width:700px){
+  .pro .pf-etapes .pf-sts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pro .pf-dispo{grid-template-columns:minmax(0,1fr)}
+  .pro .pf-prix{flex-direction:column;align-items:flex-start}
+}

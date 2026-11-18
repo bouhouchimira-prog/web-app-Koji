@@ -8,6 +8,7 @@ import { AddressFields } from "../../components/AddressFields";
 import { SendQuoteFlow } from "../../components/SendQuoteFlow";
 import { DevisChatPanel } from "../../components/DevisChatPanel";
 import { apiGet, apiSend } from "../../lib/client-api";
+import { conditionsDefaut } from "../../lib/compte-pro";
 import { contactDisplayName, findSimilarContacts } from "../../lib/contacts";
 import { clearChantierDraft, getChantierDraft } from "../../lib/chantier-draft";
 import { pricingProfile } from "../../lib/data";
@@ -25,6 +26,7 @@ import { demandeDevisGuide } from "../../lib/visite-mode";
 import { FactureAcompte } from "../../components/FactureAcompte";
 import { cumulativeMarketTotal, AVENANT_STATUS_LABEL_KEYS } from "../../lib/avenant-mapping";
 import { SITUATION_FACTORS, SITUATION_FACTOR_DEFAULTS } from "../../lib/situation-factors";
+import { annoncerSuppression } from "../../lib/annuler-suppression";
 import catalog from "../../data/catalog-ouvrages.json";
 
 const ROOM_SUGGESTIONS = ["Salon", "Cuisine", "Chambre", "Salle de bain", "Bureau", "Exterieur"];
@@ -204,6 +206,10 @@ function profileCompany(user) {
     bic: business.bic || "",
     bankHolder: business.bankHolder || business.raisonSociale || user?.name || "",
     paymentTerms: business.paymentTerms || "",
+    // Régime de TVA et médiateur (PRO-15.2) : repris dans les mentions du PDF.
+    regimeTva: business.regimeTva || "",
+    mediateurNom: business.mediateur?.nom || "",
+    mediateurSite: business.mediateur?.site || "",
     hourlyRate: daily > 0 ? round2(daily / hpd) : 0
   };
 }
@@ -495,6 +501,8 @@ export default function DevisEditor() {
   const visiteLiee = useRef("");
   // Demande reçue par la KojiPage (PRO-13.1) : « Démarrer un devis guidé ».
   const [demandeKP, setDemandeKP] = useState(null);
+  const [interventionRapide, setInterventionRapide] = useState(null);
+  const interventionLiee = useRef("");
   const demandeLiee = useRef("");
   const [messageEnvoi, setMessageEnvoi] = useState("");
   const moreActionsRef = useRef(null);
@@ -525,6 +533,7 @@ export default function DevisEditor() {
   // entrees, somme des percent = 100.
   const [paymentMilestones, setPaymentMilestones] = useState(() => defaultPaymentMilestones());
   const [quoteVatRate, setQuoteVatRate] = useState(20);
+  const franchiseRef = useRef(false);
   // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
   const [tvaChoix, setTvaChoix] = useState({ client: "", local: "", travaux: "", commande: "" });
   const [tvaOuvert, setTvaOuvert] = useState(false);
@@ -601,6 +610,17 @@ export default function DevisEditor() {
         if (!editQuoteIdFromUrl() && !vatManual && Number.isFinite(defaultVat) && defaultVat > 0) {
           setQuoteVatRate(defaultVat);
         }
+        // Franchise en base (PRO-15.2) : un devis neuf est établi sans TVA.
+        franchiseRef.current = payload.user?.business?.regimeTva === "franchise";
+        if (franchiseRef.current && !editQuoteIdFromUrl() && !vatManual) setQuoteVatRate(0);
+        // Conditions par défaut du compte : validité et acompte d'un devis neuf.
+        if (!editQuoteIdFromUrl()) {
+          const defauts = conditionsDefaut(payload.user?.business || {});
+          setForm((f) => (Number(f.validityDays || 30) === 30 ? { ...f, validityDays: defauts.validiteJours } : f));
+          setPaymentMilestones((actuels) => (actuels.length === 2 && actuels[0].percent === 30 && actuels[1].percent === 70 && defauts.acomptePct !== 30
+            ? [{ ...actuels[0], percent: defauts.acomptePct }, { ...actuels[1], percent: 100 - defauts.acomptePct }]
+            : actuels));
+        }
         // Majorations réglées dans Bibliothèque › Mes prix : même règle que la
         // TVA, uniquement pour un devis tout neuf.
         const accountSurcharges = accountSurchargesFrom(payload.user?.business?.defaultSurcharges);
@@ -660,6 +680,28 @@ export default function DevisEditor() {
       .catch(() => notifyError(new Error("Demande introuvable."), "La demande de la KojiPage n'a pas pu être chargée."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Intervention rapide (PRO-17.1) : travaux proposés en plus → devis séparé, client repris.
+  useEffect(() => {
+    if (typeof window === "undefined" || editQuoteIdFromUrl()) return;
+    const interventionId = new URLSearchParams(window.location.search).get("intervention");
+    if (!interventionId) return;
+    apiGet(`/api/interventions/rapide?id=${encodeURIComponent(interventionId)}`)
+      .then(({ intervention }) => {
+        if (!intervention) return;
+        applyChatClientInfo({ nom: intervention.client, email: intervention.email, chantier: intervention.site });
+        setInterventionRapide(intervention);
+      })
+      .catch(() => notifyError(new Error("Intervention introuvable."), "L'intervention n'a pas pu être chargée."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = generatedQuote?.id;
+    if (!interventionRapide?.id || !id || interventionLiee.current === id) return;
+    interventionLiee.current = id;
+    apiSend("/api/interventions/rapide", { action: "lier-devis", id: interventionRapide.id, quoteId: id }, "POST").catch(() => { interventionLiee.current = ""; });
+  }, [interventionRapide, generatedQuote?.id]);
 
   useEffect(() => {
     const id = generatedQuote?.id;
@@ -1105,7 +1147,7 @@ export default function DevisEditor() {
     const client = choix.client || clientTvaCourant;
     const decision = decisionTva({ client, local: choix.local, travaux: choix.travaux });
     setTvaChoix(choix);
-    if (decision.taux != null) setQuoteVatRate(decision.taux);
+    if (decision.taux != null) setQuoteVatRate(franchiseRef.current ? 0 : decision.taux);
     if (decision.taux != null && decision.taux !== 10) {
       setLineSettings((current) => Object.fromEntries(Object.entries(current).map(([id, reglage]) => {
         if (!reglage || reglage.tauxTva == null) return [id, reglage];
@@ -2661,14 +2703,20 @@ export default function DevisEditor() {
 
   async function handleDeleteQuote() {
     if (!generatedQuote?.id) return;
-    if (!window.confirm("Supprimer définitivement ce devis ? Cette action est irréversible.")) {
-      notify("Action annulée.", "info");
+    // PRO-19.1 : seuls les brouillons se suppriment ; « Annuler » 10 s, puis
+    // 30 jours dans Paramètres › Éléments supprimés (corbeille).
+    const q = generatedQuote;
+    if (q.status === "Signe" || q.signatureStatus === "Signe" || q.sentAt) {
+      notify("Un devis envoyé ou signé ne se supprime pas : il expire, ou se remplace par une nouvelle version ou un avenant.", "info");
       return;
     }
     try {
-      await apiSend("/api/quotes", { id: generatedQuote.id, action: "delete" }, "PATCH");
-      setQuotes((current) => current.filter((item) => item.id !== generatedQuote.id));
-      notify("Devis supprimé.", "success");
+      await apiSend("/api/quotes", { id: q.id, action: "archive" }, "PATCH");
+      setQuotes((current) => current.filter((item) => item.id !== q.id));
+      annoncerSuppression({
+        label: `Devis${q.quoteNumber ? ` ${q.quoteNumber}` : ""} supprimé`,
+        annuler: async () => { await apiSend("/api/quotes", { id: q.id, action: "restore", status: "Brouillon" }, "PATCH"); window.location.assign(`/devis?id=${q.id}`); }
+      });
       router.push("/devis");
     } catch (error) {
       notify(error.message || "Impossible de supprimer le devis.", "error");

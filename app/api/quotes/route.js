@@ -2,12 +2,13 @@ import { badRequest, ok } from "../../../lib/http";
 import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
-import { getAuth } from "../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../lib/server-auth";
 import { isVerifiedUserAdmin } from "../../../lib/admin-account";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote, quoteToRow, nextQuoteNumberFor } from "../../../lib/quote-mapping";
 import { hashPassword } from "../../../lib/password-hash";
 import { nomFichierDevis } from "../../../lib/devis-envoi";
+import { avecProfil } from "../../../lib/document-profil.js";
 
 // Réponses TVA du devis (PRO-03.5) : seulement les valeurs connues.
 function tvaPropre(v) {
@@ -31,6 +32,7 @@ import { recordIaDevisOutcome } from "../../../lib/ia-devis-outcomes";
 import { checkTrialSendLimit, checkTrialEditLimit, persistTrialPatch } from "../../../lib/plan";
 import { buildWebUser } from "../../../lib/user-profile";
 import { sendClientMessageEmail, sendQuoteToClientEmail } from "../../../lib/mailer";
+import { cgvPourEnvoi } from "../../../lib/compte-serveur";
 import { compterDevis, messageRelance } from "../../../lib/devis-liste";
 import { acompteAPartirDu, finRetractation } from "../../../lib/signature-lieu";
 import { estTauxReduit } from "../../../lib/tva";
@@ -223,7 +225,7 @@ function withClientPortalAccess(quote, db) {
 }
 
 export async function GET(request) {
-  const auth = getAuth(request);
+  const auth = await getVerifiedAuth(request);
   const year = new Date().getFullYear();
   if (!auth) return ok({ quotes: [], nextQuoteNumber: `${year}_1049` });
 
@@ -261,7 +263,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const body = await request.json();
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   const now = new Date().toISOString();
@@ -341,7 +343,7 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   const body = await request.json();
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
   if (!body.id) return badRequest("Identifiant du devis manquant.");
 
@@ -445,7 +447,9 @@ export async function PATCH(request) {
       const replyTo = emailValide(quote.company?.email)
         || emailValide((await auth.supabase.from("users").select("email").eq("id", auth.userId).maybeSingle()).data?.email)
         || undefined;
+      const cgv = await cgvPourEnvoi(auth.supabase, auth.userId).catch(() => null);
       const mailResult = await sendQuoteToClientEmail({
+        extraPdfs: cgv ? [cgv] : [],
         to: signatureAccess.email,
         subject: fixText(body.emailSubject || `Votre devis ${quote.quoteNumber}`),
         message: fixText(body.emailMessage || ""),
@@ -633,6 +637,8 @@ export async function PATCH(request) {
   }
 
   if (action === "delete") {
+    // PRO-19.1 : un devis signé ne se supprime jamais (nouvelle version ou avenant).
+    if (quote.status === "Signe" || quote.signatureStatus === "Signe") return badRequest("Un devis signé ne se supprime pas : faites une nouvelle version ou un avenant.", 409);
     const { error: delError } = await auth.supabase.from("quotes").delete().eq("id", body.id);
     if (delError) return badRequest(`Suppression impossible: ${delError.message}`, 500);
     removeDraftNotification(sideDb, quote.id, auth.userId);
@@ -729,6 +735,7 @@ export async function PATCH(request) {
   let exemplaire = null;
   if (surPlace && responseQuote.consentements?.exemplaireEmail && responseQuote.clientEmail) {
     try {
+      await avecProfil(sideDb, responseQuote.userId);
       const pdf = buildQuotePdf({ quote: responseQuote, project: null, db: sideDb });
       const sent = await sendClientMessageEmail({
         to: responseQuote.clientEmail,

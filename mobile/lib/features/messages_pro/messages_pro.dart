@@ -34,6 +34,7 @@ class MessagesRepository {
       : _s(fil['quoteId']).isNotEmpty
       ? _api.post('/api/quotes/${fil['quoteId']}/messages', {'texte': texte})
       : _api.post('/api/marketplace/offres/${fil['offreId']}/messages', {'message': texte});
+  Future<Json> traduire(List<String> textes, String vers, {String depuis = ''}) => _api.post('/api/traduire', {'textes': textes, 'vers': vers, if (depuis.isNotEmpty) 'depuis': depuis, 'genre': 'message'});
   Future<Json> suggestion(String cle, String decision) => _api.patch('/api/messages', {'action': 'suggestion', 'fil': cle, 'decision': decision});
 }
 
@@ -122,6 +123,25 @@ class FilScreen extends ConsumerStatefulWidget {
 class _FilScreenState extends ConsumerState<FilScreen> {
   final _texte = TextEditingController();
   bool _busy = false;
+  // Traduction (PRO-15.1).
+  final Map<String, String> _trad = {};
+  final Set<String> _originaux = {};
+  bool _tradEnCours = false;
+  String? _apercu;
+
+  Future<void> _traduireRecus(Json langue, List<Json> recus) async {
+    final manquants = recus.map((m) => _s(m['texte'])).where((t) => t.isNotEmpty && !_trad.containsKey(t)).toSet().toList();
+    if (manquants.isEmpty || _tradEnCours) return;
+    _tradEnCours = true;
+    try {
+      final r = await ref.read(messagesRepositoryProvider).traduire(manquants, _s(langue['langue']), depuis: 'fr');
+      final t = (r['traductions'] as List? ?? const []).map((x) => '$x').toList();
+      if (mounted) setState(() { for (var i = 0; i < manquants.length && i < t.length; i++) { _trad[manquants[i]] = t[i]; } });
+    } catch (_) {
+    } finally {
+      _tradEnCours = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -154,6 +174,12 @@ class _FilScreenState extends ConsumerState<FilScreen> {
     final s = d['suggestion'] as Map?;
     final rapides = <String>[...((s?['reponses'] as List?) ?? const []).map((x) => '$x'), ...((d['reponses'] as List?) ?? const []).map((x) => '$x')].take(4).toList();
     final repo = ref.read(messagesRepositoryProvider);
+    final langue = d['langue'] is Map ? Map<String, dynamic>.from(d['langue'] as Map) : <String, dynamic>{};
+    final traduit = _s(langue['langue']).isNotEmpty && langue['langue'] != 'fr';
+    if (traduit && langue['entrant'] == true) {
+      final recus = _liste(d['jours']).expand((j) => _liste(j['messages'])).where((m) => m['entreprise'] != true).toList();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _traduireRecus(langue, recus));
+    }
     return KojiPage(
       title: _s(fil['titre']),
       subtitle: _s(fil['sousTitre']),
@@ -173,9 +199,20 @@ class _FilScreenState extends ConsumerState<FilScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(color: m['entreprise'] == true ? p.heading : p.lineSoft, borderRadius: BorderRadius.circular(4)),
-                    child: Text(_s(m['texte']), style: TextStyle(fontSize: 14, color: m['entreprise'] == true ? p.surface : p.heading)),
+                    child: Text(
+                      (_trad[_s(m['texte'])] ?? '').isNotEmpty && m['entreprise'] != true && traduit
+                          ? '${_trad[_s(m['texte'])]}${langue['original'] == true || _originaux.contains(_s(m['id'])) ? '\n\nOriginal en français : ${m['texte']}' : ''}'
+                          : _s(m['texte']),
+                      style: TextStyle(fontSize: 14, color: m['entreprise'] == true ? p.surface : p.heading),
+                    ),
                   ),
-                  Text(_s(m['heure']), style: TextStyle(fontSize: 11, color: p.faint)),
+                  if ((_trad[_s(m['texte'])] ?? '').isNotEmpty && m['entreprise'] != true && traduit)
+                    GestureDetector(
+                      onTap: () => setState(() => _originaux.contains(_s(m['id'])) ? _originaux.remove(_s(m['id'])) : _originaux.add(_s(m['id']))),
+                      child: Text('${_s(m['heure'])} · traduit du français · ${_originaux.contains(_s(m['id'])) ? 'masquer' : 'voir'} l\'original', style: TextStyle(fontSize: 11, color: p.faint, decoration: TextDecoration.underline)),
+                    )
+                  else
+                    Text(_s(m['heure']), style: TextStyle(fontSize: 11, color: p.faint)),
                 ]),
               ),
             ),
@@ -188,6 +225,13 @@ class _FilScreenState extends ConsumerState<FilScreen> {
           ]),
         ],
         if (rapides.isNotEmpty) Wrap(spacing: 6, runSpacing: 6, children: [for (final r in rapides) ActionChip(label: Text(r), onPressed: () => setState(() => _texte.text = r))]),
+        if (_apercu != null) ...[
+          KojiAlertBox(title: 'Le client va lire', message: '« $_apercu »', tone: KojiTone.info),
+          Row(children: [
+            Expanded(child: KojiButton(label: 'Envoyer', onPressed: _busy ? null : () { final t = _apercu!; setState(() => _apercu = null); _faire(() => repo.envoyer(fil, t)); })),
+            TextButton(onPressed: () => setState(() { _texte.text = _apercu!; _apercu = null; }), child: const Text('Corriger la traduction')),
+          ]),
+        ],
         KojiField(label: 'Écrire à ${fil['titre']}', controller: _texte, maxLines: 3),
         KojiButton(
           label: 'Envoyer',
@@ -196,8 +240,26 @@ class _FilScreenState extends ConsumerState<FilScreen> {
           onPressed: _busy
               ? null
               : () async {
-                  final t = _texte.text.trim();
+                  var t = _texte.text.trim();
                   if (t.isEmpty) return;
+                  if (traduit && langue['sortant'] == true) {
+                    setState(() => _busy = true);
+                    try {
+                      final r = await repo.traduire([t], 'fr', depuis: _s(langue['langue']));
+                      final tr = ((r['traductions'] as List?) ?? const []).map((x) => '$x').firstOrNull ?? t;
+                      _texte.clear();
+                      if (langue['apercu'] == true) {
+                        setState(() { _apercu = tr; _busy = false; });
+                        return;
+                      }
+                      t = tr;
+                    } catch (e) {
+                      if (context.mounted) showFacturesMessage(context, errorText(e));
+                      if (mounted) setState(() => _busy = false);
+                      return;
+                    }
+                    if (mounted) setState(() => _busy = false);
+                  }
                   _texte.clear();
                   await _faire(() => repo.envoyer(fil, t));
                 },

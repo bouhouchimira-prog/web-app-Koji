@@ -6,6 +6,7 @@ import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
+import 'package:koji/features/koji/koji_assistant.dart';
 import 'package:koji/features/quote/models/quote_status.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
 import 'package:koji/features/quote/quote_list_screen.dart';
@@ -19,6 +20,10 @@ Future<void> showEntrepriseSearch(BuildContext context, WidgetRef ref) async {
     builder: (_) => const _SearchDialog(),
   );
   if (hit == null || !context.mounted) return;
+  if (hit.question != null) {
+    await ouvrirKoji(context, question: hit.question!);
+    return;
+  }
   if (hit.isQuote) {
     await openSavedQuote(context, ref, hit.row);
   } else {
@@ -27,10 +32,12 @@ Future<void> showEntrepriseSearch(BuildContext context, WidgetRef ref) async {
 }
 
 class _SearchHit {
-  const _SearchHit(this.row, {required this.isQuote});
+  const _SearchHit(this.row, {required this.isQuote, this.question});
 
   final Map<String, dynamic> row;
   final bool isQuote;
+  // « Demander à Koji : … » (PRO-18.1) : la question passe à l'assistant.
+  final String? question;
 }
 
 class _SearchDialog extends ConsumerStatefulWidget {
@@ -146,6 +153,15 @@ class _SearchDialogState extends ConsumerState<_SearchDialog> {
                     _none(context)
                   else
                     for (final d in foundQuotes) _quoteTile(context, d),
+                  if (q.length >= 2) ...[
+                    const SizedBox(height: 8),
+                    _ResultTile(
+                      icon: KojiIcons.sparkle,
+                      title: 'Demander à Koji : « ${_query.text.trim()} »',
+                      subtitle: 'assistant IA',
+                      onTap: () => Navigator.pop(context, _SearchHit(const {}, isQuote: false, question: _query.text.trim())),
+                    ),
+                  ],
                 ],
               ),
             ),

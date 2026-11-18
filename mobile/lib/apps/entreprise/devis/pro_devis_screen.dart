@@ -14,6 +14,7 @@ import 'package:koji/core/route_args.dart';
 import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/quote/providers/quote_creation_provider.dart';
+import 'package:koji/design/liste_vide.dart';
 import 'package:koji/features/quote/repository/quote_repository.dart';
 
 String _s(dynamic v) => v == null ? '' : '$v';
@@ -212,6 +213,13 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
             Text('Devis indisponibles pour le moment. Tirez la liste vers le bas.', style: da.text(13, color: da.grey))
           else if (asyncD.isLoading && devis.isEmpty)
             const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))))
+          else if (visibles.isEmpty && devis.isEmpty && cherche.isEmpty)
+            ListeVide(
+              titre: 'Aucun devis',
+              texte: 'Koji vous pose les questions, vous validez les lignes.',
+              action: 'Démarrer un devis guidé',
+              onAction: () => context.push('/quote/room-selection', extra: <String>[]),
+            )
           else if (visibles.isEmpty)
             Text(cherche.isNotEmpty ? 'Aucun devis ne correspond à cette recherche.' : 'Aucun devis dans cet onglet.', style: da.text(13, color: da.grey))
           else

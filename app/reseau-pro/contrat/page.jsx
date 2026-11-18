@@ -31,7 +31,8 @@ export default function ContratSousTraitance() {
     setBusy("");
   }
 
-  if (!c) return <Shell variant="pro">{erreur ? <p className="err" role="alert">{erreur}</p> : <p className="muted">Chargement…</p>}</Shell>;
+  // Sans contrat (adresse ouverte sans identifiant, contrat supprimé) : dire où aller.
+  if (!c) return <Shell variant="pro">{erreur ? <div className="stc"><div className="head"><div className="stack"><span className="eyebrow">Réseau pro</span><h1>Contrat de sous-traitance</h1></div></div><p className="err" role="alert">{erreur}</p><p className="muted">Un contrat se prépare depuis un échange du Réseau pro ou depuis la fiche d'un sous-traitant.</p><Link className="btn" href="/reseau-pro">Retour au Réseau pro</Link></div> : <p className="muted">Chargement…</p>}</Shell>;
   const etat = c.etat.cle;
   return (
     <Shell variant="pro">

@@ -140,8 +140,8 @@ export function ChoisissezVotreEspace() {
         <nav aria-label="Informations">
           <a href="/a-propos">À propos</a>
           <a href="/entreprise/contact">Contact</a>
-          <a href="/legal">Mentions légales</a>
-          <a href="/legal">Confidentialité</a>
+          <a href="/legal/mentions-legales">Mentions légales</a>
+          <a href="/legal/confidentialite">Confidentialité</a>
           <span aria-label="Langue : français">FR</span>
         </nav>
       </footer>

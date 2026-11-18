@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { tachesDuMatin } from "../../../../lib/compte-serveur";
 import { ok } from "../../../../lib/http";
 import { readDb, writeDb } from "../../../../lib/db";
 import { passerRelancesServeur } from "../../../../lib/relances-serveur";
@@ -19,6 +20,9 @@ export async function GET(request) {
   if (!autorise(request)) return new Response("Non autorisé", { status: 401 });
   const db = await readDb();
   const fait = await passerRelancesServeur(db);
-  if (fait.envoyees.length || fait.preparees.length) await writeDb(db);
-  return ok({ envoyees: fait.envoyees.length, preparees: fait.preparees.length, erreurs: fait.erreurs.length });
+  // Tâches du matin (PRO-15.4) : e-mails mis en attente pendant le silence,
+  // documents qui expirent, résumé du lundi.
+  const matin = await tachesDuMatin(db).catch(() => ({ differes: 0, documents: 0, resumes: 0, erreur: true }));
+  if (fait.envoyees.length || fait.preparees.length || matin.differes || matin.documents || matin.resumes) await writeDb(db);
+  return ok({ envoyees: fait.envoyees.length, preparees: fait.preparees.length, erreurs: fait.erreurs.length, matin });
 }

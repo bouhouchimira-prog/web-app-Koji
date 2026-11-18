@@ -5,6 +5,7 @@ import { sendClientMessageEmail } from "../../../../lib/mailer";
 import { nomFichierDevis } from "../../../../lib/devis-envoi";
 import { acompteAPartirDu, finRetractation } from "../../../../lib/signature-lieu";
 import { estTauxReduit } from "../../../../lib/tva";
+import { pdfDevisServeur } from "../../../../lib/devis-pdf-serveur";
 
 // Faire signer sur place depuis l'app Koji Pro (maquette PRO-03.7). Les
 // devis de l'app gardent leurs lignes dans quote_rooms / quote_tasks : on
@@ -28,7 +29,7 @@ export async function POST(request) {
   if (!id) return badRequest("Devis manquant.");
   const { data: row, error } = await auth.supabase
     .from("quotes")
-    .select("id, user_id, status, signed_at, reference, metadata, web_extras, tva_rate")
+    .select("*")
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle();
@@ -86,6 +87,8 @@ export async function POST(request) {
   if (consentements.exemplaireEmail && adresse) {
     const pdf = Buffer.from(String(body.pdfBase64 || ""), "base64");
     const pdfValide = pdf.length > 4 && pdf.length <= PDF_MAX && pdf.subarray(0, 4).toString("latin1") === "%PDF";
+    // Sans PDF de l'app, le serveur fait le devis signé au gabarit Pro (PRO-25).
+    const pdfJoint = pdfValide ? pdf : await pdfDevisServeur({ ...row, status: "accepte", signed_at: now, web_extras: { ...extras, ...signes } }, { signatureImage: image }).catch(() => null);
     const numero = metadata.quoteNumber || row.reference || "";
     const le = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" }).format(new Date(now));
     const resultat = await sendClientMessageEmail({
@@ -100,7 +103,7 @@ export async function POST(request) {
         fixText(metadata.company?.name || "")
       ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n").trim(),
       replyTo: emailValide(metadata.company?.email) || undefined,
-      attachments: pdfValide ? [{ filename: nomFichierDevis(numero, metadata.client?.name), content: pdf, contentType: "application/pdf" }] : undefined
+      attachments: pdfJoint ? [{ filename: nomFichierDevis(numero, metadata.client?.name), content: pdfJoint, contentType: "application/pdf" }] : undefined
     }).catch((err) => ({ ok: false, error: err.message }));
     exemplaire = { email: Boolean(resultat?.ok), erreur: resultat?.ok ? "" : resultat?.error || "L'e-mail n'est pas parti." };
   }

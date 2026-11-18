@@ -66,6 +66,8 @@ export async function GET(request, context) {
       prestations: (contenu.prestations || []).map((p) => ({ nom: p.nom, detail: p.detail, delai: p.delai, prix: libellePrix(p) })),
       avis: avis.map((a) => ({ id: a.id, auteur: a.auteur, note: a.note, texte: a.texte || "", date: a.creeLe, verifie: Boolean(a.verifie), reponse: a.reponse?.texte || "" })),
       avisStats: statsAvis(avis),
+      // Preuve (PRO-26, version 1) : chantiers livrés avec un PV signé par le client.
+      chantiersLivres: (db.clotures || []).filter((c) => c.userId === site.userId && c.pv?.signeLe).length,
       delaiReponse: delai,
       carte: offre.carte ? (({ adresseTexte, adresse, ...k }) => ({ ...k, adresse: adresse ? adresseTexte : "" }))(contenuCarte(contenu, webUser)) : null,
       verifie: verif.sceau,

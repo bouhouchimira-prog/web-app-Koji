@@ -59,6 +59,7 @@ export function Badges({ site }) {
     <div className="kps-badges">
       {site.verifie ? <span>Vérifié par Koji</span> : null}
       {site.decennale ? <span>Décennale vérifiée</span> : null}
+      {site.chantiersLivres ? <span>{site.chantiersLivres} chantier{site.chantiersLivres > 1 ? "s" : ""} livré{site.chantiersLivres > 1 ? "s" : ""} avec PV</span> : null}
       {site.avisStats?.nombre ? <span>{fmtNote(site.avisStats.moyenne)} · {site.avisStats.nombre} avis</span> : null}
       {site.sections.horaires && site.delaiReponse != null ? <span>Répond en {delaiTexte(site.delaiReponse)} en moyenne</span> : null}
     </div>
@@ -120,7 +121,7 @@ export function PiedDePage({ site }) {
   return (
     <footer className="kps-f">
       <span>Page hébergée par Koji · {site.url.replace(/^https?:\/\//, "")}</span>
-      <a href="/legal">Mentions légales</a>
+      <a href="/legal/mentions-legales">Mentions légales</a>
       <a href={`mailto:contact@getkoji.io?subject=${encodeURIComponent(`Signalement de la page ${site.slug}`)}`}>Signaler</a>
     </footer>
   );

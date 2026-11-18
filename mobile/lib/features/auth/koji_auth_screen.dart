@@ -23,6 +23,7 @@ import 'package:koji/features/auth/pro_forgot_password_screen.dart';
 import 'package:koji/features/demarrage/demarrage_logic.dart';
 import 'package:koji/features/quote/chantier_client_screen.dart';
 import 'package:koji/features/worker/worker_shell.dart';
+import 'package:koji/features/equipe/compagnon_app.dart';
 
 enum KojiAuthTab { login, signup }
 
@@ -87,8 +88,11 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
   bool get _emailFormValid =>
       _email.text.trim().isNotEmpty && _password.text.isNotEmpty;
 
+  // Koji Pro : le code d'invitation reçu par SMS (PRO-16.3) suffit, sans
+  // mot de passe ; l'ancien identifiant OUV- en demande toujours un.
+  bool get _codeInvitation => !_isClient && estCodeInvitation(_code.text);
   bool get _codeFormValid =>
-      _code.text.trim().isNotEmpty && _codePassword.text.isNotEmpty;
+      _code.text.trim().isNotEmpty && (_codePassword.text.isNotEmpty || _codeInvitation);
 
   // ── Actions ────────────────────────────────────────────────────────────
 
@@ -220,6 +224,11 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
           ));
           return;
         }
+      } else if (_codeInvitation && _codePassword.text.isEmpty) {
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => CompagnonApp(code: _code.text.trim().toUpperCase()),
+        ));
+        return;
       } else {
         final workerId = await repo.loginWorkerWithCode(
             code: _code.text, password: _codePassword.text);
@@ -460,13 +469,13 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
         Text('Espace ouvrier',
             style: ProAuth.text(20, weight: FontWeight.w700)),
         const SizedBox(height: 6),
-        Text("L'identifiant et le mot de passe fournis par votre entreprise.",
+        Text("Le code reçu par SMS (sans mot de passe), ou l'identifiant et le mot de passe fournis par votre entreprise.",
             style: ProAuth.text(14, color: ProAuth.grey, height: 1.45)),
         gap,
         ProAuthField(
           label: 'Identifiant',
           controller: _code,
-          hint: 'Ex. OUV-123456',
+          hint: 'Code reçu par SMS, ou OUV-123456',
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
         ),
@@ -575,7 +584,7 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
           value: _acceptedTerms,
           onChanged: (v) => setState(() => _acceptedTerms = v),
           title: GestureDetector(
-            onTap: () => _openUrl('${KojiWebApiConfig.baseUrl}/legal'),
+            onTap: () => _openUrl('${KojiWebApiConfig.baseUrl}/legal/conditions-professionnels'),
             child: Text.rich(
                 TextSpan(children: [
                   const TextSpan(text: "J'accepte les "),
@@ -950,7 +959,7 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
       KojiField(
         label: 'Identifiant',
         controller: _code,
-        hint: _isClient ? 'Ex. Koji-CH8594' : 'Ex. OUV-123456',
+        hint: _isClient ? 'Ex. Koji-CH8594' : 'Code reçu par SMS, ou OUV-123456',
         icon: KojiIcons.user,
         textInputAction: TextInputAction.next,
         onChanged: (_) => setState(() {}),
