@@ -1,0 +1,131 @@
+.container {
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.header {
+  background: white;
+  padding: 2rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.header p {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.logoutBtn {
+  padding: 0.75rem 1.5rem;
+  background: #dc3545;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.logoutBtn:hover {
+  background: #c82333;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.empty {
+  background: white;
+  padding: 3rem 2rem;
+  border-radius: 12px;
+  text-align: center;
+  color: #666;
+}
+
+.taskList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.taskCard {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.taskCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.taskHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.taskHeader h3 {
+  font-size: 1.1rem;
+  flex: 1;
+}
+
+.status {
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status.À {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status.Encours {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status.Fini {
+  background: #d4edda;
+  color: #155724;
+}
+
+.taskDetails {
+  color: #666;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.taskDetails strong {
+  color: #333;
+}
+
+.detailBtn {
+  width: 100%;
+  padding: 0.75rem;
+  background: #667eea;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background 0.2s;
+  margin-top: 1rem;
+}
+
+.detailBtn:hover {
+  background: #5568d3;
+}
