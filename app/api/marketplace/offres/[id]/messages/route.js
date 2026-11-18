@@ -103,20 +103,23 @@ function defaultMessageText(kindFields) {
 
 export async function POST(request, context) {
   const body = await request.json().catch(() => ({}));
-  const kindFields = normalizeKindFields(body);
-  if (!kindFields) return badRequest("Demande de rendez-vous incomplète.");
-  const message = fixText(body.message || "") || defaultMessageText(kindFields);
-  if (!message.trim()) return badRequest("Écrivez un message.");
-
   const { id } = await context.params;
   const db = await readDb();
   const offre = (db.chantierOffres || []).find((entry) => entry.id === id);
   if (!offre) return badRequest("Offre introuvable.", 404);
 
+  const kindFields = normalizeKindFields(body);
+  if (!kindFields) return badRequest("Demande de rendez-vous incomplète.");
+  const message = fixText(body.message || "") || defaultMessageText(kindFields);
+  if (!message.trim()) return badRequest("Écrivez un message.");
+
   const now = new Date().toISOString();
   const entreprise = await resolveEntreprise(request, body);
 
   if (entreprise) {
+    if (kindFields.kind === "rdv_response" || kindFields.kind === "photo_grant") {
+      return badRequest("Seul le particulier peut envoyer ce message.");
+    }
     // Cote entreprise : ouvre ou poursuit son fil avec le particulier.
     const entrepriseSnapshot = await loadEntrepriseSnapshot(entreprise);
     const entry = {
@@ -163,8 +166,19 @@ export async function POST(request, context) {
 
   const portalUserId = getVerifiedPortalUserId(request, body);
   if (portalUserId && portalUserId === offre.userId) {
+    if (kindFields.kind === "photo_request") {
+      return badRequest("Seule l'entreprise peut envoyer ce message.");
+    }
+
     // Cote particulier : reponse dans un fil deja ouvert par une entreprise.
-    const entrepriseUserId = String(body.entrepriseUserId || "");
+    const proposal = kindFields.kind === "rdv_response"
+      ? (db.chantierOffreMessages || []).find((m) => m.id === kindFields.respondsToId && m.offerId === id && m.kind === "rdv_proposal")
+      : null;
+    if (kindFields.kind === "rdv_response" && !proposal) return badRequest("Proposition introuvable.", 404);
+
+    const entrepriseUserId = kindFields.kind === "rdv_response"
+      ? String(proposal.entrepriseUserId || "")
+      : String(body.entrepriseUserId || "");
     const existingThread = (db.chantierOffreMessages || []).find(
       (m) => m.offerId === id && m.entrepriseUserId === entrepriseUserId
     );

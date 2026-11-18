@@ -30,12 +30,12 @@ function decorateQuote(quote, project, tasks) {
 }
 
 function quoteBelongsToClient(quote, project, user, email) {
-  const phone = normalizePhone(user?.phone || user?.personal?.phone);
   if (user?.id && quote.clientPortalUserId === user.id) return true;
   if (user?.clientAccess?.quoteIds?.includes(quote.id)) return true;
   if (user?.clientAccess?.projectIds?.includes(quote.projectId)) return true;
   if (email && (normalizeEmail(quote.clientEmail) === email || normalizeEmail(project?.clientEmail) === email)) return true;
-  if (phone && (normalizePhone(quote.clientPhone) === phone || normalizePhone(project?.clientPhone) === phone)) return true;
+  // Un numéro de téléphone n'est pas une preuve de propriété : il est librement
+  // modifiable dans le profil et ne doit pas ouvrir l'accès à des devis.
   return false;
 }
 

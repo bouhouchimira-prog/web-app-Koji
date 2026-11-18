@@ -11,12 +11,10 @@ function normalizeEmail(v = "") { return String(v || "").trim().toLowerCase(); }
 function normalizePhone(v = "") { return String(v || "").replace(/\D/g, ""); }
 
 function quoteBelongsToClient(quote, project, user, email) {
-  const phone = normalizePhone(user?.phone || user?.personal?.phone);
   if (user?.id && quote.clientPortalUserId === user.id) return true;
   if (user?.clientAccess?.quoteIds?.includes(quote.id)) return true;
   if (user?.clientAccess?.projectIds?.includes(quote.projectId)) return true;
   if (email && (normalizeEmail(quote.clientEmail) === email || normalizeEmail(project?.clientEmail) === email)) return true;
-  if (phone && (normalizePhone(quote.clientPhone) === phone || normalizePhone(project?.clientPhone) === phone)) return true;
   return false;
 }
 
