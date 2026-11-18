@@ -168,7 +168,7 @@ void main() {
       ],
       child: const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: ProFicheChantierScreen(projectId: 'c1'),
+        home: ProFicheChantierScreen(projectId: 'c1', aujourdhui: '2026-11-18'),
       ),
     ));
     await tester.pumpAndSettle();

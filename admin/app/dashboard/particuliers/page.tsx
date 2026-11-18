@@ -2,6 +2,7 @@ import { etatWeb, particuliers as lireParticuliers } from '@/lib/bo/donnees'
 import { SEUIL_SANS_REPONSE_H, etatDemande, libelleDemande, positionsActives, type Ligne } from '@/lib/bo/client'
 import { dateCourte, nomCourt } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Particuliers (maquette PRO-24.3, gabarit liste) : comptes du site et de
 // l'app Koji, projet en cours, dernière activité, état ; filtres projet
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic'
 const s = (v: unknown) => String(v ?? '')
 
 export default async function Particuliers() {
+  await exigerBackOffice()
   const [parts, db] = await Promise.all([lireParticuliers(), etatWeb()])
   const offres = (db.chantierOffres || []) as Ligne[]
   const positions = (db.chantierPositionnements || []) as Ligne[]

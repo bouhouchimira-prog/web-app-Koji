@@ -76,7 +76,7 @@ describe("Espace public", function () {
     it("mauvais mot de passe affiche une erreur", async function () {
       if (!config.hasParticulier) return this.skip();
       await h.clearSession(driver);
-      await h.goto(driver, "/login?type=particulier");
+      await h.goto(driver, "/login?type=particulier&mode=motdepasse");
       const identifierInput = await h.waitClickable(driver, By.css("input[autocomplete='username']"));
       await identifierInput.sendKeys(config.particulier.email);
       const passwordInput = await h.waitClickable(driver, By.css("input[autocomplete='current-password']"));
@@ -88,14 +88,14 @@ describe("Espace public", function () {
 
     it("bouton de connexion desactive si les champs sont vides", async function () {
       await h.clearSession(driver);
-      await h.goto(driver, "/login?type=particulier");
+      await h.goto(driver, "/login?type=particulier&mode=motdepasse");
       const submitBtn = await h.waitVisible(driver, By.css("form button[type='submit']"));
       assert.strictEqual(await submitBtn.isEnabled(), false);
     });
 
     it("onglet 'Créer un compte' (sur place) + mot de passe < 8 caracteres affiche une erreur", async function () {
       await h.clearSession(driver);
-      await h.goto(driver, "/login?type=particulier");
+      await h.goto(driver, "/login?type=particulier&mode=motdepasse");
       const loginTab = await driver.findElements(By.xpath("//button[normalize-space()='Connexion']"));
       const signupTab = await driver.findElements(By.xpath("//button[normalize-space()='Créer un compte']"));
       assert.ok(loginTab.length && signupTab.length, "Les 2 onglets Connexion/Creer un compte devraient etre presents.");

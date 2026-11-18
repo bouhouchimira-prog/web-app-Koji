@@ -1,5 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
+import 'offline_queue.dart';
+
 /// Read-only offline cache for the most consulted data (devis, clients,
 /// chantiers, fournitures).
 ///
@@ -8,6 +10,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 /// the previous user's devis or clients on a shared device. Callers must pass
 /// the current user id to [initialize]; without it the cache is not written
 /// and reads return an empty list.
+///
+/// La file d'actions hors ligne ([OfflineQueue]) suit la même règle : elle est
+/// vidée avec le cache, pour ne jamais être rejouée sous le compte suivant.
 class OfflineCacheService {
   OfflineCacheService._();
   static final OfflineCacheService instance = OfflineCacheService._();
@@ -22,9 +27,15 @@ class OfflineCacheService {
   bool _initialized = false;
   String? _userId;
 
-  Future<void> initialize({String? userId}) async {
+  /// [path] : uniquement pour les tests (Hive.init sur un dossier temporaire,
+  /// sans path_provider). L'app passe toujours par Hive.initFlutter.
+  Future<void> initialize({String? userId, String? path}) async {
     if (!_initialized) {
-      await Hive.initFlutter();
+      if (path != null) {
+        Hive.init(path);
+      } else {
+        await Hive.initFlutter();
+      }
       await Hive.openBox(_boxDevis);
       await Hive.openBox(_boxClients);
       await Hive.openBox(_boxChantiers);
@@ -61,6 +72,8 @@ class OfflineCacheService {
     await _fournituresBox.clear();
     await _metaBox.clear();
     _userId = null;
+    await OfflineQueue.instance.initialize();
+    await OfflineQueue.instance.clear();
   }
 
   // --- Devis ---

@@ -4,6 +4,7 @@ import { estEntreprise, offreDe } from '@/lib/bo/regles'
 import { dateCourte } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
 import NouveauMessage from './NouveauMessage'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Communications (maquette PRO-24.9) : messages envoyés depuis le
 // back-office (admin_email_sends) et messages automatiques de koji-web,
@@ -23,6 +24,7 @@ const AUTOMATIQUES = [
 ]
 
 export default async function Communications() {
+  await exigerBackOffice()
   const [{ data: envois }, { comptes, particuliers }, db] = await Promise.all([
     createAdminClient().from('admin_email_sends').select('id,subject,recipients_count,segment,sent_at').order('sent_at', { ascending: false }).limit(200),
     annuaire(),

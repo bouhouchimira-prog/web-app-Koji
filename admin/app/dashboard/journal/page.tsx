@@ -1,6 +1,7 @@
 import { lireJournal } from '@/lib/bo/journal'
 import { dateHeure, ilYa30Jours } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Journal des accès (maquette PRO-24.15) : chaque ouverture d'une donnée
 // personnelle ou d'une conversation, avec qui, quand et le motif. Lecture
@@ -20,6 +21,7 @@ function famille(action: string) {
 }
 
 export default async function Journal() {
+  await exigerBackOffice()
   const { actif, lignes: entrees } = await lireJournal(500)
   const lignes: LigneListe[] = entrees.map((e) => ({
     id: e.id,

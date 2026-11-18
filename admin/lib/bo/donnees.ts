@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase-admin'
 import { estEntreprise, nomEntreprise, type Utilisateur } from './regles'
 import type { DevisLigne } from './client'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Lecture des données de koji-web pour le back-office (clé service,
 // serveur uniquement, pages protégées par le layout admin). Lecture seule,
@@ -9,12 +10,14 @@ import type { DevisLigne } from './client'
 const COLONNES = 'id,email,is_pro,created_at,updated_at,full_name,phone,profession,subscription_status,subscription_product,subscription_expires_at,trial_ends_at,business_info,email_verified,address'
 
 export async function utilisateurs(): Promise<Utilisateur[]> {
+  await exigerBackOffice()
   const { data, error } = await createAdminClient().from('users').select(COLONNES).order('created_at', { ascending: false })
   if (error) throw new Error(`Lecture des comptes impossible : ${error.message}`)
   return (data || []) as Utilisateur[]
 }
 
 export async function utilisateur(id: string): Promise<Utilisateur | null> {
+  await exigerBackOffice()
   const { data } = await createAdminClient().from('users').select(COLONNES).eq('id', id).maybeSingle()
   return (data as Utilisateur) || null
 }
@@ -22,6 +25,7 @@ export async function utilisateur(id: string): Promise<Utilisateur | null> {
 export type Devis = { id: string; user_id: string; status: string | null; created_at: string | null; signed_at: string | null; total_ttc: number | null; reference: string | null }
 
 export async function devis(userId?: string): Promise<Devis[]> {
+  await exigerBackOffice()
   let q = createAdminClient().from('quotes').select('id,user_id,status,created_at,signed_at,total_ttc,reference').order('created_at', { ascending: false })
   if (userId) q = q.eq('user_id', userId)
   const { data } = await q
@@ -34,6 +38,7 @@ export async function devis(userId?: string): Promise<Devis[]> {
 export type Particulier = { id: string; nom: string; email: string; telephone: string; adresse: string; creeLe: string; majLe: string; derniereConnexion: string; emailVerifie: boolean; actif: boolean; source: 'site' | 'app' }
 
 export async function particuliers(comptes?: Utilisateur[]): Promise<Particulier[]> {
+  await exigerBackOffice()
   const [{ data }, users] = await Promise.all([
     createAdminClient().from('particulier_users_state').select('data').eq('id', 1).maybeSingle(),
     comptes ? Promise.resolve(comptes) : utilisateurs()
@@ -57,6 +62,7 @@ export async function particuliers(comptes?: Utilisateur[]): Promise<Particulier
 // Annuaire id → nom et e-mail (entreprises et particuliers), pour nommer
 // les deux parties d'une demande ou d'une conversation.
 export async function annuaire() {
+  await exigerBackOffice()
   const comptes = await utilisateurs()
   const parts = await particuliers(comptes)
   const m = new Map<string, { nom: string; email: string; entreprise: boolean }>()
@@ -68,6 +74,7 @@ export async function annuaire() {
 // Devis avec les champs utiles à la liste du back-office (client, envoi,
 // validité, origine Radar), sans le contenu (lignes, prix unitaires).
 export async function devisListe(): Promise<DevisLigne[]> {
+  await exigerBackOffice()
   const { data } = await createAdminClient().from('quotes').select('id,user_id,status,created_at,signed_at,total_ttc,reference,metadata->client,metadata->date,metadata->validity,metadata->quoteNumber,web_extras->sentAt,web_extras->signedAt,web_extras->versionNumber,web_extras->chantierOffreId,web_extras->clientFirstName,web_extras->clientLastName,web_extras->clientCompanyName,web_extras->refusedAt,web_extras->cancelledAt').order('created_at', { ascending: false })
   return ((data || []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id), user_id: String(r.user_id), status: (r.status as string) ?? null, created_at: (r.created_at as string) ?? null, signed_at: (r.signed_at as string) ?? null, total_ttc: (r.total_ttc as number) ?? null, reference: (r.reference as string) ?? null,
@@ -79,6 +86,7 @@ export async function devisListe(): Promise<DevisLigne[]> {
 // Base JSON de koji-web (table koji_web_state, ligne 1) : Radar,
 // notifications, avis, factures, support…
 export async function etatWeb(): Promise<Record<string, unknown[]>> {
+  await exigerBackOffice()
   const { data } = await createAdminClient().from('koji_web_state').select('data').eq('id', 1).maybeSingle()
   return ((data as { data?: Record<string, unknown[]> } | null)?.data) || {}
 }

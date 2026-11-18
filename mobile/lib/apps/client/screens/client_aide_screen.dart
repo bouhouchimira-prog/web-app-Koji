@@ -4,115 +4,125 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
-import 'package:koji/design/koji_page.dart';
-import 'package:koji/design/koji_tokens.dart';
-import 'package:koji/design/koji_widgets.dart';
+import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
 
-const _themes = [
-  ('premiers-pas', '🚀', 'Premiers pas'),
-  ('publier', '📣', 'Publier un chantier'),
-  ('messages', '💬', 'Échanger avec un artisan'),
-  ('chantiers', '🏗️', 'Mes chantiers et devis'),
-  ('compte', '🛡️', 'Mon compte'),
-];
+/// Adresse du service client des particuliers.
+const contactKoji = 'contact@getkoji.io';
 
-const _articles = [
-  (
-    'premiers-pas',
-    'Découvrir l\'espace particulier',
-    "Accueil regroupe l'essentiel : vos demandes en cours et vos chantiers "
-        'signés. Le menu donne accès à Mes demandes, Devis reçus, Mes '
-        'chantiers et Messages.',
-  ),
-  (
-    'publier',
-    'Publier un chantier gratuitement',
-    'Depuis "+ Publier un chantier", décrivez votre projet à l\'assistant '
-        "koji (avec des photos si besoin) : il prépare une le détail des "
-        "travaux et publie votre demande aux entreprises de votre "
-        "secteur. C'est gratuit et illimité.",
-  ),
-  (
-    'publier',
-    'Comment une entreprise me contacte',
-    "Dès qu'une entreprise s'intéresse à votre demande, elle vous écrit "
-        "dans Messages. Vous retrouvez aussi la demande elle-même depuis "
-        "Mes demandes, avec son statut.",
-  ),
-  (
-    'messages',
-    'Répondre à une entreprise',
-    "Chaque conversation est rattachée à une demande précise. Vous pouvez "
-        "échanger librement, accepter ou refuser un rendez-vous proposé par "
-        "l'entreprise, et choisir de débloquer vos photos du chantier pour "
-        "elle.",
-  ),
-  (
-    'messages',
-    'Mes échanges restent sur koji',
-    "Tant qu'aucun rendez-vous n'est confirmé, vos coordonnées complètes "
-        "ne sont pas partagées — la discussion se fait depuis Koji.",
-  ),
-  (
-    'chantiers',
-    'Suivre un chantier signé',
-    "Une fois un devis signé avec une entreprise, le chantier apparaît "
-        "dans Mes chantiers avec son avancement, les prochaines étapes et "
-        "les documents liés.",
-  ),
-  (
-    'chantiers',
-    'Télécharger un devis signé',
-    'Depuis Devis reçus, chaque devis signé peut être téléchargé en PDF à '
-        'tout moment.',
-  ),
-  (
-    'compte',
-    'Modifier mes informations',
-    'Depuis Profil, mettez à jour vos coordonnées et votre mot de passe '
-        "(l'ancien mot de passe vous sera redemandé).",
-  ),
-  (
-    'compte',
-    'Exporter ou supprimer mes données',
-    'Depuis Paramètres, vous pouvez exporter une copie de vos données ou '
-        'demander la suppression de votre compte à tout moment.',
-  ),
-];
+/// Un thème de l'aide : titre et questions avec leur réponse courte.
+typedef _Theme = (String, List<(String, String)>);
 
-const _faq = [
+const List<_Theme> _themes = [
   (
-    'Publier un chantier coûte-t-il quelque chose ?',
-    'Non, publier un chantier via Radar des Chantiers est entièrement '
-        'gratuit et sans limite, quel que soit le nombre de demandes.',
+    'Mon devis',
+    [
+      (
+        'Comment comparer les propositions ?',
+        'Ouvrez votre projet depuis Projets : chaque entreprise y a sa carte, '
+            'avec le prix et le détail qu\'elle a donnés. Touchez une carte '
+            'pour la choisir, puis suivez son bouton.',
+      ),
+      (
+        'Puis-je changer d\'avis après signature ?',
+        'Un devis signé à distance ou chez vous ouvre en général un délai de '
+            'rétractation de 14 jours (Code de la consommation), sauf '
+            'exceptions comme des travaux urgents demandés par vous. '
+            'Prévenez l\'entreprise par écrit.',
+      ),
+      (
+        'Publier une demande coûte-t-il quelque chose ?',
+        'Non. Décrire vos travaux et recevoir des propositions est gratuit.',
+      ),
+    ],
   ),
   (
-    "Comment savoir si une entreprise s'intéresse à ma demande ?",
-    'Vous recevez une notification et un message dans Messages dès '
-        "qu'une entreprise vous contacte au sujet de votre demande.",
+    'Le chantier',
+    [
+      (
+        'Qui voit mes photos ?',
+        'Les photos de votre demande sont masquées. Une entreprise peut '
+            'demander à les voir : elle ne les voit que si vous acceptez, '
+            'dans son fil de Messages.',
+      ),
+      (
+        'Quand mon téléphone est-il transmis ?',
+        'Seulement quand vous confirmez un rendez-vous avec une entreprise. '
+            'Avant, vous échangez dans Koji.',
+      ),
+      (
+        'Comment signaler un problème ?',
+        'Écrivez d\'abord à l\'entreprise depuis Messages. Si rien ne se '
+            'règle, utilisez « Signaler un problème » plus bas : l\'équipe '
+            'Koji reçoit votre message.',
+      ),
+      (
+        'Qu\'est-ce qu\'une réserve ?',
+        'Un défaut ou un oubli noté par écrit à la réception des travaux. '
+            'L\'entreprise doit le reprendre ; la garantie de parfait '
+            'achèvement court un an après la réception.',
+      ),
+    ],
   ),
   (
-    'Mon numéro de téléphone est-il visible par tout le monde ?',
-    "Non. Il n'est communiqué qu'à l'entreprise que vous retenez, jamais "
-        'affiché publiquement.',
+    'Paiements',
+    [
+      (
+        'Quand payer ?',
+        'Aux échéances écrites dans le devis signé : souvent un acompte, '
+            'puis le reste selon l\'avancement. En cas de doute, demandez '
+            'l\'échéancier à l\'entreprise dans Messages.',
+      ),
+      (
+        'Qu\'est-ce que la retenue de garantie ?',
+        'Si le devis la prévoit, une part du prix (5 % au plus) que vous '
+            'gardez jusqu\'à un an après la réception, le temps que les '
+            'réserves soient levées.',
+      ),
+    ],
   ),
   (
-    'Où retrouver mes devis déjà signés ?',
-    'Dans Devis reçus : chaque devis signé peut y être téléchargé en PDF '
-        'à tout moment.',
-  ),
-  (
-    'Comment supprimer mon compte ?',
-    'Depuis Paramètres > Supprimer mon compte, envoyez votre demande : '
-        'elle est traitée par notre équipe.',
+    'Mon compte',
+    [
+      (
+        'Comment changer mes coordonnées ?',
+        'Profil › Coordonnées : prénom, nom, téléphone et mot de passe. '
+            'L\'adresse se change dans Profil › Mon logement.',
+      ),
+      (
+        'Comment changer de téléphone ?',
+        'Installez Koji sur le nouveau téléphone et connectez-vous avec la '
+            'même adresse e-mail : vos projets et vos messages vous suivent.',
+      ),
+      (
+        'Comment télécharger ou supprimer mes données ?',
+        'Profil › Mes données : un fichier avec vos données, ou la '
+            'suppression du compte, faite sous 30 jours par l\'équipe Koji.',
+      ),
+    ],
   ),
 ];
 
-/// "Aide" côté particulier (app/client/aide/page.jsx, lu en entier) — pas le
-/// `KojiHelpScreen` partagé avec l'app entreprise (qui ne décrit pas du tout
-/// le même parcours) : un écran dédié pour ne jamais risquer de modifier
-/// l'Aide côté entreprise.
+/// Sans accents ni majuscules, pour chercher « reserve » comme « Réserve ».
+String _simple(String texte) {
+  const accents = {
+    'à': 'a', 'â': 'a', 'ä': 'a', 'ç': 'c', 'é': 'e', 'è': 'e', 'ê': 'e',
+    'ë': 'e', 'î': 'i', 'ï': 'i', 'ô': 'o', 'ö': 'o', 'ù': 'u', 'û': 'u',
+    'ü': 'u', 'œ': 'oe', '’': "'",
+  };
+  final bas = texte.toLowerCase();
+  final sortie = StringBuffer();
+  for (final r in bas.runes) {
+    final c = String.fromCharCode(r);
+    sortie.write(accents[c] ?? c);
+  }
+  return sortie.toString();
+}
+
+/// « Aide » (maquette CLI-06) : un champ qui filtre les questions sur
+/// l'appareil, quatre thèmes, puis l'ordre de recours : l'entreprise
+/// (Messages), Koji (contact@getkoji.io, signalement /api/support/report),
+/// le médiateur (à désigner). Aucune question sur un prix calculé par Koji.
 class ClientAideScreen extends ConsumerStatefulWidget {
   const ClientAideScreen({super.key});
 
@@ -121,241 +131,178 @@ class ClientAideScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientAideScreenState extends ConsumerState<ClientAideScreen> {
-  String _activeTheme = '';
+  final _question = TextEditingController();
+  String? _ouvert;
 
-  Future<void> _reportArtisan() async {
-    final controller = TextEditingController();
-    final send = await showDialog<bool>(
+  @override
+  void dispose() {
+    _question.dispose();
+    super.dispose();
+  }
+
+  void _retour() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/client/profil');
+    }
+  }
+
+  void _message(String texte) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texte)));
+  }
+
+  Future<void> _ecrireKoji() async {
+    try {
+      final ouvert = await launchUrl(Uri.parse('mailto:$contactKoji'));
+      if (!ouvert) _message('Écrivez-nous à $contactKoji.');
+    } catch (_) {
+      _message('Écrivez-nous à $contactKoji.');
+    }
+  }
+
+  /// Signalement à l'équipe Koji (/api/support/report), comme avant.
+  Future<void> _signaler() async {
+    final texte = TextEditingController();
+    final envoyer = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Signaler un problème avec un artisan'),
-        content: TextField(
-          controller: controller,
+        shape: const RoundedRectangleBorder(),
+        backgroundColor: ClCharte.riz,
+        title: Text('Signaler un problème', style: ClCharte.titre(19)),
+        content: ClChamp(
+          label: 'Ce qui se passe',
+          controller: texte,
           maxLines: 4,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Décrivez la situation (quelle entreprise, quel '
-                'chantier, ce qui s\'est passé)…',
-          ),
+          hint: 'Quelle entreprise, quel chantier, ce qui s\'est passé…',
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Annuler', style: ClCharte.texte(14)),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Envoyer')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Envoyer',
+                style: ClCharte.texte(14, graisse: FontWeight.w700)),
+          ),
         ],
       ),
     );
-    if (send != true || controller.text.trim().isEmpty || !mounted) return;
+    final message = texte.text.trim();
+    if (envoyer != true || message.isEmpty || !mounted) return;
     try {
-      await ref.read(marketplaceRepositoryProvider).sendSupportReport(
-          '[Signalement artisan] ${controller.text.trim()}');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Signalement envoyé, notre équipe revient vers vous.'),
-      ));
+      await ref
+          .read(marketplaceRepositoryProvider)
+          .sendSupportReport('[Signalement artisan] $message');
+      _message("Signalement envoyé, l'équipe Koji revient vers vous.");
     } catch (err) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err is KojiWebApiException
-            ? err.message
-            : 'Impossible d\'envoyer le signalement.'),
-      ));
+      _message(err is KojiWebApiException
+          ? err.message
+          : "Impossible d'envoyer le signalement.");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final p = context.koji;
-    final visibleArticles = _activeTheme.isEmpty
-        ? _articles
-        : _articles.where((a) => a.$1 == _activeTheme).toList();
+    final recherche = _simple(_question.text.trim());
+    final trouvees = recherche.isEmpty
+        ? const <(String, String)>[]
+        : [
+            for (final (_, questions) in _themes)
+              for (final q in questions)
+                if (_simple('${q.$1} ${q.$2}').contains(recherche)) q,
+          ];
 
-    return KojiPage(
-      title: 'Aide',
-      subtitle: 'Guides, questions fréquentes et support pour vos travaux.',
-      appBarOnPhone: true,
-      actions: [
-        KojiButton(
-          label: 'Contacter le support',
-          onPressed: () =>
-              launchUrl(Uri.parse('mailto:contact@getkoji.io')),
+    return ClEcran(
+      titre: 'Aide',
+      sousTitre: 'Koji',
+      onRetour: _retour,
+      corps: ClCorps(children: [
+        ClChamp(
+          label: 'Votre question',
+          controller: _question,
+          hint: 'Ex. : puis-je annuler après avoir signé ?',
+          textInputAction: TextInputAction.search,
+          onChanged: (_) => setState(() {}),
         ),
-      ],
-      main: [
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const KojiSectionTitle('Parcourir par thème'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _ThemeChip(
-                    icon: '📋',
-                    label: 'Tous les articles',
-                    count: _articles.length,
-                    selected: _activeTheme.isEmpty,
-                    onTap: () => setState(() => _activeTheme = ''),
-                  ),
-                  for (final (key, icon, label) in _themes)
-                    _ThemeChip(
-                      icon: icon,
-                      label: label,
-                      count: _articles.where((a) => a.$1 == key).length,
-                      selected: _activeTheme == key,
-                      onTap: () => setState(() => _activeTheme = key),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              for (final (i, article) in visibleArticles.indexed) ...[
-                if (i > 0) const Divider(height: 20),
-                _ExpandableItem(title: article.$2, body: article.$3),
-              ],
-              const SizedBox(height: 24),
-              const KojiSectionTitle('Questions fréquentes'),
-              const SizedBox(height: 10),
-              for (final (i, item) in _faq.indexed) ...[
-                if (i > 0) const Divider(height: 20),
-                _ExpandableItem(title: item.$1, body: item.$2),
-              ],
-            ],
-          ),
-        ),
-      ],
-      side: [
-        KojiPromoCard(
-          eyebrow: 'Besoin d\'aide pour choisir ?',
-          text: "L'assistant koji vous aide à préciser votre projet et vos "
-              'critères.',
-          actionLabel: "Discuter avec l'assistant",
-          onAction: () => context.push('/client/marketplace/new'),
-        ),
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const KojiSectionTitle('Contacter le support'),
-              const SizedBox(height: 6),
-              Text('Réponse sous 24 à 48h par email.',
-                  style: TextStyle(fontSize: 12.5, color: p.muted)),
-              const SizedBox(height: 10),
-              KojiButton(
-                label: 'Écrire au support',
-                variant: KojiButtonVariant.secondary,
-                onPressed: () =>
-                    launchUrl(Uri.parse('mailto:contact@getkoji.io')),
-              ),
-            ],
-          ),
-        ),
-        KojiCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const KojiSectionTitle('Un problème avec un artisan ?'),
-              const SizedBox(height: 6),
-              Text(
-                'Signalez un retard, un désaccord sur un devis ou un '
-                'comportement inapproprié.',
-                style: TextStyle(fontSize: 12.5, color: p.muted),
-              ),
-              const SizedBox(height: 10),
-              KojiButton(
-                label: 'Faire un signalement',
-                variant: KojiButtonVariant.secondary,
-                onPressed: _reportArtisan,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ThemeChip extends StatelessWidget {
-  const _ThemeChip({
-    required this.icon,
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String icon;
-  final String label;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.koji;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          border: Border.all(color: selected ? p.primary : p.line),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 15)),
-            const SizedBox(width: 6),
+        if (recherche.isNotEmpty) ...[
+          if (trouvees.isEmpty)
             Text(
-              '$label · $count',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: p.ink,
+                'Aucune réponse ne correspond. Écrivez à l\'entreprise ou à '
+                'Koji, plus bas.',
+                style: ClCharte.texte(13, couleur: ClCharte.gris)),
+          for (final q in trouvees) _Reponse(question: q.$1, reponse: q.$2),
+        ] else
+          for (final (titre, questions) in _themes) ...[
+            ClRangee(
+              titre: titre,
+              detail: questions.map((q) => q.$1).join(' '),
+              // « › » tourné vers le bas quand le thème est ouvert.
+              fin: RotatedBox(
+                quarterTurns: _ouvert == titre ? 1 : 0,
+                child: Text('›',
+                    style: ClCharte.texte(20,
+                        couleur: ClCharte.gris, hauteur: 1)),
               ),
+              onTap: () =>
+                  setState(() => _ouvert = _ouvert == titre ? null : titre),
             ),
+            if (_ouvert == titre)
+              for (final q in questions)
+                _Reponse(question: q.$1, reponse: q.$2),
           ],
+        const ClSection('Un problème avec une entreprise ?'),
+        ClRangee(
+          titre: "Écrire à l'entreprise",
+          detail: 'la plupart des questions se règlent là',
+          onTap: () => context.go('/client/messages'),
         ),
-      ),
+        ClRangee(
+          titre: 'Contacter Koji',
+          detail: contactKoji,
+          onTap: _ecrireKoji,
+        ),
+        ClRangee(
+          titre: 'Signaler un problème',
+          detail: "l'équipe Koji reçoit votre message",
+          onTap: _signaler,
+        ),
+        const ClRangee(
+          titre: 'Médiateur de la consommation',
+          detail: 'si le désaccord persiste (à désigner)',
+        ),
+        Text(
+            'Koji met en relation ; le contrat est entre vous et '
+            "l'entreprise.",
+            style: ClCharte.texte(12, couleur: ClCharte.gris)),
+      ]),
     );
   }
 }
 
-class _ExpandableItem extends StatelessWidget {
-  const _ExpandableItem({required this.title, required this.body});
+/// Une question ouverte : titre en gras, réponse courte.
+class _Reponse extends StatelessWidget {
+  const _Reponse({required this.question, required this.reponse});
 
-  final String title;
-  final String body;
+  final String question;
+  final String reponse;
 
   @override
   Widget build(BuildContext context) {
-    final p = context.koji;
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(bottom: 10),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: p.heading,
-          ),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        color: ClCharte.blanc,
+        border: Border(left: BorderSide(color: ClCharte.marine, width: 2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              body,
-              style: TextStyle(fontSize: 13.5, color: p.muted, height: 1.5),
-            ),
-          ),
+          Text(question, style: ClCharte.texte(14, graisse: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(reponse, style: ClCharte.texte(13, hauteur: 1.5)),
         ],
       ),
     );

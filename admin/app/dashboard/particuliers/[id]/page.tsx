@@ -4,6 +4,7 @@ import { devisListe, etatWeb, particuliers, utilisateurs } from '@/lib/bo/donnee
 import { nomEntreprise } from '@/lib/bo/regles'
 import { ETATS_DEMANDE, etatDemande, infosDevis, libelleDemande, positionsActives, prixRecommande, type Ligne } from '@/lib/bo/client'
 import { date, dateHeure, euros, masque, nomCourt } from '@/lib/bo/format'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Fiche d'un particulier (maquette PRO-24.3) : coordonnées masquées,
 // projets et leur état, entreprise en contact, données (export,
@@ -15,6 +16,7 @@ const s = (v: unknown) => String(v ?? '')
 const JOURS_SUPPRESSION = 30
 
 export default async function FicheParticulier({ params }: { params: Promise<{ id: string }> }) {
+  await exigerBackOffice()
   const { id } = await params
   const [db, comptes, tousDevis] = await Promise.all([etatWeb(), utilisateurs(), devisListe()])
   const u = (await particuliers(comptes)).find((p) => p.id === id)

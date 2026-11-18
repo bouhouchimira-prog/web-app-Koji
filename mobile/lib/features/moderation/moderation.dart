@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/app/koji_web_api_client.dart' show KojiWebApiException;
 
@@ -229,7 +230,7 @@ Future<bool> showReportDialog(
     messenger?.showSnackBar(SnackBar(
       content: Text(err is KojiWebApiException
           ? err.message
-          : 'Impossible d\'envoyer le signalement. Écrivez à contact@getkoji.io.'),
+          : 'Impossible d\'envoyer le signalement. Écrivez à ${KojiAppConfig.supportEmail}.'),
     ));
     return false;
   }

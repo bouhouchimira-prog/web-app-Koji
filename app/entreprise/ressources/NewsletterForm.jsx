@@ -60,7 +60,7 @@ export function NewsletterForm() {
         <span>J'accepte de recevoir une fiche par mois de Koji à cette adresse.</span>
       </label>
       <p className="lp-nr">
-        Votre adresse sert uniquement à l'envoi de la fiche du mois. Responsable : ABL Expert Renov, éditeur de Koji. Désinscription à tout moment par le lien présent dans chaque e-mail ou à contact@getkoji.io. <a href="/legal/confidentialite" className="lp-ul">Confidentialité</a>
+        Votre adresse sert uniquement à l'envoi de la fiche du mois. Responsable : ABL Expert Renov, éditeur de Koji. Désinscription à tout moment par le lien présent dans chaque e-mail ou à entreprise@getkoji.io. <a href="/legal/confidentialite" className="lp-ul">Confidentialité</a>
       </p>
       {state.status === 'error' ? <p className="lp-nerr" role="alert">{state.message}</p> : null}
     </form>

@@ -1,16 +1,13 @@
-import { estTauxReduit } from "../../../../lib/tva";
-import { finRetractation } from "../../../../lib/signature-lieu";
 import { ok, badRequest } from "../../../../lib/http";
-import { addHistory, readDb, writeDb } from "../../../../lib/db";
+import { readDb } from "../../../../lib/db";
 import { fixObjectText, fixText } from "../../../../lib/text";
-import { ensureChantierForQuote, generateTasksForSignedQuote } from "../../../../lib/quote-projects";
-import { createPaiementEcheancesForQuote } from "../../../../lib/chantier-paiements";
-import { recordEstimationAccuracy } from "../../../../lib/estimation-accuracy";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
-import { mapQuote, quoteToRow } from "../../../../lib/quote-mapping";
-import { ensureClientPortalAccess, normalizeEmail } from "../../../../lib/client-portal-access";
+import { mapQuote } from "../../../../lib/quote-mapping";
 import { getVerifiedUserId } from "../../../../lib/server-auth";
 import { getVerifiedSignatureToken, signatureAccessExpired } from "../../../../lib/signature-session";
+import { publicClientAccess, signerDevisEnLigne } from "../../../../lib/signature-en-ligne";
+import { entrepriseDuDevis } from "../../../../lib/chantier-client-serveur";
+import { vueLienSignature } from "../../../../lib/chantier-client";
 
 // The signing client has no Koji session (they're not one of the company's
 // Supabase-authenticated users), so this can't use a per-user token — it
@@ -75,17 +72,6 @@ async function publicQuoteView(quote) {
   };
 }
 
-function publicClientAccess(access) {
-  if (!access) return null;
-  return {
-    sentByEmail: access.sentByEmail === true,
-    sentBySms: access.sentBySms === true,
-    existingAccount: access.existingAccount === true,
-    loginUrl: access.loginUrl || "",
-    portalUrl: access.portalUrl || ""
-  };
-}
-
 function authorizeSignatureRequest(request, token) {
   if (!getVerifiedSignatureToken(request, token)) {
     return badRequest("Session de signature expirée. Reconnectez-vous avec vos identifiants.", 401);
@@ -99,10 +85,27 @@ export async function GET(request, context) {
   if (denied) return denied;
   const found = await findQuoteByToken(token);
   if (!found) return badRequest("Lien de signature invalide.", 404);
-  if (signatureAccessExpired(found)) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
+  if (signatureAccessExpired(found)) {
+    // Lien expiré (maquette CLI-07, « lien non valide ») : la session de
+    // signature est vérifiée, l'entreprise peut être nommée pour lui écrire.
+    const contact = await entreprise(found);
+    return ok({ error: "Ce lien a expiré. Demandez un nouveau lien à votre artisan.", entreprise: { nom: contact.name, email: contact.email } }, 410);
+  }
   const quote = await markViewed(request, found);
 
-  return ok({ quote: await publicQuoteView(quote) });
+  return ok({ quote: await publicQuoteView(quote), vue: await vueLien(quote, token) });
+}
+
+// Vue de la page publique (maquette CLI-07) : devis lisible en entier,
+// identité et décennale de l'entreprise, règles de signature, « Et
+// maintenant » une fois signé. Mêmes libellés que l'onglet Devis de Koji
+// Client (lib/chantier-client.js).
+async function vueLien(quote, token) {
+  const db = await readDb();
+  return vueLienSignature(quote, {
+    entreprise: await entrepriseDuDevis(db, quote),
+    pdf: `/api/signatures/${encodeURIComponent(token)}/pdf`
+  });
 }
 
 // Coordonnées de l'entreprise pour le formulaire de rétractation : celles du
@@ -127,124 +130,16 @@ export async function POST(request, context) {
   const { token } = await context.params;
   const denied = authorizeSignatureRequest(request, token);
   if (denied) return denied;
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const quote = await findQuoteByToken(token);
   if (!quote) return badRequest("Lien de signature invalide.", 404);
   if (signatureAccessExpired(quote)) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
   if (quote.signatureStatus === "Signe") {
-    return ok({ quote: await publicQuoteView(quote), clientAccess: publicClientAccess(quote.clientPortalAccess) });
+    return ok({ quote: await publicQuoteView(quote), vue: await vueLien(quote, token), clientAccess: publicClientAccess(quote.clientPortalAccess) });
   }
-  if (!body.consent) return badRequest("La validation client est obligatoire.");
-  // TVA à taux réduit (PRO-03.5) : la mention doit être certifiée.
-  const mentionAttendue = !quote.autoliquidation
-    && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
-  if (mentionAttendue && body.mentionTva !== true) {
-    return badRequest("Pour la TVA à taux réduit, merci de certifier la mention avant de signer.");
-  }
-
-  const now = new Date().toISOString();
-  const updated = {
-    ...quote,
-    status: "Signe",
-    signatureStatus: "Signe",
-    signerName: fixText(body.signerName || quote.client || "Client"),
-    signerEmail: normalizeEmail(body.signerEmail || quote.clientEmail || ""),
-    clientEmail: normalizeEmail(body.signerEmail || quote.clientEmail || ""),
-    clientPhone: fixText(body.signerPhone || quote.clientPhone || ""),
-    signaturePlace: fixText(body.signaturePlace || ""),
-    signerMessage: fixText(body.signerMessage || ""),
-    signedAt: now,
-    ...(mentionAttendue ? { mentionTva: true, mentionTvaLe: now } : {}),
-    // Signé en ligne (PRO-03.7) : 14 jours de rétractation pour un
-    // particulier, démarrage pendant le délai sur sa demande expresse.
-    signatureLieu: "en-ligne",
-    retractationJusquau: finRetractation(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date(now)), "en-ligne", quote.clientType),
-    consentements: { demandeExpresse: body.demandeExpresse === true ? now : "", mentionTva: mentionAttendue ? now : "", exemplaireEmail: "" },
-    demarrageDemande: body.demandeExpresse === true ? String(quote.startDate || "").slice(0, 10) : "",
-    updatedAt: now
-  };
-
-  const supabase = getSupabaseAdmin();
-  const db = await readDb();
-  updated.projectId = await ensureChantierForQuote(supabase, updated, now);
-  generateTasksForSignedQuote(db, updated, now);
-  createPaiementEcheancesForQuote(db, updated, now);
-  recordEstimationAccuracy(db, updated, now);
-  if (updated.projectId) {
-    await supabase.from("chantiers").update({ status: "Signe" }).eq("id", updated.projectId);
-  }
-
-  db.notifications.unshift({
-    id: `notif-quote-signed-${updated.id}-${Date.now()}`,
-    userId: updated.userId || "",
-    type: "quote.signed",
-    title: "Devis signé",
-    message: `Votre devis N° : ${updated.quoteNumber} a été signé par ${updated.signerName || updated.client || "votre client"}.`,
-    quoteId: updated.id,
-    projectId: updated.projectId || "",
-    actionUrl: `/devis?id=${updated.id}`,
-    actionLabel: "Voir le devis",
-    meta: { signerName: updated.signerName || "", quoteNumber: updated.quoteNumber || "" },
-    read: false,
-    createdAt: now
-  });
-
-  addHistory(db, {
-    userId: updated.userId || "",
-    type: "quote.signed",
-    label: `Devis signé : ${updated.quoteNumber}`,
-    entityId: updated.id,
-    entityType: "quote",
-    meta: { signerName: updated.signerName, signerEmail: updated.signerEmail }
-  });
-
-  const clientAccess = await ensureClientPortalAccess(db, updated, body, request, now);
-  if (clientAccess) {
-    updated.clientPortalUserId = clientAccess.userId;
-    updated.clientPortalEmail = clientAccess.email;
-    updated.clientPortalPhone = clientAccess.phone;
-    updated.clientPortalLoginUrl = clientAccess.loginUrl;
-    updated.clientPortalAccessSentAt = now;
-    updated.clientPortalAccess = clientAccess;
-
-    db.notifications.unshift({
-      id: `notif-client-access-${updated.id}-${Date.now()}`,
-      userId: updated.userId || "",
-      type: "client.access.sent",
-      title: "Accès espace particulier envoyé",
-      message: `L'identifiant ${clientAccess.portalIdentifier || ""} a été envoyé au client pour suivre le chantier.`,
-      quoteId: updated.id,
-      projectId: updated.projectId || "",
-      actionUrl: updated.projectId ? `/chantiers?project=${updated.projectId}` : "",
-      actionLabel: "Voir le chantier",
-      meta: {
-        portalIdentifier: clientAccess.portalIdentifier || "",
-        password: clientAccess.password || "",
-        email: clientAccess.email || "",
-        phone: clientAccess.phone || "",
-        loginUrl: clientAccess.loginUrl || "",
-        quoteNumber: updated.quoteNumber || ""
-      },
-      read: false,
-      createdAt: now
-    });
-
-    addHistory(db, {
-      userId: updated.userId || "",
-      type: "client.access.sent",
-      label: `Acces client envoye: ${updated.quoteNumber}`,
-      entityId: updated.id,
-      entityType: "quote",
-      meta: { clientUserId: clientAccess.userId, email: clientAccess.email, phone: clientAccess.phone }
-    });
-  }
-
-  await writeDb(db);
-
-  const row = quoteToRow(updated, updated.userId);
-  const { data: updatedRow, error } = await supabase.from("quotes").update(row).eq("id", updated.id).select().single();
-  if (error) return badRequest(`Enregistrement de la signature impossible: ${error.message}`, 500);
-
-  return ok({ quote: await publicQuoteView(mapQuote(updatedRow)), clientAccess: publicClientAccess(clientAccess) });
+  // Un seul enregistrement pour le lien et l'espace Koji Client
+  // (lib/signature-en-ligne.js) : mêmes règles, mêmes preuves.
+  const resultat = await signerDevisEnLigne({ quote, body, request, origine: "lien" });
+  if (resultat.erreur) return badRequest(resultat.erreur, resultat.code);
+  return ok({ quote: await publicQuoteView(resultat.quote), vue: await vueLien(resultat.quote, token), clientAccess: publicClientAccess(resultat.clientAccess), exemplaire: resultat.exemplaire });
 }
-

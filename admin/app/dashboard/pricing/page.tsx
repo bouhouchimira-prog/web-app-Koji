@@ -1,6 +1,7 @@
 import { hasStripe, getStripe, PRO_PRICE_IDS, BUSINESS_PRICE_IDS } from '@/lib/stripe'
 import { BAREME_JETONS, OFFRES_KOJI } from '@/lib/bo/tarifs'
 import { euros } from '@/lib/bo/format'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Prix et offres (maquette PRO-24.10) : les trois offres, leurs prix (lus
 // dans Stripe, mêmes ids que koji-web), ce qu'elles incluent, le barème
@@ -22,6 +23,7 @@ async function prixStripe(ids: { month: string; year: string }): Promise<Prix> {
 }
 
 export default async function PrixEtOffres() {
+  await exigerBackOffice()
   const [pro, business] = await Promise.all([prixStripe(PRO_PRICE_IDS), prixStripe(BUSINESS_PRICE_IDS)])
   const prix: Record<string, Prix> = { start: { mois: 0, an: 0 }, pro, business }
   const montant = (n: number | null, periode: string) => (n == null ? '—' : n === 0 ? '0 €' : `${euros(n, n % 1 ? 2 : 0)} HT / ${periode}`)

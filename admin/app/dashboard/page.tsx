@@ -3,6 +3,7 @@ import { devis as lireDevis, estSigneDevis, etatWeb, particuliers as lireParticu
 import { moisParis, revenusDuMois } from '@/lib/bo/revenus'
 import { euros, maintenant } from '@/lib/bo/format'
 import { estEntreprise, fileVerifications, joursSemaine, offreDe, surTrenteJours } from '@/lib/bo/regles'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Tableau de bord du back-office (maquette PRO-24.1) : les huit chiffres
 // décidés le 4 nov., deux univers côte à côte (Koji Pro, Koji Client), les
@@ -17,6 +18,7 @@ const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`
 const evo = (e: number | null) => (e === null ? '' : `${e >= 0 ? '+' : ''}${e} %`)
 
 export default async function TableauDeBord() {
+  await exigerBackOffice()
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const [comptes, tousDevis, db, revenus] = await Promise.all([utilisateurs(), lireDevis(), etatWeb(), revenusDuMois(moisParis())])
   const entreprises = comptes.filter(estEntreprise)

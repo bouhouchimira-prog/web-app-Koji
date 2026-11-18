@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { moisParis, parJour, revenusDuMois } from '@/lib/bo/revenus'
 import { dateCourte, euros } from '@/lib/bo/format'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Revenus (maquette PRO-24.11) : abonnements, jetons, remboursements,
 // impayés du mois, par jour ; export comptable. Sources : Stripe (lecture
@@ -11,6 +12,7 @@ const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 
 const decaler = (mois: string, n: number) => { const [a, m] = mois.split('-').map(Number); const d = new Date(Date.UTC(a, m - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}` }
 
 export default async function Revenus({ searchParams }: { searchParams: Promise<{ mois?: string }> }) {
+  await exigerBackOffice()
   const demande = (await searchParams).mois || ''
   const courant = moisParis()
   const mois = /^\d{4}-\d{2}$/.test(demande) && demande <= courant ? demande : courant

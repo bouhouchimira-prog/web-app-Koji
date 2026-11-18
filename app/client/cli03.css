@@ -1,0 +1,155 @@
+/* Koji Client · écrans CLI-03 à CLI-06 (messages, profil, notifications,
+   retrouver mon projet, paramètres, aide). Classes de la maquette (cw-, cl-,
+   cnf-, sp-) sous le préfixe kc3-, en complément des classes kc- de
+   client.css (charte, bandeaux, boutons). Marine #101529, sable #E7D8C5,
+   riz #F8F6F1, lignes #E6E2DA, gris #6B6A66, angles droits. */
+
+/* Boutons : la remise à zéro « .kc button » de client.css efface le fond
+   et le contour de .kc-btn / .kc-sec quand ce sont des <button>. */
+.kc button.kc-btn{background:#101529;color:#FFFFFF;padding:0 18px}
+.kc button.kc-btn:hover{background:#1B2140}
+.kc button.kc-btn[disabled]{background:#B9BBC6;cursor:not-allowed}
+.kc button.kc-sec{border:1px solid #101529;padding:0 18px;background:transparent}
+.kc button.kc-sec:hover{background:#FFFFFF}
+.kc button.kc-sec[disabled]{opacity:.5;cursor:not-allowed}
+
+/* Deux colonnes · ordinateur (cw2) */
+.kc3-cols{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start}
+.kc3-cols.large{grid-template-columns:minmax(0,1fr) 300px}
+
+/* Lignes (cl-row) */
+.kc3-list{display:flex;flex-direction:column;gap:8px}
+.kc .kc3-row{display:flex;gap:12px;align-items:center;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px;color:#101529;width:100%;text-align:left}
+.kc3-row>div{flex:1;display:flex;flex-direction:column;min-width:0}
+.kc3-row strong{font-size:14px;font-weight:700}
+.kc3-row small{font-size:12px;color:#6B6A66;font-weight:400}
+.kc3-row>span:last-child{font-size:20px;line-height:1;color:#6B6A66}
+.kc .kc3-row.on{border:2px solid #101529;padding:11px}
+.kc3-row .ic svg{width:20px;height:20px;stroke:#101529;fill:none;stroke-width:1.8;display:block}
+.kc3-row.fixe{cursor:default}
+a.kc3-row:hover,button.kc3-row:hover{border-color:#101529}
+.kc3-sec{font-size:12px;color:#6B6A66;font-weight:600;padding:8px 0 0;margin:0}
+
+/* Panneau de droite (cw-side cw-pf) */
+.kc3-pan{background:#FFFFFF;border:1px solid #E6E2DA;padding:20px;display:flex;flex-direction:column;gap:12px}
+.lc.kc .kc3-pan h3{font-size:18px;line-height:1.3;margin:0 0 4px}
+.kc3-pan .kc-btn.sm{margin-top:4px;align-self:stretch}
+.kc3-duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kc3-duo.cp{grid-template-columns:120px 1fr}
+.kc-fld input[readonly]{border-color:#E6E2DA;color:#6B6A66;background:#F8F6F1}
+.kc-fld textarea{background:#FFFFFF;border:1px solid #101529;border-radius:0;padding:11px 12px;font:inherit;font-size:14px;color:#101529;width:100%;min-height:96px;resize:vertical}
+.kc3-ok{font-size:13px;color:#101529;margin:0}
+.kc3-err{font-size:13px;color:#101529;border:1px solid #101529;background:#FFFFFF;padding:9px 12px;margin:0}
+.kc3-choix{display:flex;gap:8px;flex-wrap:wrap}
+.kc .kc3-choix button{border:1px solid #101529;padding:9px 14px;font-size:14px;color:#101529;background:#FFFFFF}
+.kc .kc3-choix button.on{background:#101529;color:#FFFFFF;font-weight:600}
+.kc .kc3-del{height:52px;display:grid;place-items:center;background:#FFFFFF;color:#101529;border:1.5px solid #101529;font-weight:600;font-size:16px;width:100%}
+.kc .kc3-del[disabled]{color:#9A9FB0;border-color:#C9CDE0;cursor:not-allowed}
+.kc3-pan .kc3-del{height:42px;font-size:14px}
+.kc3-lien{text-decoration:underline!important;text-underline-offset:3px;color:#101529;font-size:inherit}
+button.kc3-lien{padding:0;background:none;border:0}
+
+/* Messages · ordinateur (cw-msg) */
+.kc3-msg{display:grid;grid-template-columns:320px minmax(0,1fr);background:#FFFFFF;border:1px solid #E6E2DA;min-height:520px}
+.kc3-ml{border-right:1px solid #E6E2DA;display:flex;flex-direction:column;min-width:0}
+.kc .kc3-mt{display:flex;flex-direction:column;gap:3px;padding:14px 16px;border-bottom:1px solid #EFEBE3;color:#101529;position:relative;text-align:left;width:100%;background:#FFFFFF}
+.kc .kc3-mt.on{background:#F8F6F1;box-shadow:inset 3px 0 0 #101529}
+.kc3-mt b{font-size:14px;font-weight:700;padding-right:52px}
+.kc3-mt small{font-size:12px;color:#6B6A66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:44px}
+.kc3-mt em{position:absolute;right:14px;top:14px;font-style:normal;font-size:11px;color:#6B6A66}
+.kc3-mt i{position:absolute;right:16px;top:34px;width:8px;height:8px;border-radius:50%;background:#101529}
+.kc3-mc{display:flex;flex-direction:column;padding:16px 20px;min-width:0}
+.kc3-mh{display:flex;flex-direction:column;border-bottom:1px solid #E6E2DA;padding-bottom:10px;margin-bottom:14px}
+.kc3-mh b{font-size:16px;font-weight:700}
+.kc3-mh small{font-size:12px;color:#6B6A66}
+.kc3-chat{display:flex;flex-direction:column;gap:10px;flex:1}
+.kc3-msg .kc3-chat{max-height:calc(100vh - 360px);min-height:260px;overflow-y:auto;padding-right:4px}
+.kc3-bub{max-width:82%;padding:10px 12px;font-size:14px;line-height:1.45;display:flex;flex-direction:column;gap:3px;color:#101529;white-space:pre-wrap;overflow-wrap:anywhere}
+.kc3-bub b{font-size:12px;font-weight:700}
+.kc3-bub small{font-size:11px;color:#6B6A66;white-space:normal}
+.kc3-bub.in{background:#FFFFFF;border:1px solid #E6E2DA;align-self:flex-start}
+.kc3-bub.out{background:#101529;color:#FFFFFF;align-self:flex-end}
+.kc3-bub.out small{color:#C9CDE0}
+.kc3-bub.rdv{border:1px solid #101529}
+.kc3-bact{display:flex;gap:8px;margin-top:6px;white-space:normal}
+.kc3-bact .kc-btn.sm,.kc3-bact .kc-sec{height:36px;font-size:13px;padding:0 14px}
+.kc3-in{display:flex;align-items:center;background:#FFFFFF;border:1px solid #101529;margin-top:14px}
+.kc .kc3-in input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:14px;color:#101529;padding:11px 12px;outline:none}
+.kc3-in input::placeholder{color:#6B6A66}
+.kc .kc3-in button{width:44px;height:44px;display:grid;place-items:center}
+.kc3-in button[disabled]{opacity:.4;cursor:not-allowed}
+.kc3-in svg{width:18px;height:18px;stroke:#101529;fill:none;stroke-width:1.8}
+.kc3-outils{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+.kc3-rdvf{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.kc .kc3-rdvf input{border:1px solid #101529;padding:8px 10px;font:inherit;font-size:14px;color:#101529;background:#FFFFFF}
+.kc3-n{font-size:12px;color:#6B6A66;margin:14px 0 0}
+.kc3-vide{padding:20px;color:#6B6A66;margin:0}
+
+/* Notifications (cnf-*) */
+.kc3-nh{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:18px}
+.lc.kc .kc3-nh .kc-h{margin-bottom:0}
+.kc3-day{font-size:12px;color:#6B6A66;padding:16px 2px 8px;font-weight:600}
+.kc3-day:first-child{padding-top:0}
+.kc .kc3-nr{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;background:#FFFFFF;border:1px solid #E6E2DA;border-top:0;padding:13px 14px;color:#101529;width:100%;text-align:left}
+.kc3-day+.kc3-nr{border-top:1px solid #E6E2DA}
+.kc .kc3-nr.on{box-shadow:inset 3px 0 0 #101529;background:#F8F6F1}
+.kc3-nr>div{display:flex;flex-direction:column;min-width:0}
+.kc3-nr b{font-size:15px;font-weight:500}
+.kc3-nr.un b{font-weight:700}
+.kc3-nr small{font-size:12px;color:#6B6A66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kc3-nr>div.kc3-rt{flex-direction:row}
+.kc3-rt{display:flex;align-items:center;gap:10px;font-size:12px;color:#6B6A66;white-space:nowrap}
+.kc3-rt i{width:8px;height:8px;border-radius:50%;background:#101529;display:block}
+.kc3-ic{width:40px;height:40px;display:grid;place-items:center;background:#F8F6F1;border:1px solid #E6E2DA;flex:none}
+.kc3-ic svg{width:18px;height:18px;stroke:#101529;fill:none;stroke-width:1.8}
+.kc3-ic.big{width:52px;height:52px;background:#101529;border-color:#101529}
+.kc3-ic.big svg{width:24px;height:24px;stroke:#F8F6F1}
+.kc3-a{background:#FFFFFF;border:1px solid #E6E2DA;padding:18px 20px;font-size:14px;line-height:1.5}
+.lc.kc .kc3-a h3{font-size:18px;line-height:1.3;margin:0 0 6px}
+.kc3-a p{margin:0 0 16px}
+.kc3-a p:last-child{margin:0}
+.kc3-a+.kc3-a{margin-top:16px}
+.kc3-mh2{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.lc.kc .kc3-mh2 .kc-ph{margin:0}
+.kc3-dh{display:flex;flex-direction:column;gap:8px}
+.lc.kc .kc3-dh h3{font-size:22px;line-height:1.25;margin:4px 0 0}
+.kc3-dh p{white-space:pre-wrap;overflow-wrap:anywhere}
+.kc3-det{display:flex;flex-direction:column;gap:12px}
+.kc3-det .kc-btn.sm,.kc3-det .kc-sec{width:100%}
+
+/* Retrouver mon projet (sp-cw, sp-cwc, g2-code) */
+.kc3-sp{display:grid;grid-template-columns:minmax(0,520px) 300px;gap:48px;align-items:start}
+.kc3-spc{display:flex;flex-direction:column;gap:12px}
+.lc.kc .kc3-spc .kc-h{margin-bottom:0}
+.kc3-spc .kc-btn.sm{margin-top:4px}
+.kc3-code{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:360px}
+.kc3-code i{height:56px;display:grid;place-items:center;background:#FFFFFF;border:1px solid #E6E2DA;font-style:normal;font-size:24px;font-weight:700;color:#101529}
+.kc3-code i.plein,.kc3-code i.ici{border-color:#101529}
+.kc3-code i.ici{box-shadow:inset 0 -3px 0 #101529}
+.kc .kc3-code input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;cursor:text}
+.kc3-code:focus-within i.ici{outline:2px solid #101529;outline-offset:1px}
+.kc3-autre{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding-top:14px;border-top:1px solid #E6E2DA}
+
+/* Aide (cw-faq) */
+.kc3-faq{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.kc3-qr{background:#FFFFFF;border:1px solid #E6E2DA;border-top:0;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.kc3-qr div{display:flex;flex-direction:column;gap:3px}
+.kc3-qr b{font-size:14px;font-weight:700}
+.kc3-qr p{margin:0;font-size:14px;line-height:1.5}
+.kc3-qr.seul{border-top:1px solid #E6E2DA}
+
+@media (max-width:899px){
+  .kc3-cols,.kc3-cols.large,.kc3-sp{grid-template-columns:1fr;gap:16px}
+  .kc3-tlist{display:flex;flex-direction:column;background:#FFFFFF;border:1px solid #E6E2DA}
+  .kc3-tlist .kc3-mt:last-child{border-bottom:0}
+  .kc3-chat.tel{flex:1;padding-bottom:6px}
+  .kc3-in.tel{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));margin-top:auto;z-index:5}
+  .kc .kc3-nr{padding:12px 10px;grid-template-columns:36px minmax(0,1fr) auto}
+  .kc3-nr .kc3-ic{width:36px;height:36px}
+  .kc3-nr b{font-size:14px}
+  .kc3-day{padding:10px 0 2px}
+  .kc3-day:first-child{padding-top:4px}
+  .kc3-duo{grid-template-columns:1fr}
+  .kc3-duo.cp{grid-template-columns:110px 1fr}
+  .kc3-code i{height:52px}
+}

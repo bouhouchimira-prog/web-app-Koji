@@ -2,6 +2,7 @@ import { badRequest, ok } from "../../../../lib/http";
 import { readDb } from "../../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { fixObjectText } from "../../../../lib/text";
+import { titreOffre } from "../../../../lib/projets-client";
 
 // Boite de reception unifiee cote particulier (16 oct, maquette Artifact) —
 // les conversations existent deja en vrai par offre (db.chantierOffreMessages,
@@ -43,8 +44,12 @@ export async function GET(request) {
         offre: fixObjectText({
           description: offresById.get(m.offerId)?.description || "",
           address: offresById.get(m.offerId)?.address || "",
-          status: offresById.get(m.offerId)?.status || ""
+          status: offresById.get(m.offerId)?.status || "",
+          // Koji Client (CLI-03) : titre court du projet et présence de
+          // photos (pour « Débloquer mes photos » dans le fil).
+          titre: titreOffre(offresById.get(m.offerId) || {})
         }),
+        aDesPhotos: (offresById.get(m.offerId)?.photos || []).length > 0,
         messages: []
       });
     }

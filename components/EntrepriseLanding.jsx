@@ -324,7 +324,7 @@ export function EntrepriseLanding() {
           <span>Koji</span>
         </div>
         <div className="ep-footer-links">
-          <span>Découvrir</span> · <span>Fonctionnalités</span> · <span>Tarifs</span> · <span>Blog</span> · <a href="mailto:contact@getkoji.io">contact@getkoji.io</a>
+          <span>Découvrir</span> · <span>Fonctionnalités</span> · <span>Tarifs</span> · <span>Blog</span> · <a href="mailto:entreprise@getkoji.io">entreprise@getkoji.io</a>
         </div>
         <span className="ep-footer-copy">© {new Date().getFullYear()} koji</span>
       </footer>

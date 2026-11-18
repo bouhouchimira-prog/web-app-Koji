@@ -9,11 +9,15 @@ import 'package:koji/apps/client/client_widgets.dart';
 import 'package:koji/apps/client/screens/client_aide_screen.dart';
 import 'package:koji/apps/client/screens/client_chantier_detail_screen.dart';
 import 'package:koji/apps/client/screens/client_chantiers_screen.dart';
+import 'package:koji/apps/client/screens/client_devis_chantier_screen.dart';
 import 'package:koji/apps/client/screens/client_devis_screen.dart';
 import 'package:koji/apps/client/screens/client_messages_inbox_screen.dart';
 import 'package:koji/apps/client/screens/client_notifications_screen.dart';
+import 'package:koji/apps/client/screens/client_paiements_screen.dart';
 import 'package:koji/apps/client/screens/client_parametres_screen.dart';
 import 'package:koji/apps/client/screens/client_profil_screen.dart';
+import 'package:koji/apps/client/screens/client_propositions_screen.dart';
+import 'package:koji/apps/client/screens/client_retrouver_screen.dart';
 import 'package:koji/core/route_args.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/client/client_messages_screen.dart';
@@ -61,9 +65,38 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
         _page('/login', (_) => const KojiAuthScreen()),
         _page('/signup',
             (_) => const KojiAuthScreen(initialTab: KojiAuthTab.signup)),
+        // Session du site absente : « Retrouver mon projet » par code
+        // (maquette CLI-05). L'adresse historique est gardée, tous les
+        // écrans y envoient déjà ; le mot de passe reste en lien secondaire.
         _page('/client/marketplace/login',
-            (_) => const MarketplaceLoginScreen()),
-        _page('/client/marketplace/new', (_) => const MarketplaceNewScreen()),
+            (_) => const ClientRetrouverScreen()),
+        _page('/client/connexion', (_) => const MarketplaceLoginScreen()),
+        // Un devis ou chantier du site (maquette CLI-02), 4 onglets ;
+        // « ?onglet=devis|chantier|paiements|documents ». Hors coquille : la
+        // page pose elle-même la barre du bas, absente pendant la signature.
+        // Distinct de /client/chantier/:key (chantier suivi dans l'app).
+        _page(
+          '/client/devis/:quoteId',
+          (state) => ClientDevisChantierScreen(
+            quoteId: state.pathParameters['quoteId']!,
+            onglet: state.uri.queryParameters['onglet'],
+          ),
+        ),
+        // « ?draftId= » : reprise d'un brouillon depuis « Vos projets ».
+        _page(
+          '/client/marketplace/new',
+          (state) => MarketplaceNewScreen(
+            draftId: state.uri.queryParameters['draftId'],
+          ),
+        ),
+        // Propositions reçues pour une demande : plein écran, sans la barre
+        // du bas (maquette CLI-01).
+        _page(
+          '/client/projet/:offerId',
+          (state) => ClientPropositionsScreen(
+            offerId: state.pathParameters['offerId']!,
+          ),
+        ),
         ShellRoute(
           builder: (context, state, child) => ClientShell(
             location: currentRoutePath(GoRouter.of(context)),
@@ -86,7 +119,13 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
             // quote_messages). ClientMessagesPage (per-devis list) has no
             // confirmed site equivalent at this route; kept but no longer
             // wired here — see the mobile mission report for this call.
-            _page('/client/messages', (_) => const ClientMessagesInboxScreen()),
+            // « ?fil=demande:entreprise » ouvre un fil (notification).
+            _page(
+              '/client/messages',
+              (state) => ClientMessagesInboxScreen(
+                fil: state.uri.queryParameters['fil'],
+              ),
+            ),
             _page(
               '/client/messages/:quoteId',
               (state) => ClientChatScreen(
@@ -94,6 +133,7 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
                 artisanName: state.extra as String?,
               ),
             ),
+            _page('/client/paiements', (_) => const ClientPaiementsScreen()),
             _page('/client/profil', (_) => const ClientProfilScreen()),
             _page('/client/parametres', (_) => const ClientParametresScreen()),
             _page('/client/aide', (_) => const ClientAideScreen()),

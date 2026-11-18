@@ -1379,13 +1379,91 @@
       "category": "database",
       "theme": "Sécurité",
       "title": "Migration 0012 : une signature ne peut plus être écrasée",
-      "detail": "La fonction qui enregistre la signature d'un devis depuis l'app refuse désormais un devis déjà signé, au lieu de remplacer la première signature. À exécuter dans Supabase."
+      "detail": "La fonction qui enregistre la signature d'un devis depuis l'app refuse désormais un devis déjà signé, au lieu de remplacer la première signature. Exécutée dans Supabase le 18 novembre."
     },
     {
       "category": "backend",
       "theme": "Sécurité",
       "title": "Relecture et contrôle des correctifs de sécurité (18 novembre)",
       "detail": "Les quatre correctifs ont été relus avant leur mise en ligne. Quatre erreurs trouvées et corrigées : un filtre d'adresses qui ne filtrait presque rien, un export réparé sans vérification d'identité, un conflit entre deux lots, une migration qui aurait bloqué la signature dans l'app déjà publiée. Après fusion : 382 tests du site et 228 tests de l'app passent, le site compile."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Back-office : chaque page vérifie l'accès (faille corrigée le 18 novembre)",
+      "detail": "Les pages du back-office construites le 17 novembre ne vérifiaient l'accès qu'à un seul endroit, commun à toutes. Une requête fabriquée à la main, sans connexion, pouvait recevoir le contenu d'une page (noms, adresses e-mail, listes de devis et de demandes). Trouvé le 18 novembre en cherchant pourquoi le journal des accès restait vide, corrigé et mis en ligne dans l'heure : chaque page et chaque lecture de données vérifie maintenant la session. Contrôle en production : les 26 pages renvoient vers la connexion sans aucune donnée. Exposition : du 17 novembre vers 17 h 30 au 18 novembre vers 12 h 20. Les journaux de l'hébergeur ne couvrent que les 12 dernières heures : sur cette période, aucune requête autre que celles de l'administratrice et du contrôle. Les 7 premières heures ne peuvent pas être vérifiées."
+    },
+    {
+      "category": "backend",
+      "theme": "Back-office",
+      "title": "Back-office : l'ouverture d'un devis s'inscrit au journal des accès",
+      "detail": "La page de détail d'un devis lisait le devis avec les droits du compte connecté : la base refusait, la page revenait à la liste et rien n'était inscrit au journal. Elle lit maintenant le devis avec la clé du back-office, après le contrôle d'accès, et inscrit la lecture au journal avec le compte qui l'a faite. Les listes ne préchargent plus les fiches, pour ne pas inscrire des lectures qui n'ont pas eu lieu. Reste à confirmer par une ouverture réelle depuis le back-office."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Suivi des erreurs du site prêt à être activé (Sentry)",
+      "detail": "Le site sait maintenant signaler ses erreurs à Sentry, côté serveur comme côté navigateur ; avant, les réglages existaient mais n'étaient chargés par rien. Tant qu'aucune clé Sentry n'est configurée, rien n'est envoyé et rien n'est téléchargé par le navigateur des visiteurs. Il reste à créer le projet Sentry et à renseigner sa clé."
+    },
+    {
+      "category": "frontend",
+      "theme": "Connexion et comptes",
+      "title": "Une adresse de service client par application",
+      "detail": "Les entreprises et leurs ouvriers sont dirigés vers entreprise@getkoji.io, les particuliers vers contact@getkoji.io : sur le site Koji Pro, la page de connexion, les messages d'erreur de l'app et les conditions de vente. Les signalements et les demandes envoyés depuis Koji arrivent dans la boîte correspondante."
+    },
+    {
+      "category": "frontend",
+      "theme": "Sécurité",
+      "title": "App : le cache hors ligne est vidé dès la déconnexion, et testé",
+      "detail": "Les données gardées pour le mode hors ligne sont effacées avant même la déconnexion du serveur, y compris si celle-ci échoue faute de réseau, ainsi que les actions en attente du compte. Sept tests vérifient qu'un compte ne voit jamais les données du précédent sur le même téléphone."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Tout le travail réuni dans une seule branche",
+      "detail": "Les branches de travail ont toutes été fusionnées dans la branche principale ; sur GitHub il ne reste que la branche principale et celle des builds de l'app. L'ancien projet d'espace entreprise du 28 octobre est conservé en entier dans un dossier d'archive, sans effet sur le site : remis à sa place, il aurait remplacé la page publique de Koji Pro par un tableau de bord aux chiffres fictifs."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : « Mes projets » et comparaison des propositions (CLI-01)",
+      "detail": "Le particulier retrouve sur une seule page ses chantiers, ses demandes publiées avec le nombre de propositions reçues, et ses brouillons à reprendre là où il les avait laissés. Une page compare côte à côte les propositions des entreprises : prix de l'entreprise, avis, début et durée, visite, assurance décennale, garanties. Les entreprises sont classées par date de réponse. Aucun prix calculé par Koji n'est montré au particulier. Même chose dans l'app Koji, avec la nouvelle charte (marine, sable, titres Shippori Mincho) et la barre du bas de la maquette."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Accord du particulier à la publication, et devis client sans secret",
+      "detail": "La publication d'un projet demande une case d'accord (conditions et confidentialité), jamais pré-cochée ; la date de l'accord est gardée avec la demande. La lecture des devis par le particulier ne renvoie plus le mot de passe du portail de signature ni son empreinte."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : la page d'un chantier en 4 onglets, et la page Paiements",
+      "detail": "Chaque devis ou chantier du particulier a maintenant sa page avec quatre onglets. Devis : les lignes par lot, la TVA et son motif, ce qui a changé depuis la version précédente, l'acompte, et la signature directement depuis l'espace. Chantier : l'avancement « jour N sur M », les étapes, la prochaine étape, « Signaler quelque chose » et « Écrire à l'entreprise ». Paiements : payé, à payer, à venir et retenue de garantie, avec le téléchargement de la facture (pas de paiement en ligne, aucun prestataire choisi). Documents : devis signé, formulaire de rétractation, attestation décennale, factures, procès-verbal de réception. Une page « Paiements » regroupe tous les chantiers et entre dans le menu."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Signature d'un devis : un seul enregistrement pour le lien et l'espace client",
+      "detail": "Le lien de signature reçu par e-mail (page refaite en trois états : signer, signé, lien non valide) et la signature depuis l'espace client passent par le même enregistrement, avec les mêmes règles qu'avant (TVA réduite certifiée, rétractation de 14 jours, démarrage anticipé sur demande). Nouveau : la signature tracée est obligatoire, la preuve gardée comprend l'heure, l'adresse de connexion et l'appareil, et le client reçoit son exemplaire PDF par e-mail. Toutes les routes vérifient que le devis appartient au particulier connecté ; l'IBAN de l'entreprise et les mots de passe ne sont jamais renvoyés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : messages, profil, notifications, paramètres et aide (site et app Koji)",
+      "detail": "Messages : un fil par entreprise et par demande, avec les rendez-vous et le partage des photos. Profil : coordonnées masquées, logement (ancienneté pour la TVA), mot de passe. Notifications : liste par jour et détail qui mène à l'action réelle. Paramètres : export des données et demande de suppression du compte (case jamais cochée d'avance). Aide : recherche dans les questions fréquentes, puis l'ordre de recours (entreprise, Koji à contact@getkoji.io, médiateur). Les mêmes écrans sont refaits dans l'app Koji, avec images de référence."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "« Retrouver mon projet » : connexion par code reçu par e-mail",
+      "detail": "Le particulier peut se connecter sans mot de passe : il saisit son adresse, reçoit un code à 6 chiffres valable 10 minutes, et le saisit. Limites : 5 essais par code, 1 envoi par minute et 5 par heure. Ni l'adresse ni le code ne sont gardés en clair. La réponse est la même, et arrive aussi vite, que l'adresse ait un compte ou non, pour qu'on ne puisse pas deviner qui est client. Le mot de passe reste possible. Correctif au passage : le profil ne renvoie plus au navigateur le jeton « mot de passe oublié »."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "App Koji : page du devis et du chantier, paiements et « Retrouver mon projet »",
+      "detail": "L'app Koji reprend la page du site en quatre onglets (Devis, Chantier, Paiements, Documents) : le particulier lit son devis, le signe au doigt depuis son téléphone, suit le chantier et ouvre ses factures et documents. Un onglet Paiements regroupe tous les chantiers (pas de paiement en ligne). « Retrouver mon projet » permet de se connecter avec un code reçu par e-mail, sans mot de passe. Un chantier connu à la fois de l'app et du site n'apparaît plus qu'une fois. Les liens de signature reçus par e-mail s'ouvrent toujours dans le navigateur."
     }
   ]
 }

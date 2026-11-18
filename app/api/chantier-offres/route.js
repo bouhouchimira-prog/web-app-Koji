@@ -134,7 +134,11 @@ export async function POST(request) {
     status: "Publiee",
     createdAt: now,
     updatedAt: now,
-    publishedAt: now
+    publishedAt: now,
+    // Preuve de l'accord donné à la publication (maquette CLI-01 : case
+    // jamais pré-cochée). Vide pour une demande publiée avant le 18 nov.
+    // ou depuis une version de l'app qui n'envoie pas encore l'accord.
+    consentementLe: body.consentement === true ? now : ""
   };
 
   db.chantierOffres.unshift(offer);

@@ -4,6 +4,7 @@ import { nomEntreprise } from '@/lib/bo/regles'
 import type { Ligne } from '@/lib/bo/client'
 import { dateCourte, ilYa30Jours, maintenant, pourcent } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Réseau pro (maquette PRO-24.14) : échanges entre entreprises, jamais
 // mélangés aux conversations avec les particuliers. Besoins publiés
@@ -23,6 +24,7 @@ function etatContrat(c: Ligne) {
 }
 
 export default async function Reseau() {
+  await exigerBackOffice()
   const supa = createAdminClient()
   const [{ data: besoinsRaw }, { data: echangesRaw }, db, comptes] = await Promise.all([
     supa.from('reseau_besoins').select('id,user_id,company_name,title,metier,city,status,created_at,start_date,end_date').order('created_at', { ascending: false }),

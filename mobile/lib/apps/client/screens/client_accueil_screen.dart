@@ -3,270 +3,177 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:koji/app/account_provider.dart';
+import 'package:koji/app/koji_web_api_client.dart';
+import 'package:koji/apps/client/client_nav.dart';
 import 'package:koji/apps/client/client_widgets.dart';
-import 'package:koji/design/koji_icons.dart';
-import 'package:koji/design/koji_page.dart';
-import 'package:koji/design/koji_tokens.dart';
-import 'package:koji/design/koji_widgets.dart';
+import 'package:koji/design/koji_client_charte.dart';
+import 'package:koji/design/koji_shell.dart';
 import 'package:koji/features/client/providers/client_providers.dart';
-import 'package:koji/features/marketplace/marketplace_status.dart';
-import 'package:koji/features/marketplace/metier_visuel.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 
-/// Client home ("/client" on the web: hero + "Mes chantiers" + "Mes
-/// demandes" — see app/client/page.jsx, read line by line to build this).
+String _s(dynamic v) => v is String ? v.trim() : '';
+
+/// « Vos projets » (maquette CLI-01), l'accueil du téléphone : les chantiers
+/// suivis dans l'app, puis les demandes et les brouillons lus sur le site
+/// (/api/client/projets). Une seule action : « Nouveau projet ».
 class ClientAccueilScreen extends ConsumerWidget {
   const ClientAccueilScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Le site n'est interrogé qu'avec une session ouverte ; sans elle, seuls
+    // les chantiers de l'app s'affichent.
+    final connecte = ref.watch(kojiWebApiClientProvider).isLoggedIn;
     final account = ref.watch(currentAccountProvider).valueOrNull;
     final tasksAsync = ref.watch(clientTasksProvider);
-    final offersAsync = ref.watch(marketplaceOffersProvider);
-    final chantiers =
-        ClientChantier.group(tasksAsync.valueOrNull ?? const []);
-    final offers = offersAsync.valueOrNull ?? const <Map<String, dynamic>>[];
-    final prenom = (account?.firstName ?? '').trim();
-    final unread = ref
-            .watch(clientNotificationsProvider)
-            .valueOrNull
-            ?.where((n) => n['read'] != true)
-            .length ??
-        0;
+    final AsyncValue<Map<String, dynamic>> projetsAsync = connecte
+        ? ref.watch(clientProjetsProvider)
+        : const AsyncData(<String, dynamic>{});
+    final nonLues = !connecte
+        ? 0
+        : ref
+                .watch(clientNotificationsProvider)
+                .valueOrNull
+                ?.where((n) => n['read'] != true)
+                .length ??
+            0;
 
-    return KojiPage(
-      title: prenom.isEmpty ? 'Accueil' : 'Bonjour $prenom',
-      onRefresh: () async {
-        ref.invalidate(clientTasksProvider);
-        ref.invalidate(marketplaceOffersProvider);
-        ref.invalidate(clientNotificationsProvider);
-      },
-      actions: [
-        // Point d'entrée vers les notifications sur mobile : la coquille
-        // (ClientShell) n'affiche la cloche que sur grand écran.
-        Badge(
-          isLabelVisible: unread > 0,
-          label: Text('$unread'),
-          backgroundColor: KojiColors.coralDot,
-          child: IconButton(
-            onPressed: () => context.push('/client/notifications'),
-            icon: const KojiIcon(KojiIcons.bell),
-            tooltip: 'Notifications',
-          ),
-        ),
-      ],
-      main: [
-        // Hero — wording matches the web (app/client/page.jsx: "Un autre
-        // projet de travaux ?" / CTA "+ Publier un chantier"), dark-navy
-        // card + sparkle accent from the mobile maquette (01_accueil).
-        Container(
-          padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
-          decoration: BoxDecoration(
-            color: KojiColors.navy,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: KojiIcon(KojiIcons.sparkle,
-                        size: 18, color: KojiColors.gold),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Un autre projet de travaux ?',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Décrivez votre projet en quelques minutes. Les artisans de '
-                'votre secteur vous répondent.',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: KojiColors.onNavyMuted,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              KojiButton(
-                label: 'Publier un chantier',
-                leadingIcon: KojiIcons.plus,
-                variant: KojiButtonVariant.light,
-                expand: true,
-                onPressed: () => context.go('/client/marketplace/new'),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "C'est gratuit, et c'est vous qui choisissez votre artisan.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: KojiColors.onNavyMuted),
-              ),
-            ],
-          ),
-        ),
+    final donnees = projetsAsync.valueOrNull ?? const <String, dynamic>{};
+    // Un chantier signé sur le site est aussi suivi dans l'app (même
+    // identifiant de chantier) : on garde la carte du site, plus complète.
+    final duSite = ((donnees['projets'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((p) => _s(p['projectId']))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final chantiers = ClientChantier.group(tasksAsync.valueOrNull ?? const [])
+        .where((c) => c.id == null || !duSite.contains(c.id))
+        .toList();
+    // Deux sources distinctes : les chantiers suivis dans l'app (tables
+    // chantiers de Koji Pro, écran /client/chantier/:key) et ce que le site
+    // connaît du compte (devis à signer et chantiers signés, demandes,
+    // brouillons). Les devis du site s'ouvrent sur /client/devis/:quoteId.
+    final projets = ((donnees['projets'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .where((p) => const {'chantier', 'offre', 'brouillon'}
+            .contains(p['type']))
+        .toList();
 
-        if (chantiers.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          KojiSectionTitle(
-            'Mes chantiers (${chantiers.length})',
-            action: 'Tout voir',
-            onAction: () => context.go('/client/chantiers'),
-          ),
-          const SizedBox(height: 10),
-          for (final (i, c) in chantiers.take(5).indexed) ...[
-            if (i > 0) const SizedBox(height: 10),
-            _ChantierHomeCard(chantier: c),
-          ],
-        ],
+    final bonjour = _s(donnees['bonjour']);
+    final nom = bonjour.isNotEmpty ? bonjour : _s(account?.firstName);
 
-        const SizedBox(height: 16),
-        KojiSectionTitle(
-          offers.isEmpty ? 'Mes demandes' : 'Mes demandes (${offers.length})',
-          action: 'Tout voir',
-          onAction: () => context.go('/client/marketplace'),
-        ),
-        const SizedBox(height: 10),
-        if (offersAsync.isLoading && offers.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          )
-        else if (offers.isEmpty)
-          const KojiCard(
-            child: KojiEmptyState(
-              compact: true,
-              icon: KojiIcons.radar,
-              title: "Aucune demande publiée pour l'instant",
+    final chargement = (tasksAsync.isLoading && !tasksAsync.hasValue) ||
+        (projetsAsync.isLoading && !projetsAsync.hasValue);
+    final erreur = tasksAsync.hasError || projetsAsync.hasError;
+    final vide = chantiers.isEmpty && projets.isEmpty;
+
+    void recharger() {
+      ref.invalidate(clientTasksProvider);
+      if (!connecte) return;
+      ref.invalidate(clientProjetsProvider);
+      ref.invalidate(clientNotificationsProvider);
+    }
+
+    final blocs = <Widget>[
+      const ClTitre('Vos projets'),
+      for (final c in chantiers) _carteChantier(context, c),
+      for (final p in projets) _carteProjet(context, p),
+      if (chargement)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: ClCharte.marine),
             ),
-          )
-        else
-          for (final (i, offre) in offers.take(5).indexed) ...[
-            if (i > 0) const SizedBox(height: 10),
-            _OfferHomeCard(offre: offre),
-          ],
-      ],
+          ),
+        )
+      else if (erreur) ...[
+        Text('Impossible de charger vos projets.',
+            style: ClCharte.texte(14, couleur: ClCharte.gris)),
+        ClBouton('Réessayer', secondaire: true, onPressed: recharger),
+      ] else if (vide)
+        Text("Vous n'avez pas encore de projet.",
+            style: ClCharte.texte(14, couleur: ClCharte.gris)),
+      ClBouton('Nouveau projet',
+          onPressed: () => ouvrirNouveauProjet(context, ref)),
+      const ClInfo(
+          "Décrivez vos travaux avec l'assistant Koji : il pose les bonnes "
+          'questions et prépare votre demande pour les entreprises.'),
+    ];
+
+    Future<void> actualiser() async => recharger();
+
+    // Grand écran : la coquille a déjà son bandeau, sa cloche et son menu ;
+    // on y pose le même contenu, en colonne.
+    if (context.findAncestorWidgetOfExactType<KojiContentArea>() != null) {
+      return Scaffold(
+        backgroundColor: ClCharte.riz,
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ClCorps(
+              padding: const EdgeInsets.fromLTRB(32, 28, 32, 32),
+              onRefresh: actualiser,
+              children: blocs,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: ClCharte.riz,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClBandeau(
+            nom: nom,
+            nonLues: nonLues,
+            onNotifications: () => context.push('/client/notifications'),
+          ),
+          Expanded(child: ClCorps(onRefresh: actualiser, children: blocs)),
+        ],
+      ),
     );
   }
-}
 
-class _ChantierHomeCard extends StatelessWidget {
-  const _ChantierHomeCard({required this.chantier});
-
-  final ClientChantier chantier;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.koji;
-    final c = chantier;
-    final (label, tone) = c.status;
-    return KojiCard(
+  /// Chantier suivi dans l'app : avancement des tâches et état.
+  Widget _carteChantier(BuildContext context, ClientChantier c) {
+    final (etat, _) = c.status;
+    return ClCarteProjet(
+      titre: c.reference,
+      detail: '${c.done} / ${c.total} tâches · $etat',
+      etiquette: etat,
       onTap: () => context.push(
         '/client/chantier/${Uri.encodeComponent(c.id ?? c.reference)}',
         extra: c,
       ),
-      child: Row(
-        children: [
-          KojiProgressRing(percent: (c.progress * 100).round(), size: 56),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  c.reference,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${c.done} / ${c.total} tâches',
-                  style: TextStyle(fontSize: 12.5, color: p.muted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(child: KojiPill(label, tone: tone)),
-        ],
-      ),
     );
   }
-}
 
-class _OfferHomeCard extends StatelessWidget {
-  const _OfferHomeCard({required this.offre});
-
-  final Map<String, dynamic> offre;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.koji;
-    final description = (offre['description'] as String?) ?? '';
-    final shortDescription =
-        description.length > 60 ? '${description.substring(0, 60)}…' : description;
-    final metier = offre['metier'] as String?;
-    final address = (offre['address'] as String?) ?? '';
-    final hasReply = offre['hasArtisanReply'] == true;
-    final status = offre['status'] as String?;
-
-    return KojiCard(
-      onTap: () => context.go('/client/marketplace/${offre['id']}'),
-      child: Row(
-        children: [
-          MetierBadge(metier: metier),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  shortDescription.isEmpty ? 'Chantier' : shortDescription,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  [metier, address].where((s) => (s ?? '').isNotEmpty).join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5, color: p.muted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: KojiPill(
-              hasReply
-                  ? 'Un artisan vous a écrit'
-                  : marketplaceStatusLabel(status),
-              tone: hasReply ? KojiTone.info : marketplaceStatusTone(status),
-            ),
-          ),
-        ],
-      ),
+  /// Devis, demande ou brouillon du site : titre, détail et étiquette tels
+  /// quels.
+  Widget _carteProjet(BuildContext context, Map<String, dynamic> p) {
+    final id = _s(p['id']);
+    final route = switch (p['type']) {
+      // Le brouillon se reprend dans l'assistant, avec son identifiant.
+      'brouillon' =>
+        '/client/marketplace/new?draftId=${Uri.encodeQueryComponent(id)}',
+      // Devis à signer ou chantier du site : la page CLI-02.
+      'chantier' => '/client/devis/${Uri.encodeComponent(id)}',
+      _ => '/client/projet/${Uri.encodeComponent(id)}',
+    };
+    return ClCarteProjet(
+      titre: _s(p['titre']),
+      detail: _s(p['detail']),
+      etiquette: _s(p['etiquette']),
+      etiquettePleine: p['etiquettePleine'] != false,
+      attenue: p['attenue'] == true,
+      onTap: id.isEmpty ? null : () => context.push(route),
     );
   }
 }

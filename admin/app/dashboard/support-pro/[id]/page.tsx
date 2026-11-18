@@ -5,7 +5,7 @@ import { DOCUMENTS, documentsDe, etatDocument, nomEntreprise, offreDe, separer }
 import type { Ligne } from '@/lib/bo/client'
 import { categoriePro, estResolu, modelePro, similaires } from '@/lib/bo/support'
 import { dateHeure } from '@/lib/bo/format'
-import { requireAdminSession } from '@/lib/require-admin'
+import { exigerBackOffice } from '@/lib/require-admin'
 import { journaliser } from '@/lib/bo/journal'
 
 // Une demande du Support Pro (maquette PRO-24.8) : contexte automatique
@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic'
 const s = (v: unknown) => String(v ?? '')
 
 export default async function DemandeSupport({ params }: { params: Promise<{ id: string }> }) {
+  await exigerBackOffice()
   const id = decodeURIComponent((await params).id)
   const db = await etatWeb()
   const toutes = (db.technicalReports || []) as Ligne[]
@@ -28,7 +29,7 @@ export default async function DemandeSupport({ params }: { params: Promise<{ id:
   const docs = u ? documentsDe(u) : {}
   const alertes = u ? Object.entries(DOCUMENTS).map(([cle, label]) => ({ label, e: etatDocument(cle, docs[cle]) })).filter((x) => x.e.etat !== 'ok') : []
   const pareilles = similaires(r, toutes)
-  const admin = await requireAdminSession()
+  const admin = await exigerBackOffice()
   if (admin) await journaliser({ admin: s(admin.email), action: 'lecture d\'une demande de support', cibleType: 'entreprise', cibleId: s(r.userId) || id, motif: 'support' })
   const sujet = s(r.message).split(/[.\n?!]/)[0].slice(0, 80)
 

@@ -1,200 +1,281 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ClientTopbar } from "../../../components/ClientTopbar";
-import { shortDate } from "../../../lib/pricing";
+import Link from "next/link";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ClientTopbar, CHARTE_CLIENT } from "../../../components/ClientTopbar";
+import { cleFil, heureBulle, heureFil } from "../../../lib/notifications-client";
+import "../cli03.css";
 
-function getStoredUser() {
+// Koji Client · Messages (maquette CLI-03). Un fil par entreprise et par
+// demande : liste à gauche et fil à droite sur ordinateur, fil plein écran
+// sur téléphone (/client/messages?fil=offre:entreprise). Les fils viennent
+// de /api/client/messages (session du particulier), l'envoi de
+// /api/marketplace/offres/[id]/messages, comme sur la fiche du projet :
+// message, réponse à un rendez-vous proposé, rendez-vous proposé par le
+// client, photos débloquées pour une entreprise.
+//
+// Traduction : côté Pro, les messages de l'artisan sont traduits en français
+// avant l'envoi et seul le texte français est enregistré ; aucun message ne
+// porte donc de traduction ni d'original à montrer ici (pas de « traduit
+// du … · voir l'original »).
+
+function compteLocal() {
   if (typeof window === "undefined") return null;
   try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
 }
 
-function ChatIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16v12H8l-4 4V4z" />
-    </svg>
-  );
-}
-function SendIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 2L11 13" />
-      <path d="M22 2L15 22l-4-9-9-4 20-7z" />
-    </svg>
-  );
-}
+const Envoyer = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z" /></svg>;
 
-// Boite de reception unique "Messages" (16 oct, maquette Artifact) — les
-// conversations existaient deja en vrai (par offre, voir
-// app/client/radar/[id]/page.jsx) mais seulement visibles une offre a la
-// fois. Cette page regroupe les memes fils via /api/client/messages, avec
-// la meme logique d'envoi (POST sur /api/marketplace/offres/[id]/messages)
-// que la page existante.
-export default function ClientMessagesPage() {
-  const [conversations, setConversations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeKey, setActiveKey] = useState(null);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
+const nomDe = (c) => c?.entrepriseSnapshot?.raisonSociale || "Entreprise";
+const dernier = (c) => c?.messages?.[c.messages.length - 1] || null;
 
-  function load() {
-    fetch("/api/client/messages")
-      .then((r) => r.json())
-      .then((data) => setConversations(data.conversations || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => { load(); }, []);
-
-  const activeConversation = conversations.find((c) => `${c.offerId}:${c.entrepriseUserId}` === activeKey) || null;
-
-  // Marque les notifications "radar.message" liees a cette conversation
-  // comme lues, maintenant qu'elle est ouverte — reutilise l'API de
-  // notifications existante (meme mecanisme que la cloche du menu).
+function useOrdinateur() {
+  const [ordinateur, setOrdinateur] = useState(false);
   useEffect(() => {
-    if (!activeConversation?.unread) return;
-    const user = getStoredUser();
-    if (!user?.id) return;
-    fetch(`/api/notifications?userId=${encodeURIComponent(user.id)}`)
+    const m = window.matchMedia("(min-width: 900px)");
+    const maj = () => setOrdinateur(m.matches);
+    maj();
+    m.addEventListener("change", maj);
+    return () => m.removeEventListener("change", maj);
+  }, []);
+  return ordinateur;
+}
+
+function Bulle({ m, reponduA, onRdv, envoi }) {
+  const sortant = m.senderType === "particulier";
+  const proposition = m.kind === "rdv_proposal" && !sortant;
+  return (
+    <div className={`kc3-bub ${sortant ? "out" : "in"}${proposition ? " rdv" : ""}`}>
+      {m.message}
+      {proposition && !reponduA.has(m.id) ? (
+        <span className="kc3-bact">
+          <button type="button" className="kc-btn sm" onClick={() => onRdv(m.id, "accepted")} disabled={envoi}>Accepter</button>
+          <button type="button" className="kc-sec" onClick={() => onRdv(m.id, "declined")} disabled={envoi}>Refuser</button>
+        </span>
+      ) : null}
+      <small>{heureBulle(m.createdAt)}</small>
+    </div>
+  );
+}
+
+function Messages() {
+  const params = useSearchParams();
+  const fil = params.get("fil") || "";
+  const ordinateur = useOrdinateur();
+  const [etat, setEtat] = useState("chargement"); // chargement | pret | erreur | deconnecte
+  const [conversations, setConversations] = useState([]);
+  const [texte, setTexte] = useState("");
+  const [envoi, setEnvoi] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const [rdvOuvert, setRdvOuvert] = useState(false);
+  const [rdvDate, setRdvDate] = useState("");
+  const chatOrdi = useRef(null);
+
+  const charger = useCallback(() => {
+    if (!compteLocal()?.id) { setEtat("deconnecte"); return; }
+    setEtat("chargement");
+    fetch("/api/client/messages", { credentials: "same-origin" })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || "Lecture impossible.");
+        setConversations(data.conversations || []);
+        setEtat("pret");
+      })
+      .catch(() => setEtat("erreur"));
+  }, []);
+  useEffect(() => { charger(); }, [charger]);
+
+  const cle = (c) => cleFil(c.offerId, c.entrepriseUserId);
+  const choisie = conversations.find((c) => cle(c) === fil) || null;
+  // Ordinateur : sans fil choisi, le plus récent s'ouvre à droite.
+  const active = choisie || (ordinateur ? conversations[0] || null : null);
+  const cleActive = active ? cle(active) : "";
+
+  useEffect(() => { setErreur(""); setRdvOuvert(false); setTexte(""); }, [cleActive]);
+
+  // Fil ouvert : ses notifications « message » passent en lues.
+  useEffect(() => {
+    if (!active?.unread) return;
+    fetch("/api/notifications", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((data) => {
-        const toMark = (data.notifications || []).filter(
-          (n) => n.type === "radar.message" && !n.read && n.offerId === activeConversation.offerId && n.entrepriseUserId === activeConversation.entrepriseUserId
-        );
-        return Promise.all(toMark.map((n) => fetch("/api/notifications", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: n.id, action: "read" })
-        })));
+        const aLire = (data.notifications || []).filter((n) => n.type === "radar.message" && !n.read && n.offerId === active.offerId && n.entrepriseUserId === active.entrepriseUserId);
+        return Promise.all(aLire.map((n) => fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: n.id, action: "read" }) })));
       })
-      .then(() => setConversations((prev) => prev.map((c) => (
-        c.offerId === activeConversation.offerId && c.entrepriseUserId === activeConversation.entrepriseUserId
-          ? { ...c, unread: false }
-          : c
-      ))))
+      .then(() => setConversations((prev) => prev.map((c) => (cle(c) === cleActive ? { ...c, unread: false } : c))))
       .catch(() => {});
-  }, [activeConversation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cleActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const unreadCount = useMemo(() => conversations.filter((c) => c.unread).length, [conversations]);
+  // Dernier message visible.
+  useEffect(() => {
+    if (!active) return;
+    if (ordinateur && chatOrdi.current) chatOrdi.current.scrollTop = chatOrdi.current.scrollHeight;
+    if (!ordinateur) window.scrollTo(0, document.documentElement.scrollHeight);
+  }, [cleActive, active?.messages?.length, ordinateur]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function sendReply(event) {
-    event.preventDefault();
-    if (!draft.trim() || !activeConversation) return;
-    setSending(true);
-    setError("");
+  const reponduA = useMemo(() => new Set((active?.messages || []).map((m) => m.respondsToId).filter(Boolean)), [active]);
+  const photosDemandees = Boolean(active?.aDesPhotos) && (active?.messages || []).some((m) => m.kind === "photo_request") && !(active?.messages || []).some((m) => m.kind === "photo_grant");
+
+  async function poster(corps) {
+    if (!active) return false;
+    setEnvoi(true);
+    setErreur("");
     try {
-      const response = await fetch(`/api/marketplace/offres/${activeConversation.offerId}/messages`, {
+      const r = await fetch(`/api/marketplace/offres/${encodeURIComponent(active.offerId)}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: draft.trim(), entrepriseUserId: activeConversation.entrepriseUserId })
+        credentials: "same-origin",
+        body: JSON.stringify({ entrepriseUserId: active.entrepriseUserId, ...corps })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi.");
-      setConversations((prev) => prev.map((c) => (
-        c.offerId === activeConversation.offerId && c.entrepriseUserId === activeConversation.entrepriseUserId
-          ? { ...c, messages: [...c.messages, data.message] }
-          : c
-      )));
-      setDraft("");
-    } catch (err) {
-      setError(err.message);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Le message n'est pas parti.");
+      setConversations((prev) => prev.map((c) => (cle(c) === cleActive ? { ...c, messages: [...c.messages, data.message] } : c)));
+      return true;
+    } catch (e) {
+      setErreur(e.message || "Le message n'est pas parti.");
+      return false;
     } finally {
-      setSending(false);
+      setEnvoi(false);
     }
   }
 
-  return (
-    <main className="client-space">
-      <ClientTopbar showBack backHref="/client" />
+  async function envoyer(event) {
+    event.preventDefault();
+    if (!texte.trim()) return;
+    if (await poster({ message: texte.trim() })) setTexte("");
+  }
+  const repondreRdv = (respondsToId, rdvStatus) => poster({ kind: "rdv_response", respondsToId, rdvStatus });
+  async function proposerRdv(event) {
+    event.preventDefault();
+    if (!rdvDate) return;
+    if (await poster({ kind: "rdv_proposal", rdvDate: new Date(rdvDate).toISOString() })) { setRdvOuvert(false); setRdvDate(""); }
+  }
 
-      {!activeConversation ? (
-        <>
-          <div className="ct-welcome">
-            <strong>Messages</strong>
-            <small>Vos échanges avec les artisans, rattachés à chaque chantier.</small>
+  if (etat === "deconnecte") {
+    return (
+      <div className={`${CHARTE_CLIENT} kc sans-barre`}>
+        <header className={`${CHARTE_CLIENT} kc-bar`} style={{ display: "flex" }}>
+          <div><strong>Messages</strong><small>connexion nécessaire</small></div>
+        </header>
+        <main className="kc-m">
+          <div className="kc-body" style={{ maxWidth: 520 }}>
+            <p className="kc-p">Connectez-vous pour retrouver vos échanges avec les entreprises.</p>
+            <Link className="kc-btn" href="/login?type=particulier">Se connecter</Link>
           </div>
+        </main>
+      </div>
+    );
+  }
 
-          <section className="ct-section">
-            <div className="ct-section-title-row">
-              <h2 className="ct-section-title">
-                Conversations{unreadCount > 0 ? <span className="ct-count">{unreadCount}</span> : null}
-              </h2>
-            </div>
-            {loading ? <div className="client-empty">Chargement…</div> : null}
-            {!loading && conversations.length === 0 ? (
-              <div className="client-empty">Aucun message pour l'instant. Les artisans qui vous contactent sur vos demandes apparaîtront ici.</div>
-            ) : null}
-            <div className="radar-conv-list">
-              {conversations.map((conv) => {
-                const key = `${conv.offerId}:${conv.entrepriseUserId}`;
-                const last = conv.messages[conv.messages.length - 1];
-                return (
-                  <button key={key} type="button" className="radar-conv-row" onClick={() => setActiveKey(key)}>
-                    <span className="radar-conv-avatar">{(conv.entrepriseSnapshot?.raisonSociale || "?").slice(0, 1).toUpperCase()}</span>
-                    <span className="radar-conv-main">
-                      <strong>
-                        {conv.entrepriseSnapshot?.raisonSociale || "Entreprise"}
-                        {conv.unread ? <span className="radar-status-badge" style={{ marginLeft: 8 }}>Nouveau</span> : null}
-                      </strong>
-                      <small>{conv.offre.description?.slice(0, 50)}{conv.offre.description?.length > 50 ? "…" : ""}</small>
-                      <small>{last?.message?.slice(0, 60) || ""}</small>
-                    </span>
-                    <span className="ct-devis-row-right">
-                      {last ? <small>{shortDate(last.createdAt)}</small> : null}
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        </>
+  const liste = conversations.map((c) => {
+    const m = dernier(c);
+    const apercu = m ? `${m.senderType === "particulier" ? "Vous : " : ""}${String(m.message || "").replace(/\s+/g, " ")}` : "";
+    return (
+      <Link key={cle(c)} href={`/client/messages?fil=${encodeURIComponent(cle(c))}`} scroll={false} className={`kc3-mt${cle(c) === cleActive ? " on" : ""}`} aria-current={cle(c) === cleActive ? "true" : undefined}>
+        <b>{nomDe(c)}</b>
+        <small>{apercu || c.offre?.titre || ""}</small>
+        <em>{m ? heureFil(m.createdAt) : ""}</em>
+        {c.unread ? <i aria-label="non lu" /> : null}
+      </Link>
+    );
+  });
+
+  const outils = active ? (
+    <>
+      {rdvOuvert ? (
+        <form className="kc3-rdvf" onSubmit={proposerRdv}>
+          <input type="datetime-local" value={rdvDate} onChange={(e) => setRdvDate(e.target.value)} required aria-label="Date et heure du rendez-vous" />
+          <button type="submit" className="kc-sec" disabled={envoi || !rdvDate}>Proposer</button>
+          <button type="button" className="kc3-lien" onClick={() => setRdvOuvert(false)}>Annuler</button>
+        </form>
       ) : (
-        <section className="ct-section">
-          <button type="button" className="radar-conv-back" onClick={() => setActiveKey(null)}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="15 18 9 12 15 6" /></svg>
-            Toutes les conversations
-          </button>
-
-          <div className="radar-contact-card">
-            <p className="radar-contact-title">{activeConversation.entrepriseSnapshot?.raisonSociale || "Entreprise"}</p>
-            <div className="radar-entreprise-meta">
-              <span>{activeConversation.offre.description}</span>
-              {activeConversation.offre.address ? <span>{activeConversation.offre.address}</span> : null}
-            </div>
-          </div>
-
-          <div className="radar-chat-card">
-            <div className="radar-chat-header">
-              <span className="radar-chat-header-icon"><ChatIcon /></span>
-              <div>
-                <strong>Discussion interne Koji</strong>
-                <small>Vos échanges restent sur Koji tant que le rendez-vous n'est pas confirmé.</small>
-              </div>
-            </div>
-            <div className="radar-chat-messages">
-              {activeConversation.messages.map((m) => (
-                <div key={m.id} className={`radar-chat-bubble ${m.senderType === "particulier" ? "entreprise" : "particulier"}`}>
-                  <p>{m.message}</p>
-                  <small>{shortDate(m.createdAt)}</small>
-                </div>
-              ))}
-            </div>
-
-            {error ? <p className="auth-error">{error}</p> : null}
-
-            <form className="radar-chat-form" onSubmit={sendReply}>
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Écrire un message…" />
-              <button type="submit" className="radar-chat-send" disabled={sending || !draft.trim()} aria-label="Envoyer">
-                <SendIcon />
-              </button>
-            </form>
-          </div>
-        </section>
+        <div className="kc3-outils">
+          <button type="button" className="kc3-lien" onClick={() => setRdvOuvert(true)}>Proposer un rendez-vous</button>
+          {photosDemandees ? <button type="button" className="kc3-lien" onClick={() => poster({ kind: "photo_grant" })} disabled={envoi}>Débloquer mes photos pour {nomDe(active)}</button> : null}
+        </div>
       )}
-    </main>
+      {erreur ? <p className="kc3-err" role="alert">{erreur}</p> : null}
+    </>
+  ) : null;
+
+  const saisie = (tel) => (
+    <form className={`kc3-in${tel ? " tel" : ""}`} onSubmit={envoyer}>
+      <input value={texte} onChange={(e) => setTexte(e.target.value)} placeholder={tel ? "Écrire un message…" : "Écrire à l'entreprise…"} aria-label="Votre message" maxLength={3000} />
+      <button type="submit" disabled={envoi || !texte.trim()} aria-label="Envoyer"><Envoyer /></button>
+    </form>
   );
+
+  const fils = (active?.messages || []).map((m) => <Bulle key={m.id} m={m} reponduA={reponduA} onRdv={repondreRdv} envoi={envoi} />);
+  const vide = "Aucun message pour l'instant. Les entreprises qui répondent à vos demandes vous écrivent ici.";
+
+  return (
+    <div className={`${CHARTE_CLIENT} kc`}>
+      <ClientTopbar
+        titre={!ordinateur && choisie ? nomDe(choisie) : ""}
+        sousTitre={!ordinateur && choisie ? choisie.offre?.titre || "" : ""}
+        backHref="/client/messages"
+      />
+      <main className="kc-m">
+        {/* Ordinateur */}
+        <div className="kc-d">
+          <h1 className="kc-h">Messages</h1>
+          {etat === "erreur" ? (
+            <div className="kc-err"><span>Vos messages n'ont pas pu être chargés.</span><button type="button" className="kc-sec" onClick={charger}>Réessayer</button></div>
+          ) : etat === "chargement" ? (
+            <p className="kc-vide">Chargement de vos messages…</p>
+          ) : conversations.length === 0 ? (
+            <p className="kc-vide">{vide}</p>
+          ) : (
+            <div className="kc3-msg">
+              <nav className="kc3-ml" aria-label="Conversations">{liste}</nav>
+              {active ? (
+                <section className="kc3-mc" aria-label={`Conversation avec ${nomDe(active)}`}>
+                  <div className="kc3-mh"><b>{nomDe(active)}</b><small>{active.offre?.titre || ""}</small></div>
+                  <div className="kc3-chat" ref={chatOrdi}>{fils}</div>
+                  {saisie(false)}
+                  {outils}
+                  <p className="kc3-n">Vos messages sont traduits pour les compagnons qui le souhaitent ; en cas de doute, le texte original fait foi.</p>
+                </section>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        {/* Téléphone */}
+        {choisie ? (
+          <div className="kc-t kc-body">
+            <div className="kc3-chat tel">{fils}</div>
+            {outils}
+            {saisie(true)}
+          </div>
+        ) : (
+          <div className="kc-t kc-body">
+            <h3 className="kc-ph">Messages</h3>
+            {etat === "erreur" ? (
+              <>
+                <p className="kc-s">Vos messages n'ont pas pu être chargés.</p>
+                <button type="button" className="kc-sec" onClick={charger}>Réessayer</button>
+              </>
+            ) : etat === "chargement" ? (
+              <p className="kc-s">Chargement de vos messages…</p>
+            ) : conversations.length === 0 ? (
+              <p className="kc-s">{vide}</p>
+            ) : fil ? (
+              <>
+                <p className="kc-s">Cette conversation n'existe plus.</p>
+                <div className="kc3-tlist">{liste}</div>
+              </>
+            ) : (
+              <div className="kc3-tlist">{liste}</div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default function ClientMessagesPage() {
+  return <Suspense fallback={null}><Messages /></Suspense>;
 }

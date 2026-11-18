@@ -1,206 +1,143 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useLocale } from "../lib/i18n";
+import KojiWordmark from "./KojiWordmark";
+import { DM_Sans, Shippori } from "../app/fonts";
+import "../app/client/client.css";
 
-function getStoredClientUser() {
+// Cadre de Koji Client (maquette CLI-01 et suivantes). Ordinateur : bandeau
+// marine avec « Mes projets », « Messages », « Paiements », la cloche et le
+// compte. Téléphone : bandeau marine (« Bonjour … », ou retour + titre) et
+// barre du bas (Projets, Messages, +, Paiements, Profil).
+//
+// « Paiements » arrive avec CLI-02 : tant que la page n'existe pas, l'entrée
+// reste masquée plutôt que de mener nulle part.
+export const PAIEMENTS_PRET = true;
+
+// Classes de portée de l'univers Client : variables et polices de la charte.
+export const CHARTE_CLIENT = `lc ${DM_Sans.variable} ${Shippori.variable}`;
+
+const NOTIFS_CLIENT = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message", "radar.positionnement"]);
+
+function compteLocal() {
   if (typeof window === "undefined") return null;
   try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
 }
 
-function DrawerIcon({ name }) {
-  const base = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
-  switch (name) {
-    case "user":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle {...base} cx="12" cy="8" r="4" />
-          <path {...base} d="M4 20a8 8 0 0116 0" />
-        </svg>
-      );
-    case "home":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path {...base} d="M3 11l9-8 9 8" />
-          <path {...base} d="M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10" />
-        </svg>
-      );
-    case "file":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path {...base} d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" />
-          <path {...base} d="M14 3v5h5M9 13h6M9 17h6" />
-        </svg>
-      );
-    case "tools":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path {...base} d="M4 20l6-6M14 10l6-6M13 6l5 5M8 11l5 5" />
-          <circle {...base} cx="7" cy="7" r="2.5" />
-          <circle {...base} cx="17" cy="17" r="2.5" />
-        </svg>
-      );
-    case "settings":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle {...base} cx="12" cy="12" r="3.5" />
-          <path {...base} d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
-        </svg>
-      );
-    case "logout":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path {...base} d="M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4" />
-          <path {...base} d="M13 16l4-4-4-4M9 12h8" />
-        </svg>
-      );
-    case "menu":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path {...base} d="M3 6h18M3 12h13M3 18h10" />
-        </svg>
-      );
-    case "chat":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path {...base} d="M4 4h16v12H8l-4 4V4z" />
-        </svg>
-      );
-    case "radar":
-      return (
-        <svg className="svg-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle {...base} cx="12" cy="12" r="9" />
-          <circle {...base} cx="12" cy="12" r="4.5" />
-          <circle cx="12" cy="12" r="1.4" fill="currentColor" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
+const prenomDe = (compte) => String(compte?.personal?.firstName || compte?.name || "").trim();
 
-export function ClientTopbar({ backHref = "/client", showBack = false }) {
-  const { L } = useLocale();
+const TRACES = {
+  projets: "M4 20h16M6 20V9l6-4 6 4v11",
+  messages: "M4 5h16v11H9l-5 4z",
+  plus: "M12 5v14M5 12h14",
+  paiements: "M4 7h16v12H4zM4 11h16",
+  profil: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
+  cloche: "M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4",
+  chevron: "M6 9l6 6 6-6"
+};
+const Trace = ({ nom }) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={TRACES[nom]} /></svg>;
+
+export function ClientTopbar({ backHref = "/client", showBack = false, titre = "", sousTitre = "", bonjour = "", sansBarre = false }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const [unread, setUnread] = useState(0);
-  const [messagesUnread, setMessagesUnread] = useState(0);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const pathname = usePathname() || "";
+  const [nonLus, setNonLus] = useState(0);
+  const [messages, setMessages] = useState(0);
+  const [prenom, setPrenom] = useState("");
+  const [menu, setMenu] = useState(false);
+  const zoneCompte = useRef(null);
+
+  useEffect(() => { setMenu(false); }, [pathname]);
 
   useEffect(() => {
-    setDrawerOpen(false);
-  }, [pathname]);
+    const compte = compteLocal();
+    setPrenom(prenomDe(compte));
+    if (!compte?.id) return;
+    fetch(`/api/notifications?userId=${encodeURIComponent(compte.id)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const liste = (data.notifications || []).filter((n) => !n.read && !n.archived);
+        setNonLus(liste.filter((n) => NOTIFS_CLIENT.has(n.type)).length);
+        setMessages(liste.filter((n) => n.type === "radar.message").length);
+      })
+      .catch(() => {});
+  }, []);
 
-  const navItems = [
-    { href: "/client", label: L.clientSpace.home, icon: "home" },
-    // "Mes chantiers" (12 oct, demande d'Amira) — jusque-la, seules les
-    // demandes Radar des Chantiers etaient accessibles depuis le menu ; un
-    // client ajoute directement par l'artisan (page Clients cote koji pro,
-    // devis signe sans passer par le marketplace) n'avait aucun moyen de
-    // retrouver son suivi de chantier. Page deja existante et generique
-    // (app/client/chantiers/page.jsx, lit /api/client/quotes), juste
-    // jamais reliee dans la navigation jusqu'ici.
-    { href: "/client/chantiers", label: "Mes chantiers", icon: "tools" },
-    { href: "/client/radar", label: "Mes demandes", icon: "radar" },
-    { href: "/client/devis", label: "Devis reçus", icon: "file" },
-    // "Messages" (16 oct, maquette Artifact) — boite de reception unifiee,
-    // regroupe les fils par offre deja existants (voir
-    // app/api/client/messages/route.js) ; badge = notifications
-    // "radar.message" non lues, meme source que le compteur de la cloche.
-    { href: "/client/messages", label: "Messages", icon: "chat", badge: messagesUnread },
-  ];
+  useEffect(() => {
+    if (!menu) return undefined;
+    const fermer = (e) => { if (!zoneCompte.current?.contains(e.target)) setMenu(false); };
+    const echap = (e) => { if (e.key === "Escape") setMenu(false); };
+    document.addEventListener("mousedown", fermer);
+    document.addEventListener("keydown", echap);
+    return () => { document.removeEventListener("mousedown", fermer); document.removeEventListener("keydown", echap); };
+  }, [menu]);
 
-  function logout() {
+  function deconnexion() {
     window.localStorage.removeItem("koji-user");
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     router.push("/login?type=particulier");
   }
 
-  useEffect(() => {
-    const user = getStoredClientUser();
-    if (!user?.id) return;
-    fetch(`/api/notifications?userId=${encodeURIComponent(user.id)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const CLIENT_TYPES = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message", "radar.positionnement"]);
-        const notifications = data.notifications || [];
-        setUnread(notifications.filter((n) => !n.read && !n.archived && CLIENT_TYPES.has(n.type)).length);
-        setMessagesUnread(notifications.filter((n) => !n.read && !n.archived && n.type === "radar.message").length);
-      })
-      .catch(() => {});
-  }, []);
+  const surMessages = pathname.startsWith("/client/messages");
+  const surPaiements = pathname.startsWith("/client/paiements");
+  const surProfil = ["/client/profil", "/client/parametres", "/client/aide"].some((p) => pathname.startsWith(p));
+  const surProjets = !surMessages && !surPaiements && !surProfil && !pathname.startsWith("/client/notifications");
+  const nom = bonjour || prenom;
+  const compteur = (n) => (n > 0 ? <i>{n > 9 ? "9+" : n}</i> : null);
 
   return (
     <>
-      <header className="client-koji-topbar">
-        <div className="client-koji-topbar-left">
-          <button type="button" className="client-koji-topbar-btn" aria-label={L.shell.openMenu} onClick={() => setDrawerOpen(true)}>
-            <DrawerIcon name="menu" />
-          </button>
-          {showBack ? (
-            <button type="button" className="client-koji-topbar-btn" onClick={() => router.push(backHref)} aria-label="Retour">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-          ) : null}
-        </div>
-
-        <Link href="/client" className="client-koji-topbar-logo" aria-label="Accueil">
-          <img src="/koji-logo.svg" alt="Koji" />
+      <header className={`${CHARTE_CLIENT} kc-top`}>
+        <Link href="/client" className="kc-w" aria-label="Koji, mes projets"><KojiWordmark height={13} /></Link>
+        <nav aria-label="Espace client">
+          <Link href="/client" className={surProjets ? "on" : ""}>Mes projets</Link>
+          <Link href="/client/messages" className={surMessages ? "on" : ""}>Messages{compteur(messages)}</Link>
+          {PAIEMENTS_PRET ? <Link href="/client/paiements" className={surPaiements ? "on" : ""}>Paiements</Link> : null}
+        </nav>
+        <Link href="/client/notifications" className="kc-bell" aria-label={nonLus ? `Notifications, ${nonLus} non lues` : "Notifications"}>
+          <Trace nom="cloche" />{compteur(nonLus)}
         </Link>
-
-        <div className="client-koji-topbar-right">
-          <Link href="/client/notifications" className="client-koji-topbar-btn notif-bell-link" aria-label="Notifications">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 17H5l2-2v-4a5 5 0 1110 0v4l2 2h-4" />
-              <path d="M9 19a3 3 0 006 0" />
-            </svg>
-            {unread > 0 ? <span className="notif-bell-badge">{unread > 9 ? "9+" : unread}</span> : null}
-          </Link>
-          <Link href="/client/profil" className="client-koji-topbar-btn" aria-label="Profil">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20a8 8 0 0116 0" />
-            </svg>
-          </Link>
+        <div className="kc-cpt" ref={zoneCompte}>
+          <button type="button" className="kc-u" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
+            {nom || "Mon compte"}<Trace nom="chevron" />
+          </button>
+          {menu ? (
+            <div className="kc-menu" role="menu">
+              <Link href="/client/profil" role="menuitem">Profil</Link>
+              <Link href="/client/parametres" role="menuitem">Paramètres</Link>
+              <Link href="/client/aide" role="menuitem">Aide</Link>
+              <button type="button" role="menuitem" onClick={deconnexion}>Se déconnecter</button>
+            </div>
+          ) : null}
         </div>
       </header>
 
-      <div className={`drawer-backdrop ${drawerOpen ? "open" : ""}`} onClick={() => setDrawerOpen(false)} />
-      <aside className={`drawer ${drawerOpen ? "open" : ""}`} aria-label={L.nav.settings}>
-        <div className="drawer-brand">
-          <img src="/koji-logo.svg" alt="Koji" />
-          <div>
-            <strong>Koji</strong>
-            <small>{L.shell.spacePersonal}</small>
-          </div>
-        </div>
+      {titre ? (
+        <header className={`${CHARTE_CLIENT} kc-bar`}>
+          <Link href={backHref} className="kc-b" aria-label="Retour">‹</Link>
+          <div><strong>{titre}</strong>{sousTitre ? <small>{sousTitre}</small> : null}</div>
+        </header>
+      ) : (
+        <header className={`${CHARTE_CLIENT} kc-ptop`}>
+          {showBack ? <Link href={backHref} className="kc-pbell" aria-label="Retour" style={{ fontSize: 24, lineHeight: 1 }}>‹</Link> : null}
+          <Link href="/client" className="kc-w" aria-label="Koji, mes projets"><KojiWordmark height={13} /></Link>
+          <small>{nom ? `Bonjour ${nom}` : "Bonjour"}</small>
+          <Link href="/client/notifications" className="kc-pbell" aria-label={nonLus ? `Notifications, ${nonLus} non lues` : "Notifications"}>
+            <Trace nom="cloche" />{compteur(nonLus)}
+          </Link>
+        </header>
+      )}
 
-        <nav className="drawer-nav" aria-label="nav">
-          {navItems.map((item) => {
-            const active = item.href === "/client" ? pathname === "/client" : pathname.startsWith(item.href);
-            return (
-              <Link href={item.href} className={active ? "active" : ""} key={item.href}>
-                <span><DrawerIcon name={item.icon} /></span>
-                {item.label}
-                {item.badge > 0 ? <span className="drawer-nav-badge">{item.badge > 9 ? "9+" : item.badge}</span> : null}
-              </Link>
-            );
-          })}
+      {sansBarre ? null : (
+        <nav className={`${CHARTE_CLIENT} kc-nav`} aria-label="Navigation" style={{ "--kc-cases": PAIEMENTS_PRET ? 5 : 4 }}>
+          <Link href="/client" className={surProjets ? "on" : ""}><Trace nom="projets" /><span>Projets</span></Link>
+          <Link href="/client/messages" className={surMessages ? "on" : ""}><Trace nom="messages" /><span>Messages</span>{compteur(messages)}</Link>
+          <Link href="/client/radar/new" className="plus" aria-label="Nouveau projet"><Trace nom="plus" /><span /></Link>
+          {PAIEMENTS_PRET ? <Link href="/client/paiements" className={surPaiements ? "on" : ""}><Trace nom="paiements" /><span>Paiements</span></Link> : null}
+          <Link href="/client/profil" className={surProfil ? "on" : ""}><Trace nom="profil" /><span>Profil</span></Link>
         </nav>
-
-        <div className="drawer-divider" />
-
-        <div className="drawer-footer">
-          <Link href="/client/profil"><DrawerIcon name="user" />{L.nav.profile}</Link>
-          <Link href="/client/parametres"><DrawerIcon name="settings" />{L.nav.settings}</Link>
-          <Link href="/client/aide"><DrawerIcon name="file" />Aide</Link>
-          <button type="button" onClick={logout}><DrawerIcon name="logout" />{L.nav.logout}</button>
-        </div>
-      </aside>
+      )}
     </>
   );
 }

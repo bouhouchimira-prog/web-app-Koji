@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 type ConversationRow = {
   id: string
@@ -18,6 +19,7 @@ type ConversationRow = {
 }
 
 export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await exigerBackOffice()
   const cookieStore = await cookies()
   const resolvedParams = await params
   const id = resolvedParams.id

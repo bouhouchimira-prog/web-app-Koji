@@ -3,6 +3,7 @@ import { nomEntreprise } from '@/lib/bo/regles'
 import { ETATS_DEVIS, infosDevis } from '@/lib/bo/client'
 import { dateCourte, euros, ilYa30Jours, pourcent } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Devis passés par la plateforme (maquette PRO-24.4), lecture seule :
 // volumes sur 30 jours, taux de signature, montant moyen signé, part du
@@ -11,6 +12,7 @@ import Liste, { type LigneListe } from '@/components/bo/Liste'
 export const dynamic = 'force-dynamic'
 
 export default async function Devis() {
+  await exigerBackOffice()
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const [tous, comptes] = await Promise.all([devisListe(), utilisateurs()])
   const parId = new Map(comptes.map((u) => [u.id, u]))

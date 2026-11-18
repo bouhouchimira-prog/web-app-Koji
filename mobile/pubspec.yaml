@@ -100,6 +100,12 @@ flutter:
           weight: 700
         - asset: assets/fonts/DMSans-ExtraBold.ttf
           weight: 800
+    # Shippori Mincho — titres de Koji (client), charte v2. Licence OFL :
+    # assets/fonts/ShipporiMincho-OFL.txt.
+    - family: ShipporiMincho
+      fonts:
+        - asset: assets/fonts/ShipporiMincho-SemiBold.ttf
+          weight: 600
 
 flutter_launcher_icons:
   android: true

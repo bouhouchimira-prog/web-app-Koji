@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
+import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/offline/offline_cache_service.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
@@ -49,7 +50,7 @@ String authErrorMessage(Object error) {
 
   if (normalized.contains('error sending')) {
     return "L'e-mail n'a pas pu partir. Réessayez plus tard, ou écrivez à "
-        'contact@getkoji.io.';
+        '${KojiAppConfig.supportEmail}.';
   }
 
   if (rawNormalized.contains('authretryablefetchexception') ||

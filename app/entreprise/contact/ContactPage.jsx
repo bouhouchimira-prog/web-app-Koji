@@ -6,12 +6,12 @@ import '../landing.css';
 // SITE-06 (maquette « KOJI Pro pages ») : Contact et démonstration,
 // getkoji.io/entreprise/contact. Une page pour trois besoins : poser une
 // question, voir une démonstration, faire reprendre son existant.
-// Adresse affichée : contact@getkoji.io, la seule boîte qui existe (la
-// maquette prévoit aide@ et pro@, à créer). Pas d'outil de prise de
+// Adresse affichée : entreprise@getkoji.io, la boîte du service client
+// Koji Pro (12 nov ; contact@ reste celle des particuliers). Pas d'outil de prise de
 // créneau : « Choisir un créneau » ouvre le formulaire en mode
 // démonstration ; « Envoyer un fichier » ouvre un e-mail, pour pouvoir
 // joindre le fichier.
-const CONTACT_MAIL = 'contact@getkoji.io';
+const CONTACT_MAIL = 'entreprise@getkoji.io';
 const FICHIER = `mailto:${CONTACT_MAIL}?subject=${encodeURIComponent('Reprendre mon existant dans Koji')}&body=${encodeURIComponent("Bonjour,\n\nJe joins mon fichier (Excel, export de mon ancien logiciel ou bibliothèque de prix).\nMétier :\nOutil actuel :\n")}`;
 
 export function ContactPage() {

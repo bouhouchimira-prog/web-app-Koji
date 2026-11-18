@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClientTopbar } from "../../../../components/ClientTopbar";
+import Link from "next/link";
+import { ClientTopbar, CHARTE_CLIENT } from "../../../../components/ClientTopbar";
 import { RadarAddressAutocomplete } from "../../../../components/RadarAddressAutocomplete";
 import { normesFor } from "../../../../lib/renovation-question-bank";
 import ChoiceList from "../../../../components/ChoiceList";
@@ -167,6 +168,8 @@ export default function NewRadarOffrePage() {
   const [selectedConseils, setSelectedConseils] = useState(new Set());
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  // Accord donné à la publication (maquette CLI-01) : jamais pré-coché.
+  const [accepte, setAccepte] = useState(false);
   // Detail de la fourchette par lot (1er oct, demande d'Amira : "le prix
   // soit cliquable et detaille, le total de chaque metier").
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -218,8 +221,12 @@ export default function NewRadarOffrePage() {
   const [loadingDraft, setLoadingDraft] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const draftId = new URLSearchParams(window.location.search).get("draftId");
+    const params = new URLSearchParams(window.location.search);
+    const draftId = params.get("draftId");
     if (!draftId) return;
+    // « Continuer » depuis Mes projets (CLI-01) : la conversation reprend sur
+    // le même brouillon, l'assistant sait déjà ce qui a été dit.
+    if (params.get("reprendre") === "1") { reprendreBrouillon(draftId); return; }
     setLoadingDraft(true);
     loadDraftIntoRecap(draftId)
       .catch(() => setError("Impossible de charger votre projet. Réessayez depuis le chat."))
@@ -277,6 +284,23 @@ export default function NewRadarOffrePage() {
     setPhase("chat");
     setTurns([]);
     sendToEngine([{ role: "user", text: "Bonjour" }], []);
+  }
+
+  // Reprend un brouillon en cours : même ouverture que openChat, mais sur le
+  // brouillon existant. Le serveur vérifie qu'il appartient bien au compte ;
+  // s'il est déjà complet, il renvoie vers le récapitulatif.
+  function reprendreBrouillon(id) {
+    setMode("ia");
+    setError("");
+    setPhotos([]);
+    setConversationId(`radarconv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    draftIdRef.current = id;
+    setExpertiseAnswers({});
+    setPendingChoice(null);
+    setPendingPhotoRequest(null);
+    setPhase("chat");
+    setTurns([]);
+    sendToEngine([{ role: "user", text: "Bonjour, je reprends ma demande là où je l'avais laissée." }], []);
   }
 
   // Charge un brouillon termine (radar_offer_drafts) et saute directement au
@@ -563,6 +587,7 @@ export default function NewRadarOffrePage() {
 
   async function publish() {
     if (!address.address.trim()) { setError("L'adresse du chantier est obligatoire."); return; }
+    if (!accepte) { setError("Cochez la case d'accord pour publier votre projet."); return; }
     setPublishing(true);
     setError("");
     try {
@@ -580,12 +605,13 @@ export default function NewRadarOffrePage() {
           postalCode: address.postalCode,
           lat: address.lat,
           lon: address.lon,
-          conversationId
+          conversationId,
+          consentement: true
         })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Erreur lors de la publication.");
-      router.push("/client/radar");
+      router.push("/client");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -614,7 +640,7 @@ export default function NewRadarOffrePage() {
   if (loadingDraft) {
     return (
       <main className="client-space">
-        <ClientTopbar showBack backHref="/client/radar" />
+        <ClientTopbar showBack backHref="/client" />
         <div className="radar-expertise-loading">
           <div className="radar-expertise-spinner" />
           <strong>Chargement de votre projet…</strong>
@@ -625,7 +651,7 @@ export default function NewRadarOffrePage() {
 
   return (
     <main className="client-space">
-      <ClientTopbar showBack backHref="/client/radar" />
+      <ClientTopbar showBack backHref="/client" />
 
       <div className="ct-welcome">
         <strong>Publier un chantier</strong>
@@ -999,87 +1025,64 @@ export default function NewRadarOffrePage() {
         ) : null}
 
         {phase === "result" && expertise ? (
-          <div className="radar-field radar-form-card-pad">
-            <button
-              type="button"
-              className="radar-price-range-card"
-              style={{ width: "100%", border: "none", font: "inherit", color: "inherit", cursor: expertise.breakdown?.length > 0 ? "pointer" : "default" }}
-              onClick={() => expertise.breakdown?.length > 0 && setShowBreakdown((v) => !v)}
-            >
-              <span className="radar-price-range-label">
-                Travaux proposés
-                {expertise.breakdown && expertise.breakdown.length > 0 ? (showBreakdown ? " ▲" : " ▼ (voir le détail)") : ""}
-              </span>
-              <span className="radar-price-range-value" style={{ fontSize: "0.95rem" }}>
-                Chaque artisan intéressé proposera son prix selon son propre taux journalier.
-              </span>
-              {expertise.delaiEstimeJours ? <span className="radar-delay-badge">Délai estimé : {expertise.delaiEstimeJours} jour{expertise.delaiEstimeJours > 1 ? "s" : ""}</span> : null}
-            </button>
+          <div className={`${CHARTE_CLIENT} kc-pret`}>
+            {/* Maquette CLI-01, « Votre projet est prêt ». La maquette y place un
+                « prix recommandé Koji » : non repris (décision du 10 novembre,
+                aucun prix calculé par Koji côté particulier). */}
+            <div>
+              <h2 className="kc-ph">Votre projet est prêt</h2>
+              <p className="kc-s">{[expertise.metier, ...(expertise.breakdown || []).map((lot) => lot.room)].filter(Boolean).slice(0, 4).join(" · ")}</p>
+            </div>
 
-            {showBreakdown && expertise.breakdown && expertise.breakdown.length > 0 ? (
-              <div className="radar-recap-card">
-                <span className="radar-field-label">Détail par lot</span>
-                {expertise.breakdown.map((lot) => (
-                  <div key={lot.room} className="radar-recap-row">
-                    <span>{lot.room}</span>
-                  </div>
-                ))}
-              </div>
+            {(expertise.breakdown || []).length > 0 ? (
+              <div className="kc-cr"><span>Travaux prévus</span><b>{expertise.breakdown.map((lot) => lot.room).join(", ")}</b></div>
             ) : null}
+            {expertise.delaiEstimeJours ? (
+              <div className="kc-cr"><span>Délai estimé</span><b>{expertise.delaiEstimeJours} jour{expertise.delaiEstimeJours > 1 ? "s" : ""}</b></div>
+            ) : null}
+            <div className="kc-info">Chaque entreprise intéressée vous propose son prix, établi avec ses propres tarifs.</div>
 
-            {/* Aucun prix côté particulier (10 nov, demande d'Amira) : plus de saisie
-                des prix manquants ici, l'entreprise chiffre avec ses propres prix. */}
             {expertise.conseils && expertise.conseils.length > 0 ? (
               <>
-                <span className="radar-field-label">Conseils pour réduire le coût</span>
-                <div className="radar-conseil-list">
-                  {expertise.conseils.map((c) => (
-                    <label key={c.id} className={`radar-conseil-item${selectedConseils.has(c.id) ? " checked" : ""}`}>
-                      <input type="checkbox" checked={selectedConseils.has(c.id)} onChange={() => toggleConseil(c.id)} />
-                      <span className="radar-conseil-label">{c.label}</span>
-                      <span className="radar-conseil-discount">-{c.discountPercent}%</span>
-                    </label>
-                  ))}
-                </div>
+                <p className="kc-s">Conseils pour réduire le coût</p>
+                {expertise.conseils.map((c) => (
+                  <label key={c.id} className="kc-ck">
+                    <input type="checkbox" checked={selectedConseils.has(c.id)} onChange={() => toggleConseil(c.id)} />
+                    <span>{selectedConseils.has(c.id) ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : null}</span>
+                    {c.label} (−{c.discountPercent} %)
+                  </label>
+                ))}
               </>
             ) : null}
 
             {!address.address ? (
-              <>
-                <span className="radar-field-label">Adresse du chantier</span>
+              <div className="kc-fld">
+                <label>Adresse du chantier</label>
                 <RadarAddressAutocomplete value={addressDraft} onChange={setAddressDraft} onSelect={selectAddress} onManualSubmit={submitManualAddress} />
-              </>
+              </div>
             ) : (
-              <label className="radar-field">
-                <span>Adresse du chantier</span>
-                <input type="text" value={address.address} onChange={(e) => setAddress((c) => ({ ...c, address: e.target.value }))} />
-              </label>
+              <div className="kc-fld">
+                <label htmlFor="kc-adresse">Adresse du chantier</label>
+                <input id="kc-adresse" type="text" value={address.address} onChange={(e) => setAddress((c) => ({ ...c, address: e.target.value }))} />
+              </div>
             )}
 
-            <p className="radar-recap-note">Vous pouvez relancer l'estimation autant de fois que vous voulez pour comparer. La publication reste gratuite et illimitée.</p>
+            <p className="kc-p">Votre numéro n'est donné qu'à l'entreprise avec qui vous prenez rendez-vous.</p>
 
-            {error ? <p className="profile-message error">{error}</p> : null}
+            <label className="kc-ck">
+              <input type="checkbox" checked={accepte} onChange={(e) => { setAccepte(e.target.checked); setError(""); }} />
+              <span>{accepte ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" /></svg> : null}</span>
+              <span className="kc-ck-t">J'accepte les <Link href="/legal/conditions-particuliers" target="_blank">conditions</Link> et j'ai lu la <Link href="/legal/confidentialite" target="_blank">politique de confidentialité</Link></span>
+            </label>
 
-            <button type="button" className="button secondary" style={{ width: "100%" }} onClick={() => launchExpertise()}>
-              <SparkleIcon />
-              Relancer l'estimation
-            </button>
-            <button type="button" className="button secondary" style={{ width: "100%" }} onClick={restart}>
-              Modifier ma demande
-            </button>
-            <button type="button" className="button blue" style={{ width: "100%" }} onClick={publish} disabled={publishing}>
-              {publishing ? "Publication…" : "Publier l'offre"}
-              {!publishing ? <CheckIcon /> : null}
-            </button>
+            {error ? <p className="kc-alerte" role="alert">{error}</p> : null}
 
-            <div className="radar-next-steps">
-              <span className="radar-next-steps-title">Prochaines étapes</span>
-              <ol>
-                <li>Votre devis estimatif est prêt</li>
-                <li>Publiez-le sur le Marketplace Koji</li>
-                <li>Les entreprises du BTP près de chez vous répondent</li>
-                <li>Vous choisissez l'entreprise qui vous convient</li>
-              </ol>
+            <button type="button" className="kc-btn" onClick={publish} disabled={publishing || !accepte}>
+              {publishing ? "Publication…" : "Publier mon projet"}
+            </button>
+            <div className="kc-suite">
+              <button type="button" className="kc-lien" onClick={restart}>Modifier ma demande</button>
+              <button type="button" className="kc-lien" onClick={() => launchExpertise()}>Relancer l'analyse</button>
             </div>
           </div>
         ) : null}
