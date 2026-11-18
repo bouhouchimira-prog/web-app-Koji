@@ -1422,6 +1422,18 @@
       "theme": "Sécurité",
       "title": "Tout le travail réuni dans une seule branche",
       "detail": "Les branches de travail ont toutes été fusionnées dans la branche principale ; sur GitHub il ne reste que la branche principale et celle des builds de l'app. L'ancien projet d'espace entreprise du 28 octobre est conservé en entier dans un dossier d'archive, sans effet sur le site : remis à sa place, il aurait remplacé la page publique de Koji Pro par un tableau de bord aux chiffres fictifs."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : « Mes projets » et comparaison des propositions (CLI-01)",
+      "detail": "Le particulier retrouve sur une seule page ses chantiers, ses demandes publiées avec le nombre de propositions reçues, et ses brouillons à reprendre là où il les avait laissés. Une page compare côte à côte les propositions des entreprises : prix de l'entreprise, avis, début et durée, visite, assurance décennale, garanties. Les entreprises sont classées par date de réponse. Aucun prix calculé par Koji n'est montré au particulier. Même chose dans l'app Koji, avec la nouvelle charte (marine, sable, titres Shippori Mincho) et la barre du bas de la maquette."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Accord du particulier à la publication, et devis client sans secret",
+      "detail": "La publication d'un projet demande une case d'accord (conditions et confidentialité), jamais pré-cochée ; la date de l'accord est gardée avec la demande. La lecture des devis par le particulier ne renvoie plus le mot de passe du portail de signature ni son empreinte."
     }
   ]
 }
