@@ -1,10 +1,10 @@
 import { badRequest, ok } from "../../../../lib/http";
-import { getAuth } from "../../../../lib/server-auth";
+import { getVerifiedAuth } from "../../../../lib/server-auth";
 import { getStripe } from "../../../../lib/stripe";
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const auth = getAuth(request, body);
+  const auth = await getVerifiedAuth(request, body);
   if (!auth) return badRequest("Session expirée. Reconnectez-vous.", 401);
 
   let stripe;
