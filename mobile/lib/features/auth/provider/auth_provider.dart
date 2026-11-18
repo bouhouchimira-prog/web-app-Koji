@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
+import 'package:koji/features/offline/offline_cache_service.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -263,6 +264,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     _logger.i('🚪 Signing out user');
     try {
       await _authRepository.signOut();
+      await OfflineCacheService.instance.clearAll();
       _logger.i('✅ Sign out successful');
     } catch (e, st) {
       _logger.e('❌ Sign out failed', error: e, stackTrace: st);
