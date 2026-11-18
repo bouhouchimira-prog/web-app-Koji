@@ -3,6 +3,7 @@ import { annuaire, etatWeb } from '@/lib/bo/donnees'
 import { SEUIL_SANS_REPONSE_H, fils, libelleDemande, type Ligne } from '@/lib/bo/client'
 import { dateCourte, nomCourt } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Conversations client ↔ entreprise (maquette PRO-24.7) : suivi et
 // modération. Le contenu ne s'ouvre que sur motif (mot-clé détecté) ; le
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic'
 const s = (v: unknown) => String(v ?? '')
 
 export default async function Conversations() {
+  await exigerBackOffice()
   const [db, { qui }] = await Promise.all([etatWeb(), annuaire()])
   const offres = new Map(((db.chantierOffres || []) as Ligne[]).map((o) => [s(o.id), o]))
   const liste = fils((db.chantierOffreMessages || []) as Ligne[])

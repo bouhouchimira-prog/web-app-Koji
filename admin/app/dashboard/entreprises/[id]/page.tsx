@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { devis as lireDevis, estSigneDevis, etatWeb, utilisateur } from '@/lib/bo/donnees'
 import { DOCUMENTS, documentsDe, estEntreprise, etatDocument, nomEntreprise, offreDe, separer } from '@/lib/bo/regles'
 import ActionDocument from '@/components/bo/ActionDocument'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Fiche entreprise (maquette PRO-24, gabarit fiche) : en-tête avec
 // actions, colonne compte / vérifications / activité, colonne journal /
@@ -17,6 +18,7 @@ const date = (iso: string) => (iso ? new Intl.DateTimeFormat('fr-FR', { day: 'nu
 const dateHeure = (iso: string) => (iso ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(iso)) : '')
 
 export default async function FicheEntreprise({ params }: { params: Promise<{ id: string }> }) {
+  await exigerBackOffice()
   const { id } = await params
   const u = await utilisateur(id)
   if (!u || !estEntreprise(u)) notFound()

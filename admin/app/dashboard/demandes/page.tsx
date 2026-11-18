@@ -3,6 +3,7 @@ import { ETATS_DEMANDE, SEUIL_SANS_REPONSE_H, etatDemande, libelleDemande, posit
 import { dateCourte, euros, ilYa30Jours, nomCourt, pourcent } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
 import RelanceDemande from '@/components/bo/RelanceDemande'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Demandes des particuliers (maquette PRO-24.13) : publiées, sans réponse,
 // rendez-vous, retirées ; relance des entreprises de la zone pour une
@@ -13,6 +14,7 @@ export const dynamic = 'force-dynamic'
 const s = (v: unknown) => String(v ?? '')
 
 export default async function Demandes() {
+  await exigerBackOffice()
   const [db, { qui }] = await Promise.all([etatWeb(), annuaire()])
   const offres = (db.chantierOffres || []) as Ligne[]
   const positions = (db.chantierPositionnements || []) as Ligne[]

@@ -47,7 +47,8 @@ export default function Liste({ colonnes, lignes, filtres, placeholder, vide = '
           {visibles.slice(debut, debut + PAR_PAGE).map((l) => (
             <tr key={l.id}>
               {l.cellules.map((c, i) => <td key={i}>{rendu(c)}</td>)}
-              <td>{l.lien ? <Link href={l.lien.href}>{l.lien.label}</Link> : null}</td>
+              {/* Pas de préchargement : ouvrir une fiche inscrit une ligne au journal des accès. */}
+              <td>{l.lien ? <Link href={l.lien.href} prefetch={false}>{l.lien.label}</Link> : null}</td>
             </tr>
           ))}
           {!visibles.length ? <tr><td colSpan={colonnes.length + 1}>{vide}</td></tr> : null}

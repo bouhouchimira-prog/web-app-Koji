@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase-admin'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Journal des accès (BO_JOURNAL_ACCES.sql) : chaque ouverture d'un contenu
 // privé (fil de conversation, devis, export de données) est tracée avec
@@ -7,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase-admin'
 export type Entree = { admin: string; action: string; cibleType: string; cibleId: string; motif: string }
 
 export async function journaliser(e: Entree): Promise<boolean> {
+  await exigerBackOffice()
   const { error } = await createAdminClient().from('bo_journal_acces').insert({
     admin_email: e.admin, action: e.action, cible_type: e.cibleType, cible_id: e.cibleId, motif: e.motif
   })
@@ -14,6 +16,7 @@ export async function journaliser(e: Entree): Promise<boolean> {
 }
 
 export async function lireJournal(limite = 200, cibleId?: string) {
+  await exigerBackOffice()
   let q = createAdminClient().from('bo_journal_acces').select('*').order('created_at', { ascending: false }).limit(limite)
   if (cibleId) q = q.eq('cible_id', cibleId)
   const { data, error } = await q

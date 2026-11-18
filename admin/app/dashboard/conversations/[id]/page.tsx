@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { annuaire, etatWeb } from '@/lib/bo/donnees'
 import { cleFil, fils, libelleDemande, type Ligne } from '@/lib/bo/client'
 import { dateHeure, nomCourt } from '@/lib/bo/format'
-import { requireAdminSession } from '@/lib/require-admin'
+import { exigerBackOffice } from '@/lib/require-admin'
 import { journaliser, lireJournal } from '@/lib/bo/journal'
 import DecisionFil from '@/components/bo/DecisionFil'
 
@@ -16,6 +16,7 @@ const s = (v: unknown) => String(v ?? '')
 const TEXTES: Record<string, string> = { photo_request: 'demande de photos', photo_grant: 'photos partagées', rdv_proposal: 'proposition de visite', rdv_response: 'réponse à la visite' }
 
 export default async function LectureFil({ params }: { params: Promise<{ id: string }> }) {
+  await exigerBackOffice()
   const id = decodeURIComponent((await params).id)
   const db = await etatWeb()
   const tous = (db.chantierOffreMessages || []) as Ligne[]
@@ -27,7 +28,7 @@ export default async function LectureFil({ params }: { params: Promise<{ id: str
   const p = qui(fil.particulierUserId || s(offre?.userId))
   const particulier = nomCourt(s(p?.nom || offre?.clientName), s(p?.email))
   const entreprise = qui(fil.entrepriseUserId)?.nom || 'Entreprise'
-  const admin = await requireAdminSession()
+  const admin = await exigerBackOffice()
   const ouvert = Boolean(fil.motif)
   const trace = ouvert && admin ? await journaliser({ admin: s(admin.email), action: 'lecture d\'un fil', cibleType: 'conversation', cibleId: id, motif: fil.motif }) : false
   const { actif, lignes: journal } = await lireJournal(20, id)

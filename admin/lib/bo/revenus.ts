@@ -1,5 +1,6 @@
 import { hasStripe, getStripe } from '@/lib/stripe'
 import { etatWeb } from './donnees'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Revenus du mois (maquette PRO-24.11) : abonnements (factures Stripe
 // payées), jetons du Radar (achats crédités par le webhook de koji-web,
@@ -19,6 +20,7 @@ function bornes(mois: string) {
 }
 
 export async function revenusDuMois(mois: string) {
+  await exigerBackOffice()
   const { gte, lt } = bornes(mois)
   const dans = (iso: string) => iso && jourParis(iso).startsWith(mois)
   const mouvements: Mouvement[] = []

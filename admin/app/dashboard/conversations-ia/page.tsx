@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 type ConversationRow = {
   id: string
@@ -18,6 +19,7 @@ type ConversationRow = {
 // AdminSidebar.dc.html), palette navy/dore ; recherche/notifications
 // deplacees dans la barre partagee TopBar (components/layout/TopBar.tsx).
 export default async function ConversationsPage() {
+  await exigerBackOffice()
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

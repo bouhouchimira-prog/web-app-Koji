@@ -4,6 +4,7 @@ import type { Ligne } from '@/lib/bo/client'
 import { ETATS_PRODUIT, GERER_PARTENAIRES, catalogue } from '@/lib/bo/partenaires'
 import { euros } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Produits (maquette PRO-24.6) : catalogue consolidé des fournisseurs
 // partenaires (mercuriales importées), avec les états publié, prix à
@@ -12,6 +13,7 @@ import Liste, { type LigneListe } from '@/components/bo/Liste'
 export const dynamic = 'force-dynamic'
 
 export default async function Produits() {
+  await exigerBackOffice()
   const db = await etatWeb()
   const produits = catalogue((db.partenaires || []) as Ligne[])
   const lignes: LigneListe[] = produits.map((p) => ({

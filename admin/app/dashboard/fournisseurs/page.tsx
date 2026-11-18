@@ -4,6 +4,7 @@ import type { Ligne } from '@/lib/bo/client'
 import { ETATS_PARTENAIRE, GERER_PARTENAIRES, etatPartenaire } from '@/lib/bo/partenaires'
 import { dateCourte, euros } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Fournisseurs partenaires (maquette PRO-24.5) : catalogue, état,
 // commandes reçues par bons envoyés depuis Koji (PRO-07.6). Prix publics
@@ -15,6 +16,7 @@ export const dynamic = 'force-dynamic'
 const s = (v: unknown) => String(v ?? '')
 
 export default async function Fournisseurs() {
+  await exigerBackOffice()
   const db = await etatWeb()
   const partenaires = (db.partenaires || []) as Ligne[]
   const bons = ((db.bonsCommande || []) as Ligne[]).filter((b) => b.partenaireId && b.envoyeLe)

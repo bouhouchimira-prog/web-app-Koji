@@ -4,6 +4,7 @@ import { estParticulierRapport, type Ligne } from '@/lib/bo/client'
 import { categoriePro, estResolu } from '@/lib/bo/support'
 import { dateHeure } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // Support Pro (maquette PRO-24.8) : file des demandes d'aide des
 // entreprises (signalements envoyés depuis Koji Pro), séparée du support
@@ -14,6 +15,7 @@ export const dynamic = 'force-dynamic'
 const s = (v: unknown) => String(v ?? '')
 
 export default async function SupportPro() {
+  await exigerBackOffice()
   const [db, comptes] = await Promise.all([etatWeb(), utilisateurs()])
   const parId = new Map(comptes.map((u) => [u.id, u]))
   const demandes = ((db.technicalReports || []) as Ligne[]).filter((r) => !estParticulierRapport(r)).sort((a, b) => s(b.createdAt).localeCompare(s(a.createdAt)))

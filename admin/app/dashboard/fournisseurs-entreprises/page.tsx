@@ -1,8 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import FournisseursClientPage from './FournisseursClientPage'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 export default async function FournisseursPage() {
+  await exigerBackOffice()
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -2,8 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import UserDetailClient from './UserDetailClient'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await exigerBackOffice()
   const { id } = await params
   const cookieStore = await cookies()
   const supabase = createServerClient(

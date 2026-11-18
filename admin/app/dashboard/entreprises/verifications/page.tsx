@@ -2,12 +2,14 @@ import Link from 'next/link'
 import { utilisateurs } from '@/lib/bo/donnees'
 import { documentsDe, ETATS_VERIF, fileVerifications } from '@/lib/bo/regles'
 import ActionDocument from '@/components/bo/ActionDocument'
+import { exigerBackOffice } from '@/lib/require-admin'
 
 // File des vérifications (maquette PRO-24.2) : décennale, URSSAF, Kbis,
 // RC pro ; à valider, bloquantes, qui expirent sous 30 jours.
 export const dynamic = 'force-dynamic'
 
 export default async function Verifications({ searchParams }: { searchParams: Promise<{ filtre?: string; q?: string }> }) {
+  await exigerBackOffice()
   const { filtre = 'a_valider', q = '' } = await searchParams
   const comptes = await utilisateurs()
   const toutes = fileVerifications(comptes)
