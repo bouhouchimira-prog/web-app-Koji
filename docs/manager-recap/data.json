@@ -1379,7 +1379,7 @@
       "category": "database",
       "theme": "Sécurité",
       "title": "Migration 0012 : une signature ne peut plus être écrasée",
-      "detail": "La fonction qui enregistre la signature d'un devis depuis l'app refuse désormais un devis déjà signé, au lieu de remplacer la première signature. À exécuter dans Supabase."
+      "detail": "La fonction qui enregistre la signature d'un devis depuis l'app refuse désormais un devis déjà signé, au lieu de remplacer la première signature. Exécutée dans Supabase le 18 novembre."
     },
     {
       "category": "backend",
