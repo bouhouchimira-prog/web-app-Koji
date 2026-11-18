@@ -14,7 +14,7 @@ import "../app/client/client.css";
 //
 // « Paiements » arrive avec CLI-02 : tant que la page n'existe pas, l'entrée
 // reste masquée plutôt que de mener nulle part.
-export const PAIEMENTS_PRET = false;
+export const PAIEMENTS_PRET = true;
 
 // Classes de portée de l'univers Client : variables et polices de la charte.
 export const CHARTE_CLIENT = `lc ${DM_Sans.variable} ${Shippori.variable}`;

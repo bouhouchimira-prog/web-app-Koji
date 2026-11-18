@@ -1,287 +1,281 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MENTION_TAUX_REDUIT, estTauxReduit } from "../../../lib/tva";
-import { ecartsVersions, libelleEcart, signe } from "../../../lib/devis-versions";
-import { demarrageAvantFin, finRetractation, formulaireRetractation, texteDemandeExpresse, texteRetractation } from "../../../lib/signature-lieu";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { euro } from "../../../lib/pricing";
+import KojiWordmark from "../../../components/KojiWordmark";
+import { CHARTE_CLIENT } from "../../../components/ClientTopbar";
+import { SignatureDevisClient } from "../../../components/SignatureDevisClient";
+import { formulaireRetractation } from "../../../lib/signature-lieu";
+import "../../client/cli02.css";
+import "./signature.css";
 
-const euro2 = (n) => `${Number(n || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-import { useLocale } from "../../../lib/i18n";
+// Koji Client · signer par lien, sans compte (maquette CLI-07). Le client
+// reçoit le devis par e-mail avec un identifiant et un mot de passe ; la
+// session de signature est vérifiée par le serveur (sinon retour à
+// /signature/login). Trois états : signer, signé (« Et maintenant »), lien
+// qui n'ouvre plus de devis. La signature passe par le même composant et
+// le même enregistrement que l'onglet Devis de Koji Client
+// (components/SignatureDevisClient, lib/signature-en-ligne.js) : mention
+// TVA (PRO-03.5), une seule version signable et « Ce qui change »
+// (PRO-03.6), rétractation et démarrage anticipé (PRO-03.7).
 
-export default function PublicSignaturePage() {
-  const { L } = useLocale();
-  const { token } = useParams();
-  const [quote, setQuote] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [form, setForm] = useState({ signerName: "", signerEmail: "", signerPhone: "", signaturePlace: "", signerMessage: "", consent: false });
-  const [saved, setSaved] = useState(false);
-  const [clientAccess, setClientAccess] = useState(null);
+const AIDE_KOJI = "mailto:contact@getkoji.io";
+const TRACES = {
+  dl: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  ok: "M4 12l5 5L20 6",
+  warn: "M12 4l9 16H3zM12 10v4M12 17v.5",
+  doc: "M6 3h9l4 4v14H6zM14 3v5h5"
+};
+const Icone = ({ nom }) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={TRACES[nom]} /></svg>;
 
-  useEffect(() => {
-    let alive = true;
-    fetch(`/api/signatures/${token}`, { cache: "no-store" })
-      .then(async (response) => {
-        if (response.status === 401) {
-          window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`);
-          return;
-        }
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || "Lien invalide.");
-        if (alive) {
-          setQuote(payload.quote);
-          setForm((current) => ({
-            ...current,
-            signerName: payload.quote.client || "",
-            signerEmail: payload.quote.clientEmail || "",
-            signerPhone: payload.quote.clientPhone || "",
-            signaturePlace: payload.quote.signaturePlace || "",
-            signerMessage: payload.quote.signerMessage || ""
-          }));
-        }
-      })
-      .catch((err) => { if (alive) setError(err.message); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [token]);
+function DocDevis({ devis, entreprise }) {
+  const [ecarts, setEcarts] = useState(false);
+  return (
+    <div className="kc2-doc">
+      <div className="kc2-dh"><b>{devis.titre}</b><span>{[entreprise, devis.date, devis.validite].filter(Boolean).join(" · ")}</span></div>
+      {devis.objet ? <p className="kc-s">{devis.objet}</p> : null}
+      <table className="kc2-lines">
+        <thead><tr><th>Travaux</th><th>Montant HT</th></tr></thead>
+        <tbody>
+          {devis.lignes.map((l) => (
+            <tr key={l.cle}>
+              <td>{l.libelle}{[l.quantite && l.quantite !== "1" ? l.quantite : "", l.note].filter(Boolean).length ? <small>{[l.quantite && l.quantite !== "1" ? l.quantite : "", l.note].filter(Boolean).join(" · ")}</small> : null}</td>
+              <td>{l.montantHt}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="kc2-tot">
+        {devis.totaux.map((t) => <div key={t.libelle} className={t.fort ? "big" : ""}><span>{t.libelle}</span><b>{t.montant}</b></div>)}
+      </div>
+      {devis.changements ? (
+        <>
+          <button type="button" className="kc2-lien" onClick={() => setEcarts((v) => !v)} aria-expanded={ecarts}>{devis.changements.texte}</button>
+          {ecarts ? (
+            <div className="kc2-ecarts">
+              {devis.changements.lignes.map((l, i) => <div key={i}><span><em>{l.type}</em>{l.libelle}</span><b>{l.ecart} TTC</b></div>)}
+              <div><span>{devis.changements.avant.titre}</span><b>{devis.changements.avant.total} TTC</b></div>
+              <p>{devis.changements.note}</p>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      <div className="kc2-ent"><b>{devis.entreprise.nom}</b>{devis.entreprise.detail ? <span>{devis.entreprise.detail}</span> : null}</div>
+    </div>
+  );
+}
 
-  const alreadySigned = quote?.signatureStatus === "Signe";
-  // Nouvelle version (maquette PRO-03.6) : ce qui change depuis la précédente.
-  const [voirAvant, setVoirAvant] = useState(false);
-  const versions = Array.isArray(quote?.versions) ? quote.versions : [];
-  const versionAvant = versions.length > 1 ? versions[versions.length - 2] : null;
-  const versionCourante = versions.length > 1 ? versions[versions.length - 1] : null;
-  const ecarts = versionAvant ? ecartsVersions(versionAvant, versionCourante, { tauxTva: quote?.vatRate || 0 }) : null;
-  // Rétractation (maquette PRO-03.7) : signé en ligne, 14 jours pour un
-  // particulier ; démarrage pendant le délai seulement à sa demande.
-  const jourParis = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
-  const particulier = quote && quote.clientType !== "societe";
-  const finPrevue = particulier ? finRetractation(jourParis, "en-ligne", quote?.clientType) : "";
-  const finSignee = quote?.retractationJusquau || "";
-  const demarrageTot = particulier && !alreadySigned && demarrageAvantFin(quote?.startDate, finPrevue);
-  const peutSeRetracter = alreadySigned && finSignee && finSignee >= jourParis && !quote?.retracteLe;
-  const [voirFormulaire, setVoirFormulaire] = useState(false);
-  const [retractation, setRetractation] = useState({ ouverte: false, envoi: false, erreur: "" });
+function Retractation({ quote, token, onRetracte }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [confirmer, setConfirmer] = useState(false);
+  const [envoi, setEnvoi] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const aujourdhui = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+  const fin = quote.retractationJusquau || "";
+  if (!fin || quote.retracteLe) return null;
+  const possible = fin >= aujourdhui;
 
   async function seRetracter() {
-    setRetractation((r) => ({ ...r, envoi: true, erreur: "" }));
-    const response = await fetch(`/api/signatures/${token}/retractation`, { method: "POST" });
-    if (response.status === 401) {
-      window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`);
-      return;
-    }
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setRetractation((r) => ({ ...r, envoi: false, erreur: payload.error || "La rétractation n'a pas pu être enregistrée." }));
-      return;
-    }
-    setQuote((q) => ({ ...q, ...payload.quote }));
-    setRetractation({ ouverte: false, envoi: false, erreur: "" });
-  }
-  // TVA à taux réduit (maquette PRO-03.5) : le client certifie la mention en
-  // signant ; sans elle, le taux réduit ne s'applique pas.
-  const mentionAttendue = Boolean(quote) && !quote.autoliquidation
-    && (estTauxReduit(quote.vatRate) || (quote.items || []).some((item) => estTauxReduit(item.tauxTva)));
-  const totalItems = useMemo(() => quote?.items?.length || 0, [quote]);
-
-  function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  async function signQuote(event) {
-    event.preventDefault();
-    setError("");
-    const response = await fetch(`/api/signatures/${token}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, demandeExpresseLe: form.demandeExpresse ? form.demandeExpresseLe : "" })
-    });
-    if (response.status === 401) {
-      window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`);
-      return;
-    }
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error || "Signature impossible.");
-      return;
-    }
-    setQuote((q) => ({ ...payload.quote, company: q?.company || payload.quote?.company }));
-    setClientAccess(payload.clientAccess || null);
-    setSaved(true);
+    setEnvoi(true);
+    setErreur("");
+    const r = await fetch(`/api/signatures/${encodeURIComponent(token)}/retractation`, { method: "POST" });
+    if (r.status === 401) { window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`); return; }
+    const data = await r.json().catch(() => ({}));
+    setEnvoi(false);
+    if (!r.ok) { setErreur(data.error || "La rétractation n'a pas pu être enregistrée."); return; }
+    onRetracte(data.quote || {});
   }
 
   return (
-    <main className="signature-public">
-      <section className="signature-card">
-        <div className="signature-brand">
-          <img src="/koji-logo-blue.svg" alt="Koji" />
-          <div>
-            <strong>Koji</strong>
-            <span>{L.signaturePub.clientSig}</span>
+    <>
+      <button type="button" className="kc2-lien" onClick={() => setOuvert((v) => !v)} aria-expanded={ouvert}>Je changerai d'avis : où est le formulaire ?</button>
+      {ouvert ? (
+        <div className="ksg-form-r">
+          <p>{possible ? `Vous pouvez annuler sans motif jusqu'au ${new Date(`${fin}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })} inclus.` : "Le délai de rétractation est terminé."}</p>
+          {possible ? <p>Le formulaire est à la dernière page de votre exemplaire. Vous pouvez aussi l'envoyer à l'entreprise, ou annuler ici.</p> : null}
+          {formulaireRetractation({ entreprise: quote.company?.name, adresse: quote.company?.address, email: quote.company?.email }).map((l, i) => <p key={i} style={i === 0 ? {} : { fontWeight: 400 }}>{l}</p>)}
+          {possible ? (
+            confirmer ? (
+              <div className="kc2-form" style={{ marginTop: 6 }}>
+                <p>Confirmez-vous l'annulation de ce devis ? L'entreprise en sera prévenue et vous rembourse les sommes versées sous 14 jours.</p>
+                <div className="kc2-actions">
+                  <button type="button" className="kc-sec" onClick={() => setConfirmer(false)}>Garder le devis</button>
+                  <button type="button" className="kc-sec" onClick={seRetracter} disabled={envoi}>{envoi ? "Envoi…" : "Je me rétracte"}</button>
+                </div>
+              </div>
+            ) : <button type="button" className="kc-sec" style={{ marginTop: 6 }} onClick={() => setConfirmer(true)}>Me rétracter</button>
+          ) : null}
+          {erreur ? <p className="kc-alerte" role="alert">{erreur}</p> : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+export default function SignatureParLien() {
+  const { token } = useParams();
+  const [etat, setEtat] = useState("chargement"); // chargement | pret | invalide | erreur
+  const [quote, setQuote] = useState(null);
+  const [vue, setVue] = useState(null);
+  const [contact, setContact] = useState(null);
+  const [acces, setAcces] = useState(null);
+  const [detail, setDetail] = useState(false);
+
+  useEffect(() => {
+    let vivant = true;
+    fetch(`/api/signatures/${encodeURIComponent(token)}`, { cache: "no-store" })
+      .then(async (r) => {
+        if (r.status === 401) { window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`); return; }
+        const data = await r.json().catch(() => ({}));
+        if (!vivant) return;
+        if (r.status === 404 || r.status === 410) { setContact(data.entreprise || null); setEtat("invalide"); return; }
+        if (!r.ok || !data.vue) throw new Error(data.error || "Lecture impossible.");
+        setQuote(data.quote);
+        setVue(data.vue);
+        setEtat("pret");
+      })
+      .catch(() => { if (vivant) setEtat("erreur"); });
+    return () => { vivant = false; };
+  }, [token]);
+
+  async function signer(donnees) {
+    const r = await fetch(`/api/signatures/${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(donnees)
+    });
+    if (r.status === 401) { window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`); return; }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Signature impossible.");
+    setQuote((q) => ({ ...data.quote, company: q?.company || data.quote?.company }));
+    if (data.vue) setVue(data.vue);
+    setAcces(data.clientAccess || null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const devis = vue?.devis;
+  const entreprise = devis?.entreprise?.nom || "";
+  const retracte = Boolean(quote?.retracteLe);
+  const signe = etat === "pret" && devis?.etat === "signe" && !retracte;
+  const aSigner = etat === "pret" && devis?.etat === "a_signer" && devis.signature;
+  const nePlusSigner = etat === "pret" && !signe && !aSigner && !retracte;
+  const pdf = devis?.pdf || "";
+
+  const barre = etat === "invalide" || nePlusSigner
+    ? ["Lien non valide", "déjà utilisé, expiré ou remplacé"]
+    : retracte ? ["Devis annulé", entreprise]
+      : signe ? ["Devis signé", devis.signeLe.replace(" à ", " · ")]
+        : ["Signer le devis", entreprise ? `${entreprise} · lien reçu par e-mail` : "lien reçu par e-mail"];
+
+  let corps = null;
+  if (etat === "chargement") {
+    corps = <p className="kc-s">Chargement du devis…</p>;
+  } else if (etat === "erreur") {
+    corps = (
+      <div className="ksg-ok">
+        <p className="kc-p">Le devis n'a pas pu être chargé. Vérifiez votre connexion et rechargez la page.</p>
+        <button type="button" className="kc-sec" onClick={() => window.location.reload()}>Recharger</button>
+      </div>
+    );
+  } else if (etat === "invalide" || nePlusSigner) {
+    const ecrire = contact?.email || quote?.company?.email || "";
+    corps = (
+      <div className="ksg-c">
+        <div className="ksg-ok">
+          <span className="ksg-ico warn"><Icone nom="warn" /></span>
+          <h1>Ce lien n'ouvre plus de devis</h1>
+          <p className="kc-p">Il a déjà servi, il a expiré, ou l'entreprise a envoyé une nouvelle version.</p>
+          <div className="ksg-why">
+            <div><b>Déjà signé ?</b><span>Votre exemplaire vous a été envoyé par e-mail au moment de la signature.</span></div>
+            <div><b>Lien expiré ?</b><span>Un lien de signature vaut 30 jours, comme le devis. L'entreprise peut vous renvoyer le devis.</span></div>
+            <div><b>Nouvelle version ?</b><span>Utilisez le lien et le mot de passe du dernier e-mail reçu ; les versions précédentes ne se signent plus.</span></div>
+          </div>
+          <div className="kc-info">Vous avez un compte Koji Client avec l'e-mail donné à l'entreprise ? Le devis à signer y est aussi.</div>
+          <a className="kc-sec" href="/login?type=particulier">Se connecter à Koji Client</a>
+          <p className="kc-n">Une question ?{" "}
+            {ecrire ? <><a className="kc-lien" href={`mailto:${ecrire}`}>Écrire à {contact?.nom || quote?.company?.name || "l'entreprise"}</a> · </> : null}
+            <a className="kc-lien" href={AIDE_KOJI}>Aide Koji</a>
+          </p>
+        </div>
+      </div>
+    );
+  } else if (retracte) {
+    corps = (
+      <div className="ksg-c">
+        <div className="ksg-ok">
+          <span className="ksg-ico warn"><Icone nom="warn" /></span>
+          <h1>Devis annulé</h1>
+          <p className="kc-p">Vous vous êtes rétracté le {new Date(quote.retracteLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" })}. L'entreprise est prévenue et vous rembourse les sommes versées sous 14 jours.</p>
+          <p className="kc-n">Une question ? <a className="kc-lien" href={AIDE_KOJI}>Aide Koji</a></p>
+        </div>
+      </div>
+    );
+  } else if (signe) {
+    corps = (
+      <div className="ksg-c">
+        <div className="ksg-ok">
+          <span className="ksg-ico"><Icone nom="ok" /></span>
+          <h1 className="kc-d">Devis signé</h1>
+          <h1 className="kc-t">Merci, c'est signé.</h1>
+          <p className="kc-p">{vue.apres?.texte}</p>
+          <div className="ksg-pc">
+            <div><b>{devis.titre}</b><small>{[entreprise, devis.totalTtc + " TTC"].join(" · ")}</small></div>
+            <a className="kc-sec" href={pdf} download><Icone nom="dl" />Télécharger</a>
+          </div>
+          {vue.apres?.etapes?.length ? (
+            <div className="ksg-next">
+              <span className="kc-ey">Et maintenant</span>
+              <ol>{vue.apres.etapes.map((e) => <li key={e.titre}><b>{e.titre}</b> · {e.texte}</li>)}</ol>
+            </div>
+          ) : null}
+          <a className="kc-btn" href={acces?.loginUrl || "/login?type=particulier"}>Suivre mon chantier dans Koji Client</a>
+          <Retractation quote={quote} token={token} onRetracte={(q) => setQuote((avant) => ({ ...avant, ...q }))} />
+        </div>
+      </div>
+    );
+  } else if (aSigner) {
+    corps = (
+      <div className="kc2-g">
+        <div className="kc2-main">
+          <div className="kc2-price kc-t" style={{ flexDirection: "column" }}>
+            <span>{devis.titre}</span>
+            <b>{devis.totalTtc}</b>
+            <small>{["TTC", devis.totaux.find((t) => /^TVA/.test(t.libelle))?.libelle.split(" · ")[0], devis.acompte ? `${devis.acompte.detail.split(" · ")[0]} à la signature` : ""].filter(Boolean).join(" · ")}</small>
+          </div>
+          <button type="button" className="kc2-row kc-t" onClick={() => setDetail((v) => !v)} aria-expanded={detail}>
+            <div><strong>{detail ? "Masquer le devis" : "Lire le devis complet"}</strong><small>{devis.lignes.length} ligne{devis.lignes.length > 1 ? "s" : ""} · PDF à télécharger</small></div>
+            <span className="chev">{detail ? "˄" : "›"}</span>
+          </button>
+          <div className={`kc2-docwrap${detail ? " ouvert" : ""}`}>
+            <DocDevis devis={devis} entreprise={entreprise} />
+            <a className="kc-sec kc-t" href={pdf} download style={{ marginTop: 10 }}>Télécharger le PDF</a>
           </div>
         </div>
+        <div className="kc2-side ksg-form">
+          <h2 className="ksg-h kc-d">Signer le devis</h2>
+          <p className="kc-p kc-d">{vue.intro}</p>
+          <SignatureDevisClient
+            regles={devis.signature}
+            identite={{ nom: vue.nom, emailMasque: vue.emailMasque }}
+            onSigner={signer}
+            libelleSignature="Signez ici à la souris, ou au doigt sur votre téléphone"
+          />
+        </div>
+      </div>
+    );
+  }
 
-        {loading ? (
-          <div className="empty-state">{L.signaturePub.loadingQuote}</div>
-        ) : error && !quote ? (
-          <div className="empty-state">{error}</div>
-        ) : (
-          <>
-            <header className="signature-summary">
-              <div>
-                <p className="eyebrow">{L.signaturePub.quoteToSign}</p>
-                <h1>{quote.quoteNumber}</h1>
-                <p className="muted">{quote.project} - {quote.client}</p>
-              </div>
-              <strong>{euro(quote.totalTtc)}</strong>
-            </header>
-
-            <div className="grid cols-3">
-              <div className="metric"><span>{L.signaturePub.rooms}</span><strong>{quote.rooms?.length || 0}</strong></div>
-              <div className="metric"><span>{L.signaturePub.lines}</span><strong>{totalItems}</strong></div>
-              <div className="metric"><span>{L.signaturePub.status}</span><strong>{alreadySigned ? L.signaturePub.signedStatus : L.signaturePub.toSignStatus}</strong></div>
-            </div>
-
-            {ecarts ? (
-              <section className="signature-versions">
-                <h2>Ce qui change · version {Number(versionCourante.number) || versions.length}</h2>
-                {ecarts.lignes.length ? ecarts.lignes.map((l, i) => (
-                  <div className="signature-ecart" key={`${l.kind}-${i}`}>
-                    <span className="tag">{libelleEcart(l.kind)}</span>
-                    <span>{l.labelAvant ? `${l.label} au lieu de ${l.labelAvant}` : l.label}</span>
-                    <b>{signe(l.ecartTtc)} € TTC</b>
-                  </div>
-                )) : <p className="muted">Mêmes lignes que la version précédente.</p>}
-                <div className="signature-ecart total"><span>Nouveau total</span><b>{euro2(ecarts.totalTtc.apres)} TTC</b></div>
-                <div className="signature-ecart"><span>Avant</span><b>{euro2(ecarts.totalTtc.avant)} TTC</b></div>
-                <button type="button" className="link" onClick={() => setVoirAvant((v) => !v)}>
-                  {voirAvant ? "Masquer" : "Voir"} la version {Number(versionAvant.number) || versions.length - 1}
-                </button>
-                {voirAvant ? (
-                  <ul className="signature-avant">
-                    {(versionAvant.lines || []).map((l, i) => <li key={`${l.id}-${i}`}><span>{l.label}</span><b>{euro2(l.totalHt)} HT</b></li>)}
-                  </ul>
-                ) : null}
-                <p className="muted">La version précédente reste consultable mais ne peut plus être signée.</p>
-              </section>
-            ) : null}
-
-            <section className="signature-quote-lines">
-              {(quote.items || []).length === 0 ? (
-                <div className="empty-state">{L.signaturePub.noLines}</div>
-              ) : (
-                quote.items.map((item, index) => (
-                  <article key={`${item.code || item.label}-${index}`}>
-                    <div>
-                      <small>{item.room || "Chantier"}</small>
-                      <strong>{item.label}</strong>
-                      <span>{item.quantity} {item.unit}</span>
-                      {item.showMaterialsToClient !== false && item.materialLines?.length ? (
-                        <em>{L.signaturePub.supplies} {item.materialLines.map((material) => material.productName || material.category).filter(Boolean).join(", ")}</em>
-                      ) : null}
-                    </div>
-                    <b>{euro(item.totalTtc || 0)}</b>
-                  </article>
-                ))
-              )}
-            </section>
-
-            <form className="panel" onSubmit={signQuote} style={{ marginTop: 14 }}>
-              <h2>{alreadySigned ? L.signaturePub.signedTitle : L.signaturePub.validateTitle}</h2>
-              <div className="form-grid">
-                <label className="field">{L.signaturePub.signerName}<input value={form.signerName} onChange={(event) => setField("signerName", event.target.value)} disabled={alreadySigned} required /></label>
-                <label className="field">{L.signaturePub.email}<input type="email" value={form.signerEmail} onChange={(event) => setField("signerEmail", event.target.value)} disabled={alreadySigned} /></label>
-                <label className="field">{L.signaturePub.phone}<input value={form.signerPhone} onChange={(event) => setField("signerPhone", event.target.value)} placeholder="06 12 34 56 78" disabled={alreadySigned} /></label>
-                <label className="field">{L.signaturePub.sigPlace}<input value={form.signaturePlace} onChange={(event) => setField("signaturePlace", event.target.value)} placeholder="Ex: Paris" disabled={alreadySigned} /></label>
-              </div>
-              <label className="field" style={{ marginTop: 10 }}>
-                {L.signaturePub.sigMsg}
-                <textarea
-                  value={form.signerMessage}
-                  onChange={(event) => setField("signerMessage", event.target.value)}
-                  placeholder={L.signaturePub.sigMsgPh}
-                  rows={3}
-                  disabled={alreadySigned}
-                />
-              </label>
-              <p className="muted">{L.signaturePub.madeAt} {form.signaturePlace || "__________"}, le {new Date().toLocaleDateString("fr-FR")}.</p>
-              {mentionAttendue ? (
-                <div className="signature-mention-tva">
-                  <strong>Attestation pour la TVA à taux réduit</strong>
-                  <p>{MENTION_TAUX_REDUIT}</p>
-                  {alreadySigned ? (
-                    <p className="muted">{quote.mentionTva ? "Mention certifiée à la signature." : "Mention non certifiée."}</p>
-                  ) : (
-                    <label className="checkline">
-                      <input type="checkbox" checked={Boolean(form.mentionTva)} onChange={(event) => setField("mentionTva", event.target.checked)} />
-                      Je certifie cette mention.
-                    </label>
-                  )}
-                </div>
-              ) : null}
-              {particulier && !alreadySigned ? (
-                <div className="signature-mention-tva">
-                  <strong>Votre droit de rétractation</strong>
-                  <p>{texteRetractation(finPrevue)}</p>
-                  {demarrageTot ? (
-                    <label className="checkline">
-                      <input type="checkbox" checked={Boolean(form.demandeExpresse)} onChange={(event) => { setField("demandeExpresse", event.target.checked); setField("demandeExpresseLe", event.target.checked ? new Date().toISOString() : ""); }} />
-                      {texteDemandeExpresse(quote.startDate)}
-                    </label>
-                  ) : null}
-                </div>
-              ) : null}
-              {!alreadySigned && (
-                <label className="checkline">
-                  <input type="checkbox" checked={form.consent} onChange={(event) => setField("consent", event.target.checked)} />
-                  {L.signaturePub.consent}
-                </label>
-              )}
-              {error ? <p className="form-error">{error}</p> : null}
-              {saved || alreadySigned ? (
-                <div className="profile-message">
-                  <p>{L.signaturePub.signedConfirm}</p>
-                  {clientAccess ? (
-                    <p>{L.signaturePub.clientAccessMsg(clientAccess.sentByEmail, clientAccess.sentBySms)} {L.signaturePub.clientAccessEnd}</p>
-                  ) : null}
-                </div>
-              ) : null}
-              {!alreadySigned && <button className="button blue" style={{ marginTop: 12 }}>{L.signaturePub.signBtn}</button>}
-              {quote.retracteLe ? (
-                <div className="signature-mention-tva">
-                  <strong>Vous vous êtes rétracté le {new Date(quote.retracteLe).toLocaleDateString("fr-FR")}.</strong>
-                  <p>Le devis est annulé. L'entreprise est prévenue et vous rembourse les sommes versées sous 14 jours.</p>
-                </div>
-              ) : alreadySigned && finSignee ? (
-                <div className="signature-mention-tva">
-                  <strong>Vous pouvez annuler sans motif jusqu'au {new Date(`${finSignee}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} inclus.</strong>
-                  <button type="button" className="link" onClick={() => setVoirFormulaire((v) => !v)}>Formulaire de rétractation</button>
-                  {voirFormulaire ? (
-                    <div className="signature-formulaire">
-                      {formulaireRetractation({ entreprise: quote.company?.name, adresse: quote.company?.address, email: quote.company?.email }).map((l, i) => <p key={i}>{l}</p>)}
-                    </div>
-                  ) : null}
-                  {quote.demarrageDemande ? <p>Début des travaux le {new Date(`${quote.demarrageDemande}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, à votre demande.</p> : null}
-                  {peutSeRetracter ? (
-                    retractation.ouverte ? (
-                      <div>
-                        <p>Confirmez-vous l'annulation de ce devis ? L'entreprise en sera prévenue.</p>
-                        <button type="button" className="button blue" onClick={seRetracter} disabled={retractation.envoi}>{retractation.envoi ? "Envoi…" : "Je me rétracte"}</button>{" "}
-                        <button type="button" className="link" onClick={() => setRetractation((r) => ({ ...r, ouverte: false }))}>Annuler</button>
-                      </div>
-                    ) : (
-                      <button type="button" className="button" onClick={() => setRetractation((r) => ({ ...r, ouverte: true }))}>Me rétracter</button>
-                    )
-                  ) : null}
-                  {retractation.erreur ? <p className="form-error">{retractation.erreur}</p> : null}
-                </div>
-              ) : null}
-            </form>
-          </>
-        )}
-      </section>
-    </main>
+  return (
+    <div className={`${CHARTE_CLIENT} kc kc2 sans-barre`}>
+      <header className="ksg-top">
+        <span className="kc-w"><KojiWordmark height={13} /></span>
+        <span className="ksg-sub">Signature en ligne · sans compte</span>
+        {pdf && (aSigner || signe) ? <a className="ksg-dl" href={pdf} download><Icone nom="dl" />Télécharger le PDF</a> : null}
+      </header>
+      <header className="ksg-bar">
+        <div><strong>{barre[0]}</strong>{barre[1] ? <small>{barre[1]}</small> : null}</div>
+      </header>
+      <main className="kc-m"><div className="kc2-in">{corps}</div></main>
+    </div>
   );
 }

@@ -1,0 +1,182 @@
+/* Koji Client · « signer, suivre, payer » (maquette CLI-02) et composant de
+   signature partagé avec la page publique (CLI-07). Classes kc2- = classes
+   de la maquette (cw2, cw-sub, cw-doc, cw-lines, cw-tot, cw-side, cw-steps,
+   cw-docs, cl-price, cl-sig, cl-row, cl-prog, cl-pay) ; les classes kc- de
+   client.css sont réutilisées. Marine #101529, sable #E7D8C5, riz #F8F6F1,
+   lignes #E6E2DA, gris #6B6A66, angles droits, une action principale. */
+
+.kc2-in{display:flex;flex-direction:column;min-width:0}
+
+/* Onglets (cw-sub) */
+.kc2-sub{display:flex;gap:4px;margin:-8px 0 20px;border-bottom:1px solid #E6E2DA}
+.kc2-sub a{padding:8px 14px;font-size:14px;color:#6B6A66;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.kc2-sub a:hover{color:#101529}
+.kc2-sub a.on{color:#101529;font-weight:700;border-bottom-color:#101529}
+
+/* Deux colonnes (cw2) */
+.kc2-g{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start}
+.kc2-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.kc2-main{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* Devis (cw-doc, cw-dh, cw-lines, cw-tot) */
+.kc2-doc{background:#FFFFFF;border:1px solid #E6E2DA;padding:22px 24px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.kc2-dh{display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-bottom:2px solid #101529;padding-bottom:10px;flex-wrap:wrap}
+.lc.kc .kc2-dh b,.kc2-dh b{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:20px;font-weight:600}
+.kc2-dh span{font-size:13px;color:#6B6A66}
+.kc2-lines{width:100%;border-collapse:collapse;font-size:14px}
+.kc2-lines th{text-align:left;font-size:12px;color:#6B6A66;font-weight:600;padding:6px 0;border-bottom:1px solid #E6E2DA}
+.kc2-lines td{padding:9px 0;border-bottom:1px solid #EFEBE3;vertical-align:top}
+.kc2-lines td small{display:block;font-size:12px;color:#6B6A66}
+.kc2-lines td.q{color:#6B6A66;width:80px;padding-left:12px;white-space:nowrap}
+.kc2-lines td:last-child,.kc2-lines th:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:12px}
+.kc2-lines tr.kc2-lot td{font-size:12px;font-weight:700;color:#101529;padding-top:14px;padding-left:0;border-bottom:1px solid #E6E2DA;text-align:left}
+.kc2-tot{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.kc2-tot div{display:flex;gap:24px;font-size:14px;justify-content:flex-end;flex-wrap:wrap;text-align:right}
+.kc2-tot span{color:#6B6A66}
+.kc2-tot b{font-variant-numeric:tabular-nums;font-weight:600}
+.kc2-tot .big b{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:24px;font-weight:600}
+.kc2-ent{margin-top:0;padding-top:12px;border-top:1px solid #E6E2DA;display:flex;flex-direction:column;gap:2px}
+.kc2-ent b{font-size:13px}
+.kc2-ent span{font-size:12px;color:#6B6A66}
+.kc2-lien{background:none;border:0;padding:0;text-align:left;text-decoration:underline;text-underline-offset:3px;color:#101529;font-size:14px;cursor:pointer}
+.kc2-ecarts{display:flex;flex-direction:column;gap:6px;background:#F8F6F1;border:1px solid #E6E2DA;padding:12px 14px;font-size:13px}
+.kc2-ecarts div{display:flex;justify-content:space-between;gap:12px}
+.kc2-ecarts em{font-style:normal;font-size:11px;font-weight:700;border:1px solid #101529;padding:1px 6px;margin-right:8px}
+.kc2-ecarts b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.kc2-ecarts p{margin:0;color:#6B6A66;font-size:12px}
+
+/* Prix (cl-price) */
+.kc2-price{background:#E7D8C5;padding:14px;display:flex;flex-direction:column;gap:2px;color:#101529}
+.kc2-price span{font-size:12px}
+.kc2-price b{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:30px;font-weight:600;line-height:1.2}
+.kc2-price small{font-size:12px}
+.kc2-price .kc2-lien{font-size:12px}
+
+/* Signature (cl-ck, cl-sig) */
+.kc2-signer{display:flex;flex-direction:column;gap:12px}
+.kc-ck span.kc2-ck-t{width:auto;height:auto;border:0;background:transparent;display:flex;flex-direction:column;gap:4px;place-items:initial;flex:1}
+.kc-ck span.kc2-ck-t small{font-size:11px;line-height:1.45;color:#6B6A66}
+.kc-ck{position:relative}
+.kc2-sig{position:relative;height:96px;background:#FFFFFF;border:1px dashed #101529;touch-action:none}
+.kc2-sig canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+.kc2-sig-l{position:absolute;left:8px;bottom:8px;font-size:12px;color:#6B6A66;pointer-events:none}
+.kc2-sig-x{position:absolute;right:6px;top:6px;font-size:12px;color:#101529!important;text-decoration:underline;text-underline-offset:2px;background:#FFFFFF!important;padding:2px 4px!important}
+.kc2-fld-n{font-size:11px;color:#6B6A66}
+.kc .kc2-plein{width:100%}
+.kc2-preuve svg{width:12px;height:12px;stroke:#6B6A66;fill:none;stroke-width:2;vertical-align:-1px}
+.kc2-side .kc-sec{width:100%}
+
+/* Lignes cliquables (cl-row) */
+.kc2-row{display:flex;gap:12px;align-items:center;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px;color:#101529;text-align:left;width:100%;font:inherit}
+.kc .kc2-row{color:#101529;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px}
+.kc .kc2-row.off{background:#FFFFFF}
+.kc a.kc2-row:hover,.kc button.kc2-row:hover{border-color:#101529}
+.kc2-row .ic svg{width:20px;height:20px;stroke:#101529;fill:none;stroke-width:1.8;display:block}
+.kc2-row>div{flex:1;display:flex;flex-direction:column;min-width:0}
+.kc2-row strong{font-size:14px;font-weight:700}
+.kc2-row small{font-size:12px;color:#6B6A66}
+.kc2-row>.chev{font-size:20px;color:#6B6A66;line-height:1}
+.kc2-row.off{opacity:.75}
+.kc2-dl{display:grid;place-items:center;width:32px;height:32px;border:1px solid #101529;flex:none}
+.kc2-dl svg{width:16px;height:16px;stroke:#101529;fill:none;stroke-width:1.8}
+
+/* Avancement (cl-prog, cw-steps) */
+.kc2-prog{height:6px;background:#E6E2DA}
+.kc2-prog i{display:block;height:100%;background:#101529}
+.kc2-steps{display:flex;flex-direction:column;background:#FFFFFF;border:1px solid #E6E2DA;padding:4px 16px}
+.kc2-st{display:flex;gap:14px;align-items:center;padding:12px 0;border-top:1px solid #EFEBE3}
+.kc2-st:first-child{border-top:0}
+.kc2-st>span{width:28px;height:28px;flex:none;display:grid;place-items:center;border:1.5px solid #101529;font-weight:700;font-size:13px;color:#101529;border-radius:50%}
+.kc2-st.ok>span{background:#101529}
+.kc2-st.ok>span svg{width:14px;height:14px;stroke:#FFFFFF;fill:none;stroke-width:3}
+.kc2-st.on>span{background:#E7D8C5}
+.kc2-st div{display:flex;flex-direction:column;min-width:0}
+.kc2-st b{font-size:14px}
+.kc2-st small{font-size:12px;color:#6B6A66}
+
+/* Sections secondaires */
+.lc.kc h2.kc2-h2{font-size:18px;line-height:1.3;margin:10px 0 0}
+.kc2-vide{background:#FFFFFF;border:1px solid #E6E2DA;padding:14px 16px;color:#6B6A66;margin:0;font-size:14px}
+
+/* Ouvrages du chantier */
+.kc2-taches{display:flex;flex-direction:column;background:#FFFFFF;border:1px solid #E6E2DA}
+.kc2-tache{border-top:1px solid #EFEBE3}
+.kc2-tache:first-child{border-top:0}
+.kc2-tache>button{display:flex;gap:12px;align-items:center;width:100%;padding:12px 14px;text-align:left}
+.kc2-tache>button>div{flex:1;display:flex;flex-direction:column;min-width:0}
+.kc2-tache>button b{font-size:14px}
+.kc2-tache>button small{font-size:12px;color:#6B6A66}
+.kc2-tache .kc-st{flex:none}
+.kc2-corps{display:flex;flex-direction:column;gap:12px;padding:0 14px 16px}
+.kc2-fil{display:flex;flex-direction:column;gap:8px}
+.kc2-msg{padding:10px 12px;font-size:14px;line-height:1.45;display:flex;flex-direction:column;gap:3px;max-width:88%}
+.kc2-msg.in{background:#F8F6F1;border:1px solid #E6E2DA;align-self:flex-start}
+.kc2-msg.out{background:#101529;color:#FFFFFF;align-self:flex-end}
+.kc2-msg small{font-size:11px;opacity:.75}
+.kc2-msg p{margin:0}
+.kc2-msg a{text-decoration:underline!important}
+
+/* Formulaires (signaler, note) */
+.kc2-form{display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #101529;padding:14px}
+.kc2-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#6B6A66}
+.kc2-form :is(select,textarea,input[type=text],input:not([type])){background:#FFFFFF;border:1px solid #101529;border-radius:0;padding:10px 12px;font:inherit;font-size:14px;color:#101529;width:100%}
+.kc2-form textarea{resize:vertical;min-height:72px}
+.kc2-form .kc2-actions{display:flex;gap:10px;flex-wrap:wrap}
+.kc2-form .kc2-actions>*{flex:1}
+.kc2-form .kc-ck{font-size:13px}
+.kc2-ok{margin:0;font-size:13px;color:#101529;background:#E7D8C5;padding:10px 12px}
+
+/* Paiements (cl-pay) */
+.kc2-pays{display:flex;flex-direction:column;gap:8px}
+.kc2-pay{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px;color:#101529}
+.kc2-pay>div{display:flex;flex-direction:column;min-width:0}
+.kc2-pay b{font-size:14px}
+.kc2-pay small{font-size:12px;color:#6B6A66}
+.kc2-pay em{font-style:normal;font-weight:700;font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kc2-pay.due{border:2px solid #101529;padding:11px}
+.kc2-pay.next{opacity:.7}
+.kc2-pay a{text-decoration:underline!important;text-underline-offset:2px;font-size:12px}
+
+/* Documents (cw-docs) */
+.kc2-docs{display:flex;flex-direction:column;gap:8px;max-width:760px}
+
+/* Paiements de tous les chantiers */
+.kc2-groupe{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.kc2-groupe+.kc2-groupe{margin-top:26px}
+.kc2-gh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.kc2-gh div{display:flex;flex-direction:column}
+.lc.kc .kc2-gh h2{font-size:20px;line-height:1.3}
+.kc2-gh small{font-size:13px;color:#6B6A66}
+
+/* Composants existants (fin de chantier, accord, sous-traitant) dans la charte Client */
+.kc2 .ccd-section{margin:0;display:flex;flex-direction:column;gap:10px}
+.kc2 .ccd-section>h2,.kc2 .ccd-section .ccd-section-title{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:18px;font-weight:600;margin:10px 0 0;color:#101529}
+.kc2 .cfc-list,.kc2 .cfc-form{border-radius:0;border-color:#E6E2DA}
+.kc2 .cfc-row{color:#101529}
+.kc.kc2 button.cfc-row{padding:14px 16px;border-bottom:1px solid #EFEBE3;width:100%}
+.kc.kc2 button.cfc-row:last-child{border-bottom:0}
+.kc2 .cfc-row small,.kc2 .cfc-note{color:#6B6A66}
+.kc2 .cfc-form textarea,.kc2 .cfc-form input[type=text],.kc2 .cfc-form input:not([type]){border-radius:0;border-color:#101529}
+.kc2 .cfc-send{border-radius:0;background:#101529;color:#FFFFFF;height:46px}
+.kc2 .cfc-cta{border-radius:0;background:transparent;color:#101529;border:1px solid #101529;height:46px;font-size:15px}
+.kc2 .cfc-msg{border-radius:0;background:#E7D8C5;color:#101529}
+.kc2 .cfc-stars button.on{color:#101529}
+.kc2 .cfc-photos img{border-radius:0}
+
+/* Téléphone (< 900 px) : une colonne, la version téléphone de la maquette */
+@media (max-width:899px){
+  .kc2-in{padding:14px 16px 20px;gap:10px}
+  .kc2-sub{margin:0 -16px 4px;padding:0 8px;overflow-x:auto;background:#FFFFFF;scrollbar-width:none}
+  .kc2-sub::-webkit-scrollbar{display:none}
+  .kc2-sub a{flex:1;text-align:center;padding:12px 8px}
+  .kc2-g{display:flex;flex-direction:column;gap:10px}
+  .kc2-side,.kc2-main{gap:10px}
+  .kc2-doc{padding:16px}
+  .kc2-docwrap:not(.ouvert){display:none}
+  .kc2-lines td.q{display:none}
+  .kc2-lines th.q{display:none}
+  .kc2-tot .big b{font-size:20px}
+  .kc2-sig{height:88px}
+  .kc2-pay em{font-size:14px}
+  .kc2-docs,.kc2-groupe{max-width:none}
+}
