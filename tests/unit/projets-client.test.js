@@ -113,7 +113,7 @@ describe("Koji Client : projets et propositions (CLI-01)", () => {
     assert.equal(liste[0].principale, true);
     assert.equal(liste[0].lien, "/client/chantier/q-cours");
     assert.equal(liste[1].detail, "Élec Service · devis à signer · 1 200,00 €");
-    assert.equal(liste[1].lien, "https://getkoji.io/signature/abc");
+    assert.equal(liste[1].lien, "/client/chantier/q-signer", "signé dans l'espace, pas par le lien");
     assert.equal(liste[3].detail, "brouillon · commencé le 14 nov.");
     assert.equal(liste[3].lien, "/client/radar/new?draftId=radar-draft-1&reprendre=1");
     assert.equal(liste[3].etiquettePleine, false);
@@ -163,7 +163,7 @@ describe("Koji Client : projets et propositions (CLI-01)", () => {
     assert.equal(a.decennale, "vérifiée par Koji");
     assert.equal(a.garanties, "1, 2 et 10 ans");
     assert.deepEqual(a.resume, ["4,5 · 2 avis · début possible le 12 nov. · 18 jours", "visite faite le 24 oct."]);
-    assert.deepEqual(a.action, { type: "signer", libelle: "Voir et signer", principale: true, lien: "https://getkoji.io/signature/abc" });
+    assert.deepEqual(a.action, { type: "signer", libelle: "Voir et signer", principale: true, lien: "/client/chantier/q1" });
     assert.equal(a.voir, "Voir la proposition d'ABL Expert Renov");
 
     const b = proposition(offre, position("e2", "2026-11-12T07:00:00.000Z", { devisEstimatifTtc: 5650 }), { messages: rdv("e2", "2026-11-25T13:30:00.000Z", { accepte: false }), devis, avis: [], business: {}, maintenant });
