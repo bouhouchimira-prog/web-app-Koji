@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "npm run test:unit",
-    "test:unit": "mocha --config tests/unit/.mocharc.cjs",
+    "test:unit": "mocha --config tests/unit/.mocharc.cjs --node-option \"import=./tests/unit/esm-resolve-loader.mjs\"",
     "test:e2e": "mocha --config tests/e2e/.mocharc.cjs",
     "migrate:workers": "node --env-file=.env.local scripts/migrate-workers.mjs",
     "migrate:workers:apply": "node --env-file=.env.local scripts/migrate-workers.mjs --apply",

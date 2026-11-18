@@ -2,15 +2,17 @@ const assert = require("assert");
 const { COOKIES, readSessionCookie } = require("../../lib/session-cookies");
 
 describe("lib/session-cookies", () => {
-  it("COOKIES expose les 4 sessions", () => {
+  it("COOKIES expose les 5 sessions", () => {
     assert.ok(COOKIES.access);
     assert.ok(COOKIES.refresh);
     assert.ok(COOKIES.portal);
     assert.ok(COOKIES.worker);
+    assert.ok(COOKIES.signature);
   });
   it("les cookies sont httpOnly", () => {
     assert.strictEqual(COOKIES.access.options.httpOnly, true);
     assert.strictEqual(COOKIES.portal.options.httpOnly, true);
+    assert.strictEqual(COOKIES.signature.options.httpOnly, true);
   });
   it("readSessionCookie lit le cookie", () => {
     const req = { cookies: { get: (name) => (name === "koji_session" ? { value: "tok123" } : undefined) } };

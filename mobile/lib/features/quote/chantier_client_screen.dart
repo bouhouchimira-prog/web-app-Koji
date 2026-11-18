@@ -198,6 +198,17 @@ class _ChantierClientScreenState extends ConsumerState<ChantierClientScreen>
         (_raw?['signature_data'] != null);
   }
 
+  String get _clientEmail {
+    final direct = (_raw?['client_email'] as String? ?? '').trim();
+    if (direct.isNotEmpty) return direct;
+    final metadata = _raw?['metadata'];
+    if (metadata is Map) {
+      final client = metadata['client'];
+      if (client is Map) return (client['email'] as String? ?? '').trim();
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final clientName =
@@ -242,6 +253,7 @@ class _ChantierClientScreenState extends ConsumerState<ChantierClientScreen>
                       quoteId: widget.quoteId,
                       isSigned: _isSigned,
                       repo: _repo,
+                      clientEmail: _clientEmail,
                       onSigned: _load,
                     ),
                     _SuiviTab(suivi: _suivi),
@@ -258,6 +270,7 @@ class _DevisTab extends StatefulWidget {
   final String quoteId;
   final bool isSigned;
   final ChantierClientRepository repo;
+  final String clientEmail;
   final VoidCallback onSigned;
 
   const _DevisTab({
@@ -265,6 +278,7 @@ class _DevisTab extends StatefulWidget {
     required this.quoteId,
     required this.isSigned,
     required this.repo,
+    required this.clientEmail,
     required this.onSigned,
   });
 
@@ -343,7 +357,10 @@ class _DevisTabState extends State<_DevisTab> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _SignSheet(quoteId: widget.quoteId, repo: widget.repo),
+      builder: (_) => _SignSheet(
+          quoteId: widget.quoteId,
+          repo: widget.repo,
+          clientEmail: widget.clientEmail),
     );
     if (signed == true) widget.onSigned();
   }
@@ -353,8 +370,10 @@ class _DevisTabState extends State<_DevisTab> {
 class _SignSheet extends StatefulWidget {
   final String quoteId;
   final ChantierClientRepository repo;
+  final String clientEmail;
 
-  const _SignSheet({required this.quoteId, required this.repo});
+  const _SignSheet(
+      {required this.quoteId, required this.repo, required this.clientEmail});
 
   @override
   State<_SignSheet> createState() => _SignSheetState();
@@ -385,8 +404,10 @@ class _SignSheetState extends State<_SignSheet> {
       final dataUrl =
           'data:image/png;base64,${base64Encode(bytes!.buffer.asUint8List())}';
 
-      final ok = await widget.repo
-          .submitSignature(quoteId: widget.quoteId, signatureDataUrl: dataUrl);
+      final ok = await widget.repo.submitSignature(
+          quoteId: widget.quoteId,
+          signatureDataUrl: dataUrl,
+          clientEmail: widget.clientEmail);
       if (!mounted) return;
       if (ok) {
         Navigator.pop(context, true);

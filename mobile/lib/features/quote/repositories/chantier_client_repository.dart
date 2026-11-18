@@ -37,11 +37,12 @@ class ChantierClientRepository {
   Future<bool> submitSignature({
     required String quoteId,
     required String signatureDataUrl,
+    String clientEmail = '',
   }) async {
     try {
       final result = await _client.rpc('submit_quote_signature', params: {
         'p_quote_id': quoteId,
-        'p_email': '',
+        'p_email': clientEmail,
         'p_signature_data': signatureDataUrl,
       });
       return result == true;
