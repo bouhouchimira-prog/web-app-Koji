@@ -17,6 +17,14 @@ const mapTilesOrigin = "https://tiles.openfreemap.org";
 // Address autocomplete (profile work zone, guided start) calls the free
 // national address API (BAN) from the browser.
 const addressApiOrigin = "https://api-adresse.data.gouv.fr";
+// Sentry (instrumentation-client.js) envoie les erreurs du navigateur vers
+// l'hôte d'ingestion du DSN — autorisé seulement quand un DSN est configuré.
+let sentryOrigin = "";
+try {
+  if (process.env.NEXT_PUBLIC_SENTRY_DSN) sentryOrigin = new URL(process.env.NEXT_PUBLIC_SENTRY_DSN).origin;
+} catch {
+  sentryOrigin = "";
+}
 // Turbopack's dev server (HMR, React error-overlay stack reconstruction) uses
 // eval() and breaks under this CSP without it. Production never needs or gets
 // 'unsafe-eval' — React itself never calls eval() outside development.
@@ -28,7 +36,7 @@ const csp = [
   // Photos de chantier : liens signés Supabase Storage (PRO-02.2).
   `img-src 'self' data: blob:${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
   "font-src 'self'",
-  `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ""} ${mapTilesOrigin} ${addressApiOrigin}`,
+  `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin}` : ""} ${mapTilesOrigin} ${addressApiOrigin}${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

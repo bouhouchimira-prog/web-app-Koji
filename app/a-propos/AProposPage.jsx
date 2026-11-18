@@ -15,7 +15,8 @@ import '../entreprise/landing.css';
 //   lancement, sans aucun chiffre inventé.
 // - « Prix recommandé, pour le particulier comme pour l'entreprise » : le
 //   particulier ne voit pas de prix (décision du 10 nov.).
-// - Contact : contact@getkoji.io (aide@ et pro@ n'existent pas encore).
+// - Contact (12 nov) : particuliers → contact@getkoji.io, entreprises →
+//   entreprise@getkoji.io (les deux boîtes du service client).
 const CONVICTIONS = [
   ['Simple avant tout.', "Un artisan n'a pas de temps à donner à un logiciel. Chaque écran a une action."],
   ['Un prix juste, dit avant.', "Le prix recommandé est calculé avant toute visite, avec les prix de l'entreprise."],
@@ -56,7 +57,8 @@ export function AProposPage() {
         <aside className="lp-abs">
           <div className="lp-card">
             <b>Contact</b>
-            <p><a href="mailto:contact@getkoji.io" className="lp-ul">contact@getkoji.io</a></p>
+            <p>Particuliers : <a href="mailto:contact@getkoji.io" className="lp-ul">contact@getkoji.io</a></p>
+            <p>Entreprises : <a href="mailto:entreprise@getkoji.io" className="lp-ul">entreprise@getkoji.io</a></p>
             <a className="lp-sec" href="/entreprise/contact">Nous écrire</a>
           </div>
           <div className="lp-card">

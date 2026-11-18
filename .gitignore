@@ -21,3 +21,11 @@ data/particulier-users.json
 tests/e2e/.env.e2e
 !tests/e2e/.env.e2e.example
 tests/e2e/reports/
+
+# Générés par Next / TypeScript à chaque dev ou build (la doc Next 16 demande
+# d'ignorer next-env.d.ts) — jamais à committer.
+next-env.d.ts
+*.tsbuildinfo
+
+# Réglages locaux des sessions Claude Code (et leurs worktrees).
+.claude/

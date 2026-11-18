@@ -38,7 +38,7 @@ export async function POST(request) {
     return ok({ ok: true });
   }
   if (db.newsletterSubscribers.length >= MAX_SUBSCRIBERS) {
-    return badRequest("Inscriptions momentanément fermées. Écrivez-nous à contact@getkoji.io.", 503);
+    return badRequest("Inscriptions momentanément fermées. Écrivez-nous à entreprise@getkoji.io.", 503);
   }
 
   db.newsletterSubscribers.push({

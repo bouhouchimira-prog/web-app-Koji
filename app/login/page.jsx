@@ -452,7 +452,7 @@ function LoginScreen() {
             borderTop: "1px solid var(--line)",
             paddingTop: 24
           }}>
-            Besoin d'aide ? <a href="mailto:contact@getkoji.io" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>contact@getkoji.io</a>
+            Besoin d'aide ? <a href="mailto:entreprise@getkoji.io" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>entreprise@getkoji.io</a>
           </p>
         </div>
       </section>

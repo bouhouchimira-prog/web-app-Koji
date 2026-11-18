@@ -11,9 +11,14 @@ class OfflineQueue {
 
   bool _initialized = false;
 
-  Future<void> initialize() async {
+  /// [path] : uniquement pour les tests (voir OfflineCacheService.initialize).
+  Future<void> initialize({String? path}) async {
     if (_initialized) return;
-    await Hive.initFlutter();
+    if (path != null) {
+      Hive.init(path);
+    } else {
+      await Hive.initFlutter();
+    }
     await Hive.openBox(_box);
     _initialized = true;
   }
