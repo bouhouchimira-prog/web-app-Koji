@@ -1398,6 +1398,30 @@
       "theme": "Back-office",
       "title": "Back-office : l'ouverture d'un devis s'inscrit au journal des accès",
       "detail": "La page de détail d'un devis lisait le devis avec les droits du compte connecté : la base refusait, la page revenait à la liste et rien n'était inscrit au journal. Elle lit maintenant le devis avec la clé du back-office, après le contrôle d'accès, et inscrit la lecture au journal avec le compte qui l'a faite. Les listes ne préchargent plus les fiches, pour ne pas inscrire des lectures qui n'ont pas eu lieu. Reste à confirmer par une ouverture réelle depuis le back-office."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Suivi des erreurs du site prêt à être activé (Sentry)",
+      "detail": "Le site sait maintenant signaler ses erreurs à Sentry, côté serveur comme côté navigateur ; avant, les réglages existaient mais n'étaient chargés par rien. Tant qu'aucune clé Sentry n'est configurée, rien n'est envoyé et rien n'est téléchargé par le navigateur des visiteurs. Il reste à créer le projet Sentry et à renseigner sa clé."
+    },
+    {
+      "category": "frontend",
+      "theme": "Connexion et comptes",
+      "title": "Une adresse de service client par application",
+      "detail": "Les entreprises et leurs ouvriers sont dirigés vers entreprise@getkoji.io, les particuliers vers contact@getkoji.io : sur le site Koji Pro, la page de connexion, les messages d'erreur de l'app et les conditions de vente. Les signalements et les demandes envoyés depuis Koji arrivent dans la boîte correspondante."
+    },
+    {
+      "category": "frontend",
+      "theme": "Sécurité",
+      "title": "App : le cache hors ligne est vidé dès la déconnexion, et testé",
+      "detail": "Les données gardées pour le mode hors ligne sont effacées avant même la déconnexion du serveur, y compris si celle-ci échoue faute de réseau, ainsi que les actions en attente du compte. Sept tests vérifient qu'un compte ne voit jamais les données du précédent sur le même téléphone."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Tout le travail réuni dans une seule branche",
+      "detail": "Les branches de travail ont toutes été fusionnées dans la branche principale ; sur GitHub il ne reste que la branche principale et celle des builds de l'app. L'ancien projet d'espace entreprise du 28 octobre est conservé en entier dans un dossier d'archive, sans effet sur le site : remis à sa place, il aurait remplacé la page publique de Koji Pro par un tableau de bord aux chiffres fictifs."
     }
   ]
 }
