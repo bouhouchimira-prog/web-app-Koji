@@ -1434,6 +1434,30 @@
       "theme": "Koji Client (novembre 2026)",
       "title": "Accord du particulier à la publication, et devis client sans secret",
       "detail": "La publication d'un projet demande une case d'accord (conditions et confidentialité), jamais pré-cochée ; la date de l'accord est gardée avec la demande. La lecture des devis par le particulier ne renvoie plus le mot de passe du portail de signature ni son empreinte."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : la page d'un chantier en 4 onglets, et la page Paiements",
+      "detail": "Chaque devis ou chantier du particulier a maintenant sa page avec quatre onglets. Devis : les lignes par lot, la TVA et son motif, ce qui a changé depuis la version précédente, l'acompte, et la signature directement depuis l'espace. Chantier : l'avancement « jour N sur M », les étapes, la prochaine étape, « Signaler quelque chose » et « Écrire à l'entreprise ». Paiements : payé, à payer, à venir et retenue de garantie, avec le téléchargement de la facture (pas de paiement en ligne, aucun prestataire choisi). Documents : devis signé, formulaire de rétractation, attestation décennale, factures, procès-verbal de réception. Une page « Paiements » regroupe tous les chantiers et entre dans le menu."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Signature d'un devis : un seul enregistrement pour le lien et l'espace client",
+      "detail": "Le lien de signature reçu par e-mail (page refaite en trois états : signer, signé, lien non valide) et la signature depuis l'espace client passent par le même enregistrement, avec les mêmes règles qu'avant (TVA réduite certifiée, rétractation de 14 jours, démarrage anticipé sur demande). Nouveau : la signature tracée est obligatoire, la preuve gardée comprend l'heure, l'adresse de connexion et l'appareil, et le client reçoit son exemplaire PDF par e-mail. Toutes les routes vérifient que le devis appartient au particulier connecté ; l'IBAN de l'entreprise et les mots de passe ne sont jamais renvoyés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : messages, profil, notifications, paramètres et aide (site et app Koji)",
+      "detail": "Messages : un fil par entreprise et par demande, avec les rendez-vous et le partage des photos. Profil : coordonnées masquées, logement (ancienneté pour la TVA), mot de passe. Notifications : liste par jour et détail qui mène à l'action réelle. Paramètres : export des données et demande de suppression du compte (case jamais cochée d'avance). Aide : recherche dans les questions fréquentes, puis l'ordre de recours (entreprise, Koji à contact@getkoji.io, médiateur). Les mêmes écrans sont refaits dans l'app Koji, avec images de référence."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "« Retrouver mon projet » : connexion par code reçu par e-mail",
+      "detail": "Le particulier peut se connecter sans mot de passe : il saisit son adresse, reçoit un code à 6 chiffres valable 10 minutes, et le saisit. Limites : 5 essais par code, 1 envoi par minute et 5 par heure. Ni l'adresse ni le code ne sont gardés en clair. La réponse est la même, et arrive aussi vite, que l'adresse ait un compte ou non, pour qu'on ne puisse pas deviner qui est client. Le mot de passe reste possible. Correctif au passage : le profil ne renvoie plus au navigateur le jeton « mot de passe oublié »."
     }
   ]
 }
