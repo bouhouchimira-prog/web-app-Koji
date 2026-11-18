@@ -1,0 +1,162 @@
+/* Koji Client · cadre commun et écrans CLI-01 (maquette « KOJI Pro pages »,
+   vues cli-01 et suivantes). Univers Client : marine #101529, sable #E7D8C5,
+   riz #F8F6F1, titres en Shippori Mincho, angles droits. Le jaune n'existe
+   pas côté Client ; une seule action principale par écran, en marine.
+   Les classes reprennent celles de la maquette (cw- → ordinateur, cl- →
+   téléphone) sous le préfixe kc-. La portée .lc (app/particulier/landing.css)
+   donne les variables de la charte et sort ces écrans des graisses forcées
+   par globals.css. En dessous de 900 px, la version téléphone de la maquette
+   remplace la version ordinateur (.kc-d / .kc-t). */
+
+/* Base de l'univers Client pour ces écrans : la feuille de la page d'accueil
+   des particuliers (landing.css) n'est pas chargée ici, ses règles .lc non plus. */
+:is(.kc,.kc-top,.kc-ptop,.kc-bar,.kc-nav,.kc-pret){font-family:var(--lp-font),'DM Sans',Arial,sans-serif;letter-spacing:0}
+:is(.kc,.kc-top,.kc-ptop,.kc-bar,.kc-nav,.kc-pret) *{box-sizing:border-box}
+:is(.kc,.kc-top,.kc-ptop,.kc-bar,.kc-nav,.kc-pret) a{text-decoration:none;color:inherit;cursor:pointer}
+:is(.kc,.kc-pret) :is(h1,h2,h3){font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-weight:600;margin:0;letter-spacing:0;color:#101529}
+
+.lc.kc{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;font-size:14px;line-height:1.45;color:#101529;background:#F8F6F1}
+.kc .kc-t{display:none}
+.kc button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+.kc a:focus-visible,.kc button:focus-visible,.kc input:focus-visible{outline:2px solid #101529;outline-offset:2px}
+
+/* Bandeau · ordinateur (cw-top) */
+.lc.kc-top{background:#101529;color:#F8F6F1;display:flex;align-items:center;gap:40px;padding:0 40px;height:64px;width:100%;font-size:14px;line-height:1.45;flex:none;position:relative;z-index:30}
+.kc-top .kc-w{display:block;color:#E7D8C5;line-height:0}
+.kc-top .kc-w .kwm{height:13px;width:auto}
+.kc-top nav{display:flex;gap:4px;flex:1}
+.kc-top nav a{padding:8px 14px;color:#C9CDE0;font-size:14px;border-radius:2px;background:rgba(255,255,255,.08);display:flex;align-items:center;gap:8px;font-weight:400}
+.kc-top nav a:hover{color:#FFFFFF}
+.kc-top nav a.on{background:#F8F6F1;color:#101529;font-weight:700}
+.kc-top nav a i{font-style:normal;font-size:11px;font-weight:700;background:#E7D8C5;color:#101529;padding:1px 6px;border-radius:999px}
+.kc-bell{position:relative;display:grid;place-items:center;width:36px;height:36px;margin-left:auto;border-radius:2px;background:#F8F6F1}
+.kc-bell svg{width:18px;height:18px;stroke:#101529;fill:none;stroke-width:1.8}
+.kc-bell i{position:absolute;top:-6px;right:-6px;font-style:normal;font-size:11px;font-weight:700;background:#E7D8C5;color:#101529;padding:1px 6px;border-radius:999px}
+.kc-cpt{position:relative}
+.kc-top .kc-u{font-size:14px;color:#C9CDE0;display:flex;align-items:center;gap:6px;height:36px}
+.kc-top .kc-u:hover{color:#FFFFFF}
+.kc-u svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.kc-menu{position:absolute;right:0;top:44px;min-width:210px;background:#FFFFFF;border:1px solid #101529;display:flex;flex-direction:column;z-index:40}
+.kc-menu a,.kc-menu button{padding:11px 14px;font-size:14px;color:#101529;text-align:left;border-bottom:1px solid #EFEBE3;font-weight:400}
+.kc-menu a:hover,.kc-menu button:hover{background:#F8F6F1}
+.kc-menu>:last-child{border-bottom:0}
+
+/* Ancienne page client encore dans son cadre d'origine : le bandeau prend toute la largeur. */
+.client-space>.lc.kc-top{margin:-28px calc(-1 * clamp(18px, 4vw, 64px)) 22px;width:auto}
+.client-space>.lc.kc-ptop,.client-space>.lc.kc-bar{margin:-28px calc(-1 * clamp(18px, 4vw, 64px)) 18px;width:auto}
+
+/* Contenu · ordinateur (cw-m) */
+.kc-m{padding:36px 40px;flex:1;width:100%;max-width:1300px;margin:0 auto}
+.kc-ey{font-size:13px;color:#6B6A66;display:block}
+.lc.kc .kc-h{font-size:34px;line-height:1.2;margin:4px 0 22px}
+.kc-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:18px}
+.lc.kc .kc-hd .kc-h{margin-bottom:0}
+.kc-btn{height:52px;display:grid;place-items:center;background:#101529;color:#FFFFFF!important;font-weight:600;font-size:16px;padding:0 18px;white-space:nowrap;border:0;width:100%}
+.kc-btn:hover{background:#1B2140}
+.kc-btn.sm{height:42px;font-size:14px;width:auto}
+.kc-btn[disabled],.kc-btn[aria-disabled="true"]{background:#B9BBC6;cursor:not-allowed}
+.kc-sec{display:grid;place-items:center;height:42px;border:1px solid #101529;color:#101529;font-weight:600;font-size:14px;padding:0 18px;white-space:nowrap;background:transparent}
+.kc-sec:hover{background:#FFFFFF}
+.kc-n{font-size:12px;color:#6B6A66;margin:14px 0 0}
+.kc-lien{text-decoration:underline!important;text-underline-offset:3px;color:#101529;font-size:13px}
+
+/* Mes projets · ordinateur (cw-pj, cw-pc, cnf-a) */
+.kc-pj{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.kc-pc{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#FFFFFF;border:1px solid #E6E2DA;padding:16px 18px}
+.kc-pc.on{border:2px solid #101529;padding:15px 17px}
+.kc-pc.dim{opacity:.75}
+.kc-pc>div{display:flex;flex-direction:column;min-width:0}
+.kc-pc b{font-size:17px;font-weight:700}
+.kc-pc small{font-size:13px;color:#6B6A66}
+.kc-a{background:#FFFFFF;border:1px solid #E6E2DA;padding:18px 20px;font-size:14px;line-height:1.5;max-width:760px;margin-top:20px}
+.lc.kc .kc-a h3{font-size:18px;line-height:1.3;margin:0 0 6px}
+.kc-a p{margin:0 0 4px}
+.kc-a h3:not(:first-child){margin-top:16px}
+.kc-a p:last-child{margin:0}
+.kc-vide{background:#FFFFFF;border:1px solid #E6E2DA;padding:18px 20px;max-width:760px;color:#6B6A66;margin:0}
+.kc-err{background:#FFFFFF;border:1px solid #101529;padding:14px 16px;max-width:760px;display:flex;justify-content:space-between;align-items:center;gap:16px}
+
+/* Comparer les propositions · ordinateur (cw-t) */
+.kc-tw{overflow-x:auto}
+.kc-tb{width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E6E2DA;font-size:14px}
+.kc-tb th{text-align:left;padding:14px;font-size:16px;font-weight:700;border-bottom:2px solid #101529;vertical-align:bottom}
+.kc-tb td{padding:12px 14px;border-bottom:1px solid #EFEBE3;vertical-align:top}
+.kc-tb td:first-child,.kc-tb th:first-child{color:#6B6A66;font-size:13px;width:22%;font-weight:400}
+.kc-tb tr.prix td:not(:first-child){font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:22px;font-weight:600}
+.kc-tb tr.prix td small{display:block;font-family:var(--lp-font),'DM Sans',Arial,sans-serif;font-size:12px;font-weight:400;color:#6B6A66}
+.kc-tb tr:last-child td{border-bottom:0}
+.kc-tb td .kc-btn.sm,.kc-tb td .kc-sec{width:100%}
+
+/* Téléphone (cl-top, cl-bar, cl-body, cl-tb) */
+.lc.kc-ptop{background:#101529;color:#F8F6F1;padding:18px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;font-size:13px;line-height:1.45;flex:none}
+.kc-ptop .kc-w{display:block;color:#E7D8C5;line-height:0}
+.kc-ptop .kc-w .kwm{height:13px;width:auto}
+.kc-ptop small{font-size:13px;color:#C9CDE0;margin-left:auto}
+.kc-ptop .kc-pbell{position:relative;display:grid;place-items:center;width:34px;height:34px}
+.kc-ptop .kc-pbell svg{width:20px;height:20px;stroke:#F8F6F1;fill:none;stroke-width:1.8}
+.kc-ptop .kc-pbell i{position:absolute;top:0;right:-2px;font-style:normal;font-size:10px;font-weight:700;background:#E7D8C5;color:#101529;padding:0 5px;border-radius:999px}
+.lc.kc-bar{display:flex;gap:12px;align-items:center;background:#101529;color:#FFFFFF;padding:16px;width:100%;font-size:14px;line-height:1.3;flex:none}
+.kc-bar .kc-b{font-size:24px;line-height:1;color:#FFFFFF;width:28px;height:36px;display:grid;place-items:center}
+.kc-bar div{display:flex;flex-direction:column;min-width:0}
+.kc-bar strong{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:19px;font-weight:600}
+.kc-bar small{font-size:12px;color:#C9CDE0}
+.kc-body{padding:14px 16px 20px;display:flex;flex-direction:column;gap:10px;flex:1}
+.lc.kc .kc-ph{font-size:22px;line-height:1.25;color:#101529;margin:4px 0 0}
+.kc-ppj{display:flex;gap:10px;align-items:center;background:#FFFFFF;border:1px solid #E6E2DA;border-top:2px solid #101529;padding:12px;color:#101529}
+.kc-ppj.dim{opacity:.75}
+.kc-ppj>div{flex:1;display:flex;flex-direction:column;min-width:0}
+.kc-ppj b{font-size:15px;font-weight:700}
+.kc-ppj small{font-size:12px;color:#6B6A66}
+.kc-st{font-size:11px;font-weight:700;padding:3px 7px;background:#101529;color:#FFFFFF;white-space:nowrap;flex:none}
+.kc-st.o{background:transparent;border:1px solid #101529;color:#101529;padding:2px 6px}
+.kc-info{font-size:13px;color:#101529;background:#E7D8C5;padding:10px 12px}
+.kc-p{font-size:14px;line-height:1.5;color:#101529;margin:0}
+.kc-s{font-size:12px;color:#6B6A66;margin:0}
+.kc .kc-of,.kc-of{background:#FFFFFF;border:1px solid #E6E2DA;padding:12px;display:flex;flex-direction:column;gap:3px;color:#101529;text-align:left;width:100%}
+.kc .kc-of.on,.kc-of.on{border:2px solid #101529;padding:11px}
+.kc-of .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.kc-of b{font-size:15px;font-weight:700}
+.kc-of em{font-style:normal;font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:20px;font-weight:600;white-space:nowrap}
+.kc-of small{font-size:12px;color:#6B6A66}
+.kc-cr{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;padding:6px 0;border-bottom:1px solid #E6E2DA;color:#101529}
+.kc-cr b{font-size:14px;text-align:right;font-weight:700}
+.kc-fld{display:flex;flex-direction:column;gap:4px}
+.kc-fld label{font-size:12px;color:#6B6A66}
+.kc-fld input{background:#FFFFFF;border:1px solid #101529;border-radius:0;padding:11px 12px;font:inherit;font-size:15px;color:#101529;width:100%}
+.kc-ck{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#101529;cursor:pointer}
+.kc-ck input{position:absolute;opacity:0;width:20px;height:20px;margin:0}
+.kc-ck span{width:20px;height:20px;border:1.5px solid #101529;display:grid;place-items:center;flex:none;background:#FFFFFF}
+.kc-ck input:checked+span{background:#101529}
+.kc-ck input:focus-visible+span{outline:2px solid #101529;outline-offset:2px}
+.kc-ck svg{width:12px;height:12px;stroke:#FFFFFF;fill:none;stroke-width:3}
+.kc-ck a{text-decoration:underline!important;text-underline-offset:2px}
+
+/* Barre du bas · téléphone (cl-tb) */
+.lc.kc-nav{display:none}
+@media (max-width:899px){
+  .kc .kc-d,.lc.kc-top{display:none}
+  .kc .kc-t{display:flex}
+  .kc .kc-t.kc-bloc{display:block}
+  .kc-m{padding:0;display:flex;flex-direction:column;max-width:none}
+  .lc.kc{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+  .lc.kc.sans-barre{padding-bottom:0}
+  main.client-space{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .lc.kc-nav{display:grid;grid-template-columns:repeat(var(--kc-cases,4),1fr);background:#FFFFFF;border-top:1px solid #E6E2DA;padding:6px 0 calc(10px + env(safe-area-inset-bottom));position:fixed;left:0;right:0;bottom:0;z-index:30;width:100%;font-size:11px;line-height:1.3}
+  .kc-nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#6B6A66;padding-top:5px;border-top:2px solid transparent;font-weight:400;position:relative}
+  .kc-nav a.on{color:#101529;font-weight:700;border-top-color:#101529}
+  .kc-nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .kc-nav a.plus span{display:none}
+  .kc-nav a.plus svg{width:44px;height:44px;background:#101529;stroke:#FFFFFF;padding:10px;border-radius:2px;margin-top:-14px}
+  .kc-nav a i{position:absolute;top:2px;left:calc(50% + 6px);font-style:normal;font-size:10px;font-weight:700;background:#101529;color:#FFFFFF;padding:0 5px;border-radius:999px}
+}
+@media (min-width:900px){
+  .lc.kc-ptop,.lc.kc-bar{display:none}
+}
+
+/* Fin du parcours de publication · « Votre projet est prêt » (cl-bar, cl-cr, cl-ck) */
+.lc.kc-pret{font-size:14px;line-height:1.45;background:transparent;display:flex;flex-direction:column;gap:10px;max-width:560px;color:#101529}
+.kc-pret button{font:inherit;cursor:pointer}
+.kc-pret .kc-ck span.kc-ck-t{width:auto;height:auto;border:0;display:inline;background:transparent}
+.kc-pret .kc-lien{background:none;border:0;padding:0}
+.kc-suite{display:flex;gap:18px;flex-wrap:wrap}
+.kc-alerte{margin:0;font-size:13px;color:#101529;border:1px solid #101529;background:#FFFFFF;padding:9px 12px}

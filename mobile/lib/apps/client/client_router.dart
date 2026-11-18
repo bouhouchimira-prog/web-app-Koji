@@ -14,6 +14,7 @@ import 'package:koji/apps/client/screens/client_messages_inbox_screen.dart';
 import 'package:koji/apps/client/screens/client_notifications_screen.dart';
 import 'package:koji/apps/client/screens/client_parametres_screen.dart';
 import 'package:koji/apps/client/screens/client_profil_screen.dart';
+import 'package:koji/apps/client/screens/client_propositions_screen.dart';
 import 'package:koji/core/route_args.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/client/client_messages_screen.dart';
@@ -63,7 +64,21 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
             (_) => const KojiAuthScreen(initialTab: KojiAuthTab.signup)),
         _page('/client/marketplace/login',
             (_) => const MarketplaceLoginScreen()),
-        _page('/client/marketplace/new', (_) => const MarketplaceNewScreen()),
+        // « ?draftId= » : reprise d'un brouillon depuis « Vos projets ».
+        _page(
+          '/client/marketplace/new',
+          (state) => MarketplaceNewScreen(
+            draftId: state.uri.queryParameters['draftId'],
+          ),
+        ),
+        // Propositions reçues pour une demande : plein écran, sans la barre
+        // du bas (maquette CLI-01).
+        _page(
+          '/client/projet/:offerId',
+          (state) => ClientPropositionsScreen(
+            offerId: state.pathParameters['offerId']!,
+          ),
+        ),
         ShellRoute(
           builder: (context, state, child) => ClientShell(
             location: currentRoutePath(GoRouter.of(context)),

@@ -934,30 +934,36 @@ class KojiLogo extends StatelessWidget {
       children: [
         mark,
         SizedBox(width: size * 0.36),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Koji',
-              style: TextStyle(
-                fontSize: wordSize ?? size * 0.62,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                height: 1.15,
-                color: wordColor ?? context.koji.heading,
-              ),
-            ),
-            if (subtitle != null)
+        // Flexible : le sous-titre se coupe au lieu de déborder quand la
+        // place manque (bandeau grand écran étroit).
+        Flexible(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                subtitle!,
+                'Koji',
                 style: TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  color: subtitleColor ?? context.koji.muted,
+                  fontSize: wordSize ?? size * 0.62,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  height: 1.15,
+                  color: wordColor ?? context.koji.heading,
                 ),
               ),
-          ],
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.2,
+                    color: subtitleColor ?? context.koji.muted,
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     );

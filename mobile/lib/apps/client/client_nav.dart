@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_shell.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
@@ -17,16 +18,19 @@ const _routes = {
   'aide': '/client/aide',
 };
 
-/// Top-level client pages: they get the phone bottom bar, deeper pages don't.
-// Marketplace is deliberately NOT added here: the phone bottom bar's layout
-// is sized for exactly 5 tabs elsewhere (KojiShell) — adding a 6th risks
-// breaking that without touching that file too. It's reachable from the
-// "Principales" menu group below (always shown, not width-constrained).
+/// « Paiements » (maquette CLI-02) n'a pas encore d'écran : tant que c'est
+/// faux, l'onglet est masqué et la barre montre Projets, Messages, « + »,
+/// Profil. À passer à vrai avec la route '/client/paiements'.
+const paiementsPret = false;
+
+/// Onglets du téléphone, dans l'ordre de la barre du bas (maquette `.cl-tb`) ;
+/// seules ces pages l'affichent. Le « + » central n'est pas un onglet : il
+/// ouvre un nouveau projet. Devis et Chantiers gardent leurs routes (cartes
+/// de « Vos projets », menu du grand écran) mais ne sont plus dans la barre.
 const clientTabPaths = [
   '/client-home',
-  '/client/devis',
-  '/client/chantiers',
   '/client/messages',
+  if (paiementsPret) '/client/paiements',
   '/client/profil',
 ];
 
@@ -90,4 +94,12 @@ Future<void> openClientNav(
   }
   final route = _routes[id];
   if (route != null) router.go(route);
+}
+
+/// « + » et « Nouveau projet » : la demande se publie sur le site, il faut y
+/// être connecté.
+void ouvrirNouveauProjet(BuildContext context, WidgetRef ref) {
+  final connecte = ref.read(kojiWebApiClientProvider).isLoggedIn;
+  context.push(
+      connecte ? '/client/marketplace/new' : '/client/marketplace/login');
 }

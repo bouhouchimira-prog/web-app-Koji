@@ -1,56 +1,17 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { readDb } from "../../../../lib/db";
-import { factureDeSolde, jourDeParis, plusAns } from "../../../../lib/cloture-chantier";
-import { fixObjectText, fixText } from "../../../../lib/text";
-import { getSupabaseAdmin } from "../../../../lib/supabase";
-import { mapQuote } from "../../../../lib/quote-mapping";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
+import { chargerDevis, devisDuClient } from "../../../../lib/projets-client-serveur";
 
 // The client (particulier) portal has no Supabase session of its own — quotes
 // belong to the company's Supabase user_id, so RLS would hide them from a
 // normal per-user client. This reads via the service_role key and filters in
 // JS, mirroring the same "does this quote belong to this client" checks the
 // local-JSON version used before the Supabase migration.
-
-function normalizeEmail(value = "") {
-  return String(value || "").trim().toLowerCase();
-}
-
-function normalizePhone(value = "") {
-  return String(value || "").replace(/\D/g, "");
-}
-
-function decorateQuote(quote, project, tasks) {
-  return fixObjectText({
-    ...quote,
-    status: fixText(quote.status),
-    project: project ? fixObjectText(project) : null,
-    tasks: tasks.map((task) => fixObjectText(task)),
-  });
-}
-
-function quoteBelongsToClient(quote, project, user, email) {
-  if (user?.id && quote.clientPortalUserId === user.id) return true;
-  if (user?.clientAccess?.quoteIds?.includes(quote.id)) return true;
-  if (user?.clientAccess?.projectIds?.includes(quote.projectId)) return true;
-  if (email && (normalizeEmail(quote.clientEmail) === email || normalizeEmail(project?.clientEmail) === email)) return true;
-  // Un numéro de téléphone n'est pas une preuve de propriété : il est librement
-  // modifiable dans le profil et ne doit pas ouvrir l'accès à des devis.
-  return false;
-}
-
-function mapChantierLite(row) {
-  return {
-    id: row.id,
-    title: row.reference || "Chantier",
-    reference: row.reference || "",
-    clientEmail: row.client_email || "",
-    clientPhone: "",
-    address: [row.street, row.postal_code, row.city].filter(Boolean).join(", "),
-    status: row.status || "En attente"
-  };
-}
-
+//
+// 18 nov. : la lecture et le tri sont dans lib/projets-client-serveur.js
+// (partagés avec « Mes projets », CLI-01). Le mot de passe du portail de
+// signature, son empreinte et son sel ne sont plus renvoyés au navigateur.
 export async function GET(request) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id") || "";
@@ -65,39 +26,13 @@ export async function GET(request) {
   const db = await readDb();
   const user = db.users.find((entry) => entry.id === userId);
   if (!user) return ok({ quotes: [] });
-  const email = normalizeEmail(user.email);
 
-  const supabase = getSupabaseAdmin();
-  const { data: quoteRows, error } = await supabase.from("quotes").select("*");
-  if (error) return badRequest(`Lecture des devis impossible: ${error.message}`, 500);
-  const { data: chantierRows } = await supabase.from("chantiers").select("*");
-  const projectsById = new Map((chantierRows || []).map((row) => [row.id, mapChantierLite(row)]));
-
-  const clientQuotes = (quoteRows || [])
-    .map((row) => mapQuote(row))
-    .filter((quote) => quoteBelongsToClient(quote, projectsById.get(quote.projectId), user, email))
-    .map((quote) => decorateQuote(
-      quote,
-      projectsById.get(quote.projectId),
-      (db.tasks || []).filter((task) => task.quoteId === quote.id || task.projectId === quote.projectId),
-    ))
-    // Fin de chantier (PRO-02.4 à 02.6) : réception, garantie, dossier remis,
-    // avis du client.
-    .map((quote) => {
-      const cloture = (db.clotures || []).find((c) => c.projectId && c.projectId === quote.projectId) || null;
-      const receptionLe = cloture?.pv?.signeLe || "";
-      return {
-        ...quote,
-        dossierFinLe: cloture?.dossier?.remisLe || "",
-        finChantier: {
-          receptionLe,
-          parfaitJusqua: receptionLe ? plusAns(jourDeParis(receptionLe), 1) : "",
-          dossierFinLe: cloture?.dossier?.remisLe || "",
-          avisLe: (db.avis || []).find((a) => a.projectId === quote.projectId)?.creeLe || "",
-          avisPossible: Boolean(receptionLe || factureDeSolde(db.invoices || [], { projectId: quote.projectId }))
-        }
-      };
-    });
+  let clientQuotes;
+  try {
+    clientQuotes = devisDuClient(db, user, await chargerDevis());
+  } catch (error) {
+    return badRequest(error.message, 500);
+  }
 
   if (id) {
     const quote = clientQuotes.find((entry) => entry.id === id);

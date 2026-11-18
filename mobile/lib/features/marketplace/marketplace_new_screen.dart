@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
+import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_tokens.dart';
@@ -36,7 +37,12 @@ class _Turn {
 /// stays entirely server-side on koji-web — this screen only renders SSE events
 /// and relays user responses, exactly like the web page's sendToEngine().
 class MarketplaceNewScreen extends ConsumerStatefulWidget {
-  const MarketplaceNewScreen({super.key});
+  const MarketplaceNewScreen({super.key, this.draftId});
+
+  /// Brouillon à reprendre (carte « Brouillon » de « Vos projets ») : le chat
+  /// s'ouvre tout de suite et chaque envoi porte cet identifiant, pour que
+  /// l'assistant continue le même brouillon au lieu d'en créer un autre.
+  final String? draftId;
 
   @override
   ConsumerState<MarketplaceNewScreen> createState() =>
@@ -65,6 +71,8 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
   final _addressController = TextEditingController();
   bool _geocoding = false;
   MarketplaceAddress? _address;
+  // Case « J'accepte les conditions… » : jamais cochée d'avance.
+  bool _consentement = false;
 
   // Result (after /api/expertise-koji).
   Map<String, dynamic>? _expertise;
@@ -79,6 +87,23 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     super.initState();
     _conversationId =
         'radarconv-mobile-${DateTime.now().millisecondsSinceEpoch}';
+    final brouillon = (widget.draftId ?? '').trim();
+    if (brouillon.isNotEmpty) {
+      // Reprise d'un brouillon : pas d'écran d'accueil, le chat directement.
+      _phase = _Phase.chat;
+      _draftId = brouillon;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Même message que le site : l'assistant reprend le brouillon.
+        if (mounted) {
+          _sendToEngine([
+            _Turn(
+                role: 'user',
+                text: "Bonjour, je reprends ma demande là où je l'avais "
+                    'laissée.'),
+          ], const []);
+        }
+      });
+    }
   }
 
   @override
@@ -313,11 +338,11 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     });
     final geocoded = await geocodeFrenchAddress(_addressController.text);
     if (!mounted) return;
-    setState(() {
-      _address = geocoded;
-      _geocoding = false;
-    });
+    setState(() => _address = geocoded);
+    // Le bouton tourne jusqu'à la fin de l'expertise, pas seulement pendant
+    // la recherche de l'adresse : pas de second envoi par impatience.
     await _launchExpertise();
+    if (mounted) setState(() => _geocoding = false);
   }
 
   Future<void> _launchExpertise() async {
@@ -367,10 +392,13 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
             lon: _address!.lon,
             photos: photos,
             conversationId: _conversationId,
+            consentement: _consentement,
           );
       if (!mounted) return;
+      // Retour à « Vos projets », où la demande publiée apparaît.
       ref.invalidate(marketplaceOffersProvider);
-      context.go('/client/marketplace');
+      ref.invalidate(clientProjetsProvider);
+      context.go('/client-home');
     } catch (err) {
       if (!mounted) return;
       setState(() {
@@ -588,66 +616,89 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     );
   }
 
+  /// Retour depuis le récapitulatif : la saisie libre revient à son
+  /// formulaire (le texte est gardé), sinon on quitte la publication.
+  void _quitterRecap() {
+    if (_mode == _Mode.manuel) {
+      setState(() {
+        _phase = _Phase.hero;
+        _error = null;
+      });
+      return;
+    }
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/client-home');
+    }
+  }
+
+  /// Récapitulatif : ce que l'assistant a retenu et l'adresse, avant
+  /// l'analyse. L'accord et la publication viennent à l'écran suivant
+  /// (« Votre projet est prêt »), comme sur le site. Aucun prix ici.
   Widget _buildRecap(BuildContext context) {
-    final rooms = (_draftAnswers['rooms'] as List?) ?? const [];
+    final rooms = ((_draftAnswers['rooms'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>();
+    String texte(dynamic v) => v == null ? '' : '$v'.trim();
+    final pieces = [for (final r in rooms) texte(r['label'])];
+    final sousTitre = <String>{_metier.trim(), ...pieces}
+        .where((t) => t.isNotEmpty)
+        .join(' · ');
+    final pret = _addressController.text.trim().isNotEmpty;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Récapitulatif')),
-      body: KojiPage(
-        title: 'Votre projet',
-        subtitle: 'Vérifiez les informations avant de lancer le chiffrage.',
-        main: [
-          KojiCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                KojiSectionTitle(_metier),
-                const SizedBox(height: 10),
-                if (rooms.isNotEmpty)
-                  for (final room in rooms.cast<Map<String, dynamic>>())
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        '• ${room['label'] ?? ''}'
-                        '${room['summary'] != null ? ' — ${room['summary']}' : ''}',
-                        style: TextStyle(
-                          color: context.koji.ink,
-                          height: 1.4,
-                        ),
-                      ),
-                    )
-                else
-                  Text(
-                    (_draftAnswers['intro'] as String?) ??
-                        'Projet décrit avec koji.',
-                    style: TextStyle(color: context.koji.ink, height: 1.4),
-                  ),
-              ],
-            ),
+      backgroundColor: ClCharte.riz,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClBarre(
+            titre: 'Votre projet',
+            sousTitre: sousTitre,
+            onRetour: _quitterRecap,
           ),
-          const SizedBox(height: 12),
-          KojiCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                KojiField(
-                  label: 'Adresse du chantier',
-                  controller: _addressController,
-                  hint: '12 rue de la Paix, Paris',
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 10),
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: ClCorps(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ClLigne('Métier', _metier),
+                      for (final room in rooms)
+                        if (texte(room['summary']).isNotEmpty)
+                          ClLigne(texte(room['label']), texte(room['summary']))
+                        else
+                          ClLigne('Pièce', texte(room['label'])),
+                    ],
+                  ),
+                  if (rooms.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: ClCharte.blanc,
+                        border: Border.all(color: ClCharte.ligne),
+                      ),
+                      child: Text(
+                        (_draftAnswers['intro'] as String?) ??
+                            'Projet décrit avec koji.',
+                        style: ClCharte.texte(14, hauteur: 1.4),
+                      ),
+                    ),
+                  ClChamp(
+                    label: 'Adresse du chantier',
+                    controller: _addressController,
+                    hint: '12 rue de la Paix, Paris',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if (_error != null) ClInfo(_error!),
+                  ClBouton(
+                    'Continuer',
+                    charge: _geocoding,
+                    onPressed: pret ? _confirmRecap : null,
+                  ),
                 ],
-                const SizedBox(height: 16),
-                KojiButton(
-                  label: "Lancer l'expertise koji",
-                  loading: _geocoding,
-                  expand: true,
-                  onPressed: _addressController.text.trim().isEmpty
-                      ? null
-                      : _confirmRecap,
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -655,53 +706,95 @@ class _MarketplaceNewScreenState extends ConsumerState<MarketplaceNewScreen> {
     );
   }
 
+  /// Résultat de l'expertise, à la charte Client : description, délai,
+  /// conseils à cocher. La publication ramène à « Vos projets ».
   Widget _buildResult(BuildContext context) {
     final expertise = _expertise!;
-    final conseils = (expertise['conseils'] as List?) ?? const [];
+    final conseils = ((expertise['conseils'] as List?) ?? const [])
+        .cast<Map<String, dynamic>>();
     final delai = expertise['delaiEstimeJours'];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Votre projet')),
-      body: KojiPage(
-        title: (expertise['description'] as String?) ?? 'Votre chantier',
-        subtitle: delai != null ? '$delai jours estimés' : null,
-        main: [
-          if (conseils.isNotEmpty)
-            KojiCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: ClCharte.riz,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClBarre(
+            titre: 'Votre projet est prêt',
+            sousTitre: delai != null ? '$delai jours estimés' : '',
+            onRetour: () => setState(() {
+              _phase = _Phase.recap;
+              _error = null;
+            }),
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: ClCorps(
                 children: [
-                  const KojiSectionTitle('Conseils pour réduire le coût'),
-                  const SizedBox(height: 10),
-                  for (final c in conseils.cast<Map<String, dynamic>>())
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _selectedConseils.contains(c['id']),
-                      onChanged: (_) => setState(() {
-                        final id = c['id'] as String;
-                        if (_selectedConseils.contains(id)) {
-                          _selectedConseils.remove(id);
-                        } else {
-                          _selectedConseils.add(id);
-                        }
-                      }),
-                      title: Text('${c['label']}'),
-                      subtitle: Text('-${c['discountPercent']}% estimé'),
+                  Text(
+                    (expertise['description'] as String?) ?? 'Votre chantier',
+                    style: ClCharte.texte(15, hauteur: 1.4),
+                  ),
+                  if (conseils.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+                      decoration: BoxDecoration(
+                        color: ClCharte.blanc,
+                        border: Border.all(color: ClCharte.ligne),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Conseils pour réduire le coût',
+                              style: ClCharte.texte(15,
+                                  graisse: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          for (final c in conseils)
+                            ClCase(
+                              cochee: _selectedConseils.contains(c['id']),
+                              onChanged: (_) => setState(() {
+                                final id = c['id'] as String;
+                                if (_selectedConseils.contains(id)) {
+                                  _selectedConseils.remove(id);
+                                } else {
+                                  _selectedConseils.add(id);
+                                }
+                              }),
+                              label: '${c['label']}',
+                              detail: '-${c['discountPercent']}% estimé',
+                            ),
+                        ],
+                      ),
                     ),
+                  // La maquette place ici un « prix recommandé Koji » : non
+                  // repris (décision du 10 nov., aucun prix calculé par Koji
+                  // côté particulier).
+                  const ClInfo('Chaque entreprise intéressée vous propose son '
+                      'prix, établi avec ses propres tarifs.'),
+                  Text(
+                    "Votre numéro n'est donné qu'à l'entreprise avec qui vous "
+                    'prenez rendez-vous.',
+                    style: ClCharte.texte(14, hauteur: 1.4),
+                  ),
+                  // Accord jamais pré-coché (maquette CLI-01).
+                  ClCase(
+                    cochee: _consentement,
+                    onChanged: _publishing
+                        ? null
+                        : (v) => setState(() => _consentement = v),
+                    label: "J'accepte les conditions et j'ai lu la politique "
+                        'de confidentialité',
+                  ),
+                  if (_error != null) ClInfo(_error!),
+                  ClBouton(
+                    'Publier mon projet',
+                    charge: _publishing,
+                    onPressed: _consentement ? _publish : null,
+                  ),
                 ],
               ),
             ),
-          const SizedBox(height: 12),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            ),
-          KojiButton(
-            label: 'Publier le chantier',
-            expand: true,
-            loading: _publishing,
-            onPressed: _publish,
           ),
         ],
       ),

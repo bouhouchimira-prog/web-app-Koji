@@ -1,179 +1,136 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ClientTopbar } from "../../components/ClientTopbar";
-import { euro, shortDate } from "../../lib/pricing";
-import { useLocale } from "../../lib/i18n";
-import { metierVisuel } from "../../lib/metier-visuel";
+import { useCallback, useEffect, useState } from "react";
+import { ClientTopbar, CHARTE_CLIENT } from "../../components/ClientTopbar";
 
-const STATUS_LABEL = {
-  Publiee: "Publiée",
-  "En attente": "En attente",
-  Terminee: "Terminée",
-  SansSuite: "Sans suite"
-};
+// Koji Client · « Mes projets » (maquette CLI-01). Une seule liste : les
+// chantiers, les demandes publiées avec leurs propositions, les brouillons.
+// Remplace l'ancien accueil (« Un autre projet de travaux ? ») et les listes
+// séparées « Mes chantiers », « Mes demandes », « Devis reçus ».
+//
+// Les libellés viennent de /api/client/projets : le site et l'app affichent
+// les mêmes. Aucun prix calculé par Koji (décision du 10 novembre) : la
+// maquette écrit « prix recommandé » sous une demande, on n'affiche que le
+// nombre de propositions.
 
-function getStoredUser() {
+function compteLocal() {
   if (typeof window === "undefined") return null;
   try { return JSON.parse(localStorage.getItem("koji-user") || "null"); } catch { return null; }
 }
 
-function ProgressRing({ percent, size = 72 }) {
-  const r = (size - 8) / 2;
-  const circ = 2 * Math.PI * r;
-  const fill = circ - (circ * Math.min(percent, 100)) / 100;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="progress-ring">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8edf5" strokeWidth="6" />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--blue)" strokeWidth="6"
-        strokeDasharray={circ} strokeDashoffset={fill} strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x={size / 2} y={size / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--navy)">{percent}%</text>
-    </svg>
-  );
+// Lien interne (navigation du site) ou externe (page de signature).
+function Lien({ href, className, children }) {
+  return /^https?:/.test(href) ? <a href={href} className={className}>{children}</a> : <Link href={href} className={className}>{children}</Link>;
 }
 
-export function ChantierCard({ quote, signedLabel, inProgressLabel, waitingLabel }) {
-  const router = useRouter();
-  const tasks = quote.tasks || [];
-  const done = tasks.filter((t) => t.done).length;
-  const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  const isSigned = quote.status === "Signe" || quote.signatureStatus === "Signe";
+export default function MesProjets() {
+  const [etat, setEtat] = useState("chargement"); // chargement | pret | deconnecte | erreur
+  const [vue, setVue] = useState({ bonjour: "", projets: [], attendus: [] });
 
-  return (
-    <button type="button" className="ct-chantier ct-chantier-link" onClick={() => router.push(`/client/chantier/${quote.id}`)}>
-      <div className="ct-chantier-header">
-        <ProgressRing percent={percent} />
-        <div className="ct-chantier-info">
-          <strong>{quote.project?.title || quote.projectName || quote.project || "Chantier"}</strong>
-          <small>{quote.client} · {euro(quote.totalTtc || 0)}</small>
-          <small>Devis {quote.quoteNumber} · {isSigned ? signedLabel : quote.status}</small>
-        </div>
-        <div className="ct-chantier-right">
-          <span className={`ct-task-badge step-${isSigned ? 3 : 0}`}>{isSigned ? signedLabel : (quote.status || waitingLabel)}</span>
-        </div>
-        <svg className="ct-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-      </div>
-      <div className="ct-chantier-footer">
-        <span>{done} / {tasks.length}</span>
-        <div className="ct-progress-bar"><div style={{ width: `${percent}%` }} /></div>
-      </div>
-    </button>
-  );
-}
-
-export default function ClientHomePage() {
-  const { L } = useLocale();
-  const [user, setUser] = useState(null);
-  const [offres, setOffres] = useState([]);
-  const [quotes, setQuotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const stored = getStoredUser();
-    setUser(stored);
-    if (!stored?.email) { setLoading(false); return; }
-    Promise.all([
-      fetch("/api/chantier-offres").then((r) => r.json()).catch(() => ({ offres: [] })),
-      // Un client ajoute directement par l'artisan (page Clients cote koji
-      // pro, devis signe sans passer par Radar des Chantiers) n'a aucune
-      // offre Radar — sans cette liste, la page d'accueil ne montrait rien
-      // de pertinent pour lui (12 oct, bug remonte par Amira).
-      fetch("/api/client/quotes").then((r) => r.json()).catch(() => ({ quotes: [] }))
-    ]).then(([offresData, quotesData]) => {
-      setOffres(offresData.offres || []);
-      setQuotes(quotesData.quotes || []);
-    }).finally(() => setLoading(false));
+  const charger = useCallback(() => {
+    if (!compteLocal()?.id) { setEtat("deconnecte"); return; }
+    setEtat("chargement");
+    fetch("/api/client/projets", { credentials: "same-origin" })
+      .then(async (r) => {
+        if (r.status === 401) { setEtat("deconnecte"); return; }
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || "Lecture impossible.");
+        setVue({ bonjour: data.bonjour || "", projets: data.projets || [], attendus: data.attendus || [] });
+        setEtat("pret");
+      })
+      .catch(() => setEtat("erreur"));
   }, []);
 
-  const signedQuotes = quotes.filter((q) => q.status === "Signe" || q.signatureStatus === "Signe");
+  useEffect(() => { charger(); }, [charger]);
 
-  if (!user?.email) {
+  if (etat === "deconnecte") {
     return (
-      <main className="client-space">
-        <section className="client-auth-card">
-          <div className="koji-mark small">KJ</div>
-          <h1>{L.clientSpace.clientPortal}</h1>
-          <p>{L.clientSpace.loginMsg}</p>
-          <Link className="primary-button" href="/login?type=particulier">{L.clientSpace.loginBtn}</Link>
-        </section>
-      </main>
+      <div className={`${CHARTE_CLIENT} kc sans-barre`}>
+        <header className={`${CHARTE_CLIENT} kc-bar`} style={{ display: "flex" }}>
+          <div><strong>Votre espace Koji</strong><small>connexion nécessaire</small></div>
+        </header>
+        <main className="kc-m">
+          <div className="kc-body" style={{ maxWidth: 520 }}>
+            <p className="kc-p">Connectez-vous pour retrouver vos projets, vos propositions et vos messages.</p>
+            <Link className="kc-btn" href="/login?type=particulier">Se connecter</Link>
+          </div>
+        </main>
+      </div>
     );
   }
 
-  const prenom = (user.name || "").trim().split(/\s+/)[0] || "";
+  const { projets, attendus } = vue;
+  const nombre = projets.length;
+  const compte = nombre === 0 ? "Aucun projet" : `${nombre} projet${nombre > 1 ? "s" : ""}`;
 
   return (
-    <main className="client-space">
-      <ClientTopbar />
-
-      <section className="client-radar-hero client-radar-hero-plain">
-        <div className="client-radar-hero-top">
-          {prenom ? <p className="client-radar-hero-greeting">Bonjour {prenom}</p> : null}
-          <h1>Un autre projet de travaux ?</h1>
-          <p className="client-radar-hero-sub">
-            Décrivez votre projet en quelques minutes. Les artisans de votre secteur vous répondent.
-          </p>
-        </div>
-        <div className="client-radar-hero-bottom">
-          <Link href="/client/radar/new" className="client-radar-hero-cta">
-            + Publier un chantier
-          </Link>
-          <p className="client-radar-hero-trust-line">C'est gratuit, et c'est vous qui choisissez votre artisan.</p>
-        </div>
-      </section>
-
-      {signedQuotes.length > 0 ? (
-        <section className="ct-section">
-          <div className="ct-section-title-row">
-            <h2 className="ct-section-title">Mes chantiers<span className="ct-count">{signedQuotes.length}</span></h2>
-            <Link href="/client/chantiers" className="ct-section-see-all">Tout voir</Link>
+    <div className={`${CHARTE_CLIENT} kc`}>
+      <ClientTopbar bonjour={vue.bonjour} />
+      <main className="kc-m">
+        {/* Ordinateur */}
+        <div className="kc-d">
+          <div className="kc-hd">
+            <div>
+              <span className="kc-ey">{etat === "pret" ? compte : " "}</span>
+              <h1 className="kc-h">Mes projets</h1>
+            </div>
+            <Link className="kc-btn sm" href="/client/radar/new">Décrire un nouveau projet</Link>
           </div>
-          {signedQuotes.slice(0, 5).map((quote) => (
-            <ChantierCard
-              key={quote.id}
-              quote={quote}
-              signedLabel={L.clientSpace.signedLabel}
-              inProgressLabel={L.clientSpace.taskStepInProgress}
-              waitingLabel={L.clientSpace.waiting}
-            />
-          ))}
-        </section>
-      ) : null}
 
-      <section className="ct-section">
-        <div className="ct-section-title-row">
-          <h2 className="ct-section-title">Mes demandes{offres.length ? <span className="ct-count">{offres.length}</span> : null}</h2>
-          <Link href="/client/radar" className="ct-section-see-all">Tout voir</Link>
-        </div>
-        {loading ? <div className="client-empty">{L.clientSpace.loading}</div> : null}
-        {!loading && offres.length === 0 ? <div className="client-empty">Aucune demande publiée pour l'instant.</div> : null}
-        <div className="client-list">
-          {offres.slice(0, 5).map((offre) => {
-            const visuel = metierVisuel(offre.metier);
-            return (
-              <Link key={offre.id} href={`/client/radar/${offre.id}`} className="ct-offer-card">
-                <span className="ct-offer-metier-badge" style={{ background: visuel.color }} aria-hidden="true">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    {visuel.icon}
-                  </svg>
-                </span>
-                <div className="ct-offer-card-info">
-                  <strong>{offre.description.slice(0, 60)}{offre.description.length > 60 ? "…" : ""}</strong>
-                  <small>{offre.metier} · {offre.address} · {shortDate(offre.createdAt)}</small>
+          {etat === "erreur" ? (
+            <div className="kc-err"><span>Vos projets n'ont pas pu être chargés.</span><button type="button" className="kc-sec" onClick={charger}>Réessayer</button></div>
+          ) : etat === "chargement" ? (
+            <p className="kc-vide">Chargement de vos projets…</p>
+          ) : nombre === 0 ? (
+            <p className="kc-vide">Vous n'avez pas encore de projet. Décrivez vos travaux avec l'assistant Koji : il pose les bonnes questions et prépare votre demande pour les entreprises.</p>
+          ) : (
+            <div className="kc-pj">
+              {projets.map((p) => (
+                <div key={p.cle} className={`kc-pc${p.principale ? " on" : ""}${p.attenue ? " dim" : ""}`}>
+                  <div><b>{p.titre}</b><small>{p.detail}</small></div>
+                  <Lien href={p.lien} className={p.principale ? "kc-btn sm" : "kc-sec"}>{p.action}</Lien>
                 </div>
-                <div className="ct-devis-row-right">
-                  <span className={`radar-status-badge${offre.hasArtisanReply ? " contacted" : ""}`}>
-                    {offre.hasArtisanReply ? "Un artisan vous a écrit" : (STATUS_LABEL[offre.status] || offre.status)}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
+              ))}
+            </div>
+          )}
+
+          <aside className="kc-a">
+            <h3>Ce qui vous attend</h3>
+            {etat === "pret" && attendus.length ? attendus.map((ligne) => <p key={ligne}>{ligne}</p>) : <p>{etat === "pret" ? "Rien à faire pour l'instant." : " "}</p>}
+            <h3>Un lien reçu ?</h3>
+            <p>Les liens par SMS ou e-mail ouvrent directement le devis ou le message.</p>
+          </aside>
         </div>
-      </section>
-    </main>
+
+        {/* Téléphone */}
+        <div className="kc-t kc-body">
+          <h3 className="kc-ph">Vos projets</h3>
+          {etat === "erreur" ? (
+            <>
+              <p className="kc-s">Vos projets n'ont pas pu être chargés.</p>
+              <button type="button" className="kc-sec" onClick={charger}>Réessayer</button>
+            </>
+          ) : etat === "chargement" ? (
+            <p className="kc-s">Chargement de vos projets…</p>
+          ) : nombre === 0 ? (
+            <p className="kc-s">Vous n'avez pas encore de projet.</p>
+          ) : projets.map((p) => (
+            <Lien key={p.cle} href={p.lien} className={`kc-ppj${p.attenue ? " dim" : ""}`}>
+              <div><b>{p.titre}</b><small>{p.detail}</small></div>
+              {p.etiquette ? <span className={`kc-st${p.etiquettePleine ? "" : " o"}`}>{p.etiquette}</span> : null}
+            </Lien>
+          ))}
+          <Link className="kc-btn" href="/client/radar/new" style={{ marginTop: 8 }}>Nouveau projet</Link>
+          <div className="kc-info">Décrivez vos travaux avec l'assistant Koji : il pose les bonnes questions et prépare votre demande pour les entreprises.</div>
+          {etat === "pret" && attendus.length ? (
+            <div className="kc-a" style={{ marginTop: 6 }}>
+              <h3>Ce qui vous attend</h3>
+              {attendus.map((ligne) => <p key={ligne}>{ligne}</p>)}
+            </div>
+          ) : null}
+        </div>
+      </main>
+    </div>
   );
 }

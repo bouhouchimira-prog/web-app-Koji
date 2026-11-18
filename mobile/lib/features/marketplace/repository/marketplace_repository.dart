@@ -31,6 +31,21 @@ class MarketplaceRepository {
     return data['offre'] as Map<String, dynamic>;
   }
 
+  /// « Vos projets » : chantiers, demandes et brouillons du particulier. La
+  /// réponse est rendue entière (`bonjour`, `projets`, `attendus`) ; tous les
+  /// textes affichés viennent du site.
+  Future<Map<String, dynamic>> getProjets() async {
+    return await _api.get('/api/client/projets') as Map<String, dynamic>;
+  }
+
+  /// « Propositions reçues » pour une demande : `projet`, `titre`,
+  /// `propositions` (dans l'ordre du site), `vide`, `note`.
+  Future<Map<String, dynamic>> getPropositions(String offerId) async {
+    return await _api.get(
+      '/api/client/projets/${Uri.encodeComponent(offerId)}',
+    ) as Map<String, dynamic>;
+  }
+
   /// Entreprises that positioned themselves on this offer (read-only here —
   /// accepting/declining a position is a later step of the plan).
   Future<List<Map<String, dynamic>>> getPositions(String offerId) async {
@@ -86,6 +101,7 @@ class MarketplaceRepository {
   }
 
   /// POST /api/chantier-offres — publishes the offer for entreprises to see.
+  /// [consentement] : la case « J'accepte les conditions… » du récapitulatif.
   Future<Map<String, dynamic>> publishOffer({
     required String expertiseId,
     required List<String> conseilsSelectionnes,
@@ -98,8 +114,10 @@ class MarketplaceRepository {
     double? lon,
     List<String> photos = const [],
     String? conversationId,
+    bool consentement = false,
   }) async {
     final data = await _api.postJson('/api/chantier-offres', {
+      'consentement': consentement,
       'expertiseId': expertiseId,
       'conseilsSelectionnes': conseilsSelectionnes,
       'photos': photos,

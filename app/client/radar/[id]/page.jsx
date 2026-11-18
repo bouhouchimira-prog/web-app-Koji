@@ -232,7 +232,7 @@ export default function RadarOffreDetailPage() {
 
   return (
     <main className="client-space">
-      <ClientTopbar showBack backHref="/client/radar" />
+      <ClientTopbar showBack backHref="/client" />
 
       <div className="ct-welcome">
         <strong>Détail de l'offre</strong>
