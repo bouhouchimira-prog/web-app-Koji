@@ -1349,7 +1349,43 @@
       "category": "database",
       "theme": "Refonte Koji Pro (novembre 2026)",
       "title": "Migrations de novembre",
-      "detail": "Profil créé correctement à l'inscription (migration 0010) et mention de TVA enregistrée à la signature (migration 0011), toutes deux exécutées. La table du journal des accès du back-office reste à créer dans Supabase."
+      "detail": "Profil créé correctement à l'inscription (migration 0010) et mention de TVA enregistrée à la signature (migration 0011), toutes deux exécutées. La table du journal des accès du back-office est créée dans Supabase (18 novembre)."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Sessions vérifiées sur les routes sensibles (correctif prioritaire 1)",
+      "detail": "Neuf routes du site (devis, messages de chantier, fournitures, devis par l'IA, estimation du Radar, paiement Stripe) lisaient l'identité dans le jeton de session sans la faire confirmer. Elles demandent maintenant confirmation à Supabase à chaque appel : un jeton fabriqué est refusé, y compris pour l'accès administrateur. 15 tests ajoutés."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Signature en ligne : le lien seul ne suffit plus (correctif prioritaire 2)",
+      "detail": "La page de signature d'un devis s'ouvre seulement après connexion avec l'identifiant et le mot de passe reçus par le client, pour une session de 2 heures. Le mot de passe du portail n'apparaît plus dans la réponse du site. Quand un devis est rattaché à un compte client qui existe déjà, ce compte n'est plus réinitialisé ni réactivé : le client garde son mot de passe. 12 tests ajoutés."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Cloisonnement des données et confidentialité du Radar (correctif prioritaire 3)",
+      "detail": "Un numéro de téléphone ne donne plus accès aux devis d'un client. Sur le Radar, seul le particulier peut confirmer un rendez-vous ou ouvrir ses photos, et ses coordonnées restent masquées avant le rendez-vous. L'import d'une fourniture par lien ne peut plus viser une adresse interne au serveur. L'export des données d'une entreprise, en panne, est réparé et réservé à l'identité vérifiée. Le lien d'activation d'un compte n'est jamais affiché en production. 53 tests ajoutés."
+    },
+    {
+      "category": "frontend",
+      "theme": "Sécurité",
+      "title": "App : cache hors ligne propre à chaque compte (correctif prioritaire 4)",
+      "detail": "Sur un téléphone partagé, les devis et clients gardés pour le mode hors ligne pouvaient s'afficher pour le compte suivant. Le cache appartient maintenant à un seul compte : il est vidé au changement de compte et à la déconnexion. Arrive chez les utilisateurs avec le prochain build de l'app."
+    },
+    {
+      "category": "database",
+      "theme": "Sécurité",
+      "title": "Migration 0012 : une signature ne peut plus être écrasée",
+      "detail": "La fonction qui enregistre la signature d'un devis depuis l'app refuse désormais un devis déjà signé, au lieu de remplacer la première signature. À exécuter dans Supabase."
+    },
+    {
+      "category": "backend",
+      "theme": "Sécurité",
+      "title": "Relecture et contrôle des correctifs de sécurité (18 novembre)",
+      "detail": "Les quatre correctifs ont été relus avant leur mise en ligne. Quatre erreurs trouvées et corrigées : un filtre d'adresses qui ne filtrait presque rien, un export réparé sans vérification d'identité, un conflit entre deux lots, une migration qui aurait bloqué la signature dans l'app déjà publiée. Après fusion : 382 tests du site et 228 tests de l'app passent, le site compile."
     }
   ]
 }
