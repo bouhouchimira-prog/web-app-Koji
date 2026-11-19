@@ -5,6 +5,7 @@ import { apiGet, apiSend } from "../lib/client-api";
 import { fixText } from "../lib/text";
 import { chiffresEncaissements, etatPaiement, lireReleveCsv, rapprocher, resteDu } from "../lib/encaissements";
 import { creditsSur } from "./PaiementPanneau";
+import { PaiementEnLigneEncaissements } from "./PaiementEnLigne";
 
 // Onglet Encaissements de Factures (maquette PRO-06.3) : trois chiffres,
 // état de paiement de chaque facture, rapprochement d'un relevé bancaire
@@ -162,11 +163,7 @@ export function EncaissementsOnglet({ invoices = [], onMarquer, onVoir, onInvoic
           {note ? <p className="notice" role="status">{note}</p> : null}
           <p className="sm2">Koji n'est pas relié à votre banque : vous déposez le relevé, il propose, vous confirmez.</p>
         </section>
-        <section className="card">
-          <div className="card-h"><h2>Paiement en ligne</h2><span className="enc-etat off">Bientôt</span></div>
-          <p className="sm2">Carte et virement instantané par notre prestataire de paiement · reçu automatique au client.</p>
-          <p className="sm2">Frais à la charge de l'entreprise, affichés avant activation. Koji ne détient pas les fonds.</p>
-        </section>
+        <PaiementEnLigneEncaissements />
       </div>
     </>
   );

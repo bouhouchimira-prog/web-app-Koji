@@ -55,6 +55,18 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="${applicationId}" android:host="login-callback" />
             </intent-filter>
+
+            <!-- Retour du paiement en ligne (Stripe) : la page /paiement-retour
+                 du site ouvre com.koji.client://paiement (ou com.koji.pro://
+                 paiement après l'inscription) ; l'app revient au premier plan
+                 et recharge l'écran. iOS : le schéma = identifiant de l'app,
+                 déjà déclaré dans Info.plist. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}" android:host="paiement" />
+            </intent-filter>
         </activity>
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"

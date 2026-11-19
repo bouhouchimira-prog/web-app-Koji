@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ClientTopbar, CHARTE_CLIENT } from "../../../components/ClientTopbar";
-import { ListePaiements } from "../../../components/PaiementsClient";
+import { BoutonPayer, ListePaiements, RetourPaiement } from "../../../components/PaiementsClient";
 import "../cli02.css";
 
 // Koji Client · « Paiements » (maquette CLI-02) : les factures de tous les
 // chantiers du particulier, regroupées par chantier, avec le même rendu que
-// l'onglet Paiements d'un chantier (GET /api/client/paiements). Pas de
-// paiement en ligne : chaque facture se télécharge et se règle par virement.
+// l'onglet Paiements d'un chantier (GET /api/client/paiements). « Payer »
+// seulement quand l'entreprise encaisse en ligne ; sinon, le virement.
 
 export default function PaiementsClient() {
   const [etat, setEtat] = useState("chargement"); // chargement | pret | deconnecte | erreur
@@ -52,6 +52,7 @@ export default function PaiementsClient() {
       <div className="kc2-in">
         <h1 className="kc-h kc-d">Paiements</h1>
         <h1 className="kc-ph kc-t">Paiements</h1>
+        <RetourPaiement />
         {vue.groupes.length ? vue.groupes.map((g) => (
           <section key={g.id} className="kc2-groupe" aria-label={g.titre}>
             <div className="kc2-gh">
@@ -64,6 +65,7 @@ export default function PaiementsClient() {
                 <span>{g.paiements.aPayer.titre}</span>
                 <b>{g.paiements.aPayer.montant}</b>
                 <small>{g.paiements.aPayer.detail}</small>
+                {g.paiements.aPayer.payer ? <div style={{ marginTop: 10 }}><BoutonPayer aPayer={g.paiements.aPayer} retour="paiements" className="kc-btn sm" /></div> : null}
                 <a className="kc-sec" style={{ marginTop: 10, background: "#FFFFFF" }} href={g.paiements.aPayer.pdf} download>Télécharger la facture</a>
               </div>
             ) : null}

@@ -4,14 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/apps/client/client_chantier_widgets.dart';
+import 'package:koji/apps/client/client_paiement_en_ligne.dart';
 import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 
 /// « Paiements » (maquette CLI-02), l'onglet de la barre du bas : les
 /// factures de tous les chantiers, regroupées par chantier
 /// (GET /api/client/paiements), avec le rendu de l'onglet Paiements d'un
-/// chantier. Pas de bouton « Payer » : aucun paiement en ligne, chaque
-/// facture se télécharge et se règle par virement.
+/// chantier. « Payer » seulement quand l'entreprise encaisse en ligne
+/// (aPayer.payer) ; sinon, la facture se télécharge et se règle par virement.
 /// Gabarit web : app/client/paiements/page.jsx.
 class ClientPaiementsScreen extends ConsumerWidget {
   const ClientPaiementsScreen({super.key});
@@ -83,7 +84,7 @@ class ClientPaiementsScreen extends ConsumerWidget {
           for (final (i, g) in groupes.indexed) ...[
             if (i > 0) const SizedBox(height: 16),
             _EnTete(groupe: g),
-            ..._paiementsDuGroupe(g, ouvrir),
+            ..._paiementsDuGroupe(g, ouvrir, actualiser),
           ],
           if (texteSite(vue['note']).isNotEmpty) ClNote(texteSite(vue['note'])),
         ],
@@ -102,8 +103,10 @@ class ClientPaiementsScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _paiementsDuGroupe(Map<String, dynamic> g,
-      Future<void> Function(String chemin, String titre) ouvrir) {
+  List<Widget> _paiementsDuGroupe(
+      Map<String, dynamic> g,
+      Future<void> Function(String chemin, String titre) ouvrir,
+      VoidCallback actualiser) {
     final p = mapSite(g['paiements']);
     final aPayer = mapSite(p['aPayer']);
     return [
@@ -122,6 +125,9 @@ class ClientPaiementsScreen extends ConsumerWidget {
                   onPressed: () => ouvrir(
                       texteSite(aPayer['pdf']), texteSite(aPayer['detail']))),
         ),
+      // « Payer » quand l'entreprise de ce chantier encaisse en ligne.
+      if (mapSite(aPayer['payer']).isNotEmpty)
+        ClPayer(aPayer: aPayer, onRetour: actualiser),
     ];
   }
 }

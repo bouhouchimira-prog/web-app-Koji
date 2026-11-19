@@ -8,6 +8,7 @@ import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/factures/factures_logic.dart';
 import 'package:koji/features/factures/factures_repository.dart';
 import 'package:koji/features/factures/factures_widgets.dart';
+import 'package:koji/features/factures/paiement_en_ligne_pro.dart';
 
 const encaissementsRoute = '/facturation/encaissements';
 
@@ -106,6 +107,8 @@ class EncaissementsScreen extends ConsumerWidget {
             expand: true,
             onPressed: () => dues.length == 1 ? showPaymentSheet(context, ref, dues.first, data) : _pick(context, ref, data, dues),
           ),
+        // Paiement en ligne (Stripe Connect) : rien tant qu'il n'est pas ouvert.
+        const PaiementEnLigneCarte(),
       ],
     );
   }

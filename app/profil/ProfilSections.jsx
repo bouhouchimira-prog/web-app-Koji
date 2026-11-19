@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet, fetchWithAuthRetry } from "../../lib/client-api";
 import "./profil-sections.css";
+import { PaiementEnLigneProfil } from "../../components/PaiementEnLigne";
 import { JOURS, REGIMES_TVA, conditionsDefaut, disponibilitesDe, libelleDisponibilite, masquerSiren, mentionsObligatoires, qualificationsDe, regimeTva, sirenDe } from "../../lib/compte-pro";
 
 // Sections du profil (maquettes PRO-15 et PRO-15.2) : étapes qui disent ce
@@ -159,7 +160,7 @@ export function DevisFactures({ business, setField, labels }) {
           <label>{labels.bic}<input value={business.bic || ""} onChange={(e) => setField("bic", e.target.value)} placeholder="BNPAFRPP" /></label>
           <label>{labels.bankHolder}<input value={business.bankHolder || ""} onChange={(e) => setField("bankHolder", e.target.value)} /></label>
         </div>
-        <div className="row"><div className="t"><strong>Paiement en ligne par carte et virement</strong><small>bientôt · prestataire et frais par paiement à fixer</small></div><span className="tag tag-o">Bientôt</span></div>
+        <PaiementEnLigneProfil />
       </section>
 
       <section className="card">
