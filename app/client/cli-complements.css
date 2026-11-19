@@ -1,0 +1,33 @@
+/* Koji Client · compléments (CLI-02, CLI-03, CLI-04) : photo « après »,
+   galerie des photos du chantier, original d'un message traduit,
+   formulaire de rétractation dans l'espace. Univers Client : angles droits,
+   marine, sable, riz. */
+
+/* Message traduit : l'original sous le texte (CLI-03). */
+.kcx-orig{display:block;margin-top:4px;padding-top:6px;border-top:1px solid #E6E2DA;font-size:13px;color:#6B6A66;white-space:pre-wrap}
+.kc3-bub.out .kcx-orig{border-top-color:rgba(255,255,255,.25);color:#C9CDE0}
+
+/* Rétractation (même bloc que la page du lien de signature). */
+.ksg-form-r{background:#FFFFFF;border:1px solid #E6E2DA;padding:14px 16px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+.ksg-form-r p{margin:0}
+.ksg-form-r p:first-child{font-weight:700}
+
+/* Photo « après » du suivi (`.cw-ph`, `.cl-hero`) : date et auteur en bas,
+   « Après » en haut. */
+.kcx-ph{position:relative;display:block;width:100%;line-height:0;overflow:hidden;background:#E6E2DA;border:0;padding:0;cursor:pointer}
+.kcx-ph img{display:block;width:100%;height:auto;max-height:300px;object-fit:cover}
+.kcx-ph .ph-st{position:absolute;left:6px;bottom:6px;background:rgba(23,27,30,.85);color:#FFFFFF;font-size:11px;line-height:1.2;padding:4px 6px;font-variant-numeric:tabular-nums;font-weight:600}
+.kcx-ph .ph-k{position:absolute;left:6px;top:6px;background:#FFFFFF;color:#171B1E;font-size:10px;line-height:1;padding:4px 6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+@media (min-width:900px){.kcx-ph{margin:14px 0}.kcx-ph .ph-st{left:12px;bottom:12px;font-size:12px;padding:5px 8px}}
+
+/* Galerie « Photos du chantier » (Documents) : par étape. */
+.kcx-gal{display:flex;flex-direction:column;gap:14px;background:#FFFFFF;border:1px solid #E6E2DA;padding:14px}
+.kcx-gal h3{margin:0;font-size:13px;font-weight:700;color:#101529}
+.kcx-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.kcx-grille .kcx-ph img{aspect-ratio:4/3;max-height:none}
+.kcx-gal-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.kcx-gal-h b{font-size:14px}
+.kcx-zoom{position:fixed;inset:0;z-index:80;background:rgba(16,21,41,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px}
+.kcx-zoom img{max-width:100%;max-height:80vh;object-fit:contain}
+.kcx-zoom p{margin:0;color:#FFFFFF;font-size:13px}
+.kcx-zoom button{background:#FFFFFF;color:#101529;border:1px solid #FFFFFF;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}

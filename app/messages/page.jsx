@@ -45,18 +45,22 @@ function Fil({ cle, onLu, onRetour }) {
   async function envoyer(dejaTraduit = "") {
     let t = texte.trim();
     if (!t || !d) return;
+    // Texte écrit dans la langue de l'artisan, gardé avec le message traduit
+    // (le client peut « voir l'original », CLI-03).
+    let original = "";
     setBusy(true); setErreur("");
     try {
       if (langue?.sortant && !dejaTraduit) {
         const x = await apiSend("/api/traduire", { textes: [t], vers: "fr", depuis: langue.langue, genre: "message" });
         if (langue.apercu) { setApercu({ original: t, traduit: x.traductions[0] }); setBusy(false); return; }
+        original = t;
         t = x.traductions[0] || t;
-      } else if (dejaTraduit) t = dejaTraduit;
+      } else if (dejaTraduit) { original = apercu?.original || ""; t = dejaTraduit; }
       setApercu(null);
       if (d.fil.echangeId) await apiSend("/api/reseau", { action: "message", echangeId: d.fil.echangeId, text: t });
       else if (d.fil.leadId) await apiSend("/api/kojipage/demandes", { action: "repondre", id: d.fil.leadId, texte: t });
       else if (d.fil.quoteId) await apiSend(`/api/quotes/${d.fil.quoteId}/messages`, { texte: t });
-      else await apiSend(`/api/marketplace/offres/${d.fil.offreId}/messages`, { message: t });
+      else await apiSend(`/api/marketplace/offres/${d.fil.offreId}/messages`, { message: t, ...(original && original !== t ? { original, langueOriginale: langue.langue } : {}) });
       setTexte("");
       await charger();
     } catch (e) { setErreur(e.message); }
@@ -92,6 +96,15 @@ function Fil({ cle, onLu, onRetour }) {
               {j.messages.map((m) => {
                 const traduit = !m.entreprise && langue?.entrant ? trad[m.texte] : "";
                 const voir = langue?.original || originaux[m.id];
+                // Votre message, écrit dans votre langue et envoyé en français.
+                if (m.entreprise && m.traduction?.original) {
+                  return (
+                    <div key={m.id} className="m2-m me">
+                      <div className="m2-b" dir="auto">{m.texte}{originaux[m.id] ? <span className="m2-orig" dir={m.traduction.sens === "rtl" ? "rtl" : "auto"}>Votre original : {m.traduction.original}</span> : null}</div>
+                      <small>{m.heure} · traduit du {m.traduction.langue} · <button type="button" className="m2-lien" onClick={() => setOriginaux((o) => ({ ...o, [m.id]: !o[m.id] }))}>{originaux[m.id] ? "masquer l'original" : "voir l'original"}</button></small>
+                    </div>
+                  );
+                }
                 return (
                   <div key={m.id} className={`m2-m ${m.entreprise ? "me" : "th"}`}>
                     <div className="m2-b" dir="auto">{traduit && traduit !== m.texte ? traduit : m.texte}{traduit && traduit !== m.texte && voir ? <span className="m2-orig">Original en français : {m.texte}</span> : null}</div>

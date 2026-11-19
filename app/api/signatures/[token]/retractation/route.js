@@ -1,15 +1,13 @@
 import { ok, badRequest } from "../../../../../lib/http";
-import { addHistory, readDb, writeDb } from "../../../../../lib/db";
 import { fixText } from "../../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../../lib/supabase";
 import { mapQuote } from "../../../../../lib/quote-mapping";
-import { sendClientMessageEmail } from "../../../../../lib/mailer";
 import { getVerifiedSignatureToken, signatureAccessExpired } from "../../../../../lib/signature-session";
+import { retracterDevis } from "../../../../../lib/retractation-devis";
 
-// « Me rétracter » (maquette PRO-03.7) : le client particulier annule le
-// devis signé, sans motif, jusqu'à la fin du délai (inclus). Devis annulé,
-// chantier retiré du planning, l'entreprise est prévenue avec le rappel du
-// remboursement sous 14 jours.
+// « Me rétracter » (maquette PRO-03.7) depuis le lien de signature : session
+// de signature vérifiée, puis le même enregistrement que l'espace Koji
+// Client (lib/retractation-devis.js).
 export async function POST(request, context) {
   const { token } = await context.params;
   if (!token) return badRequest("Lien de signature invalide.", 404);
@@ -24,77 +22,11 @@ export async function POST(request, context) {
     .maybeSingle();
   if (error) return badRequest("Rétractation impossible pour le moment.", 500);
   if (!row) return badRequest("Lien de signature invalide.", 404);
-  const quote = mapQuote(row);
-  if (signatureAccessExpired(quote)) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
+  if (signatureAccessExpired(mapQuote(row))) return badRequest("Ce lien a expiré. Demandez un nouveau lien à votre artisan.", 410);
 
-  const jour = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
-  if (quote.retracteLe) return ok({ quote: vuClient(quote) });
-  if (quote.signatureStatus !== "Signe") return badRequest("Ce devis n'est pas signé.", 409);
-  if (!quote.retractationJusquau) return badRequest("Ce devis n'ouvre pas de droit de rétractation.", 409);
-  if (quote.retractationJusquau < jour) return badRequest("Le délai de rétractation est terminé.", 409);
-
-  const now = new Date().toISOString();
-  const web_extras = { ...(row.web_extras || {}), retracteLe: now, cancelledAt: now };
-  const { data: updatedRow, error: updateError } = await supabase
-    .from("quotes")
-    .update({ status: "Annule", web_extras })
-    .eq("id", quote.id)
-    .select("*")
-    .single();
-  if (updateError || !updatedRow) return badRequest("Rétractation impossible pour le moment.", 500);
-  const updated = mapQuote(updatedRow);
-
-  if (updated.projectId) {
-    await supabase.from("chantiers").update({ status: "Archive" }).eq("id", updated.projectId);
-  }
-
-  const db = await readDb();
-  const client = fixText(updated.signerName || updated.client || "Le client");
-  db.notifications.unshift({
-    id: `notif-retractation-${updated.id}-${Date.now()}`,
-    userId: updated.userId || "",
-    type: "quote.retracted",
-    title: "Rétractation reçue",
-    message: `${client} s'est rétracté du devis ${updated.quoteNumber}. Devis annulé, chantier retiré du planning. Remboursement des sommes versées à faire sous 14 jours.`,
-    quoteId: updated.id,
-    projectId: updated.projectId || "",
-    actionUrl: `/devis?quote=${updated.id}`,
-    actionLabel: "Voir le devis",
-    read: false,
-    createdAt: now
-  });
-  addHistory(db, {
-    userId: updated.userId || "",
-    type: "quote.retracted",
-    label: `Rétractation du client : ${updated.quoteNumber}`,
-    entityId: updated.id,
-    entityType: "quote"
-  });
-  await writeDb(db);
-
-  // E-mail à l'entreprise : uniquement l'adresse de CE compte (jamais un
-  // repli sur un autre utilisateur).
-  const owner = (db.users || []).find((u) => u.id && u.id === updated.userId);
-  const emailEntreprise = updated.company?.email || owner?.business?.emailPro || owner?.email || "";
-  if (emailEntreprise) {
-    const le = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" }).format(new Date(now));
-    await sendClientMessageEmail({
-      to: emailEntreprise,
-      subject: `Rétractation reçue · devis ${updated.quoteNumber}`,
-      message: [
-        "Bonjour,",
-        "",
-        `${client} s'est rétracté le ${le} du devis ${updated.quoteNumber}, dans le délai légal.`,
-        "Le devis est annulé et le chantier retiré du planning.",
-        "Les sommes déjà versées sont à rembourser au plus tard 14 jours après cette date.",
-        "",
-        "Koji"
-      ].join("\n"),
-      replyTo: updated.clientEmail || undefined
-    }).catch(() => null);
-  }
-
-  return ok({ quote: vuClient(updated) });
+  const resultat = await retracterDevis(row, { origine: "lien" });
+  if (resultat.erreur) return badRequest(resultat.erreur, resultat.code);
+  return ok({ quote: vuClient(resultat.quote) });
 }
 
 // Ce que la page de signature relit après la rétractation.

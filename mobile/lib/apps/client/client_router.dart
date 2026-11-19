@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
 import 'package:koji/apps/client/client_shell.dart';
+import 'package:koji/apps/client/signature_lien/client_signature_lien_screen.dart';
 import 'package:koji/apps/client/screens/client_accueil_screen.dart';
 import 'package:koji/apps/client/client_widgets.dart';
 import 'package:koji/apps/client/screens/client_aide_screen.dart';
@@ -18,7 +19,7 @@ import 'package:koji/apps/client/screens/client_parametres_screen.dart';
 import 'package:koji/apps/client/screens/client_profil_screen.dart';
 import 'package:koji/apps/client/screens/client_propositions_screen.dart';
 import 'package:koji/apps/client/screens/client_retrouver_screen.dart';
-import 'package:koji/core/route_args.dart';
+import 'package:koji/apps/client/screens/client_urgence_screen.dart';
 import 'package:koji/features/auth/koji_auth_screen.dart';
 import 'package:koji/features/client/client_messages_screen.dart';
 import 'package:koji/features/client/client_tasks_screen.dart';
@@ -26,13 +27,10 @@ import 'package:koji/features/marketplace/marketplace_home_screen.dart';
 import 'package:koji/features/marketplace/marketplace_login_screen.dart';
 import 'package:koji/features/marketplace/marketplace_new_screen.dart';
 import 'package:koji/features/marketplace/marketplace_offer_detail_screen.dart';
-import 'package:koji/features/signature/signature_list_screen.dart';
-import 'package:koji/features/signature/signature_screen.dart';
-import 'package:koji/features/signature/signature_success_screen.dart';
 import 'package:koji/features/splash/splash_screen.dart';
 
 // Routes of the client app (Koji). The paths used by the existing client
-// screens ('/client-home', '/client/…', '/signature/…') are kept so those
+// screens ('/client-home', '/client/…') are kept so those
 // screens keep working unchanged inside the new shell.
 
 Page<dynamic> _fade(GoRouterState state, Widget child) {
@@ -71,6 +69,15 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
         _page('/client/marketplace/login',
             (_) => const ClientRetrouverScreen()),
         _page('/client/connexion', (_) => const MarketplaceLoginScreen()),
+        // « J'ai reçu un lien de signature » (maquette CLI-07) : le devis
+        // reçu par e-mail se signe dans l'app, sans compte. « ?lien= » : le
+        // lien ou l'identifiant déjà connu.
+        _page(
+          '/client/signature-lien',
+          (state) => ClientSignatureLienScreen(
+            lien: state.uri.queryParameters['lien'] ?? '',
+          ),
+        ),
         // Un devis ou chantier du site (maquette CLI-02), 4 onglets ;
         // « ?onglet=devis|chantier|paiements|documents ». Hors coquille : la
         // page pose elle-même la barre du bas, absente pendant la signature.
@@ -96,6 +103,18 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
           (state) => ClientPropositionsScreen(
             offerId: state.pathParameters['offerId']!,
           ),
+        ),
+        // Urgences (maquette PRO-17, Koji Client › Urgence) : plein écran.
+        _page('/client/urgence', (_) => const ClientUrgenceScreen()),
+        _page(
+          '/client/urgence/nouvelle/:categorie',
+          (state) => ClientUrgenceScreen(
+            categorie: state.pathParameters['categorie'],
+          ),
+        ),
+        _page(
+          '/client/urgence/:id',
+          (state) => ClientUrgenceSuiviScreen(id: state.pathParameters['id']!),
         ),
         ShellRoute(
           builder: (context, state, child) => ClientShell(
@@ -147,15 +166,9 @@ GoRouter buildClientRouter({bool requireSession = true}) => GoRouter(
                 offerId: state.pathParameters['offerId']!,
               ),
             ),
-            _page('/signature/list', (_) => const SignatureListScreen()),
-            _page('/signature/sign', (state) {
-              final extra = state.extra;
-              final quote = extra is SignatureArgs
-                  ? extra.quote
-                  : extra as Map<String, dynamic>? ?? {};
-              return SignatureScreen(quote: quote);
-            }),
-            _page('/signature/success', (_) => const SignatureSuccessScreen()),
+            // L'ancien circuit /signature/* (écrans Supabase) est retiré : un
+            // devis se signe dans /client/devis/:quoteId ou, par lien, dans
+            // /client/signature-lien (règles et preuves du site).
           ],
         ),
       ],

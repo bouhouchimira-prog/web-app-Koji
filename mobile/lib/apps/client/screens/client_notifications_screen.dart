@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:koji/app/koji_web_api_client.dart';
+import 'package:koji/apps/client/client_chantier_widgets.dart';
 import 'package:koji/apps/client/client_dates.dart';
 import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
@@ -15,15 +16,36 @@ const _famille = {
   'radar.message': 'Nouveau message',
   'radar.positionnement': 'Entreprise positionnée',
   'radar.expertise_publiee': 'Demande publiée',
+  // CLI-04 (lib/notifications-particulier.js du site).
+  'devis.a_signer': 'Devis à signer',
+  'devis.nouvelle_version': 'Nouvelle version',
+  'visite.confirmee': 'Visite confirmée',
+  'facture.emise': 'Facture à payer',
+  'paiement.recu': 'Paiement reçu',
+  'reserve.levee': 'Réserve levée',
 };
 
 String _icone(dynamic type) => switch (type) {
       'radar.message' => ClIcones.messages,
       'radar.positionnement' => ClIcones.lieu,
-      'radar.rdv_confirme' => ClIcones.calendrier,
-      'radar.expertise_publiee' => ClIcones.devis,
+      'radar.rdv_confirme' || 'visite.confirmee' => ClIcones.calendrier,
+      'radar.expertise_publiee' ||
+      'devis.a_signer' ||
+      'devis.nouvelle_version' =>
+        ClIcones.devis,
+      'facture.emise' || 'paiement.recu' => ClIcones.paiement,
+      'reserve.levee' || 'task.pending_validation' => ClIcones.drapeau,
       _ => ClIcones.cloche,
     };
+
+/// Route de l'app pour un lien de l'espace client du site : le fil
+/// (`/client/messages?fil=…`, même adresse dans l'app) ou le devis et ses
+/// onglets (`/client/chantier/{id}?onglet=…`). Nulle sinon.
+String? _routeDuLien(dynamic lien) {
+  final texte = _s(lien);
+  if (texte.startsWith('/client/messages')) return texte;
+  return texte.isEmpty ? null : routeAppDuLienSite(texte);
+}
 
 String _titre(Map<String, dynamic> n) {
   final titre = _s(n['title']);
@@ -36,6 +58,12 @@ String _titre(Map<String, dynamic> n) {
 (String, String)? _action(Map<String, dynamic> n) {
   final offerId = _s(n['offerId']);
   final entreprise = _s(n['entrepriseUserId']);
+  // L'action enregistrée avec la notification (devis, facture, chantier).
+  final route = _routeDuLien(n['actionUrl']);
+  if (route != null) {
+    final libelle = _s(n['actionLabel']);
+    return (libelle.isEmpty ? 'Ouvrir' : libelle, route);
+  }
   if (n['type'] == 'radar.message' && offerId.isNotEmpty && entreprise.isNotEmpty) {
     return ('Ouvrir la conversation', _lienFil(offerId, entreprise));
   }
@@ -212,8 +240,10 @@ class _ClientNotificationsScreenState
                 ),
             ],
           ),
-        const ClInfo('Koji vous prévient quand une entreprise vous écrit ou '
-            'se positionne sur votre demande. Jamais de publicité.'),
+        const ClInfo('Un devis à signer ou sa nouvelle version, une entreprise '
+            'qui répond à votre demande, une visite confirmée, un message, '
+            "une facture à payer ou un paiement reçu, l'avancement du "
+            'chantier, une réserve levée. Jamais de publicité.'),
       ]);
     }
 
@@ -226,6 +256,13 @@ class _ClientNotificationsScreenState
     final entreprise = _s(n['entrepriseName']);
     final offerId = _s(n['offerId']);
     final entrepriseUserId = _s(n['entrepriseUserId']);
+    // Le détail enregistré avec la notification (CLI-04) : texte, objet
+    // (devis ou facture et montant), écart de version, rappel.
+    final texte = _s(n['texte']).isNotEmpty ? _s(n['texte']) : _s(n['message']);
+    final objet = n['objet'] is Map ? n['objet'] as Map : const {};
+    final ecart = n['ecart'] is Map ? n['ecart'] as Map : const {};
+    final routeEcart = _routeDuLien(ecart['lien']);
+    final rappel = _s(n['rappel']);
 
     // « Écrire à l'entreprise » seulement si un fil existe déjà avec elle.
     var filExiste = false;
@@ -251,13 +288,20 @@ class _ClientNotificationsScreenState
             ClPicto(_icone(n['type']), grand: true),
             const SizedBox(height: 12),
             Text(_titre(n), style: ClCharte.titre(22)),
-            if (_s(n['message']).isNotEmpty) ...[
+            if (texte.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(_s(n['message']),
-                  style: ClCharte.texte(14, hauteur: 1.5)),
+              Text(texte, style: ClCharte.texte(14, hauteur: 1.5)),
             ],
           ],
         ),
+        if (_s(objet['titre']).isNotEmpty)
+          ClRangee(titre: _s(objet['titre']), detail: _s(objet['detail'])),
+        if (_s(ecart['titre']).isNotEmpty)
+          ClRangee(
+            titre: _s(ecart['titre']),
+            detail: _s(ecart['detail']),
+            onTap: routeEcart == null ? null : () => context.push(routeEcart),
+          ),
         const SizedBox(height: 4),
         if (action != null)
           ClBouton(action.$1, onPressed: () {
@@ -273,6 +317,7 @@ class _ClientNotificationsScreenState
               secondaire: true,
               onPressed: () =>
                   context.go(_lienFil(offerId, entrepriseUserId))),
+        if (rappel.isNotEmpty) ClNote(rappel),
         Align(
           alignment: Alignment.centerLeft,
           child: ClLien('Supprimer cette notification',

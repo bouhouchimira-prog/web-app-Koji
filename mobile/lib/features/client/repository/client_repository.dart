@@ -1,12 +1,9 @@
-import 'dart:typed_data';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:koji/core/supabase_config.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:koji/features/offline/offline_cache_service.dart';
-import 'package:koji/features/signature/repository/signature_repository.dart';
 
 final clientRepositoryProvider = Provider<ClientRepository>((ref) {
   return ClientRepository(
@@ -71,20 +68,6 @@ class ClientRepository {
     final uid = _uid;
     if (uid == null) return [];
     return _userRepository.getClientTasks(uid, email: clientEmail);
-  }
-
-  /// Persist the client's signature for [quoteId] and flip the devis to
-  /// `signed`. Reuses the shared signature pipeline.
-  Future<void> signQuote({
-    required String quoteId,
-    required String clientName,
-    required Uint8List signatureBytes,
-  }) async {
-    await SignatureRepository().saveSignature(
-      quoteId,
-      clientName,
-      signatureBytes,
-    );
   }
 
   /// Client/both-audience notes (with replies) for one of the client's own

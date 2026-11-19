@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ClientTopbar, CHARTE_CLIENT } from "../../../../components/ClientTopbar";
 import { ClientNotifIcone } from "../../../../components/ClientNotifIcone";
-import { actionsNotification, cleFil, estPourClient, quandDetail, titreCourt, CE_QUE_KOJI_ENVOIE, OU_LES_RETROUVER } from "../../../../lib/notifications-client";
+import { actionsNotification, cleFil, detailNotification, estPourClient, quandDetail, titreCourt, CE_QUE_KOJI_ENVOIE, OU_LES_RETROUVER } from "../../../../lib/notifications-client";
 import "../../cli03.css";
 
 // Koji Client · détail d'une notification (maquette CLI-04) : le fait en
@@ -67,14 +67,30 @@ export default function NotificationDetail() {
   const quand = notif ? quandDetail(notif.createdAt) : "";
   const sous = notif ? [notif.entrepriseName, quand].filter(Boolean).join(" · ") : "";
 
+  const plus = notif ? detailNotification(notif) : null;
   const detail = etat === "pret" ? (
     <div className="kc3-det">
       <div className="kc3-dh">
         <ClientNotifIcone type={notif.type} grande />
         <h3>{notif.title || "Notification"}</h3>
-        {notif.message ? <p className="kc-p">{notif.message}</p> : null}
+        {plus.texte ? <p className="kc-p">{plus.texte}</p> : null}
       </div>
-      {projet || notif.taskLabel ? (
+      {plus.objet ? (
+        <div className="kc3-row fixe">
+          <div><strong>{plus.objet.titre}</strong>{plus.objet.detail ? <small>{plus.objet.detail}</small> : null}</div>
+        </div>
+      ) : null}
+      {plus.ecart ? (
+        plus.ecart.lien ? (
+          <Link className="kc3-row" href={plus.ecart.lien}>
+            <div><strong>{plus.ecart.titre}</strong>{plus.ecart.detail ? <small>{plus.ecart.detail}</small> : null}</div>
+            <span className="chev" aria-hidden="true">›</span>
+          </Link>
+        ) : (
+          <div className="kc3-row fixe"><div><strong>{plus.ecart.titre}</strong><small>{plus.ecart.detail}</small></div></div>
+        )
+      ) : null}
+      {!plus.objet && (projet || notif.taskLabel) ? (
         <div className="kc3-row fixe">
           <div>
             <strong>{projet ? "Projet" : "Ouvrage"}</strong>
@@ -84,6 +100,7 @@ export default function NotificationDetail() {
       ) : null}
       <Link className="kc-btn" href={actions.principale.lien}>{actions.principale.libelle}</Link>
       {actions.question ? <Link className="kc-sec" href={actions.question.lien}>{actions.question.libelle}</Link> : null}
+      {plus.rappel ? <p className="kc-n">{plus.rappel}</p> : null}
     </div>
   ) : etat === "introuvable" ? (
     <>

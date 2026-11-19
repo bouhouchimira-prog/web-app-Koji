@@ -4,6 +4,8 @@ import { getVerifiedPortalUserId } from "../../../../../../lib/portal-session";
 import { resolveEntreprise, loadEntrepriseSnapshot } from "../../../../../../lib/entreprise-auth";
 import { fixText } from "../../../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../../../lib/supabase";
+import { notifierParticuliers, notifVisiteConfirmee } from "../../../../../../lib/notifications-particulier";
+import { originalDuMessage, traductionPublique } from "../../../../../../lib/traduction-messages";
 
 // Messagerie interne Radar des Chantiers (module 4.5 du cahier des charges)
 // — un fil par (offre, entreprise). Cote entreprise : un seul fil, le sien.
@@ -28,6 +30,8 @@ function publicMessage(message) {
     rdvDate: message.rdvDate || null,
     respondsToId: message.respondsToId || null,
     rdvStatus: message.rdvStatus || null,
+    // Traduit par l'entreprise avant l'envoi : langue et texte d'origine.
+    traduction: traductionPublique(message),
     createdAt: message.createdAt
   };
 }
@@ -131,6 +135,7 @@ export async function POST(request, context) {
       senderType: "entreprise",
       message,
       ...kindFields,
+      ...(kindFields.kind === "text" && originalDuMessage(body, message) ? { original: originalDuMessage(body, message) } : {}),
       createdAt: now
     };
     db.chantierOffreMessages.push(entry);
@@ -217,8 +222,15 @@ export async function POST(request, context) {
         read: false,
         createdAt: now
       });
+      // Koji Client (CLI-04) : la visite confirmée reste dans les
+      // notifications du particulier, avec le lien du fil.
+      notifierParticuliers(db, [offre.userId], notifVisiteConfirmee(offre, {
+        entrepriseUserId,
+        entrepriseName: existingThread.entrepriseSnapshot?.raisonSociale || "",
+        rdvDate: proposition?.rdvDate || ""
+      }), now);
       if (proposition?.rdvDate) {
-        const fin = new Date(new Date(proposition.rdvDate).getTime() + 3600000).toISOString();
+        const fin =new Date(new Date(proposition.rdvDate).getTime() + 3600000).toISOString();
         await getSupabaseAdmin().from("calendar_events").insert({
           user_id: entrepriseUserId,
           title: `Visite · ${fixText(offre.clientName || "client")}`,

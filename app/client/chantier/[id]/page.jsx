@@ -8,9 +8,11 @@ import { SignatureDevisClient } from "../../../../components/SignatureDevisClien
 import { ClientFinChantier } from "../../../../components/ClientFinChantier";
 import { ClientAccordRealisation } from "../../../../components/ClientAccordRealisation";
 import { ClientSousTraitant } from "../../../../components/ClientSousTraitant";
-import { ListePaiements } from "../../../../components/PaiementsClient";
+import { BoutonPayer, ListePaiements, RetourPaiement } from "../../../../components/PaiementsClient";
 import "../../../../components/client-fin-chantier.css";
 import "../../cli02.css";
+import "../../cli-complements.css";
+import { RetractationDevis } from "../../../../components/RetractationDevis";
 
 // Koji Client · « signer, suivre, payer » (maquette CLI-02). Un devis ou un
 // chantier du particulier en quatre onglets : Devis (lecture, versions,
@@ -242,6 +244,53 @@ function TacheClient({ tache, vue, onValide }) {
   );
 }
 
+// Une photo « après » (PRO-02.2) : date et auteur en bas, « Après » en haut.
+// Le lien est temporaire (1 h), créé par le serveur.
+function PhotoApres({ photo, onOuvrir }) {
+  return (
+    <button type="button" className="kcx-ph" onClick={() => onOuvrir(photo)} aria-label={`Agrandir la photo après${photo.lot ? ` · ${photo.lot}` : ""}${photo.legende ? ` · ${photo.legende}` : ""}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={photo.url} alt={`Photo après${photo.lot ? ` · ${photo.lot}` : ""}`} loading="lazy" />
+      {photo.legende ? <span className="ph-st">{photo.legende}</span> : null}
+      <span className="ph-k">{photo.etiquette || "Après"}</span>
+    </button>
+  );
+}
+
+function Zoom({ photo, onFermer }) {
+  useEffect(() => {
+    const echap = (e) => { if (e.key === "Escape") onFermer(); };
+    window.addEventListener("keydown", echap);
+    return () => window.removeEventListener("keydown", echap);
+  }, [onFermer]);
+  return (
+    <div className="kcx-zoom" role="dialog" aria-modal="true" aria-label="Photo du chantier" onClick={onFermer}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={photo.url} alt={`Photo après${photo.lot ? ` · ${photo.lot}` : ""}`} />
+      <p>{[photo.lot, photo.legende].filter(Boolean).join(" · ")}</p>
+      <button type="button" onClick={onFermer}>Fermer</button>
+    </div>
+  );
+}
+
+// « Photos du chantier » : les photos « après », par étape.
+function Galerie({ photos, onOuvrir }) {
+  const etapes = [...new Set(photos.map((p) => p.lot || "Chantier"))];
+  return (
+    <div className="kcx-gal" id="photos">
+      <div className="kcx-gal-h"><b>Photos du chantier</b><small className="kc-s">photos après, par étape</small></div>
+      {etapes.map((etape) => (
+        <section key={etape}>
+          <h3>{etape}</h3>
+          <div className="kcx-grille">
+            {photos.filter((p) => (p.lot || "Chantier") === etape).map((p) => <PhotoApres key={p.id} photo={p} onOuvrir={onOuvrir} />)}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function LigneDoc({ d }) {
   const contenu = (
     <>
@@ -320,6 +369,15 @@ function OngletDevis({ vue, onSigne }) {
     onSigne(data.vue);
   }
 
+  // « Me rétracter » (PRO-03.7) : même règle et même formulaire que le lien.
+  async function retracter() {
+    const r = await fetch(`/api/client/chantier/${encodeURIComponent(vue.id)}/retractation`, { method: "POST", credentials: "same-origin" });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "La rétractation n'a pas pu être enregistrée.");
+    setMerci("");
+    onSigne(data.vue);
+  }
+
   const prixTel = (
     <div className="kc2-price kc-t" style={{ flexDirection: "column" }}>
       <span>{vue.titre}</span>
@@ -358,6 +416,9 @@ function OngletDevis({ vue, onSigne }) {
           <small>TTC{devis.signataire ? ` · signé par ${devis.signataire}` : ""}</small>
         </div>
         {devis.retractation ? <div className="kc-info">{devis.retractation.texte}</div> : null}
+        {devis.retractation?.etat === "ouvert" && devis.retractation.formulaire ? (
+          <RetractationDevis possible delai={devis.retractation.jusquau} formulaire={devis.retractation.formulaire} onRetracter={retracter} />
+        ) : null}
         {devis.etat === "autre" ? <div className="kc-info">Ce devis n'est pas encore envoyé pour signature par l'entreprise.</div> : null}
         <a className="kc-btn sm kc2-plein" href={devis.pdf} download>{devis.etat === "signe" ? "Télécharger le devis signé" : "Télécharger le devis"}</a>
         <Contact contact={vue.contact} libelle="Poser une question à l'entreprise" />
@@ -429,12 +490,15 @@ function ActionsChantier({ vue, alerte, setAlerte }) {
 function OngletChantier({ vue, messages, recharger }) {
   const c = vue.chantier;
   const [alerte, setAlerte] = useState(false);
+  const [zoom, setZoom] = useState(null);
   if (!c) return <p className="kc2-vide">Le suivi du chantier commence après la signature du devis.</p>;
   return (
     <div className="kc2-g">
       <div className="kc2-main">
         <div className="kc2-prog" role="progressbar" aria-valuenow={c.avancement.pourcent} aria-valuemin={0} aria-valuemax={100} aria-label="Avancement"><i style={{ width: `${c.avancement.pourcent}%` }} /></div>
         <small className="kc-s">{c.avancement.texte}</small>
+        {c.photo ? <PhotoApres photo={c.photo} onOuvrir={setZoom} /> : null}
+        {zoom ? <Zoom photo={zoom} onFermer={() => setZoom(null)} /> : null}
         <div className="kc-t" style={{ flexDirection: "column", gap: 10 }}><ActionsChantier vue={vue} alerte={alerte} setAlerte={setAlerte} /></div>
         {c.etapes.length ? (
           <div className="kc2-steps">
@@ -481,12 +545,13 @@ function OngletPaiements({ vue }) {
   const p = vue.paiements;
   return (
     <div className="kc2-g">
-      <div className="kc2-main"><ListePaiements paiements={p} /></div>
+      <div className="kc2-main"><RetourPaiement /><ListePaiements paiements={p} /></div>
       <div className="kc2-side">
         {p.aPayer ? (
           <>
             <div className="kc2-price" style={{ flexDirection: "column" }}><span>{p.aPayer.titre}</span><b>{p.aPayer.montant}</b><small>{p.aPayer.detail}</small></div>
-            <a className="kc-btn sm kc2-plein" href={p.aPayer.pdf} download>Télécharger la facture</a>
+            <BoutonPayer aPayer={p.aPayer} retour="chantier" />
+            <a className={p.aPayer.payer ? "kc-sec kc2-plein" : "kc-btn sm kc2-plein"} href={p.aPayer.pdf} download>Télécharger la facture</a>
           </>
         ) : p.lignes.length ? <div className="kc-info">Rien à payer pour le moment.</div> : null}
         <p className="kc-n">{p.note}</p>
@@ -496,10 +561,23 @@ function OngletPaiements({ vue }) {
 }
 
 function OngletDocuments({ vue }) {
+  const [galerie, setGalerie] = useState(false);
+  const [zoom, setZoom] = useState(null);
+  const photos = vue.chantier?.photos || [];
   return (
     <>
-      <div className="kc2-docs">{vue.documents.liste.map((d) => <LigneDoc key={d.id} d={d} />)}</div>
+      <div className="kc2-docs">
+        {vue.documents.liste.map((d) => (d.type === "photos" && photos.length ? (
+          <button key={d.id} type="button" className="kc2-row" onClick={() => setGalerie((v) => !v)} aria-expanded={galerie}>
+            <span className="ic"><Icone nom="photo" /></span>
+            <div><strong>{d.titre}</strong><small>{d.detail}</small></div>
+            <span className="chev">{galerie ? "˄" : "›"}</span>
+          </button>
+        ) : <LigneDoc key={d.id} d={d} />))}
+      </div>
+      {galerie ? <Galerie photos={photos} onOuvrir={setZoom} /> : null}
       <p className="kc-n">{vue.documents.note}</p>
+      {zoom ? <Zoom photo={zoom} onFermer={() => setZoom(null)} /> : null}
     </>
   );
 }

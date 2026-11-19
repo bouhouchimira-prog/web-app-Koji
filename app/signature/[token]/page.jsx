@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import KojiWordmark from "../../../components/KojiWordmark";
 import { CHARTE_CLIENT } from "../../../components/ClientTopbar";
 import { SignatureDevisClient } from "../../../components/SignatureDevisClient";
+import { RetractationDevis } from "../../../components/RetractationDevis";
 import { formulaireRetractation } from "../../../lib/signature-lieu";
 import "../../client/cli02.css";
 import "./signature.css";
@@ -65,50 +66,28 @@ function DocDevis({ devis, entreprise }) {
   );
 }
 
+// Le bloc est partagé avec l'onglet Devis de Koji Client
+// (components/RetractationDevis.jsx) ; ici, l'action passe par le lien.
 function Retractation({ quote, token, onRetracte }) {
-  const [ouvert, setOuvert] = useState(false);
-  const [confirmer, setConfirmer] = useState(false);
-  const [envoi, setEnvoi] = useState(false);
-  const [erreur, setErreur] = useState("");
   const aujourdhui = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
   const fin = quote.retractationJusquau || "";
   if (!fin || quote.retracteLe) return null;
-  const possible = fin >= aujourdhui;
 
   async function seRetracter() {
-    setEnvoi(true);
-    setErreur("");
     const r = await fetch(`/api/signatures/${encodeURIComponent(token)}/retractation`, { method: "POST" });
     if (r.status === 401) { window.location.replace(`/signature/login?signatureToken=${encodeURIComponent(token)}`); return; }
     const data = await r.json().catch(() => ({}));
-    setEnvoi(false);
-    if (!r.ok) { setErreur(data.error || "La rétractation n'a pas pu être enregistrée."); return; }
+    if (!r.ok) throw new Error(data.error || "La rétractation n'a pas pu être enregistrée.");
     onRetracte(data.quote || {});
   }
 
   return (
-    <>
-      <button type="button" className="kc2-lien" onClick={() => setOuvert((v) => !v)} aria-expanded={ouvert}>Je changerai d'avis : où est le formulaire ?</button>
-      {ouvert ? (
-        <div className="ksg-form-r">
-          <p>{possible ? `Vous pouvez annuler sans motif jusqu'au ${new Date(`${fin}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })} inclus.` : "Le délai de rétractation est terminé."}</p>
-          {possible ? <p>Le formulaire est à la dernière page de votre exemplaire. Vous pouvez aussi l'envoyer à l'entreprise, ou annuler ici.</p> : null}
-          {formulaireRetractation({ entreprise: quote.company?.name, adresse: quote.company?.address, email: quote.company?.email }).map((l, i) => <p key={i} style={i === 0 ? {} : { fontWeight: 400 }}>{l}</p>)}
-          {possible ? (
-            confirmer ? (
-              <div className="kc2-form" style={{ marginTop: 6 }}>
-                <p>Confirmez-vous l'annulation de ce devis ? L'entreprise en sera prévenue et vous rembourse les sommes versées sous 14 jours.</p>
-                <div className="kc2-actions">
-                  <button type="button" className="kc-sec" onClick={() => setConfirmer(false)}>Garder le devis</button>
-                  <button type="button" className="kc-sec" onClick={seRetracter} disabled={envoi}>{envoi ? "Envoi…" : "Je me rétracte"}</button>
-                </div>
-              </div>
-            ) : <button type="button" className="kc-sec" style={{ marginTop: 6 }} onClick={() => setConfirmer(true)}>Me rétracter</button>
-          ) : null}
-          {erreur ? <p className="kc-alerte" role="alert">{erreur}</p> : null}
-        </div>
-      ) : null}
-    </>
+    <RetractationDevis
+      possible={fin >= aujourdhui}
+      delai={`Vous pouvez annuler sans motif jusqu'au ${new Date(`${fin}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })} inclus.`}
+      formulaire={formulaireRetractation({ entreprise: quote.company?.name, adresse: quote.company?.address, email: quote.company?.email })}
+      onRetracter={seRetracter}
+    />
   );
 }
 
