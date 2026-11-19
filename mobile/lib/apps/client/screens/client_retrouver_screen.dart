@@ -161,9 +161,6 @@ class _ClientRetrouverScreenState extends ConsumerState<ClientRetrouverScreen> {
     );
   }
 
-  Widget _petit(String texte) => Text(texte,
-      style: ClCharte.texte(12, couleur: ClCharte.gris, hauteur: 1.45));
-
   /// Phrase grise (`.cl-s`) avec des liens soulignés dans le fil du texte :
   /// une chaîne est du texte, un couple (texte, action) un lien.
   Widget _phrase(List<Object> morceaux) {
@@ -252,8 +249,15 @@ class _ClientRetrouverScreenState extends ConsumerState<ClientRetrouverScreen> {
                     ('Décrire un projet', _decrireProjet),
                     ' : créez votre accès, puis décrivez vos travaux.',
                   ]),
-                  _petit('Un lien reçu par e-mail (devis à signer) ouvre '
-                      'directement le document, sans cette étape.'),
+                  // CLI-07 : le devis reçu par e-mail se signe dans l'app.
+                  _phrase([
+                    'Un devis à signer reçu par e-mail ? ',
+                    (
+                      "J'ai reçu un lien de signature",
+                      () => context.push('/client/signature-lien')
+                    ),
+                    ' : il s\'ouvre ici, sans cette étape.',
+                  ]),
                   _phrase([('Se connecter avec un mot de passe', _motDePasse)]),
                 ]),
               ),

@@ -11,6 +11,8 @@ import { demanderAvis } from "../../../lib/avis-serveur";
 import { calculerSituation } from "../../../lib/situation-travaux";
 import { computeQuoteItem } from "../../../lib/quote-calculations";
 import { avecProfil } from "../../../lib/document-profil.js";
+import { notifFactureEmise, notifPaiementRecu } from "../../../lib/notifications-particulier";
+import { notifierParticuliersDuDevis } from "../../../lib/notifications-particulier-serveur";
 
 // Quotes/chantiers now live in Supabase; invoices stay local for now (not yet
 // shared with the mobile app), so this fetches the two via the service_role
@@ -410,6 +412,8 @@ export async function PATCH(request) {
   const now = new Date().toISOString();
   const invoice = db.invoices[index];
   const action = body.action || "update";
+  const etaitBrouillon = invoice.status === "Brouillon";
+  let paiementAjoute = null;
 
   // Corbeille (16 oct) : "delete" archivait deja la facture avant (statut
   // "Annulee" la plupart du temps) mais la supprimait instantanement et
@@ -534,6 +538,7 @@ export async function PATCH(request) {
       resteChantier = toAmount(Math.max(0, totalChantier - encaisseChantier));
     }
     ajout.paiement.resteChantier = resteChantier;
+    paiementAjoute = ajout.paiement;
     if (body.recu === true && invoice.clientEmail) {
       const { data: owner } = await getSupabaseAdmin().from("users").select("email").eq("id", invoice.userId).maybeSingle();
       await avecProfil(db, invoice.userId);
@@ -571,6 +576,16 @@ export async function PATCH(request) {
   const quote = quoteRow ? mapQuote(quoteRow) : null;
   const project = projectRow ? mapChantierLite(projectRow) : null;
   const summary = buildBillingSummary(db, quote, project, userId);
+
+  // Koji Client (CLI-04) : facture émise (paiement à faire) ou paiement
+  // enregistré, dans les notifications du particulier qui a un compte.
+  if (quote && invoice.kind !== "avoir") {
+    const jour = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date(now));
+    const notif = (action === "send" || action === "issue") && etaitBrouillon && invoice.status === "Emise"
+      ? notifFactureEmise(invoice, quote, { factures: db.invoices, aujourdhui: jour })
+      : action === "payment" && paiementAjoute ? notifPaiementRecu(invoice, quote, paiementAjoute) : null;
+    if (notif) await notifierParticuliersDuDevis(db, quote, notif, { maintenant: now });
+  }
 
   addHistory(db, {
     userId: invoice.userId || userId,

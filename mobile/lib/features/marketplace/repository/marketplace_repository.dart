@@ -78,6 +78,15 @@ class MarketplaceRepository {
     ) as Map<String, dynamic>;
   }
 
+  /// « Me rétracter » depuis l'onglet Devis (PRO-03.7) : même règle que le
+  /// lien de signature. Renvoie `{ ok, vue }`, `vue` ayant la forme du GET.
+  Future<Map<String, dynamic>> retracterDevisClient(String quoteId) async {
+    return await _api.postJson(
+      '/api/client/chantier/${Uri.encodeComponent(quoteId)}/retractation',
+      const {},
+    ) as Map<String, dynamic>;
+  }
+
   /// « Paiements » de tous les chantiers : `groupes`, `aPayer`, `vide`,
   /// `note` (GET /api/client/paiements).
   Future<Map<String, dynamic>> getPaiementsClient() async {

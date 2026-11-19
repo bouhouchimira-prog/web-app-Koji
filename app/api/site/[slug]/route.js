@@ -8,6 +8,7 @@ import { statsAvis } from "../../../../lib/avis";
 import { couleurDe, delaiReponseMoyen, libellePrix, offreKojiPage, photosRealisation, sectionsDe, statutRealisation, verifications } from "../../../../lib/kojipage";
 import { compterVisite, demandesDe, refsDuSite, urlsPhotos, urlPublique } from "../../../../lib/kojipage-serveur";
 import { contenuCarte } from "../../../../lib/kojipage-carte";
+import { plaquePublique } from "../../../../lib/parcours-serveur";
 
 // KojiPage publique (maquette PRO-13.2) — route PUBLIQUE, aucune session
 // pour une page en ligne. Sert la version PUBLIÉE (« Publier les
@@ -48,6 +49,10 @@ export async function GET(request, context) {
   const b = webUser.business || {};
   const vue = publicSiteView(contenu, b, webUser.professions);
   const delai = delaiReponseMoyen(demandesDe(db, site.userId));
+  // Plaque de chantier (PRO-26 v2, talent Vitrine) : grade à partir de
+  // Compagnon, chiffres de preuve, trois distinctions ; jamais de niveau,
+  // de points ni de talents.
+  const plaque = await plaquePublique(db, site.userId, { supabase, webUser, avecAvis: offre.avis }).catch(() => null);
   return ok({
     site: {
       ...vue,
@@ -69,6 +74,7 @@ export async function GET(request, context) {
       // Preuve (PRO-26, version 1) : chantiers livrés avec un PV signé par le client.
       chantiersLivres: (db.clotures || []).filter((c) => c.userId === site.userId && c.pv?.signeLe).length,
       delaiReponse: delai,
+      plaque,
       carte: offre.carte ? (({ adresseTexte, adresse, ...k }) => ({ ...k, adresse: adresse ? adresseTexte : "" }))(contenuCarte(contenu, webUser)) : null,
       verifie: verif.sceau,
       decennale: verif.items.find((i) => i.id === "decennale")?.ok ? { assureur: b.documents?.decennale?.insurer || b.decennaleInsurer || "", jusqua: verif.decennaleJusqua } : null,

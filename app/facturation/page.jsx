@@ -175,6 +175,8 @@ function FacturationContent() {
   const [message, setMessage] = useState("");
   const [showDashboard, setShowDashboard] = useState(!quoteIdParam);
   const [tab, setTab] = useState("toutes");
+  // ?onglet=encaissements : notification « Paiement reçu en ligne », retour du prestataire.
+  useEffect(() => { if (searchParams.get("onglet") === "encaissements") setTab("encaissements"); }, [searchParams]);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState("");
   // « Situation de travaux » depuis la fiche chantier (maquette PRO-02.1) :

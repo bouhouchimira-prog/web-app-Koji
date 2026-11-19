@@ -50,7 +50,7 @@ export async function GET(request) {
         type: "radar.jetons",
         title: `${n} jeton${n > 1 ? "s" : ""} offert${n > 1 ? "s" : ""} · Premier mois`,
         message: `Étape${nouveaux.length > 1 ? "s" : ""} faite${nouveaux.length > 1 ? "s" : ""} : ${nouveaux.map((e) => e.titre.toLowerCase()).join(", ")}. Les jetons sont disponibles sur le Radar.`,
-        actionUrl: "/parcours",
+        actionUrl: "/parcours/premier-mois",
         actionLabel: "Voir mon parcours",
         read: false,
         createdAt: maintenant

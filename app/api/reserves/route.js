@@ -4,6 +4,8 @@ import { readDb, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { prochainNumero } from "../../../lib/reserves";
+import { notifReserveLevee } from "../../../lib/notifications-particulier";
+import { devisDuChantier, notifierParticuliersDuDevis } from "../../../lib/notifications-particulier-serveur";
 
 // Réserves d'un chantier (maquette PRO-02.3), site et app Koji Pro.
 // GET ?projectId= · POST { projectId, titre, lieu, attribueeA, attribueeNom,
@@ -113,6 +115,11 @@ export async function PATCH(request) {
       return badRequest("Action inconnue.");
   }
   db.reserves[index] = r;
+  // Koji Client (CLI-04) : la réserve levée est notifiée au particulier.
+  if (body.action === "valider") {
+    const devis = await devisDuChantier(r.projectId, userId).catch(() => null);
+    if (devis) await notifierParticuliersDuDevis(db, devis, notifReserveLevee(r, devis), { maintenant });
+  }
   await writeDb(db);
   return ok({ reserve: r });
 }

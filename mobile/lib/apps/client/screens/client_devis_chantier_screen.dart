@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/apps/client/client_chantier_widgets.dart';
+import 'package:koji/apps/client/client_paiement_en_ligne.dart';
+import 'package:koji/apps/client/client_photos_chantier.dart';
 import 'package:koji/apps/client/client_shell.dart';
 import 'package:koji/apps/client/client_signature_pad.dart';
 import 'package:koji/design/koji_client_charte.dart';
@@ -27,12 +29,18 @@ const _icPhoto =
     'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z';
 const _icMessage = 'M4 5h16v11H9l-5 4z';
 
+/// Lignes de texte d'une liste du site (formulaire de rétractation).
+List<String> _lignesTexte(dynamic v) => ((v is List) ? v : const [])
+    .whereType<String>()
+    .where((l) => l.trim().isNotEmpty)
+    .toList();
+
 /// Koji Client · « signer, suivre, payer » (maquette CLI-02) : un devis ou un
 /// chantier du site (GET /api/client/chantier/{quoteId}) en quatre onglets.
 /// Devis : le devis lisible, puis la signature dans l'app (cases non
 /// cochées, signature au doigt, un seul bouton marine). Chantier :
-/// avancement, étapes, signaler, écrire. Paiements : factures, sans paiement
-/// en ligne. Documents : chaque fichier s'ouvre avec la session du site.
+/// avancement, étapes, signaler, écrire. Paiements : factures, et « Payer »
+/// quand l'entreprise encaisse en ligne. Documents : chaque fichier s'ouvre avec la session du site.
 /// Gabarit web : app/client/chantier/[id]/page.jsx ; mêmes libellés.
 class ClientDevisChantierScreen extends ConsumerStatefulWidget {
   const ClientDevisChantierScreen({
@@ -68,6 +76,15 @@ class _ClientDevisChantierScreenState
   final _signature = ClSignatureControleur();
   bool _envoi = false;
   String _erreur = '';
+
+  // « Me rétracter » (PRO-03.7), même formulaire que le lien de signature.
+  bool _retractation = false;
+  bool _confirmer = false;
+  bool _envoiRetractation = false;
+  String _erreurRetractation = '';
+
+  // « Photos du chantier » (Documents) ouvertes.
+  bool _galerie = false;
 
   // « Signaler quelque chose ».
   bool _signaler = false;
@@ -182,6 +199,38 @@ class _ClientDevisChantierScreenState
           : "La signature n'a pas pu être enregistrée.");
     } finally {
       if (mounted) setState(() => _envoi = false);
+    }
+  }
+
+  Future<void> _retracter() async {
+    if (_envoiRetractation) return;
+    setState(() {
+      _envoiRetractation = true;
+      _erreurRetractation = '';
+    });
+    try {
+      final reponse = await ref
+          .read(marketplaceRepositoryProvider)
+          .retracterDevisClient(widget.quoteId);
+      final vue = reponse['vue'];
+      if (!mounted) return;
+      setState(() {
+        if (vue is Map<String, dynamic>) _vueSignee = vue;
+        _merci = '';
+        _retractation = false;
+        _confirmer = false;
+      });
+      if (vue is! Map<String, dynamic>) {
+        ref.invalidate(clientChantierSiteProvider(widget.quoteId));
+      }
+      ref.invalidate(clientProjetsProvider);
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _erreurRetractation = err is KojiWebApiException
+          ? err.message
+          : "La rétractation n'a pas pu être enregistrée.");
+    } finally {
+      if (mounted) setState(() => _envoiRetractation = false);
     }
   }
 
@@ -411,6 +460,10 @@ class _ClientDevisChantierScreenState
         if (_merci.isNotEmpty) ClInfo(_merci),
         if (texteSite(mapSite(devis['retractation'])['texte']).isNotEmpty)
           ClInfo(texteSite(mapSite(devis['retractation'])['texte'])),
+        if (mapSite(devis['retractation'])['etat'] == 'ouvert' &&
+            _lignesTexte(mapSite(devis['retractation'])['formulaire'])
+                .isNotEmpty)
+          ..._blocRetractation(mapSite(devis['retractation'])),
         if (devis['etat'] == 'autre')
           const ClInfo("Ce devis n'est pas encore envoyé pour signature par "
               "l'entreprise."),
@@ -429,6 +482,77 @@ class _ClientDevisChantierScreenState
           ClNote('Le devis est établi et signé avec $entreprise. Koji '
               'conserve la preuve de signature (date, heure, appareil).'),
       ],
+    ];
+  }
+
+  /// « Je changerai d'avis » : délai, formulaire type et « Me rétracter »
+  /// avec confirmation (boutons en contour : action destructrice).
+  List<Widget> _blocRetractation(Map<String, dynamic> r) {
+    final lignes = _lignesTexte(r['formulaire']);
+    return [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: ClLien("Je changerai d'avis : où est le formulaire ?",
+            taille: 14,
+            onTap: () => setState(() {
+                  _retractation = !_retractation;
+                  _confirmer = false;
+                })),
+      ),
+      if (_retractation)
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: ClCharte.blanc,
+            border: Border.all(color: ClCharte.ligne),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(texteSite(r['jusquau']),
+                  style: ClCharte.texte(13, graisse: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(
+                  'Le formulaire est à la dernière page de votre exemplaire. '
+                  "Vous pouvez aussi l'envoyer à l'entreprise, ou annuler ici.",
+                  style: ClCharte.texte(13)),
+              for (final (i, l) in lignes.indexed) ...[
+                const SizedBox(height: 6),
+                Text(l,
+                    style: ClCharte.texte(13,
+                        graisse: i == 0 ? FontWeight.w700 : FontWeight.w400)),
+              ],
+              const SizedBox(height: 10),
+              if (_confirmer) ...[
+                Text(
+                    "Confirmez-vous l'annulation de ce devis ? L'entreprise en "
+                    'sera prévenue et vous rembourse les sommes versées sous '
+                    '14 jours.',
+                    style: ClCharte.texte(13, hauteur: 1.45)),
+                const SizedBox(height: 10),
+                ClBouton('Garder le devis',
+                    secondaire: true,
+                    onPressed: () => setState(() => _confirmer = false)),
+                const SizedBox(height: 8),
+                ClBouton('Je me rétracte',
+                    secondaire: true,
+                    charge: _envoiRetractation,
+                    onPressed: _retracter),
+              ] else
+                ClBouton('Me rétracter',
+                    secondaire: true,
+                    onPressed: () => setState(() => _confirmer = true)),
+              if (_erreurRetractation.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(_erreurRetractation,
+                      style: ClCharte.texte(13, graisse: FontWeight.w600)),
+                ),
+              ],
+            ],
+          ),
+        ),
     ];
   }
 
@@ -514,6 +638,12 @@ class _ClientDevisChantierScreenState
       ),
       Text(texteSite(avancement['texte']),
           style: ClCharte.texte(12, couleur: ClCharte.gris)),
+      // Dernière photo « après » (`.cl-hero`, PRO-02.2).
+      if (texteSite(mapSite(c['photo'])['url']).isNotEmpty)
+        ClPhotoApres(
+          photo: mapSite(c['photo']),
+          onTap: () => ouvrirPhotoApres(context, mapSite(c['photo'])),
+        ),
       if (prochaine.isNotEmpty)
         ClRangee(
           icone: _icMaison,
@@ -596,6 +726,8 @@ class _ClientDevisChantierScreenState
   List<Widget> _ongletPaiements(Map<String, dynamic> vue) {
     final p = mapSite(vue['paiements']);
     final aPayer = mapSite(p['aPayer']);
+    // « Payer » (paiement en ligne) seulement si le site le propose.
+    final enLigne = mapSite(aPayer['payer']).isNotEmpty;
     return [
       ...clListePaiements(p, ouvrir: _ouvrirFichier),
       if (aPayer.isNotEmpty) ...[
@@ -604,13 +736,16 @@ class _ClientDevisChantierScreenState
           montant: texteSite(aPayer['montant']),
           detail: texteSite(aPayer['detail']),
         ),
+        if (enLigne) ClPayer(aPayer: aPayer, onRetour: _actualiser),
         if (texteSite(aPayer['pdf']).isNotEmpty)
           ClBouton('Télécharger la facture',
+              secondaire: enLigne,
               onPressed: () => _ouvrirFichier(
                   texteSite(aPayer['pdf']), texteSite(aPayer['detail']))),
       ] else if (listeSite(p['lignes']).isNotEmpty)
         const ClInfo('Rien à payer pour le moment.'),
-      if (texteSite(p['note']).isNotEmpty) ClNote(texteSite(p['note'])),
+      if (!enLigne && texteSite(p['note']).isNotEmpty)
+        ClNote(texteSite(p['note'])),
     ];
   }
 
@@ -618,8 +753,22 @@ class _ClientDevisChantierScreenState
 
   List<Widget> _ongletDocuments(Map<String, dynamic> vue) {
     final docs = mapSite(vue['documents']);
+    final photos = listeSite(mapSite(vue['chantier'])['photos'])
+        .where((p) => texteSite(p['url']).isNotEmpty)
+        .toList();
     return [
       for (final d in listeSite(docs['liste']))
+        if (d['type'] == 'photos' && photos.isNotEmpty) ...[
+          ClRangee(
+            icone: _icPhoto,
+            titre: texteSite(d['titre']),
+            detail: texteSite(d['detail']),
+            fin: Text(_galerie ? '˄' : '›',
+                style: ClCharte.texte(20, couleur: ClCharte.gris, hauteur: 1)),
+            onTap: () => setState(() => _galerie = !_galerie),
+          ),
+          if (_galerie) ClGaleriePhotos(photos),
+        ] else
         texteSite(d['lien']).isEmpty
             ? Opacity(
                 opacity: 0.75,

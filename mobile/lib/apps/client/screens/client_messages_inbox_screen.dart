@@ -32,8 +32,10 @@ String _demande(Map<String, dynamic> fil) {
 
 /// « Messages » (maquette CLI-03) : un fil par entreprise et par demande
 /// (Radar des Chantiers, /api/client/messages), puis le fil ouvert avec ses
-/// bulles et « Écrire un message… ». Pas de traduction : les messages ne la
-/// portent pas. Rendez-vous et photos se règlent dans le fil ; le reste
+/// bulles et « Écrire un message… ». Un message traduit par l'entreprise
+/// porte `traduction` : « traduit du portugais · voir l'original ». Le nom de
+/// la personne n'apparaît que s'il est enregistré avec le message.
+/// Rendez-vous et photos se règlent dans le fil ; le reste
 /// (proposer une visite, carte de l'entreprise, paiements) sur la demande.
 class ClientMessagesInboxScreen extends ConsumerStatefulWidget {
   const ClientMessagesInboxScreen({super.key, this.fil, this.maintenant});
@@ -54,6 +56,8 @@ class _ClientMessagesInboxScreenState
   String? _ouvert;
   final _brouillon = TextEditingController();
   final _marques = <String>{};
+  // Messages traduits dont l'original est affiché.
+  final _originaux = <String>{};
   bool _envoi = false;
   String? _erreur;
 
@@ -285,11 +289,62 @@ class _ClientMessagesInboxScreenState
             respondsToId: m['id'] as String,
             accepted: accepte,
           ));
+      // Traduit par l'entreprise avant l'envoi (CLI-03) : « traduit du
+      // portugais · voir l'original » ; un appui montre l'original.
+      final traduction =
+          m['traduction'] is Map ? m['traduction'] as Map : const {};
+      final original = _s(traduction['original']);
+      final id = _s(m['id']);
+      final voir = _originaux.contains(id);
+      final envoyee = m['senderType'] == 'particulier';
+      final traduite = original.isEmpty
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (voir)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text('Original : $original',
+                        textDirection: traduction['sens'] == 'rtl'
+                            ? TextDirection.rtl
+                            : null,
+                        style: ClCharte.texte(13,
+                            couleur: envoyee ? ClCharte.clair : ClCharte.gris,
+                            hauteur: 1.45)),
+                  ),
+                Semantics(
+                  button: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() =>
+                        voir ? _originaux.remove(id) : _originaux.add(id)),
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                            text: 'traduit du ${_s(traduction['langue'])} · '),
+                        TextSpan(
+                          text: voir ? "masquer l'original" : "voir l'original",
+                          style: const TextStyle(
+                              decoration: TextDecoration.underline),
+                        ),
+                      ]),
+                      style: ClCharte.texte(11,
+                          couleur: envoyee ? ClCharte.clair : ClCharte.gris),
+                    ),
+                  ),
+                ),
+              ],
+            );
       return ClBulle(
         texte: _s(m['message']),
-        envoyee: m['senderType'] == 'particulier',
+        envoyee: envoyee,
+        // Nom de la personne seulement s'il est enregistré avec le message.
+        auteur: _s(m['auteur']),
         note: date == null ? '' : horodatage(date, maintenant),
-        actions: aRepondre
+        actions: traduite != null && !aRepondre
+            ? traduite
+            : aRepondre
             ? Row(
                 children: [
                   Expanded(

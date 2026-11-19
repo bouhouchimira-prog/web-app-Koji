@@ -3,6 +3,7 @@ import { readDb } from "../../../../lib/db";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { fixObjectText } from "../../../../lib/text";
 import { titreOffre } from "../../../../lib/projets-client";
+import { traductionPublique } from "../../../../lib/traduction-messages";
 
 // Boite de reception unifiee cote particulier (16 oct, maquette Artifact) —
 // les conversations existent deja en vrai par offre (db.chantierOffreMessages,
@@ -20,6 +21,12 @@ function publicMessage(message) {
     rdvDate: message.rdvDate || null,
     respondsToId: message.respondsToId || null,
     rdvStatus: message.rdvStatus || null,
+    // CLI-03 : « traduit du portugais · voir l'original » ; { langue,
+    // original, sens } ou null.
+    traduction: traductionPublique(message),
+    // Nom de la personne qui écrit, seulement s'il est enregistré avec le
+    // message (aucun n'est inventé).
+    auteur: String(message.auteur || "").trim(),
     createdAt: message.createdAt
   };
 }

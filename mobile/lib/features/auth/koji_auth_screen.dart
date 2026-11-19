@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/app/koji_web_api_config.dart';
+import 'package:koji/apps/client/signature_lien/client_signature_lien_screen.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
@@ -811,6 +812,29 @@ class _KojiAuthScreenState extends ConsumerState<KojiAuthScreen> {
             ..._codeFields(context)
           else
             ..._emailFields(context, authLoading),
+          // Koji (CLI-07) : un devis reçu par e-mail se signe dans l'app,
+          // sans compte, avec l'identifiant et le mot de passe reçus.
+          if (_isClient && isLogin) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: InkWell(
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const ClientSignatureLienScreen())),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(
+                    "J'ai reçu un lien de signature",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      color: p.isDark ? KojiColors.cream : KojiColors.info,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 22),
           _otherAppCard(context),
           const SizedBox(height: 22),

@@ -9,9 +9,11 @@ import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/depenses/depenses_logic.dart' show Json, num2;
 import 'package:koji/features/factures/factures_widgets.dart' show errorText;
+import 'package:koji/features/parcours/mon_parcours_pro.dart' show monParcoursRoute;
 
 // Ma progression (maquette PRO-21, téléphone) sur l'API du site
-// (/api/progression) : niveau, points, défis de la semaine, sceau Vérifié.
+// (/api/progression) : grade (source unique : Mon parcours, PRO-26),
+// défis de la semaine, sceau Vérifié.
 const progressionRoute = '/progression';
 
 final progressionProvider = FutureProvider.autoDispose<Json>((ref) => ref.watch(kojiProApiProvider).get('/api/progression'));
@@ -30,8 +32,11 @@ class ProgressionScreen extends ConsumerWidget {
     if (a.hasError && !a.hasValue) return KojiPage(title: 'Ma progression', appBarOnPhone: true, main: [KojiEmptyState(title: 'Progression indisponible', subtitle: errorText(a.error!), icon: KojiIcons.accueil)]);
     if (!a.hasValue) return const KojiPage(title: 'Ma progression', appBarOnPhone: true, main: [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]);
     final d = a.value!;
+    // Grade : source unique « Mon parcours » (PRO-26), servi par /api/progression.
     final niveau = _map(d['niveau']);
-    final prochain = d['prochain'] is Map ? _map(d['prochain']) : null;
+    final grade = _map(niveau['grade']);
+    final prochain = niveau['prochainGrade'] is Map ? _map(niveau['prochainGrade']) : null;
+    final talents = _map(d['talents']);
     final sceau = _map(d['sceau']);
     final p = context.koji;
     Widget coche(bool ok) => Container(
@@ -42,14 +47,14 @@ class ProgressionScreen extends ConsumerWidget {
         );
     return KojiPage(
       title: 'Ma progression',
-      subtitle: '${_s(niveau['label'])} · ${_nombre(d['points'])} points',
+      subtitle: '${_s(grade['label'])} · ${_nombre(niveau['xp'])} points',
       appBarOnPhone: true,
       onRefresh: () async => ref.invalidate(progressionProvider),
       main: [
         KojiCard(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            for (final n in _liste(d['niveaux']))
+            for (final n in _liste(d['grades']))
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(children: [
@@ -58,12 +63,14 @@ class ProgressionScreen extends ConsumerWidget {
                   Text(_s(n['label']), style: TextStyle(fontWeight: n['actuel'] == true ? FontWeight.w700 : FontWeight.w400, color: n['atteint'] == true ? p.ink : p.muted)),
                 ]),
               ),
-            if (prochain != null) ...[
-              const SizedBox(height: 8),
-              Text('Prochain niveau : ${_s(prochain['label'])} · ${_s(d['condition'])}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            ],
+            const SizedBox(height: 8),
+            Text(
+              prochain != null ? 'Niveau ${_s(niveau['niveau'])} · prochain grade : ${_s(prochain['label'])} au niveau ${_s(prochain['niveau'])}' : 'Grade le plus haut atteint',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 6),
-            Text('Les niveaux récompensent l\'usage complet de Koji. Ils n\'achètent aucune place sur le Radar.', style: TextStyle(fontSize: 12, color: p.muted)),
+            Text('Seuls des actes constatés par Koji comptent. Les grades n\'achètent aucune place sur le Radar.', style: TextStyle(fontSize: 12, color: p.muted)),
+            TextButton(onPressed: () => context.push(monParcoursRoute), child: Text(num2(talents['libres']) > 0 ? 'Mon parcours · ${num2(talents['libres']).round()} point de métier à placer' : 'Mon parcours : grade et hauts faits')),
           ]),
         ),
         const KojiSectionTitle('Défis de la semaine'),

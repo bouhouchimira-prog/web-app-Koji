@@ -19,7 +19,9 @@ export const PAIEMENTS_PRET = true;
 // Classes de portée de l'univers Client : variables et polices de la charte.
 export const CHARTE_CLIENT = `lc ${DM_Sans.variable} ${Shippori.variable}`;
 
-const NOTIFS_CLIENT = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message", "radar.positionnement"]);
+const NOTIFS_CLIENT = new Set(["company.reply", "task.started", "task.pending_validation", "radar.message", "radar.positionnement",
+  // CLI-04 (lib/notifications-particulier.js)
+  "devis.a_signer", "devis.nouvelle_version", "visite.confirmee", "facture.emise", "paiement.recu", "reserve.levee"]);
 
 function compteLocal() {
   if (typeof window === "undefined") return null;
@@ -58,7 +60,7 @@ export function ClientTopbar({ backHref = "/client", showBack = false, titre = "
       .then((r) => r.json())
       .then((data) => {
         const liste = (data.notifications || []).filter((n) => !n.read && !n.archived);
-        setNonLus(liste.filter((n) => NOTIFS_CLIENT.has(n.type)).length);
+        setNonLus(liste.filter((n) => NOTIFS_CLIENT.has(n.type) || String(n.type || "").startsWith("urgence.")).length);
         setMessages(liste.filter((n) => n.type === "radar.message").length);
       })
       .catch(() => {});

@@ -38,6 +38,8 @@ import { acompteAPartirDu, finRetractation } from "../../../lib/signature-lieu";
 import { estTauxReduit } from "../../../lib/tva";
 import { buildQuotePdf } from "../../../lib/document-generator";
 import { nomFichierDevis as nomPdfDevis } from "../../../lib/devis-envoi";
+import { notifDevisEnvoye } from "../../../lib/notifications-particulier";
+import { notifierParticuliersDuDevis } from "../../../lib/notifications-particulier-serveur";
 
 // Quotes live in the shared `quotes` table used by the koji-main Flutter app
 // (same table it reads via QuoteRepository), so both apps see the same devis.
@@ -401,6 +403,8 @@ export async function PATCH(request) {
     return badRequest("Ce devis est déjà signé. Renvoyer l'invitation effacerait la signature existante.", 409);
   }
 
+  // Déjà envoyé une fois : ce nouvel envoi est une nouvelle version (CLI-04).
+  const dejaEnvoye = Boolean(quote.sentAt);
   if (action === "send") {
     if (!quote.signatureToken) quote.signatureToken = makeToken("sig");
     if (quote.sentAt) {
@@ -730,6 +734,16 @@ export async function PATCH(request) {
   if (updateError) return badRequest(`Mise à jour du devis impossible: ${updateError.message}`, 500);
 
   const responseQuote = mapQuote(updatedRow);
+  // Koji Client (CLI-04) : le particulier qui a un compte voit le devis à
+  // signer, ou la nouvelle version, dans ses notifications. Un devis renvoyé
+  // remplace la notification non lue du précédent envoi.
+  if (action === "send") {
+    const ajoutees = await notifierParticuliersDuDevis(sideDb, responseQuote, notifDevisEnvoye(responseQuote, { nouvelleVersion: dejaEnvoye }), {
+      remplace: (n) => n.quoteId === responseQuote.id && String(n.type || "").startsWith("devis."),
+      maintenant: now
+    });
+    if (ajoutees) await writeDb(sideDb).catch(() => null);
+  }
   // Exemplaire du client (PRO-03.7) : par e-mail s'il l'a demandé en cochant
   // la case, avec le devis signé (information et formulaire de rétractation).
   let exemplaire = null;

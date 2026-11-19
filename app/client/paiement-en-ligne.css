@@ -1,0 +1,6 @@
+/* Koji Client · bouton « Payer » (paiement en ligne). La remise à zéro
+   « .kc button » de client.css efface le fond d'un <button> : on le remet. */
+.kc button.kc-payer{background:#101529;color:#FFFFFF;padding:0 18px}
+.kc button.kc-payer:hover{background:#1B2140}
+.kc button.kc-payer[disabled]{background:#B9BBC6;cursor:progress}
+.kc .kc-payer + .kc-alerte{margin-top:8px}

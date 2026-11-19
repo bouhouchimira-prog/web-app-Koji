@@ -13,6 +13,7 @@ import { ETATS_DEMANDE, clientAffiche, etatDemande, texteProjet } from "../../..
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { prefsCompte } from "../../../lib/compte-serveur";
 import { accesReseau } from "../../../lib/reseau";
+import { traductionPublique } from "../../../lib/traduction-messages";
 
 // Messages (maquette PRO-12) : une seule messagerie pour les fils des devis
 // (le client écrit depuis sa page de signature ou Koji Client, table
@@ -64,7 +65,9 @@ async function charger(entreprise, db) {
     fils.push({
       cle: `radar:${offerId}`, type: "radar", pro: false, offreId: offerId, projectId: "",
       titre: nomCourt(o.clientName), sousTitre: [o.metier, String(o.description || "").slice(0, 50)].filter(Boolean).join(" · "),
-      messages: m.map((x) => ({ id: x.id, texte: x.message || "", le: x.createdAt, entreprise: x.senderType === "entreprise", kind: x.kind || "text" }))
+      // traduction : message écrit dans la langue de l'artisan, envoyé en
+      // français (son original reste consultable).
+      messages: m.map((x) => ({ id: x.id, texte: x.message || "", le: x.createdAt, entreprise: x.senderType === "entreprise", kind: x.kind || "text", traduction: traductionPublique(x) }))
     });
   }
   // Demandes reçues par la KojiPage (PRO-13.1) : la demande du client, puis

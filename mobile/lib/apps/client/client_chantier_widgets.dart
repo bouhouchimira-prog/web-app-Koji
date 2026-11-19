@@ -359,8 +359,8 @@ class ClLignePaiement extends StatelessWidget {
 }
 
 /// Les paiements d'un chantier (forme `paiements` du site) : lignes, ou le
-/// texte « vide », puis la retenue de garantie expliquée. Aucun bouton
-/// « Payer » : pas de paiement en ligne.
+/// texte « vide », puis la retenue de garantie expliquée. Le bouton
+/// « Payer » est à part (ClPayer, client_paiement_en_ligne.dart).
 List<Widget> clListePaiements(
   Map<String, dynamic> paiements, {
   required void Function(String chemin, String titre) ouvrir,

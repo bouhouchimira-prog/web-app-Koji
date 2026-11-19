@@ -14,6 +14,7 @@ import 'package:koji/features/account/account_deletion.dart';
 import 'package:koji/features/auth/provider/auth_provider.dart';
 import 'package:koji/features/depenses/depenses_logic.dart' show Json, jourCourt, num2;
 import 'package:koji/features/factures/factures_widgets.dart' show FactureKv, errorText, showFacturesMessage;
+import 'package:koji/features/factures/paiement_en_ligne_pro.dart' show PaiementEnLigneCarte;
 
 // Paramètres de Koji Pro (maquettes PRO-15 à 15.6, téléphone) sur l'API du
 // site (/api/compte) : une page qui regroupe Mon entreprise, Mon profil,
@@ -384,6 +385,8 @@ class _DevisFacturesScreenState extends ConsumerState<DevisFacturesScreen> {
         FactureKv('Conditions', 'validité ${num2(c['validiteJours']).round()} j · acompte ${num2(c['acomptePct']).round()} % · paiement ${num2(c['paiementJours']).round()} j'),
         const FactureKv('Paiement', 'pénalités et indemnité de 40 € pour les pros'),
         FactureKv('IBAN', d['iban'] == true ? 'imprimé sur les factures' : 'à renseigner'),
+        // Paiement en ligne (PRO-15.2) : rien tant qu'il n'est pas ouvert.
+        const PaiementEnLigneCarte(),
         FactureKv('Médiateur', med == null ? 'à choisir · obligatoire pour les particuliers' : _s(med['nom'])),
         KojiButton(label: med == null ? 'Choisir un médiateur' : 'Modifier le médiateur', expand: true, loading: _busy, onPressed: _busy ? null : () => _mediateur(med)),
         const KojiSectionTitle('Mentions obligatoires'),

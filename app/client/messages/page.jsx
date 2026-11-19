@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ClientTopbar, CHARTE_CLIENT } from "../../../components/ClientTopbar";
 import { cleFil, heureBulle, heureFil } from "../../../lib/notifications-client";
 import "../cli03.css";
+import "../cli-complements.css";
 
 // Koji Client · Messages (maquette CLI-03). Un fil par entreprise et par
 // demande : liste à gauche et fil à droite sur ordinateur, fil plein écran
@@ -15,10 +16,10 @@ import "../cli03.css";
 // message, réponse à un rendez-vous proposé, rendez-vous proposé par le
 // client, photos débloquées pour une entreprise.
 //
-// Traduction : côté Pro, les messages de l'artisan sont traduits en français
-// avant l'envoi et seul le texte français est enregistré ; aucun message ne
-// porte donc de traduction ni d'original à montrer ici (pas de « traduit
-// du … · voir l'original »).
+// Traduction : côté Pro, un message écrit dans la langue de l'artisan part
+// en français ; l'original et sa langue sont gardés (champ `traduction`) :
+// « traduit du portugais · voir l'original ». Le nom de la personne qui
+// écrit n'apparaît que s'il est enregistré avec le message.
 
 function compteLocal() {
   if (typeof window === "undefined") return null;
@@ -45,16 +46,23 @@ function useOrdinateur() {
 function Bulle({ m, reponduA, onRdv, envoi }) {
   const sortant = m.senderType === "particulier";
   const proposition = m.kind === "rdv_proposal" && !sortant;
+  const [original, setOriginal] = useState(false);
+  const tr = m.traduction;
   return (
     <div className={`kc3-bub ${sortant ? "out" : "in"}${proposition ? " rdv" : ""}`}>
+      {m.auteur ? <b>{m.auteur}</b> : null}
       {m.message}
+      {tr && original ? <span className="kcx-orig" dir={tr.sens === "rtl" ? "rtl" : "auto"}>Original : {tr.original}</span> : null}
       {proposition && !reponduA.has(m.id) ? (
         <span className="kc3-bact">
           <button type="button" className="kc-btn sm" onClick={() => onRdv(m.id, "accepted")} disabled={envoi}>Accepter</button>
           <button type="button" className="kc-sec" onClick={() => onRdv(m.id, "declined")} disabled={envoi}>Refuser</button>
         </span>
       ) : null}
-      <small>{heureBulle(m.createdAt)}</small>
+      <small>
+        {heureBulle(m.createdAt)}
+        {tr ? <> · traduit du {tr.langue} · <button type="button" className="kc3-lien" onClick={() => setOriginal((v) => !v)} aria-expanded={original}>{original ? "masquer l'original" : "voir l'original"}</button></> : null}
+      </small>
     </div>
   );
 }

@@ -193,6 +193,8 @@ export function Suivi({ id, setErreur, setMessage }) {
     setEnPlus((x) => (x.length ? x : dv.enPlus || []));
     setPieces((x) => x || dv.pieces || "");
     setEmail((x) => x || r.intervention.email || "");
+    // Urgence Koji (PRO-17) : le temps de trajet annoncé au client.
+    if (r.intervention.minutesAnnoncees) setMinutes((x) => (x === "20" ? String(r.intervention.minutesAnnoncees) : x));
   }).catch((e) => setErreur(e.message));
   useEffect(() => { charger(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <p className="muted">Chargement…</p>;
@@ -232,7 +234,7 @@ export function Suivi({ id, setErreur, setMessage }) {
   return (
     <>
       <div className="head">
-        <div className="stack"><span className="eyebrow">{i.reference} · {i.urgence === "maintenant" ? "urgence" : "à planifier"}</span><h1>{i.client}</h1><span className="muted">{i.probleme}</span></div>
+        <div className="stack"><span className="eyebrow">{i.reference} · {i.urgenceId ? "urgence Koji, prix confirmé par le client" : i.urgence === "maintenant" ? "urgence" : "à planifier"}</span><h1>{i.client}</h1><span className="muted">{i.probleme}</span></div>
       </div>
       <div className="card">
         <b>{i.site}</b>

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import 'package:koji/core/route_args.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/features/client/providers/client_providers.dart';
 import 'package:koji/features/client/repository/client_repository.dart';
@@ -54,10 +53,14 @@ abstract final class ClientQuote {
     return d == null ? '' : DateFormat('d MMM y', 'fr_FR').format(d);
   }
 
-  /// Opens the signature flow, then refreshes the client's devis.
+  /// Signe dans l'onglet Devis de l'espace Koji Client (maquette CLI-02) :
+  /// mêmes règles et mêmes preuves que le site (rétractation, TVA, cases non
+  /// cochées). L'ancien écran Supabase (/signature/sign) est retiré.
   static Future<void> sign(
       BuildContext context, WidgetRef ref, Map<String, dynamic> q) async {
-    await context.push('/signature/sign', extra: SignatureArgs(quote: q));
+    final id = '${q['id'] ?? ''}'.trim();
+    if (id.isEmpty) return;
+    await context.push('/client/devis/${Uri.encodeComponent(id)}?onglet=devis');
     ref.invalidate(clientQuotesProvider);
   }
 

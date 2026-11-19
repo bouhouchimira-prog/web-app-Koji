@@ -6,6 +6,7 @@ import { DM_Sans, Shippori } from "../../fonts";
 import { fichierPourEnvoi } from "../../../lib/fichier-client";
 import "../../particulier/landing.css";
 import "./site-public.css";
+import "./plaque.css";
 
 // KojiPage publique (maquette PRO-13.2, charte Koji Client) : l'identité de
 // l'entreprise prime, Koji reste discret (sceau, pied de page). Deux façons
@@ -62,6 +63,21 @@ export function Badges({ site }) {
       {site.chantiersLivres ? <span>{site.chantiersLivres} chantier{site.chantiersLivres > 1 ? "s" : ""} livré{site.chantiersLivres > 1 ? "s" : ""} avec PV</span> : null}
       {site.avisStats?.nombre ? <span>{fmtNote(site.avisStats.moyenne)} · {site.avisStats.nombre} avis</span> : null}
       {site.sections.horaires && site.delaiReponse != null ? <span>Répond en {delaiTexte(site.delaiReponse)} en moyenne</span> : null}
+    </div>
+  );
+}
+
+// Plaque de chantier (PRO-26 v2) : grade, preuves, trois distinctions
+// choisies par l'entreprise. Jamais de niveau, de points ni de talents.
+export function Plaque({ plaque }) {
+  return (
+    <div className="kps-pl">
+      <div className="kps-pl-h">
+        <span className="kps-pl-s"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg></span>
+        <div>{plaque.grade ? <b>{plaque.grade}</b> : null}{plaque.preuves.length ? <small>{plaque.preuves.join(" · ")}</small> : null}</div>
+      </div>
+      {plaque.distinctions.length ? <div className="kps-pl-l">{plaque.distinctions.map((t) => <span key={t}>{t}</span>)}</div> : null}
+      <small className="kps-pl-n">Grade et distinctions calculés par Koji sur les chantiers réalisés avec Koji.</small>
     </div>
   );
 }
@@ -157,6 +173,7 @@ export function SitePublic({ slug }) {
           {site.presentationText ? <p>{site.presentationText}</p> : null}
           {site.dirigeant ? <div className="kps-who">{site.photoDirigeant ? <img src={site.photoDirigeant} alt={site.dirigeant} /> : <span>{initiales(site.dirigeant)}</span>}<p><b>{site.dirigeant}</b> dirigeant{site.sections.formulaire ? ", répond à vos demandes" : ""}</p></div> : null}
           <Badges site={site} />
+          {site.plaque ? <Plaque plaque={site.plaque} /> : null}
           <div className="kps-acts">
             {site.sections.formulaire ? <a className="kps-btn" href="#demande">Demander un devis</a> : null}
             {site.sections.realisations && site.realisations.length ? <a className="kps-btn sec" href="#realisations">Voir les réalisations</a> : null}

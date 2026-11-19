@@ -7,6 +7,7 @@ import 'package:koji/app/account_provider.dart';
 import 'package:koji/app/koji_web_api_client.dart';
 import 'package:koji/apps/client/client_chantier_widgets.dart';
 import 'package:koji/apps/client/client_nav.dart';
+import 'package:koji/apps/client/client_paiement_en_ligne.dart';
 import 'package:koji/apps/client/client_shell.dart';
 import 'package:koji/apps/client/screens/client_paiements_screen.dart';
 import 'package:koji/design/koji_client_charte.dart';
@@ -21,7 +22,7 @@ import 'client_charte_support.dart';
 // barre du bas. Réponse de /api/client/paiements simulée. Aucun paiement en
 // ligne : pas de bouton « Payer ».
 
-Map<String, dynamic> _vue({bool vide = false}) => {
+Map<String, dynamic> _vue({bool vide = false, bool enLigne = false}) => {
       'groupes': vide
           ? []
           : [
@@ -42,6 +43,11 @@ Map<String, dynamic> _vue({bool vide = false}) => {
                     'detail': 'Situation 1 KJ-2026-125',
                     'pdf': '/api/client/factures/f2/pdf',
                     'factureId': 'f2',
+                    if (enLigne)
+                      'payer': {
+                        'libelle': 'Payer 2 515,00 €',
+                        'mention': 'Paiement par carte ou virement, sécurisé par notre prestataire.',
+                      },
                   },
                   'retenue': "Retenue de garantie : 307,09 € (5 %) que vous gardez jusqu'au 4 décembre 2027, au cas où une réserve ne serait pas levée. L'entreprise vous la facture ensuite.",
                   'vide': '',
@@ -51,10 +57,16 @@ Map<String, dynamic> _vue({bool vide = false}) => {
             ],
       'aPayer': vide ? 0 : 1,
       'vide': vide ? "Aucune facture pour le moment. Les factures de vos chantiers arrivent ici dès que l'entreprise les envoie." : '',
-      'note': 'Réglez par virement avec les coordonnées indiquées sur la facture. Koji ne reçoit pas les paiements.',
+      'note': enLigne
+          ? 'Carte ou virement, par notre prestataire de paiement agréé. Koji ne détient pas les fonds ; le reçu arrive dans Documents.'
+          : 'Réglez par virement avec les coordonnées indiquées sur la facture. Koji ne reçoit pas les paiements.',
     };
 
-List<Override> _overrides(DepotSimule depot, {bool connecte = true, List<String>? ouverts}) => [
+List<Override> _overrides(DepotSimule depot, {bool connecte = true, List<String>? ouverts, List<String>? payes, PayerEnLigne? payer}) => [
+      clientPayerEnLigneProvider.overrideWithValue(payer ??
+          (factureId) async {
+            payes?.add(factureId);
+          }),
       kojiWebApiClientProvider.overrideWithValue(connecte ? ApiConnectee() : ApiDeconnectee()),
       marketplaceRepositoryProvider.overrideWithValue(depot),
       currentAccountProvider.overrideWith((ref) async => null),
@@ -140,6 +152,48 @@ void main() {
     expect(clientOngletDe('/client/paiements'), '/client/paiements');
   });
 
+  testWidgets('paiement en ligne : « Payer » ouvre le prestataire, le retour recharge',
+      (tester) async {
+    cadreTelephone(tester);
+    final payes = <String>[];
+    final depot = DepotSimule(paiements: _vue(enLigne: true));
+    await tester.pumpWidget(_avecRouteur(_overrides(depot, payes: payes)));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ClBouton, 'Payer 2 515,00 €'), findsOneWidget);
+    expect(find.text('Paiement par carte ou virement, sécurisé par notre prestataire.'), findsOneWidget);
+    // Le montant n'est jamais envoyé : seulement la facture.
+    await tester.ensureVisible(find.text('Payer 2 515,00 €'));
+    await tester.tap(find.text('Payer 2 515,00 €'));
+    await tester.pumpAndSettle();
+    expect(payes, ['f2']);
+
+    // Retour de la page de paiement : l'app revient au premier plan.
+    final avant = depot.appels.length;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(depot.appels.length, avant + 1);
+    expect(depot.appels.last, 'paiements');
+  });
+
+  testWidgets("paiement en ligne : l'erreur du site s'affiche", (tester) async {
+    cadreTelephone(tester);
+    final depot = DepotSimule(paiements: _vue(enLigne: true));
+    await tester.pumpWidget(_avecRouteur(_overrides(depot,
+        payer: (id) async => throw KojiWebApiException(409,
+            "Le paiement en ligne n'est pas disponible pour cette facture : réglez par virement."))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Payer 2 515,00 €'));
+    await tester.tap(find.text('Payer 2 515,00 €'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining("n'est pas disponible pour cette facture"), findsOneWidget);
+  });
+
   testWidgets('image de référence : Paiements, cadre téléphone', (tester) async {
     cadreTelephone(tester);
     await tester.pumpWidget(ProviderScope(
@@ -153,6 +207,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ClientBottomBar), findsOneWidget);
     await expectLater(find.byType(ClientShell), matchesGoldenFile('goldens/cli02_paiements.png'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('image de référence : Paiements avec « Payer », cadre téléphone', (tester) async {
+    cadreTelephone(tester);
+    await tester.pumpWidget(ProviderScope(
+      overrides: _overrides(DepotSimule(paiements: _vue(enLigne: true))),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: KojiTheme.light(),
+        home: const ClientShell(location: '/client/paiements', child: ClientPaiementsScreen()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(ClientShell), matchesGoldenFile('goldens/cli02_paiements_en_ligne.png'));
     expect(tester.takeException(), isNull);
   });
 }
