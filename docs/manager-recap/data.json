@@ -1464,6 +1464,30 @@
       "theme": "Koji Client (novembre 2026)",
       "title": "App Koji : page du devis et du chantier, paiements et « Retrouver mon projet »",
       "detail": "L'app Koji reprend la page du site en quatre onglets (Devis, Chantier, Paiements, Documents) : le particulier lit son devis, le signe au doigt depuis son téléphone, suit le chantier et ouvre ses factures et documents. Un onglet Paiements regroupe tous les chantiers (pas de paiement en ligne). « Retrouver mon projet » permet de se connecter avec un code reçu par e-mail, sans mot de passe. Un chantier connu à la fois de l'app et du site n'apparaît plus qu'une fois. Les liens de signature reçus par e-mail s'ouvrent toujours dans le navigateur."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Pro (novembre 2026)",
+      "title": "Urgences : dépannage immédiat, côté particulier et côté artisan (site et apps)",
+      "detail": "Le particulier choisit son urgence (fuite, électricité, serrure…), répond à deux questions, voit la fourchette des prix des artisans disponibles près de chez lui, puis confirme l'artisan qui a accepté et suit son arrivée. L'artisan se déclare disponible jusqu'à une heure, dans un rayon, avec ses urgences et ses prix ; il accepte ou refuse librement, et le premier qui accepte obtient l'urgence. Avant la confirmation du client, l'artisan ne voit que le quartier ; le nom, le téléphone et l'adresse arrivent après. La suite (devis signé sur place, facture) reprend l'intervention rapide déjà en ligne. Aucun prix n'est fixé par Koji, aucun paiement ne passe par Koji, et une urgence ne coûte pas de jeton. Réservé aux offres payantes."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Pro (novembre 2026)",
+      "title": "Mon parcours, version 2 : grade, hauts faits, talents et plaque de chantier",
+      "detail": "Chaque entreprise a un grade (d'Apprenti à Bâtisseur), un niveau et des hauts faits. Seuls des actes constatés par Koji comptent : devis signé par le client, chantier livré avec procès-verbal, avis vérifié, réponse rapide sur le Radar, photo datée. Les talents se placent avec des points de métier ; un seul est en service aujourd'hui, la « Plaque de chantier », qui montre au particulier le grade, les chiffres de preuve et trois distinctions sur la KojiPage. « Ma progression » lit le même calcul. Le parcours « Premier mois » reste inchangé."
+    },
+    {
+      "category": "frontend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Koji Client : traduction affichée, photos du chantier, notifications, rétractation et signature dans l'app",
+      "detail": "Les messages traduits gardent leur original, consultable d'un appui. Le particulier voit la dernière photo « après » de son chantier et une galerie dans ses documents. Il reçoit de vraies notifications : devis à signer, nouvelle version, visite confirmée, facture émise, paiement reçu, réserve levée. Il peut se rétracter depuis son espace, et plus seulement depuis le lien. L'app Koji a maintenant son écran de signature par lien ; l'ancien circuit de signature de l'app, qui n'était plus atteignable, est supprimé."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Client (novembre 2026)",
+      "title": "Paiement en ligne des factures avec Stripe Connect (construit, éteint par défaut)",
+      "detail": "L'entreprise peut activer l'encaissement en ligne : elle ouvre un compte chez Stripe depuis Koji, et le particulier voit un bouton « Payer » sur ses factures dès que Stripe confirme que le compte peut encaisser. Le paiement est créé directement sur le compte de l'entreprise : l'argent ne passe jamais par Koji. Le montant est toujours le reste dû calculé par le serveur ; un paiement confirmé par Stripe est enregistré une seule fois, avec notification et reçu. Tout reste éteint en production tant que Connect n'est pas activé dans Stripe et que les deux variables ne sont pas posées dans Vercel. Aucun paiement réel n'a encore été fait."
     }
   ]
 }
