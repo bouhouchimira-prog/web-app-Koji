@@ -164,6 +164,12 @@ function DashboardHome() {
   // Premier mois (maquette PRO-26, version 1) : une ligne tant que le mois dure.
   const [premierMois, setPremierMois] = useState(null);
   useEffect(() => { apiGet("/api/parcours").then(setPremierMois).catch(() => {}); }, []);
+  // Après le premier mois, la ligne « niveau » prend le relais (PRO-26 v2).
+  const [grade, setGrade] = useState(null);
+  const premierMoisVisible = Boolean(premierMois?.fenetre?.ouverte && premierMois.faites < premierMois.total);
+  useEffect(() => {
+    if (premierMois && !premierMoisVisible) apiGet("/api/parcours/grade").then(setGrade).catch(() => {});
+  }, [premierMois, premierMoisVisible]);
 
   // Offres et zone de travail (centre et légende de la carte) en un appel.
   useEffect(() => {
@@ -410,10 +416,15 @@ function DashboardHome() {
           <h1>{prenom ? `Bonjour, ${prenom}.` : "Bonjour."}</h1>
         </header>
 
-        {premierMois?.fenetre?.ouverte && premierMois.faites < premierMois.total ? (
-          <Link href="/parcours" className="kp-pm">
+        {premierMoisVisible ? (
+          <Link href="/parcours/premier-mois" className="kp-pm">
             <span><b>Premier mois · {premierMois.faites} étape{premierMois.faites > 1 ? "s" : ""} sur {premierMois.total}</b>{premierMois.jetonsOfferts} jeton{premierMois.jetonsOfferts > 1 ? "s" : ""} offert{premierMois.jetonsOfferts > 1 ? "s" : ""} sur {premierMois.jetonsTotal} · il reste {premierMois.fenetre.joursRestants} jour{premierMois.fenetre.joursRestants > 1 ? "s" : ""}</span>
             {premierMois.prochaine ? <em>Prochaine étape : {premierMois.prochaine.titre}</em> : null}
+          </Link>
+        ) : grade?.niveau ? (
+          <Link href="/parcours" className="kp-pm">
+            <span><b>{grade.niveau.grade.label} · niveau {grade.niveau.niveau}</b>{grade.preuves.chantiersLivres} chantier{grade.preuves.chantiersLivres > 1 ? "s" : ""} livré{grade.preuves.chantiersLivres > 1 ? "s" : ""} avec PV · {grade.compteurs.obtenus} haut{grade.compteurs.obtenus > 1 ? "s" : ""} fait{grade.compteurs.obtenus > 1 ? "s" : ""}</span>
+            <em>{grade.talents.libres ? `${grade.talents.libres} point${grade.talents.libres > 1 ? "s" : ""} de métier à placer` : "Mon parcours"}</em>
           </Link>
         ) : null}
 

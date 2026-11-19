@@ -13,8 +13,8 @@ import 'package:koji/features/factures/factures_widgets.dart' show errorText;
 // Mon parcours · Premier mois (maquette PRO-26, version 1, téléphone) sur
 // l'API du site (/api/parcours) : huit étapes constatées sur les vrais
 // chantiers, jetons du Radar offerts à l'étape faite. Grade, hauts faits et
-// talents : version 2.
-const premierMoisRoute = '/parcours';
+// talents (version 2) : features/parcours/mon_parcours_pro.dart.
+const premierMoisRoute = '/parcours/premier-mois';
 
 final premierMoisProvider = FutureProvider.autoDispose<Json>((ref) => ref.watch(kojiProApiProvider).get('/api/parcours'));
 

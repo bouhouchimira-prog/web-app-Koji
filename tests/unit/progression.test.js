@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { calculerPoints, defisSemaine, niveauDe, sceauVerifie } from "../../lib/progression.js";
+import * as progression from "../../lib/progression.js";
+import { defisSemaine, sceauVerifie } from "../../lib/progression.js";
 
-// Maquette PRO-21 : niveau Compagnon, prochain niveau Artisan confirmé.
+// Maquette PRO-21 : défis de la semaine et sceau. Le niveau vient de
+// « Mon parcours » (lib/parcours-grade.js, tests parcours-grade.test.js).
 describe("Ma progression (PRO-21)", () => {
   const quotes = [
     ...Array.from({ length: 20 }, (_, i) => ({ id: `q${i}`, sentAt: "2026-09-01T10:00:00Z", status: "Envoye" })),
@@ -9,23 +11,12 @@ describe("Ma progression (PRO-21)", () => {
   ];
   const photos = [{ id: "p1", projectId: "c", lot: "Douche", phase: "apres", takenAt: "2026-11-16T10:00:00Z" }, { id: "p2", projectId: "c", lot: "WC", phase: "apres", takenAt: "2026-11-17T10:00:00Z" }, { id: "p3", projectId: "c", lot: "Cuisine", phase: "apres", takenAt: "2026-11-17T11:00:00Z" }, { id: "p4", projectId: "c", lot: "x", phase: "avant", takenAt: "2026-11-17T11:00:00Z" }];
   const demandes = [{ createdAt: "2026-11-16T08:00:00Z", reponduLe: "2026-11-16T12:20:00Z" }, { createdAt: "2026-10-01T08:00:00Z", reponduLe: "2026-10-01T09:00:00Z" }];
-  const clotures = [{ projectId: "c", pv: { signeLe: "2026-11-01" } }];
   const avis = [{ projectId: "c", verifie: true }];
 
-  it("points depuis les données du compte", () => {
-    const p = calculerPoints({ quotes, photos, clotures, avis, demandes });
-    assert.deepEqual(p.detail, { devisEnvoyes: 21, devisSignes: 1, photosApres: 3, cloturesAvecAvis: 1, reponsesRapides: 1 });
-    assert.equal(p.total, 21 * 20 + 30 + 15 + 100 + 10);
-  });
-
-  it("niveaux : points et chantiers clôturés avec avis", () => {
-    const n = niveauDe(1240, 1);
-    assert.equal(n.niveau.label, "Compagnon");
-    assert.equal(n.prochain.label, "Artisan confirmé");
-    assert.equal(n.condition, "260 points et 3 chantiers clôturés avec avis");
-    assert.equal(niveauDe(2000, 1).niveau.label, "Compagnon");
-    assert.equal(niveauDe(2000, 3).niveau.label, "Artisan confirmé");
-    assert.equal(niveauDe(0, 0).niveau.label, "Apprenti");
+  it("une seule source des niveaux : plus de barème ni de niveaux dans PRO-21", () => {
+    assert.equal(progression.NIVEAUX, undefined);
+    assert.equal(progression.POINTS, undefined);
+    assert.equal(progression.niveauDe, undefined);
   });
 
   it("défis de la semaine, renouvelés le lundi", () => {

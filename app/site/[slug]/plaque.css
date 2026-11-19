@@ -1,0 +1,11 @@
+/* Plaque de chantier sur la KojiPage publique (maquette PRO-26, « Ce que voit le particulier »). */
+.kps-pl{background:#F8F6F1;border:1px solid #E7D8C5;padding:14px;color:#101529;max-width:460px}
+.kps-pl-h{display:flex;gap:10px;align-items:center}
+.kps-pl-h>div{display:flex;flex-direction:column}
+.kps-pl-h b{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:18px;font-weight:600}
+.kps-pl-h small{font-size:12px;color:#4A4F5C}
+.kps-pl-s{width:30px;height:30px;background:#101529;display:grid;place-items:center;flex:none}
+.kps-pl-s svg{width:14px;height:14px;fill:#E7D8C5}
+.kps-pl-l{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 8px}
+.kps-pl-l span{font-size:12px;padding:4px 8px;border:1px solid #101529;color:#101529;border-radius:2px}
+.kps-pl-n{display:block;font-size:11px;color:#4A4F5C;margin-top:8px}
