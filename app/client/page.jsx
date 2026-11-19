@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ClientTopbar, CHARTE_CLIENT } from "../../components/ClientTopbar";
+import UrgenceEntree from "../../components/UrgenceEntree";
 
 // Koji Client · « Mes projets » (maquette CLI-01). Une seule liste : les
 // chantiers, les demandes publiées avec leurs propositions, les brouillons.
@@ -95,6 +96,9 @@ export default function MesProjets() {
             </div>
           )}
 
+          {/* Urgences (maquette PRO-17, Koji Client › Urgence) */}
+          <UrgenceEntree style={{ marginTop: 10 }} />
+
           <aside className="kc-a">
             <h3>Ce qui vous attend</h3>
             {etat === "pret" && attendus.length ? attendus.map((ligne) => <p key={ligne}>{ligne}</p>) : <p>{etat === "pret" ? "Rien à faire pour l'instant." : " "}</p>}
@@ -122,6 +126,7 @@ export default function MesProjets() {
             </Lien>
           ))}
           <Link className="kc-btn" href="/client/radar/new" style={{ marginTop: 8 }}>Nouveau projet</Link>
+          <UrgenceEntree />
           <div className="kc-info">Décrivez vos travaux avec l'assistant Koji : il pose les bonnes questions et prépare votre demande pour les entreprises.</div>
           {etat === "pret" && attendus.length ? (
             <div className="kc-a" style={{ marginTop: 6 }}>

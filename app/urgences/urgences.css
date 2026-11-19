@@ -1,0 +1,179 @@
+/* Urgences (maquette PRO-17). Classes « ur- » de la maquette : côté
+   artisan sous .pro (graphite), côté particulier sous .kc (univers Client,
+   marine / sable / riz, pas de jaune). */
+
+/* ---- Artisan · ordinateur et téléphone ---- */
+.pro .ur{display:flex;flex-direction:column;gap:20px}
+.pro .ur .head .hact{display:flex;align-items:center}
+.pro .ur .lab{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5B5F66;font-weight:600}
+.pro .ur-g{display:grid;grid-template-columns:1fr 1.15fr;gap:20px;align-items:start}
+.pro .ur-g>.stack{display:flex;flex-direction:column;min-width:0}
+.pro .ur-on{display:flex;justify-content:space-between;align-items:center;gap:14px;background:#171B1E;color:#FFFFFF;padding:14px 16px}
+.pro .ur-on div{display:flex;flex-direction:column}
+.pro .ur-on b{font-size:15px}
+.pro .ur-on small{font-size:12px;color:#C4C7CC}
+.pro .ur-on.web{padding:10px 14px;min-width:300px}
+.pro .ur-on input[type="time"]{background:transparent;border:1px solid #5B5F66;color:#FFFFFF;font:inherit;font-size:12px;padding:1px 4px;color-scheme:dark}
+.pro .ur-sw{width:46px;height:26px;border-radius:13px;background:#5B5F66;position:relative;flex:none;border:0;padding:0;cursor:pointer}
+.pro .ur-sw:disabled{opacity:.45;cursor:not-allowed}
+.pro .ur-sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF}
+.pro .ur-sw.on{background:#FFFFFF}
+.pro .ur-sw.on i{left:23px;background:#171B1E}
+.pro .ur-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pro .ur-chip{display:inline-flex;gap:5px;align-items:center;font-size:13px;padding:6px 10px;border:1px solid #D9D9D4;color:#5B5F66}
+.pro .ur-chip.on{border-color:#171B1E;color:#171B1E;font-weight:600}
+.pro .ur-chip svg{width:12px;height:12px;stroke:#171B1E;fill:none;stroke-width:3}
+.pro .ur-t{width:100%;border-collapse:collapse;font-size:13px}
+.pro .ur-t th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5B5F66;padding:6px 8px;border-bottom:1px solid #171B1E}
+.pro .ur-t td{padding:9px 8px;border-bottom:1px solid #E6E6E1;vertical-align:middle}
+.pro .ur-t td b{font-size:14px}
+.pro .ur-t td small{display:block;font-size:12px;color:#5B5F66}
+.pro .ur-t .num{text-align:right;white-space:nowrap}
+.pro .ur-t th.num{text-align:right}
+.pro .ur-t tr.lien{cursor:pointer}
+.pro .ur-t tr.lien:hover td{background:var(--bg)}
+.pro .ur-ic svg{width:16px;height:16px;stroke:#171B1E;fill:none;stroke-width:1.8;vertical-align:-3px;margin-right:8px}
+.pro .ur-kw{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-top:6px}
+.pro .ur-kw div{display:flex;flex-direction:column}
+.pro .ur-kw span{font-size:12px;color:#5B5F66}
+.pro .ur-kw b{font-size:24px;font-weight:700}
+.pro .tag-val{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border:0}
+.pro .tag-val svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2}
+.pro .ur-note{font-size:12px;color:var(--grey);line-height:1.45;margin:0}
+.pro .ur-msg{margin:0;border-left:3px solid var(--ink);background:var(--card);padding:10px 14px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* Réglages (« Modifier ») */
+.pro .ur-form{display:flex;flex-direction:column;padding-top:8px}
+.pro .ur-f2{display:grid;grid-template-columns:1fr 120px;gap:12px}
+.pro .ur-fl{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--grey)}
+.pro .ur-fl input,.pro .ur-fl select{height:40px;padding:0 10px;border:1px solid #D9D9D4;border-radius:2px;font:inherit;font-size:14px;color:var(--ink);background:var(--card);min-width:0}
+.pro .ur-pl{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pro .ur-pl label{display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}
+.pro .ur-pl.off label{color:var(--grey);cursor:default}
+.pro .ur-eur{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+.pro .ur-eur input{width:76px;height:34px;padding:0 8px;border:1px solid #D9D9D4;border-radius:2px;font:inherit;text-align:right}
+.pro .ur-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+
+/* Urgence proposée (fond sombre de la maquette) */
+.pro .ur-alerts{display:flex;flex-direction:column;gap:12px;max-width:430px}
+.pro .ur-alert{background:#171B1E;color:#FFFFFF;padding:18px 16px 16px;display:flex;flex-direction:column;gap:12px;border-radius:var(--r-float)}
+.pro .ur-at{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.pro .ur-at h2{font-size:22px;margin:4px 0 2px;color:#FFFFFF;font-weight:700}
+.pro .ur-at small{font-size:13px;color:#C4C7CC}
+.pro .ur-ey{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:#FFC400}
+.pro .ur-ring{width:64px;height:64px;flex:none}
+.pro .ur-ph .ph-i{position:relative;line-height:0;overflow:hidden}
+.pro .ur-ph img{width:100%;max-height:200px;object-fit:cover;display:block}
+.pro .ph-k{position:absolute;left:6px;top:6px;background:#FFFFFF;color:#171B1E;font-size:10px;line-height:1;padding:4px 6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.pro .ur-dl{display:flex;flex-direction:column;border-top:1px solid #3A3F43}
+.pro .ur-dl div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #3A3F43;font-size:13px}
+.pro .ur-dl span{color:#C4C7CC}
+.pro .ur-pr{background:#24292C;padding:10px 12px}
+.pro .ur-pr div{display:flex;flex-direction:column}
+.pro .ur-pr span{font-size:12px;color:#C4C7CC}
+.pro .ur-pr b{font-size:24px}
+.pro .ur-pr small{font-size:12px;color:#C4C7CC}
+.pro .ur-min{display:flex;align-items:center;gap:8px;font-size:13px;color:#C4C7CC}
+.pro .ur-min input{width:56px;height:34px;text-align:center;background:#24292C;border:1px solid #5B5F66;color:#FFFFFF;font:inherit;font-size:15px;font-weight:700;border-radius:2px}
+.pro .ur-min.dark{color:var(--grey)}
+.pro .ur-min.dark input{background:var(--card);border-color:#D9D9D4;color:var(--ink)}
+.pro .ur-bt{display:grid;grid-template-columns:1fr 1.6fr;gap:10px}
+.pro .ur-bt button{height:54px;display:grid;place-items:center;font:inherit;font-weight:700;font-size:16px;border-radius:2px;cursor:pointer}
+.pro .ur-no{border:1px solid #8A8F98;color:#FFFFFF;background:transparent}
+.pro .ur-yes{background:#FFC400;color:#171B1E;border:0}
+.pro .ur-bt button:disabled{opacity:.6;cursor:wait}
+.pro .ur-fine{text-align:center;font-size:11px;color:#8A8F98}
+
+/* Urgence acceptée ou confirmée */
+.pro .ur-ec{gap:10px}
+.pro .ur-ec.on{border-top-color:#FFC400}
+.pro .ur-ec .rd-p{margin:0}
+.pro .ur-part{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+@media (max-width:899px){
+  .pro .ur-g{grid-template-columns:1fr}
+  .pro .ur .head .hact{width:100%}
+  .pro .ur-on.web{min-width:0;width:100%;padding:14px 16px}
+  .pro .ur-alerts{max-width:none}
+  .pro .ur-f2{grid-template-columns:1fr 100px}
+  .pro .ur-kw b{font-size:20px}
+}
+
+/* ---- Particulier · Koji Client ---- */
+.kc .ur-cw{max-width:560px;width:100%;margin:0 auto}
+.kc .ur-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kc .ur-tile{background:#FFFFFF;border:1px solid #E6E2DA;padding:14px 12px;display:flex;flex-direction:column;gap:10px;color:#101529;min-height:86px}
+.kc .ur-tile:hover{border:2px solid #101529;padding:13px 11px}
+.kc .ur-tile b{font-size:14px;font-weight:700}
+.kc .ur-tile svg{stroke:#101529;fill:none;stroke-width:1.8;width:24px;height:24px;display:block}
+.kc .ur-gas{display:flex;gap:10px;align-items:flex-start;background:#101529;color:#FFFFFF;padding:12px}
+.kc .ur-gas svg{width:20px;height:20px;stroke:#FFFFFF;fill:none;stroke-width:1.8;display:block}
+.kc .ur-gas div{display:flex;flex-direction:column;gap:2px}
+.kc .ur-gas b{font-size:14px}
+.kc .ur-gas small{font-size:12px;color:#C9CDE0;line-height:1.4}
+.kc .ur-cf{font-size:12px;color:#6B6A66;text-align:center;margin-top:6px}
+.kc .ur-q{display:flex;flex-direction:column;gap:8px}
+.kc .ur-q>span{font-size:15px;font-weight:600;color:#101529}
+.kc .ur-ch{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.kc .ur-ch button{font-size:13px;padding:6px 10px;border:1px solid #D8D2C6;border-radius:2px;color:#101529;background:#FFFFFF}
+.kc .ur-ch button.on{background:#101529;border-color:#101529;color:#FFFFFF;font-weight:600}
+.kc .ur-cph{display:flex;gap:12px;align-items:flex-start;line-height:1.3}
+.kc .ur-phb{position:relative;flex:none;width:110px;height:74px;overflow:hidden;background:#E6E2DA;border:0;display:grid;place-items:center}
+.kc .ur-phb img{width:100%;height:100%;object-fit:cover;display:block}
+.kc .ur-phv{font-size:28px;color:#6B6A66}
+.kc .ph-k{position:absolute;left:6px;top:6px;background:#FFFFFF;color:#101529;font-size:10px;line-height:1;padding:4px 6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.kc .ur-adr-c{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;position:relative}
+.kc .ur-adr-c label{font-size:12px;color:#6B6A66}
+.kc .ur-adr-c input{background:#FFFFFF;border:1px solid #101529;border-radius:0;padding:11px 12px;font:inherit;font-size:15px;color:#101529;width:100%}
+.kc .ur-adr-c ul{list-style:none;margin:0;padding:0;position:absolute;top:100%;left:0;right:0;background:#FFFFFF;border:1px solid #101529;border-top:0;z-index:5}
+.kc .ur-adr-c li button{display:block;width:100%;text-align:left;padding:9px 12px;font-size:13px;border-bottom:1px solid #EFEBE3}
+.kc .ur-adr-c li button:hover{background:#F8F6F1}
+.kc .ur-price{background:#E7D8C5;padding:12px;display:flex;flex-direction:column;gap:2px;color:#101529}
+.kc .ur-price span{font-size:12px}
+.kc .ur-price b{font-family:var(--lc-serif),'Shippori Mincho',Georgia,serif;font-size:28px;font-weight:600}
+.kc .ur-price small{font-size:12px;line-height:1.4}
+.kc .ur-pro{display:flex;gap:12px;align-items:center;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px}
+.kc .ur-av{width:48px;height:48px;border-radius:50%;background:#101529;color:#FFFFFF;display:grid;place-items:center;font-weight:700;flex:none}
+.kc .ur-pro div{display:flex;flex-direction:column;gap:3px;color:#101529}
+.kc .ur-pro b{font-size:16px}
+.kc .ur-pro small{font-size:12px;color:#6B6A66;display:flex;gap:6px;align-items:center}
+.kc .av-st{display:inline-flex;gap:2px;vertical-align:middle}
+.kc .av-st i svg{width:13px;height:13px;stroke:#101529;fill:none;stroke-width:1.6;display:block}
+.kc .av-st i.on svg{fill:#101529}
+.kc .ur-ver{display:flex;gap:8px;align-items:center;font-size:13px;color:#101529}
+.kc .ur-ver svg{width:14px;height:14px;stroke:#101529;fill:none;stroke-width:3}
+.kc .ur-cancel{text-align:center;font-size:14px;color:#101529;text-decoration:underline;padding:4px;text-underline-offset:3px}
+.kc .ur-cancel:disabled{opacity:.5}
+.kc .ur-csheet{display:flex;flex-direction:column;gap:10px}
+.kc .ur-cs{font-size:13px;color:#6B6A66;margin-top:-6px}
+.kc .ur-cst{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:#101529;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px}
+.kc .ur-cse{display:flex;gap:8px;align-items:center}
+.kc .ur-cst i{width:12px;height:12px;border-radius:50%;border:1.5px solid #101529;flex:none}
+.kc .ur-cst i.ok{background:#101529}
+.kc .ur-c2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kc .ur-ob{height:46px;display:flex;gap:8px;align-items:center;justify-content:center;border:1px solid #101529;color:#101529;font-weight:600;font-size:14px}
+.kc .ur-ob svg{width:16px;height:16px;stroke:#101529;fill:none;stroke-width:1.8}
+.kc .ur-dvc{background:#FFFFFF;border:1px solid #E6E2DA;padding:10px 12px}
+.kc .ur-dvc .lab{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#6B6A66;font-weight:600;margin-bottom:2px}
+.kc .ur-dvc .kc-cr:last-child{border-bottom:0;font-weight:700}
+.kc .ur-wait{display:flex;gap:10px;align-items:center;font-size:13px;color:#6B6A66}
+.kc .ur-wait i{width:14px;height:14px;border:2px solid #E6E2DA;border-top-color:#101529;border-radius:50%;animation:ur-tour 1s linear infinite;flex:none}
+@keyframes ur-tour{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.kc .ur-wait i{animation:none}}
+.kc .kc-btn:disabled{background:#B9BBC6;cursor:not-allowed}
+@media (min-width:900px){
+  .kc .ur-cw{padding-top:0}
+}
+
+/* Entrée depuis « Mes projets » */
+.kc .ur-entree{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#FFFFFF;border:1px solid #E6E2DA;padding:12px 14px;color:#101529;max-width:760px}
+.kc .ur-entree div{display:flex;flex-direction:column;min-width:0}
+.kc .ur-entree b{font-size:15px;font-weight:700}
+.kc .ur-entree small{font-size:12px;color:#6B6A66}
+
+/* .kc button (client.css) remet le fond à zéro : les boutons de ces écrans le reprennent. */
+.kc button.kc-btn{background:#101529;color:#FFFFFF;font-weight:600;font-size:16px}
+.kc button.kc-btn:hover{background:#1B2140}
+.kc button.kc-btn:disabled{background:#B9BBC6;cursor:not-allowed}
+.kc button.kc-sec,.kc a.kc-sec{border:1px solid #101529;color:#101529;font-weight:600;font-size:14px}
+.kc .ur-gas .nw{white-space:nowrap}

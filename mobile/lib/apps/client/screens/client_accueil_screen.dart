@@ -102,6 +102,13 @@ class ClientAccueilScreen extends ConsumerWidget {
       const ClInfo(
           "Décrivez vos travaux avec l'assistant Koji : il pose les bonnes "
           'questions et prépare votre demande pour les entreprises.'),
+      // Urgences (maquette PRO-17, Koji Client › Urgence).
+      ClRangee(
+        titre: 'Une urgence ?',
+        detail: 'Fuite, panne, serrure, vitre : un artisan chez vous '
+            'rapidement',
+        onTap: () => context.push('/client/urgence'),
+      ),
     ];
 
     Future<void> actualiser() async => recharger();

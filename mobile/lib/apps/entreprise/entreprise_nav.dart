@@ -23,6 +23,7 @@ const _routes = {
   'contacts': '/contacts',
   'kojipage': '/kojipage',
   'reseau': '/reseau-pro',
+  'urgences': '/urgences',
   'bibliotheque': '/bibliotheque',
   'calendrier': '/calendrier',
   'planning': '/planning',
@@ -50,6 +51,8 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'kojipage', label: 'KojiPage', icon: KojiIcons.kojipage),
     // Réseau pro (maquettes PRO-14 et 14.1) : sous-traitance entre pros.
     KojiNavItem(id: 'reseau', label: 'Réseau pro', icon: KojiIcons.hardHat),
+    // Urgences (maquette PRO-17) : dépannages dans votre zone.
+    KojiNavItem(id: 'urgences', label: 'Urgences', icon: KojiIcons.alert),
   ]),
   KojiNavGroup(label: 'Gestion', items: [
     KojiNavItem(id: 'factures', label: 'Facturation', icon: KojiIcons.factures),
@@ -112,6 +115,7 @@ String? entrepriseActiveNav(String path, int homeTab) {
   if (starts('/contacts')) return 'contacts';
   if (starts('/kojipage')) return 'kojipage';
   if (starts('/reseau-pro')) return 'reseau';
+  if (starts('/urgences')) return 'urgences';
   if (starts('/ouvrage-library') || starts('/bibliotheque')) return 'bibliotheque';
   if (starts('/calendrier')) return 'calendrier';
   if (starts('/planning')) return 'planning';

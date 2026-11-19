@@ -51,9 +51,11 @@ import 'package:koji/features/kojipage/kojipage_pro.dart';
 import 'package:koji/features/reseau_pro/reseau_pro.dart';
 import 'package:koji/features/equipe/equipe_pro.dart';
 import 'package:koji/features/intervention_rapide/intervention_rapide.dart';
+import 'package:koji/features/urgences/urgences_pro.dart';
 import 'package:koji/features/compte/compte_pro.dart';
 import 'package:koji/features/compte/progression_pro.dart';
 import 'package:koji/features/compte/premier_mois_pro.dart';
+import 'package:koji/features/parcours/mon_parcours_pro.dart';
 import 'package:koji/features/depenses/depenses_screens.dart';
 import 'package:koji/features/quote/ouvrage_library_screen.dart';
 import 'package:koji/features/quote/photo_preview_screen.dart';
@@ -559,6 +561,11 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 SuiviInterventionScreen(id: state.pathParameters['id']!),
               ),
             ),
+            // Urgences (maquette PRO-17).
+            GoRoute(
+              path: urgencesRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const UrgencesProScreen()),
+            ),
             // Notifications (maquette PRO-23).
             GoRoute(
               path: notificationsCentreRoute,
@@ -584,6 +591,15 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 state,
                 const PremierMoisScreen(),
               ),
+            ),
+            // Mon parcours v2 : grade, hauts faits, talents (PRO-26 / 26.1).
+            GoRoute(
+              path: monParcoursRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const MonParcoursScreen()),
+            ),
+            GoRoute(
+              path: talentsRoute,
+              pageBuilder: (context, state) => _buildPageWithTransition(context, state, const TalentsScreen()),
             ),
             // Ma progression (maquette PRO-21).
             GoRoute(
