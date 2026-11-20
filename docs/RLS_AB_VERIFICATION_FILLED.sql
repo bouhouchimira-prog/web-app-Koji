@@ -37,6 +37,29 @@ WHERE tgname IN ('protect_sensitive_user_fields', 'protect_quote_owner')
 ORDER BY tgname;
 
 -- ---------------------------------------------------------------------------
+-- 1b. VERIFICATION : aucune policy permissive heritee ne subsiste
+-- ---------------------------------------------------------------------------
+SELECT policyname, cmd, qual
+FROM pg_policies
+WHERE schemaname = 'storage' AND tablename = 'objects'
+  AND policyname IN (
+    'Allow authenticated delete','Allow authenticated select','Allow authenticated update',
+    'Allow authenticated uploads','Allow public select','Allow public uploads',
+    'Service role manages attachments','Users can delete own logo','Users can read own logo',
+    'Users can update own logo','Users can upload own logo','chantier_attachments_delete',
+    'chantier_attachments_insert','chantier_attachments_select','signatures_storage_insert_client',
+    'signatures_storage_select_auth','worker_uploads_insert','worker_uploads_select',
+    'quote_attachments_storage_insert_auth','quote_attachments_storage_select_auth',
+    'Allow authenticated delete chantier_documents','Allow authenticated select chantier_documents',
+    'Allow authenticated update chantier_documents','Allow authenticated uploads chantier_documents',
+    'Allow authenticated delete task_images','Allow authenticated select task_images',
+    'Allow authenticated update task_images','Allow authenticated uploads task_images',
+    'Allow authenticated delete signatures','Allow authenticated select signatures',
+    'Allow authenticated update signatures','Allow authenticated uploads signatures'
+  );
+-- attendu : 0 ligne
+
+-- ---------------------------------------------------------------------------
 -- TEST 1 : A ne voit pas les devis de B
 -- ---------------------------------------------------------------------------
 SELECT set_config('request.jwt.claims', '{"sub":"60076f57-890d-4e63-b8c8-331168b5fc51","role":"authenticated"}', true);
