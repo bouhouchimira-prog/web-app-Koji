@@ -107,6 +107,6 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 
 **P1-1 RÉSOLU** : workflow CI web créé (`.github/workflows/web-ci.yml`) — tests unitaires + build de production sur push/PR. Build validé localement (exit 0).
 
-**P1-4 RÉSOLU** : verrouillage optimiste ajouté sur le blob `koji_web_state` — colonne `version` (migration 0017), `readDb()` expose `_version`, `writeDb()` vérifie la version et lève `DbConflictError` en cas de conflit, helper `updateDb(mutator, {retries})` pour read-modify-write sûr. Export `DbConflictError` + test. Suite complète : 521 tests web verts. Routes existantes conservent leur comportement (backward compat : écriture sans version reste possible).
+**P1-4 RÉSOLU** : verrouillage optimiste ajouté sur le blob `koji_web_state` — colonne `version` (migration 0017, appliquée sur la base principale), `readDb()` expose `_version`, `writeDb()` vérifie la version et lève `DbConflictError` en cas de conflit, helper `updateDb(mutator, {retries})` pour read-modify-write sûr. Export `DbConflictError` + test. Suite complète : 521 tests web verts. Routes existantes conservent leur comportement (backward compat : écriture sans version reste possible).
 
 **Prochain point à régler** : P2-2 — activer Sentry (DSN) pour débloquer l'observabilité, effort M. (Ou P2-1 catalogue ouvrages, P0 buckets non-Kôji.)
