@@ -117,4 +117,6 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 
 **P1-5 (partiel) RÉSOLU** : `@koji/shared` synchronisé avec `lib/` (8 modules identiques, plus de mojibake), package.json mis à jour (`type: module`, script `npm test`), 3 tests smoke verts. L'admin n'importe pas encore `@koji/shared` (il a son propre lib TS minimal) — migration complète reste à faire (effort L).
 
-**Prochain point à régler** : P1-6 — aligner les versions Next.js (admin 16.1.6 → 16.3.x) (effort M), ou P2-1 (unification complète catalogue ouvrages, effort M), ou P3 (monorepo/CI).
+**P1-6 RÉSOLU** : admin aligné sur Next.js 16.3.0 + React 19.2.6 (build validé, exit 0). Les trois apps (root, signature, admin) sont désormais sur la même version majeure/mineure.
+
+**Prochain point à régler** : P3-1 — workspaces npm incluant `admin` (effort M, prérequis pour CI unifié), ou P2-1 (unification complète catalogue ouvrages, effort M), ou P0 — auditer les buckets non-Kôji restants (`items`, `profiles`, `menu-images`, effort S).
