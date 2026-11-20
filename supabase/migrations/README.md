@@ -19,6 +19,8 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0010_profil_a_l_inscription.sql | Création/réparation des profils utilisateur à l'inscription |
 | 0011_mention_tva_signature.sql | Mention TVA certifiée à la signature |
 | 0012_securiser_signature_rpc.sql | Interdiction d'écraser une signature existante via RPC (e-mail non exigé, voir l'en-tête) |
+| (à venir) 0013 | Numéro réservé au contrôle renforcé de la signature annoncé dans l'en-tête de 0012 |
+| 0014_urgences.sql | Table urgences, une ligne par urgence avec numéro de version (« le premier qui accepte l'obtient ») + reprise des urgences du bloc |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
 Les fichiers SQL historiques restent dans `../admin/` et `../signature/` pour

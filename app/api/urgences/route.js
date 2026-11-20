@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { addHistory, readDb, writeDb } from "../../../lib/db";
+import { addHistory, readDb } from "../../../lib/db";
 import { resolveEntreprise, loadEntrepriseProfile } from "../../../lib/entreprise-auth";
 import { isTrialUser } from "../../../lib/plan";
 import { sirenDe } from "../../../lib/compte-pro";
@@ -9,7 +9,8 @@ import {
   prixDe, RAYONS, refuser, retirer
 } from "../../../lib/urgences";
 import {
-  avancerTout, enCoursPour, geocoder, instantaneArtisan, lancerPushs, notifierClient, prisesPour, propositionsPour, tableauPro, vueProposition
+  avancerRecherches, ecrire, enCoursPour, geocoder, instantaneArtisan, lancerPushs, modifierUrgence, notifierClient, ouvrirUrgences,
+  prisesPour, propositionsPour, tableauPro, vueProposition
 } from "../../../lib/urgences-serveur";
 
 // Urgences côté artisan (maquette PRO-17) : disponibilité, zone, prix par
@@ -19,6 +20,9 @@ import {
 // reglages, disponible, accepter, refuser, retirer, partir.
 // Chaque lecture fait aussi avancer les recherches en cours (vagues
 // d'attribution) : pas de tâche planifiée.
+// Les urgences sont lues et écrites dans leur table, une ligne à la fois
+// (lib/urgences-stock.js) : « le premier qui accepte l'obtient » est tenu
+// par la base, pas par l'ordre d'arrivée des écritures du bloc.
 
 function reglagesDe(db, userId, webUser) {
   const r = db.urgencesPro?.[userId] || {};
@@ -79,17 +83,18 @@ async function alertes(db, userId, r, maintenant) {
 async function contexte(request, body) {
   const entreprise = await resolveEntreprise(request, body);
   if (!entreprise) return { erreur: badRequest("Connexion requise.", 401) };
-  return { entreprise, db: await readDb() };
+  const db = await readDb();
+  return { entreprise, db, stock: await ouvrirUrgences(db, { pour: entreprise.userId }) };
 }
 
 export async function GET(request) {
   const ctx = await contexte(request);
   if (ctx.erreur) return ctx.erreur;
-  const { db, entreprise } = ctx;
+  const { db, entreprise, stock } = ctx;
   const userId = entreprise.userId;
   const maintenant = new Date().toISOString();
   const pushs = [];
-  if (avancerTout(db, maintenant, pushs)) { await writeDb(db); await lancerPushs(pushs); }
+  if (await avancerRecherches(db, stock, maintenant, pushs)) { await ecrire(db, stock); await lancerPushs(pushs); }
   if (new URL(request.url).searchParams.get("alertes")) {
     return ok(await alertes(db, userId, reglagesDe(db, userId, null), maintenant));
   }
@@ -102,13 +107,15 @@ export async function POST(request) {
   try { body = await request.json(); } catch { return badRequest("Envoi invalide."); }
   const ctx = await contexte(request, body);
   if (ctx.erreur) return ctx.erreur;
-  const { db, entreprise } = ctx;
+  const { db, entreprise, stock } = ctx;
   const userId = entreprise.userId;
   const maintenant = new Date().toISOString();
   const webUser = await loadEntrepriseProfile(entreprise);
   const action = String(body.action || "");
   const pushs = [];
-  avancerTout(db, maintenant, pushs);
+  // Les recherches avancent d'abord, et leurs notifications partent tout de
+  // suite : la suite peut s'arrêter sur une erreur sans les perdre.
+  if (await avancerRecherches(db, stock, maintenant, pushs)) { await ecrire(db, stock); await lancerPushs(pushs); pushs.length = 0; }
   db.urgencesPro = db.urgencesPro || {};
   db.urgences = db.urgences || [];
   const actuels = reglagesDe(db, userId, webUser);
@@ -139,32 +146,45 @@ export async function POST(request) {
       db.urgencesPro[userId] = { ...r, actif: true, jusqua, depuis: maintenant };
     }
   } else if (["accepter", "refuser", "retirer"].includes(action)) {
-    const u = db.urgences.find((x) => x.id === String(body.id || ""));
+    const id = String(body.id || "");
+    const vue = db.urgences.find((x) => x.id === id);
     // Même réponse qu'une urgence inexistante si elle n'a jamais été
     // proposée à cet artisan.
-    if (!u || !(u.propositions || []).some((p) => p.userId === userId)) return badRequest("Urgence introuvable.", 404);
+    if (!vue || !(vue.propositions || []).some((p) => p.userId === userId)) return badRequest("Urgence introuvable.", 404);
     if (action === "refuser") {
-      refuser(u, userId, maintenant);
+      await modifierUrgence(stock, db, id, (u) => { refuser(u, userId, maintenant); return ""; });
     } else if (action === "accepter") {
-      const prix = { deplacement: prixDe(actuels, u.categorie), demiHeure: demiHeureDe(actuels) };
+      const prix = { deplacement: prixDe(actuels, vue.categorie), demiHeure: demiHeureDe(actuels) };
       if (!prix.deplacement || !prix.demiHeure) return badRequest("Votre prix pour cette urgence manque.");
-      const erreur = accepter(u, { userId, minutes: body.minutes, prix, maintenant });
-      if (erreur) { await writeDb(db); return badRequest(erreur, 409); }
-      u.artisan.profil = instantaneArtisan(webUser, db, userId);
-      const c = categorieDe(u.categorie);
-      notifierClient(db, u, { type: "urgence.acceptee", titre: "Un artisan a accepté", texte: `${u.artisan.profil.nom} peut arriver vers ${u.artisan.arriveeVers}. Confirmez pour qu'il parte.` }, pushs);
-      addHistory(db, { userId, type: "urgence.acceptee", label: `Urgence acceptée : ${c?.label || ""} · ${u.quartier}`, entityId: u.id, entityType: "urgence" });
-      await writeDb(db);
-      // Le premier qui accepte l'obtient : on relit pour le cas où un autre
-      // artisan aurait écrit au même instant.
-      const relu = (await readDb()).urgences?.find((x) => x.id === u.id);
-      if (relu?.artisan?.userId !== userId) return badRequest("Cette urgence a déjà été prise par un autre artisan.", 409);
-      await lancerPushs(pushs);
-      return ok(await vueComplete(await readDb(), userId, webUser, maintenant));
+      // Le premier qui accepte l'obtient : la ligne n'est écrite que si elle
+      // n'a pas changé depuis la lecture. Sinon la règle est rejouée sur la
+      // ligne à jour, et répond « déjà prise » si un autre artisan l'a eue.
+      const r = await modifierUrgence(stock, db, id, (u) => {
+        const erreur = accepter(u, { userId, minutes: body.minutes, prix, maintenant });
+        if (!erreur && !u.artisan.profil) u.artisan.profil = instantaneArtisan(webUser, db, userId);
+        return erreur;
+      });
+      if (r.erreur) return badRequest(r.erreur, r.introuvable ? 404 : 409);
+      const u = r.u;
+      if (r.change) {
+        const c = categorieDe(u.categorie);
+        notifierClient(db, u, { type: "urgence.acceptee", titre: "Un artisan a accepté", texte: `${u.artisan.profil.nom} peut arriver vers ${u.artisan.arriveeVers}. Confirmez pour qu'il parte.` }, pushs);
+        addHistory(db, { userId, type: "urgence.acceptee", label: `Urgence acceptée : ${c?.label || ""} · ${u.quartier}`, entityId: u.id, entityType: "urgence" });
+        await ecrire(db, stock);
+        if (stock.mode === "bloc") {
+          // Sans la table (script pas encore exécuté), ancienne vérification :
+          // on relit le bloc pour le cas où un autre artisan aurait écrit au
+          // même instant.
+          const relu = (await readDb()).urgences?.find((x) => x.id === u.id);
+          if (relu?.artisan?.userId !== userId) return badRequest("Cette urgence a déjà été prise par un autre artisan.", 409);
+        }
+        await lancerPushs(pushs);
+      }
+      return ok(await vueComplete(db, userId, webUser, maintenant));
     } else {
-      const erreur = retirer(u, userId, maintenant);
-      if (erreur) return badRequest(erreur, 409);
-      notifierClient(db, u, { type: "urgence.retiree", titre: "L'artisan s'est retiré", texte: "La recherche d'un autre artisan disponible reprend." }, pushs);
+      const r = await modifierUrgence(stock, db, id, (u) => retirer(u, userId, maintenant));
+      if (r.erreur) return badRequest(r.erreur, r.introuvable ? 404 : 409);
+      notifierClient(db, r.u, { type: "urgence.retiree", titre: "L'artisan s'est retiré", texte: "La recherche d'un autre artisan disponible reprend." }, pushs);
     }
   } else if (action === "partir") {
     // L'artisan part : l'intervention rapide passe « en route » (même
@@ -179,13 +199,13 @@ export async function POST(request) {
       notifierClient(db, u, { type: "urgence.en_route", titre: `${u.artisan.profil?.prenom || "L'artisan"} est en route`, texte: `Arrivée annoncée vers ${i.arriveeVers}.` }, pushs);
       addHistory(db, { userId, type: "intervention.en_route", label: `En route : ${i.client}, arrivée vers ${i.arriveeVers}`, entityId: i.id, entityType: "intervention" });
     }
-    await writeDb(db);
+    await ecrire(db, stock);
     await lancerPushs(pushs);
     return ok({ interventionId: i.id });
   } else {
     return badRequest("Action inconnue.");
   }
-  await writeDb(db);
+  await ecrire(db, stock);
   await lancerPushs(pushs);
   return ok(await vueComplete(db, userId, webUser, maintenant));
 }

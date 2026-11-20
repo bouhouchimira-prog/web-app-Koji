@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { badRequest, ok } from "../../../../lib/http";
-import { addHistory, writeDb } from "../../../../lib/db";
+import { addHistory } from "../../../../lib/db";
 import { clientConnecte } from "../../../../lib/projets-client-serveur";
 import { buildInvoicePdf, invoiceDocumentFilename } from "../../../../lib/document-generator";
 import { avecProfil } from "../../../../lib/document-profil.js";
@@ -10,7 +10,7 @@ import {
   candidats, CATEGORIES, categorieDe, fourchette, nettoyerReponses, NUMERO_GAZ, positionQuartier, quartierDe, relancer, sansExif, textePrix, TEXTE_GAZ, titreUrgence
 } from "../../../../lib/urgences";
 import {
-  avancerTout, creerIntervention, enregistrerPhoto, geocoder, lancerPushs, notifierArtisan, vueClient
+  avancerRecherches, creerIntervention, ecrire, enregistrerPhoto, geocoder, lancerPushs, modifierUrgence, notifierArtisan, ouvrirUrgences, vueClient
 } from "../../../../lib/urgences-serveur";
 
 // Koji Client · commander une urgence (maquette PRO-17, écrans A à D).
@@ -19,6 +19,9 @@ import {
 // prix des artisans disponibles (fourchette) ; GET ?id= → une urgence ;
 // GET ?id=&facture=1 → PDF de la facture. POST JSON actions : commander,
 // confirmer, annuler, relancer.
+// Les urgences sont lues et écrites dans leur table, une ligne à la fois
+// (lib/urgences-stock.js) : chaque action est rejouée sur la ligne à jour si
+// elle a changé entre la lecture et l'écriture.
 const s = (v, n = 200) => fixText(String(v ?? "")).trim().slice(0, n);
 const ACTIVES = ["recherche", "acceptee"];
 
@@ -41,7 +44,8 @@ export async function GET(request) {
   const q = new URL(request.url).searchParams;
   const maintenant = new Date().toISOString();
   const pushs = [];
-  if (avancerTout(db, maintenant, pushs)) { await writeDb(db); await lancerPushs(pushs); }
+  const stock = await ouvrirUrgences(db, { pour: user.id });
+  if (await avancerRecherches(db, stock, maintenant, pushs)) { await ecrire(db, stock); await lancerPushs(pushs); }
 
   if (q.get("prix")) {
     const categorie = String(q.get("categorie") || "");
@@ -88,7 +92,10 @@ export async function POST(request) {
   const { db, user } = client;
   const maintenant = new Date().toISOString();
   const pushs = [];
-  avancerTout(db, maintenant, pushs);
+  const stock = await ouvrirUrgences(db, { pour: user.id });
+  // Les recherches avancent d'abord, et leurs notifications partent tout de
+  // suite : la suite peut s'arrêter sur une erreur sans les perdre.
+  if (await avancerRecherches(db, stock, maintenant, pushs)) { await ecrire(db, stock); await lancerPushs(pushs); pushs.length = 0; }
   db.urgences = db.urgences || [];
   const action = String(body.action || "");
 
@@ -122,45 +129,71 @@ export async function POST(request) {
       if (!propre) return badRequest("Photo illisible : prenez-la en JPEG.");
       u.photo = await enregistrerPhoto(user.id, u.id, propre);
     }
-    db.urgences.unshift(u);
-    avancerTout(db, maintenant, pushs);
+    if (!(await stock.sauver(db, u))) return badRequest("Votre demande n'a pas pu être enregistrée. Réessayez.", 409);
     addHistory(db, { userId: user.id, type: "urgence.commandee", label: `Urgence : ${c.label} · ${u.quartier}`, entityId: u.id, entityType: "urgence" });
-    await writeDb(db);
+    // Première vague : les artisans les plus proches sont prévenus.
+    await avancerRecherches(db, stock, maintenant, pushs);
+    await ecrire(db, stock);
     await lancerPushs(pushs);
-    return ok({ urgence: await vueClient(db, u, maintenant) }, 201);
+    return ok({ urgence: await vueClient(db, db.urgences.find((x) => x.id === u.id) || u, maintenant) }, 201);
   }
 
-  const u = db.urgences.find((x) => x.id === String(body.id || "") && x.clientId === user.id);
-  if (!u) return badRequest("Urgence introuvable.", 404);
-  const c = categorieDe(u.categorie);
-  const i = u.interventionId ? (db.interventions || []).find((x) => x.id === u.interventionId) : null;
+  const id = String(body.id || "");
+  const vue = db.urgences.find((x) => x.id === id && x.clientId === user.id);
+  if (!vue) return badRequest("Urgence introuvable.", 404);
+  const c = categorieDe(vue.categorie);
+  const interventionDe = (x) => (x.interventionId ? (db.interventions || []).find((y) => y.id === x.interventionId) || null : null);
+  const refus = (r) => badRequest(r.erreur, r.introuvable ? 404 : 409);
+  let u = vue;
 
   if (action === "confirmer") {
-    if (u.statut === "confirmee") return ok({ urgence: await vueClient(db, u, maintenant) });
-    if (u.statut !== "acceptee") return badRequest(u.statut === "expiree" ? "Le délai pour confirmer est passé. Relancez la recherche." : "Rien à confirmer.", 409);
-    u.statut = "confirmee";
-    u.confirmeeLe = maintenant;
+    // Le passage à « confirmée » et l'identifiant de l'intervention partent
+    // dans la même écriture : une seule confirmation peut créer
+    // l'intervention, même si le bouton est touché deux fois.
+    const prevue = `int-${randomUUID()}`;
+    const r = await modifierUrgence(stock, db, id, (x) => {
+      if (x.statut === "confirmee") return "";
+      if (x.statut !== "acceptee") return x.statut === "expiree" ? "Le délai pour confirmer est passé. Relancez la recherche." : "Rien à confirmer.";
+      Object.assign(x, { statut: "confirmee", confirmeeLe: maintenant, interventionId: prevue });
+      return "";
+    });
+    if (r.erreur) return refus(r);
+    u = r.u;
+    if (!r.change) return ok({ urgence: await vueClient(db, u, maintenant) });
     creerIntervention(db, u, maintenant);
     notifierArtisan(db, u.artisan.userId, { type: "urgence.confirmee", titre: "Urgence confirmée : partez", texte: `${c?.label || "Urgence"} · ${u.adresse}`, lien: `/urgences?partir=${u.id}` }, pushs);
   } else if (action === "annuler") {
-    const avantArrivee = !i?.arriveLe && !i?.termineeLe;
-    if (!["recherche", "acceptee", "sans_artisan", "expiree", "confirmee"].includes(u.statut) || !avantArrivee || i?.annuleeLe) return badRequest("Cette urgence ne peut plus être annulée.", 409);
-    const artisanId = ["acceptee", "confirmee"].includes(u.statut) ? u.artisan?.userId : "";
-    const confirmee = u.statut === "confirmee";
-    u.statut = "annulee";
-    u.annuleeLe = maintenant;
-    u.annuleePar = "client";
+    let artisanId = "";
+    let confirmee = false;
+    const r = await modifierUrgence(stock, db, id, (x) => {
+      const ix = interventionDe(x);
+      const avantArrivee = !ix?.arriveLe && !ix?.termineeLe;
+      if (!["recherche", "acceptee", "sans_artisan", "expiree", "confirmee"].includes(x.statut) || !avantArrivee || ix?.annuleeLe) return "Cette urgence ne peut plus être annulée.";
+      artisanId = ["acceptee", "confirmee"].includes(x.statut) ? x.artisan?.userId || "" : "";
+      confirmee = x.statut === "confirmee";
+      Object.assign(x, { statut: "annulee", annuleeLe: maintenant, annuleePar: "client" });
+      return "";
+    });
+    if (r.erreur) return refus(r);
+    u = r.u;
+    const i = interventionDe(u);
     if (i) Object.assign(i, { annuleeLe: maintenant, status: "annulee", updatedAt: maintenant });
     if (artisanId) notifierArtisan(db, artisanId, { type: "urgence.annulee", titre: "Urgence annulée par le client", texte: `${c?.label || "Urgence"} · ${u.quartier}${confirmee ? " : inutile de vous déplacer." : "."}`, lien: i ? `/interventions/rapide/${i.id}` : "/urgences" }, pushs);
   } else if (action === "relancer") {
-    if (!["sans_artisan", "expiree"].includes(u.statut)) return badRequest("La recherche est déjà en cours.", 409);
-    if (!candidats(u, db.urgencesPro || {}, maintenant).length) return badRequest("Aucun artisan n'est disponible près de chez vous pour cette urgence en ce moment.", 409);
-    relancer(u, maintenant);
-    avancerTout(db, maintenant, pushs);
+    const r = await modifierUrgence(stock, db, id, (x) => {
+      if (!["sans_artisan", "expiree"].includes(x.statut)) return "La recherche est déjà en cours.";
+      if (!candidats(x, db.urgencesPro || {}, maintenant).length) return "Aucun artisan n'est disponible près de chez vous pour cette urgence en ce moment.";
+      relancer(x, maintenant);
+      return "";
+    });
+    if (r.erreur) return refus(r);
+    // Première vague de la nouvelle recherche.
+    await avancerRecherches(db, stock, maintenant, pushs);
+    u = db.urgences.find((x) => x.id === id) || r.u;
   } else {
     return badRequest("Action inconnue.");
   }
-  await writeDb(db);
+  await ecrire(db, stock);
   await lancerPushs(pushs);
   return ok({ urgence: await vueClient(db, u, maintenant) });
 }
