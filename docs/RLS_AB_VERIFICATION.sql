@@ -116,7 +116,7 @@ SET ROLE authenticated;
 
 -- Tentative de modification d'un fournisseur appartenant a B : doit echouer (0 lignes)
 UPDATE public.fournisseurs
-SET nom = 'pirate'
+SET name = 'pirate'
 WHERE user_id = '<UUID_B>'::uuid;
 -- attendu : UPDATE 0
 

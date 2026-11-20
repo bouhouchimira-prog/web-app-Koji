@@ -76,7 +76,7 @@ RESET ROLE;
 SELECT set_config('request.jwt.claims', '{"sub":"60076f57-890d-4e63-b8c8-331168b5fc51","role":"authenticated"}', true);
 SET ROLE authenticated;
 
-UPDATE public.fournisseurs SET nom = 'pirate' WHERE user_id = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid;
+UPDATE public.fournisseurs SET name = 'pirate' WHERE user_id = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid;
 -- attendu : UPDATE 0
 
 DELETE FROM public.fournisseurs WHERE user_id = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid;
