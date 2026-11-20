@@ -106,3 +106,5 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 **P1-3 RÉSOLU** : bug `accountType` corrigé dans `lib/user-store.js` (précédence `||` → condition explicite `=== "entreprise" || is_pro === true`), et `account_type` désormais écrit dans `denormalizeToSupabase`. 6 tests unitaires ajoutés (`tests/unit/user-store.test.js`), tous verts. Suite complète : 520 tests web verts.
 
 **P1-1 RÉSOLU** : workflow CI web créé (`.github/workflows/web-ci.yml`) — tests unitaires + build de production sur push/PR. Build validé localement (exit 0).
+
+**Prochain point à régler** : P1-4 — réduire la concurrence sur le blob `koji_web_state` (verrouillage optimiste ou migration table par table), effort L, risque de perte de données en écritures concurrentes web + mobile.
