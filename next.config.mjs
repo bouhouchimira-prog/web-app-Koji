@@ -60,4 +60,21 @@ const nextConfig = {
   }
 };
 
-export default nextConfig;
+// Upload des source maps vers Sentry (optionnel, uniquement si SENTRY_AUTH_TOKEN
+// est défini au build). Sans token, on exporte la config brute : le build
+// fonctionne normalement, les traces restent minifiées côté Sentry.
+let exportedConfig = nextConfig;
+if (process.env.SENTRY_AUTH_TOKEN) {
+  const { withSentryConfig } = await import("@sentry/nextjs");
+  exportedConfig = withSentryConfig(nextConfig, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    silent: true,
+    widenClientFileUpload: true,
+    hideSourceMaps: true,
+    disableLogger: true
+  });
+}
+
+export default exportedConfig;
