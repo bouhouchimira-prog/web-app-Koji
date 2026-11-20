@@ -7,7 +7,9 @@ const nextConfig: NextConfig = {
   // les routes une fois deploye sur Vercel (404 generalise malgre un build
   // reussi) - voir https://nextjs.org/docs/app/api-reference/config/turbopack#root-directory
   turbopack: {
-    root: __dirname,
+    // En monorepo (npm workspaces), `next` est hisse a la racine du workspace
+    // (node_modules/ racine). Turbopack doit donc resoudre depuis cette racine.
+    root: "..",
   },
 };
 

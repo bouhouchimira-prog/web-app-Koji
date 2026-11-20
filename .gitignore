@@ -29,3 +29,5 @@ next-env.d.ts
 
 # Réglages locaux des sessions Claude Code (et leurs worktrees).
 .claude/
+
+# Turbo cache.turbo/

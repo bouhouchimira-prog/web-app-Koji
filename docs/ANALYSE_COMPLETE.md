@@ -119,4 +119,6 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 
 **P1-6 RÉSOLU** : admin aligné sur Next.js 16.3.0 + React 19.2.6 (build validé, exit 0). Les trois apps (root, signature, admin) sont désormais sur la même version majeure/mineure.
 
-**Prochain point à régler** : P3-1 — workspaces npm incluant `admin` (effort M, prérequis pour CI unifié), ou P2-1 (unification complète catalogue ouvrages, effort M), ou P0 — auditer les buckets non-Kôji restants (`items`, `profiles`, `menu-images`, effort S).
+**P3 (partiel) RÉSOLU** : workspaces npm incluent `admin` (root package.json), `packageManager` ajouté, turbo build validé (root + admin, 29s), CI unifié créé (`.github/workflows/ci.yml` : web + mobile en parallèle). Turbopack root ajusté dans admin pour résoudre `next` hissé.
+
+**Prochain point à régler** : P2-1 — unification complète catalogue ouvrages (web lit la table en priorité), ou P0 — auditer les buckets non-Kôji restants (`items`, `profiles`, `menu-images`), ou P1-5 (migration admin vers @koji/shared).
