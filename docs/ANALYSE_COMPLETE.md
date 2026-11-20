@@ -109,4 +109,6 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 
 **P1-4 RÉSOLU** : verrouillage optimiste ajouté sur le blob `koji_web_state` — colonne `version` (migration 0017, appliquée sur la base principale), `readDb()` expose `_version`, `writeDb()` vérifie la version et lève `DbConflictError` en cas de conflit, helper `updateDb(mutator, {retries})` pour read-modify-write sûr. Export `DbConflictError` + test. Suite complète : 521 tests web verts. Routes existantes conservent leur comportement (backward compat : écriture sans version reste possible).
 
-**Prochain point à régler** : P2-2 — activer Sentry (DSN) pour débloquer l'observabilité, effort M. (Ou P2-1 catalogue ouvrages, P0 buckets non-Kôji.)
+**P2-2 RÉSOLU** : config Sentry prête à activer — DSN conditionnel, environment/release, ignoreErrors, scrubbing PII (cookies/authorization), withSentryConfig pour l'upload des source maps (si SENTRY_AUTH_TOKEN), .env.example mis à jour. Activation réelle = créer un projet Sentry et définir SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN (+ SENTRY_AUTH_TOKEN pour les source maps). Build validé (exit 0).
+
+**Prochain point à régler** : P2-1 — catalogue ouvrages unifié web ↔ mobile via `koji_ouvrages` (effort M, valeur métier élevée), ou P0 — auditer les buckets non-Kôji (effort S).
