@@ -11,6 +11,7 @@ import 'package:koji/design/koji_widgets.dart';
 import 'package:koji/features/marketplace/marketplace_status.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
+import 'package:koji/features/moderation/moderation.dart';
 
 const _stepLabel = {
   'acompte': 'Acompte',
@@ -284,6 +285,14 @@ class _OfferDetailBodyState extends ConsumerState<_OfferDetailBody> {
     final messagesAsync = ref.watch(marketplaceOfferMessagesProvider(offerId));
     final messages = messagesAsync.valueOrNull ?? const <Map<String, dynamic>>[];
     final conversations = _groupConversations(messages);
+    // Entreprise bloquée (Signaler / Bloquer) : ses messages sont masqués,
+    // ici comme dans l'onglet Messages.
+    final bloques = ref.watch(moderationProvider.select((m) => m.blockedThreads));
+    for (final c in conversations) {
+      if (bloques.contains('radar:$offerId:${c.entrepriseUserId}')) {
+        c.messages.removeWhere((m) => m['senderType'] == 'entreprise');
+      }
+    }
     final positionedIds =
         positions.map((p) => p['entrepriseUserId'] as String?).toSet();
     _Conversation? active;
@@ -567,6 +576,24 @@ class _ActiveConversation extends ConsumerWidget {
     final snapshot = conversation.snapshot;
     final name = (snapshot?['raisonSociale'] as String?) ?? 'Entreprise';
     final messages = conversation.messages;
+    final cle = 'radar:$offerId:${conversation.entrepriseUserId}';
+    final bloque = ref.watch(
+        moderationProvider.select((m) => m.blockedThreads.contains(cle)));
+    final cible = ReportTarget(
+      kind: 'conversation',
+      id: cle,
+      label: 'Conversation avec $name',
+      excerpt: messages
+          .where((m) => m['senderType'] == 'entreprise')
+          .map((m) => '${m['message'] ?? ''}'.trim())
+          .where((t) => t.isNotEmpty)
+          .toList()
+          .reversed
+          .take(5)
+          .toList()
+          .reversed
+          .join(' / '),
+    );
     final respondedIds = messages
         .map((m) => m['respondsToId'] as String?)
         .whereType<String>()
@@ -613,6 +640,43 @@ class _ActiveConversation extends ConsumerWidget {
                   onPressed: onOpenCard,
                 ),
               ],
+              // Signaler / Bloquer (App Store, règle 1.2).
+              Wrap(
+                spacing: 4,
+                children: [
+                  TextButton(
+                    onPressed: () => showReportDialog(context, ref, cible,
+                        depuisKoji: true),
+                    child: const Text('Signaler'),
+                  ),
+                  TextButton(
+                    onPressed: () => bloque
+                        ? ref
+                            .read(moderationProvider.notifier)
+                            .setThreadBlocked(cle, false)
+                        : confirmBlock(
+                            context,
+                            ref,
+                            target: cible,
+                            depuisKoji: true,
+                            title: 'Bloquer $name ?',
+                            explanation:
+                                'Ses messages seront masqués et vous ne pourrez '
+                                "plus lui écrire. L'équipe Koji est prévenue. "
+                                'Vous pourrez la débloquer ici.',
+                            apply: () => ref
+                                .read(moderationProvider.notifier)
+                                .setThreadBlocked(cle, true),
+                          ),
+                    child: Text(bloque ? 'Débloquer' : 'Bloquer'),
+                  ),
+                ],
+              ),
+              if (bloque)
+                Text(
+                  'Vous avez bloqué cette entreprise : ses messages sont masqués.',
+                  style: TextStyle(fontSize: 12, color: p.muted),
+                ),
             ],
           ),
         ),
@@ -683,7 +747,9 @@ class _ActiveConversation extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: 10),
-              if (showRdvForm)
+              if (bloque)
+                const SizedBox.shrink()
+              else if (showRdvForm)
                 _RdvForm(
                   value: rdvDate,
                   onChanged: onRdvDateChanged,
@@ -703,6 +769,7 @@ class _ActiveConversation extends ConsumerWidget {
                 Text(error!, style: const TextStyle(color: Colors.red)),
               ],
               const SizedBox(height: 10),
+              if (!bloque)
               Row(
                 children: [
                   Expanded(

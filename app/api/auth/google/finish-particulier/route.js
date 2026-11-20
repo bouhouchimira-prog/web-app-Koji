@@ -6,6 +6,7 @@ import { issuePortalToken } from "../../../../../lib/portal-session";
 import { setSessionCookie } from "../../../../../lib/session-cookies";
 import { makePortalIdentifier, normalizeEmail } from "../../../../../lib/client-portal-access";
 import { fixText } from "../../../../../lib/text";
+import { MESSAGE_SUSPENDU, compteSuspendu } from "../../../../../lib/moderation";
 
 // Termine une connexion Google cote particulier (Koji) — pendant du meme
 // mecanisme entreprise (app/api/auth/google/finish/route.js), mais les
@@ -41,6 +42,9 @@ export async function POST(request) {
   // encore.
   const users = await readUsers();
   const existingUser = users.find((u) => u.accountType === "particulier" && normalizeEmail(u.email) === email);
+  if (existingUser && compteSuspendu(existingUser)) {
+    return badRequest(MESSAGE_SUSPENDU, 403);
+  }
   if (existingUser) {
     if (existingUser.isActive === false) existingUser.isActive = true;
     if (!existingUser.name && googleName) existingUser.name = googleName;

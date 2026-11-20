@@ -7,6 +7,7 @@ import { issueWorkerToken } from "../../../../lib/worker-session";
 import { setSessionCookie } from "../../../../lib/session-cookies";
 import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt } from "../../../../lib/rate-limit";
 import { requestLogger } from "../../../../lib/logger";
+import { MESSAGE_SUSPENDU, compteSuspendu } from "../../../../lib/moderation";
 
 const SCOPE = "particulier-login";
 const GENERIC_ERROR = "Identifiant ou mot de passe incorrect.";
@@ -59,6 +60,8 @@ export async function POST(request) {
       return badRequest(GENERIC_ERROR, 401);
     }
     await clearRateLimit(SCOPE, identifier);
+
+    if (compteSuspendu(clientUser)) return badRequest(MESSAGE_SUSPENDU, 403);
 
     if (clientUser.isActive === false) {
       return badRequest("Confirmez votre e-mail avant de vous connecter (lien envoyé à l'inscription).", 403);

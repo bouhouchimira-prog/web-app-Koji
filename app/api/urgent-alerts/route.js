@@ -6,6 +6,7 @@ import { getVerifiedWorkerId } from "../../../lib/worker-session";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import { mapQuote } from "../../../lib/quote-mapping";
 import { fixObjectText, fixText } from "../../../lib/text";
+import { MESSAGE_SUSPENDU, particulierSuspendu } from "../../../lib/moderation";
 
 function normalizeEmail(v = "") { return String(v || "").trim().toLowerCase(); }
 function normalizePhone(v = "") { return String(v || "").replace(/\D/g, ""); }
@@ -56,6 +57,7 @@ export async function POST(request) {
   const portalUserId = source === "client" ? getVerifiedPortalUserId(request, body) : "";
   if (source === "worker" && !workerId) return badRequest("Session expiree. Reconnectez-vous.", 401);
   if (source === "client" && !portalUserId) return badRequest("Session expiree. Reconnectez-vous.", 401);
+  if (source === "client" && particulierSuspendu(db, portalUserId)) return badRequest(MESSAGE_SUSPENDU, 403);
 
   const senderWorker = workerId ? (db.workers || []).find((w) => w.id === workerId) : null;
   const senderName = fixText(

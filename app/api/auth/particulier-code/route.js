@@ -5,6 +5,7 @@ import { readDb, writeDb } from "../../../../lib/db";
 import { sendParticulierLoginCodeEmail } from "../../../../lib/mailer";
 import { logger, requestLogger } from "../../../../lib/logger";
 import { adresseNormalisee, cleAdresse, enregistrerDemande, genererCode, nettoyerCodes, peutEnvoyer, MESSAGE_ENVOI } from "../../../../lib/code-particulier";
+import { compteSuspendu } from "../../../../lib/moderation";
 
 // « Retrouver mon projet » (maquette CLI-05), étape 1 : demande d'un code
 // par e-mail. POST { email } → toujours { envoye: true, message } : la
@@ -30,7 +31,7 @@ export async function POST(request) {
       return ok(REPONSE);
     }
 
-    const compte = (db.users || []).find((u) => u.accountType === "particulier" && u.isActive !== false && adresseNormalisee(u.email) === email);
+    const compte = (db.users || []).find((u) => u.accountType === "particulier" && u.isActive !== false && !compteSuspendu(u) && adresseNormalisee(u.email) === email);
     const code = compte ? genererCode() : "";
     const sel = compte ? randomBytes(16).toString("hex") : "";
     db.particulierCodes[cle] = enregistrerDemande(entree, { userId: compte?.id || "", code, sel, secret: SECRET, maintenant });

@@ -1494,6 +1494,12 @@
       "theme": "Koji Pro (novembre 2026)",
       "title": "Urgences : une seule entreprise peut obtenir une urgence, même si deux acceptent au même instant",
       "detail": "Les urgences quittent le grand fichier commun pour une table à elles, une ligne par urgence. Chaque modification vérifie que la ligne n'a pas changé depuis sa lecture : si deux artisans acceptent en même temps, la base n'en retient qu'un et l'autre lit « déjà prise par un autre artisan ». La même règle protège la confirmation du particulier (une seule intervention créée) et les notifications (pas d'envoi en double). Le site garde l'ancien fonctionnement tant que le script de base n° 0014 n'a pas été exécuté dans Supabase, puis bascule seul. Treize tests automatiques, dont celui des acceptations simultanées."
+    },
+    {
+      "category": "feature",
+      "theme": "Koji Pro (novembre 2026)",
+      "title": "Signaler et Bloquer : traitement des signalements depuis le back-office, et les mêmes boutons dans l’app Koji",
+      "detail": "Exigence d’Apple pour les apps où les utilisateurs échangent des messages. Chaque signalement (et chaque blocage) part par e-mail à entreprise@getkoji.io et ablexpertrenov@gmail.com, avec le lien de la nouvelle page Signalements du back-office. Depuis cette page, l’équipe voit les messages de l’auteur dans le fil signalé et peut retirer le contenu (remplacé par « Message retiré par l’équipe Koji. », une demande du Radar est retirée), suspendre ou réactiver le compte de l’auteur, puis classer ; chaque décision est inscrite au journal des accès. Un compte suspendu ne peut plus se connecter ni rien publier, sur le site comme dans les apps. L’app Koji (particuliers) a maintenant « Signaler » et « Bloquer » dans ses messages avec les entreprises (Radar et devis) ; un blocage masque les messages de l’entreprise sur le téléphone et survit aux mises à jour de l’app. Les e-mails de signalement ne peuvent plus se perdre à la fin de la requête."
     }
   ]
 }

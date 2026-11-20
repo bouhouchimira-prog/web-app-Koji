@@ -4,6 +4,7 @@ import { issuePortalToken } from "../../../../../lib/portal-session";
 import { setSessionCookie } from "../../../../../lib/session-cookies";
 import { requestLogger } from "../../../../../lib/logger";
 import { adresseNormalisee, cleAdresse, nettoyerCodes, verifierCode, ERREUR_CODE, ERREUR_EPUISE } from "../../../../../lib/code-particulier";
+import { compteSuspendu } from "../../../../../lib/moderation";
 
 // « Retrouver mon projet » (maquette CLI-05), étape 2 : POST { email, code }.
 // Code juste : il est consommé et la même session que
@@ -30,7 +31,7 @@ export async function POST(request) {
     else delete db.particulierCodes[cle];
 
     const compte = resultat.ok
-      ? (db.users || []).find((u) => u.id === resultat.userId && u.accountType === "particulier" && u.isActive !== false && adresseNormalisee(u.email) === email)
+      ? (db.users || []).find((u) => u.id === resultat.userId && u.accountType === "particulier" && u.isActive !== false && !compteSuspendu(u) && adresseNormalisee(u.email) === email)
       : null;
     await writeDb(db);
 

@@ -1,14 +1,20 @@
 import { badRequest, ok } from "../../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../../lib/db";
 import { fixText } from "../../../../lib/text";
-import { sendTechnicalReportEmail } from "../../../../lib/mailer";
+import { sendModerationEmail, sendTechnicalReportEmail } from "../../../../lib/mailer";
 import { resolveAnySession, resolveIdentity } from "../../../../lib/account-identity";
+import { cibleSignalement, natureSignalement } from "../../../../lib/moderation";
 
 // The report button is available from all 3 profiles (entreprise/particulier/
 // ouvrier), each with its own session type — resolveAnySession tries each
 // verifier in turn rather than assuming one (30 septembre : extrait dans
 // lib/account-identity.js, reutilise aussi par la demande de suppression de
 // compte).
+//
+// 20 novembre : les apps envoient aussi ici « Signaler » et « Bloquer »
+// (App Store, règle 1.2). Ces signalements de contenu gardent leur cible
+// (fil, demande) pour la page Signalements du back-office et partent aux
+// adresses de modération (lib/moderation.js), à traiter sous 24 heures.
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
@@ -21,6 +27,8 @@ export async function POST(request) {
   const db = await readDb();
   const identity = await resolveIdentity(session, db);
   const now = new Date().toISOString();
+  const nature = natureSignalement(body, message);
+  const cible = nature === "technique" ? null : cibleSignalement(body, message);
   const report = {
     id: `report-${Date.now()}`,
     sessionKind: session.kind,
@@ -31,6 +39,8 @@ export async function POST(request) {
     accountType: fixText(body.accountType || session.kind),
     page: fixText(body.page || ""),
     message: fixText(message),
+    nature,
+    ...(cible ? { cible } : {}),
     status: "nouveau",
     createdAt: now
   };
@@ -39,15 +49,16 @@ export async function POST(request) {
   addHistory(db, {
     userId: session.kind === "entreprise" ? session.id : "",
     type: "support.report",
-    label: `Signalement technique (${session.kind}): ${message.slice(0, 80)}`,
+    label: `${nature === "technique" ? "Signalement technique" : nature === "blocage" ? "Blocage" : "Signalement de contenu"} (${session.kind}): ${message.slice(0, 80)}`,
     entityId: report.id,
     entityType: "technicalReport"
   });
   await writeDb(db);
 
-  // Best-effort: the report is already saved above regardless of whether
-  // the notification email succeeds (SMTP may be unconfigured locally).
-  sendTechnicalReportEmail({
+  // Le signalement est déjà enregistré ; l'e-mail est attendu (sur Vercel,
+  // un envoi lancé sans attendre peut être coupé avec la fonction) mais son
+  // échec ne fait pas échouer la demande (SMTP absent en local).
+  const mail = {
     message: report.message,
     accountType: report.accountType,
     sessionKind: report.sessionKind,
@@ -56,7 +67,12 @@ export async function POST(request) {
     name: report.reporterName,
     email: report.reporterEmail,
     company: report.reporterCompany
-  }).catch(() => {});
+  };
+  try {
+    await (nature === "technique" ? sendTechnicalReportEmail(mail) : sendModerationEmail({ ...mail, nature, reportId: report.id }));
+  } catch {
+    /* enregistré quand même : visible dans le back-office */
+  }
 
   return ok({ report }, 201);
 }

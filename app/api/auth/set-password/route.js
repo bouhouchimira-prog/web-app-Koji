@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 import { erreurMotDePasse } from "../../../../lib/password-rules";
 import { getSupabase } from "../../../../lib/supabase";
+import { MESSAGE_SUSPENDU, compteSuspendu } from "../../../../lib/moderation";
 
 // Supabase recovery links land on /set-password with session tokens in the URL
 // hash; the page forwards them as accessToken and the password is updated via
@@ -139,6 +140,8 @@ export async function POST(request) {
   if (user[expiresField] && new Date(user[expiresField]).getTime() < Date.now()) {
     return badRequest(mode === "reset" ? "Lien de reinitialisation expire" : "Lien d'activation expire", 410);
   }
+
+  if (compteSuspendu(user)) return badRequest(MESSAGE_SUSPENDU, 403);
 
   const { passwordHash, passwordSalt } = hashPassword(password);
   user.passwordHash = passwordHash;
