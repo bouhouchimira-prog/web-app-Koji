@@ -15,8 +15,10 @@ Mise à jour : 20 novembre 2026.
 
 ## État synthétique
 
-- P0-1 à P0-5 terminés et mergés (PR #51-#54). PR #55 (`fix/p0-5-rls-canonical`)
-  ouverte pour la migration RLS canonique (0013).
+- P0-1 à P0-5 terminés et mergés (PR #51-#54 + PR #55 mergée localement :
+  migration 0013 dans `main`).
+- P0-6 préparé et commité (`0015_storage_canonical.sql` + tests). Application sur
+  la base Supabase et test A/B (P0-7) restent à exécuter manuellement.
 - Migration 0013 appliquée sur le **projet Supabase de base Kôji** (projet
   principal, pas un projet de test) ; nettoyage des policies héritées fait sur
   `users`, `quotes`, `fournisseurs`, `fournitures`. Le bucket `products` est
