@@ -113,4 +113,8 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 
 **P2-1 (partiel) RÉSOLU** : sync web→table ajoutée. Les opérations admin sur le socle commun (POST/PATCH/DELETE avec `addToKojiCatalog`) synchronisent désormais la table `koji_ouvrages` (upsert/delete best-effort) via `lib/koji-ouvrages.js` (`upsertSharedOuvrage`, `deleteSharedOuvrage`), pour que l'app mobile voie les modifications sans migration manuelle. Le blob reste la source de vérité côté web (fallback conservé). Unification complète (web lit la table en priorité) reste à faire.
 
-**Prochain point à régler** : P0 — auditer les buckets non-Kôji (`documents`, `logos`, `photos`, `items`, `profiles`, `menu-images`) (effort S), ou P1-5 — finaliser `packages/koji-shared`.
+**P0 (partiel) RÉSOLU** : buckets Kôji legacy (`logos`, `photos`, `documents`) durcis via 0018 (owner-scoped, remplace le scoping par préfixe de dossier). Les buckets `items`, `profiles`, `menu-images` appartiennent à une autre application et ne sont pas touchés (audit séparé).
+
+**P1-5 (partiel) RÉSOLU** : `@koji/shared` synchronisé avec `lib/` (8 modules identiques, plus de mojibake), package.json mis à jour (`type: module`, script `npm test`), 3 tests smoke verts. L'admin n'importe pas encore `@koji/shared` (il a son propre lib TS minimal) — migration complète reste à faire (effort L).
+
+**Prochain point à régler** : P1-6 — aligner les versions Next.js (admin 16.1.6 → 16.3.x) (effort M), ou P2-1 (unification complète catalogue ouvrages, effort M), ou P3 (monorepo/CI).
