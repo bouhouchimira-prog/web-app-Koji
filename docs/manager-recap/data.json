@@ -1488,6 +1488,12 @@
       "theme": "Koji Client (novembre 2026)",
       "title": "Paiement en ligne des factures avec Stripe Connect (construit, éteint par défaut)",
       "detail": "L'entreprise peut activer l'encaissement en ligne : elle ouvre un compte chez Stripe depuis Koji, et le particulier voit un bouton « Payer » sur ses factures dès que Stripe confirme que le compte peut encaisser. Le paiement est créé directement sur le compte de l'entreprise : l'argent ne passe jamais par Koji. Le montant est toujours le reste dû calculé par le serveur ; un paiement confirmé par Stripe est enregistré une seule fois, avec notification et reçu. Tout reste éteint en production tant que Connect n'est pas activé dans Stripe et que les deux variables ne sont pas posées dans Vercel. Aucun paiement réel n'a encore été fait."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Pro (novembre 2026)",
+      "title": "Urgences : une seule entreprise peut obtenir une urgence, même si deux acceptent au même instant",
+      "detail": "Les urgences quittent le grand fichier commun pour une table à elles, une ligne par urgence. Chaque modification vérifie que la ligne n'a pas changé depuis sa lecture : si deux artisans acceptent en même temps, la base n'en retient qu'un et l'autre lit « déjà prise par un autre artisan ». La même règle protège la confirmation du particulier (une seule intervention créée) et les notifications (pas d'envoi en double). Le site garde l'ancien fonctionnement tant que le script de base n° 0014 n'a pas été exécuté dans Supabase, puis bascule seul. Treize tests automatiques, dont celui des acceptations simultanées."
     }
   ]
 }

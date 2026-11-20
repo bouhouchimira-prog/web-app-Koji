@@ -9,7 +9,7 @@ import { ajouterPaiement } from "../../../../lib/encaissements";
 import { fixText } from "../../../../lib/text";
 import { arriveeVers, etapeDe, lienItineraire, mentionDevis, MENTION_EN_PLUS, messagePrix, MOYENS_PAIEMENT, nettoyerLignes, nomContact, PIECES, prixValides, totalLignes } from "../../../../lib/intervention-rapide";
 import { avecProfil } from "../../../../lib/document-profil.js";
-import { lancerPushs, suiteUrgence } from "../../../../lib/urgences-serveur";
+import { ecrire, lancerPushs, suiteUrgence } from "../../../../lib/urgences-serveur";
 
 // Intervention rapide (maquette PRO-17.1) : un client appelle directement.
 // GET → prix d'intervention et interventions rapides ; GET ?id= → une
@@ -228,8 +228,8 @@ export async function POST(request) {
   i.updatedAt = maintenant;
   // Intervention née d'une urgence Koji (PRO-17) : le particulier suit.
   const pushs = [];
-  suiteUrgence(db, i, action, pushs);
-  await writeDb(db);
+  const stock = await suiteUrgence(db, i, action, pushs);
+  await ecrire(db, stock);
   await lancerPushs(pushs);
   return ok({ intervention: await vue(request, db, i) });
 }
