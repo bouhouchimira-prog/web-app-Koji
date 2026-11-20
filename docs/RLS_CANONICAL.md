@@ -10,6 +10,10 @@ Le lot P0-6 (Storage) comprend deux migrations :
 - `supabase/migrations/0016_storage_legacy_cleanup.sql` : supprime les anciennes
   policies permissives qui rendaient le durcissement inefficace (les policies
   sont combinées par OR).
+- `supabase/migrations/0018_storage_legacy_buckets.sql` : durcit les buckets Kôji
+  legacy `logos`, `photos`, `documents` (owner-scoped, remplace le scoping par
+  préfixe de dossier). Les buckets `items`, `profiles`, `menu-images`
+  appartiennent à une autre application et ne sont pas touchés.
 
 Les scripts historiques de `admin/` et `signature/` ne doivent plus être exécutés
 tels quels.
