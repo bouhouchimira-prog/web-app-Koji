@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { publicUser, ADMIN_SCOPE, scopedItems, findScopedIndex, makeToken, addHistory } = require("../../lib/db");
+const { publicUser, ADMIN_SCOPE, scopedItems, findScopedIndex, makeToken, addHistory, DbConflictError } = require("../../lib/db");
 
 describe("lib/db helpers", () => {
   describe("publicUser", () => {
@@ -64,6 +64,15 @@ describe("lib/db helpers", () => {
       assert.strictEqual(db.history.length, 1);
       assert.strictEqual(db.history[0].userId, "u1");
       assert.strictEqual(db.history[0].type, "test");
+    });
+  });
+
+  describe("DbConflictError", () => {
+    it("est une Error avec code DB_CONFLICT", () => {
+      const e = new DbConflictError();
+      assert.ok(e instanceof Error);
+      assert.strictEqual(e.name, "DbConflictError");
+      assert.strictEqual(e.code, "DB_CONFLICT");
     });
   });
 });
