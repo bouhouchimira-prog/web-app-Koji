@@ -1,32 +1,32 @@
 -- ============================================================================
--- Vérification RLS A/B — projet Supabase de base Kôji
+-- Verification RLS A/B - projet Supabase de base Koji
 -- ============================================================================
--- À exécuter dans Supabase → SQL Editor (rôle postgres/service_role).
+-- A executer dans Supabase -> SQL Editor (role postgres/service_role).
 -- Remplacer les placeholders <UUID_A>, <UUID_B>, <UUID_ADMIN> par les vrais
 -- identifiants auth.users des deux comptes de test (+ admin).
 --
 -- Principe : on simule la session d'un utilisateur en positionnant
--- request.jwt.claims, puis on bascule en rôle authenticated pour que les
+-- request.jwt.claims, puis on bascule en role authenticated pour que les
 -- policies RLS s'appliquent. En fin de bloc on revient en service_role.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- 0. PRÉ-REQUIS (à faire une fois, hors script)
+-- 0. PRE-REQUIS (a faire une fois, hors script)
 -- ---------------------------------------------------------------------------
--- Créer deux comptes de test dans Auth (Dashboard → Authentication → Users)
+-- Creer deux comptes de test dans Auth (Dashboard -> Authentication -> Users)
 -- ou via l'app : un compte "A" et un compte "B", plus utiliser un compte admin
 -- existant. Noter leurs UUID (auth.users.id) et les reporter ci-dessous.
 
--- Variables de session (à adapter) :
+-- Variables de session (a adapter) :
 -- \set uuid_a '00000000-0000-0000-0000-00000000000a'
 -- \set uuid_b '00000000-0000-0000-0000-00000000000b'
 -- \set uuid_admin '00000000-0000-0000-0000-0000000000ad'
 
 -- ---------------------------------------------------------------------------
--- 1. CATALOGUE DES POLICIES (contrôle visuel)
+-- 1. CATALOGUE DES POLICIES (controle visuel)
 -- ---------------------------------------------------------------------------
 
--- Tables métier
+-- Tables metier
 SELECT tablename, policyname, cmd, qual, with_check
 FROM pg_policies
 WHERE tablename IN ('users', 'quotes', 'fournisseurs', 'fournitures')
@@ -45,9 +45,9 @@ WHERE tgname IN ('protect_sensitive_user_fields', 'protect_quote_owner')
 ORDER BY tgname;
 
 -- ---------------------------------------------------------------------------
--- 2. PRÉPARATION DES DONNÉES DE TEST (service_role, RLS contourné)
+-- 2. PREPARATION DES DONNEES DE TEST (service_role, RLS contourne)
 -- ---------------------------------------------------------------------------
--- Créer un devis pour A et un devis pour B (si absents).
+-- Creer un devis pour A et un devis pour B (si absents).
 
 -- INSERT INTO public.quotes (id, user_id, status, created_at)
 -- VALUES (gen_random_uuid(), '<UUID_A>'::uuid, 'brouillon', now())
@@ -57,11 +57,11 @@ ORDER BY tgname;
 -- ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- 3. HELPER : exécuter un bloc en tant qu'utilisateur donné
+-- 3. HELPER : executer un bloc en tant qu'utilisateur donne
 -- ---------------------------------------------------------------------------
 -- Usage : SELECT set_config('request.jwt.claims', '{"sub":"<UUID>","role":"authenticated"}', true);
 --         SET ROLE authenticated;
---         ... requêtes de test ...
+--         ... requetes de test ...
 --         RESET ROLE;
 
 -- ============================================================================
@@ -88,8 +88,8 @@ RESET ROLE;
 SELECT set_config('request.jwt.claims', '{"sub":"<UUID_A>","role":"authenticated"}', true);
 SET ROLE authenticated;
 
--- Tentative de promotion admin / changement de type / portail : doit être
--- silencieusement annulé par le trigger (les valeurs restent celles d'origine).
+-- Tentative de promotion admin / changement de type / portail : doit etre
+-- silencieusement annule par le trigger (les valeurs restent celles d'origine).
 UPDATE public.users
 SET is_admin = true,
     account_type = 'admin',
@@ -98,13 +98,13 @@ SET is_admin = true,
     _billingPlan = 'enterprise'
 WHERE id = '<UUID_A>'::uuid;
 
--- Vérifier qu'aucun champ sensible n'a changé :
+-- Verifier qu'aucun champ sensible n'a change :
 SELECT is_admin, account_type, portal_identifier, is_active,
        business_info ->> '_billingPlan' AS billing_plan
 FROM public.users
 WHERE id = '<UUID_A>'::uuid;
--- attendu : is_admin = false, account_type inchangé, portal_identifier inchangé,
---           is_active = true, billing_plan inchangé (ou NULL)
+-- attendu : is_admin = false, account_type inchange, portal_identifier inchange,
+--           is_active = true, billing_plan inchange (ou NULL)
 
 RESET ROLE;
 
@@ -114,13 +114,13 @@ RESET ROLE;
 SELECT set_config('request.jwt.claims', '{"sub":"<UUID_A>","role":"authenticated"}', true);
 SET ROLE authenticated;
 
--- Tentative de modification d'un fournisseur appartenant à B : doit échouer (0 lignes)
+-- Tentative de modification d'un fournisseur appartenant a B : doit echouer (0 lignes)
 UPDATE public.fournisseurs
 SET nom = 'pirate'
 WHERE user_id = '<UUID_B>'::uuid;
 -- attendu : UPDATE 0
 
--- Tentative de suppression : doit échouer (0 lignes)
+-- Tentative de suppression : doit echouer (0 lignes)
 DELETE FROM public.fournisseurs
 WHERE user_id = '<UUID_B>'::uuid;
 -- attendu : DELETE 0
@@ -130,19 +130,19 @@ RESET ROLE;
 -- ============================================================================
 -- TEST 4 : Anonyme ne peut pas signer sans l'e-mail correspondant
 -- ============================================================================
--- (Vérification manuelle côté app : un lien de signature anonyme doit être
--- rejeté si l'e-mail fourni ne correspond pas au devis. Contrôle SQL : la
+-- (Verification manuelle cote app : un lien de signature anonyme doit etre
+-- rejete si l'e-mail fourni ne correspond pas au devis. Controle SQL : la
 -- policy quotes_update_own_or_admin exige user_id = auth.uid() OU admin.)
 
 -- ============================================================================
--- TEST 5 : Signature existante non écrasable
+-- TEST 5 : Signature existante non ecrasable
 -- ============================================================================
--- (Contrôle applicatif + contrainte DB si présente. Vérifier qu'une seconde
--- écriture sur un devis déjà signé est refusée par la route de signature.)
+-- (Controle applicatif + contrainte DB si presente. Verifier qu'une seconde
+-- ecriture sur un devis deja signe est refusee par la route de signature.)
 
 -- ============================================================================
--- TEST 6 : Storage — A ne peut pas lire/écrire/supprimer les objets de B
---          dans les buckets PRIVÉS
+-- TEST 6 : Storage - A ne peut pas lire/ecrire/supprimer les objets de B
+--          dans les buckets PRIVES
 -- ============================================================================
 SELECT set_config('request.jwt.claims', '{"sub":"<UUID_A>","role":"authenticated"}', true);
 SET ROLE authenticated;
@@ -155,13 +155,13 @@ WHERE owner = '<UUID_B>'::uuid
                     'chantier-attachments','chantier_documents','task_images',
                     'intervention-signatures');
 
--- Tentative d'insertion dans un bucket privé au nom de B : doit échouer (RLS)
--- (à tester via l'API Storage ou en insérant manuellement avec owner = B)
+-- Tentative d'insertion dans un bucket prive au nom de B : doit echouer (RLS)
+-- (a tester via l'API Storage ou en inserant manuellement avec owner = B)
 -- INSERT INTO storage.objects (bucket_id, name, owner)
 -- VALUES ('quote_attachments', 'test/pirate.txt', '<UUID_B>'::uuid);
 -- attendu : ERROR permission denied (RLS)
 
--- Tentative de suppression d'un objet de B : doit échouer (0 lignes)
+-- Tentative de suppression d'un objet de B : doit echouer (0 lignes)
 DELETE FROM storage.objects
 WHERE owner = '<UUID_B>'::uuid
   AND bucket_id = 'quote_attachments';
@@ -170,7 +170,7 @@ WHERE owner = '<UUID_B>'::uuid
 RESET ROLE;
 
 -- ============================================================================
--- TEST 7 : Storage — buckets PUBLICS restent lisibles par tous
+-- TEST 7 : Storage - buckets PUBLICS restent lisibles par tous
 -- ============================================================================
 -- Anonyme (role anon) peut lire les buckets publics
 SET ROLE anon;
@@ -196,9 +196,9 @@ RESET ROLE;
 -- ============================================================================
 -- 4. NETTOYAGE (optionnel)
 -- ============================================================================
--- Supprimer les données de test créées à l'étape 2 si nécessaire.
+-- Supprimer les donnees de test creees a l'etape 2 si necessaire.
 
 -- ============================================================================
--- RÉSULTAT ATTENDU : tous les tests ci-dessus respectent les attentes.
--- Tout écart = régression à corriger avant mise en production.
+-- RESULTAT ATTENDU : tous les tests ci-dessus respectent les attentes.
+-- Tout ecart = regression a corriger avant mise en production.
 -- ============================================================================
