@@ -104,3 +104,5 @@ Date : 20 novembre 2026. Branche courante : `fix/p0-6-storage-canonical`.
 Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tests verts). La dette principale se concentre sur **l'unification des stores** (users/subscription, bug `accountType`), la **concurrence du blob JSON**, le **monorepo/CI web** et l'**activation des features Phase 4** (push, Sentry, offline, catalogue) fondées mais non configurées.
 
 **P1-3 RÉSOLU** : bug `accountType` corrigé dans `lib/user-store.js` (précédence `||` → condition explicite `=== "entreprise" || is_pro === true`), et `account_type` désormais écrit dans `denormalizeToSupabase`. 6 tests unitaires ajoutés (`tests/unit/user-store.test.js`), tous verts. Suite complète : 520 tests web verts.
+
+**P1-1 RÉSOLU** : workflow CI web créé (`.github/workflows/web-ci.yml`) — tests unitaires + build de production sur push/PR. Build validé localement (exit 0).
