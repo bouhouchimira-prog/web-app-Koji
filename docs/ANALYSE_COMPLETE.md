@@ -111,4 +111,6 @@ Le socle sécurité P0 est posé et vérifié (RLS canonique, Storage durci, tes
 
 **P2-2 RÉSOLU** : config Sentry prête à activer — DSN conditionnel, environment/release, ignoreErrors, scrubbing PII (cookies/authorization), withSentryConfig pour l'upload des source maps (si SENTRY_AUTH_TOKEN), .env.example mis à jour. Activation réelle = créer un projet Sentry et définir SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN (+ SENTRY_AUTH_TOKEN pour les source maps). Build validé (exit 0).
 
-**Prochain point à régler** : P2-1 — catalogue ouvrages unifié web ↔ mobile via `koji_ouvrages` (effort M, valeur métier élevée), ou P0 — auditer les buckets non-Kôji (effort S).
+**P2-1 (partiel) RÉSOLU** : sync web→table ajoutée. Les opérations admin sur le socle commun (POST/PATCH/DELETE avec `addToKojiCatalog`) synchronisent désormais la table `koji_ouvrages` (upsert/delete best-effort) via `lib/koji-ouvrages.js` (`upsertSharedOuvrage`, `deleteSharedOuvrage`), pour que l'app mobile voie les modifications sans migration manuelle. Le blob reste la source de vérité côté web (fallback conservé). Unification complète (web lit la table en priorité) reste à faire.
+
+**Prochain point à régler** : P0 — auditer les buckets non-Kôji (`documents`, `logos`, `photos`, `items`, `profiles`, `menu-images`) (effort S), ou P1-5 — finaliser `packages/koji-shared`.
