@@ -1,17 +1,17 @@
 -- ============================================================================
--- Vérification RLS A/B — projet Supabase de base Kôji (UUID remplis)
+-- Verification RLS A/B - projet Supabase de base Koji (UUID remplis)
 -- ============================================================================
--- Comptes utilisés :
+-- Comptes utilises :
 --   A (utilisateur normal) : firasmzoughi2001@gmail.com  -> 60076f57-890d-4e63-b8c8-331168b5fc51
 --   B (utilisateur normal) : salasidouk@gmail.com         -> c503cafe-a590-4444-8a27-43987daffbe2
 --   ADMIN                  : bouhouchimira@gmail.com      -> e8623bfb-ee88-4f21-95a4-55738f534758
 --
--- Exécuter bloc par bloc dans Supabase → SQL Editor.
+-- Executer bloc par bloc dans Supabase -> SQL Editor.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- 0. (Optionnel) Données de test : créer un devis pour A et un devis pour B
---    si aucun n'existe. Décommenter si besoin.
+-- 0. (Optionnel) Donnees de test : creer un devis pour A et un devis pour B
+--    si aucun n'existe. Decommenter si besoin.
 -- ---------------------------------------------------------------------------
 -- INSERT INTO public.quotes (id, user_id, status, created_at)
 -- VALUES (gen_random_uuid(), '60076f57-890d-4e63-b8c8-331168b5fc51'::uuid, 'brouillon', now());
@@ -46,7 +46,7 @@ SELECT count(*) AS devis_B_visibles_par_A   -- attendu : 0
 FROM public.quotes
 WHERE user_id = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid;
 
-SELECT count(*) AS devis_A_visibles         -- attendu : >= 1 (si données de test créées)
+SELECT count(*) AS devis_A_visibles         -- attendu : >= 1 (si donnees de test creees)
 FROM public.quotes
 WHERE user_id = '60076f57-890d-4e63-b8c8-331168b5fc51'::uuid;
 
@@ -66,7 +66,7 @@ WHERE id = '60076f57-890d-4e63-b8c8-331168b5fc51'::uuid;
 SELECT is_admin, account_type, portal_identifier, is_active
 FROM public.users
 WHERE id = '60076f57-890d-4e63-b8c8-331168b5fc51'::uuid;
--- attendu : is_admin = false, account_type inchangé, portal_identifier inchangé, is_active = true
+-- attendu : is_admin = false, account_type inchange, portal_identifier inchange, is_active = true
 
 RESET ROLE;
 
@@ -85,7 +85,7 @@ DELETE FROM public.fournisseurs WHERE user_id = 'c503cafe-a590-4444-8a27-43987da
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------
--- TEST 4 : Storage — A ne voit pas les objets de B (buckets privés)
+-- TEST 4 : Storage - A ne voit pas les objets de B (buckets prives)
 -- ---------------------------------------------------------------------------
 SELECT set_config('request.jwt.claims', '{"sub":"60076f57-890d-4e63-b8c8-331168b5fc51","role":"authenticated"}', true);
 SET ROLE authenticated;
@@ -105,7 +105,7 @@ WHERE owner = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------
--- TEST 5 : Storage — buckets publics lisibles par tous (anon)
+-- TEST 5 : Storage - buckets publics lisibles par tous (anon)
 -- ---------------------------------------------------------------------------
 SET ROLE anon;
 SELECT count(*) AS objets_publics_visibles
@@ -127,6 +127,6 @@ SELECT count(*) AS objets_visibles_par_admin FROM storage.objects;
 RESET ROLE;
 
 -- ============================================================================
--- RÉSULTAT ATTENDU : tous les tests ci-dessus respectent les attentes.
--- Tout écart = régression à corriger avant mise en production.
+-- RESULTAT ATTENDU : tous les tests ci-dessus respectent les attentes.
+-- Tout ecart = regression a corriger avant mise en production.
 -- ============================================================================
