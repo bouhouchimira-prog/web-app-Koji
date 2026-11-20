@@ -97,10 +97,9 @@ WHERE owner = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid
                     'chantier-attachments','chantier_documents','task_images',
                     'intervention-signatures');
 
-DELETE FROM storage.objects
-WHERE owner = 'c503cafe-a590-4444-8a27-43987daffbe2'::uuid
-  AND bucket_id = 'quote_attachments';
--- attendu : DELETE 0
+-- La suppression directe dans storage.objects est bloquee par storage.protect_delete().
+-- Tester la suppression via l'API Storage (client SDK) avec le JWT de A sur un
+-- objet appartenant a B : attendu = erreur 403 / 0 ligne supprimee.
 
 RESET ROLE;
 

@@ -161,11 +161,10 @@ WHERE owner = '<UUID_B>'::uuid
 -- VALUES ('quote_attachments', 'test/pirate.txt', '<UUID_B>'::uuid);
 -- attendu : ERROR permission denied (RLS)
 
--- Tentative de suppression d'un objet de B : doit echouer (0 lignes)
-DELETE FROM storage.objects
-WHERE owner = '<UUID_B>'::uuid
-  AND bucket_id = 'quote_attachments';
--- attendu : DELETE 0
+-- Tentative de suppression d'un objet de B : doit echouer (0 lignes).
+-- La suppression directe dans storage.objects est bloquee par storage.protect_delete() ;
+-- tester via l'API Storage (client SDK) avec le JWT de A sur un objet de B :
+-- attendu = erreur 403 / 0 ligne supprimee.
 
 RESET ROLE;
 
