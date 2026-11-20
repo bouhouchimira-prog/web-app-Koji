@@ -20,6 +20,7 @@ class ModerationState {
   const ModerationState({
     this.blockedQuotes = const {},
     this.hiddenOffers = const {},
+    this.blockedThreads = const {},
   });
 
   /// Devis whose client conversation is blocked.
@@ -28,13 +29,19 @@ class ModerationState {
   /// Radar offers hidden by the pro.
   final Set<String> hiddenOffers;
 
+  /// Conversations of the Messages tab blocked by the pro (key of the thread:
+  /// devis, Radar, KojiPage request or Réseau pro exchange).
+  final Set<String> blockedThreads;
+
   ModerationState copyWith({
     Set<String>? blockedQuotes,
     Set<String>? hiddenOffers,
+    Set<String>? blockedThreads,
   }) =>
       ModerationState(
         blockedQuotes: blockedQuotes ?? this.blockedQuotes,
         hiddenOffers: hiddenOffers ?? this.hiddenOffers,
+        blockedThreads: blockedThreads ?? this.blockedThreads,
       );
 }
 
@@ -45,6 +52,7 @@ class ModerationNotifier extends StateNotifier<ModerationState> {
 
   static const _quotesKey = 'moderation_blocked_quotes';
   static const _offersKey = 'moderation_hidden_offers';
+  static const _threadsKey = 'moderation_blocked_threads';
 
   Future<void> _load() async {
     try {
@@ -53,6 +61,7 @@ class ModerationNotifier extends StateNotifier<ModerationState> {
       state = ModerationState(
         blockedQuotes: (prefs.getStringList(_quotesKey) ?? const []).toSet(),
         hiddenOffers: (prefs.getStringList(_offersKey) ?? const []).toSet(),
+        blockedThreads: (prefs.getStringList(_threadsKey) ?? const []).toSet(),
       );
     } catch (_) {
       // Storage unavailable: start with nothing blocked.
@@ -64,7 +73,19 @@ class ModerationNotifier extends StateNotifier<ModerationState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_quotesKey, state.blockedQuotes.toList());
       await prefs.setStringList(_offersKey, state.hiddenOffers.toList());
+      await prefs.setStringList(_threadsKey, state.blockedThreads.toList());
     } catch (_) {}
+  }
+
+  /// Blocks a Messages-tab conversation. A devis conversation is also blocked
+  /// by its devis, so the older devis screen and its notifications agree.
+  Future<void> setThreadBlocked(String threadKey, bool blocked, {String quoteId = ''}) async {
+    final threads = {...state.blockedThreads};
+    blocked ? threads.add(threadKey) : threads.remove(threadKey);
+    final quotes = {...state.blockedQuotes};
+    if (quoteId.isNotEmpty) blocked ? quotes.add(quoteId) : quotes.remove(quoteId);
+    state = state.copyWith(blockedThreads: threads, blockedQuotes: quotes);
+    await _save();
   }
 
   Future<void> setQuoteBlocked(String quoteId, bool blocked) async {
@@ -116,7 +137,7 @@ class ReportTarget {
     this.excerpt = '',
   });
 
-  /// 'message_devis' | 'offre_radar'
+  /// 'message_devis' | 'offre_radar' | 'conversation'
   final String kind;
   final String id;
 

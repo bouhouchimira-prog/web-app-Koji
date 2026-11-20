@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/design/koji_theme.dart';
@@ -53,16 +58,56 @@ final fil_ = fil;
 String _n(String s) => s.replaceAll(RegExp('[  ]'), ' ');
 Finder _contient(String s) => find.byWidgetPredicate((w) => (w is Text && _n(w.data ?? w.textSpan?.toPlainText() ?? '').contains(s)) || (w is RichText && _n(w.text.toPlainText()).contains(s)));
 
+final _envoisEquipe = <String>[];
+final _apiTest = KojiProApi(
+  tokenProvider: () async => 'test',
+  httpClient: MockClient((r) async {
+    _envoisEquipe.add(r.body);
+    return http.Response(jsonEncode({'report': {'id': 'r1'}}), 201, headers: {'content-type': 'application/json'});
+  }),
+);
+
 Future<void> _pump(WidgetTester tester, Widget home, _FakeRepo repo) async {
   tester.view.physicalSize = const Size(430, 2400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(ProviderScope(overrides: [messagesRepositoryProvider.overrideWithValue(repo)], child: MaterialApp(theme: KojiTheme.light(KojiAppKind.entreprise), home: home)));
+  await tester.pumpWidget(ProviderScope(overrides: [messagesRepositoryProvider.overrideWithValue(repo), kojiProApiProvider.overrideWithValue(_apiTest)], child: MaterialApp(theme: KojiTheme.light(KojiAppKind.entreprise), home: home)));
   await tester.pumpAndSettle();
 }
 
 void main() {
-  setUp(() => KojiAppConfig.use(KojiAppKind.entreprise));
+  setUp(() {
+    KojiAppConfig.use(KojiAppKind.entreprise);
+    SharedPreferences.setMockInitialValues({});
+    _envoisEquipe.clear();
+  });
+
+  testWidgets('fil : Signaler et Bloquer (règle App Store 1.2), puis Débloquer', (tester) async {
+    await _pump(tester, const FilScreen(cle: 'devis:q1'), _FakeRepo());
+    await tester.tap(find.byTooltip('Signaler ou bloquer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Signaler la conversation'), findsOneWidget);
+    await tester.tap(find.text('Bloquer ce contact'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Bloquer'));
+    await tester.pumpAndSettle();
+    expect(_contient('Le gardien est là'), findsNothing);
+    expect(_contient('Contact bloqué'), findsWidgets);
+    expect(find.text('Envoyer'), findsNothing);
+    expect(_envoisEquipe.single, contains('[Blocage] Conversation avec Mme Lefèvre'));
+
+    await tester.tap(find.text('Débloquer'));
+    await tester.pumpAndSettle();
+    expect(_contient('Le gardien est là'), findsWidgets);
+    expect(find.text('Envoyer'), findsOneWidget);
+  });
+
+  testWidgets('liste : une conversation bloquée ne montre plus le dernier message', (tester) async {
+    SharedPreferences.setMockInitialValues({'moderation_blocked_threads': ['devis:q1']});
+    await _pump(tester, const MessagesProScreen(), _FakeRepo());
+    expect(_contient('Conversation bloquée'), findsWidgets);
+    expect(_contient('Le gardien peut réceptionner'), findsNothing);
+  });
 
   testWidgets('liste : non lus, filtre Non lus, onglet Pros vide', (tester) async {
     await _pump(tester, const MessagesProScreen(), _FakeRepo());
