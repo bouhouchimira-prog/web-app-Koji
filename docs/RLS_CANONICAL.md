@@ -2,10 +2,17 @@
 
 La migration `supabase/migrations/0013_rls_canonical.sql` est la référence pour les
 droits d'accès multi-utilisateur (tables `users`, `quotes`, `fournisseurs`,
-`fournitures` et bucket Storage `products`). Le lot P0-6
-(`supabase/migrations/0015_storage_canonical.sql`) étend le même durcissement aux
-autres buckets Storage. Les scripts historiques de `admin/` et `signature/` ne
-doivent plus être exécutés tels quels.
+`fournitures` et bucket Storage `products`).
+
+Le lot P0-6 (Storage) comprend deux migrations :
+- `supabase/migrations/0015_storage_canonical.sql` : ajoute les policies canoniques
+  (owner-scoped) pour les autres buckets.
+- `supabase/migrations/0016_storage_legacy_cleanup.sql` : supprime les anciennes
+  policies permissives qui rendaient le durcissement inefficace (les policies
+  sont combinées par OR).
+
+Les scripts historiques de `admin/` et `signature/` ne doivent plus être exécutés
+tels quels.
 
 ## Scripts à ne plus exécuter
 
@@ -18,7 +25,7 @@ doivent plus être exécutés tels quels.
 
 ## Vérification recommandée
 
-1. Exécuter `0013_rls_canonical.sql` puis `0015_storage_canonical.sql` sur une base de test.
+1. Exécuter `0013`, puis `0015`, puis `0016` sur une base de test.
 2. Vérifier les policies :
 
 ```sql
@@ -35,19 +42,13 @@ where schemaname = 'storage' and tablename = 'objects'
 order by policyname;
 ```
 
-3. Tester avec deux comptes distincts :
-   - le compte A ne voit pas les devis du compte B ;
-   - le compte A ne peut pas modifier `is_admin`, `account_type`, `portal_identifier`, `is_active` ou `_billingPlan` ;
-   - le compte A ne peut pas modifier/supprimer les fournisseurs du compte B ;
-   - un compte anonyme ne peut pas signer un devis sans l'e-mail correspondant ;
-   - une signature existante ne peut pas être écrasée ;
-   - le compte A ne peut pas lire/modifier/supprimer les objets Storage du compte B dans les buckets privés (`quote_attachments`, `worker-uploads`, `worker_docs`, `chantier-attachments`, `chantier_documents`, `task_images`, `intervention-signatures`) ;
-   - les buckets publics (`business-logos`, `signatures`, `fourniture-images`, `fournitures`, `products`) restent lisibles publiquement, mais seuls le propriétaire (ou un admin) peut écrire/supprimer.
-4. Vérifier le bucket/path-prefix map dans `0015_storage_canonical.sql` (commentaire en tête de fichier) avant application.
+3. Tester avec deux comptes distincts (voir `docs/RLS_AB_VERIFICATION_FILLED.sql`).
+4. Après `0016`, vérifier qu'aucune policy permissive héritée ne subsiste (voir la
+   requête de vérification en fin de `0016`).
 
 ## Remarques
 
 - Les migrations numérotées sont la source de vérité.
 - Les scripts historiques restent dans le dépôt pour référence uniquement.
 - Cette migration ne corrige pas à elle seule les routes applicatives : elle complète les correctifs P0 déjà mergés.
-- PR #55 (`fix/p0-5-rls-canonical`) porte la migration 0013 ; le lot P0-6 (0015) doit être une PR séparée.
+- Les buckets non-Kôji (`documents`, `logos`, `photos`, `items`, `profiles`, `menu-images`) n'ont pas été touchés par `0016` ; audit séparé à prévoir.
