@@ -185,18 +185,21 @@ class _Cloche extends StatelessWidget {
 }
 
 /// Barre avec retour (`.cl-bar`) : « ‹ », titre en serif, sous-titre. Sans
-/// [onRetour] (racine d'un onglet), pas de « ‹ ».
+/// [onRetour] (racine d'un onglet), pas de « ‹ ». [action] : bouton à droite
+/// (menu « ⋮ » Signaler / Bloquer d'une conversation).
 class ClBarre extends StatelessWidget {
   const ClBarre({
     super.key,
     required this.titre,
     this.sousTitre = '',
     required this.onRetour,
+    this.action,
   });
 
   final String titre;
   final String sousTitre;
   final VoidCallback? onRetour;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +251,7 @@ class ClBarre extends StatelessWidget {
                 ),
               ),
             ),
+            if (action != null) action!,
           ],
         ),
       ),
@@ -771,6 +775,7 @@ class ClEcran extends StatelessWidget {
     this.onRetour,
     required this.corps,
     this.bas,
+    this.action,
   });
 
   final String titre;
@@ -778,6 +783,7 @@ class ClEcran extends StatelessWidget {
   final VoidCallback? onRetour;
   final Widget corps;
   final Widget? bas;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -786,7 +792,7 @@ class ClEcran extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClBarre(titre: titre, sousTitre: sousTitre, onRetour: onRetour),
+          ClBarre(titre: titre, sousTitre: sousTitre, onRetour: onRetour, action: action),
           Expanded(
             child: MediaQuery.removePadding(
               context: context,

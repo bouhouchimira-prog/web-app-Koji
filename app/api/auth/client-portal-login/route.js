@@ -4,6 +4,7 @@ import { issuePortalToken } from "../../../../lib/portal-session";
 import { hashPassword, verifyHashedPassword } from "../../../../lib/password-hash";
 import { setSessionCookie } from "../../../../lib/session-cookies";
 import { checkRateLimit, clearRateLimit, rateLimitMessage, recordFailedAttempt } from "../../../../lib/rate-limit";
+import { MESSAGE_SUSPENDU, compteSuspendu } from "../../../../lib/moderation";
 
 const SCOPE = "client-portal-login";
 
@@ -43,6 +44,7 @@ export async function POST(request) {
   // Compte désactivé : refusé seulement une fois le mot de passe prouvé, pour
   // ne pas révéler à un inconnu qu'un identifiant existe et qu'il est inactif.
   if (user.isActive === false) return badRequest("Ce compte n'est pas actif.", 401);
+  if (compteSuspendu(user)) return badRequest(MESSAGE_SUSPENDU, 403);
   await clearRateLimit(SCOPE, identifier);
 
   if (validLegacyPlaintext) {

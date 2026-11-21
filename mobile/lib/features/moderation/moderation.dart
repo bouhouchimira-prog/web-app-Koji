@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:koji/app/koji_app_config.dart';
 import 'package:koji/app/koji_pro_api.dart';
-import 'package:koji/app/koji_web_api_client.dart' show KojiWebApiException;
+import 'package:koji/app/koji_web_api_client.dart'
+    show KojiWebApiException, kojiWebApiClientProvider;
 
 /// Report / block for content written by other users (App Store guideline
 /// 1.2): client messages on a devis and particulier offers on the Radar.
@@ -148,11 +149,16 @@ class ReportTarget {
   final String excerpt;
 }
 
-Future<void> _sendToTeam(
-  KojiProApi api, {
+/// Corps de POST /api/support/report pour un signalement (« contenu ») ou un
+/// blocage. `cible` permet au back-office (page Signalements) de retrouver
+/// le fil et son auteur ; la ligne « Type : … · id : … » reste pour les
+/// e-mails et les anciennes versions du site.
+@visibleForTesting
+Map<String, dynamic> corpsSignalement({
   required String tag,
   required ReportTarget target,
   required String details,
+  bool depuisKoji = false,
 }) {
   final excerpt = target.excerpt.trim();
   final message = [
@@ -162,20 +168,44 @@ Future<void> _sendToTeam(
     if (excerpt.isNotEmpty)
       'Contenu : « ${excerpt.length > 500 ? '${excerpt.substring(0, 500)}…' : excerpt} »',
   ].join('\n');
-  return api.post('/api/support/report', {
+  return {
     'message': message,
-    'accountType': 'entreprise',
-    'page': 'koji-pro/${target.kind}/${target.id}',
-  });
+    'accountType': depuisKoji ? 'particulier' : 'entreprise',
+    'page': '${depuisKoji ? 'koji' : 'koji-pro'}/${target.kind}/${target.id}',
+    'nature': tag == 'Blocage' ? 'blocage' : 'contenu',
+    'cible': {'type': target.kind, 'id': target.id},
+  };
+}
+
+/// Envoi à l'équipe Koji. Koji Pro : session Supabase de l'entreprise.
+/// Koji (particuliers) : session du Radar (cookie) quand elle existe, sinon
+/// la session Supabase de l'app (messages des devis).
+Future<void> _sendToTeam(
+  WidgetRef ref, {
+  required String tag,
+  required ReportTarget target,
+  required String details,
+  bool depuisKoji = false,
+}) async {
+  final corps = corpsSignalement(tag: tag, target: target, details: details, depuisKoji: depuisKoji);
+  if (depuisKoji) {
+    final web = ref.read(kojiWebApiClientProvider);
+    if (web.isLoggedIn) {
+      await web.postJson('/api/support/report', corps);
+      return;
+    }
+  }
+  await ref.read(kojiProApiProvider).post('/api/support/report', corps);
 }
 
 /// Asks for a reason and sends the report. Returns true when sent.
+/// [depuisKoji] : appelé depuis l'app Koji (particuliers).
 Future<bool> showReportDialog(
   BuildContext context,
   WidgetRef ref,
-  ReportTarget target,
-) async {
-  final api = ref.read(kojiProApiProvider);
+  ReportTarget target, {
+  bool depuisKoji = false,
+}) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
   final commentController = TextEditingController();
   String? reason;
@@ -235,7 +265,8 @@ Future<bool> showReportDialog(
 
   try {
     await _sendToTeam(
-      api,
+      ref,
+      depuisKoji: depuisKoji,
       tag: 'Signalement contenu',
       target: target,
       details: [
@@ -266,8 +297,8 @@ Future<bool> confirmBlock(
   required String title,
   required String explanation,
   required Future<void> Function() apply,
+  bool depuisKoji = false,
 }) async {
-  final api = ref.read(kojiProApiProvider);
   final messenger = ScaffoldMessenger.maybeOf(context);
   final confirmed = await showDialog<bool>(
     context: context,
@@ -291,7 +322,7 @@ Future<bool> confirmBlock(
   await apply();
   messenger?.showSnackBar(const SnackBar(content: Text('Bloqué.')));
   // Best effort: the block already applies on the device.
-  _sendToTeam(api, tag: 'Blocage', target: target, details: '')
-      .catchError((_) => <String, dynamic>{});
+  _sendToTeam(ref, tag: 'Blocage', target: target, details: '', depuisKoji: depuisKoji)
+      .catchError((_) {});
   return true;
 }

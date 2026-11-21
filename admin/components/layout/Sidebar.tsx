@@ -34,7 +34,7 @@ const GROUPES: { label: string; univers?: 'pro' | 'client'; items: Item[] }[] = 
     ]
   },
   { label: 'Partenaires', items: [{ label: 'Fournisseurs', href: '/dashboard/fournisseurs' }, { label: 'Produits', href: '/dashboard/products' }] },
-  { label: 'Transversal', items: [{ label: 'Communications', href: '/dashboard/communications' }, { label: 'Journal des accès', href: '/dashboard/journal' }] }
+  { label: 'Transversal', items: [{ label: 'Signalements', href: '/dashboard/signalements' }, { label: 'Communications', href: '/dashboard/communications' }, { label: 'Journal des accès', href: '/dashboard/journal' }] }
 ]
 
 export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {

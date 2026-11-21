@@ -3,6 +3,7 @@ import { categorieSupport, estParticulierRapport, type Ligne } from '@/lib/bo/cl
 import { dateHeure, nomCourt } from '@/lib/bo/format'
 import Liste, { type LigneListe } from '@/components/bo/Liste'
 import { exigerBackOffice } from '@/lib/require-admin'
+import { estModeration } from '@/lib/bo/moderation'
 
 // Support Client (maquette PRO-24.12) : file des particuliers, séparée du
 // support Pro. Sources : les signalements envoyés depuis un compte
@@ -26,7 +27,7 @@ const resolu = (statut: string) => /trait|resolu|résolu|ferm|clos/i.test(statut
 export default async function SupportClient() {
   await exigerBackOffice()
   const db = await etatWeb()
-  const rapports = ((db.technicalReports || []) as Ligne[]).filter(estParticulierRapport).map((r) => ({ id: s(r.id), quand: s(r.createdAt), nom: s(r.reporterName), email: s(r.reporterEmail), message: s(r.message), statut: s(r.status) }))
+  const rapports = ((db.technicalReports || []) as Ligne[]).filter((r) => estParticulierRapport(r) && !estModeration(r)).map((r) => ({ id: s(r.id), quand: s(r.createdAt), nom: s(r.reporterName), email: s(r.reporterEmail), message: s(r.message), statut: s(r.status) }))
   const suppressions = ((db.accountDeletionRequests || []) as Ligne[]).filter(estParticulierRapport).map((r) => ({ id: s(r.id), quand: s(r.createdAt), nom: s(r.requesterName), email: s(r.requesterEmail), message: `Suppression de mon compte${r.reason ? ` : ${s(r.reason)}` : ''}`, statut: s(r.status) }))
   const tickets = [...rapports, ...suppressions].sort((a, b) => b.quand.localeCompare(a.quand))
   const ouverts = tickets.filter((t) => !resolu(t.statut))

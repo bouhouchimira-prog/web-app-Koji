@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "../../../../lib/supabase";
 import { mapQuote } from "../../../../lib/quote-mapping";
 import { getVerifiedPortalUserId } from "../../../../lib/portal-session";
 import { findUserById } from "../../../../lib/users";
+import { MESSAGE_SUSPENDU, particulierSuspendu } from "../../../../lib/moderation";
 
 function normalizeEmail(v = "") { return String(v || "").trim().toLowerCase(); }
 function normalizePhone(v = "") { return String(v || "").replace(/\D/g, ""); }
@@ -25,6 +26,7 @@ export async function POST(request) {
   const userId = getVerifiedPortalUserId(request, body);
   const taskId = body.taskId || "";
   if (!userId) return badRequest("Session expiree. Reconnectez-vous.", 401);
+  if (particulierSuspendu(db, userId)) return badRequest(MESSAGE_SUSPENDU, 403);
 
   if (!body.notes?.trim() && !body.url && !body.title?.trim()) {
     return badRequest("Ajoutez un message, un titre ou un fichier.");

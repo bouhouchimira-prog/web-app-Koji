@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'package:koji/features/client/providers/client_providers.dart';
+import 'package:koji/features/moderation/moderation.dart';
 import 'package:koji/features/quote/providers/quote_message_provider.dart';
 import 'package:koji/features/quote/repositories/quote_message_repository.dart';
 
@@ -254,9 +255,52 @@ class _ClientChatScreenState extends ConsumerState<ClientChatScreen> {
     );
   }
 
+  /// Signaler / Bloquer (App Store, règle 1.2) : le fil du devis, avec un
+  /// extrait des derniers messages de l'artisan pour l'équipe Koji.
+  ReportTarget _cible(String title) {
+    final messages =
+        ref.read(quoteMessagesProvider(widget.quoteId)).valueOrNull ?? const [];
+    final recus = messages
+        .where((m) => !QuoteMessageRepository.isFromCompany(
+            (m['author_email'] as String?) ?? '', _clientEmail))
+        .map((m) => ((m['text'] as String?) ?? '').trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    return ReportTarget(
+      kind: 'message_devis',
+      id: widget.quoteId,
+      label: 'Messages du devis avec $title',
+      excerpt: recus.reversed.take(5).toList().reversed.join(' / '),
+    );
+  }
+
+  Future<void> _moderer(String action, String title) async {
+    final moderation = ref.read(moderationProvider.notifier);
+    switch (action) {
+      case 'signaler':
+        await showReportDialog(context, ref, _cible(title), depuisKoji: true);
+      case 'bloquer':
+        await confirmBlock(
+          context,
+          ref,
+          target: _cible(title),
+          depuisKoji: true,
+          title: 'Bloquer $title ?',
+          explanation: 'Ses messages seront masqués et vous ne pourrez plus '
+              "lui écrire ici. Votre devis n'est pas annulé. L'équipe Koji "
+              'est prévenue. Vous pourrez débloquer depuis cet écran.',
+          apply: () => moderation.setQuoteBlocked(widget.quoteId, true),
+        );
+      case 'debloquer':
+        await moderation.setQuoteBlocked(widget.quoteId, false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(quoteMessagesProvider(widget.quoteId));
+    final bloque = ref.watch(moderationProvider
+        .select((m) => m.blockedQuotes.contains(widget.quoteId)));
     final title = (widget.artisanName?.trim().isNotEmpty == true)
         ? widget.artisanName!.trim()
         : 'Votre artisan';
@@ -266,7 +310,16 @@ class _ClientChatScreenState extends ConsumerState<ClientChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(title),
+            _buildAppBar(title, bloque),
+            if (bloque)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  'Vous avez bloqué $title : ses messages sont masqués. '
+                  'Débloquez avec le menu ⋮ pour lui écrire de nouveau.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ),
             Expanded(
               child: messagesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -277,19 +330,29 @@ class _ClientChatScreenState extends ConsumerState<ClientChatScreen> {
                         textAlign: TextAlign.center),
                   ),
                 ),
-                data: (messages) => messages.isEmpty
-                    ? _emptyThread()
-                    : _buildMessageList(messages),
+                data: (tous) {
+                  // Bloqué : seuls vos propres messages restent visibles.
+                  final messages = bloque
+                      ? tous
+                          .where((m) => QuoteMessageRepository.isFromCompany(
+                              (m['author_email'] as String?) ?? '',
+                              _clientEmail))
+                          .toList()
+                      : tous;
+                  return messages.isEmpty
+                      ? _emptyThread()
+                      : _buildMessageList(messages);
+                },
               ),
             ),
-            _buildComposer(),
+            if (!bloque) _buildComposer(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAppBar(String title) {
+  Widget _buildAppBar(String title, bool bloque) {
     return Container(
       color: const Color(0xFFF6F4F0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -322,6 +385,20 @@ class _ClientChatScreenState extends ConsumerState<ClientChatScreen> {
                     style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
               ],
             ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Signaler ou bloquer',
+            icon: const Icon(Icons.more_vert, color: _navy),
+            onSelected: (a) => _moderer(a, title),
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                  value: 'signaler', child: Text('Signaler la conversation')),
+              bloque
+                  ? const PopupMenuItem(
+                      value: 'debloquer', child: Text('Débloquer cet artisan'))
+                  : const PopupMenuItem(
+                      value: 'bloquer', child: Text('Bloquer cet artisan')),
+            ],
           ),
         ],
       ),
