@@ -39,3 +39,29 @@ describe("lib/reset-app", () => {
     assert.deepStrictEqual(NOM_APP, { koji: "Koji", pro: "Koji Pro" });
   });
 });
+
+describe("lib/reset-app — demandes répétées", () => {
+  const { jetonResetReutilisable, RESET_MARGE_REUTILISATION_MS } = require("../../lib/reset-app");
+  const T0 = Date.parse("2026-11-21T22:44:34.000Z");
+  const dans = (minutes) => new Date(T0 + minutes * 60 * 1000).toISOString();
+
+  it("deuxième demande 90 secondes après : même lien, le premier e-mail reste valable", () => {
+    assert.strictEqual(jetonResetReutilisable("reset-1-abc", dans(28.5), T0), true);
+  });
+
+  it("jeton proche de sa fin ou expiré : nouveau lien", () => {
+    assert.strictEqual(jetonResetReutilisable("reset-1-abc", dans(14), T0), false);
+    assert.strictEqual(jetonResetReutilisable("reset-1-abc", dans(-5), T0), false);
+  });
+
+  it("limite exacte : 15 minutes restantes suffisent", () => {
+    assert.strictEqual(jetonResetReutilisable("reset-1-abc", new Date(T0 + RESET_MARGE_REUTILISATION_MS).toISOString(), T0), true);
+  });
+
+  it("pas de jeton, pas de date ou date illisible : nouveau lien", () => {
+    assert.strictEqual(jetonResetReutilisable(null, dans(30), T0), false);
+    assert.strictEqual(jetonResetReutilisable("reset-1-abc", null, T0), false);
+    assert.strictEqual(jetonResetReutilisable("reset-1-abc", "n'importe quoi", T0), false);
+    assert.strictEqual(jetonResetReutilisable(undefined, undefined), false);
+  });
+});
