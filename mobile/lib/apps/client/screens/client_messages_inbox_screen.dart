@@ -7,8 +7,14 @@ import 'package:koji/apps/client/client_dates.dart';
 import 'package:koji/design/koji_client_charte.dart';
 import 'package:koji/features/marketplace/providers/marketplace_providers.dart';
 import 'package:koji/features/marketplace/repository/marketplace_repository.dart';
+import 'package:koji/features/moderation/moderation.dart';
 
 String _s(dynamic v) => v is String ? v.trim() : '';
+
+/// Clé de blocage et de signalement d'un fil, même forme que le site
+/// (« radar:<demande>:<entreprise> », lib/moderation.js).
+String cleModeration(Map<String, dynamic> fil) =>
+    'radar:${fil['offerId']}:${fil['entrepriseUserId']}';
 
 /// Clé d'un fil : une demande et une entreprise.
 String _cle(Map<String, dynamic> fil) =>
@@ -164,6 +170,8 @@ class _ClientMessagesInboxScreenState
     }
 
     final async = ref.watch(clientMessagesInboxProvider);
+    // La liste montre « Entreprise bloquée » dès qu'un fil est bloqué.
+    ref.watch(moderationProvider.select((m) => m.blockedThreads));
     final fils = (async.valueOrNull ?? const [])
         .whereType<Map<String, dynamic>>()
         .toList();
@@ -253,6 +261,9 @@ class _ClientMessagesInboxScreenState
   }
 
   String _apercu(Map<String, dynamic> fil) {
+    if (ref.read(moderationProvider).blockedThreads.contains(cleModeration(fil))) {
+      return 'Entreprise bloquée';
+    }
     final messages = _messages(fil);
     if (messages.isEmpty) return _demande(fil);
     final dernier = messages.last;
@@ -266,9 +277,73 @@ class _ClientMessagesInboxScreenState
     return d == null ? '' : dateDeListe(d, maintenant);
   }
 
+  /// Ce qui est signalé : le fil avec cette entreprise, et un extrait de ses
+  /// derniers messages pour l'équipe Koji.
+  ReportTarget _cible(Map<String, dynamic> fil) {
+    final recus = _messages(fil)
+        .where((m) => m['senderType'] == 'entreprise')
+        .map((m) => _s(m['message']))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    final demande = _demande(fil);
+    final court =
+        demande.length > 40 ? '${demande.substring(0, 40)}…' : demande;
+    return ReportTarget(
+      kind: 'conversation',
+      id: cleModeration(fil),
+      label:
+          'Conversation avec ${_nom(fil)}${court.isEmpty ? '' : ' · $court'}',
+      excerpt: recus.reversed.take(5).toList().reversed.join(' / '),
+    );
+  }
+
+  Future<void> _moderer(String action, Map<String, dynamic> fil) async {
+    final moderation = ref.read(moderationProvider.notifier);
+    final cle = cleModeration(fil);
+    switch (action) {
+      case 'signaler':
+        await showReportDialog(context, ref, _cible(fil), depuisKoji: true);
+      case 'bloquer':
+        await confirmBlock(
+          context,
+          ref,
+          target: _cible(fil),
+          depuisKoji: true,
+          title: 'Bloquer ${_nom(fil)} ?',
+          explanation: 'Ses messages seront masqués et vous ne pourrez plus '
+              "lui écrire. L'équipe Koji est prévenue. Vous pourrez la "
+              'débloquer depuis cet écran.',
+          apply: () => moderation.setThreadBlocked(cle, true),
+        );
+      case 'debloquer':
+        await moderation.setThreadBlocked(cle, false);
+    }
+  }
+
+  Widget _menu(Map<String, dynamic> fil, bool bloque) =>
+      PopupMenuButton<String>(
+        tooltip: 'Signaler ou bloquer',
+        icon: const Icon(Icons.more_vert, color: ClCharte.blanc),
+        onSelected: (a) => _moderer(a, fil),
+        itemBuilder: (_) => [
+          const PopupMenuItem(
+              value: 'signaler', child: Text('Signaler la conversation')),
+          bloque
+              ? const PopupMenuItem(
+                  value: 'debloquer', child: Text('Débloquer cette entreprise'))
+              : const PopupMenuItem(
+                  value: 'bloquer', child: Text('Bloquer cette entreprise')),
+        ],
+      );
+
   Widget _fil(Map<String, dynamic> fil, DateTime maintenant) {
     final nom = _nom(fil);
-    final messages = _messages(fil);
+    final bloque = ref.watch(moderationProvider
+        .select((m) => m.blockedThreads.contains(cleModeration(fil))));
+    // Bloquée : les messages de l'entreprise sont masqués, la réponse fermée.
+    final messages = _messages(fil)
+        .where((m) => !bloque || m['senderType'] != 'entreprise')
+        .toList();
     final offerId = _s(fil['offerId']);
     final entrepriseUserId = _s(fil['entrepriseUserId']);
     final repondus = messages
@@ -369,7 +444,10 @@ class _ClientMessagesInboxScreenState
     final blocs = <Widget>[
       if (_erreur != null)
         Text(_erreur!, style: ClCharte.texte(13, couleur: ClCharte.gris)),
-      if (photosDemandees && !photosMontrees)
+      if (bloque)
+        ClInfo('Vous avez bloqué $nom : ses messages sont masqués. '
+            'Débloquez-la avec le menu ⋮ pour lui écrire de nouveau.'),
+      if (!bloque && photosDemandees && !photosMontrees)
         ClBouton('Montrer mes photos à $nom',
             secondaire: true,
             onPressed: _envoi
@@ -390,6 +468,7 @@ class _ClientMessagesInboxScreenState
       titre: nom,
       sousTitre: _demande(fil),
       onRetour: _fermer,
+      action: _menu(fil, bloque),
       // Court, le fil reste en haut (maquette) ; long, il s'ouvre en bas.
       corps: Align(
         alignment: Alignment.topCenter,
@@ -405,11 +484,13 @@ class _ClientMessagesInboxScreenState
           ],
         ),
       ),
-      bas: ClSaisie(
-        controller: _brouillon,
-        envoi: _envoi,
-        onEnvoyer: () => _envoyer(fil),
-      ),
+      bas: bloque
+          ? null
+          : ClSaisie(
+              controller: _brouillon,
+              envoi: _envoi,
+              onEnvoyer: () => _envoyer(fil),
+            ),
     );
   }
 }

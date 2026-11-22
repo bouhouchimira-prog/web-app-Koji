@@ -6,6 +6,7 @@ import { fixText } from "../../../../../../lib/text";
 import { getSupabaseAdmin } from "../../../../../../lib/supabase";
 import { notifierParticuliers, notifVisiteConfirmee } from "../../../../../../lib/notifications-particulier";
 import { originalDuMessage, traductionPublique } from "../../../../../../lib/traduction-messages";
+import { MESSAGE_SUSPENDU, particulierSuspendu } from "../../../../../../lib/moderation";
 
 // Messagerie interne Radar des Chantiers (module 4.5 du cahier des charges)
 // — un fil par (offre, entreprise). Cote entreprise : un seul fil, le sien.
@@ -171,6 +172,7 @@ export async function POST(request, context) {
 
   const portalUserId = getVerifiedPortalUserId(request, body);
   if (portalUserId && portalUserId === offre.userId) {
+    if (particulierSuspendu(db, portalUserId)) return badRequest(MESSAGE_SUSPENDU, 403);
     if (kindFields.kind === "photo_request") {
       return badRequest("Seule l'entreprise peut envoyer ce message.");
     }

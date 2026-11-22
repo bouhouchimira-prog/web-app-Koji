@@ -8,6 +8,7 @@ import { resolveAdminUserId, PRIMARY_ADMIN_EMAIL } from "../../../lib/admin-acco
 import { sendExpertiseAlertEmail, sendNewOfferEmailToEntreprises } from "../../../lib/mailer";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { maxLength, validateFields } from "../../../lib/validators";
+import { MESSAGE_SUSPENDU, compteSuspendu } from "../../../lib/moderation";
 
 // V1 de Radar des Chantiers : cote particulier — creer/lister ses propres
 // offres. Stocke dans le blob koji_web_state (db.chantierOffres), pas
@@ -70,6 +71,7 @@ export async function POST(request) {
   const db = await readDb();
   const user = db.users.find((entry) => entry.id === userId);
   if (!user) return badRequest("Profil client introuvable.", 404);
+  if (compteSuspendu(user)) return badRequest(MESSAGE_SUSPENDU, 403);
 
   const supabaseAdmin = getSupabaseAdmin();
   const { data: expertiseRow, error: fetchError } = await supabaseAdmin
