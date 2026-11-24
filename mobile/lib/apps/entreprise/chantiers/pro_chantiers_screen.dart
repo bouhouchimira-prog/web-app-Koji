@@ -8,7 +8,9 @@ import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/core/route_args.dart';
 import 'package:koji/design/liste_vide.dart';
+import 'package:koji/features/quote/providers/quote_creation_provider.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart' show openEntrepriseNav;
 import 'package:koji/design/koji_brand_marks.dart';
 
@@ -175,7 +177,11 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
               titre: "Aucun chantier pour l'instant",
               texte: 'Un chantier se crée tout seul quand un client signe un devis. Commencez par un devis ou trouvez un chantier sur le Radar.',
               action: 'Démarrer un devis guidé',
-              onAction: () => context.push('/quote/room-selection', extra: <String>[]),
+              // Même parcours que « Démarrer un devis guidé » de l'onglet Devis.
+              onAction: () {
+                ref.read(quoteCreationProvider.notifier).reset();
+                context.push('/quote/detail', extra: const QuoteDetailArgs(data: <String, dynamic>{}));
+              },
               alternative: 'Voir le Radar des chantiers',
               onAlternative: () => openEntrepriseNav(context, ref, 'accueil'),
             )

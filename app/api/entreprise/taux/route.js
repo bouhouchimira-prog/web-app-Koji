@@ -2,6 +2,9 @@ import { badRequest, ok } from "../../../../lib/http";
 import { readDb, writeDb } from "../../../../lib/db";
 import { getVerifiedUserId } from "../../../../lib/server-auth";
 import { METIERS_DEMARRAGE, tauxParFamille, tauxParMetier } from "../../../../lib/demarrage";
+import { getSupabaseAdmin } from "../../../../lib/supabase";
+import { buildWebUser } from "../../../../lib/user-profile";
+import { tauxHoraireProfil } from "../../../../lib/bibliotheque-pro";
 import familles from "../../../../data/ouvrage-families.json";
 
 // Taux horaires par métier (démarrage guidé, étape 3 ; site et app Koji Pro).
@@ -17,12 +20,27 @@ const TAUX_MAX = 500;
 const DEFAUTS_FAMILLE = Object.fromEntries(familles.map((f) => [f.code, Number(f.hourlyRateDefault) || 0]));
 const DEFAUTS_METIER = Object.fromEntries(METIERS_DEMARRAGE.filter((m) => m.familles.length).map((m) => [m.metier, DEFAUTS_FAMILLE[m.familles[0]] || 0]));
 
+// Taux horaire du profil (tarif journalier / heures par jour) : celui que le
+// devis applique à un ouvrage sans taux propre ni taux de métier. La
+// bibliothèque l'affiche donc avant le taux de référence de la famille
+// (retours du build 64 : 13,00 € dans la bibliothèque, 19,50 € dans le devis).
+// 0 si le profil ne le donne pas.
+async function tauxHoraireDuProfil(userId) {
+  try {
+    const { data: profile } = await getSupabaseAdmin().from("users").select("*").eq("id", userId).maybeSingle();
+    const business = buildWebUser({ id: userId, email: profile?.email || "", profile }).business || {};
+    return tauxHoraireProfil(business);
+  } catch {
+    return 0;
+  }
+}
+
 export async function GET(request) {
   const userId = await getVerifiedUserId(request);
   if (!userId) return badRequest("Session expirée. Reconnectez-vous.", 401);
-  const db = await readDb();
+  const [db, tauxProfil] = await Promise.all([readDb(), tauxHoraireDuProfil(userId)]);
   const parFamille = db.tauxParFamille?.[userId]?.taux || {};
-  return ok({ taux: tauxParMetier(parFamille), parFamille, valides: db.tauxParFamille?.[userId]?.valides || {}, defautsFamille: DEFAUTS_FAMILLE, defautsMetier: DEFAUTS_METIER });
+  return ok({ taux: tauxParMetier(parFamille), parFamille, valides: db.tauxParFamille?.[userId]?.valides || {}, defautsFamille: DEFAUTS_FAMILLE, defautsMetier: DEFAUTS_METIER, tauxProfil });
 }
 
 export async function PUT(request) {
