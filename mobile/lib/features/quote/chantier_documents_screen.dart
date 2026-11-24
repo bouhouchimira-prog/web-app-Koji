@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,7 +159,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
             return _buildList(docs);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text("Erreur: $err")),
+          error: (err, stack) => Center(child: Text(messageErreur(err))),
         ),
         if (_isUploading)
           Container(
@@ -343,7 +344,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
                   debugPrint('Failed to delete document: $e');
                   if (mounted && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erreur suppression: $e'))
+                      SnackBar(content: Text(messageErreur(e, defaut: "Suppression impossible. Vérifiez la connexion et réessayez.")))
                     );
                   }
                 }
@@ -473,7 +474,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
     } catch (e) {
       debugPrint('Error picking/uploading image: $e');
        if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(messageErreur(e))));
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -527,7 +528,7 @@ class _ChantierDocumentsScreenState extends ConsumerState<ChantierDocumentsScree
       debugPrint('Error picking/uploading document: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text(messageErreur(e))),
         );
       }
     } finally {

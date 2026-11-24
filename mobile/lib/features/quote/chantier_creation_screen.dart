@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart' show proChantiersProvider;
+import 'package:koji/core/message_erreur.dart';
+import 'package:koji/features/quote/providers/chantier_provider.dart' show userChantiersProvider;
 import 'package:koji/features/quote/repositories/chantier_repository.dart';
 
 class ChantierCreationScreen extends ConsumerStatefulWidget {
@@ -81,13 +84,20 @@ class _ChantierCreationScreenState
       data['id'] = chantierId; // Inject ID for the dashboard
 
       if (mounted) {
-        context.push('/chantier/dashboard', extra: data);
+        // La liste des chantiers et la recherche voient le nouveau chantier
+        // tout de suite, sans relancer l'app.
+        ref.invalidate(proChantiersProvider);
+        ref.invalidate(userChantiersProvider);
+        // La fiche remplace le formulaire : le retour mène à la liste, et le
+        // formulaire rempli ne peut plus créer un doublon.
+        context.pushReplacement('/chantier/dashboard', extra: data);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(messageErreur(e,
+                defaut: "Le chantier n'a pas pu être créé. Vérifiez la connexion et réessayez.")),
             backgroundColor: Colors.red,
           ),
         );

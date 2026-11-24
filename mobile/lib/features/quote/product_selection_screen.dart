@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/quote/models/quote_models.dart';
@@ -136,7 +137,7 @@ class _ProductSelectionScreenState
                         child: CircularProgressIndicator(
                             color: Color(0xFF2E65F3))),
                     error: (err, _) =>
-                        Center(child: Text('Erreur: $err')),
+                        Center(child: Text(messageErreur(err))),
                   ),
                 ),
               ],

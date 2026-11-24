@@ -23,15 +23,31 @@ describe("premier mois (PRO-26, version 1)", () => {
       ouvrages: 12,
       quotes: [{ status: "Envoye", sentAt: "2026-11-02" }],
       invoices: [{ kind: "avoir", status: "Payee" }],
-      clotures: [{ pv: { signeLe: "2026-11-10" } }]
+      clotures: [{ projectId: "c1", pv: { signeLe: "2026-11-10" } }]
     });
+    // Procès-verbal sur un chantier sans devis signé : pas de jetons.
+    assert.equal(f.pv.faite, false);
+    const signe = etapesFaites({
+      quotes: [{ projectId: "c1", status: "Signe" }, { projectId: "c2", status: "Envoye" }],
+      clotures: [{ projectId: "c1", pv: { signeLe: "2026-11-10" } }]
+    });
+    assert.equal(signe.pv.faite, true);
+    const autreChantier = etapesFaites({
+      quotes: [{ projectId: "c1", status: "Signe" }],
+      clotures: [{ projectId: "c2", pv: { signeLe: "2026-11-10" } }, { projectId: "c1", pv: null }]
+    });
+    assert.equal(autreChantier.pv.faite, false);
     assert.equal(f.entreprise.faite, false);
     assert.match(f.entreprise.reste, /logo/);
     assert.equal(f.bibliotheque.reste, "12 sur 40");
     assert.equal(f["devis-envoye"].faite, true);
     assert.equal(f["devis-signe"].faite, false);
     assert.equal(f["facture-payee"].faite, false);
-    assert.equal(f.pv.faite, true);
+  });
+
+  it("ne pointe l'app que vers des routes qui existent (pas « /quote »)", () => {
+    assert.deepEqual(ETAPES.filter((e) => e.app === "/quote").map((e) => e.id), []);
+    assert.equal(ETAPES.find((e) => e.id === "devis-envoye").app, "/quote/detail");
   });
 
   it("crédite une étape faite une seule fois, et seulement pendant le mois", () => {

@@ -59,8 +59,10 @@ describe("Équipe (PRO-16)", () => {
     assert.deepEqual(s.map((x) => [x.semaine, x.minutes]), [["S41", 0], ["S42", 0], ["S43", 420], ["S44", 480]]);
     const docs = documentsAExpirer([{ id: "r", name: "Rui C.", documents: [{ nom: "Carte BTP", jusqua: "2026-11-28" }, { nom: "Formation amiante", jusqua: "2027-05-01" }] }], maintenant);
     assert.deepEqual(docs.map((d) => d.document), ["Carte BTP"]);
-    assert.equal(invitationValide({ token: "x", creeLe: "2026-10-25T00:00:00Z" }, maintenant), true);
-    assert.equal(invitationValide({ token: "x", creeLe: "2026-10-20T00:00:00Z" }, maintenant), false);
+    // Même forme que celle écrite par creerInvitation : { code, creeLe }.
+    assert.equal(invitationValide({ code: "K7P2QMXA", creeLe: "2026-10-25T00:00:00Z" }, maintenant), true);
+    assert.equal(invitationValide({ code: "K7P2QMXA", creeLe: "2026-10-20T00:00:00Z" }, maintenant), false);
+    assert.equal(invitationValide({ creeLe: "2026-10-25T00:00:00Z" }, maintenant), false);
     assert.match(messageInvitation({ prenom: "Ionut", entreprise: "ABL Expert Renov", lien: "https://getkoji.io/compagnon/abc" }), /^Bonjour Ionut, ABL Expert Renov vous invite.*getkoji\.io\/compagnon\/abc$/);
   });
 

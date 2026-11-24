@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:koji/apps/entreprise/chantiers/chantiers_liste.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_taches_screen.dart';
+import 'package:koji/features/depenses/depenses_screens.dart' show depensesRoute;
 import 'package:koji/apps/entreprise/devis/devis_liste.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_actions.dart';
@@ -32,8 +35,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  void _setTab(int index) =>
-      ref.read(entrepriseHomeTabProvider.notifier).state = index;
+  void _setTab(int index) {
+    // Changer d'onglet ferme le clavier resté ouvert sur l'onglet quitté.
+    FocusManager.instance.primaryFocus?.unfocus();
+    ref.read(entrepriseHomeTabProvider.notifier).state = index;
+  }
 
   /// Open the notifications panel; tapping a notification jumps to the Devis tab.
   Future<void> _openNotifications() async {
@@ -120,8 +126,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       icon: Icons.fact_check,
                       onTap: () {
                         Navigator.pop(context);
-                        _guard(() => context.push('/chantier/add-task',
-                            extra: <String, dynamic>{}));
+                        // Une tâche appartient à un chantier : on le demande
+                        // d'abord (retours du build 64, écran sans issue).
+                        _guard(_tachePourQuelChantier);
                       },
                     ),
                     _buildPlusActionItem(
@@ -129,10 +136,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       icon: Icons.payments,
                       onTap: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Dépenses bientôt disponibles')),
-                        );
+                        // Même page que Menu → Dépenses.
+                        this.context.push(depensesRoute);
                       },
                     ),
                     _buildPlusActionItem(
@@ -151,6 +156,98 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       },
     );
+  }
+
+  /// « Plus » → « Tâche » : choisir le chantier, puis ouvrir ses tâches (où
+  /// se trouve « Ajouter une tâche »). Sans chantier ouvert, on le dit.
+  Future<void> _tachePourQuelChantier() async {
+    List<LigneChantier> chantiers;
+    try {
+      chantiers = (await ref.read(proChantiersProvider.future))
+          .where((l) => l.onglet != 'termine')
+          .toList();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Chantiers indisponibles pour le moment. Vérifiez la connexion et réessayez.')));
+      return;
+    }
+    if (!mounted) return;
+    final da = ProDa.of(context);
+    final choisi = await showModalBottomSheet<LigneChantier>(
+      context: context,
+      backgroundColor: da.card,
+      shape: const RoundedRectangleBorder(),
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheet).height * 0.7),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+                child: Text('Pour quel chantier ?',
+                    style: da.text(18, weight: FontWeight.w700)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Text(
+                    chantiers.isEmpty
+                        ? "Vous n'avez pas encore de chantier en cours. Créez-en un pour y ajouter une tâche."
+                        : 'La tâche sera ajoutée à ce chantier.',
+                    style: da.text(13, color: da.grey)),
+              ),
+              if (chantiers.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: ProPrimaryButton(
+                    label: 'Nouveau chantier',
+                    icon: Icons.add,
+                    expand: true,
+                    onPressed: () {
+                      Navigator.pop(sheet);
+                      context.push('/chantier/create');
+                    },
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(bottom: 12),
+                    children: [
+                      for (final l in chantiers)
+                        ListTile(
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 20),
+                          title: Text(l.titre,
+                              style: da.text(15, weight: FontWeight.w600)),
+                          subtitle: l.client.isEmpty && l.ville.isEmpty
+                              ? null
+                              : Text(l.client.isNotEmpty ? l.client : l.ville,
+                                  style: da.text(12, color: da.grey)),
+                          trailing: Icon(Icons.chevron_right, color: da.grey),
+                          onTap: () => Navigator.pop(sheet, l),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choisi == null || !mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ProTachesScreen(
+            projectId: choisi.id, titreChantier: choisi.titre)));
+    // Avancement et prochain jalon de la liste : à jour au retour.
+    ref.invalidate(proChantiersProvider);
   }
 
   Widget _buildPlusActionItem({

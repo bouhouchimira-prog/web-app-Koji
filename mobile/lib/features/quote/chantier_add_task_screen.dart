@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
@@ -108,7 +109,7 @@ class _ChantierAddTaskScreenState extends ConsumerState<ChantierAddTaskScreen> {
                   ? _buildForm()
                   : tasksAsync.when(
                       loading: () => const Center(child: CircularProgressIndicator(color: _kDark)),
-                      error: (err, stack) => Center(child: Text('Erreur: $err')),
+                      error: (err, stack) => Center(child: Text(messageErreur(err))),
                       data: (tasks) {
                         if (tasks.isEmpty) {
                           return _buildEmpty();
@@ -555,7 +556,7 @@ class _ChantierAddTaskScreenState extends ConsumerState<ChantierAddTaskScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur Supabase: $e', style: const TextStyle()),
+            content: Text(messageErreur(e), style: const TextStyle()),
             backgroundColor: const Color(0xFFEF4444),
             duration: const Duration(seconds: 5),
           ),

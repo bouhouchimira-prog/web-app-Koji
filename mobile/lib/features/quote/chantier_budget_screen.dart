@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,12 +42,12 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                   : budgetAsync.when(
                       loading: () => const Center(
                           child: CircularProgressIndicator(color: _kDark)),
-                      error: (e, _) => Center(child: Text('Erreur: $e')),
+                      error: (e, _) => Center(child: Text(messageErreur(e))),
                       data: (budget) {
                         return budgetLinesAsync.when(
                           loading: () => const Center(
                               child: CircularProgressIndicator(color: _kDark)),
-                          error: (e, _) => Center(child: Text('Erreur: $e')),
+                          error: (e, _) => Center(child: Text(messageErreur(e))),
                           data: (lines) {
                             // Compute totals from lines
                             double mainOeuvreReal = 0;
@@ -431,7 +432,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                 debugPrint('Error updating estimated budget: $e');
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur: $e')),
+                    SnackBar(content: Text(messageErreur(e))),
                   );
                 }
               } finally {
@@ -862,7 +863,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Erreur: $e'),
+                      content: Text(messageErreur(e)),
                       backgroundColor: const Color(0xFFEF4444),
                     ),
                   );

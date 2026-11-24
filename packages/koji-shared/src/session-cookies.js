@@ -1,5 +1,5 @@
-// Centralizes the HttpOnly cookie names/options for all three session types
-// (company/pro, particulier portal, worker). Session tokens used to live in
+// Centralizes the HttpOnly cookie names/options for company, particulier,
+// worker and public-signature sessions. Session tokens used to live in
 // localStorage under "koji-user" / "koji-worker-session", readable by any
 // script running on the page — a single XSS bug anywhere in the app would
 // have handed over a live, working session. Cookies here are httpOnly, so
@@ -9,6 +9,7 @@ const isProd = process.env.NODE_ENV === "production";
 
 const base = { httpOnly: true, secure: isProd, sameSite: "lax", path: "/" };
 const ONE_HOUR = 60 * 60;
+const TWO_HOURS = 2 * ONE_HOUR;
 const THIRTY_DAYS = 60 * 60 * 24 * 30;
 
 export const COOKIES = {
@@ -21,6 +22,8 @@ export const COOKIES = {
   portal: { name: "koji_portal_session", options: { ...base, maxAge: THIRTY_DAYS } },
   // worker portal session (lib/worker-session.js).
   worker: { name: "koji_worker_session", options: { ...base, maxAge: THIRTY_DAYS } },
+  // Quote-bound public signature session (lib/signature-session.js).
+  signature: { name: "koji_signature_session", options: { ...base, maxAge: TWO_HOURS } },
 };
 
 export function setSessionCookie(response, key, value) {

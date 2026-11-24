@@ -94,10 +94,33 @@ class _ProClotureScreenState extends ConsumerState<ProClotureScreen> {
 
   void _recharger() => ref.invalidate(proClotureProvider(widget.projectId));
 
+  /// Devis signé, sinon au moins une tâche faite (lues à la demande). Si les
+  /// tâches sont illisibles, le serveur tranche à la validation.
+  Future<bool> _receptionPossible(DonneesCloture d) async {
+    if (receptionPossible(devis: d.devis)) return true;
+    try {
+      final taches =
+          await ref.read(proKojiWebProvider).liste('/api/tasks', 'tasks');
+      return receptionPossible(
+          devis: d.devis,
+          taches: taches.where((t) => _s(t['projectId']) == widget.projectId));
+    } catch (_) {
+      return true;
+    }
+  }
+
   Future<void> _faire(EtapeCloture e, DonneesCloture d, Solde solde) async {
     switch (e.id) {
       case 'reception':
-        final lots = ((d.devis?['items'] as List?) ?? const [])
+        // Chantier vide : on le dit avant de faire signer qui que ce soit.
+        if (!await _receptionPossible(d)) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text(rienAReceptionner)));
+          return;
+        }
+        if (!mounted) return;
+        final lots =((d.devis?['items'] as List?) ?? const [])
             .map((l) => _s((l as Map)['room']).trim())
             .toSet()
             .length;
@@ -457,7 +480,7 @@ class _ProPvScreenState extends ConsumerState<ProPvScreen> {
                         ].join(' · '),
                     ]),
                 carte('Travaux réceptionnés', [widget.travaux]),
-                Text('SIGNE POUR LE CLIENT',
+                Text('SIGNÉ POUR LE CLIENT',
                     style: da.text(11,
                         weight: FontWeight.w600,
                         color: const Color(0xFF5B5F66))),

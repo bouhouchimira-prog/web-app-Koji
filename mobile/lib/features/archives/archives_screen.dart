@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/core/theme.dart';
@@ -146,7 +147,7 @@ class _ArchivesScreenState extends ConsumerState<ArchivesScreen>
 
     return chantiersAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur: $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (list) {
         final archived = list.where((c) {
           return _isArchived(c['status'] as String?);
@@ -196,7 +197,7 @@ class _ArchivesScreenState extends ConsumerState<ArchivesScreen>
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Erreur: $e')),
+                            SnackBar(content: Text(messageErreur(e))),
                           );
                         }
                       }
@@ -218,7 +219,7 @@ class _ArchivesScreenState extends ConsumerState<ArchivesScreen>
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Erreur: $e')),
+                            SnackBar(content: Text(messageErreur(e))),
                           );
                         }
                       }
@@ -235,7 +236,7 @@ class _ArchivesScreenState extends ConsumerState<ArchivesScreen>
 
     return quotesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur: $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (list) {
         final archived = list.where((q) {
           return _isArchived(q['status'] as String?);
@@ -287,7 +288,7 @@ class _ArchivesScreenState extends ConsumerState<ArchivesScreen>
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Erreur: $e')),
+                            SnackBar(content: Text(messageErreur(e))),
                           );
                         }
                       }
@@ -309,7 +310,7 @@ class _ArchivesScreenState extends ConsumerState<ArchivesScreen>
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Erreur: $e')),
+                            SnackBar(content: Text(messageErreur(e))),
                           );
                         }
                       }

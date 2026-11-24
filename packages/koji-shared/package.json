@@ -2,12 +2,17 @@
   "name": "@koji/shared",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "src/index.js",
   "types": "src/index.d.ts",
   "exports": {
     ".": "./src/index.js"
   },
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.93.2"
+    "@supabase/supabase-js": "^2.93.2",
+    "next": "^16.0.0"
   }
 }

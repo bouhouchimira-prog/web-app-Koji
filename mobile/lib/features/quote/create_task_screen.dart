@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -105,7 +106,7 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+          .showSnackBar(SnackBar(content: Text(messageErreur(e))));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

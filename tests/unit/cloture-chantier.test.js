@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { montantsSolde, detailSolde, noteSolde, garanties, etapesCloture, bilanChantier, factureDeSolde, factureDeRetenue, facturesDuChantier, plusAns, travauxReceptionnes, NOTE_LIBERATION_RETENUE } = require("../../lib/cloture-chantier");
+const { montantsSolde, detailSolde, noteSolde, garanties, etapesCloture, bilanChantier, factureDeSolde, factureDeRetenue, facturesDuChantier, plusAns, receptionPossible, travauxReceptionnes, NOTE_LIBERATION_RETENUE } = require("../../lib/cloture-chantier");
 
 // Chiffres de la maquette PRO-02.4 (TVA 10 %).
 const DEVIS = { id: "q1", quoteNumber: "2026-041", totalHt: 5271.4, totalTtc: 5798.54, items: [{ room: "Dépose", code: "D1", label: "Dépose de baignoire", correctedTimeHours: 4 }] };
@@ -110,5 +110,15 @@ describe("lib/cloture-chantier (PRO-02.4)", () => {
 
   it("résume les travaux réceptionnés", () => {
     assert.strictEqual(travauxReceptionnes(DEVIS, 4, ["AV-1"]), "4 lots · devis 2026-041 et avenant AV-1");
+    // Chantier suivi sans devis Koji : jamais « devis » sans numéro.
+    assert.strictEqual(travauxReceptionnes(null, 0), "ensemble des travaux du chantier");
+  });
+
+  it("n'ouvre la réception que s'il y a quelque chose à réceptionner", () => {
+    assert.strictEqual(receptionPossible({ devis: null, taches: [] }), false);
+    assert.strictEqual(receptionPossible({ devis: { status: "Brouillon" }, taches: [{ done: false }] }), false);
+    assert.strictEqual(receptionPossible({ devis: { status: "Signe" }, taches: [] }), true);
+    assert.strictEqual(receptionPossible({ devis: { status: "Envoye", signatureStatus: "Signe" } }), true);
+    assert.strictEqual(receptionPossible({ devis: null, taches: [{ done: true }] }), true);
   });
 });

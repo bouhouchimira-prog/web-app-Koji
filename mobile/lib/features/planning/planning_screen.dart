@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/synchronization/data/scheduled_task_model.dart';
@@ -355,7 +356,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen> {
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Center(child: Text('Erreur: $e')),
+              child: Center(child: Text(messageErreur(e))),
             ),
             data: (tasks) => _buildPerWorkerAgenda(darkNavy, tasks),
           ),
@@ -647,7 +648,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur PDF: $e')),
+          SnackBar(content: Text(messageErreur(e, defaut: "Le PDF n'a pas pu être préparé. Vérifiez la connexion et réessayez."))),
         );
       }
     }

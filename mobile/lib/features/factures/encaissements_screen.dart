@@ -58,8 +58,8 @@ class EncaissementsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(facturesProvider);
     return async.when(
-      loading: () => const KojiPage(title: 'Encaissements', main: [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]),
-      error: (error, _) => KojiPage(title: 'Encaissements', main: [KojiEmptyState(title: 'Encaissements indisponibles', subtitle: errorText(error), icon: KojiIcons.factures)]),
+      loading: () => const KojiPage(appBarOnPhone: true, title: 'Encaissements', main: [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]),
+      error: (error, _) => KojiPage(appBarOnPhone: true, title: 'Encaissements', main: [KojiEmptyState(title: 'Encaissements indisponibles', subtitle: errorText(error), icon: KojiIcons.factures)]),
       data: (data) => _content(context, ref, data),
     );
   }
@@ -70,7 +70,7 @@ class EncaissementsScreen extends ConsumerWidget {
     final stats = collectionStats(data.invoices, now: today);
     final list = encaissementsList(data.invoices);
     final dues = list.where((f) => f['status'] == 'Emise' && dueOn(f, data.invoices) > 0.01).toList();
-    return KojiPage(
+    return KojiPage(appBarOnPhone: true,
       title: 'Encaissements',
       subtitle: '${euro(stats.collected)} en ${_mois[today.month - 1]}',
       onRefresh: () => ref.refresh(facturesProvider.future),

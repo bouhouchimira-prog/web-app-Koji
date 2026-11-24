@@ -7,6 +7,7 @@ import { DEVIS_CHAT_TOOLS, executeDevisChatTool } from "../../../lib/devis-chat-
 import { ADMIN_INSTRUCTION_TOOL, requesterIsAdmin } from "../../../lib/ai-assistant-instructions";
 import { logConversationSafely } from "../../../lib/ai-chat-logs";
 import { texteQuestions } from "../../../lib/devis-guide";
+import { creerFiltreFlux, nettoyerTexteChat } from "../../../lib/devis-chat-texte";
 
 // Mode "Avec l'IA" cote devis entreprise (16 oct, maquette Artifact
 // DevisCreerIA) — moteur SSE conversationnel calque sur
@@ -113,9 +114,14 @@ export async function POST(request) {
             messages
           });
 
-          claudeStream.on("text", (delta) => send("delta", { text: delta }));
+          // Ni balise interne ni astérisques de gras à l'écran (site et app
+          // affichent le texte tel quel) : voir lib/devis-chat-texte.js.
+          const filtre = creerFiltreFlux();
+          const envoyerTexte = (texte) => { if (texte) send("delta", { text: texte }); };
+          claudeStream.on("text", (delta) => envoyerTexte(filtre.pousser(delta)));
 
           const response = await claudeStream.finalMessage();
+          envoyerTexte(filtre.finir());
 
           const toolUseBlocks = response.content.filter((b) => b.type === "tool_use");
           const textBlocks = response.content.filter((b) => b.type === "text");
@@ -141,7 +147,7 @@ export async function POST(request) {
           if (response.stop_reason !== "tool_use") break;
         }
 
-        const visibleReply = finalText || "D'accord.";
+        const visibleReply = nettoyerTexteChat(finalText) || "D'accord.";
         send("done", { finished, message: visibleReply });
         // Journal admin (25 oct) — conversation lisible complete (jamais le
         // detail des outils ni les tours synthetiques "[RESULTAT_ECRITURE]",

@@ -15,10 +15,17 @@ if (dsn) {
     .then((Sentry) => {
       Sentry.init({
         dsn,
+        environment: process.env.NODE_ENV || "development",
+        release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
         tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
         // Pas d'IP ni de cookies envoyés à Sentry (valeur par défaut, écrite
         // ici pour que personne ne l'active par mégarde).
-        sendDefaultPii: false
+        sendDefaultPii: false,
+        ignoreErrors: [
+          "ResizeObserver loop limit exceeded",
+          "Non-Error promise rejection captured",
+          "Network request failed"
+        ]
       });
       sentry = Sentry;
     })

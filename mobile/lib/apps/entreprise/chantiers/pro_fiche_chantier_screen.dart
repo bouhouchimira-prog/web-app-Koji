@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_situation_screen.dart';
 import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ouvrirAvenant;
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart' show proChantiersProvider;
 import 'package:koji/apps/entreprise/chantiers/pro_cloture_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_taches_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
@@ -143,8 +144,12 @@ class _ProFicheChantierScreenState
 
   String _s(dynamic v) => v == null ? '' : '$v';
 
-  void _recharger() =>
-      ref.invalidate(proFicheChantierProvider(widget.projectId));
+  void _recharger() {
+    ref.invalidate(proFicheChantierProvider(widget.projectId));
+    // La liste des chantiers suit (avancement, statut, prochain jalon) sans
+    // qu'il faille relancer l'app.
+    ref.invalidate(proChantiersProvider);
+  }
 
   Future<void> _basculer(Map<String, dynamic> tache) async {
     final id = _s(tache['id']);

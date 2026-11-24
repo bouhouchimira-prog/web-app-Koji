@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -39,7 +40,7 @@ Future<void> openSavedQuote(
     router.push('/quote/detail', extra: quote);
   } catch (e) {
     messenger.showSnackBar(
-      SnackBar(content: Text('Erreur de chargement du devis: $e')),
+      SnackBar(content: Text(messageErreur(e, defaut: "Chargement impossible. Vérifiez la connexion et réessayez."))),
     );
   }
 }

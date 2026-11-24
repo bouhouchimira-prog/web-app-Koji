@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/synchronization/data/project_model.dart';
 import 'package:koji/features/synchronization/data/project_repository.dart';
@@ -187,7 +188,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text(messageErreur(e))),
         );
       }
     }

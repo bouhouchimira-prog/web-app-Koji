@@ -139,8 +139,25 @@ String travauxReceptionnes(
   final a = avenants.isEmpty
       ? ''
       : ' et avenant${avenants.length > 1 ? 's' : ''} ${avenants.join(', ')}';
-  return '${l}devis ${_s(devis?['quoteNumber'])}$a'.trim();
+  // Chantier suivi sans devis Koji : pas de « devis » sans numéro sur le PV.
+  final numero = _s(devis?['quoteNumber']).trim();
+  if (numero.isEmpty) return '${l}ensemble des travaux du chantier$a';
+  return '${l}devis $numero$a';
 }
+
+/// Un procès-verbal ne se signe que s'il y a quelque chose à réceptionner :
+/// un devis signé, ou au moins une tâche faite (chantier trouvé hors de Koji,
+/// suivi sans devis). Même règle que le serveur (lib/cloture-chantier.js).
+bool receptionPossible(
+    {Map<String, dynamic>? devis,
+    Iterable<Map<String, dynamic>> taches = const []}) {
+  final signe = devis != null &&
+      (devis['status'] == 'Signe' || devis['signatureStatus'] == 'Signe');
+  return signe || taches.any((t) => t['done'] == true);
+}
+
+const rienAReceptionner =
+    "Rien à réceptionner pour l'instant : ce chantier n'a ni devis signé ni tâche faite.";
 
 class EtapeCloture {
   const EtapeCloture({

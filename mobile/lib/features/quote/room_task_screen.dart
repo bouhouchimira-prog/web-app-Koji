@@ -1,5 +1,6 @@
 
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -568,7 +569,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur ajout ouvrage: $e')),
+        SnackBar(content: Text(messageErreur(e))),
       );
     }
   }
@@ -2102,7 +2103,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
                 if (!ctx.mounted) return;
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   SnackBar(
-                    content: Text('Erreur: $e'),
+                    content: Text(messageErreur(e)),
                     backgroundColor: const Color(0xFFEF4444),
                   ),
                 );
@@ -2164,7 +2165,7 @@ class _RoomTaskScreenState extends ConsumerState<RoomTaskScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur: $e'),
+          content: Text(messageErreur(e)),
           backgroundColor: const Color(0xFFEF4444),
         ),
       );

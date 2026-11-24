@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:koji/core/theme.dart';
 import 'package:koji/features/fournitures/models/fourniture_model.dart';
@@ -137,7 +138,7 @@ class FournisseurDetailScreen extends ConsumerWidget {
               child: asyncItems.when(
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Erreur: $e')),
+                error: (e, _) => Center(child: Text(messageErreur(e))),
                 data: (items) {
                   if (items.isEmpty) {
                     return Center(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:koji/app/koji_pro_api.dart';
+import 'package:koji/apps/entreprise/entreprise_nav.dart' show openEntrepriseNav;
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_tokens.dart';
@@ -22,6 +23,22 @@ List<Json> _liste(Object? v) => (v as List? ?? const []).whereType<Map>().map((x
 Json _map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
 String _s(Object? v) => v == null ? '' : '$v';
 String _pl(int n, String mot) => '$n $mot${n > 1 ? 's' : ''}';
+
+/// Étapes qui se font dans un onglet de l'accueil (retours du build 64) :
+/// « Voir mes devis » ouvre l'onglet Devis, « Ouvrir mes chantiers » l'onglet
+/// Chantiers. L'accueil n'a pas de route par onglet, d'où ce renvoi par
+/// identifiant d'étape. Les autres étapes suivent la route donnée par le site.
+const ongletDeLEtape = {'devis-signe': 'devis', 'photo': 'chantiers', 'pv': 'chantiers'};
+
+void _ouvrirEtape(BuildContext context, WidgetRef ref, Json etape) {
+  final onglet = ongletDeLEtape[_s(etape['id'])];
+  if (onglet != null) {
+    openEntrepriseNav(context, ref, onglet);
+    return;
+  }
+  final route = _s(etape['app']);
+  if (route.isNotEmpty) context.push(route);
+}
 
 class PremierMoisScreen extends ConsumerWidget {
   const PremierMoisScreen({super.key});
@@ -88,7 +105,7 @@ class PremierMoisScreen extends ConsumerWidget {
                 type: MaterialType.transparency,
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  onTap: () => context.push(_s(e['app'])),
+                  onTap: () => _ouvrirEtape(context, ref, e),
                   leading: Container(
                     width: 26,
                     height: 26,
@@ -105,7 +122,7 @@ class PremierMoisScreen extends ConsumerWidget {
         ),
         if (prochaine != null) ...[
           const SizedBox(height: 12),
-          KojiButton(label: _s(prochaine['action']), onPressed: () => context.push(_s(prochaine['app']))),
+          KojiButton(label: _s(prochaine['action']), onPressed: () => _ouvrirEtape(context, ref, prochaine)),
         ],
         const KojiSectionTitle('Pourquoi ces huit étapes'),
         Text('Chaque étape correspond à une fonction qui vous fait gagner du temps ou de l\'argent ; les jetons sont offerts quand l\'étape est faite, pas avant. Après le premier mois, la liste disparaît de l\'accueil. Rien n\'est obligatoire : Koji fonctionne sans.', style: TextStyle(fontSize: 13, color: p.muted)),

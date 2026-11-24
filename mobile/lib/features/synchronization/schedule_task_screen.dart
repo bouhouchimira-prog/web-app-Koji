@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -264,7 +265,7 @@ class _ScheduleTaskScreenState extends ConsumerState<ScheduleTaskScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Erreur : $e');
+        _snack(messageErreur(e));
       }
     }
   }

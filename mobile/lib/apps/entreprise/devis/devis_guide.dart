@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:koji/features/quote/model/devis_line.dart';
 
@@ -213,6 +214,56 @@ class DevisGuideDonnees {
 
   /// Dernière ligne ajoutée par Koji sans prix (cible de proposer_prix).
   String? derniereSansPrix;
+
+  /// Photographie les lots et les lignes ; la fonction renvoyée remet le
+  /// devis dans cet état (mêmes listes, mêmes lignes : l'éditeur les
+  /// partage). Sert quand l'enregistrement échoue après une écriture de
+  /// Koji : rien n'est gardé, donc un nouvel essai n'ajoute rien en double.
+  VoidCallback photographier() {
+    final ordre = List<String>.of(roomOrder);
+    final meta = {
+      for (final e in lotMeta.entries) e.key: Map<String, dynamic>.of(e.value),
+    };
+    final lots = {
+      for (final e in linesByRoom.entries)
+        e.key: [
+          for (final l in e.value)
+            (
+              ligne: l,
+              qty: l.qty,
+              fournituresQty: l.fournituresQty,
+              tempsHU: l.tempsHU,
+              forfaitEnabled: l.forfaitEnabled,
+              forfaitPrice: l.forfaitPrice,
+              parentTaskId: l.parentTaskId,
+            ),
+        ],
+    };
+    final sansPrix = derniereSansPrix;
+    return () {
+      roomOrder
+        ..clear()
+        ..addAll(ordre);
+      lotMeta
+        ..clear()
+        ..addAll(meta);
+      linesByRoom.removeWhere((cle, _) => !lots.containsKey(cle));
+      for (final e in lots.entries) {
+        final liste = linesByRoom.putIfAbsent(e.key, () => []);
+        liste.clear();
+        for (final p in e.value) {
+          liste.add(p.ligne
+            ..qty = p.qty
+            ..fournituresQty = p.fournituresQty
+            ..tempsHU = p.tempsHU
+            ..forfaitEnabled = p.forfaitEnabled
+            ..forfaitPrice = p.forfaitPrice
+            ..parentTaskId = p.parentTaskId);
+        }
+      }
+      derniereSansPrix = sansPrix;
+    };
+  }
 
   List<String> get lotsVisibles =>
       [for (final r in roomOrder) if (linesByRoom.containsKey(r)) r];
@@ -461,6 +512,7 @@ class DevisGuideConversation extends ChangeNotifier {
     required this.appliquer,
     required this.enregistrer,
     required this.resultat,
+    this.photographier,
     this.onFin,
     String? conversationId,
   }) : conversationId = conversationId ?? 'devischat-app-${DateTime.now().microsecondsSinceEpoch}';
@@ -470,6 +522,10 @@ class DevisGuideConversation extends ChangeNotifier {
   final Map<String, dynamic>? Function(Map<String, dynamic> action) appliquer;
   final Future<({String id, String le})> Function() enregistrer;
   final Map<String, dynamic> Function(Map<String, dynamic> capture, ({bool ok, String devisId, String le, String erreur}) issue) resultat;
+
+  /// Photographie le devis et renvoie de quoi le remettre dans cet état
+  /// (appelé avant chaque échange ; le retour sert si l'enregistrement échoue).
+  final VoidCallback Function()? photographier;
   final VoidCallback? onFin;
   final String conversationId;
 
@@ -593,6 +649,8 @@ class DevisGuideConversation extends ChangeNotifier {
     _maj();
     try {
       final envoyes = List<GuideTour>.of(tours);
+      // État du devis avant que Koji n'écrive : à remettre si l'enregistrement échoue.
+      final annuler = photographier?.call();
       final (captures, reponse) = await _tour(envoyes);
       if (captures.isEmpty) return;
       ({bool ok, String devisId, String le, String erreur}) issue;
@@ -601,8 +659,15 @@ class DevisGuideConversation extends ChangeNotifier {
         issue = (ok: true, devisId: r.id, le: r.le, erreur: '');
         notice = 'Devis enregistré.';
       } catch (e) {
-        issue = (ok: false, devisId: '', le: '', erreur: e.toString());
-        notice = "Modifications appliquées, mais l'enregistrement automatique a échoué — pense à enregistrer.";
+        // Rien n'est enregistré : ce que Koji vient d'écrire est retiré du
+        // devis, sinon un nouvel essai l'ajouterait une deuxième fois
+        // (retours du build 64, lignes en double). Jamais le texte brut de
+        // l'erreur, ni à l'écran ni à Koji.
+        annuler?.call();
+        issue = (ok: false, devisId: '', le: '', erreur: messageErreur(e, defaut: 'Enregistrement impossible.'));
+        notice = annuler == null
+            ? "L'enregistrement n'a pas marché. Réessaie."
+            : "L'enregistrement n'a pas marché : rien n'a été ajouté au devis. Réessaie.";
       }
       final resultats = [for (final c in captures) resultat(c, issue)];
       final tourResultat = GuideTour('user', '[RESULTAT_ECRITURE] ${jsonEncode(resultats)}', hidden: true);
@@ -610,7 +675,7 @@ class DevisGuideConversation extends ChangeNotifier {
       _maj();
       await _tour([...envoyes, if (reponse != null) reponse, tourResultat]);
     } catch (e) {
-      erreur = e.toString().isEmpty ? "L'assistant n'a pas pu répondre. Réessaie." : e.toString();
+      erreur = messageErreur(e, defaut: "L'assistant n'a pas pu répondre. Réessaie.");
     } finally {
       envoi = false;
       travail = null;

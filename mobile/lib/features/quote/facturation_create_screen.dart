@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -616,7 +617,7 @@ class _FacturationCreateScreenState
     } catch (e) {
       if (mounted) setState(() => _saving = false);
       messenger.showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
+        SnackBar(content: Text(messageErreur(e))),
       );
     }
   }

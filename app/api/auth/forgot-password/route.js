@@ -5,7 +5,7 @@ import { readUsers, writeUsers } from "../../../../lib/particulier-users";
 import { sendPasswordResetEmail } from "../../../../lib/mailer";
 import { checkRateLimit, recordFailedAttempt } from "../../../../lib/rate-limit";
 import { ensureProfileRow, findAuthUserByEmail } from "../../../../lib/ensure-profile";
-import { appDuLien } from "../../../../lib/reset-app";
+import { appDuLien, jetonResetReutilisable } from "../../../../lib/reset-app";
 
 // 30 minutes (maquette PRO-00.1) — bien plus court qu'une activation de compte.
 const RESET_TTL_MS = 30 * 60 * 1000;
@@ -45,7 +45,7 @@ export async function POST(request) {
   try {
     if (accountType === "entreprise") {
       const admin = getSupabaseAdmin();
-      let { data: row } = await admin.from("users").select("id, email, is_pro").eq("email", email).maybeSingle();
+      let { data: row } = await admin.from("users").select("id, email, is_pro, password_reset_token, password_reset_expires_at").eq("email", email).maybeSingle();
       // Compte Supabase Auth sans ligne `users` (trigger d'inscription absent
       // en prod, voir lib/ensure-profile.js) : avant, aucun e-mail ne partait.
       if (!row) {
@@ -56,9 +56,17 @@ export async function POST(request) {
         }
       }
       if (row) {
-        const resetToken = makeToken("reset");
-        const resetExpiresAt = new Date(Date.now() + RESET_TTL_MS).toISOString();
-        await admin.from("users").update({ password_reset_token: resetToken, password_reset_expires_at: resetExpiresAt }).eq("id", row.id);
+        // Demandes répétées : même lien tant que le jeton en cours a assez de
+        // temps devant lui, pour que tous les e-mails reçus fonctionnent
+        // (lib/reset-app.js). Sinon nouveau jeton, et pas d'e-mail s'il n'a
+        // pas pu être enregistré (le lien serait mort d'avance).
+        let resetToken = row.password_reset_token;
+        if (!jetonResetReutilisable(resetToken, row.password_reset_expires_at)) {
+          resetToken = makeToken("reset");
+          const resetExpiresAt = new Date(Date.now() + RESET_TTL_MS).toISOString();
+          const { error: updateError } = await admin.from("users").update({ password_reset_token: resetToken, password_reset_expires_at: resetExpiresAt }).eq("id", row.id);
+          if (updateError) throw new Error(`jeton non enregistré (${updateError.message})`);
+        }
         // Demande venue d'une app : la page finit par « Retournez dans
         // l'app … » au lieu de connecter au site Pro (lib/reset-app.js).
         const app = appDuLien({ demande: body.app, isPro: row.is_pro, userAgent: request.headers.get("user-agent") });
@@ -69,9 +77,11 @@ export async function POST(request) {
       const users = await readUsers();
       const user = users.find((candidate) => candidate.accountType === "particulier" && String(candidate.email || "").toLowerCase() === email);
       if (user) {
-        user.resetToken = makeToken("reset");
-        user.resetExpiresAt = new Date(Date.now() + RESET_TTL_MS).toISOString();
-        await writeUsers(users);
+        if (!jetonResetReutilisable(user.resetToken, user.resetExpiresAt)) {
+          user.resetToken = makeToken("reset");
+          user.resetExpiresAt = new Date(Date.now() + RESET_TTL_MS).toISOString();
+          await writeUsers(users);
+        }
         const resetUrl = `${appUrl}/set-password?token=${user.resetToken}&mode=reset&type=particulier`;
         await sendPasswordResetEmail({ email: user.email, name: user.name, resetUrl });
       }

@@ -1,5 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
-import { addHistory, makeToken, readDb, writeDb } from "../../../lib/db";
+import { addHistory, makeToken, readDb, writeDb, updateDb, DbConflictError } from "../../../lib/db";
 import { fixObjectText, fixText } from "../../../lib/text";
 import { applyQuoteTotals } from "../../../lib/quote-calculations";
 import { getVerifiedAuth } from "../../../lib/server-auth";
@@ -328,17 +328,24 @@ export async function POST(request) {
     await auth.supabase.from("chantiers").update({ status: "Devis genere" }).eq("id", quote.projectId);
   }
 
-  const db = await readDb();
-  syncDraftNotification(db, quote, auth.userId);
-  addHistory(db, {
-    userId: auth.userId,
-    type: "quote.created",
-    label: `Devis enregistre: ${quote.quoteNumber}`,
-    entityId: quote.id,
-    entityType: "quote",
-    meta: { totalTtc: quote.totalTtc }
-  });
-  await writeDb(db);
+  // Verrouillage optimiste + retry automatique (P1-4) sur le blob partage.
+  try {
+    await updateDb((db) => {
+      syncDraftNotification(db, quote, auth.userId);
+      addHistory(db, {
+        userId: auth.userId,
+        type: "quote.created",
+        label: `Devis enregistre: ${quote.quoteNumber}`,
+        entityId: quote.id,
+        entityType: "quote",
+        meta: { totalTtc: quote.totalTtc }
+      });
+      return db;
+    });
+  } catch (e) {
+    if (e instanceof DbConflictError) return badRequest("Conflit d'écriture, réessayez.", 409);
+    throw e;
+  }
 
   return ok({ quote }, 201);
 }
@@ -654,7 +661,12 @@ export async function PATCH(request) {
       entityType: "quote"
     });
     recordIaDevisOutcome(sideDb, quote, action, now);
-    await writeDb(sideDb);
+    try {
+      await writeDb(sideDb);
+    } catch (e) {
+      if (e instanceof DbConflictError) return badRequest("Conflit d'écriture, réessayez.", 409);
+      throw e;
+    }
     return ok({ quote: { ...quote, deleted: true } });
   }
 
@@ -701,7 +713,12 @@ export async function PATCH(request) {
     });
   }
   recordIaDevisOutcome(sideDb, quote, action, now);
-  await writeDb(sideDb);
+  try {
+    await writeDb(sideDb);
+  } catch (e) {
+    if (e instanceof DbConflictError) return badRequest("Conflit d'écriture, réessayez.", 409);
+    throw e;
+  }
 
   const recalculated = applyQuoteTotals(quote);
   recalculated.updatedAt = now;

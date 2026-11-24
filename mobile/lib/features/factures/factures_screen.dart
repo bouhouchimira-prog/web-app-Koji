@@ -50,8 +50,8 @@ class _FacturesScreenState extends ConsumerState<FacturesScreen> {
     final async = ref.watch(facturesProvider);
     final newButton = KojiButton(label: 'Nouvelle facture', leadingIcon: KojiIcons.plus, onPressed: _newInvoice);
     return async.when(
-      loading: () => KojiPage(title: 'Factures', actions: [newButton], main: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]),
-      error: (error, _) => KojiPage(
+      loading: () => KojiPage(appBarOnPhone: true, title: 'Factures', actions: [newButton], main: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]),
+      error: (error, _) => KojiPage(appBarOnPhone: true,
         title: 'Factures',
         main: [
           KojiEmptyState(
@@ -91,7 +91,7 @@ class _FacturesScreenState extends ConsumerState<FacturesScreen> {
     final toBill = data.billable.where((b) => b.summary(data.invoices).remaining > 0.01).toList();
     final p = context.koji;
 
-    return KojiPage(
+    return KojiPage(appBarOnPhone: true,
       title: 'Factures',
       subtitle: eyebrow,
       actions: [

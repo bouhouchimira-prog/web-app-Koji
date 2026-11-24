@@ -30,8 +30,8 @@ class ImpayesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(facturesProvider);
     return async.when(
-      loading: () => const KojiPage(title: 'Impayés', main: [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]),
-      error: (error, _) => KojiPage(title: 'Impayés', main: [KojiEmptyState(title: 'Impayés indisponibles', subtitle: errorText(error), icon: KojiIcons.factures)]),
+      loading: () => const KojiPage(appBarOnPhone: true, title: 'Impayés', main: [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]),
+      error: (error, _) => KojiPage(appBarOnPhone: true, title: 'Impayés', main: [KojiEmptyState(title: 'Impayés indisponibles', subtitle: errorText(error), icon: KojiIcons.factures)]),
       data: (data) => _content(context, ref, data),
     );
   }
@@ -42,7 +42,7 @@ class ImpayesScreen extends ConsumerWidget {
     final total = toAmount(list.fold<double>(0, (s, i) => s + amountOf(i) - creditedOn(i, data.invoices)));
     final aPreparer = list.where((i) => relanceAction(i) == 'demeure').toList();
     final auto = ref.watch(autoRemindersProvider);
-    return KojiPage(
+    return KojiPage(appBarOnPhone: true,
       title: 'Impayés',
       subtitle: list.isEmpty ? 'aucune facture échue' : '${list.length} facture${list.length > 1 ? 's' : ''} · ${euro(total)}',
       onRefresh: () => ref.refresh(facturesProvider.future),

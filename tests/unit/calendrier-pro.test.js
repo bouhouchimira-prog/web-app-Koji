@@ -56,4 +56,11 @@ describe("Calendrier : livraisons, lots à planifier, agenda (PRO-11)", () => {
     assert.equal(a[2].detail, "lot Lot 01 · Équipe ABL");
     assert.equal(a[4].detail, "Devis 2026-039 · sans réponse depuis 9 jours");
   });
+  it("agenda du jour : le nom des tâches, sans le faux lot « Autres tâches »", () => {
+    const t = (id, label, room = "Autres tâches") => ({ id, projectId: "lef", label, room, startDate: "2026-11-24", endDate: "2026-11-24" });
+    const une = agendaDuJour({ jour: "2026-11-24", taches: [t("a", "Peindre les murs")], titres });
+    assert.deepEqual(une.map((x) => [x.titre, x.detail]), [["Démarrage · Salle de bain Lefèvre", "Peindre les murs"]]);
+    const cinq = agendaDuJour({ jour: "2026-11-24", taches: [t("a", "Peindre les murs"), t("b", "Poncer", "Lot 02"), t("c", "Enduire"), t("d", "Protéger les sols"), t("e", "Nettoyer")], titres });
+    assert.equal(cinq[0].detail, "Peindre les murs, Poncer, Enduire + 2 · lot Lot 02");
+  });
 });

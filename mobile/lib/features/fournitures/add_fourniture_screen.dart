@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,7 +94,7 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import impossible: $e')),
+          SnackBar(content: Text(messageErreur(e, defaut: "Import impossible. Vérifiez la connexion et réessayez."))),
         );
       }
     } finally {
@@ -872,7 +873,7 @@ class _AddFournitureScreenState extends ConsumerState<AddFournitureScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(messageErreur(e)),
             backgroundColor: Colors.red,
           ),
         );

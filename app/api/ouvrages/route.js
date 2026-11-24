@@ -2,6 +2,7 @@ import { ok, badRequest } from "../../../lib/http";
 import { addHistory, readDb, writeDb } from "../../../lib/db";
 import { getVerifiedUserId } from "../../../lib/server-auth";
 import { normalizeOuvrage, mergedOuvrages, mergedOuvragesAsync } from "../../../lib/ouvrages";
+import { upsertSharedOuvrage, deleteSharedOuvrage } from "../../../lib/koji-ouvrages";
 import { isVerifiedUserAdmin } from "../../../lib/admin-account";
 import { resolveEntreprise } from "../../../lib/entreprise-auth";
 import { chargerCatalogue } from "../../../lib/fournitures-serveur";
@@ -142,6 +143,8 @@ export async function POST(request) {
     entityType: "ouvrage"
   });
   await writeDb(db);
+  // Synchronisation vers la table partagee (mobile) — best-effort.
+  if (addToKoji) await upsertSharedOuvrage(ouvrage).catch(() => null);
   return ok({ ouvrage, ouvrages: await mergedOuvragesAsync(db, userId) }, 201);
 }
 
@@ -186,6 +189,7 @@ export async function PATCH(request) {
       db.kojiOuvrages[kojiIndex] = updated;
       addHistory(db, { userId, type: "ouvrage.koji_updated", label: `Ouvrage Koji modifie: ${updated.code}`, entityId: updated.id, entityType: "ouvrage" });
       await writeDb(db);
+      await upsertSharedOuvrage(updated).catch(() => null);
       return ok({ ouvrage: updated, ouvrages: await mergedOuvragesAsync(db, userId) });
     }
     // Sinon : cree/met a jour une surcharge propre a cette entreprise, sans
@@ -226,6 +230,7 @@ export async function DELETE(request) {
     if (isAdmin) {
       db.kojiOuvrages.splice(kojiIndex, 1);
       addHistory(db, { userId, type: "ouvrage.koji_deleted", label: `Ouvrage Koji supprime: ${existing.code}`, entityId: id, entityType: "ouvrage" });
+      await deleteSharedOuvrage(existing.code).catch(() => null);
     } else {
       // Masque cet ouvrage Koji uniquement pour cette entreprise — ne
       // touche ni au socle commun ni aux autres comptes.

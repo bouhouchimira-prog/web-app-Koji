@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
@@ -220,7 +221,7 @@ class _ChantierListScreenState extends ConsumerState<ChantierListScreen>
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text('Erreur: $err')),
+                error: (err, stack) => Center(child: Text(messageErreur(err))),
               ),
             ),
           ],

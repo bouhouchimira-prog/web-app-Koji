@@ -21,6 +21,7 @@ appliquée en prod ; créer une nouvelle avec le prochain numéro.
 | 0012_securiser_signature_rpc.sql | Interdiction d'écraser une signature existante via RPC (e-mail non exigé, voir l'en-tête) |
 | (à venir) 0013 | Numéro réservé au contrôle renforcé de la signature annoncé dans l'en-tête de 0012 |
 | 0014_urgences.sql | Table urgences, une ligne par urgence avec numéro de version (« le premier qui accepte l'obtient ») + reprise des urgences du bloc |
+| 0019_limites_devis_app.sql | Fonctions check_quote_creation_limit et check_and_record_trial_edit appelées par l'app Koji Pro avant d'enregistrer un devis (absentes de la base : aucun devis ne s'enregistrait depuis l'app) |
 | (à venir) 0003_subscriptions.sql | Table subscriptions unifiée (billing) |
 
 Les fichiers SQL historiques restent dans `../admin/` et `../signature/` pour

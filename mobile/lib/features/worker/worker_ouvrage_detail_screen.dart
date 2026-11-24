@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -125,7 +126,7 @@ class _WorkerOuvrageDetailScreenState
           workerId: widget.workerId, taskId: widget.taskId, kind: kind);
       await _load();
     } catch (e) {
-      _snack('Erreur : $e');
+      _snack(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -179,7 +180,7 @@ class _WorkerOuvrageDetailScreenState
       await _load();
       _snack('Photo ajoutée');
     } catch (e) {
-      _snack('Erreur : $e');
+      _snack(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -206,7 +207,7 @@ class _WorkerOuvrageDetailScreenState
       await _load();
       _snack('Document joint');
     } catch (e) {
-      _snack('Erreur : $e');
+      _snack(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -232,7 +233,7 @@ class _WorkerOuvrageDetailScreenState
       await _load();
       _snack('Envoyé à l\'entreprise');
     } catch (e) {
-      _snack('Erreur : $e');
+      _snack(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -261,7 +262,7 @@ class _WorkerOuvrageDetailScreenState
       );
       _snack('Alerte urgente envoyée à l\'entreprise');
     } catch (e) {
-      _snack('Erreur : $e');
+      _snack(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -289,7 +290,7 @@ class _WorkerOuvrageDetailScreenState
       await _load();
       _snack('Dépassement signalé à l\'entreprise');
     } catch (e) {
-      _snack('Erreur : $e');
+      _snack(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

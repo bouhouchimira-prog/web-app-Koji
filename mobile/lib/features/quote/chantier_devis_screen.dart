@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/core/route_args.dart';
@@ -30,7 +31,7 @@ class ChantierDevisScreen extends ConsumerWidget {
             Expanded(
               child: quotesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Erreur: $e')),
+                error: (e, _) => Center(child: Text(messageErreur(e))),
                 data: (quotes) => quotes.isEmpty
                     ? _buildEmptyState(context, ref, chantierId)
                     : _buildDevisList(context, ref, chantierId, quotes),
@@ -222,7 +223,7 @@ class ChantierDevisScreen extends ConsumerWidget {
           router.push('/quote/detail', extra: QuoteDetailArgs(data: devis));
         } catch (e) {
           messenger.showSnackBar(
-            SnackBar(content: Text('Erreur de chargement du devis: $e')),
+            SnackBar(content: Text(messageErreur(e, defaut: "Chargement impossible. Vérifiez la connexion et réessayez."))),
           );
         }
       },
