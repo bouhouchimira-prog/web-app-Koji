@@ -7,7 +7,7 @@ import { getSupabaseAdmin } from "../../../lib/supabase";
 import { BUCKET_CHANTIER as BUCKET, chantierAMoi, clotureDe, clotureOuNouvelle, devisDuChantier, sansChemins, telechargerDataUrl as telecharger } from "../../../lib/cloture-db";
 import { lotsDuDevis } from "../../../lib/planning-chantier";
 import { reservesNonLevees } from "../../../lib/reserves";
-import { TAUX_RETENUE, TYPE_FACTURE_SOLDE, euro, jourDeParis, montantsSolde, plusAns, travauxReceptionnes } from "../../../lib/cloture-chantier";
+import { TAUX_RETENUE, TYPE_FACTURE_SOLDE, euro, jourDeParis, montantsSolde, plusAns, receptionPossible, travauxReceptionnes } from "../../../lib/cloture-chantier";
 import { buildPvReceptionPdf, pvReceptionFilename } from "../../../lib/document-generator";
 import { avecProfil } from "../../../lib/document-profil.js";
 
@@ -112,6 +112,12 @@ export async function POST(request) {
   const cloture = clotureOuNouvelle(db, projectId, userId);
 
   const devis = await devisDuChantier(projectId);
+  // Chantier vide (retours du build 64) : ni devis signé ni tâche faite, il
+  // n'y a rien à réceptionner. Vérifié avant d'enregistrer quoi que ce soit.
+  const taches = (db.tasks || []).filter((t) => t.userId === userId && t.projectId === projectId);
+  if (!receptionPossible({ devis, taches })) {
+    return badRequest("Rien à réceptionner pour l'instant : ce chantier n'a ni devis signé ni tâche faite.", 409);
+  }
   const avenants = (db.avenants || []).filter((a) => devis && a.quoteId === devis.id);
   const solde = montantsSolde({ devis, avenants, tauxRetenue: cloture.retenue?.taux || 0 });
   const reserves = (db.reserves || []).filter((r) => r.userId === userId && r.projectId === projectId);
