@@ -12,6 +12,35 @@ import 'package:koji/design/liste_vide.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart' show openEntrepriseNav;
 import 'package:koji/design/koji_brand_marks.dart';
 
+/// Ce que la liste vient de lire sur le site. La fiche d'un chantier s'en sert
+/// pour s'afficher tout de suite (nom, client, tâches, factures) pendant que
+/// ses propres données se chargent (retours du build 64 : 10 à 15 secondes
+/// devant un rond de chargement).
+class DonneesChantiers {
+  const DonneesChantiers({
+    this.projects = const [],
+    this.quotes = const [],
+    this.tasks = const [],
+    this.calendarEvents = const [],
+    this.invoices = const [],
+    this.alerts = const [],
+  });
+
+  final List<Map<String, dynamic>> projects;
+  final List<Map<String, dynamic>> quotes;
+  final List<Map<String, dynamic>> tasks;
+  final List<Map<String, dynamic>> calendarEvents;
+  final List<Map<String, dynamic>> invoices;
+  final List<Map<String, dynamic>> alerts;
+}
+
+class CacheChantiers {
+  DonneesChantiers? dernieres;
+}
+
+final proChantiersCacheProvider =
+    Provider<CacheChantiers>((ref) => CacheChantiers());
+
 /// Données de la liste, lues sur le site comme la fiche chantier : chantiers,
 /// devis, tâches, rendez-vous, factures, alertes. Une liste illisible reste
 /// vide : la liste s'affiche quand même.
@@ -28,6 +57,15 @@ final proChantiersProvider =
     lire('/api/invoices', 'invoices'),
     lire('/api/urgent-alerts', 'alerts'),
   ]);
+  // Gardé pour ouvrir une fiche sans attendre (voir DonneesChantiers).
+  ref.read(proChantiersCacheProvider).dernieres = DonneesChantiers(
+    projects: r[0],
+    quotes: r[1],
+    tasks: r[2],
+    calendarEvents: r[3],
+    invoices: r[4],
+    alerts: r[5],
+  );
   return lignesChantiers(
     projects: r[0],
     quotes: r[1],
@@ -67,7 +105,10 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
   /// sinon la fiche du chantier.
   Future<void> _ouvrir(LigneChantier l) async {
     if (!l.aLancer) {
-      context.push('/chantier/dashboard', extra: {'id': l.id});
+      // Le titre et le client partent avec : le bandeau de la fiche les
+      // montre avant même que ses données arrivent.
+      context.push('/chantier/dashboard',
+          extra: {'id': l.id, 'titre': l.titre, 'client': l.client});
       return;
     }
     final lance = await Navigator.of(context, rootNavigator: true).push<bool>(

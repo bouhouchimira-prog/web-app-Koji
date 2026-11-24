@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { tachesParLot, ligneTache, etatTache, filtrerTaches, compterTaches, comprendreDictee, semaine } = require("../../lib/taches-chantier");
+const { tachesParLot, ligneTache, etatTache, filtrerTaches, compterTaches, comprendreDictee, semaine, sousTitreTaches } = require("../../lib/taches-chantier");
 
 // Tâches du chantier de la maquette PRO-02.7 (fin octobre 2025).
 const AUJ = "2025-10-30";
@@ -24,7 +24,13 @@ describe("lib/taches-chantier (PRO-02.7)", () => {
     assert.strictEqual(ligneTache(T[0], AUJ), "Rui C. · jeu. 30");
     assert.strictEqual(ligneTache(T[3], AUJ), "Mehdi B. · lun. 3 nov.");
     assert.strictEqual(ligneTache(T[4], AUJ), "Mehdi B. · lun. 3 nov. · bloquant : receveur livré vendredi");
-    assert.strictEqual(ligneTache(T[5], AUJ), "à affecter · sem. 46");
+    // Tâche à affecter : le jour prévu devant la semaine (retours du build 64).
+    assert.strictEqual(ligneTache(T[5], AUJ), "à affecter · lun. 10 nov. · sem. 46");
+    assert.strictEqual(ligneTache({ assignedTo: "", label: "Peindre les murs" }, AUJ), "à affecter · pas de date");
+    assert.strictEqual(sousTitreTaches([]), "aucune tâche");
+    assert.strictEqual(sousTitreTaches([{ done: true }]), "1 tâche faite sur 1");
+    assert.strictEqual(sousTitreTaches(T), "1 tâche faite sur 7");
+    assert.strictEqual(sousTitreTaches([{ done: true }, { done: true }, {}]), "2 tâches faites sur 3");
     assert.strictEqual(ligneTache({ assignedTo: "Rui C.", startDate: "2025-10-27", endDate: "2025-10-29" }, AUJ), "Rui C. · lun. 27 → mer. 29");
     assert.strictEqual(semaine("2025-11-12"), 46);
     assert.strictEqual(ligneTache({ assignedTo: "Equipe", startDate: "2025-11-10" }, AUJ), "Équipe · lun. 10 nov.");

@@ -8,7 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_situation_screen.dart';
 import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ouvrirAvenant;
 import 'package:koji/apps/entreprise/chantiers/fiche_chantier.dart';
-import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart' show proChantiersProvider;
+import 'package:koji/apps/entreprise/chantiers/chantiers_liste.dart' show nomClientChantier;
+import 'package:koji/apps/entreprise/chantiers/pro_chantiers_screen.dart' show DonneesChantiers, proChantiersCacheProvider, proChantiersProvider;
 import 'package:koji/apps/entreprise/chantiers/pro_cloture_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_taches_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
@@ -53,6 +54,15 @@ final proFicheChantierProvider = FutureProvider.autoDispose
   final api = ref.watch(proKojiWebProvider);
   Future<List<Map<String, dynamic>>> lire(String path, String key) =>
       api.liste(path, key).catchError((_) => <Map<String, dynamic>>[]);
+  // Tout part en même temps : l'accès client, les photos et les réserves
+  // n'attendent plus la fin des autres lectures (retours du build 64 : la
+  // fiche mettait 10 à 15 secondes à s'ouvrir).
+  final accesF = api.accesClient(projectId).catchError((_) => null);
+  final photosF = api
+      .photosChantier(projectId)
+      .catchError((_) => <Map<String, dynamic>>[]);
+  final reservesF =
+      api.reserves(projectId).catchError((_) => <Map<String, dynamic>>[]);
   final r = await Future.wait([
     api.liste('/api/projects', 'projects'),
     lire('/api/quotes', 'quotes'),
@@ -66,12 +76,9 @@ final proFicheChantierProvider = FutureProvider.autoDispose
   final projets = r[0].where((p) => '${p['id']}' == projectId);
   if (projets.isEmpty) return null;
   final devis = r[1].where(duChantier);
-  final acces = await api.accesClient(projectId).catchError((_) => null);
-  final photos = await api
-      .photosChantier(projectId)
-      .catchError((_) => <Map<String, dynamic>>[]);
-  final reserves =
-      await api.reserves(projectId).catchError((_) => <Map<String, dynamic>>[]);
+  final acces = await accesF;
+  final photos = await photosF;
+  final reserves = await reservesF;
   return DonneesFiche(
     projet: projets.first,
     devis: devis.isEmpty ? null : devis.first,
@@ -86,6 +93,26 @@ final proFicheChantierProvider = FutureProvider.autoDispose
   );
 });
 
+/// Fiche montrée tout de suite, avec ce que la liste des chantiers a déjà lu :
+/// chantier, devis, tâches, factures, rendez-vous, alertes. Les documents,
+/// les photos, les réserves et l'accès client arrivent avec la lecture
+/// complète. Renvoie null si la liste ne connaît pas ce chantier.
+DonneesFiche? apercuFiche(DonneesChantiers? liste, String projectId) {
+  if (liste == null) return null;
+  bool duChantier(Map<String, dynamic> m) => '${m['projectId']}' == projectId;
+  final projets = liste.projects.where((p) => '${p['id']}' == projectId);
+  if (projets.isEmpty) return null;
+  final devis = liste.quotes.where(duChantier);
+  return DonneesFiche(
+    projet: projets.first,
+    devis: devis.isEmpty ? null : devis.first,
+    taches: liste.tasks.where(duChantier).toList(),
+    factures: liste.invoices.where(duChantier).toList(),
+    rdv: liste.calendarEvents.where(duChantier).toList(),
+    alertes: liste.alerts.where(duChantier).toList(),
+  );
+}
+
 /// Koji Pro, fiche chantier (maquette PRO-02.1, téléphone « 2 · Fiche
 /// chantier ») : avancement, facturé, fin ; « Situation de travaux » ;
 /// onglets Lots, Planning, À traiter, Docs ; un lot touché montre ses
@@ -93,9 +120,18 @@ final proFicheChantierProvider = FutureProvider.autoDispose
 /// restent dans les outils du chantier (lien en bas).
 class ProFicheChantierScreen extends ConsumerStatefulWidget {
   const ProFicheChantierScreen(
-      {super.key, required this.projectId, this.aujourdhui});
+      {super.key,
+      required this.projectId,
+      this.titre = '',
+      this.client = '',
+      this.aujourdhui});
 
   final String projectId;
+
+  /// Nom du chantier et client déjà connus de l'écran d'où l'on vient : le
+  /// bandeau les montre pendant le chargement.
+  final String titre;
+  final String client;
 
   /// Jour de référence (« yyyy-MM-dd ») ; aujourd'hui par défaut. Fixé par
   /// les tests pour que l'image de référence ne change pas avec la date.
@@ -224,13 +260,23 @@ class _ProFicheChantierScreenState
   Widget build(BuildContext context) {
     final da = ProDa.of(context);
     final asyncFiche = ref.watch(proFicheChantierProvider(widget.projectId));
-    final d = asyncFiche.valueOrNull;
+    // Tant que la fiche complète n'est pas arrivée, on montre ce que la
+    // liste des chantiers connaît déjà plutôt qu'un rond de chargement.
+    final d = asyncFiche.hasValue
+        ? asyncFiche.value
+        : apercuFiche(
+            ref.read(proChantiersCacheProvider).dernieres, widget.projectId);
     return Scaffold(
       backgroundColor: da.page,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _barre(da, d),
+          if (asyncFiche.isLoading && d != null)
+            LinearProgressIndicator(
+                minHeight: 2,
+                color: da.ink,
+                backgroundColor: const Color(0xFFE2E2DB)),
           Expanded(
             child: d == null
                 ? Center(
@@ -273,9 +319,11 @@ class _ProFicheChantierScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    _s(d?.projet['title']).isEmpty
-                        ? 'Chantier'
-                        : _s(d!.projet['title']),
+                    _s(d?.projet['title']).isNotEmpty
+                        ? _s(d!.projet['title'])
+                        : widget.titre.isNotEmpty
+                            ? widget.titre
+                            : 'Chantier',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: da.text(15,
@@ -283,9 +331,9 @@ class _ProFicheChantierScreenState
                         color: const Color(0xFFF5F5F2))),
                 Text(
                   [
-                    _s(devis?['client']).isNotEmpty
-                        ? _s(devis?['client'])
-                        : _s(d?.projet['client']),
+                    d == null
+                        ? widget.client
+                        : nomClientChantier(d.projet, devis),
                     if (_s(devis?['quoteNumber']).isNotEmpty)
                       'devis ${devis!['quoteNumber']}',
                   ].where((s) => s.isNotEmpty).join(' · '),
@@ -329,6 +377,7 @@ class _ProFicheChantierScreenState
       children: [
         _kpis(da, resume),
         const SizedBox(height: 12),
+        ..._infos(da, d),
         if (signe && lots.isNotEmpty && rienPlanifie) ...[
           ProCard(
             padding: const EdgeInsets.all(14),
@@ -384,9 +433,9 @@ class _ProFicheChantierScreenState
         const SizedBox(height: 18),
         Center(
           child: TextButton(
-            onPressed: () => context
-                .push('/chantier/outils', extra: {'id': widget.projectId}),
-            child: Text('Budget, dépenses et suivi des ouvriers',
+            onPressed: () => context.push('/chantier/outils',
+                extra: donneesOutils(d.projet, widget.projectId)),
+            child: Text('Budget, dépenses et suivi des compagnons',
                 style: da
                     .text(13, weight: FontWeight.w600, color: da.grey)
                     .copyWith(decoration: TextDecoration.underline)),
@@ -499,6 +548,41 @@ class _ProFicheChantierScreenState
         ),
       ),
     );
+  }
+
+  /// Ce qui a été saisi à la création (retours du build 64 : la fiche ne
+  /// montrait ni l'adresse, ni le client, ni le type de bien).
+  List<Widget> _infos(ProDa da, DonneesFiche d) {
+    final lignes = infosChantier(d.projet, d.devis);
+    if (lignes.isEmpty) return const [];
+    return [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: da.card,
+          border: Border.all(color: da.frame),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, (label, valeur)) in lignes.indexed) ...[
+              if (i > 0) const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                      width: 64,
+                      child: Text(label, style: da.text(12, color: da.grey))),
+                  Expanded(child: Text(valeur, style: da.text(13))),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+    ];
   }
 
   Widget _kpis(ProDa da, ResumeFiche r) {
@@ -789,7 +873,16 @@ class _ProFicheChantierScreenState
         .toList()
       ..sort((a, b) => _s(a['startAt']).compareTo(_s(b['startAt'])));
     if (taches.isEmpty && rdv.isEmpty) {
-      return [_vide(da, 'Rien de prévu pour le moment.')];
+      // Des tâches datées existent mais sont toutes faites : on le dit,
+      // plutôt que « Rien de prévu » (retours du build 64).
+      final datees = d.taches.where((t) => date(t).isNotEmpty).length;
+      return [
+        _vide(
+            da,
+            datees > 0
+                ? 'Tout ce qui était prévu est fait.'
+                : 'Rien de prévu pour le moment.')
+      ];
     }
     return [
       for (final e in rdv)

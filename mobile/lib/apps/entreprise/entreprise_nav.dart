@@ -69,7 +69,9 @@ const entrepriseNavGroups = [
         icon: KojiIcons.bibliotheque),
     KojiNavItem(
         id: 'calendrier', label: 'Calendrier', icon: KojiIcons.calendrier),
-    KojiNavItem(id: 'planning', label: 'Planning', icon: KojiIcons.planning),
+    // « Planning » (ancien écran, anciens ouvriers) est retiré du menu
+    // (retours du build 64) : on planifie depuis le Calendrier, comme sur le
+    // site, avec les compagnons de la page Équipe.
     KojiNavItem(id: 'equipe', label: 'Équipe', icon: KojiIcons.contacts),
     // « Interventions » est retiré du menu (retours du build 64) : l'écran
     // lit une table qui n'existe pas dans la base. Les interventions rapides

@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import 'package:koji/apps/entreprise/chantiers/chantiers_liste.dart' show nomClientChantier;
 import 'package:koji/apps/entreprise/chantiers/planning_chantier.dart';
 
 /// Fiche chantier (maquette PRO-02.1, téléphone « 2 · Fiche chantier »),
@@ -152,6 +153,55 @@ class ResumeFiche {
   final String sousFacture;
 }
 
+/// « 1 tâche faite sur 3 », « aucune tâche » : même texte que le site.
+String sousTitreTaches(List<Map<String, dynamic>> taches) {
+  if (taches.isEmpty) return 'aucune tâche';
+  final faites = taches.where((t) => t['done'] == true).length;
+  return '$faites tâche${faites > 1 ? 's' : ''} faite${faites > 1 ? 's' : ''} sur ${taches.length}';
+}
+
+/// Ce qui a été saisi à la création du chantier : adresse, client, type de
+/// bien. Une ligne absente n'a pas été renseignée.
+List<(String, String)> infosChantier(Map<String, dynamic> p,
+    [Map<String, dynamic>? devis]) {
+  String s(dynamic v) => v == null ? '' : '$v'.trim();
+  final nom = nomClientChantier(p, devis);
+  // Le nom seul est déjà dans le bandeau : la ligne « Client » n'apparaît
+  // que s'il y a un téléphone ou un e-mail à montrer avec lui.
+  final contact = [
+    s(p['clientPhone']),
+    if (s(p['clientEmail']) != nom) s(p['clientEmail']),
+  ].where((String x) => x.isNotEmpty).toList();
+  final client = contact.isEmpty
+      ? ''
+      : [if (nom.isNotEmpty) nom, ...contact].join(' · ');
+  return [
+    if (s(p['address']).isNotEmpty) ('Adresse', s(p['address'])),
+    if (client.isNotEmpty) ('Client', client),
+    if (s(p['propertyType']).isNotEmpty) ('Bien', s(p['propertyType'])),
+  ];
+}
+
+/// Ce que les outils du chantier (budget, documents, suivi) reçoivent : le
+/// chantier tel qu'il a été saisi, pour qu'ils n'affichent plus « Mon
+/// Chantier », « Nouveau chantier » ou « Adresse non renseignée ».
+Map<String, dynamic> donneesOutils(Map<String, dynamic> p, String id) {
+  String s(dynamic v) => v == null ? '' : '$v'.trim();
+  return {
+    'id': id,
+    if (s(p['title']).isNotEmpty) 'reference': s(p['title']),
+    // Avant la mise à jour du site, l'adresse n'arrive qu'en un seul bloc.
+    'street': p.containsKey('street') ? s(p['street']) : s(p['address']),
+    'postalCode': s(p['postalCode']),
+    'city': s(p['city']),
+    if (s(p['propertyType']).isNotEmpty) 'propertyType': s(p['propertyType']),
+    if (s(p['clientName']).isNotEmpty) 'clientName': s(p['clientName']),
+    if (s(p['clientPhone']).isNotEmpty) 'clientPhone': s(p['clientPhone']),
+    if (s(p['clientEmail']).isNotEmpty) 'clientEmail': s(p['clientEmail']),
+    if (s(p['status']).isNotEmpty) 'status': s(p['status']),
+  };
+}
+
 ResumeFiche resumeFiche({
   Map<String, dynamic>? devis,
   required List<LotFiche> lots,
@@ -187,7 +237,10 @@ ResumeFiche resumeFiche({
     sousAvancement: !demarre && debut.isNotEmpty
         ? 'démarrage le ${jourCourt(debut.first)}'
         : lots.isEmpty
-            ? 'aucune tâche planifiée'
+            // Sans devis, l'avancement vient des tâches : le sous-titre le dit
+            // (retours du build 64 : « 100 % » au-dessus de « aucune tâche
+            // planifiée »).
+            ? sousTitreTaches(taches)
             : '$lotsFaits lot${lotsFaits > 1 ? 's' : ''} terminé${lotsFaits > 1 ? 's' : ''} sur ${lots.length}',
     sousFacture: emises.isEmpty
         ? 'aucune facture'

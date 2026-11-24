@@ -6,6 +6,7 @@ import { resolveEntreprise, loadEntrepriseProfile } from "../../../../lib/entrep
 import { CONTACT_ROLES, contactDisplayName } from "../../../../lib/contacts";
 import { DOCS_VIGILANCE, doublon, lireCsvContacts, piecesDuPro, chantiersDuPro, vigilance } from "../../../../lib/contacts-pro";
 import { contexteCarnet, ficheCarnet, importerClientsDesDevis, ligneCarnet } from "../../../../lib/contacts-serveur";
+import { importerClientsDesChantiers } from "../../../../lib/client-du-chantier";
 import { annuaireContact } from "../../../../lib/sirene";
 import { sendClientMessageEmail } from "../../../../lib/mailer";
 import { getSupabaseAdmin } from "../../../../lib/supabase";
@@ -55,7 +56,15 @@ export async function GET(request) {
     return Response.redirect(data.signedUrl, 302);
   }
   const ctx = await contexteCarnet(entreprise, db);
-  if (importerClientsDesDevis(db, entreprise.userId, ctx.quotes)) await writeDb(db);
+  // Le carnet se remplit seul : clients des devis envoyés ou signés, et
+  // clients des chantiers ajoutés à la main (retours du build 64).
+  const desDevis = importerClientsDesDevis(db, entreprise.userId, ctx.quotes);
+  const desChantiers = importerClientsDesChantiers(db, entreprise.userId, ctx.chantiers);
+  if (desDevis || desChantiers) {
+    await writeDb(db);
+    // Les liens viennent d'être créés : le contexte les voit tout de suite.
+    ctx.liens = (db.chantierContacts || []).filter((l) => l.userId === entreprise.userId);
+  }
   const id = url.searchParams.get("id");
   if (id) {
     const c = (db.contacts || []).find((x) => x.id === id && x.userId === entreprise.userId);

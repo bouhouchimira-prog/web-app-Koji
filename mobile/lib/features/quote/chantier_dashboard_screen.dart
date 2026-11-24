@@ -78,7 +78,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
   }
 
   String get _chantierName =>
-      widget.data['reference'] as String? ?? 'Mon Chantier';
+      widget.data['reference'] as String? ?? 'Chantier';
 
   // ──────────────────────────────────────────
   // Bottom sheet: "Ajouter tâche"

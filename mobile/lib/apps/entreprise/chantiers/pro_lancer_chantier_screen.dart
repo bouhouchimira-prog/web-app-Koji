@@ -264,7 +264,7 @@ class _ProLancerChantierScreenState
           'workerIds': [if (workerId != null) workerId],
           'assignedTo': w?['name'] ?? 'Equipe',
           'participantType':
-              w?['type'] == 'Sous-traitant' ? 'Sous-traitants' : 'Ouvriers',
+              w?['type'] == 'Sous-traitant' ? 'Sous-traitants' : 'Compagnons',
           'status': 'Planifiee',
         }, id: existante == null ? null : _s(existante['id']));
         if (mounted) setState(() => _fait = (_fait ?? 0) + 1);

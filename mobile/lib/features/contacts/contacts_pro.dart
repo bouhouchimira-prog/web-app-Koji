@@ -99,7 +99,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         ref.invalidate(carnetProvider);
         await ref.read(carnetProvider.future);
       },
-      actions: [KojiButton(label: 'Ajouter', onPressed: () => context.push(nouveauContactRoute))],
+      // Carnet vide : un seul bouton, celui de la carte « Aucun contact ».
+      actions: [if (_liste(d['contacts']).isNotEmpty) KojiButton(label: 'Ajouter', onPressed: () => context.push(nouveauContactRoute))],
       main: [
         TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Nom, téléphone, chantier', isDense: true), onChanged: (v) => setState(() => _q = v)),
         KojiFilterChips<String>(
@@ -108,7 +109,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           onChanged: (v) => setState(() => _onglet = v),
         ),
         if (liste.isEmpty && _liste(d['contacts']).isEmpty)
-          ListeVide(titre: 'Aucun contact', texte: "Clients et sous-traitants s'ajoutent seuls avec vos devis.", action: 'Ajouter un contact', onAction: () => context.push(nouveauContactRoute))
+          ListeVide(titre: 'Aucun contact', texte: "Les clients s'ajoutent seuls avec vos devis et vos chantiers.", action: 'Ajouter un contact', onAction: () => context.push(nouveauContactRoute))
         else if (liste.isEmpty)
           const KojiEmptyState(compact: true, icon: KojiIcons.contacts, title: 'Aucun contact', subtitle: 'Aucun contact ne correspond.'),
         for (final c in liste)
@@ -338,7 +339,8 @@ class _AjouterContactScreenState extends ConsumerState<AjouterContactScreen> {
   final _tel = TextEditingController();
   final _email = TextEditingController();
   final _siret = TextEditingController();
-  String _role = 'sous_traitant';
+  // « Client » par défaut : c'est le contact le plus souvent ajouté à la main.
+  String _role = 'client';
   Json? _doublon;
   bool _lu = false;
   bool _busy = false;

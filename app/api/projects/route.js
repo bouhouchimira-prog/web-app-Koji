@@ -1,6 +1,7 @@
 import { badRequest, ok } from "../../../lib/http";
-import { readDb } from "../../../lib/db";
-import { getAuth } from "../../../lib/server-auth";
+import { readDb, updateDb } from "../../../lib/db";
+import { getAuth, getVerifiedUserId } from "../../../lib/server-auth";
+import { clientDuChantier, rattacherClient, resumeClient } from "../../../lib/client-du-chantier";
 import { fixText } from "../../../lib/text";
 
 // Projects live in the shared `chantiers` (+ `chantier_budgets`) tables used
@@ -45,6 +46,10 @@ export function mapChantier(row) {
     client: row.client_email ? row.client_email.split("@")[0] : "Client",
     clientEmail: row.client_email || "",
     address,
+    // L'adresse telle qu'elle a été saisie, champ par champ.
+    street: row.street || "",
+    postalCode: row.postal_code || "",
+    city: row.city || "",
     propertyType: row.property_type || "",
     status: row.status || "En attente",
     progress: 0,
@@ -73,31 +78,30 @@ export async function GET(request) {
   const auth = getAuth(request);
   if (!auth) return ok({ projects: [] });
 
-  const [{ data, error }, receptions] = await Promise.all([
+  const [{ data, error }, db] = await Promise.all([
     auth.supabase
       .from("chantiers")
       .select(CHANTIER_SELECT)
       .order("created_at", { ascending: false }),
-    receptionsParChantier()
+    readDb().catch(() => null)
   ]);
   if (error) return badRequest(`Lecture des chantiers impossible: ${error.message}`, 500);
-  return ok({
-    projects: (data || []).map((row) => ({ ...mapChantier(row), receptionLe: receptions.get(`${row.user_id}:${row.id}`) || "" }))
-  });
+  return ok({ projects: (data || []).map((row) => ({ ...mapChantier(row), ...complements(db, row) })) });
 }
 
-// Date de signature du procès-verbal de réception, par chantier : c'est elle
-// qui fait passer un chantier dans « Clôturés » (lib/chantiers-liste.js, site
-// et app). Lue avec le chantier pour que la liste n'ait rien à deviner. Une
-// lecture impossible ne bloque pas la liste : aucun chantier n'est alors
-// montré comme clôturé.
-async function receptionsParChantier() {
-  try {
-    const db = await readDb();
-    return new Map((db.clotures || []).filter((c) => c.pv?.signeLe).map((c) => [`${c.userId}:${c.projectId}`, c.pv.signeLe]));
-  } catch {
-    return new Map();
-  }
+// Ce que le chantier ne porte pas lui-même, lu dans le bloc partagé :
+// - receptionLe : date de signature du procès-verbal de réception. C'est
+//   elle qui fait passer un chantier dans « Clôturés » (lib/chantiers-liste.js,
+//   site et app) ;
+// - clientName, clientPhone : le client, contact du carnet rattaché au
+//   chantier (lib/client-du-chantier.js).
+// Une lecture impossible ne bloque pas la liste : aucun chantier n'est alors
+// montré comme clôturé, et le client reste celui de l'e-mail.
+function complements(db, row) {
+  if (!db) return { receptionLe: "", clientName: "", clientPhone: "" };
+  const cloture = (db.clotures || []).find((c) => c.userId === row.user_id && c.projectId === row.id && c.pv?.signeLe);
+  const { clientName, clientPhone } = resumeClient(clientDuChantier(db, row.user_id, row.id));
+  return { receptionLe: cloture?.pv?.signeLe || "", clientName, clientPhone };
 }
 
 export async function POST(request) {
@@ -111,12 +115,35 @@ export async function POST(request) {
       user_id: auth.userId,
       reference: fixText(body.title || "Nouveau chantier"),
       street: fixText(body.address || ""),
+      // Code postal, ville et type de bien : saisis dans l'app (Nouveau
+      // chantier), absents des créations plus anciennes.
+      ...(body.postalCode ? { postal_code: fixText(String(body.postalCode)).slice(0, 12) } : {}),
+      ...(body.city ? { city: fixText(String(body.city)).slice(0, 120) } : {}),
+      ...(body.propertyType ? { property_type: fixText(String(body.propertyType)).slice(0, 40) } : {}),
       client_email: body.clientEmail || "",
       status: fixText(body.status || "En attente")
     })
     .select(CHANTIER_SELECT)
     .single();
   if (error) return badRequest(`Création du chantier impossible: ${error.message}`, 500);
+
+  // Le client (nom, téléphone, e-mail) entre dans le carnet de contacts,
+  // rattaché à ce chantier. Écrit dans le bloc partagé : l'identité est donc
+  // vérifiée (un jeton seulement décodé ne suffit pas), et elle doit être
+  // celle du propriétaire du chantier qui vient d'être créé. Un échec ici ne
+  // défait pas le chantier.
+  let client = { clientName: "", clientPhone: "" };
+  if (body.clientName || body.clientPhone || body.clientEmail) {
+    try {
+      const userId = await getVerifiedUserId(request, body);
+      if (userId && userId === chantier.user_id) {
+        await updateDb((db) => {
+          const adresse = [chantier.street, chantier.postal_code, chantier.city].filter(Boolean).join(", ");
+          client = resumeClient(rattacherClient(db, userId, chantier.id, { nom: body.clientName, email: body.clientEmail, telephone: body.clientPhone, adresse }));
+        });
+      }
+    } catch { /* le chantier existe ; le client se rattachera depuis les contacts */ }
+  }
 
   const budget = budgetFromItems(body.budgetItems);
   if (!budget.main_oeuvre_estimated && body.budgetHt) budget.main_oeuvre_estimated = toAmount(body.budgetHt);
@@ -126,7 +153,7 @@ export async function POST(request) {
     .select()
     .single();
 
-  return ok({ project: mapChantier({ ...chantier, chantier_budgets: budgetRow ? [budgetRow] : [] }) }, 201);
+  return ok({ project: { ...mapChantier({ ...chantier, chantier_budgets: budgetRow ? [budgetRow] : [] }), receptionLe: "", clientName: client.clientName, clientPhone: client.clientPhone } }, 201);
 }
 
 export async function PATCH(request) {

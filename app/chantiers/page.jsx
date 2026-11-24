@@ -12,7 +12,7 @@ import { FILTRES_RESERVES, compterReserves, pourLe as pourLeReserve, sousTitreRe
 import { PvReception } from "../../components/PvReception";
 import { conseilsEntretien, elementsDossier, photosChoisies, resumeDossier } from "../../lib/dossier-fin";
 import { CRITERES, moyenneTexte, realisationProposee, reponseProposee } from "../../lib/avis";
-import { etatTache, ligneTache, tachesParLot } from "../../lib/taches-chantier";
+import { etatTache, ligneTache, sousTitreTaches, tachesParLot } from "../../lib/taches-chantier";
 import { jourDeParis, bilanChantier, etapesCloture, factureDeRetenue, factureDeSolde, facturesDuChantier, garanties, montantsSolde, noteSolde, travauxReceptionnes } from "../../lib/cloture-chantier";
 import { useLocale } from "../../lib/i18n";
 import { euro, shortDate } from "../../lib/pricing";
@@ -1590,7 +1590,9 @@ export default function ProjectsTrackingPage() {
       ? `démarrage le ${formatDate(plannedStart)}`
       : lotsFiche.length
         ? `${lotsFaits} lot${lotsFaits > 1 ? "s" : ""} terminé${lotsFaits > 1 ? "s" : ""} sur ${lotsFiche.length}`
-        : "aucune tâche planifiée";
+        // Sans devis, l'avancement vient des tâches : le sous-titre le dit
+        // (retours du build 64, même texte que l'app).
+        : sousTitreTaches(projectTasks);
     const acomptes = issuedInvoices.filter((f) => f.kind === "acompte" || /acompte/i.test(f.type || ""));
     const sousTitreFacture = issuedInvoices.length === 0
       ? "aucune facture envoyée"

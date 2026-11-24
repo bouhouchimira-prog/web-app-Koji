@@ -17,17 +17,21 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
   List<Map<String, dynamic>> _team = [];
   bool _loadingTeam = false;
 
-  String get _reference =>
-      widget.data['reference'] as String? ?? 'Nouveau chantier';
+  String get _reference => widget.data['reference'] as String? ?? 'Chantier';
   String get _street => widget.data['street'] as String? ?? '';
   String get _postalCode => widget.data['postalCode'] as String? ?? '';
   String get _city => widget.data['city'] as String? ?? '';
 
   // Client info from data (set when a chantier is linked to a quote)
-  String get _clientName =>
-      widget.data['clientName'] as String? ??
-      widget.data['client_name'] as String? ??
-      'Client du chantier';
+  // Le nom saisi, sinon l'e-mail du client, sinon on dit qu'il manque.
+  String get _clientName {
+    final nom = (widget.data['clientName'] as String? ??
+            widget.data['client_name'] as String? ??
+            '')
+        .trim();
+    if (nom.isNotEmpty) return nom;
+    return _clientEmail.isNotEmpty ? _clientEmail : 'Client non renseigné';
+  }
   String get _clientPhone =>
       widget.data['clientPhone'] as String? ??
       widget.data['client_phone'] as String? ??
@@ -45,10 +49,11 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
       widget.data['endDate'] as String? ??
       widget.data['end_date'] as String? ??
       '';
-  String get _status =>
-      widget.data['status'] as String? ?? 'En Cours';
-  String get _propertyType =>
-      widget.data['propertyType'] as String? ?? '–';
+  String get _status => widget.data['status'] as String? ?? 'En attente';
+  String get _propertyType {
+    final type = (widget.data['propertyType'] as String? ?? '').trim();
+    return type.isEmpty ? 'non renseigné' : type;
+  }
 
   String get _fullAddress {
     final parts = [_street, _postalCode, _city].where((s) => s.isNotEmpty);
@@ -307,10 +312,10 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
   // CHANTIER DETAILS CARD
   // ────────────────────────────────────────────────────────────
   Widget _buildChantierDetailsCard() {
-    final startDisplay = _startDate.isNotEmpty ? _startDate : _formatDate(DateTime.now());
-    final endDisplay = _endDate.isNotEmpty
-        ? _endDate
-        : _formatDate(DateTime.now().add(const Duration(days: 90)));
+    // Une date ne s'affiche que si l'artisan l'a donnée (retours du build
+    // 64 : la fin estimée était inventée, trois mois après aujourd'hui).
+    final startDisplay = _startDate.isNotEmpty ? _startDate : 'à définir';
+    final endDisplay = _endDate.isNotEmpty ? _endDate : 'à définir';
 
     // Status badge color
     Color badgeColor;
@@ -381,7 +386,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Date De Début',
+                      'Date de début',
                       style: TextStyle(
                         fontSize: 11,
                         color: Color(0xFF94A3B8),
@@ -412,7 +417,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Fin Estimée',
+                      'Fin estimée',
                       style: TextStyle(
                         fontSize: 11,
                         color: Color(0xFF94A3B8),
@@ -478,7 +483,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               Icon(Icons.group_outlined, size: 20, color: Color(0xFF0F172A)),
               SizedBox(width: 8),
               Text(
-                "L'équipe Kôji",
+                "L'équipe Koji",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -652,14 +657,6 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
       ),
       child: child,
     );
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-      'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   void _onAddContact() {

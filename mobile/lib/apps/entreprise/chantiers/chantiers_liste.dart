@@ -176,6 +176,20 @@ String cleLigne(Map<String, dynamic> ligne, int index) {
 
 const toutEstFait = 'Tout est fait. Passez à la réception.';
 
+/// Nom montré sous le chantier (retours du build 64 : le début de l'e-mail
+/// du client s'affichait à la place d'un nom). Dans l'ordre : le client du
+/// devis, le contact rattaché au chantier, sinon son e-mail en entier.
+/// « Client » est la valeur par défaut d'un devis sans client : ce n'est pas
+/// un nom. L'ancien champ `client` ne sert que si /api/projects ne donne pas
+/// `clientName`. Même règle que le site (lib/chantiers-liste.js).
+String nomClientChantier(Map<String, dynamic> p, [Map<String, dynamic>? devis]) {
+  final duDevis = _s(devis?['client']).trim();
+  if (duDevis.isNotEmpty && duDevis.toLowerCase() != 'client') return duDevis;
+  if (_s(p['clientName']).isNotEmpty) return _s(p['clientName']);
+  if (_s(p['clientEmail']).isNotEmpty) return _s(p['clientEmail']);
+  return p.containsKey('clientName') ? '' : _s(p['client']);
+}
+
 /// Clôturé : seulement quand le procès-verbal de réception est signé
 /// (retours du build 64 : un chantier passait « Clôturé » dès sa dernière
 /// tâche cochée). Tout fait mais pas réceptionné : « Finitions », avec
@@ -371,9 +385,7 @@ List<LigneChantier> lignesChantiers({
     // Tout est fait, la réception reste à faire.
     if (!receptionne && progression >= 100 && jalon.isEmpty) jalon = toutEstFait;
 
-    final client = _s(devis?['client']).isNotEmpty
-        ? _s(devis?['client'])
-        : _s(p['client']);
+    final client = nomClientChantier(p, devis);
     sortie.add(LigneChantier(
       id: id,
       titre: _s(p['title']).isEmpty ? 'Chantier' : _s(p['title']),
@@ -387,7 +399,7 @@ List<LigneChantier> lignesChantiers({
       jalon: jalon,
       detail: detail,
       montant: montant,
-      recherche: [p['title'], devis?['client'], p['client'], p['address']]
+      recherche: [p['title'], devis?['client'], p['clientName'], p['clientEmail'], p['client'], p['address']]
           .where((v) => v != null)
           .join(' ')
           .toLowerCase(),

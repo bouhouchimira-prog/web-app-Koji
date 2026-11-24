@@ -36,7 +36,7 @@ import 'package:koji/features/quote/budget_history_screen.dart';
 import 'package:koji/features/quote/chantier_add_task_screen.dart';
 import 'package:koji/features/quote/chantier_afaire_screen.dart';
 import 'package:koji/features/quote/chantier_budget_screen.dart';
-import 'package:koji/features/quote/chantier_creation_screen.dart';
+import 'package:koji/apps/entreprise/chantiers/pro_nouveau_chantier_screen.dart';
 import 'package:koji/features/quote/chantier_dashboard_screen.dart';
 import 'package:koji/features/quote/chantier_devis_screen.dart';
 import 'package:koji/features/quote/chantier_documents_screen.dart';
@@ -184,7 +184,8 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
               pageBuilder: (context, state) => _buildPageWithTransition(
                 context,
                 state,
-                const ChantierCreationScreen(),
+                // Formulaire refait dans la nouvelle DA (retours du build 64).
+                const ProNouveauChantierScreen(),
               ),
             ),
             // Fiche chantier (maquette PRO-02.1) ; l'ancien tableau de bord
@@ -196,7 +197,12 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
                 return _buildPageWithTransition(
                   context,
                   state,
-                  ProFicheChantierScreen(projectId: '${data['id'] ?? ''}'),
+                  ProFicheChantierScreen(
+                    projectId: '${data['id'] ?? ''}',
+                    // Connus de l'écran d'où l'on vient (liste, création).
+                    titre: '${data['titre'] ?? data['reference'] ?? ''}',
+                    client: '${data['client'] ?? ''}',
+                  ),
                 );
               },
             ),

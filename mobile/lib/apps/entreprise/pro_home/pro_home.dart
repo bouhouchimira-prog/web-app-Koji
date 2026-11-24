@@ -287,7 +287,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
     final now = DateTime.now();
 
     for (final alerte in alertes) {
-      final qui = alerte['source'] == 'client' ? 'Client' : 'Ouvrier';
+      final qui = alerte['source'] == 'client' ? 'Client' : 'Compagnon';
       Map<String, dynamic>? chantier;
       for (final c in chantiers) {
         if ('${c['id']}' == '${alerte['projectId']}') chantier = c;
@@ -344,7 +344,7 @@ class _ProHomeState extends ConsumerState<ProHome> {
         tag: enRetard ? 'En retard' : "Aujourd'hui",
         ton: ProTagTone.ink,
         icon: Icons.event_outlined,
-        onTap: () => context.push('/planning'),
+        onTap: () => context.push('/calendrier'),
         tri: tache.startDateTime.toIso8601String(),
       ));
     }
@@ -426,11 +426,11 @@ class _ProHomeState extends ConsumerState<ProHome> {
     final nouveaux =
         disponibles.where((o) => _estNouveau(o.publieeLe)).toList();
 
-    final prenom = account == null
+    // Le prénom de l'artisan, jamais le nom de l'entreprise (retours du
+    // build 64). Sans prénom connu : « Bonjour. » tout court.
+    final prenom = account == null || account.fullName.isEmpty
         ? null
-        : (account.fullName.isNotEmpty
-            ? account.firstName
-            : account.displayName);
+        : account.firstName;
     final eyebrow = [
       _majuscule(DateFormat('EEEE d MMMM', 'fr_FR').format(DateTime.now())),
       if (aSigner.isNotEmpty)

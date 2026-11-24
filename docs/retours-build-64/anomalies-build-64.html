@@ -111,11 +111,11 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="wrap">
     <p class="eyebrow">Koji Pro · version affectée : build 64 (iPhone)</p>
     <h1>Anomalies et backlog de correction</h1>
-    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 24 novembre 2026, sprint 0 validé, sprint 1 prêt à livrer.</p>
+    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 24 novembre 2026, sprint 0 validé, sprint 1 livré dans un nouveau build, sprint 2 prêt à livrer.</p>
     <div class="stats" id="stats">
-      <div class="stat"><b id="n-total">46</b><span>tickets au backlog</span></div>
-      <div class="stat"><b id="n-valider">12</b><span>corrigés, à livrer ou à valider</span></div>
-      <div class="stat"><b id="n-faire">25</b><span>à faire ou en cours</span></div>
+      <div class="stat"><b id="n-total">47</b><span>tickets au backlog</span></div>
+      <div class="stat"><b id="n-valider">20</b><span>corrigés, à livrer ou à valider</span></div>
+      <div class="stat"><b id="n-faire">18</b><span>à faire ou en cours</span></div>
       <div class="stat"><b id="n-termine">9</b><span>terminés (recette passée)</span></div>
     </div>
   </div>
@@ -147,7 +147,7 @@ footer { color: var(--muted); font-size: 13px; }
 
 <section>
   <h2>Causes des anomalies</h2>
-  <p class="intro">Les 46 tickets ne sont pas 46 problèmes indépendants. Trois causes en expliquent la majorité, et chacune forme un Epic. Le reste (textes, design, comportement de l'assistant) est regroupé dans un quatrième Epic.</p>
+  <p class="intro">Les tickets du backlog ne sont pas autant de problèmes indépendants. Trois causes en expliquent la majorité, et chacune forme un Epic. Le reste (textes, design, comportement de l'assistant) est regroupé dans un quatrième Epic.</p>
   <div class="grid2">
     <div class="box">
       <span class="id">EPIC C1</span>
@@ -183,8 +183,8 @@ footer { color: var(--muted); font-size: 13px; }
       <thead><tr><th>Sprint</th><th>Objectif</th><th>Version corrigée</th><th>Statut</th></tr></thead>
       <tbody>
         <tr><td class="id">Sprint 0</td><td class="sum">Corrections côté serveur : enregistrement du devis, invitation d'un compagnon, assistant devis, Calendrier, procès-verbal, jetons, liens du parcours.</td><td>Serveur, 24 nov. 2026</td><td><span class="pill st-termine">Terminé</span></td></tr>
-        <tr><td class="id">Sprint 1</td><td class="sum">Les blocages dans l'app : messages techniques, écrans sans issue, création de chantier, règle de clôture, lignes en double, clavier. Un seul nouveau build à la fin.</td><td>Prochain build</td><td><span class="pill st-pret">Prêt à livrer</span></td></tr>
-        <tr><td class="id">Sprint 2</td><td class="sum">Cohérence des chantiers : fiche fidèle à la saisie et rapide à ouvrir, une seule source pour les tâches, formulaire Nouveau chantier refait, équipe, contacts, avenants.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
+        <tr><td class="id">Sprint 1</td><td class="sum">Les blocages dans l'app : messages techniques, écrans sans issue, création de chantier, règle de clôture, lignes en double, clavier. Un seul nouveau build à la fin.</td><td>Android version 84, iOS build 66 (24 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
+        <tr><td class="id">Sprint 2</td><td class="sum">Cohérence des chantiers : fiche fidèle à la saisie et rapide à ouvrir, une seule source pour les tâches, formulaire Nouveau chantier refait, équipe, contacts, avenants.</td><td>Prochain build</td><td><span class="pill st-pret">Prêt à livrer</span></td></tr>
         <tr><td class="id">Sprint 3</td><td class="sum">Cohérence des devis : frais visibles, taux horaire de la bibliothèque, PDF en français, numéro unique.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
         <tr><td class="id">Sprint 4</td><td class="sum">Textes et design : nom de l'offre, fautes, bouton ✦, barre d'état, onglets, écrans restés dans l'ancienne direction artistique.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
       </tbody>
@@ -369,28 +369,65 @@ notify pgrst, 'reload schema';</pre>
 
 <section>
   <h2>Rapport du sprint 1</h2>
-  <p class="intro">Corrigé le 24 novembre 2026. Les douze tickets sont « Prêt à livrer » : le code est écrit, l'analyse ne signale aucune erreur, 349 tests passent côté app et 547 côté site. Rien n'est encore commité, ni dans un build.</p>
+  <p class="intro">Livré le 24 novembre 2026. Commit <code>f326299</code> sur la branche principale, quatre déploiements réussis. L'analyse ne signale aucune erreur, 349 tests passent côté app et 547 côté site. Les douze tickets sont « À valider ».</p>
   <div class="box">
-    <h3>Ce qu'il reste avant la recette</h3>
+    <h3>Versions corrigées</h3>
     <ul class="plain">
-      <li>Commit et envoi du code, puis un nouveau build de Koji Pro (décision de la Responsable technique).</li>
-      <li>Aucun ticket n'a été rejoué sur un téléphone. La correction du clavier (KPRO-17) n'a pas pu être reproduite hors appareil : elle est à juger à la recette.</li>
-      <li>KPRO-10 change aussi la liste des chantiers du site, dès la mise en ligne : un chantier à 100 % sans procès-verbal signé revient dans « En cours ».</li>
+      <li><b>Android :</b> Koji Pro, version 84, sur Google Play en test interne, à l'état de brouillon. À déployer depuis la Play Console par la Responsable technique.</li>
+      <li><b>iPhone :</b> Koji Pro, build 66, envoyé sur TestFlight. Apple le rend disponible aux testeurs après son traitement.</li>
+      <li><b>Site :</b> la règle de clôture (KPRO-10) est en ligne. Un chantier à 100 % sans procès-verbal signé y est revenu dans « En cours ».</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Ce qui n'est pas encore prouvé</h3>
+    <ul class="plain">
+      <li>Aucun ticket n'a été rejoué sur un téléphone.</li>
+      <li>La correction du clavier (KPRO-17) n'a pas pu être reproduite hors appareil : elle est à juger à la recette.</li>
     </ul>
   </div>
   <div class="grid2">
-    <div class="box ticket"><span class="id">KPRO-9 · Bug · Très haute</span><h3>Messages techniques montrés à l'artisan</h3><p><b>Résolution :</b> un traducteur unique remplace le texte brut de l'erreur par une phrase claire (« Ça n'a pas marché. Vérifiez la connexion et réessayez. »). Une centaine de messages repris dans 55 fichiers, dont l'envoi du devis et l'assistant.</p><p><b>Reste :</b> l'app Koji (particuliers) n'est pas concernée par ce ticket et n'a pas été modifiée.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-10 · Bug · Très haute</span><h3>Chantier clôturé dès ses tâches cochées</h3><p><b>Résolution :</b> un chantier n'est « Clôturé » que si son procès-verbal de réception est signé. Tout fait mais pas réceptionné : il reste dans « En cours », étiquette « Finitions », avec « Tout est fait. Passez à la réception. ». Même règle sur le site et dans l'app. La liste se met à jour dès qu'une tâche est cochée, sans relancer l'app.</p><p><b>Reste :</b> la confirmation de D-1.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-11 · Bug · Très haute</span><h3>Lignes du devis en double</h3><p><b>Résolution :</b> si l'enregistrement échoue, le devis revient à l'état d'avant l'échange. Rien n'est gardé, donc un nouvel essai n'ajoute la ligne qu'une fois. Le message devient « L'enregistrement n'a pas marché : rien n'a été ajouté au devis. Réessaie. ».</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-12 · Bug · Haute</span><h3>Chantier créé invisible jusqu'à la relance</h3><p><b>Résolution :</b> la liste des chantiers et la recherche sont rechargées dès la création.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-13 · Bug · Haute</span><h3>Retour vers le formulaire rempli</h3><p><b>Résolution :</b> la fiche du chantier remplace le formulaire. Le retour mène à la liste, et le formulaire ne peut plus créer un doublon.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-14 · Bug · Haute</span><h3>Interventions plante</h3><p><b>Résolution :</b> l'entrée « Interventions » est retirée du menu. « Nouvelle intervention », sur l'accueil, fonctionne et n'est pas concernée.</p><p><b>Reste :</b> rebrancher l'ancien écran sur l'API du site, si la liste doit revenir.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-15 · Bug · Haute</span><h3>Plus → Tâche sans issue</h3><p><b>Résolution :</b> le bouton demande d'abord « Pour quel chantier ? », puis ouvre les tâches de ce chantier. Sans chantier en cours, il propose d'en créer un.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-16 · Bug · Haute</span><h3>Factures sans retour</h3><p><b>Résolution :</b> flèche retour sur Factures, Encaissements et Impayés. Le menu dit maintenant « Factures », comme la page et comme le site.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-17 · Bug · Haute</span><h3>Clavier bloqué à l'écran</h3><p><b>Résolution :</b> le clavier se ferme à chaque changement d'écran, à chaque changement d'onglet, et quand on touche en dehors d'un champ.</p><p><b>Limite :</b> non reproduit hors appareil.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-18 · Bug · Moyenne</span><h3>Plus → Dépense « bientôt disponible »</h3><p><b>Résolution :</b> le bouton ouvre la même page que Menu → Dépenses.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-19 · Bug · Moyenne</span><h3>Étapes du parcours et onglets</h3><p><b>Résolution :</b> « Voir mes devis » ouvre l'onglet Devis, « Ouvrir mes chantiers » l'onglet Chantiers.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-20 · Bug · Moyenne</span><h3>Procès-verbal sur un chantier vide, côté app</h3><p><b>Résolution :</b> l'app refuse d'ouvrir le procès-verbal quand il n'y a ni devis signé ni tâche faite, et le dit avant toute signature. Le texte « devis » sans numéro est remplacé. « SIGNÉ POUR LE CLIENT » retrouve son accent.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-9 · Bug · Très haute</span><h3>Messages techniques montrés à l'artisan</h3><p><b>Résolution :</b> un traducteur unique remplace le texte brut de l'erreur par une phrase claire (« Ça n'a pas marché. Vérifiez la connexion et réessayez. »). Une centaine de messages repris dans 55 fichiers, dont l'envoi du devis et l'assistant.</p><p><b>Reste :</b> l'app Koji (particuliers) n'est pas concernée par ce ticket et n'a pas été modifiée.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-10 · Bug · Très haute</span><h3>Chantier clôturé dès ses tâches cochées</h3><p><b>Résolution :</b> un chantier n'est « Clôturé » que si son procès-verbal de réception est signé. Tout fait mais pas réceptionné : il reste dans « En cours », étiquette « Finitions », avec « Tout est fait. Passez à la réception. ». Même règle sur le site et dans l'app. La liste se met à jour dès qu'une tâche est cochée, sans relancer l'app.</p><p><b>Reste :</b> la confirmation de D-1.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-11 · Bug · Très haute</span><h3>Lignes du devis en double</h3><p><b>Résolution :</b> si l'enregistrement échoue, le devis revient à l'état d'avant l'échange. Rien n'est gardé, donc un nouvel essai n'ajoute la ligne qu'une fois. Le message devient « L'enregistrement n'a pas marché : rien n'a été ajouté au devis. Réessaie. ».</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-12 · Bug · Haute</span><h3>Chantier créé invisible jusqu'à la relance</h3><p><b>Résolution :</b> la liste des chantiers et la recherche sont rechargées dès la création.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-13 · Bug · Haute</span><h3>Retour vers le formulaire rempli</h3><p><b>Résolution :</b> la fiche du chantier remplace le formulaire. Le retour mène à la liste, et le formulaire ne peut plus créer un doublon.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-14 · Bug · Haute</span><h3>Interventions plante</h3><p><b>Résolution :</b> l'entrée « Interventions » est retirée du menu. « Nouvelle intervention », sur l'accueil, fonctionne et n'est pas concernée.</p><p><b>Reste :</b> rebrancher l'ancien écran sur l'API du site, si la liste doit revenir.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-15 · Bug · Haute</span><h3>Plus → Tâche sans issue</h3><p><b>Résolution :</b> le bouton demande d'abord « Pour quel chantier ? », puis ouvre les tâches de ce chantier. Sans chantier en cours, il propose d'en créer un.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-16 · Bug · Haute</span><h3>Factures sans retour</h3><p><b>Résolution :</b> flèche retour sur Factures, Encaissements et Impayés. Le menu dit maintenant « Factures », comme la page et comme le site.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-17 · Bug · Haute</span><h3>Clavier bloqué à l'écran</h3><p><b>Résolution :</b> le clavier se ferme à chaque changement d'écran, à chaque changement d'onglet, et quand on touche en dehors d'un champ.</p><p><b>Limite :</b> non reproduit hors appareil.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-18 · Bug · Moyenne</span><h3>Plus → Dépense « bientôt disponible »</h3><p><b>Résolution :</b> le bouton ouvre la même page que Menu → Dépenses.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-19 · Bug · Moyenne</span><h3>Étapes du parcours et onglets</h3><p><b>Résolution :</b> « Voir mes devis » ouvre l'onglet Devis, « Ouvrir mes chantiers » l'onglet Chantiers.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-20 · Bug · Moyenne</span><h3>Procès-verbal sur un chantier vide, côté app</h3><p><b>Résolution :</b> l'app refuse d'ouvrir le procès-verbal quand il n'y a ni devis signé ni tâche faite, et le dit avant toute signature. Le texte « devis » sans numéro est remplacé. « SIGNÉ POUR LE CLIENT » retrouve son accent.</p><span class="pill st-valider">À valider</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Rapport du sprint 2</h2>
+  <p class="intro">Corrigé le 24 novembre 2026. Les huit tickets sont « Prêt à livrer » : l'analyse ne signale aucune erreur, 357 tests passent côté app et 552 côté site. Rien n'est encore commité, ni dans un build.</p>
+  <div class="box">
+    <h3>Mesure de la lenteur de la fiche (KPRO-22)</h3>
+    <ul class="plain">
+      <li>Le site garde une grande partie de ses données dans un seul bloc. Il pèse 2,1 Mo, et chaque lecture prend de 0,5 à 2,5 secondes (mesuré le 24 novembre, quatre lectures de suite).</li>
+      <li>La fiche d'un chantier lançait dix appels au site. Huit relisent ce bloc en entier, et trois attendaient la fin des sept autres avant de partir.</li>
+      <li>Ce sprint corrige ce qui dépend de l'app. La lecture unique côté serveur reste à faire : KPRO-47.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Ce qui n'est pas encore prouvé</h3>
+    <ul class="plain">
+      <li>Aucun ticket n'a été rejoué sur un téléphone. Le gain de temps réel de la fiche est à chronométrer à la recette.</li>
+      <li>La partie site (client rattaché, règles de texte) s'applique dès la mise en ligne. La partie app demande un nouveau build.</li>
+    </ul>
+  </div>
+  <div class="grid2">
+    <div class="box ticket"><span class="id">KPRO-22 · Bug · Haute</span><h3>Fiche chantier lente à s'ouvrir</h3><p><b>Résolution :</b> la fiche s'affiche tout de suite avec ce que la liste connaît déjà (nom, client, tâches, factures), un filet de progression en haut. Les dix appels partent tous en même temps. Le nom du chantier est dans le bandeau dès l'ouverture.</p><p><b>Reste :</b> KPRO-47.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-23 · Bug · Haute</span><h3>Infos du chantier différentes de la saisie</h3><p><b>Résolution :</b> la fiche montre l'adresse, le client et le type de bien saisis. Les outils du chantier reçoivent le chantier complet : plus de « Mon Chantier », de « Référence : Nouveau chantier » ni de « Adresse non renseignée ». La date de fin n'est plus inventée : « à définir » tant que l'artisan ne l'a pas donnée.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-24 · Bug · Moyenne</span><h3>Tâches qui se contredisent</h3><p><b>Résolution :</b> sans devis, le sous-titre de l'avancement compte les tâches (« 1 tâche faite sur 1 ») au lieu de « aucune tâche planifiée ». L'onglet Planning dit « Tout ce qui était prévu est fait. » quand c'est le cas. Une tâche à affecter montre son jour : « à affecter · mar. 24 · sem. 48 ». Mêmes textes sur le site et dans l'app.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-25 · Bug · Moyenne</span><h3>Deux outils Équipe</h3><p><b>Résolution :</b> le lien vers l'ancien outil Équipe est retiré. « Planning », ancien écran qui ne voyait ni les compagnons ni les tâches, est retiré du menu : on planifie depuis le Calendrier, comme sur le site. « Ouvrier » devient « compagnon » dans les écrans de la nouvelle génération.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-26 · Bug · Moyenne</span><h3>Contacts sans le client du chantier</h3><p><b>Résolution :</b> le client d'un chantier entre dans le carnet, rattaché à ce chantier. Les chantiers déjà créés y entrent à la première ouverture des contacts. Un nouveau contact est « Client » par défaut. Carnet vide : un seul bouton « Ajouter ».</p><p><b>Limite :</b> un client connu par son seul e-mail apparaît « Sans nom » jusqu'à ce qu'on le complète.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-27 · Bug · Moyenne</span><h3>Avenants et bouton introuvable</h3><p><b>Résolution :</b> un avenant modifie un devis signé, donc le bouton « Avenant » de la fiche n'apparaît qu'après la signature. La page le dit : « une fois le devis signé (bouton « Avenant ») ». Liste vide : « aucun avenant ».</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-28 · Amélioration · Moyenne</span><h3>Formulaire Nouveau chantier</h3><p><b>Résolution :</b> formulaire refait dans la nouvelle direction artistique. Nom, téléphone et e-mail du client. Adresses proposées pendant la saisie, par la Base Adresse Nationale, déjà utilisée par le site. Erreur affichée sous le champ concerné. Une phrase dit à quoi sert l'écran. L'ancien formulaire est supprimé.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-29 · Bug · Moyenne</span><h3>Nom affiché différent selon l'écran</h3><p><b>Résolution :</b> sous un chantier s'affiche le nom du client, sinon son e-mail en entier, jamais son début. L'accueil dit « Bonjour, » suivi du prénom ; sans prénom connu, « Bonjour. », jamais le nom de l'entreprise.</p><span class="pill st-pret">Prêt à livrer</span></div>
   </div>
 </section>
 
@@ -418,6 +455,10 @@ notify pgrst, 'reload schema';</pre>
       <p>Sprint 0 validé par la Responsable technique : les neuf tickets passent à « Terminé ». Sprint 1 démarré : KPRO-9 à KPRO-20 passent à « En cours ».</p>
       <time datetime="2026-11-24">24 nov. 2026</time>
       <p>Sprint 1 corrigé et testé : KPRO-9 à KPRO-20 passent à « Prêt à livrer ». Nouveau statut ajouté au vocabulaire. D-1 appliquée selon la recommandation, à confirmer.</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 1 livré : commit f326299, Android version 84 (brouillon sur Google Play), iPhone build 66 (TestFlight). KPRO-9 à KPRO-20 passent à « À valider ». Sprint 2 démarré : KPRO-22 à KPRO-29 passent à « En cours ».</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 2 corrigé et testé : KPRO-22 à KPRO-29 passent à « Prêt à livrer ». Nouveau ticket KPRO-47, issu de la mesure de la lenteur de la fiche.</p>
     </div>
   </div>
   <footer>Source : document « Mes retours sur Koji Pro, build 64 » (21 pages, recette sur iPhone). Ce rapport est mis à jour à chaque sprint livré et à chaque recette.</footer>
@@ -438,27 +479,28 @@ var TICKETS = [
   [8, "Bug", "Deux étapes du parcours ouvrent une page d'erreur", 3, "termine", 0, "Parcours", "C2", ""],
   [21, "Bug", "Les brouillons de devis n'apparaissent pas dans la liste", 2, "termine", 0, "Devis", "C1", "KPRO-1"],
 
-  [9, "Bug", "Des messages techniques s'affichent à l'artisan (PostgrestException)", 1, "pret", 1, "Toute l'app", "C1", ""],
-  [10, "Bug", "Un chantier se clôture tout seul dès que ses tâches sont cochées", 1, "pret", 1, "Chantiers", "C3", "D-1"],
-  [11, "Bug", "Les lignes du devis s'ajoutent en double après un échec d'enregistrement", 1, "pret", 1, "Devis", "C1", ""],
-  [12, "Bug", "Le chantier créé n'apparaît qu'après avoir relancé l'appli", 2, "pret", 1, "Chantiers", "C2", ""],
-  [13, "Bug", "Le retour depuis un chantier ramène au formulaire rempli (doublon)", 2, "pret", 1, "Chantiers", "C2", ""],
-  [14, "Bug", "Interventions plante sur une table absente", 2, "pret", 1, "Interventions", "C1", ""],
-  [15, "Bug", "Plus → Tâche mène à un écran sans issue", 2, "pret", 1, "Navigation", "C2", ""],
-  [16, "Bug", "Factures n'a ni retour, ni menu, ni barre du bas", 2, "pret", 1, "Navigation", "C4", ""],
-  [17, "Bug", "Le clavier reste bloqué à l'écran", 2, "pret", 1, "Navigation", "C4", ""],
-  [18, "Bug", "Plus → Dépense annonce « bientôt disponible » alors que la page marche", 3, "pret", 1, "Navigation", "C4", ""],
-  [19, "Bug", "Les étapes du parcours n'ouvrent pas l'onglet Devis ou Chantiers", 3, "pret", 1, "Parcours", "C2", "KPRO-8"],
-  [20, "Bug", "L'écran du procès-verbal reste ouvert sur un chantier vide et écrit « devis »", 3, "pret", 1, "Clôture", "C3", "D-1"],
+  [9, "Bug", "Des messages techniques s'affichent à l'artisan (PostgrestException)", 1, "valider", 1, "Toute l'app", "C1", ""],
+  [10, "Bug", "Un chantier se clôture tout seul dès que ses tâches sont cochées", 1, "valider", 1, "Chantiers", "C3", "D-1"],
+  [11, "Bug", "Les lignes du devis s'ajoutent en double après un échec d'enregistrement", 1, "valider", 1, "Devis", "C1", ""],
+  [12, "Bug", "Le chantier créé n'apparaît qu'après avoir relancé l'appli", 2, "valider", 1, "Chantiers", "C2", ""],
+  [13, "Bug", "Le retour depuis un chantier ramène au formulaire rempli (doublon)", 2, "valider", 1, "Chantiers", "C2", ""],
+  [14, "Bug", "Interventions plante sur une table absente", 2, "valider", 1, "Interventions", "C1", ""],
+  [15, "Bug", "Plus → Tâche mène à un écran sans issue", 2, "valider", 1, "Navigation", "C2", ""],
+  [16, "Bug", "Factures n'a ni retour, ni menu, ni barre du bas", 2, "valider", 1, "Navigation", "C4", ""],
+  [17, "Bug", "Le clavier reste bloqué à l'écran", 2, "valider", 1, "Navigation", "C4", ""],
+  [18, "Bug", "Plus → Dépense annonce « bientôt disponible » alors que la page marche", 3, "valider", 1, "Navigation", "C4", ""],
+  [19, "Bug", "Les étapes du parcours n'ouvrent pas l'onglet Devis ou Chantiers", 3, "valider", 1, "Parcours", "C2", "KPRO-8"],
+  [20, "Bug", "L'écran du procès-verbal reste ouvert sur un chantier vide et écrit « devis »", 3, "valider", 1, "Clôture", "C3", "D-1"],
 
-  [22, "Bug", "La fiche d'un chantier met 10 à 15 secondes à s'ouvrir", 2, "faire", 2, "Chantiers", "C2", ""],
-  [23, "Bug", "Les infos du chantier ne correspondent pas à ce qui a été saisi", 2, "faire", 2, "Chantiers", "C2", ""],
-  [24, "Bug", "Les tâches du chantier se contredisent d'un écran à l'autre", 3, "faire", 2, "Chantiers", "C2", ""],
-  [25, "Bug", "Deux outils Équipe qui ne se parlent pas (ouvrier, compagnon)", 3, "faire", 2, "Équipe", "C2", ""],
-  [26, "Bug", "Contacts ne récupère pas le client du chantier", 3, "faire", 2, "Contacts", "C2", ""],
-  [27, "Bug", "Avenants renvoie vers un bouton qui n'existe pas", 3, "faire", 2, "Avenants", "C4", ""],
-  [28, "Amélioration", "Nouveau chantier : adresses proposées, nom et téléphone du client, erreur sous le champ", 3, "faire", 2, "Chantiers", "C2", ""],
-  [29, "Bug", "Le nom affiché change selon l'écran (début de l'e-mail, nom de l'entreprise)", 3, "faire", 2, "Chantiers", "C2", ""],
+  [22, "Bug", "La fiche d'un chantier met 10 à 15 secondes à s'ouvrir", 2, "pret", 2, "Chantiers", "C2", ""],
+  [23, "Bug", "Les infos du chantier ne correspondent pas à ce qui a été saisi", 2, "pret", 2, "Chantiers", "C2", ""],
+  [24, "Bug", "Les tâches du chantier se contredisent d'un écran à l'autre", 3, "pret", 2, "Chantiers", "C2", ""],
+  [25, "Bug", "Deux outils Équipe qui ne se parlent pas (ouvrier, compagnon)", 3, "pret", 2, "Équipe", "C2", ""],
+  [26, "Bug", "Contacts ne récupère pas le client du chantier", 3, "pret", 2, "Contacts", "C2", ""],
+  [27, "Bug", "Avenants renvoie vers un bouton qui n'existe pas", 3, "pret", 2, "Avenants", "C4", ""],
+  [28, "Amélioration", "Nouveau chantier : adresses proposées, nom et téléphone du client, erreur sous le champ", 3, "pret", 2, "Chantiers", "C2", ""],
+  [29, "Bug", "Le nom affiché change selon l'écran (début de l'e-mail, nom de l'entreprise)", 3, "pret", 2, "Chantiers", "C2", ""],
+  [47, "Tâche", "Fiche chantier : une seule lecture côté serveur au lieu de dix", 3, "faire", 2, "Chantiers", "C2", "KPRO-22"],
 
   [30, "Bug", "Des frais s'ajoutent au devis sans apparaître dans l'appli, PDF à reprendre", 2, "faire", 3, "Devis", "C4", "D-5"],
   [31, "Bug", "Le taux horaire n'est pas le même dans la bibliothèque et dans le devis", 3, "faire", 3, "Bibliothèque", "C4", ""],
