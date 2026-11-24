@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/core/theme.dart';
@@ -114,7 +115,7 @@ class _BusinessInfoScreenState extends ConsumerState<BusinessInfoScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text(messageErreur(e))),
         );
       }
     } finally {
@@ -164,7 +165,7 @@ class _BusinessInfoScreenState extends ConsumerState<BusinessInfoScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e')),
+          SnackBar(content: Text(messageErreur(e, defaut: "Enregistrement impossible. Vérifiez la connexion et réessayez."))),
         );
       }
     } finally {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter/foundation.dart'; // For consolidateHttpClientResponseBytes
 import 'package:flutter/services.dart' show rootBundle; // For bundled Koji logo
 import 'package:go_router/go_router.dart';
@@ -1060,7 +1061,7 @@ Koji Rénovation
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("❌ Erreur: ${e.toString()}"),
+            content: Text(messageErreur(e)),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );

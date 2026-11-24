@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:koji/apps/entreprise/devis/devis_guide.dart';
 import 'package:koji/apps/entreprise/devis/pro_devis_guide_view.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:koji/features/quote/model/devis_line.dart';
 
 // Devis guidé (maquette PRO-03.1, 13 nov) : mêmes exemples que le site
@@ -250,6 +251,71 @@ void main() {
     expect(c.notice, 'Devis enregistré.');
     expect(ecartTotal(c.totalDebut!, _total(d)), '+ 203,00');
     expect(c.verrouille(index), isTrue);
+  });
+
+  // Retours du build 64 : après un enregistrement raté, les lignes restaient
+  // sur le devis et le nouvel essai les ajoutait une deuxième fois ; l'erreur
+  // technique partait telle quelle à Koji, qui la répétait à l'artisan.
+  test("enregistrement raté : rien n'est gardé, le nouvel essai n'ajoute la ligne qu'une fois", () async {
+    final d = _devisMaquette();
+    int lignes() => d.linesByRoom.values.fold<int>(0, (n, l) => n + l.length);
+    final avant = lignes();
+    final lotsAvant = d.lotsVisibles.length;
+    final corps = <Map<String, dynamic>>[];
+    var echec = true;
+    Stream<(String, Map<String, dynamic>)> flux(Map<String, dynamic> c) {
+      corps.add(c);
+      // Appels impairs : Koji écrit ; appels pairs : il lit le résultat.
+      return Stream.fromIterable(corps.length.isOdd
+          ? [
+              ('action', {'subAction': 'addLot', 'lotName': 'Peinture'}),
+              ('action', {'subAction': 'addOuvrage', 'room': 'Peinture', 'quantity': 10,
+                'ouvrage': {'matched': true, 'label': 'Peindre un plafond en 2 couches', 'unit': 'm²', 'normativeTime': 0.26, 'hourlyRate': 75}}),
+              ('done', {'finished': false, 'message': 'Je vais ajouter la ligne.'}),
+            ]
+          : [
+              ('done', {'finished': false, 'message': 'Compris.'}),
+            ]);
+    }
+
+    final c = DevisGuideConversation(
+      flux: flux,
+      instantane: () => d.instantane(client: const {}, sousTotal: _total(d), majorations: const [], totalHt: _total(d), totalTtc: _total(d) * 1.1),
+      appliquer: d.appliquer,
+      enregistrer: () async {
+        if (echec) throw Exception('PostgrestException(message: Could not find the function public.check_quote_creation_limit(p_user_id), code: PGRST202)');
+        return (id: 'q1', le: '2026-11-24T10:00:00Z');
+      },
+      resultat: d.resultat,
+      photographier: d.photographier,
+    );
+
+    await c.envoyer('Ajoute la peinture du plafond, 10 m²');
+    expect(lignes(), avant, reason: "rien n'est gardé quand l'enregistrement échoue");
+    expect(d.lotsVisibles, hasLength(lotsAvant));
+    expect(d.lotParNom('Peinture'), isNull);
+    final resultat = ((corps[1]['turns'] as List).last as Map)['text'] as String;
+    expect(resultat, contains('"success":false'));
+    expect(resultat, contains('Enregistrement impossible.'));
+    expect(resultat, isNot(contains('Postgrest')));
+    expect(resultat, isNot(contains('check_quote_creation_limit')));
+    expect(c.notice, "L'enregistrement n'a pas marché : rien n'a été ajouté au devis. Réessaie.");
+
+    echec = false;
+    await c.envoyer('Oui, réessaie');
+    expect(lignes(), avant + 1, reason: 'une seule ligne après le nouvel essai');
+    expect(d.linesByRoom[d.lotParNom('Peinture')]!, hasLength(1));
+    expect(c.notice, 'Devis enregistré.');
+  });
+
+  test('messageErreur : jamais de texte technique', () {
+    expect(messageErreur(Exception('PostgrestException(message: Could not find the table public.interventions)')), erreurParDefaut);
+    expect(messageErreur('Session expirée. Reconnecte-toi.'), 'Session expirée. Reconnecte-toi.');
+    expect(messageErreur('PostgrestException(message: x, code: PGRST205)'), erreurParDefaut);
+    expect(messageErreur(const ProKojiWebException('Ce devis est déjà signé.')), 'Ce devis est déjà signé.');
+    expect(messageErreur(const ProKojiWebException('Lecture impossible: relation "public.quotes" does not exist')), erreurParDefaut);
+    expect(messageErreur(StateError('Bad state'), defaut: "L'envoi n'a pas marché. Réessayez."), "L'envoi n'a pas marché. Réessayez.");
+    expect(messageErreur(null), erreurParDefaut);
   });
 
   group('écran du devis guidé (maquette, téléphone)', () {

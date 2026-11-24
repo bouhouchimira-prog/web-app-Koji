@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'package:koji/core/message_erreur.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,7 +114,7 @@ class _MySignatureScreenState extends ConsumerState<MySignatureScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(messageErreur(e))),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:koji/app/ferme_clavier.dart';
 import 'package:koji/app/router_location.dart';
 import 'package:koji/app/session_guard.dart';
 import 'package:koji/apps/entreprise/avenant/pro_avenant_screens.dart' show ProAvenantsScreen;
@@ -113,6 +114,8 @@ Page<dynamic> _buildPageWithTransition(
 
 GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
       initialLocation: '/splash',
+      // Le clavier se ferme à chaque changement d'écran (retours du build 64).
+      observers: [FermeClavierObserver()],
       redirect: requireSession
           ? kojiSessionGuard(const {'/splash', '/login', '/signup'})
           : null,
@@ -162,6 +165,7 @@ GoRouter buildEntrepriseRouter({bool requireSession = true}) => GoRouter(
           ),
         ),
         ShellRoute(
+          observers: [FermeClavierObserver()],
           builder: (context, state, child) => EntrepriseShell(
             location: currentRoutePath(GoRouter.of(context)),
             child: child,

@@ -104,6 +104,17 @@ void main() {
     await _chargerDmSans();
   });
 
+  // Retours du build 64 : un procès-verbal se signait sur un chantier vide et
+  // écrivait « Travaux réceptionnés : devis » (mêmes cas que le site).
+  test("réception : seulement s'il y a quelque chose à réceptionner", () {
+    expect(receptionPossible(), isFalse);
+    expect(receptionPossible(devis: {'status': 'Brouillon'}, taches: [{'done': false}]), isFalse);
+    expect(receptionPossible(devis: {'status': 'Signe'}), isTrue);
+    expect(receptionPossible(devis: {'status': 'Envoye', 'signatureStatus': 'Signe'}), isTrue);
+    expect(receptionPossible(taches: [{'done': true}]), isTrue);
+    expect(travauxReceptionnes(null, 0, const []), 'ensemble des travaux du chantier');
+  });
+
   test('facture de solde et étapes (chiffres du site)', () {
     final factures = facturesDuChantier(
         _factures.map(Map<String, dynamic>.from).toList(),

@@ -174,9 +174,17 @@ String cleLigne(Map<String, dynamic> ligne, int index) {
   );
 }
 
+const toutEstFait = 'Tout est fait. Passez à la réception.';
+
+/// Clôturé : seulement quand le procès-verbal de réception est signé
+/// (retours du build 64 : un chantier passait « Clôturé » dès sa dernière
+/// tâche cochée). Tout fait mais pas réceptionné : « Finitions », avec
+/// l'invitation à passer à la réception.
 String statutChantier(
-    int progression, bool signe, String finPrevue, String aujourdhui) {
-  if (progression >= 100) return 'termine';
+    int progression, bool signe, String finPrevue, String aujourdhui,
+    {bool receptionne = false}) {
+  if (receptionne) return 'termine';
+  if (progression >= 100) return 'finitions';
   if (!signe) return 'a_planifier';
   if (finPrevue.isNotEmpty && _jour(finPrevue).compareTo(aujourdhui) < 0) {
     return 'retard';
@@ -248,9 +256,13 @@ List<LigneChantier> lignesChantiers({
         f['status'] != 'Brouillon');
     final aLancer =
         signe && lots.lignes > 0 && taches.isEmpty && !factureHorsAcompte;
-    final statut = aLancer
-        ? 'a_planifier'
-        : statutChantier(progression, signe, finPrevue, aujourdhui);
+    // Date de signature du procès-verbal, jointe par /api/projects.
+    final receptionne = _s(p['receptionLe']).isNotEmpty;
+    final statut = receptionne
+        ? 'termine'
+        : aLancer
+            ? 'a_planifier'
+            : statutChantier(progression, signe, finPrevue, aujourdhui);
 
     final avancement = lots.total > 0
         ? Avancement(lots.faits, lots.total, 'lots')
@@ -356,6 +368,8 @@ List<LigneChantier> lignesChantiers({
     } else if (statut == 'a_planifier' && !signe) {
       detail = 'Devis pas encore signé';
     }
+    // Tout est fait, la réception reste à faire.
+    if (!receptionne && progression >= 100 && jalon.isEmpty) jalon = toutEstFait;
 
     final client = _s(devis?['client']).isNotEmpty
         ? _s(devis?['client'])

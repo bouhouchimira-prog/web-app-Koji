@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data/calendar_event_model.dart';
@@ -203,7 +204,7 @@ class _NouvelEvenementScreenState extends State<NouvelEvenementScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text(messageErreur(e))),
         );
       }
     } finally {

@@ -90,6 +90,39 @@ describe("lib/chantiers-liste (PRO-02)", () => {
     assert.deepStrictEqual(l.etiquette, { label: "À planifier", ton: "o" });
   });
 
+  // Retours du build 64 : un chantier passait « Clôturé » dès sa dernière
+  // tâche cochée, sans procès-verbal de réception.
+  it("ne clôture un chantier qu'avec un procès-verbal de réception signé", () => {
+    const base = { aujourdhui: AUJ, maintenant: MAINTENANT };
+    const tache = { projectId: "t2", label: "Peindre les murs", done: true };
+    // Chantier ajouté à la main, sans devis, sa seule tâche cochée.
+    const [sansPv] = lignesChantiers({ ...base, projects: [{ id: "t2", title: "TEST 2" }], tasks: [tache] });
+    assert.strictEqual(sansPv.onglet, "en_cours");
+    assert.deepStrictEqual(sansPv.etiquette, { label: "Finitions", ton: "e" });
+    assert.strictEqual(sansPv.jalon, "Tout est fait. Passez à la réception.");
+    assert.strictEqual(sansPv.avancement.pourcent, 100);
+
+    const [avecPv] = lignesChantiers({ ...base, projects: [{ id: "t2", title: "TEST 2", receptionLe: "2026-11-10T15:00:00Z" }], tasks: [tache] });
+    assert.strictEqual(avecPv.onglet, "termine");
+    assert.deepStrictEqual(avecPv.etiquette, { label: "Clôturé", ton: "dim" });
+    assert.strictEqual(avecPv.jalon, "");
+
+    // Réceptionné avant la fin des tâches : clôturé quand même, c'est le PV qui décide.
+    const [pvAvant] = lignesChantiers({ ...base, projects: [{ id: "t2", title: "TEST 2", receptionLe: "2026-11-10T15:00:00Z" }], quotes: [devisSigne("t2")], tasks: [{ ...tache, done: false }] });
+    assert.strictEqual(pvAvant.onglet, "termine");
+
+    // Devis signé, tous les lots faits, pas de PV : toujours en cours.
+    const taches = [
+      { projectId: "t3", quoteItemId: "Lot 1 - Salon-PEI-01", done: true },
+      { projectId: "t3", quoteItemId: "Lot 1 - Salon-SOL-02", done: true },
+      { projectId: "t3", quoteItemId: "Lot 2 - SDB-PLO-01", done: true, endDate: "2026-11-01" }
+    ];
+    const [fini] = lignesChantiers({ ...base, projects: [{ id: "t3", title: "Salle de bain" }], quotes: [devisSigne("t3")], tasks: taches });
+    assert.strictEqual(fini.onglet, "en_cours");
+    assert.deepStrictEqual(fini.etiquette, { label: "Finitions", ton: "e" });
+    assert.strictEqual(fini.jalon, "Tout est fait. Passez à la réception.");
+  });
+
   it("garde la ville seule", () => {
     assert.strictEqual(villeDe("12 rue des Vinaigriers, 75010 Paris"), "Paris");
     assert.strictEqual(villeDe("Saint-Ouen"), "Saint-Ouen");

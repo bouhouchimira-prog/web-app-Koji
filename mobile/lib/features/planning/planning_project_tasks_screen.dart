@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:koji/features/synchronization/data/project_model.dart';
@@ -350,7 +351,7 @@ class _PlanningProjectTasksScreenState extends State<PlanningProjectTasksScreen>
                        ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text("Mission planifiée avec succès")));
                     } catch (e) {
                       if (!dialogContext.mounted) return;
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text("Erreur: $e")));
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(messageErreur(e))));
                     }
                   },
                   style: ElevatedButton.styleFrom(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -52,7 +53,7 @@ class _AttendanceWeeklyScreenState
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+                      .showSnackBar(SnackBar(content: Text(messageErreur(e))));
                 }
               }
             },
@@ -111,7 +112,7 @@ class _AttendanceWeeklyScreenState
                 ),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
             ),
           ),
         ],

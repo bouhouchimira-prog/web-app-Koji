@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/core/theme.dart';
@@ -82,7 +83,7 @@ class _OuvrageLibraryScreenState extends ConsumerState<OuvrageLibraryScreen> {
     } catch (err) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $err')),
+          SnackBar(content: Text(messageErreur(err))),
         );
       }
     }
@@ -147,7 +148,7 @@ class _OuvrageLibraryScreenState extends ConsumerState<OuvrageLibraryScreen> {
           Expanded(
             child: asyncList.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Erreur: $err')),
+              error: (err, _) => Center(child: Text(messageErreur(err))),
               data: (list) {
                 final filtered = list.where((o) {
                   if (_selectedFamille != null &&

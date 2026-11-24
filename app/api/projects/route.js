@@ -1,4 +1,5 @@
 import { badRequest, ok } from "../../../lib/http";
+import { readDb } from "../../../lib/db";
 import { getAuth } from "../../../lib/server-auth";
 import { fixText } from "../../../lib/text";
 
@@ -72,12 +73,31 @@ export async function GET(request) {
   const auth = getAuth(request);
   if (!auth) return ok({ projects: [] });
 
-  const { data, error } = await auth.supabase
-    .from("chantiers")
-    .select(CHANTIER_SELECT)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, receptions] = await Promise.all([
+    auth.supabase
+      .from("chantiers")
+      .select(CHANTIER_SELECT)
+      .order("created_at", { ascending: false }),
+    receptionsParChantier()
+  ]);
   if (error) return badRequest(`Lecture des chantiers impossible: ${error.message}`, 500);
-  return ok({ projects: (data || []).map(mapChantier) });
+  return ok({
+    projects: (data || []).map((row) => ({ ...mapChantier(row), receptionLe: receptions.get(`${row.user_id}:${row.id}`) || "" }))
+  });
+}
+
+// Date de signature du procès-verbal de réception, par chantier : c'est elle
+// qui fait passer un chantier dans « Clôturés » (lib/chantiers-liste.js, site
+// et app). Lue avec le chantier pour que la liste n'ait rien à deviner. Une
+// lecture impossible ne bloque pas la liste : aucun chantier n'est alors
+// montré comme clôturé.
+async function receptionsParChantier() {
+  try {
+    const db = await readDb();
+    return new Map((db.clotures || []).filter((c) => c.pv?.signeLe).map((c) => [`${c.userId}:${c.projectId}`, c.pv.signeLe]));
+  } catch {
+    return new Map();
+  }
 }
 
 export async function POST(request) {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:koji/core/message_erreur.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -76,7 +77,7 @@ class _ChantierClientScreenState extends ConsumerState<ChantierClientScreen>
       setState(() => _loading = false);
     } catch (e) {
       setState(() {
-        _error = 'Erreur de chargement : $e';
+        _error = messageErreur(e, defaut: "Chargement impossible. Vérifiez la connexion et réessayez.");
         _loading = false;
       });
     }
@@ -425,7 +426,7 @@ class _SignSheetState extends State<_SignSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+            .showSnackBar(SnackBar(content: Text(messageErreur(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -643,7 +644,7 @@ class _MessagesTabState extends State<_MessagesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Échec de l'envoi : $e")));
+            .showSnackBar(SnackBar(content: Text(messageErreur(e, defaut: "Envoi impossible. Vérifiez la connexion et réessayez."))));
       }
     } finally {
       if (mounted) setState(() => _sending = false);

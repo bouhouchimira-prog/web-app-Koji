@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -223,7 +224,7 @@ class _QuoteMessagesScreenState extends ConsumerState<QuoteMessagesScreen> {
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('Erreur de chargement: $e',
+                    child: Text(messageErreur(e, defaut: "Chargement impossible. Vérifiez la connexion et réessayez."),
                         textAlign: TextAlign.center),
                   ),
                 ),

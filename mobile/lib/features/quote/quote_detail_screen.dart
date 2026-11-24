@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:koji/core/message_erreur.dart';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 
@@ -152,6 +153,14 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     },
     enregistrer: _enregistrerEtLierVisite,
     resultat: _guide.resultat,
+    // Enregistrement raté : le devis revient à l'état d'avant l'échange.
+    photographier: () {
+      final remettre = _guide.photographier();
+      return () {
+        remettre();
+        if (mounted) setState(() {});
+      };
+    },
   );
 
   // Devis préparé depuis une visite (maquette PRO-03.8) : le compte rendu
@@ -675,7 +684,8 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     try {
       await _enregistrerAuto();
     } catch (e) {
-      return e.toString();
+      // Jamais le texte brut de l'erreur à l'artisan (retours du build 64).
+      return messageErreur(e, defaut: "L'envoi n'a pas marché. Réessayez.");
     }
     // Le PDF joint est fait par le serveur, au gabarit du site (PRO-25).
     const pdf = '';
@@ -721,7 +731,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     } on ProKojiWebException catch (e) {
       return e.message;
     } catch (e) {
-      return 'Envoi impossible : $e';
+      return messageErreur(e, defaut: "Envoi impossible. Vérifiez la connexion et réessayez.");
     }
   }
 
@@ -1220,7 +1230,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+            .showSnackBar(SnackBar(content: Text(messageErreur(e))));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -1472,7 +1482,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur lors de l\'aperçu : $e')));
+            SnackBar(content: Text(messageErreur(e, defaut: "L'aperçu n'a pas pu être préparé. Vérifiez la connexion et réessayez."))));
       }
     }
   }
@@ -1927,7 +1937,7 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur logo : $e')));
+            SnackBar(content: Text(messageErreur(e))));
       }
     }
   }
@@ -4093,7 +4103,7 @@ class _OuvrageHistorySheetState extends ConsumerState<_OuvrageHistorySheet> {
                 error: (e, _) => Center(
                     child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text('Erreur : $e',
+                  child: Text(messageErreur(e),
                       style: const TextStyle(color: Color(0xFFB91C1C))),
                 )),
                 data: (ouvrages) {
@@ -4246,7 +4256,7 @@ class _FourniturePickerSheetState
                 error: (e, _) => Center(
                     child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text('Erreur : $e',
+                  child: Text(messageErreur(e),
                       style: const TextStyle(color: Color(0xFFB91C1C))),
                 )),
                 data: (fournitures) {

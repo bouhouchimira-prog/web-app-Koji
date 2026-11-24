@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:koji/features/quote/providers/chantier_provider.dart';
@@ -30,7 +31,7 @@ class BudgetCategoryDetailScreen extends ConsumerWidget {
               child: linesAsync.when(
                 loading: () =>
                     const Center(child: CircularProgressIndicator(color: _kDark)),
-                error: (e, _) => Center(child: Text('Erreur: $e')),
+                error: (e, _) => Center(child: Text(messageErreur(e))),
                 data: (allLines) {
                   final lines = allLines
                       .where((l) => l['category'] == _category)
@@ -246,7 +247,7 @@ class BudgetCategoryDetailScreen extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Erreur: $e'),
+                      content: Text(messageErreur(e)),
                       backgroundColor: const Color(0xFFEF4444),
                     ),
                   );

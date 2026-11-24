@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -54,7 +55,7 @@ class _TaskNotesThreadState extends ConsumerState<TaskNotesThread> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+            .showSnackBar(SnackBar(content: Text(messageErreur(e))));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -86,7 +87,7 @@ class _TaskNotesThreadState extends ConsumerState<TaskNotesThread> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2))),
           ),
-          error: (e, _) => Text('Erreur : $e',
+          error: (e, _) => Text(messageErreur(e),
               style: const TextStyle(fontSize: 12, color: Colors.red)),
         ),
         const SizedBox(height: 8),

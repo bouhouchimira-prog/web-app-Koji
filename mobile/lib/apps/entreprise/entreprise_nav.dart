@@ -55,7 +55,8 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'urgences', label: 'Urgences', icon: KojiIcons.alert),
   ]),
   KojiNavGroup(label: 'Gestion', items: [
-    KojiNavItem(id: 'factures', label: 'Facturation', icon: KojiIcons.factures),
+    // Même nom que la page et que le menu du site : « Factures ».
+    KojiNavItem(id: 'factures', label: 'Factures', icon: KojiIcons.factures),
     // Avenants (maquette PRO-05.1) : liste ; création depuis le chantier.
     KojiNavItem(id: 'avenants', label: 'Avenants', icon: KojiIcons.avenant),
     KojiNavItem(
@@ -70,10 +71,10 @@ const entrepriseNavGroups = [
         id: 'calendrier', label: 'Calendrier', icon: KojiIcons.calendrier),
     KojiNavItem(id: 'planning', label: 'Planning', icon: KojiIcons.planning),
     KojiNavItem(id: 'equipe', label: 'Équipe', icon: KojiIcons.contacts),
-    KojiNavItem(
-        id: 'interventions',
-        label: 'Interventions',
-        icon: KojiIcons.interventions),
+    // « Interventions » est retiré du menu (retours du build 64) : l'écran
+    // lit une table qui n'existe pas dans la base. Les interventions rapides
+    // de l'accueil (« Nouvelle intervention ») passent par l'API du site et
+    // ne sont pas concernées.
     KojiNavItem(id: 'archives', label: 'Archives', icon: KojiIcons.archives),
   ]),
   KojiNavGroup(label: 'Configuration', items: [

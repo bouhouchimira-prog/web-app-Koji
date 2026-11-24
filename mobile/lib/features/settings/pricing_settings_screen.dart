@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:koji/features/pricing/models/pricing_models.dart';
@@ -382,7 +383,7 @@ class _PricingSettingsScreenState extends ConsumerState<PricingSettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Erreur: $e'),
+            content: Text(messageErreur(e)),
             backgroundColor: Colors.red,
           ),
         );

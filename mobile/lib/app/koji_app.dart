@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:koji/app/ferme_clavier.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:koji/app/koji_app_config.dart';
@@ -137,6 +138,11 @@ class _KojiAppState extends ConsumerState<KojiApp> {
       darkTheme: KojiTheme.dark(),
       themeMode: themeMode,
       routerConfig: _router,
+      // Koji Pro : toucher hors d'un champ ferme le clavier.
+      builder: KojiAppConfig.isClient
+          ? null
+          : (context, child) =>
+              FermeClavierAuToucher(child: child ?? const SizedBox.shrink()),
     );
   }
 }

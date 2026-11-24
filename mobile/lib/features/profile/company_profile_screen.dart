@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:koji/core/theme_provider.dart';
@@ -107,7 +108,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Erreur de chargement: $e'),
+              content: Text(messageErreur(e, defaut: "Chargement impossible. Vérifiez la connexion et réessayez.")),
               backgroundColor: Colors.red),
         );
       }
@@ -182,7 +183,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Erreur: $e'),
+            content: Text(messageErreur(e)),
             backgroundColor: Colors.red,
           ),
         );

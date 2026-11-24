@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -189,7 +190,7 @@ class _ChantierTaskPlanningScreenState
       }
       return sb.toString();
     } catch (e) {
-      return 'DIAG error: $e';
+      return messageErreur(e);
     }
   }
 
@@ -627,7 +628,7 @@ class _ChantierTaskPlanningScreenState
       _snack(existing == null ? 'Tâche assignée !' : 'Assignation mise à jour');
       await _loadTasks(_selectedChantierId!);
     } catch (e) {
-      if (mounted) _snack('Erreur : $e');
+      if (mounted) _snack(messageErreur(e));
     }
   }
 
@@ -660,7 +661,7 @@ class _ChantierTaskPlanningScreenState
       await ChantierRepository().addTask(_selectedChantierId!, label);
       await _loadTasks(_selectedChantierId!);
     } catch (e) {
-      if (mounted) _snack('Erreur : $e');
+      if (mounted) _snack(messageErreur(e));
     }
   }
 

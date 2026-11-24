@@ -144,6 +144,50 @@ void main() {
     expect(resumeChantiers(comptes), '3 en cours · 1 à planifier');
   });
 
+  // Retours du build 64 : un chantier passait « Clôturé » dès sa dernière
+  // tâche cochée, sans procès-verbal de réception (mêmes cas que le site).
+  test("ne clôture un chantier qu'avec un procès-verbal de réception signé", () {
+    final maintenant = DateTime(2026, 11, 12, 9);
+    final tache = {'projectId': 't2', 'label': 'Peindre les murs', 'done': true};
+    final [sansPv] = lignesChantiers(maintenant: maintenant, projects: [
+      {'id': 't2', 'title': 'TEST 2'}
+    ], tasks: [
+      tache
+    ]);
+    expect((sansPv.onglet, sansPv.etiquette), ('en_cours', 'Finitions'));
+    expect(sansPv.jalon, 'Tout est fait. Passez à la réception.');
+    expect(sansPv.avancement?.texte, '1 / 1 tâches');
+
+    final [avecPv] = lignesChantiers(maintenant: maintenant, projects: [
+      {'id': 't2', 'title': 'TEST 2', 'receptionLe': '2026-11-10T15:00:00Z'}
+    ], tasks: [
+      tache
+    ]);
+    expect((avecPv.onglet, avecPv.etiquette), ('termine', 'Clôturé'));
+    expect(avecPv.jalon, '');
+
+    final [pvAvant] = lignesChantiers(maintenant: maintenant, projects: [
+      {'id': 't2', 'title': 'TEST 2', 'receptionLe': '2026-11-10T15:00:00Z'}
+    ], quotes: [
+      _signe('t2', 7800)
+    ], tasks: [
+      {...tache, 'done': false}
+    ]);
+    expect(pvAvant.onglet, 'termine');
+
+    final [fini] = lignesChantiers(maintenant: maintenant, projects: [
+      {'id': 't3', 'title': 'Salle de bain'}
+    ], quotes: [
+      _signe('t3', 7800)
+    ], tasks: [
+      {'projectId': 't3', 'quoteItemId': 'Lot 1 - Salon-L0', 'done': true},
+      {'projectId': 't3', 'quoteItemId': 'Lot 1 - Salon-L1', 'done': true},
+      {'projectId': 't3', 'quoteItemId': 'Lot 2 - SDB-L2', 'done': true, 'endDate': '2026-11-01'},
+    ]);
+    expect((fini.onglet, fini.etiquette), ('en_cours', 'Finitions'));
+    expect(fini.jalon, 'Tout est fait. Passez à la réception.');
+  });
+
   testWidgets('écran téléphone : onglets, recherche, cartes', (tester) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;

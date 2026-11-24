@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -167,7 +168,7 @@ class _CreateWorkerScreenState extends State<CreateWorkerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text(messageErreur(e))),
         );
       }
     } finally {

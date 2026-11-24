@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:koji/core/message_erreur.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,7 +47,7 @@ class ChantierFacturationScreen extends ConsumerWidget {
             Expanded(
               child: quotesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Erreur: $e')),
+                error: (e, _) => Center(child: Text(messageErreur(e))),
                 data: (quotes) {
                   final signed =
                       quotes.where((q) => _isSigned(q['status'] as String?)).toList();
@@ -60,7 +61,7 @@ class ChantierFacturationScreen extends ConsumerWidget {
                   return invoicesAsync.when(
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Center(child: Text('Erreur: $e')),
+                    error: (e, _) => Center(child: Text(messageErreur(e))),
                     data: (invoices) {
                       final double invoiced = invoices.fold<double>(
                         0,
@@ -482,7 +483,7 @@ class ChantierFacturationScreen extends ConsumerWidget {
       await InvoicePdfService()
           .preview(invoice: inv, priorInvoices: allInvoices);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Erreur PDF : $e')));
+      messenger.showSnackBar(SnackBar(content: Text(messageErreur(e, defaut: "Le PDF n'a pas pu être préparé. Vérifiez la connexion et réessayez."))));
     }
   }
 
@@ -493,7 +494,7 @@ class ChantierFacturationScreen extends ConsumerWidget {
       await InvoicePdfService()
           .share(invoice: inv, priorInvoices: allInvoices);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Erreur PDF : $e')));
+      messenger.showSnackBar(SnackBar(content: Text(messageErreur(e, defaut: "Le PDF n'a pas pu être préparé. Vérifiez la connexion et réessayez."))));
     }
   }
 
@@ -720,7 +721,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) setState(() => _saving = false);
-      messenger.showSnackBar(SnackBar(content: Text('Erreur : $e')));
+      messenger.showSnackBar(SnackBar(content: Text(messageErreur(e))));
     }
   }
 
@@ -868,7 +869,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
               padding: EdgeInsets.all(12),
               child: Center(child: CircularProgressIndicator()),
             ),
-            error: (e, _) => Text('Erreur : $e',
+            error: (e, _) => Text(messageErreur(e),
                 style: const TextStyle(color: Color(0xFFEF4444))),
             data: (payments) {
               if (payments.isEmpty) {

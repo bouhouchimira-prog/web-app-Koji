@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -50,7 +51,7 @@ class _QuoteMessagesInboxScreenState
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('Erreur: $e', textAlign: TextAlign.center),
+                    child: Text(messageErreur(e), textAlign: TextAlign.center),
                   ),
                 ),
                 data: (quotes) => _InboxList(quotes: quotes),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:koji/core/message_erreur.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -136,15 +137,15 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
       body: SafeArea(
         child: tasksAsync.when(
           loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A))),
-          error: (err, stack) => Center(child: Text('Erreur: $err')),
+          error: (err, stack) => Center(child: Text(messageErreur(err))),
           data: (tasks) {
             return budgetAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A))),
-              error: (err, stack) => Center(child: Text('Erreur Budget: $err')),
+              error: (err, stack) => Center(child: Text(messageErreur(err))),
               data: (budget) {
                 return documentsAsync.when(
                   loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A))),
-                  error: (err, stack) => Center(child: Text('Erreur Documents: $err')),
+                  error: (err, stack) => Center(child: Text(messageErreur(err))),
                   data: (documents) {
                     return CustomScrollView(
                       slivers: [
