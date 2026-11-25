@@ -191,6 +191,71 @@ String premierMessage(Map<String, dynamic> instantane) {
       'Dis-moi ce qui change, ajoute un ouvrage ou pose une question.';
 }
 
+// ─── Les frais du devis ─────────────────────────────────────────────────────
+
+/// Un des trois frais ajoutés au total des lots : coordination de chantier,
+/// provision pour aléas, assurance décennale (retours du build 64 : ils
+/// gonflaient le total sans apparaître dans le devis guidé).
+class FraisDevis {
+  const FraisDevis({
+    required this.id,
+    required this.label,
+    required this.pct,
+    required this.montant,
+    required this.pctParDefaut,
+  });
+
+  /// « coord », « aleas » ou « decennale ».
+  final String id;
+  final String label;
+  final double pct;
+  final double montant;
+
+  /// Le taux remis si l'artisan revient sur son retrait.
+  final double pctParDefaut;
+
+  bool get actif => pct > 0;
+
+  /// « Coordination de chantier 10 % ». L'espace avant « % » est insécable :
+  /// le signe ne part pas seul à la ligne sur un petit écran.
+  String get titre =>
+      '$label ${pourcent(actif ? pct : pctParDefaut).replaceAll(' ', ' ')}';
+}
+
+/// « 10 % », « 5,5 % ».
+String pourcent(double p) {
+  final r = (p * 100).round() / 100;
+  final s = r == r.truncateToDouble() ? r.toInt().toString() : r.toString().replaceAll('.', ',');
+  return '$s %';
+}
+
+/// Taux par défaut d'un devis neuf : ceux réglés par l'entreprise dans
+/// « Mes prix » (business.defaultSurcharges, comme l'éditeur du site), sinon
+/// null (l'app garde alors ses taux habituels). Seuls les frais facturés au
+/// client comptent ; un frais absent de la liste vaut 0.
+({double coord, double aleas, double decennale})? fraisDuCompte(dynamic majorations) {
+  if (majorations is! List) return null;
+  double taux(String id, String motCle) {
+    for (final m in majorations) {
+      if (m is! Map) continue;
+      final memeId = '${m['id'] ?? ''}' == id;
+      final memeNom = '${m['label'] ?? ''}'.toLowerCase().contains(motCle);
+      if (!memeId && !memeNom) continue;
+      final facture = m['mode'] == 'client' || m['mode'] == 'internal';
+      final enPourcent = m['kind'] != 'fixe' && m['kind'] != 'minimum';
+      final p = (m['percent'] as num?)?.toDouble() ?? 0;
+      return facture && enPourcent && p > 0 ? p : 0;
+    }
+    return 0;
+  }
+
+  return (
+    coord: taux('sc-coord', 'coordination'),
+    aleas: taux('sc-alea', 'aléas'),
+    decennale: taux('sc-assur', 'décennale'),
+  );
+}
+
 // ─── Le devis vu par Koji, et ses actions ──────────────────────────────────
 
 /// Les lots et lignes de l'éditeur (mêmes objets que l'écran), avec ce

@@ -2,11 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:koji/core/message_erreur.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:koji/core/theme_provider.dart';
 import 'package:koji/features/auth/repository/auth_repository.dart';
 import 'package:koji/features/auth/repository/user_repository.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+
+/// Nombre montré dans un champ : « 750 » pour 750.0, « 7.5 » pour 7.5.
+String nombreSaisi(num? n, String parDefaut) {
+  if (n == null) return parDefaut;
+  return n == n.roundToDouble() ? n.round().toString() : n.toString();
+}
+
+/// « 75,00 € / h », avec une virgule.
+String coutHoraire(double taux) =>
+    '${taux.toStringAsFixed(2).replaceAll('.', ',')} € / h';
 
 class CompanyProfileScreen extends ConsumerStatefulWidget {
   const CompanyProfileScreen({super.key});
@@ -90,10 +99,11 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
         }
 
         if (businessInfo != null) {
+          // « 750 » et « 10 », pas « 750.0 » et « 10.0 » (retours du build 64).
           _dailyRateController.text =
-              (businessInfo['dailyRate'] as num?)?.toString() ?? '350';
+              nombreSaisi(businessInfo['dailyRate'] as num?, '350');
           _hoursPerDayController.text =
-              (businessInfo['hoursPerDay'] as num?)?.toString() ?? '7';
+              nombreSaisi(businessInfo['hoursPerDay'] as num?, '7');
           _businessNameController.text = businessInfo['raisonSociale'] ?? '';
           _legalFormController.text = businessInfo['formeJuridique'] ?? '';
           _siretController.text = businessInfo['siret'] ?? '';
@@ -198,18 +208,18 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F5F2),
       appBar: AppBar(
         title: const Text(
           'Profil Entreprise',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1E3A8A),
+            color: Color(0xFF171B1E),
           ),
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
+        iconTheme: const IconThemeData(color: Color(0xFF171B1E)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -232,7 +242,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: const Color(0xFF1E3A8A),
+                                  color: const Color(0xFF171B1E),
                                   width: 3,
                                 ),
                                 color: Theme.of(context).colorScheme.surface,
@@ -254,7 +264,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                                   ? const Icon(
                                       Icons.add_photo_alternate_outlined,
                                       size: 50,
-                                      color: Color(0xFF1E3A8A),
+                                      color: Color(0xFF171B1E),
                                     )
                                   : null,
                             ),
@@ -265,7 +275,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E3A8A),
+                                  color: const Color(0xFF171B1E),
                                   shape: BoxShape.circle,
                                   border:
                                       Border.all(color: Theme.of(context).colorScheme.surface, width: 3),
@@ -287,16 +297,14 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                         'Changer le logo',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF64748B),
+                          color: Color(0xFF5B5F66),
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Appearance Section (theme toggle moved here from Home)
-                    _buildSectionTitle('Apparence'),
-                    _buildAppearanceCard(),
-                    const SizedBox(height: 24),
+                    // Le mode sombre est un réglage de l'app, pas de
+                    // l'entreprise : il est dans Paramètres (retours du build 64).
 
                     // Pricing Section
                     _buildSectionTitle('Tarification'),
@@ -316,11 +324,11 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                     // Save Button
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A8A),
+                        backgroundColor: const Color(0xFF171B1E),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                       onPressed: _isSaving ? null : _saveProfile,
@@ -357,38 +365,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
         style: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF1E3A8A),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppearanceCard() {
-    final mode = ref.watch(themeProvider);
-    final isDark = mode == ThemeMode.dark ||
-        (mode == ThemeMode.system &&
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: SwitchListTile(
-          value: isDark,
-          activeThumbColor: const Color(0xFF1E3A8A),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          secondary: Icon(
-            isDark ? Icons.dark_mode : Icons.light_mode,
-            color: const Color(0xFF1E3A8A),
-          ),
-          title: const Text(
-            'Mode sombre',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(isDark ? 'Activé' : 'Désactivé'),
-          onChanged: (v) => ref
-              .read(themeProvider.notifier)
-              .setTheme(v ? ThemeMode.dark : ThemeMode.light),
+          color: Color(0xFF171B1E),
         ),
       ),
     );
@@ -396,8 +373,8 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
 
   Widget _buildPricingCard() {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: const BorderSide(color: Color(0xFFCFCFC9))),
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -409,9 +386,9 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
                 labelText: 'Tarif journalier (€ HT / jour)',
-                prefixIcon: const Icon(Icons.euro, color: Color(0xFF1E3A8A)),
+                prefixIcon: const Icon(Icons.euro, color: Color(0xFF171B1E)),
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
                 filled: true,
                 fillColor: Colors.white,
               ),
@@ -435,9 +412,9 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
               decoration: InputDecoration(
                 labelText: 'Heures par jour',
                 prefixIcon:
-                    const Icon(Icons.access_time, color: Color(0xFF1E3A8A)),
+                    const Icon(Icons.access_time, color: Color(0xFF171B1E)),
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
                 filled: true,
                 fillColor: Colors.white,
               ),
@@ -458,17 +435,17 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF171B1E).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                    color: const Color(0xFF1E3A8A).withValues(alpha: 0.3)),
+                    color: const Color(0xFF171B1E).withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.calculate, color: Color(0xFF1E3A8A)),
+                      Icon(Icons.calculate, color: Color(0xFF171B1E)),
                       SizedBox(width: 8),
                       Text(
                         'Coût horaire',
@@ -483,7 +460,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A8A),
+                      color: Color(0xFF171B1E),
                     ),
                   ),
                 ],
@@ -501,15 +478,15 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
 
     if (dailyRate != null && hoursPerDay != null && hoursPerDay > 0) {
       final hourlyRate = dailyRate / hoursPerDay;
-      return '${hourlyRate.toStringAsFixed(2)} € / h';
+      return coutHoraire(hourlyRate);
     }
     return '-- € / h';
   }
 
   Widget _buildProfessionsCard() {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: const BorderSide(color: Color(0xFFCFCFC9))),
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -517,7 +494,7 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
           children: [
             const Text(
               'Sélectionnez un ou plusieurs métiers',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 13, color: Color(0xFF5B5F66)),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -538,22 +515,22 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
                   avatar: Icon(
                     p['icon'] as IconData,
                     size: 18,
-                    color: selected ? Colors.white : const Color(0xFF1E3A8A),
+                    color: selected ? Colors.white : const Color(0xFF171B1E),
                   ),
                   label: Text(name),
                   labelStyle: TextStyle(
-                    color: selected ? Colors.white : const Color(0xFF1E3A8A),
+                    color: selected ? Colors.white : const Color(0xFF171B1E),
                     fontWeight: FontWeight.w600,
                   ),
                   backgroundColor: Colors.white,
-                  selectedColor: const Color(0xFF1E3A8A),
+                  selectedColor: const Color(0xFF171B1E),
                   showCheckmark: false,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(4),
                     side: BorderSide(
                       color: selected
-                          ? const Color(0xFF1E3A8A)
-                          : const Color(0xFFCBD5E1),
+                          ? const Color(0xFF171B1E)
+                          : const Color(0xFFCFCFC9),
                     ),
                   ),
                 );
@@ -567,8 +544,8 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
 
   Widget _buildBusinessInfoCard() {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: const BorderSide(color: Color(0xFFCFCFC9))),
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -672,8 +649,8 @@ class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: const Color(0xFF1E3A8A)),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(icon, color: const Color(0xFF171B1E)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
         filled: true,
         fillColor: Colors.white,
       ),

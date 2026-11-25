@@ -19,6 +19,9 @@ class ProDevisGuideView extends StatefulWidget {
     required this.donnees,
     required this.totalHt,
     required this.totalTtc,
+    this.sousTotal,
+    this.frais = const [],
+    this.onFrais,
     required this.onRetour,
     required this.onEnvoyer,
     required this.onChange,
@@ -43,6 +46,12 @@ class ProDevisGuideView extends StatefulWidget {
   final DevisGuideDonnees donnees;
   final double totalHt;
   final double totalTtc;
+
+  /// Total des lignes avant frais, et les frais ajoutés par-dessus : le
+  /// résumé les montre un par un, et l'artisan peut les retirer.
+  final double? sousTotal;
+  final List<FraisDevis> frais;
+  final void Function(String id, bool actif)? onFrais;
   final VoidCallback onRetour;
   final VoidCallback onEnvoyer;
 
@@ -852,6 +861,11 @@ class _ProDevisGuideViewState extends State<ProDevisGuideView> {
                     decoration: BoxDecoration(border: Border.all(color: da.line)),
                     child: Column(
                       children: [
+                        if (widget.frais.isNotEmpty && widget.sousTotal != null) ...[
+                          _totalLigne(da, 'Sous-total des lignes', widget.sousTotal!),
+                          for (final f in widget.frais) _fraisLigne(da, f),
+                          Divider(height: 1, color: da.rule),
+                        ],
                         _totalLigne(da, 'Total HT', widget.totalHt),
                         Divider(height: 1, color: da.rule),
                         _totalLigne(da, 'Total TTC', widget.totalTtc, fort: true),
@@ -884,6 +898,40 @@ class _ProDevisGuideViewState extends State<ProDevisGuideView> {
           children: [
             Expanded(child: Text(libelle, style: da.text(fort ? 16 : 14, weight: fort ? FontWeight.w600 : FontWeight.w400))),
             Text(euros(v), style: da.text(fort ? 18 : 14, weight: FontWeight.w700)),
+          ],
+        ),
+      );
+
+  /// Un frais du devis : son nom et son taux, son montant, et de quoi le
+  /// retirer ou le remettre (retours du build 64).
+  Widget _fraisLigne(ProDa da, FraisDevis f) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(f.titre,
+                  style: da
+                      .text(13.5, color: f.actif ? da.ink : da.grey)
+                      .copyWith(decoration: f.actif ? null : TextDecoration.lineThrough)),
+            ),
+            if (widget.onFrais != null)
+              TextButton(
+                onPressed: () => widget.onFrais!(f.id, !f.actif),
+                style: TextButton.styleFrom(
+                  foregroundColor: da.ink,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 34),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(f.actif ? 'Retirer' : 'Remettre',
+                    style: da.text(13, weight: FontWeight.w600).copyWith(decoration: TextDecoration.underline)),
+              ),
+            SizedBox(
+              width: 86,
+              child: Text(f.actif ? '+ ${euros(f.montant)}' : 'retiré',
+                  textAlign: TextAlign.right,
+                  style: da.text(13.5, weight: FontWeight.w600, color: f.actif ? da.ink : da.grey)),
+            ),
           ],
         ),
       );

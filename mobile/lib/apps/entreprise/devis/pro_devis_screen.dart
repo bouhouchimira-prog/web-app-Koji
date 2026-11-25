@@ -218,7 +218,12 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
               titre: 'Aucun devis',
               texte: 'Koji vous pose les questions, vous validez les lignes.',
               action: 'Démarrer un devis guidé',
-              onAction: () => context.push('/quote/room-selection', extra: <String>[]),
+              // Même parcours que le bouton du haut (retours du build 64 :
+              // deux boutons au même nom ouvraient deux parcours différents).
+              onAction: () {
+                ref.read(quoteCreationProvider.notifier).reset();
+                context.push('/quote/detail', extra: const QuoteDetailArgs(data: <String, dynamic>{}));
+              },
             )
           else if (visibles.isEmpty)
             Text(cherche.isNotEmpty ? 'Aucun devis ne correspond à cette recherche.' : 'Aucun devis dans cet onglet.', style: da.text(13, color: da.grey))
@@ -301,8 +306,7 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
 
   Widget _barre(ProDa da) {
     final entreprise = ref.watch(currentAccountProvider).valueOrNull?.displayName ?? '';
-    return Container(
-      color: const Color(0xFF171B1E),
+    return ProBandeau(
       padding: EdgeInsets.fromLTRB(18, MediaQuery.paddingOf(context).top + 12, 8, 12),
       child: Row(children: [
         const KojiWordmark(height: 14, color: Colors.white),

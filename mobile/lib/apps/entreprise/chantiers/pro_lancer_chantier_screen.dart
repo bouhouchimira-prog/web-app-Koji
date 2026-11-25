@@ -264,7 +264,7 @@ class _ProLancerChantierScreenState
           'workerIds': [if (workerId != null) workerId],
           'assignedTo': w?['name'] ?? 'Equipe',
           'participantType':
-              w?['type'] == 'Sous-traitant' ? 'Sous-traitants' : 'Ouvriers',
+              w?['type'] == 'Sous-traitant' ? 'Sous-traitants' : 'Compagnons',
           'status': 'Planifiee',
         }, id: existante == null ? null : _s(existante['id']));
         if (mounted) setState(() => _fait = (_fait ?? 0) + 1);
@@ -317,8 +317,7 @@ class _ProLancerChantierScreenState
     );
   }
 
-  Widget _barre(ProDa da) => Container(
-        color: const Color(0xFF171B1E),
+  Widget _barre(ProDa da) => ProBandeau(
         padding: EdgeInsets.fromLTRB(
             6, MediaQuery.paddingOf(context).top + 6, 16, 8),
         child: Row(

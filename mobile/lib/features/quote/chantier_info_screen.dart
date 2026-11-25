@@ -17,17 +17,21 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
   List<Map<String, dynamic>> _team = [];
   bool _loadingTeam = false;
 
-  String get _reference =>
-      widget.data['reference'] as String? ?? 'Nouveau chantier';
+  String get _reference => widget.data['reference'] as String? ?? 'Chantier';
   String get _street => widget.data['street'] as String? ?? '';
   String get _postalCode => widget.data['postalCode'] as String? ?? '';
   String get _city => widget.data['city'] as String? ?? '';
 
   // Client info from data (set when a chantier is linked to a quote)
-  String get _clientName =>
-      widget.data['clientName'] as String? ??
-      widget.data['client_name'] as String? ??
-      'Client du chantier';
+  // Le nom saisi, sinon l'e-mail du client, sinon on dit qu'il manque.
+  String get _clientName {
+    final nom = (widget.data['clientName'] as String? ??
+            widget.data['client_name'] as String? ??
+            '')
+        .trim();
+    if (nom.isNotEmpty) return nom;
+    return _clientEmail.isNotEmpty ? _clientEmail : 'Client non renseigné';
+  }
   String get _clientPhone =>
       widget.data['clientPhone'] as String? ??
       widget.data['client_phone'] as String? ??
@@ -45,10 +49,11 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
       widget.data['endDate'] as String? ??
       widget.data['end_date'] as String? ??
       '';
-  String get _status =>
-      widget.data['status'] as String? ?? 'En Cours';
-  String get _propertyType =>
-      widget.data['propertyType'] as String? ?? '–';
+  String get _status => widget.data['status'] as String? ?? 'En attente';
+  String get _propertyType {
+    final type = (widget.data['propertyType'] as String? ?? '').trim();
+    return type.isEmpty ? 'non renseigné' : type;
+  }
 
   String get _fullAddress {
     final parts = [_street, _postalCode, _city].where((s) => s.isNotEmpty);
@@ -89,7 +94,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: const Color(0xFFF5F5F2),
       body: SafeArea(
         child: Column(
           children: [
@@ -140,13 +145,13 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F9FB),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE8E8E8)),
+                color: const Color(0xFFF5F5F2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFCFCFC9)),
               ),
               child: const Icon(
                 Icons.chevron_left_rounded,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF171B1E),
                 size: 22,
               ),
             ),
@@ -158,7 +163,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF171B1E),
               ),
             ),
           ),
@@ -184,8 +189,8 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(26),
+                  color: const Color(0xFFCFCFC9),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Center(
                   child: Text(
@@ -195,7 +200,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF171B1E),
                     ),
                   ),
                 ),
@@ -210,7 +215,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF171B1E),
                       ),
                     ),
                     if (_clientEmail.isNotEmpty)
@@ -218,7 +223,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                         _clientEmail,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF94A3B8),
+                          color: Color(0xFF8A8F98),
                         ),
                       ),
                   ],
@@ -244,7 +249,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
           ),
 
           const SizedBox(height: 16),
-          const Divider(color: Color(0xFFF1F5F9), height: 1),
+          const Divider(color: Color(0xFFEFEFEA), height: 1),
           const SizedBox(height: 14),
 
           // Site address
@@ -253,14 +258,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(Icons.location_on_outlined,
-                    size: 16, color: Color(0xFF64748B)),
+                    size: 16, color: Color(0xFF5B5F66)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _fullAddress,
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Color(0xFF334155),
+                      color: Color(0xFF3A3F44),
                       height: 1.4,
                     ),
                   ),
@@ -271,14 +276,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
             const Row(
               children: [
                 Icon(Icons.location_on_outlined,
-                    size: 16, color: Color(0xFF64748B)),
+                    size: 16, color: Color(0xFF5B5F66)),
                 SizedBox(width: 8),
                 Text(
                   'Adresse non renseignée',
                   style: TextStyle(
                     fontSize: 14,
                     fontStyle: FontStyle.italic,
-                    color: Color(0xFF94A3B8),
+                    color: Color(0xFF8A8F98),
                   ),
                 ),
               ],
@@ -295,10 +300,10 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(10),
+          color: const Color(0xFFEFEFEA),
+          borderRadius: BorderRadius.circular(4),
         ),
-        child: Icon(icon, size: 18, color: const Color(0xFF334155)),
+        child: Icon(icon, size: 18, color: const Color(0xFF3A3F44)),
       ),
     );
   }
@@ -307,10 +312,10 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
   // CHANTIER DETAILS CARD
   // ────────────────────────────────────────────────────────────
   Widget _buildChantierDetailsCard() {
-    final startDisplay = _startDate.isNotEmpty ? _startDate : _formatDate(DateTime.now());
-    final endDisplay = _endDate.isNotEmpty
-        ? _endDate
-        : _formatDate(DateTime.now().add(const Duration(days: 90)));
+    // Une date ne s'affiche que si l'artisan l'a donnée (retours du build
+    // 64 : la fin estimée était inventée, trois mois après aujourd'hui).
+    final startDisplay = _startDate.isNotEmpty ? _startDate : 'à définir';
+    final endDisplay = _endDate.isNotEmpty ? _endDate : 'à définir';
 
     // Status badge color
     Color badgeColor;
@@ -340,14 +345,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               const Row(
                 children: [
                   Icon(Icons.description_outlined,
-                      size: 18, color: Color(0xFF0F172A)),
+                      size: 18, color: Color(0xFF171B1E)),
                   SizedBox(width: 8),
                   Text(
                     'Chantier',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF171B1E),
                     ),
                   ),
                 ],
@@ -358,7 +363,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   color: badgeColor,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   _status,
@@ -381,10 +386,10 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Date De Début',
+                      'Date de début',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF94A3B8),
+                        color: Color(0xFF8A8F98),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -392,14 +397,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                     Row(
                       children: [
                         const Icon(Icons.calendar_today_outlined,
-                            size: 13, color: Color(0xFF64748B)),
+                            size: 13, color: Color(0xFF5B5F66)),
                         const SizedBox(width: 4),
                         Text(
                           startDisplay,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: Color(0xFF171B1E),
                           ),
                         ),
                       ],
@@ -412,10 +417,10 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Fin Estimée',
+                      'Fin estimée',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF94A3B8),
+                        color: Color(0xFF8A8F98),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -423,14 +428,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                     Row(
                       children: [
                         const Icon(Icons.calendar_today_outlined,
-                            size: 13, color: Color(0xFF64748B)),
+                            size: 13, color: Color(0xFF5B5F66)),
                         const SizedBox(width: 4),
                         Text(
                           endDisplay,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: Color(0xFF171B1E),
                           ),
                         ),
                       ],
@@ -446,7 +451,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
             'Description',
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF94A3B8),
+              color: Color(0xFF8A8F98),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -456,7 +461,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
             'Type de bien: $_propertyType',
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF334155),
+              color: Color(0xFF3A3F44),
               height: 1.5,
             ),
           ),
@@ -475,14 +480,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.group_outlined, size: 20, color: Color(0xFF0F172A)),
+              Icon(Icons.group_outlined, size: 20, color: Color(0xFF171B1E)),
               SizedBox(width: 8),
               Text(
-                "L'équipe Kôji",
+                "L'équipe Koji",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF171B1E),
                 ),
               ),
             ],
@@ -494,7 +499,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: CircularProgressIndicator(
-                    color: Color(0xFF0F172A), strokeWidth: 2),
+                    color: Color(0xFF171B1E), strokeWidth: 2),
               ),
             )
           else ...[
@@ -508,7 +513,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                   'Aucun membre assigné',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF94A3B8),
+                    color: Color(0xFF8A8F98),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -525,13 +530,13 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(22),
+                        color: const Color(0xFFEFEFEA),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Icon(
                         Icons.person_add_outlined,
                         size: 20,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF5B5F66),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -544,14 +549,14 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF171B1E),
                             ),
                           ),
                           Text(
                             'Artisans ou partenaires',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF94A3B8),
+                              color: Color(0xFF8A8F98),
                             ),
                           ),
                         ],
@@ -562,10 +567,10 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                       height: 28,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF0F172A)),
+                        border: Border.all(color: const Color(0xFF171B1E)),
                       ),
                       child: const Icon(Icons.add,
-                          size: 16, color: Color(0xFF0F172A)),
+                          size: 16, color: Color(0xFF171B1E)),
                     ),
                   ],
                 ),
@@ -588,8 +593,8 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(22),
+              color: const Color(0xFFCFCFC9),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Center(
               child: Text(
@@ -597,7 +602,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF171B1E),
                 ),
               ),
             ),
@@ -612,21 +617,21 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF171B1E),
                   ),
                 ),
                 Text(
                   member['role'] as String? ?? 'Artisan',
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF94A3B8),
+                    color: Color(0xFF8A8F98),
                   ),
                 ),
               ],
             ),
           ),
           const Icon(Icons.chevron_right_rounded,
-              color: Color(0xFF94A3B8), size: 20),
+              color: Color(0xFF8A8F98), size: 20),
         ],
       ),
     );
@@ -641,7 +646,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
@@ -654,26 +659,18 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-      'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
   void _onAddContact() {
     final nameCtrl = TextEditingController();
     final roleCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: const Text(
           'Ajouter un contact',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            color: Color(0xFF171B1E),
           ),
         ),
         content: Column(
@@ -695,7 +692,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuler',
-                style: TextStyle(color: Color(0xFF64748B))),
+                style: TextStyle(color: Color(0xFF5B5F66))),
           ),
           ElevatedButton(
             onPressed: () {
@@ -712,9 +709,9 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
+              backgroundColor: const Color(0xFF171B1E),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(4)),
               elevation: 0,
             ),
             child: Text('Ajouter',

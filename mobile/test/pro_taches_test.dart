@@ -79,7 +79,9 @@ void main() {
     expect(ligneTache(_taches[0], _auj), 'Rui C. · jeu. 30');
     expect(ligneTache(_taches[3], _auj), 'Mehdi B. · lun. 3 nov.');
     expect(ligneTache(_taches[4], _auj), 'Mehdi B. · lun. 3 nov. · bloquant : receveur livré vendredi');
-    expect(ligneTache(_taches[5], _auj), 'à affecter · sem. 46');
+    // Tâche à affecter : le jour prévu devant la semaine (retours du build 64).
+    expect(ligneTache(_taches[5], _auj), 'à affecter · lun. 10 nov. · sem. 46');
+    expect(ligneTache({'assignedTo': '', 'label': 'Peindre les murs'}, _auj), 'à affecter · pas de date');
     expect(ligneTache({'assignedTo': 'Equipe', 'startDate': '2025-11-10'}, _auj), 'Équipe · lun. 10 nov.');
     expect(ligneTache({'assignedTo': 'Rui C.', 'startDate': '2025-10-27', 'endDate': '2025-10-29'}, _auj), 'Rui C. · lun. 27 → mer. 29');
     expect(semaine('2025-11-12'), 46);

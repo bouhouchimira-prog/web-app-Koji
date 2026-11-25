@@ -8,9 +8,40 @@ import 'package:koji/apps/entreprise/chantiers/pro_lancer_chantier_screen.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_da.dart';
 import 'package:koji/apps/entreprise/pro_home/pro_home_data.dart';
+import 'package:koji/core/route_args.dart';
 import 'package:koji/design/liste_vide.dart';
+import 'package:koji/features/quote/providers/quote_creation_provider.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart' show openEntrepriseNav;
 import 'package:koji/design/koji_brand_marks.dart';
+
+/// Ce que la liste vient de lire sur le site. La fiche d'un chantier s'en sert
+/// pour s'afficher tout de suite (nom, client, tâches, factures) pendant que
+/// ses propres données se chargent (retours du build 64 : 10 à 15 secondes
+/// devant un rond de chargement).
+class DonneesChantiers {
+  const DonneesChantiers({
+    this.projects = const [],
+    this.quotes = const [],
+    this.tasks = const [],
+    this.calendarEvents = const [],
+    this.invoices = const [],
+    this.alerts = const [],
+  });
+
+  final List<Map<String, dynamic>> projects;
+  final List<Map<String, dynamic>> quotes;
+  final List<Map<String, dynamic>> tasks;
+  final List<Map<String, dynamic>> calendarEvents;
+  final List<Map<String, dynamic>> invoices;
+  final List<Map<String, dynamic>> alerts;
+}
+
+class CacheChantiers {
+  DonneesChantiers? dernieres;
+}
+
+final proChantiersCacheProvider =
+    Provider<CacheChantiers>((ref) => CacheChantiers());
 
 /// Données de la liste, lues sur le site comme la fiche chantier : chantiers,
 /// devis, tâches, rendez-vous, factures, alertes. Une liste illisible reste
@@ -28,6 +59,15 @@ final proChantiersProvider =
     lire('/api/invoices', 'invoices'),
     lire('/api/urgent-alerts', 'alerts'),
   ]);
+  // Gardé pour ouvrir une fiche sans attendre (voir DonneesChantiers).
+  ref.read(proChantiersCacheProvider).dernieres = DonneesChantiers(
+    projects: r[0],
+    quotes: r[1],
+    tasks: r[2],
+    calendarEvents: r[3],
+    invoices: r[4],
+    alerts: r[5],
+  );
   return lignesChantiers(
     projects: r[0],
     quotes: r[1],
@@ -67,7 +107,10 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
   /// sinon la fiche du chantier.
   Future<void> _ouvrir(LigneChantier l) async {
     if (!l.aLancer) {
-      context.push('/chantier/dashboard', extra: {'id': l.id});
+      // Le titre et le client partent avec : le bandeau de la fiche les
+      // montre avant même que ses données arrivent.
+      context.push('/chantier/dashboard',
+          extra: {'id': l.id, 'titre': l.titre, 'client': l.client});
       return;
     }
     final lance = await Navigator.of(context, rootNavigator: true).push<bool>(
@@ -132,9 +175,13 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
           else if (visibles.isEmpty && lignes.isEmpty && cherche.isEmpty)
             ListeVide(
               titre: "Aucun chantier pour l'instant",
-              texte: 'Un chantier se crée tout seul quand un client signe un devis. Commencez par un devis ou trouvez un chantier sur le Radar.',
+              texte: 'Un chantier se crée tout seul quand un client signe votre devis. Vous avez un chantier trouvé ailleurs ? Ajoutez-le avec « Nouveau chantier » pour le suivre dans Koji.',
               action: 'Démarrer un devis guidé',
-              onAction: () => context.push('/quote/room-selection', extra: <String>[]),
+              // Même parcours que « Démarrer un devis guidé » de l'onglet Devis.
+              onAction: () {
+                ref.read(quoteCreationProvider.notifier).reset();
+                context.push('/quote/detail', extra: const QuoteDetailArgs(data: <String, dynamic>{}));
+              },
               alternative: 'Voir le Radar des chantiers',
               onAlternative: () => openEntrepriseNav(context, ref, 'accueil'),
             )
@@ -174,8 +221,7 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
   Widget _barre(ProDa da) {
     final entreprise =
         ref.watch(currentAccountProvider).valueOrNull?.displayName ?? '';
-    return Container(
-      color: const Color(0xFF171B1E),
+    return ProBandeau(
       padding: EdgeInsets.fromLTRB(
           18, MediaQuery.paddingOf(context).top + 12, 8, 12),
       child: Row(

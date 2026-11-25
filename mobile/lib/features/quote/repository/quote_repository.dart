@@ -58,7 +58,11 @@ class QuoteRepository {
   /// reference matches the current year's prefix, then takes the highest
   /// trailing number + 1. This avoids needing a separate counter table while
   /// still guaranteeing no in-year duplicates per user.
-  Future<String> generateNextQuoteNumber(String userId) async {
+  ///
+  /// [strict] : l'erreur de lecture remonte au lieu de donner « 0001 », pour
+  /// ne pas attribuer deux fois le même numéro au moment d'enregistrer.
+  Future<String> generateNextQuoteNumber(String userId,
+      {bool strict = false}) async {
     // Format: "YYYY-NNNN" (e.g. 2026-0001). Per-year sequential, padded to 4.
     final year = DateTime.now().year;
     final prefix = '$year-';
@@ -80,6 +84,7 @@ class QuoteRepository {
       return '$prefix$next';
     } catch (e) {
       _logger.e('Failed to generate quote number, falling back', error: e);
+      if (strict) rethrow;
       return '${prefix}0001';
     }
   }

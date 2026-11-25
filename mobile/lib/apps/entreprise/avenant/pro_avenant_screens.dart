@@ -134,7 +134,9 @@ class _ProAvenantsViewState extends State<ProAvenantsView> {
         );
     return Scaffold(
       backgroundColor: da.page,
-      appBar: _barre(context, da, 'Avenants', '${tous.length}${aSigner > 0 ? ' · $aSigner à signer' : ''}'),
+      appBar: _barre(context, da, 'Avenants', // Liste vide : « aucun avenant » plutôt qu'un « 0 » seul (retours du
+          // build 64). Sinon le compte de la maquette : « 3 · 1 à signer ».
+          tous.isEmpty ? 'aucun avenant' : '${tous.length}${aSigner > 0 ? ' · $aSigner à signer' : ''}'),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
         Row(children: [onglet('tous', 'Tous'), onglet('signer', aSigner > 0 ? 'À signer $aSigner' : 'À signer'), onglet('signes', 'Signés')]),
         const SizedBox(height: 8),
@@ -164,7 +166,9 @@ class _ProAvenantsViewState extends State<ProAvenantsView> {
           ),
         if (visibles.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('Aucun avenant dans cet onglet.', style: da.text(13, color: da.grey))),
         const SizedBox(height: 12),
-        Text('Un avenant se crée depuis la fiche du chantier.', style: da.text(12.5, color: da.grey)),
+        // Le bouton « Avenant » de la fiche n'existe qu'une fois le devis signé :
+        // la phrase le dit (retours du build 64, bouton introuvable).
+        Text('Un avenant se crée depuis la fiche du chantier, une fois le devis signé (bouton « Avenant »).', style: da.text(12.5, color: da.grey)),
       ]),
     );
   }

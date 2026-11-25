@@ -27,7 +27,9 @@ typedef PrisePhotoFacture = Future<List<int>?> Function();
 
 double _tauxFamille(Json taux, String famille) => num2((taux['parFamille'] as Map?)?[famille]);
 double _defautFamille(Json taux, String famille) => num2((taux['defautsFamille'] as Map?)?[famille]);
-double tauxDeLigne(Json o, Json taux) => tauxOuvrage(o, tauxFamille: _tauxFamille(taux, familleDe(o)), tauxDefaut: _defautFamille(taux, familleDe(o)));
+double tauxDeLigne(Json o, Json taux) => tauxOuvrage(o,
+    tauxFamille: _tauxFamille(taux, familleDe(o)),
+    tauxDefaut: tauxParDefaut(tauxProfil: num2(taux['tauxProfil']), defautFamille: _defautFamille(taux, familleDe(o))));
 
 Widget _chargement(String titre) => KojiPage(title: titre, appBarOnPhone: true, main: const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))]);
 Widget _erreur(String titre, Object e) => KojiPage(title: titre, appBarOnPhone: true, main: [KojiEmptyState(title: '$titre indisponible', subtitle: errorText(e), icon: KojiIcons.bibliotheque)]);
@@ -122,7 +124,7 @@ class _BibliothequeProScreenState extends ConsumerState<BibliothequeProScreen> {
                 const SizedBox(width: 10),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text(euro(moOuvrage(o, tauxDeLigne(o, taux)).parUnite), style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: p.heading)),
-                  Text(o['isCustom'] == true ? 'à vous · ${o['confidence'] ?? 'C'}' : 'confiance ${o['confidence'] ?? 'C'}', style: TextStyle(fontSize: 11.5, color: p.faint)),
+                  Text(o['isCustom'] == true ? 'à vous · ${libelleConfiance(o['confidence'])}' : libelleConfiance(o['confidence']), style: TextStyle(fontSize: 11.5, color: p.faint)),
                 ]),
               ]),
             ),
@@ -234,7 +236,7 @@ class _FicheOuvrageState extends ConsumerState<_FicheOuvrage> {
             const SizedBox(height: 12),
             FactureKv("Main-d'œuvre par $unite", euro(mo.parUnite), strong: true),
             if (mo.fixe > 0) FactureKv('Temps fixe, une fois', euro(mo.fixe)),
-            Text('${detailMo(_essai, taux)}${mo.facteur != 1 ? ' × ${nb(mo.facteur)}' : ''} · confiance ${o['confidence'] ?? 'C'}', style: TextStyle(fontSize: 12, color: p.faint)),
+            Text('${detailMo(_essai, taux)}${mo.facteur != 1 ? ' × ${nb(mo.facteur)}' : ''} · ${libelleConfiance(o['confidence'])}', style: TextStyle(fontSize: 12, color: p.faint)),
           ]),
         ),
         KojiCard(
@@ -340,7 +342,7 @@ class _NouvelOuvrageScreenState extends ConsumerState<NouvelOuvrageScreen> {
         _synonymes = List<String>.from((r['synonyms'] as List? ?? const []).map((x) => '$x'));
         _declenche = List<String>.from((r['triggers'] as List? ?? const []).map((x) => '$x'));
         _questions = List<String>.from((r['questions'] as List? ?? const []).map((x) => '$x'));
-        _note = 'Koji a rempli la fiche : vérifiez chaque champ, surtout le temps (estimé, confiance C).';
+        _note = 'Koji a rempli la fiche : vérifiez chaque champ, surtout le temps, qui est estimé.';
         _koji = false;
       });
     } catch (e) {

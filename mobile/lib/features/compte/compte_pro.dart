@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:koji/app/koji_pro_api.dart';
 import 'package:koji/app/koji_web_api_config.dart';
 import 'package:koji/apps/entreprise/visite/pro_visite_screen.dart' show visiteStoreProvider;
+import 'package:koji/core/theme_provider.dart';
 import 'package:koji/design/koji_icons.dart';
 import 'package:koji/design/koji_page.dart';
 import 'package:koji/design/koji_tokens.dart';
@@ -43,7 +44,11 @@ class CompteRepository {
 Json _map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
 List<Json> _liste(Object? v) => (v as List? ?? const []).whereType<Map>().map((x) => Map<String, dynamic>.from(x)).toList();
 String _s(Object? v) => v == null ? '' : '$v';
-const _plans = {'start': 'Start', 'pro': 'Pro', 'business': 'Business', 'trial': 'Essai'};
+// Un seul nom par offre, partout (retours du build 64 : « Essai gratuit »,
+// « Koji Essai » et « Offre Start » désignaient la même offre). L'offre
+// gratuite s'appelle Start, comme sur le site.
+const _plans = {'start': 'Start', 'pro': 'Pro', 'business': 'Business', 'trial': 'Start'};
+String _pl(num n, String mot) => '${n.round()} $mot${n.round() > 1 ? 's' : ''}';
 
 Future<void> ouvrirSite(String chemin) => launchUrl(Uri.parse('${KojiWebApiConfig.baseUrl}$chemin'), mode: LaunchMode.externalApplication);
 
@@ -97,6 +102,8 @@ class ParametresScreen extends ConsumerWidget {
     final langue = _map(d['langue']);
     final langues = _liste(d['langues']);
     final nomLangue = _s(langues.firstWhere((l) => l['id'] == langue['langue'], orElse: () => {'nom': 'Français'})['nom']);
+    final mode = ref.watch(themeProvider);
+    final sombre = mode == ThemeMode.dark || (mode == ThemeMode.system && MediaQuery.platformBrightnessOf(context) == Brightness.dark);
     Widget entree(String titre, String sous, VoidCallback onTap, {String icon = KojiIcons.chevronRight}) => KojiCard(
           onTap: onTap,
           padding: const EdgeInsets.all(14),
@@ -118,13 +125,28 @@ class ParametresScreen extends ConsumerWidget {
       },
       main: [
         if (num2(etapes['faites']) < num2(etapes['total']))
-          KojiAlertBox(title: 'Profil · ${num2(etapes['faites']).round()} étapes sur ${num2(etapes['total']).round()}', message: _s(etapes['reste']), tone: KojiTone.amber, onTap: () => context.push('/profile/company')),
+          KojiAlertBox(title: 'Profil · ${_pl(num2(etapes['faites']), 'étape')} sur ${num2(etapes['total']).round()}', message: _s(etapes['reste']), tone: KojiTone.amber, onTap: () => context.push('/profile/company')),
         entree('Mon entreprise', [e['nom'], if (_s(e['siren']).isNotEmpty) 'SIREN ${e['siren']}', 'TVA, décennale, RIB'].where((v) => _s(v).isNotEmpty).join(' · '), () => context.push('/profile/company')),
         entree('Mon profil', [[p['prenom'], p['nom']].where((v) => _s(v).isNotEmpty).join(' '), p['telephone'], 'mot de passe'].where((v) => _s(v).isNotEmpty).join(' · '), () => _monProfil(context, ref, p)),
         entree('Devis et factures', [devis['mediateur'] == null ? 'médiateur à désigner' : 'médiateur ${_map(devis['mediateur'])['nom']}', 'prochaine facture ${devis['prochaineFacture']}'].join(' · '), () => context.push(devisFacturesRoute)),
         entree('Langue et traduction', langue['langue'] == 'fr' ? 'Français' : '$nomLangue · traduction automatique activée', () => context.push(langueRoute)),
         entree('Notifications et sécurité', 'alertes, silence le soir, appareils', () => context.push(notificationsRoute)),
-        entree('Abonnement et jetons', ['Koji ${_plans[_s(d['plan'])] ?? _s(d['plan'])}', if (jetons != null) '${num2(jetons['solde']).round()} jetons'].join(' · '), () => context.push(abonnementRoute)),
+        // Réglage de l'app, déplacé ici depuis le Profil Entreprise (retours
+        // du build 64).
+        KojiCard(
+          padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Mode sombre', style: TextStyle(fontWeight: FontWeight.w700, color: context.koji.heading)),
+              Text(sombre ? 'activé' : 'désactivé', style: TextStyle(fontSize: 12.5, color: context.koji.muted)),
+            ])),
+            Switch(
+              value: sombre,
+              onChanged: (v) => ref.read(themeProvider.notifier).setTheme(v ? ThemeMode.dark : ThemeMode.light),
+            ),
+          ]),
+        ),
+        entree('Abonnement et jetons', ['Offre ${_plans[_s(d['plan'])] ?? _s(d['plan'])}', if (jetons != null) _pl(num2(jetons['solde']), 'jeton')].join(' · '), () => context.push(abonnementRoute)),
         entree('Éléments supprimés', 'gardés 30 jours · sur le site', () => ouvrirSite('/corbeille')),
         entree('Mes données', 'télécharger mes données · supprimer le compte', () => _mesDonnees(context, ref)),
         KojiButton(

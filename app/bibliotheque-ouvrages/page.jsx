@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shell } from "../../components/Shell";
 import { apiGet, apiSend } from "../../lib/client-api";
-import { FACTEURS_FICHE, NIVEAUX_SENSIBILITE, facteursSensibles, moOuvrage, niveauSensibilite, prochainCode, rechercherOuvrages, tauxOuvrage } from "../../lib/bibliotheque-pro";
+import { FACTEURS_FICHE, NIVEAUX_SENSIBILITE, facteursSensibles, libelleConfiance, moOuvrage, niveauSensibilite, prochainCode, rechercherOuvrages, tauxOuvrage, tauxParDefaut } from "../../lib/bibliotheque-pro";
 import familles from "../../data/ouvrage-families.json";
 import { BibliothequeTabs } from "./BibliothequeTabs";
 import "../fournitures/fournitures.css";
@@ -72,7 +72,7 @@ function FicheOuvrage({ ouvrage, ouvrages, tauxFamille, tauxDefaut, articles, on
       <div className="ob-h">
         <span className="code">{ouvrage.code} · {nomFamille(famCode(ouvrage))}</span>
         <h2>{ouvrage.label}</h2>
-        <span className="muted">{moi ? (ouvrage.copiedFromCode || ouvrage.ajusteLe ? `Source Koji · ajusté par toi le ${jour(ouvrage.ajusteLe || ouvrage.updatedAt)}` : `Source : Moi · créé le ${jour(ouvrage.createdAt)}`) : "Source Koji"} · confiance {ouvrage.confidence || "C"}</span>
+        <span className="muted">{moi ? (ouvrage.copiedFromCode || ouvrage.ajusteLe ? `Source Koji · ajusté par toi le ${jour(ouvrage.ajusteLe || ouvrage.updatedAt)}` : `Source : Moi · créé le ${jour(ouvrage.createdAt)}`) : "Source Koji"} · {libelleConfiance(ouvrage.confidence)}</span>
       </div>
       <div className="ob-grid">
         <div className="ed">Unité<div className="selv">{ouvrage.unit}</div></div>
@@ -198,7 +198,10 @@ function Bibliotheque() {
     for (const o of ouvrages || []) m.set(famCode(o), (m.get(famCode(o)) || 0) + 1);
     return familles.filter((f) => m.has(f.code)).map((f) => ({ ...f, n: m.get(f.code) }));
   }, [ouvrages]);
-  const tauxDe = (o) => Number(tauxFam[famCode(o)]) || familles.find((f) => f.code === famCode(o))?.hourlyRateDefault || tauxDefaut;
+  // Taux du métier, sinon celui du profil (celui du devis), sinon la
+  // référence de la famille (retours du build 64, même règle que l'app).
+  const defautDe = (o) => tauxParDefaut({ tauxProfil: tauxDefaut, defautFamille: familles.find((f) => f.code === famCode(o))?.hourlyRateDefault });
+  const tauxDe = (o) => Number(tauxFam[famCode(o)]) || defautDe(o);
   const sel = (ouvrages || []).find((o) => o.id === selId) || liste[0] || null;
   const principal = Object.entries(tauxFam).find(([, t]) => t > 0);
 
@@ -252,7 +255,7 @@ function Bibliotheque() {
                       <td><div className="n2">{o.label}</div>{o.userId ? <span className="mode">Moi</span> : null}</td>
                       <td className="r" style={{ whiteSpace: "nowrap" }}>{o.billingMode === "fixed" ? "forfait" : `${nb(o.normativeTime)} h/${o.unit || "u"}`}</td>
                       <td className="r b" style={{ whiteSpace: "nowrap" }}>{o.billingMode === "fixed" ? euro(o.fixedAmountHt) : euro(moOuvrage(o, tauxOuvrage(o, { tauxFamille: tauxDe(o), tauxDefaut })).parUnite)}</td>
-                      <td>{o.confidence || "C"}</td>
+                      <td title={libelleConfiance(o.confidence)}>{o.confidence || "C"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -265,7 +268,7 @@ function Bibliotheque() {
               ouvrage={sel}
               ouvrages={ouvrages}
               tauxFamille={Number(tauxFam[famCode(sel)]) || 0}
-              tauxDefaut={familles.find((f) => f.code === famCode(sel))?.hourlyRateDefault || tauxDefaut}
+              tauxDefaut={defautDe(sel)}
               articles={articles}
               onSaved={(l) => setOuvrages(l)}
               onDuplique={dupliquer}

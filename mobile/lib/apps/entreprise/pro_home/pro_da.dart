@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// New Koji Pro art direction (mockup PRO-01 « Accueil », v0.2): graphite ink,
 /// one yellow per zone, hairline cards with a 2 px graphite top rule, DM Sans
@@ -244,6 +245,25 @@ class ProTag extends StatelessWidget {
 }
 
 /// The one yellow button of a zone.
+/// Bandeau graphite du haut des écrans Koji Pro. Sous lui, l'heure, le réseau
+/// et la batterie du téléphone passent en clair (retours du build 64 : ils
+/// restaient écrits en noir sur le bandeau noir, presque illisibles).
+class ProBandeau extends StatelessWidget {
+  const ProBandeau({super.key, this.padding, this.child, this.color = graphite});
+
+  static const graphite = Color(0xFF171B1E);
+
+  final EdgeInsetsGeometry? padding;
+  final Widget? child;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Container(color: color, padding: padding, child: child),
+      );
+}
+
 class ProPrimaryButton extends StatelessWidget {
   const ProPrimaryButton({
     super.key,

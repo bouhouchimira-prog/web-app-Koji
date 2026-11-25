@@ -523,57 +523,89 @@ class KojiSegmented<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final bool compact;
 
+  /// Largeur qu'il faut à un libellé pour tenir sur une ligne, marges
+  /// comprises.
+  double _largeur(BuildContext context, String libelle) {
+    final peintre = TextPainter(
+      text: TextSpan(
+          text: libelle,
+          style: DefaultTextStyle.of(context).style.copyWith(
+              fontSize: compact ? 13.5 : 15, fontWeight: FontWeight.w800)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    return peintre.width + 24;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.koji;
-    return Container(
-      padding: EdgeInsets.all(compact ? 4 : 5),
-      decoration: BoxDecoration(
-        color: p.isDark || kojiPro ? p.surfaceMuted : KojiColors.sand,
-        borderRadius: BorderRadius.circular(kojiRadius(compact ? 13 : 15)),
-        border: kojiPro ? Border.all(color: p.line) : null,
-      ),
-      child: Row(
+    return LayoutBuilder(builder: (context, c) {
+      // Les onglets se partagent la largeur tant que chaque libellé tient sur
+      // une ligne. Sinon chacun prend sa largeur et la barre défile (retours
+      // du build 64 : « Command-es », « Partenaire-s » coupés en deux).
+      final cote = compact ? 4.0 : 5.0;
+      final dispo = c.maxWidth.isFinite ? c.maxWidth - 2 * cote - 2 : double.infinity;
+      final plusLarge = options.values
+          .map((l) => _largeur(context, l))
+          .fold<double>(0, (m, w) => w > m ? w : m);
+      final defile = dispo.isFinite && options.isNotEmpty && plusLarge * options.length > dispo;
+      final ligne = Row(
+        mainAxisSize: defile ? MainAxisSize.min : MainAxisSize.max,
         children: [
           for (final e in options.entries)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(e.key),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  height: compact ? 36 : 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: e.key == value ? p.surface : Colors.transparent,
-                    borderRadius: BorderRadius.circular(kojiRadius(compact ? 10 : 11)),
-                    border: kojiPro && e.key == value ? Border.all(color: p.heading) : null,
-                    boxShadow: e.key == value && !kojiPro
-                        ? [
-                            BoxShadow(
-                              color: KojiColors.navy.withValues(alpha: 0.10),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    e.value,
-                    style: TextStyle(
-                      fontSize: compact ? 13.5 : 15,
-                      fontWeight:
-                          e.key == value ? FontWeight.w800 : FontWeight.w700,
-                      color: e.key == value ? p.heading : p.muted,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            if (defile) _case(p, e, defile) else Expanded(child: _case(p, e, defile)),
         ],
-      ),
-    );
+      );
+      return Container(
+        padding: EdgeInsets.all(cote),
+        decoration: BoxDecoration(
+          color: p.isDark || kojiPro ? p.surfaceMuted : KojiColors.sand,
+          borderRadius: BorderRadius.circular(kojiRadius(compact ? 13 : 15)),
+          border: kojiPro ? Border.all(color: p.line) : null,
+        ),
+        child: defile
+            ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: ligne)
+            : ligne,
+      );
+    });
   }
+
+  Widget _case(KojiPalette p, MapEntry<T, String> e, bool defile) => GestureDetector(
+        onTap: () => onChanged(e.key),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: compact ? 36 : 44,
+          alignment: Alignment.center,
+          padding: defile ? const EdgeInsets.symmetric(horizontal: 12) : null,
+          decoration: BoxDecoration(
+            color: e.key == value ? p.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(kojiRadius(compact ? 10 : 11)),
+            border: kojiPro && e.key == value ? Border.all(color: p.heading) : null,
+            boxShadow: e.key == value && !kojiPro
+                ? [
+                    BoxShadow(
+                      color: KojiColors.navy.withValues(alpha: 0.10),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            e.value,
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              fontSize: compact ? 13.5 : 15,
+              fontWeight: e.key == value ? FontWeight.w800 : FontWeight.w700,
+              color: e.key == value ? p.heading : p.muted,
+            ),
+          ),
+        ),
+      );
 }
 
 /// Row of rounded filter chips ("Tous · 3", "En cours · 1"…).

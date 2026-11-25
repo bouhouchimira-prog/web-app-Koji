@@ -61,6 +61,22 @@ double tauxOuvrage(Json o, {double tauxFamille = 0, double tauxDefaut = 0}) {
   return tauxDefaut;
 }
 
+/// Taux « par défaut » d'un ouvrage sans taux propre ni taux de métier : le
+/// taux horaire du profil de l'entreprise, celui que le devis applique. Le
+/// taux de référence de la famille ne sert que si le profil n'en a pas
+/// (retours du build 64 : 13,00 € dans la bibliothèque, 19,50 € dans le devis).
+double tauxParDefaut({double tauxProfil = 0, double defautFamille = 0}) =>
+    tauxProfil > 0 ? tauxProfil : defautFamille;
+
+/// Fiabilité du temps d'un ouvrage, en clair (retours du build 64 :
+/// « confiance C » n'était expliqué nulle part). Mêmes mots que le site :
+/// A chronométré, B recalé, C estimé.
+String libelleConfiance(dynamic confiance) => switch ('${confiance ?? 'C'}') {
+      'A' => 'temps chronométré',
+      'B' => 'temps recalé',
+      _ => 'temps estimé',
+    };
+
 class MoOuvrage {
   const MoOuvrage(this.parUnite, this.fixe, this.facteur);
   final double parUnite;

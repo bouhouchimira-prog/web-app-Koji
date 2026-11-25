@@ -447,6 +447,17 @@ class ProKojiWebClient {
     return c is Map ? Map<String, dynamic>.from(c) : null;
   }
 
+  /// Nouveau chantier (retours du build 64, sprint 2) : créé par le site,
+  /// qui range aussi le client dans le carnet de contacts.
+  Future<Map<String, dynamic>> creerChantier(Map<String, dynamic> corps) async {
+    final data = await _send('POST', '/api/projects', corps);
+    final p = data is Map ? data['project'] : null;
+    if (p is! Map) {
+      throw const ProKojiWebException("Le chantier n'a pas pu être créé.");
+    }
+    return Map<String, dynamic>.from(p);
+  }
+
   /// action : retenue (taux 0 | 5) | rappel | avis (programme).
   Future<Map<String, dynamic>?> majCloture(String projectId, String action,
       [Map<String, dynamic> extra = const {}]) async {

@@ -126,6 +126,33 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   double _coordPct = 10; // Coordination de chantier
   double _aleasPct = 5; // Provision aléas de chantier
   double _decennalePct = 8; // Assurance décennale
+
+  // Taux d'un devis neuf, remis quand l'artisan revient sur un retrait : ceux
+  // de l'app, ou ceux réglés par l'entreprise dans « Mes prix » sur le site.
+  ({double coord, double aleas, double decennale}) _fraisParDefaut =
+      (coord: 10, aleas: 5, decennale: 8);
+
+  /// Les trois frais, montrés dans le résumé du devis guidé avec leur taux.
+  /// Un frais à 0 % par défaut et non ajouté n'a rien à montrer.
+  List<FraisDevis> get _frais => [
+        FraisDevis(id: 'coord', label: 'Coordination de chantier', pct: _coordPct, montant: _coordAmount, pctParDefaut: _fraisParDefaut.coord),
+        FraisDevis(id: 'aleas', label: 'Provision aléas de chantier', pct: _aleasPct, montant: _aleasAmount, pctParDefaut: _fraisParDefaut.aleas),
+        FraisDevis(id: 'decennale', label: 'Assurance décennale', pct: _decennalePct, montant: _decennaleAmount, pctParDefaut: _fraisParDefaut.decennale),
+      ].where((f) => f.actif || f.pctParDefaut > 0).toList();
+
+  /// L'artisan retire un frais du devis, ou le remet à son taux par défaut.
+  void _basculerFrais(String id, bool actif) {
+    setState(() {
+      switch (id) {
+        case 'coord':
+          _coordPct = actif ? _fraisParDefaut.coord : 0;
+        case 'aleas':
+          _aleasPct = actif ? _fraisParDefaut.aleas : 0;
+        case 'decennale':
+          _decennalePct = actif ? _fraisParDefaut.decennale : 0;
+      }
+    });
+  }
   num _tvaRate = 10; // 10 % rénovation (Art. 279-0 bis CGI), 5,5 %, 20 % ou 0 (autoliquidation)
   // TVA automatique (maquette PRO-03.5) : réponses aux trois questions.
   Map<String, String> _tvaChoix = {'client': '', 'local': '', 'travaux': '', 'commande': ''};
@@ -611,11 +638,29 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         ? await limits.canCreateQuote()
         : await limits.canSaveQuote(existingId);
     if (!permis.allowed) throw 'Limite de ta formule atteinte : devis non enregistré.';
+    if (existingId == null) await _numeroDefinitif(user.id);
     final id = await ref
         .read(quoteRepositoryProvider)
         .saveQuote(user.id, _buildQuoteData(), quoteId: existingId);
     _quoteId = id;
     return (id: id, le: DateTime.now().toUtc().toIso8601String());
+  }
+
+  // Numéro unique (retours du build 64 : deux devis portaient 2026-0001). Le
+  // numéro affiché à l'ouverture est provisoire ; celui du devis est pris
+  // juste avant son premier enregistrement, après les devis déjà enregistrés.
+  // Si la lecture échoue, on n'enregistre pas plutôt que de risquer un doublon.
+  Future<void> _numeroDefinitif(String userId) async {
+    final impose = widget.data['quoteNumber'];
+    if (impose is String && impose.isNotEmpty) return;
+    final numero = await ref
+        .read(quoteRepositoryProvider)
+        .generateNextQuoteNumber(userId, strict: true);
+    if (mounted) {
+      setState(() => _quoteNumber = numero);
+    } else {
+      _quoteNumber = numero;
+    }
   }
 
   // ─── Envoyer le devis (maquette PRO-03.2) ─────────────────────────────────
@@ -1112,6 +1157,16 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         _companyRcs = biz['rcs'] ?? _companyRcs;
         _companyTva = biz['tva'] ?? _companyTva;
         _companyLegalForm = biz['formeJuridique'] ?? _companyLegalForm;
+        // Devis neuf : les frais sont ceux réglés par l'entreprise dans
+        // « Mes prix », comme dans l'éditeur du site. Un devis déjà
+        // enregistré garde les siens.
+        final duCompte = fraisDuCompte(biz['defaultSurcharges']);
+        if (duCompte != null && _idDevis == null && !widget.data.containsKey('id')) {
+          _fraisParDefaut = duCompte;
+          _coordPct = duCompte.coord;
+          _aleasPct = duCompte.aleas;
+          _decennalePct = duCompte.decennale;
+        }
         final daily = (biz['dailyRate'] as num?)?.toDouble() ?? 0.0;
         final hpd = (biz['hoursPerDay'] as num?)?.toDouble() ?? 8.0;
         if (daily > 0 && hpd > 0) {
@@ -1171,8 +1226,24 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       return;
     }
 
-    final quoteData = _buildQuoteData();
     final existingId = _idDevis;
+    // Premier enregistrement : le numéro est repris à ce moment-là.
+    if (existingId == null) {
+      try {
+        await _numeroDefinitif(user.id);
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isSaving = false);
+          _snack(
+              messageErreur(e,
+                  defaut:
+                      "Le devis n'a pas pu être enregistré. Vérifiez la connexion et réessayez."),
+              error: true);
+        }
+        return;
+      }
+    }
+    final quoteData = _buildQuoteData();
 
     // Server-side plan-limit gate (see supabase/migrations/0006_subscription_plans.sql):
     // creating a brand-new devis is checked against the plan's monthly quote
@@ -1519,6 +1590,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       donnees: _guide,
       totalHt: _grandTotalGeneralHT,
       totalTtc: _grandTotalTTC,
+      sousTotal: _subtotalLots,
+      frais: _frais,
+      onFrais: _basculerFrais,
       onRetour: () => context.pop(),
       onEnvoyer: _isSaving ? () {} : _ouvrirEnvoi,
       onChange: () => setState(() {}),

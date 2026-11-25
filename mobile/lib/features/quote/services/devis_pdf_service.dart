@@ -19,6 +19,18 @@ import 'package:printing/printing.dart';
 /// The layout is a faithful port of the original `_generatePdf` from
 /// quote_success_screen. It is fed a plain [quoteData] map (the same shape that
 /// screen builds/saves) plus optional logo/signature image bytes.
+/// Montant à la française : « 1 866,22 € » (retours du build 64 : les montants
+/// du PDF s'écrivaient avec un point). Espace simple pour les milliers : la
+/// police du PDF n'a pas l'espace fine.
+String montantPdf(num n) {
+  final brut = n.abs().toStringAsFixed(2).split('.');
+  final entier = brut[0].replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]} ');
+  return '${n < 0 ? '-' : ''}$entier,${brut[1]} €';
+}
+
+String _eur(num n) => montantPdf(n);
+
 class DevisPdfService {
   // Palette — deliberately calm. The old design flooded every header with navy
   // (#0F172A). Per the redesign brief we keep navy only for dark *text*, use a
@@ -174,7 +186,11 @@ class DevisPdfService {
                 pw.Expanded(
                   child: _identityColumn(
                     "Client",
-                    client['name']?.toString() ?? 'Client',
+                    // « Client » est la valeur par défaut d'un devis sans
+                    // client : sous le titre « Client », on ne la répète pas.
+                    (client['name']?.toString() ?? '').trim() == 'Client'
+                        ? ''
+                        : (client['name']?.toString() ?? '').trim(),
                     [
                       client['address']?.toString() ?? '',
                       client['phone']?.toString() ?? '',
@@ -190,11 +206,11 @@ class DevisPdfService {
             pw.SizedBox(height: 20),
 
             // ── Adresse du chantier (plain) ──
-            _kvInline(
-                "Adresse du chantier",
-                travauxLieu.isNotEmpty ? travauxLieu : 'À compléter',
-                colorAccent,
-                colorNavy),
+            // Comme les dates : seulement si elle est renseignée (plus de
+            // « À compléter » sur un document remis au client).
+            if (travauxLieu.isNotEmpty)
+              _kvInline(
+                  "Adresse du chantier", travauxLieu, colorAccent, colorNavy),
 
             // ── Date de début / Durée — compactes, et UNIQUEMENT si renseignées.
             //     Plus de placeholder "À définir" : un champ vide n'est pas
@@ -574,13 +590,13 @@ class DevisPdfService {
                 textAlign: pw.TextAlign.center)),
         pw.Expanded(
             flex: 2,
-            child: pw.Text('${unitPrice.toStringAsFixed(2)} €',
+            child: pw.Text(_eur(unitPrice),
                 style:
                     const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
                 textAlign: pw.TextAlign.center)),
         pw.Expanded(
             flex: 2,
-            child: pw.Text('${total.toStringAsFixed(2)} €',
+            child: pw.Text(_eur(total),
                 style: pw.TextStyle(
                     fontSize: 9,
                     fontWeight: pw.FontWeight.bold,
@@ -781,20 +797,20 @@ class DevisPdfService {
       children: [
         if (coordAmount != 0)
           row('Coordination de chantier (${pct(coordPct)} %)',
-              '${coordAmount.toStringAsFixed(2)} €',
+              _eur(coordAmount),
               size: 9, color: PdfColors.grey700),
         if (aleasAmount != 0)
           row('Provision aléas de chantier (${pct(aleasPct)} %)',
-              '${aleasAmount.toStringAsFixed(2)} €',
+              _eur(aleasAmount),
               size: 9, color: PdfColors.grey700),
         if (decennaleAmount != 0)
           row('Assurance décennale (${pct(decennalePct)} %)',
-              '${decennaleAmount.toStringAsFixed(2)} €',
+              _eur(decennaleAmount),
               size: 9, color: PdfColors.grey700),
         if (coordAmount != 0 || aleasAmount != 0 || decennaleAmount != 0)
           pw.Divider(color: PdfColors.grey300),
-        row('Total HT', '${generalHT.toStringAsFixed(2)} €', size: 10),
-        row(autoliquidation ? 'TVA autoliquidation' : 'TVA $tvaRate %', '${tva.toStringAsFixed(2)} €',
+        row('Total HT', _eur(generalHT), size: 10),
+        row(autoliquidation ? 'TVA autoliquidation' : 'TVA $tvaRate %', _eur(tva),
             size: 10, color: PdfColors.grey700),
         pw.SizedBox(height: 6),
         pw.Container(
@@ -808,7 +824,7 @@ class DevisPdfService {
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.white)),
-              pw.Text('${ttc.toStringAsFixed(2)} €',
+              pw.Text(_eur(ttc),
                   style: pw.TextStyle(
                       fontSize: 13,
                       fontWeight: pw.FontWeight.bold,
@@ -943,7 +959,7 @@ class DevisPdfService {
   pw.Widget _buildLegalFooter(pw.Context context, Map<dynamic, dynamic> company,
       PdfColor colorAccent, Uint8List? kojiLogoBytes) {
     // Footer layout requested by the client:
-    //   ① Gauche  — « Edited by Koji » + logo Koji
+    //   ① Gauche  — « Édité avec Koji » + logo Koji
     //   ② Centre  — nom entreprise, forme juridique (SAS), capital social,
     //               numéro de TVA, numéro SIRET
     //   ③ Droite  — numéro de page
@@ -974,7 +990,7 @@ class DevisPdfService {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          // ① Gauche — « Edited by Koji » + logo.
+          // ① Gauche — « Édité avec Koji » + logo.
           pw.Expanded(
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -984,7 +1000,7 @@ class DevisPdfService {
                   pw.SizedBox(width: 3),
                 ],
                 pw.Text(
-                  'Edited by Koji',
+                  'Édité avec Koji',
                   style: pw.TextStyle(
                       fontSize: 7,
                       fontWeight: pw.FontWeight.bold,

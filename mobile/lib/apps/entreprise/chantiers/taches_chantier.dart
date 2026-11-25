@@ -73,7 +73,9 @@ String ligneTache(Map t, String aujourdhui) {
   var quand = 'pas de date';
   if (debut.isNotEmpty) {
     if (!estAffectee(t)) {
-      quand = 'sem. ${semaine(debut)}';
+      // Le jour prévu devant la semaine (retours du build 64 : la semaine
+      // seule ne disait pas quel jour). Même texte que le site.
+      quand = '${_jourCourt(debut, aujourdhui)} · sem. ${semaine(debut)}';
     } else if (fin.isNotEmpty && fin != debut) {
       quand = '${_jourCourt(debut, aujourdhui)} → ${_jourCourt(fin, aujourdhui)}';
     } else {

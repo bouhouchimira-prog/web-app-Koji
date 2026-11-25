@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:koji/apps/entreprise/chantiers/cloture.dart';
+import 'package:koji/features/koji/koji_assistant.dart' show SansBoutonKoji;
 import 'package:koji/apps/entreprise/chantiers/pro_avis_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_dossier_screen.dart';
 import 'package:koji/apps/entreprise/chantiers/pro_reserves_screen.dart';
@@ -321,8 +322,7 @@ class _Entete extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final da = ProDa.of(context);
-    return Container(
-      color: const Color(0xFF171B1E),
+    return ProBandeau(
       padding:
           EdgeInsets.fromLTRB(6, MediaQuery.paddingOf(context).top + 6, 16, 8),
       child: Row(
@@ -380,7 +380,8 @@ class ProPvScreen extends ConsumerStatefulWidget {
   ConsumerState<ProPvScreen> createState() => _ProPvScreenState();
 }
 
-class _ProPvScreenState extends ConsumerState<ProPvScreen> {
+class _ProPvScreenState extends ConsumerState<ProPvScreen>
+    with SansBoutonKoji<ProPvScreen> {
   late final _nom = TextEditingController(text: widget.signataire);
   final _client = SignatureController();
   final _pro = SignatureController();

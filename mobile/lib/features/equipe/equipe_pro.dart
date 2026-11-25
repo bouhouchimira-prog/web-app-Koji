@@ -173,8 +173,8 @@ class EquipeScreen extends ConsumerWidget {
             for (final x in appris) _Appris(x),
           ],
         ],
-        const SizedBox(height: 8),
-        TextButton(onPressed: () => context.push('/synchronization'), child: Text("Ancien outil Équipe de l'app", style: TextStyle(fontSize: 12, color: p.faint))),
+        // Le lien vers l'ancien outil Équipe est retiré (retours du build 64) :
+        // il lisait d'autres données que cette page.
       ],
     );
   }
