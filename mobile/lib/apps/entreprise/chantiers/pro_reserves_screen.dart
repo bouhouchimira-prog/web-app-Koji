@@ -279,8 +279,7 @@ class _ProReservesScreenState extends ConsumerState<ProReservesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            color: const Color(0xFF171B1E),
+          ProBandeau(
             padding: EdgeInsets.fromLTRB(
                 6, MediaQuery.paddingOf(context).top + 6, 16, 8),
             child: Row(

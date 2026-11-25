@@ -317,8 +317,7 @@ class _ProLancerChantierScreenState
     );
   }
 
-  Widget _barre(ProDa da) => Container(
-        color: const Color(0xFF171B1E),
+  Widget _barre(ProDa da) => ProBandeau(
         padding: EdgeInsets.fromLTRB(
             6, MediaQuery.paddingOf(context).top + 6, 16, 8),
         child: Row(

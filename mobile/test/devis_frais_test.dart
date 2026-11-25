@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:koji/apps/entreprise/devis/devis_guide.dart';
@@ -32,7 +35,18 @@ List<FraisDevis> _frais(double coord, double aleas, double decennale) => [
       FraisDevis(id: 'decennale', label: 'Assurance décennale', pct: decennale, montant: 195 * decennale / 100, pctParDefaut: 8),
     ];
 
+
+Future<void> _chargerDmSans() async {
+  final loader = FontLoader('DMSans');
+  for (final f in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    loader.addFont(File('assets/fonts/DMSans-$f.ttf').readAsBytes().then((b) => ByteData.view(b.buffer)));
+  }
+  await loader.load();
+}
+
 void main() {
+  setUpAll(_chargerDmSans);
+
   test('frais du compte : ceux réglés dans « Mes prix », comme sur le site', () {
     expect(fraisDuCompte(null), isNull, reason: "rien de réglé : l'app garde ses taux");
     expect(fraisDuCompte('x'), isNull);
@@ -53,10 +67,10 @@ void main() {
 
   test('libellés des frais et montants à la française', () {
     final [coord, aleas, _] = _frais(10, 0, 8);
-    expect(coord.titre, 'Coordination de chantier 10 %');
+    expect(coord.titre, 'Coordination de chantier 10 %');
     expect(coord.actif, isTrue);
     expect(aleas.actif, isFalse);
-    expect(aleas.titre, 'Provision aléas de chantier 5 %', reason: 'retiré : le taux qui serait remis');
+    expect(aleas.titre, 'Provision aléas de chantier 5 %', reason: 'retiré : le taux qui serait remis');
     expect(pourcent(5.5), '5,5 %');
     expect(montantPdf(1866.22), '1 866,22 €');
     expect(montantPdf(239.85), '239,85 €');
@@ -129,10 +143,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('Sous-total des lignes'), findsOneWidget);
-    expect(find.text('Coordination de chantier 10 %'), findsOneWidget);
-    expect(find.text('Provision aléas de chantier 5 %'), findsOneWidget);
-    expect(find.text('Assurance décennale 8 %'), findsOneWidget);
+    expect(find.text('Coordination de chantier 10 %'), findsOneWidget);
+    expect(find.text('Provision aléas de chantier 5 %'), findsOneWidget);
+    expect(find.text('Assurance décennale 8 %'), findsOneWidget);
     expect(find.text('Retirer'), findsNWidgets(3));
+    await expectLater(find.byType(ProDevisGuideView), matchesGoldenFile('goldens/pro_devis_frais.png'));
 
     await tester.ensureVisible(find.text('Retirer').first);
     await tester.tap(find.text('Retirer').first);

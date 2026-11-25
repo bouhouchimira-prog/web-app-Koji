@@ -202,6 +202,10 @@ abstract final class KojiTheme {
         side: BorderSide(color: p.line),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r(18))),
         labelStyle: font(13, FontWeight.w600, p.muted),
+        // Puce sélectionnée : texte de la couleur prévue sur le fond de
+        // sélection (retours du build 64 : gris sur noir, presque illisible).
+        secondaryLabelStyle: font(13, FontWeight.w700, onSelection),
+        checkmarkColor: onSelection,
       ),
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,

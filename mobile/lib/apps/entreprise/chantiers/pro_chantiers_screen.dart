@@ -175,7 +175,7 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
           else if (visibles.isEmpty && lignes.isEmpty && cherche.isEmpty)
             ListeVide(
               titre: "Aucun chantier pour l'instant",
-              texte: 'Un chantier se crée tout seul quand un client signe un devis. Commencez par un devis ou trouvez un chantier sur le Radar.',
+              texte: 'Un chantier se crée tout seul quand un client signe votre devis. Vous avez un chantier trouvé ailleurs ? Ajoutez-le avec « Nouveau chantier » pour le suivre dans Koji.',
               action: 'Démarrer un devis guidé',
               // Même parcours que « Démarrer un devis guidé » de l'onglet Devis.
               onAction: () {
@@ -221,8 +221,7 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
   Widget _barre(ProDa da) {
     final entreprise =
         ref.watch(currentAccountProvider).valueOrNull?.displayName ?? '';
-    return Container(
-      color: const Color(0xFF171B1E),
+    return ProBandeau(
       padding: EdgeInsets.fromLTRB(
           18, MediaQuery.paddingOf(context).top + 12, 8, 12),
       child: Row(

@@ -61,8 +61,9 @@ class _AccountCard extends ConsumerWidget {
     // The plan is only displayed (nothing is sold in the app): the card
     // always opens the company profile.
     final String plan = switch (status?.state) {
-      AccessState.trial => 'Essai gratuit',
-      AccessState.subscribed => 'Koji ${_planLabel(status!.plan)} · actif',
+      // Même nom que Paramètres et KojiPage : « Offre Start », « Offre Pro ».
+      AccessState.trial => 'Offre Start',
+      AccessState.subscribed => 'Offre ${_planLabel(status!.plan)}',
       _ => 'Koji Pro',
     };
 

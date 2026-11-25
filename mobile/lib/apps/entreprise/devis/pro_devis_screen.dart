@@ -306,8 +306,7 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
 
   Widget _barre(ProDa da) {
     final entreprise = ref.watch(currentAccountProvider).valueOrNull?.displayName ?? '';
-    return Container(
-      color: const Color(0xFF171B1E),
+    return ProBandeau(
       padding: EdgeInsets.fromLTRB(18, MediaQuery.paddingOf(context).top + 12, 8, 12),
       child: Row(children: [
         const KojiWordmark(height: 14, color: Colors.white),

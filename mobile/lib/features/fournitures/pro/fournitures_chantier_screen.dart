@@ -359,11 +359,13 @@ class _ArticleFormScreenState extends ConsumerState<ArticleFormScreen> {
                 if (_note.isNotEmpty) Text(_note, style: TextStyle(fontSize: 12.5, color: p.muted)),
                 KojiField(label: 'Désignation', controller: _nom, onChanged: (_) => setState(() {})),
                 Row(children: [
-                  Expanded(child: KojiField(label: 'Unité client', controller: _unite, onChanged: (_) => setState(() {}))),
+                  // « Conditionnement » a la place qu'il lui faut (retours du
+                  // build 64 : le mot coupé décalait son champ).
+                  Expanded(flex: 5, child: KojiField(label: 'Unité client', controller: _unite, onChanged: (_) => setState(() {}))),
                   const SizedBox(width: 10),
-                  Expanded(child: KojiField(label: 'Conditionnement', controller: _cond)),
+                  Expanded(flex: 7, child: KojiField(label: 'Conditionnement', controller: _cond)),
                   const SizedBox(width: 10),
-                  Expanded(child: KojiField(label: 'Contenance', controller: _contenance, keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => setState(() {}))),
+                  Expanded(flex: 5, child: KojiField(label: 'Contenance', controller: _contenance, keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => setState(() {}))),
                 ]),
                 if (fours.isEmpty)
                   Text('Aucun fournisseur : ajoutez-en un depuis le site (Fournitures › Fournisseurs).', style: TextStyle(fontSize: 12.5, color: p.toneFg(KojiTone.coral)))

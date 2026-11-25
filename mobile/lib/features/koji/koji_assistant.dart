@@ -50,6 +50,27 @@ String _s(Object? v) => v == null ? '' : '$v';
 
 /// Bouton flottant « Demander à Koji » (téléphone : 12 px du bord droit,
 /// 88 px du bas, au-dessus de la barre d'onglets).
+/// Nombre d'écrans ouverts qui demandent au bouton Koji de s'effacer.
+final boutonKojiMasque = ValueNotifier<int>(0);
+
+/// Pour un écran qui a son propre bouton en bas (valider, enregistrer) : le
+/// bouton Koji s'efface tant que l'écran est ouvert (retours du build 64 : il
+/// recouvrait « Valider la réception » et d'autres boutons).
+mixin SansBoutonKoji<T extends StatefulWidget> on State<T> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => boutonKojiMasque.value++);
+  }
+
+  @override
+  void dispose() {
+    // Hors de la phase de démontage : l'app se redessine juste après.
+    Future.microtask(() => boutonKojiMasque.value--);
+    super.dispose();
+  }
+}
+
 class KojiBoutonFlottant extends StatelessWidget {
   const KojiBoutonFlottant({super.key, this.page = ''});
   final String page;

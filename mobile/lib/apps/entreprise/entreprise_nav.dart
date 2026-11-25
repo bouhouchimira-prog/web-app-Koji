@@ -65,7 +65,7 @@ const entrepriseNavGroups = [
     KojiNavItem(id: 'depenses', label: 'Dépenses', icon: KojiIcons.comptabilite),
     KojiNavItem(
         id: 'bibliotheque',
-        label: 'Bibliothèque koji',
+        label: 'Bibliothèque Koji',
         icon: KojiIcons.bibliotheque),
     KojiNavItem(
         id: 'calendrier', label: 'Calendrier', icon: KojiIcons.calendrier),

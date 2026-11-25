@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -70,7 +73,18 @@ Finder _champ(String label) => find.descendant(
     of: find.ancestor(of: find.text(label), matching: find.byType(Column)).first,
     matching: find.byType(TextField));
 
+
+Future<void> _chargerDmSans() async {
+  final loader = FontLoader('DMSans');
+  for (final f in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    loader.addFont(File('assets/fonts/DMSans-$f.ttf').readAsBytes().then((b) => ByteData.view(b.buffer)));
+  }
+  await loader.load();
+}
+
 void main() {
+  setUpAll(_chargerDmSans);
+
   test('vérifie la saisie, champ par champ', () {
     expect(erreursNouveauChantier(reference: '  '), {'reference': 'Donnez un nom à ce chantier.'});
     expect(erreursNouveauChantier(reference: 'TEST 2', email: 'imed@', telephone: '06 12'), {
@@ -153,6 +167,7 @@ void main() {
     expect(find.text('Donnez un nom à ce chantier.'), findsOneWidget);
     expect(find.text("Cette adresse e-mail n'est pas valide."), findsOneWidget);
     expect(site.recus, isEmpty);
+    await expectLater(find.byType(ProNouveauChantierScreen), matchesGoldenFile('goldens/pro_nouveau_chantier.png'));
     // Corriger le champ retire son erreur.
     await tester.enterText(_champ('Référence du chantier'), 'TEST 2');
     await tester.pump();

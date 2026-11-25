@@ -692,7 +692,13 @@ class _ProHomeState extends ConsumerState<ProHome> {
     if (f['ouverte'] != true || total == 0 || faites >= total) return _niveau(da);
     final offerts = (d['jetonsOfferts'] as num?)?.round() ?? 0;
     final restants = (f['joursRestants'] as num?)?.round() ?? 0;
-    final prochaine = d['prochaine'] is Map ? '${(d['prochaine'] as Map)['titre']}' : '';
+    // La prochaine étape et ce qu'elle rapporte (retours du build 64 :
+    // « 0 sur 8 » puis « 0 jeton sur 16 » se lisaient comme une erreur).
+    final etape = d['prochaine'] is Map ? d['prochaine'] as Map : const {};
+    final gain = (etape['jetons'] as num?)?.round() ?? 0;
+    final prochaine = etape['titre'] == null
+        ? ''
+        : '${etape['titre']}${gain > 0 ? ' · $gain jeton${gain > 1 ? 's' : ''}' : ''}';
     return InkWell(
       onTap: () => context.push(premierMoisRoute),
       child: Container(
@@ -701,8 +707,8 @@ class _ProHomeState extends ConsumerState<ProHome> {
         padding: const EdgeInsets.all(12),
         color: const Color(0xFF171B1E),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Premier mois · $faites sur $total', style: da.text(15, weight: FontWeight.w700, color: Colors.white)),
-          Text('$offerts jeton${offerts > 1 ? 's' : ''} offert${offerts > 1 ? 's' : ''} sur ${d['jetonsTotal']} · il reste $restants jour${restants > 1 ? 's' : ''}', style: da.text(12, color: const Color(0xFFC4C7CC))),
+          Text('Premier mois · $faites étape${faites > 1 ? 's' : ''} sur $total', style: da.text(15, weight: FontWeight.w700, color: Colors.white)),
+          Text('$offerts jeton${offerts > 1 ? 's' : ''} gagné${offerts > 1 ? 's' : ''} sur ${d['jetonsTotal']} · il reste $restants jour${restants > 1 ? 's' : ''}', style: da.text(12, color: const Color(0xFFC4C7CC))),
           if (prochaine.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Prochaine étape : $prochaine', style: da.text(13, weight: FontWeight.w600, color: Colors.white))),
         ]),
       ),
@@ -763,7 +769,9 @@ class _ProHomeState extends ConsumerState<ProHome> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Votre compte est prêt à ${(faites * 100 / total).round()} %.', style: da.text(13, color: da.grey)),
         Text('Pour commencer', style: da.text(16, weight: FontWeight.w700)),
-        ligne('Finir le démarrage guidé', '$faites étapes sur $total', () => context.push('/profile/company')),
+        // Le vrai parcours guidé, à l'étape en cours (retours du build 64 :
+        // le lien ouvrait le Profil Entreprise).
+        ligne('Finir le démarrage guidé', '$faites étape${faites > 1 ? 's' : ''} sur $total', () => context.push('/demarrage')),
         ligne('Faire un premier devis avec Koji', '10 minutes', _devisGuide),
       ]),
     );

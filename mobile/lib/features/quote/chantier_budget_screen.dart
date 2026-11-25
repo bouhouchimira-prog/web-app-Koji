@@ -16,7 +16,7 @@ class ChantierBudgetScreen extends ConsumerStatefulWidget {
 }
 
 class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
-  static const _kDark = Color(0xFF0F172A);
+  static const _kDark = Color(0xFF171B1E);
 
   bool _isLoading = false;
 
@@ -31,7 +31,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
     final budgetLinesAsync = ref.watch(chantierBudgetLinesProvider(chantierId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F0EB),
+      backgroundColor: const Color(0xFFF5F5F2),
       body: SafeArea(
         child: Column(
           children: [
@@ -93,7 +93,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
   Widget _buildAppBar(BuildContext context) {
     final chantierId = widget.data['id'] as String?;
     return Container(
-      color: const Color(0xFFF5F0EB),
+      color: const Color(0xFFF5F5F2),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -121,7 +121,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -167,7 +167,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
@@ -196,13 +196,13 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                       ),
                     ),
                     Icon(Icons.touch_app_outlined,
-                        size: 18, color: Color(0xFF94A3B8)),
+                        size: 18, color: Color(0xFF8A8F98)),
                   ],
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Touchez une catégorie pour voir le détail ou modifier',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 12, color: Color(0xFF5B5F66)),
                 ),
                 const SizedBox(height: 24),
                 _buildBudgetRow(
@@ -266,7 +266,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                       'Estimé: ${_fmt(grandTotalEst)} €',
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF94A3B8),
+                        color: Color(0xFF8A8F98),
                       ),
                     ),
                   ],
@@ -323,7 +323,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                        const Icon(Icons.chevron_right, size: 16, color: Color(0xFF8A8F98)),
                       ],
                     ),
                     Row(
@@ -339,7 +339,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () => _editEstimatedBudget(chantierId, dbCategory, label, estimated),
-                          child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8)),
+                          child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF8A8F98)),
                         ),
                       ],
                     ),
@@ -351,7 +351,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 6,
-                    backgroundColor: const Color(0xFFE2E8F0),
+                    backgroundColor: const Color(0xFFCFCFC9),
                     valueColor: AlwaysStoppedAnimation<Color>(barColor),
                   ),
                 ),
@@ -366,7 +366,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: _kDark,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -396,7 +396,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: Text(
           'Modifier le budget estimé\n$label',
           style: const TextStyle(fontWeight: FontWeight.bold, color: _kDark, fontSize: 16),
@@ -411,7 +411,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text('Annuler', style: TextStyle(color: Color(0xFF5B5F66))),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -441,7 +441,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _kDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               elevation: 0,
             ),
             child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
@@ -459,7 +459,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: const Text(
           "Ajouter Main d'œuvre",
           style: TextStyle(fontWeight: FontWeight.bold, color: _kDark),
@@ -498,7 +498,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text('Annuler', style: TextStyle(color: Color(0xFF5B5F66))),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -553,7 +553,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _kDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               elevation: 0,
             ),
             child: const Text('Ajouter', style: TextStyle(color: Colors.white)),
@@ -571,7 +571,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: const Text(
           'Ajouter Fourniture',
           style: TextStyle(fontWeight: FontWeight.bold, color: _kDark),
@@ -614,7 +614,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text('Annuler', style: TextStyle(color: Color(0xFF5B5F66))),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -669,7 +669,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _kDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               elevation: 0,
             ),
             child: const Text('Ajouter', style: TextStyle(color: Colors.white)),
@@ -690,7 +690,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           title: const Text(
             'Ajouter Divers',
             style: TextStyle(fontWeight: FontWeight.bold, color: _kDark),
@@ -772,8 +772,8 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFEFEFEA),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
                       children: [
@@ -800,7 +800,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
                             attachmentType = null;
                           }),
                           child: const Icon(Icons.close,
-                              size: 16, color: Color(0xFF64748B)),
+                              size: 16, color: Color(0xFF5B5F66)),
                         ),
                       ],
                     ),
@@ -812,7 +812,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler', style: TextStyle(color: Color(0xFF64748B))),
+              child: const Text('Annuler', style: TextStyle(color: Color(0xFF5B5F66))),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -873,7 +873,7 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kDark,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                 elevation: 0,
               ),
               child: const Text('Ajouter', style: TextStyle(color: Colors.white)),
@@ -898,8 +898,8 @@ class _ChantierBudgetScreenState extends ConsumerState<ChantierBudgetScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(14),
+              color: const Color(0xFFEFEFEA),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(icon, color: _kDark, size: 24),
           ),

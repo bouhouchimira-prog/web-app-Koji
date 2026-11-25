@@ -132,19 +132,19 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
     final documentsAsync = ref.watch(chantierDocumentsProvider(chantierId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F2EE),
+      backgroundColor: const Color(0xFFF5F5F2),
       floatingActionButton: _buildFAB(),
       body: SafeArea(
         child: tasksAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A))),
+          loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF171B1E))),
           error: (err, stack) => Center(child: Text(messageErreur(err))),
           data: (tasks) {
             return budgetAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A))),
+              loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF171B1E))),
               error: (err, stack) => Center(child: Text(messageErreur(err))),
               data: (budget) {
                 return documentsAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A))),
+                  loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF171B1E))),
                   error: (err, stack) => Center(child: Text(messageErreur(err))),
                   data: (documents) {
                     return CustomScrollView(
@@ -202,12 +202,12 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               height: 38,
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE8E8E8)),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFCFCFC9)),
               ),
               child: const Icon(
                 Icons.chevron_left_rounded,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF171B1E),
                 size: 22,
               ),
             ),
@@ -223,14 +223,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF171B1E),
                   ),
                 ),
                 Text(
                   _chantierName,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF94A3B8),
+                    color: Color(0xFF8A8F98),
                   ),
                 ),
               ],
@@ -245,11 +245,11 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE8E8E8)),
+                border: Border.all(color: const Color(0xFFCFCFC9)),
               ),
               child: const Icon(
                 Icons.info_outline_rounded,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF171B1E),
                 size: 20,
               ),
             ),
@@ -269,14 +269,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
           const Row(
             children: [
               Icon(Icons.description_outlined,
-                  size: 18, color: Color(0xFF0F172A)),
+                  size: 18, color: Color(0xFF171B1E)),
               SizedBox(width: 8),
               Text(
                 'À faire',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF171B1E),
                 ),
               ),
             ],
@@ -289,7 +289,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               child: Text(
                 'Aucune tâche pour le moment',
                 style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: Color(0xFF8A8F98),
                   fontSize: 14,
                 ),
               ),
@@ -315,14 +315,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: isDone ? const Color(0xFF0F172A) : Colors.white,
+                        color: isDone ? const Color(0xFF171B1E) : Colors.white,
                         border: Border.all(
                           color: isDone
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFCBD5E1),
+                              ? const Color(0xFF171B1E)
+                              : const Color(0xFFCFCFC9),
                           width: 1.5,
                         ),
-                        borderRadius: BorderRadius.circular(5),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: isDone
                           ? Icon(Icons.check,
@@ -336,8 +336,8 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                         style: TextStyle(
                           fontSize: 14,
                           color: isDone
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF0F172A),
+                              ? const Color(0xFF8A8F98)
+                              : const Color(0xFF171B1E),
                           decoration: isDone
                               ? TextDecoration.lineThrough
                               : TextDecoration.none,
@@ -377,14 +377,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.bar_chart_rounded, size: 18, color: Color(0xFF0F172A)),
+                    Icon(Icons.bar_chart_rounded, size: 18, color: Color(0xFF171B1E)),
                     SizedBox(width: 8),
                     Text(
                       'Budget',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF171B1E),
                       ),
                     ),
                   ],
@@ -394,7 +394,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF171B1E),
                   ),
                 ),
               ],
@@ -425,7 +425,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               label,
               style: const TextStyle(
                 fontSize: 14,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF171B1E),
               ),
             ),
             RichText(
@@ -436,14 +436,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF171B1E),
                     ),
                   ),
                   TextSpan(
                     text: '/ $estimated €',
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF94A3B8),
+                      color: Color(0xFF8A8F98),
                     ),
                   ),
                 ],
@@ -457,8 +457,8 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
           child: LinearProgressIndicator(
             value: ratio,
             minHeight: 6,
-            backgroundColor: const Color(0xFFE2E8F0),
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0F172A)),
+            backgroundColor: const Color(0xFFCFCFC9),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF171B1E)),
           ),
         ),
         const SizedBox(height: 4),
@@ -466,7 +466,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
           'Réel/ Estimé',
           style: TextStyle(
             fontSize: 11,
-            color: Color(0xFFCBD5E1),
+            color: Color(0xFFCFCFC9),
           ),
         ),
       ],
@@ -499,14 +499,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   const Row(
                     children: [
                       Icon(Icons.description_outlined,
-                          size: 16, color: Color(0xFF0F172A)),
+                          size: 16, color: Color(0xFF171B1E)),
                       SizedBox(width: 6),
                       Text(
                         'Devis',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          color: Color(0xFF171B1E),
                         ),
                       ),
                     ],
@@ -517,7 +517,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF171B1E),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -529,7 +529,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                             : '$quoteCount devis',
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF94A3B8),
+                      color: Color(0xFF8A8F98),
                     ),
                   ),
                 ],
@@ -549,7 +549,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   const Row(
                     children: [
                       Icon(Icons.calendar_today_outlined,
-                          size: 16, color: Color(0xFF0F172A)),
+                          size: 16, color: Color(0xFF171B1E)),
                       SizedBox(width: 6),
                       Flexible(
                         child: Text(
@@ -557,7 +557,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: Color(0xFF171B1E),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -569,7 +569,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                     rdvTitle,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF171B1E),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -579,7 +579,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                     rdvDateStr,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF94A3B8),
+                      color: Color(0xFF8A8F98),
                     ),
                   ),
                 ],
@@ -606,14 +606,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                 const Row(
                   children: [
                     Icon(Icons.folder_outlined,
-                        size: 18, color: Color(0xFF0F172A)),
+                        size: 18, color: Color(0xFF171B1E)),
                     SizedBox(width: 8),
                     Text(
                       'Documents',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF171B1E),
                       ),
                     ),
                   ],
@@ -622,14 +622,14 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(20),
+                    color: const Color(0xFFEFEFEA),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     '${documents.length} total',
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF5B5F66),
                     ),
                   ),
                 ),
@@ -640,8 +640,8 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFF5F5F2),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
                   children: [
@@ -657,7 +657,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF171B1E),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -666,7 +666,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                             'Récent',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF94A3B8),
+                              color: Color(0xFF8A8F98),
                             ),
                           ),
                         ],
@@ -682,7 +682,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                   'Aucun document',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF94A3B8),
+                    color: Color(0xFF8A8F98),
                   ),
                 ),
               ),
@@ -707,7 +707,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
               height: 40,
               decoration: BoxDecoration(
                 color: const Color(0xFFDCFCE7),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: const Icon(Icons.engineering_outlined,
                   size: 20, color: Color(0xFF16A34A)),
@@ -722,18 +722,18 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF171B1E),
                     ),
                   ),
                   SizedBox(height: 2),
                   Text(
                     'Pointage, photos, documents et signalements',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF8A8F98)),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+            const Icon(Icons.chevron_right, color: Color(0xFFCFCFC9)),
           ],
         ),
       ),
@@ -744,7 +744,7 @@ class _ChantierDashboardScreenState extends ConsumerState<ChantierDashboardScree
   Widget _buildFAB() {
     return FloatingActionButton(
       onPressed: _showAddMenu,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF171B1E),
       elevation: 4,
       child: Icon(Icons.add, color: Theme.of(context).colorScheme.surface, size: 28),
     );
@@ -765,7 +765,7 @@ class _SectionCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
@@ -812,7 +812,7 @@ class _AddMenuSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
+              color: const Color(0xFFCFCFC9),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -827,13 +827,13 @@ class _AddMenuSheet extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF171B1E),
                 ),
               ),
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child:
-                    const Icon(Icons.close, color: Color(0xFF94A3B8), size: 22),
+                    const Icon(Icons.close, color: Color(0xFF8A8F98), size: 22),
               ),
             ],
           ),
@@ -870,8 +870,8 @@ class _MenuTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFCFCFC9)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -881,12 +881,12 @@ class _MenuTile extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF171B1E),
               ),
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF94A3B8),
+              color: Color(0xFF8A8F98),
               size: 20,
             ),
           ],

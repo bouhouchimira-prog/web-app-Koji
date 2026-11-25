@@ -303,8 +303,7 @@ class _ProFicheChantierScreenState
 
   Widget _barre(ProDa da, DonneesFiche? d) {
     final devis = d?.devis;
-    return Container(
-      color: const Color(0xFF171B1E),
+    return ProBandeau(
       padding:
           EdgeInsets.fromLTRB(6, MediaQuery.paddingOf(context).top + 6, 16, 8),
       child: Row(

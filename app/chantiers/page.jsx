@@ -2665,7 +2665,7 @@ export default function ProjectsTrackingPage() {
       </div>
 
       {chantierRows.length === 0 && !chantierQuery.trim() && lignesListe.length === 0 ? (
-        <ListeVide titre="Aucun chantier pour l'instant" texte="Un chantier se crée tout seul quand un client signe un devis. Commencez par un devis ou trouvez un chantier sur le Radar." action={{ label: "Démarrer un devis guidé", href: "/devis?new=1&mode=ia" }} alternative={{ label: "Voir le Radar des chantiers", href: "/marketplace" }} />
+        <ListeVide titre="Aucun chantier pour l'instant" texte="Un chantier se crée tout seul quand un client signe votre devis. Vous avez un chantier trouvé ailleurs ? Ajoutez-le avec « Nouveau chantier » pour le suivre dans Koji." action={{ label: "Démarrer un devis guidé", href: "/devis?new=1&mode=ia" }} alternative={{ label: "Voir le Radar des chantiers", href: "/marketplace" }} />
       ) : chantierRows.length === 0 ? (
         <div className="tbl">
           <div className="empty">

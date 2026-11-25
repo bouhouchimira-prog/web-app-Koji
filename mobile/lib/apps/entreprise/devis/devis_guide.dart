@@ -216,8 +216,10 @@ class FraisDevis {
 
   bool get actif => pct > 0;
 
-  /// « Coordination de chantier 10 % ».
-  String get titre => '$label ${pourcent(actif ? pct : pctParDefaut)}';
+  /// « Coordination de chantier 10 % ». L'espace avant « % » est insécable :
+  /// le signe ne part pas seul à la ligne sur un petit écran.
+  String get titre =>
+      '$label ${pourcent(actif ? pct : pctParDefaut).replaceAll(' ', ' ')}';
 }
 
 /// « 10 % », « 5,5 % ».
