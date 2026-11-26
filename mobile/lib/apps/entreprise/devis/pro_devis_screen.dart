@@ -309,7 +309,7 @@ class _ProDevisScreenState extends ConsumerState<ProDevisScreen> {
     return ProBandeau(
       padding: EdgeInsets.fromLTRB(18, MediaQuery.paddingOf(context).top + 12, 8, 12),
       child: Row(children: [
-        const KojiWordmark(height: 14, color: Colors.white),
+        const KojiProLogo(height: 13),
         const SizedBox(width: 12),
         Expanded(child: Text(entreprise, maxLines: 1, overflow: TextOverflow.ellipsis, style: da.text(12, color: const Color(0xFFA7ABB2)))),
         IconButton(tooltip: 'Rechercher', onPressed: () => showEntrepriseSearch(context, ref), icon: const Icon(Icons.search, color: Colors.white, size: 22)),

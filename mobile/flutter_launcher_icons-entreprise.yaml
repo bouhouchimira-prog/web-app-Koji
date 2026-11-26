@@ -1,4 +1,4 @@
-# Icône de l'app « Koji Pro » (flavor entreprise), à partir du logo fourni par Amira le 2026-11-07.
+# Icône de l'app « Koji Pro » (flavor entreprise) : symbole jaune + « KOJI PRO » sur graphite (base validée par Amira le 2026-11-26).
 # Régénérer : dart run flutter_launcher_icons  (traite chaque flavor_launcher_icons-<flavor>.yaml)
 flutter_launcher_icons:
   android: true

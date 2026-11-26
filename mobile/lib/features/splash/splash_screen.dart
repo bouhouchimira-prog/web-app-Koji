@@ -12,7 +12,7 @@ import 'package:koji/features/demarrage/demarrage_logic.dart';
 
 /// Écran de démarrage de chaque app (maquettes PRO-00.1 et CLI-05) : pas de
 /// porte d'entrée commune sur mobile, chaque application a la sienne.
-/// - Koji Pro : mot-symbole blanc sur graphite, « Décrivez le chantier. Koji
+/// - Koji Pro : logo « KOJI PRO » (KOJI blanc, symbole et PRO jaunes) sur graphite, « Décrivez le chantier. Koji
 ///   le chiffre. », étoile jaune de Koji pendant le chargement.
 /// - Koji : mot-symbole sable sur marine, « Votre projet, suivi simplement. »,
 ///   pas d'étoile (l'assistant n'est pas l'identité côté particulier).
@@ -34,6 +34,7 @@ class SplashPalette {
     required this.texte,
     required this.texteChargement,
     required this.etoile,
+    this.logoPro = false,
   });
 
   final Color fond;
@@ -44,6 +45,9 @@ class SplashPalette {
   final String texteChargement;
   final bool etoile;
 
+  /// Koji Pro : logo « KOJI PRO » (symbole et PRO jaunes) au lieu du seul KOJI.
+  final bool logoPro;
+
   static const pro = SplashPalette(
     fond: Color(0xFF171B1E),
     motSymbole: Color(0xFFFFFFFF),
@@ -52,6 +56,7 @@ class SplashPalette {
     texte: 'Décrivez le chantier. Koji le chiffre.',
     texteChargement: 'Chargement de vos chantiers…',
     etoile: true,
+    logoPro: true,
   );
 
   static const client = SplashPalette(
@@ -196,7 +201,9 @@ class SplashView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  KojiWordmark(height: 34, color: p.motSymbole),
+                  p.logoPro
+                      ? KojiProLogo(height: 24, color: p.motSymbole)
+                      : KojiWordmark(height: 34, color: p.motSymbole),
                   const SizedBox(height: 14),
                   Text(p.texte,
                       textAlign: TextAlign.center, style: style(14, p.phrase)),

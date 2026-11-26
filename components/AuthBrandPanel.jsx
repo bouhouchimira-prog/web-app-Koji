@@ -1,5 +1,5 @@
 import { DM_Sans } from "next/font/google";
-import KojiWordmark from "./KojiWordmark";
+import KojiProLogo from "./KojiProLogo";
 import "./auth-hero-enterprise.css";
 import "./auth-pro.css";
 
@@ -119,11 +119,15 @@ const PARTICULIER_PILLS = [
 ];
 
 // Panneau Koji Pro, repris de la maquette PRO-00 (.g2-brand) ; sur
-// téléphone, bandeau graphite (.g2-mb) : mot-symbole et phrase de marque.
+// téléphone, bandeau graphite (.g2-mb) : logo et phrase de marque.
+// Logo « KOJI PRO » (components/KojiProLogo.jsx) pour qu'on voie tout de
+// suite qu'on est sur l'espace entreprise.
 function EntrepriseBrand() {
   return (
-    <section className={`auth-hero-themed entreprise auth-brand-pro ${dmSans.variable}`} aria-label="Koji">
-      <a href="/" className="auth-brand-pro-w" aria-label="Koji, accueil"><KojiWordmark height={20} /></a>
+    <section className={`auth-hero-themed entreprise auth-brand-pro ${dmSans.variable}`} aria-label="Koji Pro">
+      <a href="/" className="auth-brand-pro-w" aria-label="Koji Pro, accueil">
+        <KojiProLogo height={20} />
+      </a>
       <p className="auth-brand-pro-m">Décrivez le chantier. Koji le chiffre.</p>
       <h2>Décrivez le chantier.<br />Koji le chiffre.</h2>
       <ul>

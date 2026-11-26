@@ -9,16 +9,12 @@
   font-family: var(--f), Arial, sans-serif;
 }
 
+/* Logo « KOJI PRO » (components/KojiProLogo.jsx) : tailles dans le composant. */
 .auth-brand-pro-w {
   display: block;
   align-self: flex-start;
   color: #FFFFFF;
-}
-
-.auth-brand-pro-w .kwm {
-  height: 20px;
-  width: auto;
-  fill: currentColor;
+  text-decoration: none;
 }
 
 /* Phrase de marque du bandeau téléphone (maquette .g2-mb) */
@@ -53,10 +49,6 @@
     flex: none;
     gap: 8px;
     padding: 40px 20px 24px;
-  }
-
-  .auth-brand-pro-w .kwm {
-    height: 18px;
   }
 
   .auth-hero-themed.auth-brand-pro .auth-brand-pro-m {
