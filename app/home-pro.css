@@ -1280,6 +1280,9 @@
 /* Grille des formules (components/PricingPlans, partagée avec la page publique /abonnement) :
    surfaces claires codées en dur, donc encre claire aussi en mode sombre. */
 .pro .ab-change{margin-top:24px}
+.pro .ab-cgv{display:flex;align-items:flex-start;gap:10px;margin-top:14px;font-size:14px;line-height:1.45;cursor:pointer}
+.pro .ab-cgv input{margin-top:3px;flex:none;width:16px;height:16px}
+.pro .ab-cgv a{text-decoration:underline}
 .pro .ab-plans{margin-top:20px;color:#171B1E}
 .pro .ab-plans .tarifs-wrap{padding-left:0;padding-right:0}
 :root[data-theme="dark"] .pro .ab-plans{padding:24px;background:#F4F2EC;color-scheme:light}
