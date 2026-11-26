@@ -7,6 +7,7 @@ import 'package:koji/apps/entreprise/entreprise_activity_watcher.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
 import 'package:koji/apps/entreprise/entreprise_search.dart';
 import 'package:koji/apps/entreprise/entreprise_sidebar.dart';
+import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/design/koji_shell.dart';
 import 'package:koji/design/hors_ligne.dart';
 import 'package:koji/design/koji_tokens.dart';
@@ -90,6 +91,7 @@ class EntrepriseShell extends ConsumerWidget {
         children: [
           KojiTopband(
             espace: 'Espace entreprise',
+            logo: const KojiProLogo(height: 15),
             accountName: account?.displayName ?? 'Koji',
             searchHint: 'Rechercher un chantier, un devis, un client…',
             onSearch: () => showEntrepriseSearch(context, ref),

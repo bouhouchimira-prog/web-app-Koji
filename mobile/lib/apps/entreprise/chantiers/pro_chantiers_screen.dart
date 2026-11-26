@@ -226,7 +226,7 @@ class _ProChantiersScreenState extends ConsumerState<ProChantiersScreen> {
           18, MediaQuery.paddingOf(context).top + 12, 8, 12),
       child: Row(
         children: [
-          const KojiWordmark(height: 14, color: Colors.white),
+          const KojiProLogo(height: 13),
           const SizedBox(width: 12),
           Expanded(
             child: Text(entreprise,

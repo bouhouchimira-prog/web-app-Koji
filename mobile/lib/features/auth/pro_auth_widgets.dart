@@ -30,7 +30,7 @@ class ProAuth {
   static const radius = BorderRadius.all(Radius.circular(4));
 }
 
-/// Téléphone : bandeau graphite (mot-symbole et phrase de marque).
+/// Téléphone : bandeau graphite (logo « KOJI PRO » et phrase de marque).
 class ProAuthBand extends StatelessWidget {
   const ProAuthBand({super.key});
 
@@ -43,7 +43,7 @@ class ProAuthBand extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const KojiWordmark(height: 18, color: Colors.white),
+          const KojiProLogo(height: 18),
           const SizedBox(height: 8),
           Text('Décrivez le chantier. Koji le chiffre.',
               style: ProAuth.text(14, color: ProAuth.muted)),
@@ -79,7 +79,7 @@ class ProAuthPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const KojiWordmark(height: 20, color: Colors.white),
+          const KojiProLogo(height: 20),
           const SizedBox(height: 62),
           Text('Décrivez le chantier.\nKoji le chiffre.',
               style: ProAuth.text(34,
@@ -128,11 +128,17 @@ class ProAuthTabs extends StatelessWidget {
                     right: const BorderSide(color: ProAuth.line),
                   ),
                 ),
-                child: Text(label,
-                    style: ProAuth.text(15,
-                        weight: on ? FontWeight.w700 : FontWeight.w600,
-                        color:
-                            on ? ProAuth.graphite : const Color(0xFF3A3F44))),
+                // Très petits écrans (320 px) : le libellé rétrécit au lieu
+                // de faire déborder la rangée d'onglets.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(label,
+                      maxLines: 1,
+                      style: ProAuth.text(15,
+                          weight: on ? FontWeight.w700 : FontWeight.w600,
+                          color:
+                              on ? ProAuth.graphite : const Color(0xFF3A3F44))),
+                ),
               ),
             ),
           ),
@@ -143,9 +149,10 @@ class ProAuthTabs extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          tab('Se connecter', login, () => onChanged(true)),
+          Flexible(child: tab('Se connecter', login, () => onChanged(true))),
           const SizedBox(width: 3),
-          tab('Créer un compte', !login, () => onChanged(false)),
+          Flexible(
+              child: tab('Créer un compte', !login, () => onChanged(false))),
         ],
       ),
     );

@@ -40,6 +40,7 @@ function ParametresAbonnementContent() {
   const [connectMessage, setConnectMessage] = useState("");
   const [pendingPlan, setPendingPlan] = useState("");
   const [planError, setPlanError] = useState("");
+  const [cgvAccepted, setCgvAccepted] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") setBillingMessage(L.settings.checkoutSuccess);
@@ -93,11 +94,26 @@ function ParametresAbonnementContent() {
   async function handleChoosePlan(plan, interval) {
     if (plan === "start") return; // Deja la formule gratuite par defaut, rien a faire ici.
     setPlanError("");
+    // Abonné : changement de formule par le portail Stripe (prorata), jamais
+    // un second abonnement.
+    if (hasBillingAccount && (billingStatus === "active" || billingStatus === "trialing" || billingStatus === "past_due")) {
+      openBillingPortal();
+      return;
+    }
+    if (!cgvAccepted) {
+      setPlanError("Cochez la case pour accepter les conditions générales de vente.");
+      return;
+    }
     setPendingPlan(plan);
     try {
-      const response = await apiSend("/api/billing/checkout", { interval, plan });
+      const response = await apiSend("/api/billing/checkout", { interval, plan, acceptedCgv: true });
       window.location.href = response.url;
     } catch (error) {
+      if (error.code === "abonnement_existant") {
+        setPendingPlan("");
+        openBillingPortal();
+        return;
+      }
       setPlanError(error.message || "Impossible de démarrer le paiement.");
       setPendingPlan("");
     }
@@ -169,6 +185,10 @@ function ParametresAbonnementContent() {
         <section className="card ab-change">
           <div className="card-h"><h2>{L.settings.changePlan}</h2></div>
           {planError ? <p className="notice notice-err" role="alert">{planError}</p> : null}
+          <label className="ab-cgv">
+            <input type="checkbox" checked={cgvAccepted} onChange={(e) => { setCgvAccepted(e.target.checked); setPlanError(""); }} />
+            <span>J'accepte les <a href="/legal/conditions-professionnels" target="_blank" rel="noopener noreferrer">conditions générales de vente</a> de l'abonnement Koji.</span>
+          </label>
           <div className="ab-plans">
             <PricingPlans
               currentPlan={currentPlan}

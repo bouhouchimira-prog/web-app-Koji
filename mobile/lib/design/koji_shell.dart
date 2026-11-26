@@ -16,6 +16,7 @@ class KojiTopband extends StatelessWidget {
     this.onNotifications,
     this.unreadCount = 0,
     this.onAccount,
+    this.logo,
   });
 
   final String espace;
@@ -25,6 +26,9 @@ class KojiTopband extends StatelessWidget {
   final VoidCallback? onNotifications;
   final int unreadCount;
   final VoidCallback? onAccount;
+
+  /// Remplace le logo Koji + nom de l'espace (Koji Pro : logo « KOJI PRO »).
+  final Widget? logo;
 
   static const height = 72.0;
 
@@ -39,13 +43,15 @@ class KojiTopband extends StatelessWidget {
         children: [
           SizedBox(
             width: 248,
-            child: KojiLogo(
-              size: 30,
-              wordColor: Colors.white,
-              wordSize: 19,
-              subtitle: espace,
-              subtitleColor: KojiColors.onNavyMuted,
-            ),
+            child: logo != null
+                ? Align(alignment: Alignment.centerLeft, child: logo)
+                : KojiLogo(
+                    size: 30,
+                    wordColor: Colors.white,
+                    wordSize: 19,
+                    subtitle: espace,
+                    subtitleColor: KojiColors.onNavyMuted,
+                  ),
           ),
           Expanded(
             child: Center(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:koji/app/account_provider.dart';
 import 'package:koji/apps/entreprise/entreprise_nav.dart';
+import 'package:koji/design/koji_brand_marks.dart';
 import 'package:koji/design/koji_shell.dart';
 import 'package:koji/design/koji_tokens.dart';
 import 'package:koji/design/koji_widgets.dart';
@@ -31,12 +32,7 @@ class EntrepriseSidebar extends ConsumerWidget {
       header: inDrawer
           ? Padding(
               padding: const EdgeInsets.only(left: 12, top: 4),
-              child: KojiLogo(
-                size: 30,
-                markColor: context.koji.heading,
-                wordSize: 18,
-                subtitle: 'Espace entreprise',
-              ),
+              child: KojiProLogo(height: 15, color: context.koji.heading),
             )
           : null,
       onSelect: (item) {
@@ -83,8 +79,9 @@ class _AccountCard extends ConsumerWidget {
               KojiAvatar(
                 name,
                 size: 36,
-                background: KojiColors.navy,
-                foreground: Colors.white,
+                // Couleurs du logo Koji Pro (graphite, jaune).
+                background: KojiColors.proGraphite,
+                foreground: KojiColors.proYellow,
               ),
               const SizedBox(width: 12),
               Expanded(

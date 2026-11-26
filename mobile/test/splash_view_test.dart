@@ -36,7 +36,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(palette.texte), findsOneWidget);
       expect(find.text(palette.texteChargement), findsOneWidget);
-      expect(find.bySemanticsLabel('Koji'), findsOneWidget);
+      expect(find.bySemanticsLabel(palette.logoPro ? 'Koji Pro' : 'Koji'),
+          findsOneWidget);
       await expectLater(find.byType(SplashView),
           matchesGoldenFile('goldens/splash_$nom.png'));
     });
@@ -45,6 +46,8 @@ void main() {
   test('palettes de la charte v2', () {
     expect(SplashPalette.pro.fond, const Color(0xFF171B1E));
     expect(SplashPalette.pro.etoile, isTrue);
+    expect(SplashPalette.pro.logoPro, isTrue);
+    expect(SplashPalette.client.logoPro, isFalse);
     expect(SplashPalette.client.fond, const Color(0xFF101529));
     expect(SplashPalette.client.motSymbole, const Color(0xFFE7D8C5));
     expect(SplashPalette.client.etoile, isFalse);

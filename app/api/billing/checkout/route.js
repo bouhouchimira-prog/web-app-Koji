@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { badRequest, ok } from "../../../../lib/http";
 import { getVerifiedAuth } from "../../../../lib/server-auth";
 import { getStripe, priceIdFor } from "../../../../lib/stripe";
@@ -42,7 +43,35 @@ export async function POST(request) {
   const businessInfo = profile?.business_info || {};
   let customerId = businessInfo._stripeCustomerId || "";
 
+  // CGV (article 6) : le client les accepte avant de payer. La case de la
+  // page Abonnement envoie acceptedCgv ; sans elle, pas de paiement.
+  if (body.acceptedCgv !== true) {
+    return badRequest("Acceptez les conditions générales de vente pour continuer.", 400);
+  }
+
   try {
+    // Un abonné qui change de formule passe par le portail Stripe (prorata),
+    // jamais par un nouveau Checkout : sinon il paierait deux abonnements.
+    if (businessInfo._stripeSubscriptionId) {
+      const existant = await stripe.subscriptions.retrieve(businessInfo._stripeSubscriptionId).catch(() => null);
+      if (existant && !["canceled", "incomplete_expired"].includes(existant.status)) {
+        return NextResponse.json({
+          error: "Vous avez déjà un abonnement : le changement de formule se fait depuis la gestion de l'abonnement.",
+          code: "abonnement_existant"
+        }, { status: 409 });
+      }
+    }
+
+    // Preuve de l'acceptation des CGV (date, formule, périodicité).
+    const cgvAcceptedAt = new Date().toISOString();
+    const { error: cgvError } = await getSupabaseAdmin()
+      .from("users")
+      .update({ business_info: { ...businessInfo, _cgvAcceptedAt: cgvAcceptedAt, _cgvAcceptedFor: `${plan}/${interval}` } })
+      .eq("id", auth.userId);
+    if (cgvError) return badRequest(`Enregistrement de l'acceptation des CGV impossible: ${cgvError.message}`, 500);
+    businessInfo._cgvAcceptedAt = cgvAcceptedAt;
+    businessInfo._cgvAcceptedFor = `${plan}/${interval}`;
+
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: profile?.email || "",
@@ -61,7 +90,7 @@ export async function POST(request) {
 
     const lineItems = [{ price: priceId, quantity: 1 }];
 
-    const metadata = { kojiUserId: auth.userId, interval, plan };
+    const metadata = { kojiUserId: auth.userId, interval, plan, cgvAcceptedAt: businessInfo._cgvAcceptedAt };
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

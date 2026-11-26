@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+
+// Les conditions de Koji sont sur le site principal (26 nov. 2026).
 export default function TermsPage() {
-  return <div className="p-20">Conditions d'Utilisation (Espace Réservé)</div>
+  redirect("https://getkoji.io/legal/conditions-professionnels");
 }
