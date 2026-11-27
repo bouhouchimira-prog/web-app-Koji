@@ -1500,6 +1500,12 @@
       "theme": "Koji Pro (novembre 2026)",
       "title": "Signaler et Bloquer : traitement des signalements depuis le back-office, et les mêmes boutons dans l’app Koji",
       "detail": "Exigence d’Apple pour les apps où les utilisateurs échangent des messages. Chaque signalement (et chaque blocage) part par e-mail à entreprise@getkoji.io et ablexpertrenov@gmail.com, avec le lien de la nouvelle page Signalements du back-office. Depuis cette page, l’équipe voit les messages de l’auteur dans le fil signalé et peut retirer le contenu (remplacé par « Message retiré par l’équipe Koji. », une demande du Radar est retirée), suspendre ou réactiver le compte de l’auteur, puis classer ; chaque décision est inscrite au journal des accès. Un compte suspendu ne peut plus se connecter ni rien publier, sur le site comme dans les apps. L’app Koji (particuliers) a maintenant « Signaler » et « Bloquer » dans ses messages avec les entreprises (Radar et devis) ; un blocage masque les messages de l’entreprise sur le téléphone et survit aux mises à jour de l’app. Les e-mails de signalement ne peuvent plus se perdre à la fin de la requête."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Pro (novembre 2026)",
+      "title": "Une seule politique de confidentialité, celle de getkoji.io, pour le site et les stores",
+      "detail": "L’ancienne copie du back-office (koji-admin-three.vercel.app) affichait encore une politique de confidentialité sans le nom de la société ni d’adresse de contact. C’est pourtant l’adresse déclarée à Google Play et à l’App Store. Elle renvoie maintenant vers https://getkoji.io/legal/confidentialite, qui nomme ABL EXPERT RENOV et donne contact@getkoji.io. Toutes les autres pages de cette ancienne copie renvoient vers getkoji.io : l’ancien back-office n’est plus accessible. Le back-office actuel, admin.getkoji.io, n’a pas changé. Dans l’app Koji Pro, « Koji » s’écrit maintenant sans accent dans le pied de page des devis PDF et à l’ajout d’un contact."
     }
   ]
 }
