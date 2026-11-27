@@ -159,7 +159,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
 <header class="entete">
   <p class="sur">Koji et Koji Pro · liste établie le 20 novembre 2026, mise à jour le 27 novembre</p>
   <h1>Tâches priorisées</h1>
-  <p class="chapo">Tout ce qui reste à faire après la refonte, classé de la tâche la plus urgente à la moins prioritaire. 50 tâches, quatre niveaux de priorité. Les points de décision détaillés restent dans le document des points à valider.</p>
+  <p class="chapo">Tout ce qui reste à faire après la refonte, classé de la tâche la plus urgente à la moins prioritaire. 52 tâches, quatre niveaux de priorité. Les points de décision détaillés restent dans le document des points à valider.</p>
   <p class="etat" id="etat-db" role="status" hidden></p>
 </header>
 
@@ -178,8 +178,8 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <tbody>
 <tr><td><a class="prio p0" href="#P0">P0</a></td><th scope="row">Critique</th><td>Échéance légale ou sécurité.</td><td>À traiter tout de suite.</td><td class="nb">5</td></tr>
 <tr><td><a class="prio p1" href="#P1">P1</a></td><th scope="row">Important</th><td>Nécessaire pour livrer aux utilisateurs.</td><td>Sprint en cours.</td><td class="nb">21</td></tr>
-<tr><td><a class="prio p2" href="#P2">P2</a></td><th scope="row">À planifier</th><td>Solidité et qualité du service.</td><td>Sprint suivant.</td><td class="nb">13</td></tr>
-<tr><td><a class="prio p3" href="#P3">P3</a></td><th scope="row">Plus tard</th><td>Confort, contenu, évolutions.</td><td>Quand le reste est fait.</td><td class="nb">11</td></tr>
+<tr><td><a class="prio p2" href="#P2">P2</a></td><th scope="row">À planifier</th><td>Solidité et qualité du service.</td><td>Sprint suivant.</td><td class="nb">14</td></tr>
+<tr><td><a class="prio p3" href="#P3">P3</a></td><th scope="row">Plus tard</th><td>Confort, contenu, évolutions.</td><td>Quand le reste est fait.</td><td class="nb">12</td></tr>
     </tbody>
   </table>
   </div>
@@ -321,13 +321,13 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <span class="prio p1">P1</span>
     <label class="coche" hidden><input type="checkbox" id="fait-T-06" data-fait="T-06"><span>Fait</span></label>
   </header>
-  <p class="desc">Mise à jour du 27 novembre : la version la plus récente de Koji Pro est la version 87 (second build du 27 novembre : corrections des retours du build 64, sprints 1 à 4, logo KOJI PRO et « Koji » sans accent). Celle de Koji est la version 82 (22 novembre). Elles sont en brouillon dans le test interne. Les déployer depuis la Play Console, puis les passer en test fermé. Les versions plus anciennes restées en brouillon n'ont plus besoin d'être déployées.</p>
+  <p class="desc">Mise à jour du 27 novembre : la version la plus récente de Koji Pro est la version 88 (troisième build du 27 novembre : corrections des retours du build 64, sprints 1 à 4, logo KOJI PRO, « Koji » sans accent et fiche chantier en une seule requête). Celle de Koji est la version 82 (22 novembre). Elles sont en brouillon dans le test interne. Les déployer depuis la Play Console, puis les passer en test fermé. Les versions plus anciennes restées en brouillon n'ont plus besoin d'être déployées.</p>
   <dl class="fiche">
     <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
     <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
     <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Première version Android avec toute la refonte.</span></dd></div>
     <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
-    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji Pro version 87 et Koji version 82 s'installent chez les testeurs.</dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji Pro version 88 et Koji version 82 s'installent chez les testeurs.</dd></div>
   </dl>
 </article>
 
@@ -679,7 +679,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
       <h2 id="titre-P2">À planifier</h2>
       <p>Solidité et qualité du service. Sprint suivant.</p>
     </div>
-    <p class="compte"><b>13</b> tâches<span class="avance" data-compte="P2" hidden></span></p>
+    <p class="compte"><b>14</b> tâches<span class="avance" data-compte="P2" hidden></span></p>
   </div>
   
 <article class="tache" id="T-22" data-id="T-22" data-prio="P2" data-deps="">
@@ -902,6 +902,23 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <div class="resultat"><dt>Résultat attendu</dt><dd>koji-admin-three.vercel.app/policy redirige (308) vers la politique de getkoji.io.</dd></div>
   </dl>
 </article>
+
+<article class="tache" id="T-51" data-id="T-51" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-51</span>
+    <h3>iPhone : passer la version minimum d'iOS à 15</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-51" data-fait="T-51"><span>Fait</span></label>
+  </header>
+  <p class="desc">Avertissement d'Apple reçu le 27 novembre sur le build 68 de Koji Pro (ITMS-90068) : l'app accepte les iPhone sous iOS 13, et à partir d'avril 2027 Apple exigera iOS 15 au minimum. Corrigé le 27 novembre (commit 2bd3953) pour Koji et Koji Pro : Podfile, réglages des neuf configurations du projet et AppFrameworkInfo.plist passent à 15.0. Seuls les iPhone restés sous iOS 13 ou 14 ne pourront plus installer l'app. Il reste à constater qu'un build iPhone réussit avec ce réglage.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span> <span class="note">Obligatoire en avril 2027.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Sans lui, Apple refusera les envois.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le prochain build iPhone de Koji Pro passe, et l'e-mail d'Apple après l'envoi ne contient plus l'avertissement ITMS-90068.</dd></div>
+  </dl>
+</article>
 </section>
 
 <section class="niveau" id="P3" aria-labelledby="titre-P3">
@@ -911,7 +928,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
       <h2 id="titre-P3">Plus tard</h2>
       <p>Confort, contenu, évolutions. Quand le reste est fait.</p>
     </div>
-    <p class="compte"><b>11</b> tâches<span class="avance" data-compte="P3" hidden></span></p>
+    <p class="compte"><b>12</b> tâches<span class="avance" data-compte="P3" hidden></span></p>
   </div>
   
 <article class="tache" id="T-33" data-id="T-33" data-prio="P3" data-deps="">
@@ -1098,6 +1115,23 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
     <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
     <div class="resultat"><dt>Résultat attendu</dt><dd>Plus aucun « Kôji » visible dans l'app ni dans les devis PDF.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-52" data-id="T-52" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-52</span>
+    <h3>iPhone : construire les apps avec Xcode 27 avant avril 2027</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-52" data-fait="T-52"><span>Fait</span></label>
+  </header>
+  <p class="desc">Avertissement d'Apple reçu le 27 novembre sur le build 68 de Koji Pro (ITMS-90725) : l'app est construite avec le SDK iOS 26.5. À partir d'avril 2027, Apple n'acceptera que les builds faits avec le SDK iOS 27, inclus dans Xcode 27. Le build iPhone prend déjà automatiquement la dernière version stable de Xcode installée sur les serveurs de GitHub : rien à changer tant qu'elle n'est pas passée à Xcode 27. À faire début 2027 : vérifier la version de Xcode utilisée, lancer un build d'essai, et mettre Flutter à jour si la version actuelle (3.38.5) ne compile pas avec Xcode 27.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, sur demande de la responsable technique (un build iPhone consomme des minutes Mac).</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span> <span class="note">Avant avril 2027. Prévoir un essai en janvier ou février.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Sans lui, aucune mise à jour iPhone ne pourra être envoyée.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Un build iPhone fait avec Xcode 27 passe, et l'e-mail d'Apple ne contient plus l'avertissement ITMS-90725.</dd></div>
   </dl>
 </article>
 </section>
