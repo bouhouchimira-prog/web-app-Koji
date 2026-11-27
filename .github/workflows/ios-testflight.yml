@@ -40,6 +40,11 @@ on:
         description: 'Numéro de build (vide = 56 + numéro du run)'
         type: string
         required: false
+      xcode:
+        description: "Xcode utilisé (27 = SDK iOS 27, exigé par Apple dès avril 2027 ; 26 = secours)"
+        type: choice
+        options: ['27', '26']
+        default: '27'
 
 env:
   FLUTTER_VERSION: '3.38.5'
@@ -47,7 +52,10 @@ env:
 jobs:
   ios:
     name: ${{ matrix.app }}
-    runs-on: macos-latest
+    # Apple (ITMS-90725): from April 2027 uploads must be built with the iOS 27
+    # SDK, i.e. Xcode 27, which GitHub only ships on the "xcode-27" image
+    # (macos-latest stops at Xcode 26.x). "26" keeps the old runner as a fallback.
+    runs-on: ${{ inputs.xcode == '26' && 'macos-latest' || 'xcode-27' }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -93,14 +101,18 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      # App Store Connect only accepts builds made with Xcode 26 / the iOS 26
-      # SDK or later; fail here with a clear message rather than at upload.
+      # Fail here with a clear message rather than at upload if the runner
+      # does not have the Xcode generation that was asked for.
       - name: Vérifier la version de Xcode
+        env:
+          WANTED: ${{ inputs.xcode || '27' }}
         run: |
           xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --find altool || { echo "::error::altool absent de ce Xcode : l'envoi TestFlight ne marchera pas."; exit 1; }
           major=$(xcodebuild -version | head -n 1 | sed -E 's/Xcode ([0-9]+).*/\1/')
-          if [ "$major" -lt 26 ]; then
-            echo "::error::Xcode $major sur ce runner ; Apple exige Xcode 26 ou plus. Remplacer runs-on par macos-26."
+          if [ "$major" -lt "$WANTED" ]; then
+            echo "::error::Xcode $major sur ce runner alors que Xcode $WANTED est demandé (Apple exige le SDK iOS 27 dès avril 2027)."
             exit 1
           fi
 
