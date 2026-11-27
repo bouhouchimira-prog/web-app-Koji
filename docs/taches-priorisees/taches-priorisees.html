@@ -1,0 +1,1118 @@
+<title>Tâches priorisées Koji</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Shippori+Mincho:wght@600;700&display=swap">
+<style>
+/* Document à une colonne (60rem). Chaque tâche est une fiche séparée par un filet ;
+   la priorité se lit à sa pastille, l'urgence et l'importance à quatre points. Charte Koji. */
+:root {
+  --bg: #F8F6F1;        /* riz */
+  --surface: #FFFFFF;
+  --ink: #101529;       /* marine */
+  --muted: #5A6075;
+  --line: #E2DACB;
+  --sable: #E7D8C5;
+  --p0: #A4161A; --p0-bg: #FBE4E1;
+  --p1: #96480A; --p1-bg: #FCEBD3;
+  --p2: #1B4B8F; --p2-bg: #E1EBF8;
+  --p3: #4A5066; --p3-bg: #EAE7DF;
+  --ok: #1E6B45; --ok-bg: #DDEFE3;
+  --titre: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+  --texte: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1020; --surface: #151A2E; --ink: #F3EEE5; --muted: #A9AEC0; --line: #2B3152; --sable: #E7D8C5;
+    --p0: #FF9B93; --p0-bg: #40191B;
+    --p1: #FFC078; --p1-bg: #3D2A12;
+    --p2: #9DBDFF; --p2-bg: #1A2A4D;
+    --p3: #B8BDD0; --p3-bg: #262B40;
+    --ok: #7FD3A4; --ok-bg: #153325;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1020; --surface: #151A2E; --ink: #F3EEE5; --muted: #A9AEC0; --line: #2B3152; --sable: #E7D8C5;
+  --p0: #FF9B93; --p0-bg: #40191B;
+  --p1: #FFC078; --p1-bg: #3D2A12;
+  --p2: #9DBDFF; --p2-bg: #1A2A4D;
+  --p3: #B8BDD0; --p3-bg: #262B40;
+  --ok: #7FD3A4; --ok-bg: #153325;
+  color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--texte); font-size: 1rem; line-height: 1.55; }
+* { box-sizing: border-box; }
+h1, h2, h3, p, dl, dd, ol, table { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--p2); outline-offset: 2px; border-radius: 4px; }
+
+.page {
+  max-width: 60rem; margin: 0 auto;
+  padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 3rem;
+}
+
+/* En-tête */
+.entete { display: flex; flex-direction: column; gap: .75rem; }
+.sur { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+h1 { font-family: var(--titre); font-weight: 700; font-size: clamp(2.25rem, 6vw, 3.25rem); line-height: 1.08; text-wrap: balance; }
+.chapo { max-width: 65ch; font-size: 1.0625rem; }
+.etat { max-width: 65ch; padding: .6rem .9rem; border-radius: 8px; background: var(--p3-bg); color: var(--ink); font-size: .9375rem; }
+
+/* Blocs d'explication */
+.bloc { display: flex; flex-direction: column; gap: 1rem; }
+h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height: 1.2; text-wrap: balance; }
+.bloc > p { max-width: 70ch; }
+.petit { font-size: .9375rem; color: var(--muted); }
+.petit b { color: var(--ink); }
+.sous { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-top: .5rem; }
+
+.regles { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 2rem; counter-reset: regle; }
+.regles li { counter-increment: regle; display: grid; grid-template-columns: 1.75rem minmax(0, 1fr); gap: .5rem; }
+.regles li::before { content: counter(regle); font-family: var(--titre); font-weight: 700; font-size: 1.25rem; line-height: 1.3; color: var(--muted); }
+.regles b { display: block; }
+
+.deroule { overflow-x: auto; }
+.legende { width: 100%; min-width: 34rem; border-collapse: collapse; font-size: .9375rem; }
+.legende caption { text-align: left; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-bottom: .5rem; }
+.legende th, .legende td { text-align: left; padding: .6rem .75rem .6rem 0; border-top: 1px solid var(--line); vertical-align: baseline; }
+.legende thead th { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; border-top: 0; }
+.legende .nb { text-align: right; padding-right: 0; font-variant-numeric: tabular-nums; font-weight: 700; }
+.legende thead .nb { font-weight: 500; }
+
+.chaines { display: grid; gap: .5rem; }
+.chaines > div { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: .25rem 1rem; padding-top: .5rem; border-top: 1px solid var(--line); }
+.chaines dt { font-weight: 700; }
+
+/* Pastilles */
+.prio { display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .02em; line-height: 1; padding: .3rem .55rem; border-radius: 999px; text-decoration: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prio.grand { font-size: 1rem; padding: .45rem .8rem; }
+.p0 { background: var(--p0-bg); color: var(--p0); }
+.p1 { background: var(--p1-bg); color: var(--p1); }
+.p2 { background: var(--p2-bg); color: var(--p2); }
+.p3 { background: var(--p3-bg); color: var(--p3); }
+
+.ref { display: inline-block; font-variant-numeric: tabular-nums; font-weight: 700; font-size: .875em; text-decoration: none; padding: 0 .4rem; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); white-space: nowrap; }
+.ref:hover { border-color: var(--ink); }
+.ref.dep-faite { background: var(--ok-bg); color: var(--ok); border-color: transparent; text-decoration: line-through; }
+
+/* Niveaux de priorité */
+.niveau { display: flex; flex-direction: column; }
+.bandeau { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; padding: 1rem 0 1.25rem; border-top: 2px solid var(--ink); }
+.bandeau > div { flex: 1 1 14rem; min-width: 0; }
+.bandeau p { color: var(--muted); font-size: .9375rem; }
+.bandeau .compte { margin-left: auto; text-align: right; color: var(--ink); font-size: .9375rem; white-space: nowrap; }
+.compte b { font-variant-numeric: tabular-nums; }
+.avance { display: block; color: var(--muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+
+/* Une tâche */
+.tache { display: flex; flex-direction: column; gap: .75rem; padding: 1.5rem 0; border-top: 1px solid var(--line); scroll-margin-top: 1rem; }
+.tache:target { background: var(--surface); box-shadow: 0 0 0 .75rem var(--surface); border-radius: 4px; }
+.tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem .75rem; }
+.num { font-variant-numeric: tabular-nums; font-weight: 700; font-size: .875rem; color: var(--muted); letter-spacing: .02em; }
+.tete h3 { flex: 1 1 16rem; min-width: 0; font-size: 1.125rem; line-height: 1.3; font-weight: 700; text-wrap: balance; }
+.coche { display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .65rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: .875rem; font-weight: 500; cursor: pointer; }
+.coche input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--ok); }
+.coche:has(input:disabled) { cursor: default; color: var(--muted); }
+.desc { max-width: 72ch; }
+
+.fiche { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem 1.5rem; }
+.fiche > div { min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.fiche dt { font-size: .6875rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.fiche dd { font-size: .9375rem; overflow-wrap: anywhere; }
+.fiche .resultat { grid-column: 1 / -1; padding: .8rem 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.note { display: block; color: var(--muted); font-size: .875rem; }
+.rien { color: var(--muted); }
+
+.niv { display: inline-flex; align-items: center; gap: .45rem; }
+.points { display: inline-flex; gap: .2rem; }
+.points i { width: .5rem; height: .5rem; border-radius: 50%; border: 1.5px solid currentColor; opacity: .45; }
+.points i.plein { background: currentColor; opacity: 1; }
+.niv4 { color: var(--p0); }
+.niv3 { color: var(--p1); }
+.niv2 { color: var(--p2); }
+.niv1 { color: var(--p3); }
+
+.tache.faite h3 { text-decoration: line-through; color: var(--muted); }
+.tache.faite .desc, .tache.faite .fiche { opacity: .55; }
+
+.cote { padding-top: 1.5rem; border-top: 2px solid var(--ink); }
+
+@media (max-width: 760px) {
+  .page { gap: 2.25rem; padding-block: 1.5rem 3rem; }
+  .regles { grid-template-columns: minmax(0, 1fr); }
+  .fiche { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chaines > div { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 420px) {
+  .fiche { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+</style>
+
+<div class="page">
+<header class="entete">
+  <p class="sur">Koji et Koji Pro · liste établie le 20 novembre 2026, mise à jour le 27 novembre</p>
+  <h1>Tâches priorisées</h1>
+  <p class="chapo">Tout ce qui reste à faire après la refonte, classé de la tâche la plus urgente à la moins prioritaire. 45 tâches, quatre niveaux de priorité. Les points de décision détaillés restent dans le document des points à valider.</p>
+  <p class="etat" id="etat-db" role="status" hidden></p>
+</header>
+
+<section class="bloc" aria-labelledby="t-mode">
+  <h2 id="t-mode">Comment se servir de cette liste</h2>
+  <ol class="regles">
+    <li><span><b>Une seule liste, dans l'ordre.</b> On prend la première tâche du haut qui ne dépend d'aucune tâche encore ouverte.</span></li>
+    <li><span><b>Une tâche est finie quand son résultat attendu est constaté.</b> On la coche à ce moment-là.</span></li>
+    <li><span><b>On finit avant d'ouvrir.</b> Peu de tâches en cours à la fois, pour livrer plus vite.</span></li>
+    <li><span><b>Un point chaque semaine.</b> À la fin du sprint, on revoit l'ordre et on ajoute les nouvelles tâches.</span></li>
+  </ol>
+  <div class="deroule">
+  <table class="legende">
+    <caption>Les quatre niveaux de priorité</caption>
+    <thead><tr><th scope="col">Niveau</th><th scope="col">Nom</th><th scope="col">Ce qu'on y range</th><th scope="col">Quand</th><th scope="col" class="nb">Tâches</th></tr></thead>
+    <tbody>
+<tr><td><a class="prio p0" href="#P0">P0</a></td><th scope="row">Critique</th><td>Échéance légale ou sécurité.</td><td>À traiter tout de suite.</td><td class="nb">5</td></tr>
+<tr><td><a class="prio p1" href="#P1">P1</a></td><th scope="row">Important</th><td>Nécessaire pour livrer aux utilisateurs.</td><td>Sprint en cours.</td><td class="nb">18</td></tr>
+<tr><td><a class="prio p2" href="#P2">P2</a></td><th scope="row">À planifier</th><td>Solidité et qualité du service.</td><td>Sprint suivant.</td><td class="nb">12</td></tr>
+<tr><td><a class="prio p3" href="#P3">P3</a></td><th scope="row">Plus tard</th><td>Confort, contenu, évolutions.</td><td>Quand le reste est fait.</td><td class="nb">10</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3 class="sous">Les trois rôles</h3>
+  <dl class="chaines">
+    <div><dt>Direction</dt><dd>Décide, valide et détient les comptes de l'entreprise.</dd></div>
+    <div><dt>Responsable technique</dt><dd>Pilote le projet et agit dans les consoles : Stripe, Vercel, Supabase, stores.</dd></div>
+    <div><dt>Développement</dt><dd>Écrit et corrige le code, puis contrôle le résultat.</dd></div>
+  </dl>
+  <p class="petit"><b>Urgence</b> : le temps presse-t-il ? <b>Importance</b> : que se passe-t-il pour le projet si la tâche n'est pas faite ? Les deux sont notées sur quatre niveaux : basse, moyenne, haute, très haute.</p>
+</section>
+
+<section class="bloc" aria-labelledby="t-ordre">
+  <h2 id="t-ordre">Par où commencer</h2>
+  <p><b>Sprint 1, cette semaine.</b> Les cinq tâches P0, puis les tâches P1 qui ne dépendent de rien : <a class="ref" href="#T-06" data-dep="T-06">T-06</a> <a class="ref" href="#T-09" data-dep="T-09">T-09</a> <a class="ref" href="#T-13" data-dep="T-13">T-13</a> <a class="ref" href="#T-16" data-dep="T-16">T-16</a> <a class="ref" href="#T-17" data-dep="T-17">T-17</a> <a class="ref" href="#T-41" data-dep="T-41">T-41</a> <a class="ref" href="#T-42" data-dep="T-42">T-42</a>. La direction est attendue en premier sur <a class="ref" href="#T-01" data-dep="T-01">T-01</a>, <a class="ref" href="#T-02" data-dep="T-02">T-02</a> et <a class="ref" href="#T-09" data-dep="T-09">T-09</a>.</p>
+  <p><b>Sprint 2.</b> Le reste des P1, dans l'ordre des enchaînements ci-dessous. Les P2 et les P3 viennent ensuite.</p>
+  <h3 class="sous">Enchaînements à respecter</h3>
+  <dl class="chaines">
+    <div><dt>Paiement en ligne</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a> et <a class="ref" href="#T-03" data-dep="T-03">T-03</a>, puis <a class="ref" href="#T-14" data-dep="T-14">T-14</a>, puis <a class="ref" href="#T-15" data-dep="T-15">T-15</a></dd></div>
+    <div><dt>iPhone</dt><dd><a class="ref" href="#T-09" data-dep="T-09">T-09</a>, puis <a class="ref" href="#T-10" data-dep="T-10">T-10</a> pour Koji ; <a class="ref" href="#T-09" data-dep="T-09">T-09</a>, puis <a class="ref" href="#T-11" data-dep="T-11">T-11</a>, puis <a class="ref" href="#T-12" data-dep="T-12">T-12</a> pour Koji Pro (<a class="ref" href="#T-41" data-dep="T-41">T-41</a> faite)</dd></div>
+    <div><dt>Android</dt><dd><a class="ref" href="#T-06" data-dep="T-06">T-06</a>, puis <a class="ref" href="#T-07" data-dep="T-07">T-07</a>, puis <a class="ref" href="#T-08" data-dep="T-08">T-08</a></dd></div>
+    <div><dt>Urgences</dt><dd><a class="ref" href="#T-17" data-dep="T-17">T-17</a> et <a class="ref" href="#T-07" data-dep="T-07">T-07</a>, puis <a class="ref" href="#T-18" data-dep="T-18">T-18</a></dd></div>
+    <div><dt>Décisions de la réunion</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a>, puis <a class="ref" href="#T-19" data-dep="T-19">T-19</a>, <a class="ref" href="#T-20" data-dep="T-20">T-20</a>, <a class="ref" href="#T-21" data-dep="T-21">T-21</a> et <a class="ref" href="#T-25" data-dep="T-25">T-25</a></dd></div>
+    <div><dt>Clés</dt><dd><a class="ref" href="#T-03" data-dep="T-03">T-03</a>, puis <a class="ref" href="#T-04" data-dep="T-04">T-04</a>, puis <a class="ref" href="#T-32" data-dep="T-32">T-32</a></dd></div>
+  </dl>
+</section>
+
+
+<section class="niveau" id="P0" aria-labelledby="titre-P0">
+  <div class="bandeau">
+    <span class="prio grand p0">P0</span>
+    <div>
+      <h2 id="titre-P0">Critique</h2>
+      <p>Échéance légale ou sécurité. À traiter tout de suite.</p>
+    </div>
+    <p class="compte"><b>5</b> tâches<span class="avance" data-compte="P0" hidden></span></p>
+  </div>
+  
+<article class="tache" id="T-01" data-id="T-01" data-prio="P0" data-deps="">
+  <header class="tete">
+    <span class="num">T-01</span>
+    <h3>Décider de la suite à donner à l'exposition du back-office</h3>
+    <span class="prio p0">P0</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-01" data-fait="T-01"><span>Fait</span></label>
+  </header>
+  <p class="desc">Du 17 novembre vers 17 h 30 au 18 novembre vers 12 h 20, les pages du back-office pouvaient être lues sans connexion par une requête fabriquée. La lecture seule était possible : noms, e-mails et téléphones de particuliers, identité des entreprises, listes de devis et de demandes, conversations. C'est corrigé depuis le 18 novembre. Il reste à décider, avec un conseil juridique, s'il faut inscrire l'incident au registre des violations de données et le notifier à la CNIL.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction d'ABL Expert Renov, responsable de traitement, avec la responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Le délai de 72 heures se termine le 21 novembre vers 12 h.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Obligation légale (RGPD).</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Une décision écrite et datée. L'incident est inscrit au registre. La notification à la CNIL est envoyée si elle est décidée.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-02" data-id="T-02" data-prio="P0" data-deps="">
+  <header class="tete">
+    <span class="num">T-02</span>
+    <h3>Tenir la réunion de validation et arrêter les décisions</h3>
+    <span class="prio p0">P0</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-02" data-fait="T-02"><span>Fait</span></label>
+  </header>
+  <p class="desc">Passer en revue le document des points à valider, en commençant par la section « À trancher avant le 21 novembre midi ». Remplir la colonne Décision de chaque ligne.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction et responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Neuf tâches de cette liste attendent ces décisions.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Chaque ligne du document a une décision. Le document rempli est transmis au développement.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-03" data-id="T-03" data-prio="P0" data-deps="">
+  <header class="tete">
+    <span class="num">T-03</span>
+    <h3>Remplacer la clé Stripe en service</h3>
+    <span class="prio p0">P0</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-03" data-fait="T-03"><span>Fait</span></label>
+  </header>
+  <p class="desc">La clé Stripe utilisée par le site et le back-office figure en clair depuis le 12 novembre dans les journaux d'un outil de développement, sur un poste de travail du projet. Créer une nouvelle clé restreinte, avec en plus les droits de lecture Factures et Paiements / Remboursements dont la page Revenus du back-office a besoin. La poser dans Vercel (site et back-office) et dans les fichiers locaux, puis supprimer l'ancienne.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique (Stripe et Vercel). Le développement contrôle sans afficher les clés.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">En attente depuis le 12 novembre.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">C'est la clé des paiements réels.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>L'ancienne clé est refusée par Stripe. Les abonnements fonctionnent. La page Revenus affiche les montants.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-04" data-id="T-04" data-prio="P0" data-deps="T-03">
+  <header class="tete">
+    <span class="num">T-04</span>
+    <h3>Remplacer la clé de service Supabase</h3>
+    <span class="prio p0">P0</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-04" data-fait="T-04"><span>Fait</span></label>
+  </header>
+  <p class="desc">Même exposition que la clé Stripe. Cette clé donne un accès complet à la base de données. Elle peut être révoquée seule, sans effet sur les apps publiées.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique (Supabase et Vercel). Le développement contrôle.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">En attente depuis le 12 novembre.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Accès complet aux données.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-03" data-dep="T-03">T-03</a> <span class="note">Une clé à la fois, pour savoir d'où vient une panne.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>L'ancienne clé est refusée. Le site, le back-office et les e-mails fonctionnent.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-05" data-id="T-05" data-prio="P0" data-deps="">
+  <header class="tete">
+    <span class="num">T-05</span>
+    <h3>Protéger les signatures déjà posées</h3>
+    <span class="prio p0">P0</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-05" data-fait="T-05"><span>Fait</span></label>
+  </header>
+  <p class="desc">Exécuter dans Supabase le correctif de base n° 0012, déjà prêt dans le dépôt. Aujourd'hui, un second appel technique pourrait remplacer la signature d'un devis déjà signé. Le correctif ne modifie aucune donnée et ne gêne pas les apps publiées. À faire si ce n'est pas déjà fait.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique (éditeur SQL de Supabase).</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Deux minutes de travail.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">La signature sert de preuve.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Supabase affiche le message de succès. Une nouvelle signature sur un devis déjà signé est refusée.</dd></div>
+  </dl>
+</article>
+</section>
+
+<section class="niveau" id="P1" aria-labelledby="titre-P1">
+  <div class="bandeau">
+    <span class="prio grand p1">P1</span>
+    <div>
+      <h2 id="titre-P1">Important</h2>
+      <p>Nécessaire pour livrer aux utilisateurs. Sprint en cours.</p>
+    </div>
+    <p class="compte"><b>18</b> tâches<span class="avance" data-compte="P1" hidden></span></p>
+  </div>
+  
+<article class="tache" id="T-06" data-id="T-06" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-06</span>
+    <h3>Déployer la dernière version sur Google Play</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-06" data-fait="T-06"><span>Fait</span></label>
+  </header>
+  <p class="desc">Mise à jour du 27 novembre : la version la plus récente de Koji Pro est la version 86 (build du 27 novembre : corrections des retours du build 64, sprints 1 à 4, et logo KOJI PRO). Celle de Koji est la version 82 (22 novembre). Elles sont en brouillon dans le test interne. Les déployer depuis la Play Console, puis les passer en test fermé. Les versions plus anciennes restées en brouillon n'ont plus besoin d'être déployées.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Première version Android avec toute la refonte.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji Pro version 86 et Koji version 82 s'installent chez les testeurs.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-07" data-id="T-07" data-prio="P1" data-deps="T-06">
+  <header class="tete">
+    <span class="num">T-07</span>
+    <h3>Essayer les deux apps Android sur un vrai téléphone</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-07" data-fait="T-07"><span>Fait</span></label>
+  </header>
+  <p class="desc">Parcourir la connexion, « Retrouver mon projet », la signature d'un devis, les photos de chantier, les Urgences et Mon parcours. Vérifier aussi qu'une notification arrive sur le téléphone : elle n'a jamais été essayée de bout en bout.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique. Le développement corrige les défauts.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-06" data-dep="T-06">T-06</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Un feu vert, ou une liste de défauts à corriger.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-08" data-id="T-08" data-prio="P1" data-deps="T-06">
+  <header class="tete">
+    <span class="num">T-08</span>
+    <h3>Remplir les conditions de Google pour la mise en production</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-08" data-fait="T-08"><span>Fait</span></label>
+  </header>
+  <p class="desc">Finir « Contenu de l'appli » dans la Play Console : identifiants du compte de démonstration, sécurité des données, statut de professionnel. Réunir 12 testeurs inscrits pendant 14 jours, comme Google l'exige avant d'ouvrir la production.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique, avec la direction pour trouver les testeurs.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Les 14 jours ne commencent qu'une fois les testeurs inscrits.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-06" data-dep="T-06">T-06</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>L'accès à la production est ouvert pour Koji et Koji Pro.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-09" data-id="T-09" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-09</span>
+    <h3>Débloquer App Store Connect</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-09" data-fait="T-09"><span>Fait</span></label>
+  </header>
+  <p class="desc">Le 19 novembre, l'envoi du build iPhone de Koji a échoué : Apple n'a pas reconnu l'app au moment de l'envoi. À vérifier sur le compte Apple de l'entreprise : un accord à accepter, la clé d'accès utilisée par les builds, la fiche de l'app Koji.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Tous les envois iPhone sont bloqués.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>La direction confirme que les trois points sont en règle.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-10" data-id="T-10" data-prio="P1" data-deps="T-09">
+  <header class="tete">
+    <span class="num">T-10</span>
+    <h3>Envoyer le nouveau build iPhone de Koji</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-10" data-fait="T-10"><span>Fait</span></label>
+  </header>
+  <p class="desc">Relancer le build et l'envoi vers TestFlight. Un build iPhone consomme des minutes Mac comptées dix fois : il n'est lancé que sur demande.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, sur demande de la responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-09" data-dep="T-09">T-09</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le nouveau build de Koji est disponible dans TestFlight.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-11" data-id="T-11" data-prio="P1" data-deps="T-09">
+  <header class="tete">
+    <span class="num">T-11</span>
+    <h3>Préparer et envoyer le build iPhone de Koji Pro</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-11" data-fait="T-11"><span>Fait</span></label>
+  </header>
+  <p class="desc">Activer « Se connecter avec Apple » sur l'identifiant de l'app Koji Pro, puis régénérer le profil de signature. Le code de vérification Apple arrive sur le téléphone de la direction. Le développement lance ensuite le build. Ce build apporte la refonte sur iPhone. Il n'est pas nécessaire pour répondre au refus d'Apple (T-12), que le build 62 suffit à traiter.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction et responsable technique, puis développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-09" data-dep="T-09">T-09</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le build de Koji Pro est disponible dans TestFlight.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-12" data-id="T-12" data-prio="P1" data-deps="T-11 T-41">
+  <header class="tete">
+    <span class="num">T-12</span>
+    <h3>Répondre au refus d'Apple pour Koji Pro</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-12" data-fait="T-12"><span>Fait</span></label>
+  </header>
+  <p class="desc">Apple a refusé Koji Pro le 9 novembre et demande des informations : un enregistrement d'écran et six notes. Les notes sont prêtes. Décision du 20 novembre : répondre avec les nouveaux builds, qui portent la refonte et les mises à jour Signaler / Bloquer (T-41), pas avec le build 62. Répondre ensuite avec l'enregistrement d'écran et le compte de démonstration, puis soumettre de nouveau.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-11" data-dep="T-11">T-11</a> <a class="ref" href="#T-41" data-dep="T-41">T-41</a> <span class="note">Le build iPhone de Koji Pro doit contenir le code du 20 novembre (main fusionné dans release avant le build).</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji Pro est de nouveau en revue chez Apple.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-13" data-id="T-13" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-13</span>
+    <h3>Suivre la revue de Koji sur l'App Store</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-13" data-fait="T-13"><span>Fait</span></label>
+  </header>
+  <p class="desc">La version 1.0 de Koji a été soumise le 9 novembre, avec publication automatique à l'approbation. Vérifier où en est la revue et répondre à Apple en cas de refus. Faire aussi, sur le compte Apple de l'entreprise, la déclaration de commerçant demandée par le règlement européen sur les services numériques.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction et responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji est publiée sur l'App Store. La déclaration est faite.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-14" data-id="T-14" data-prio="P1" data-deps="T-02 T-03">
+  <header class="tete">
+    <span class="num">T-14</span>
+    <h3>Activer Stripe Connect</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-14" data-fait="T-14"><span>Fait</span></label>
+  </header>
+  <p class="desc">Faire les cinq étapes de la partie « Reste à faire » du document de réunion : activer Connect (France, comptes Express) et remplir le profil de la plateforme, choisir les moyens de paiement, vérifier qui paie les frais des comptes Express, créer le webhook des comptes connectés, poser les deux variables dans Vercel.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction, avec la responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Le paiement en ligne des factures est construit mais éteint.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a> <a class="ref" href="#T-03" data-dep="T-03">T-03</a> <span class="note">La commission et les frais se décident en réunion. La nouvelle clé Stripe doit être en place.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Connect est actif. Stripe et le site communiquent.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-15" data-id="T-15" data-prio="P1" data-deps="T-14">
+  <header class="tete">
+    <span class="num">T-15</span>
+    <h3>Faire le premier paiement d'essai, puis ouvrir le paiement en ligne</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-15" data-fait="T-15"><span>Fait</span></label>
+  </header>
+  <p class="desc">Le paiement n'a encore jamais été essayé avec Stripe. Payer une facture de démonstration avec une carte de test, de la facture jusqu'au reçu, sur le site et dans l'app.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique et développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-14" data-dep="T-14">T-14</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>La facture passe à « payée », le reçu se télécharge, l'argent arrive sur le compte de l'entreprise. Le bouton « Payer » reste ensuite allumé.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-16" data-id="T-16" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-16</span>
+    <h3>Signer un devis depuis l'espace Koji Client</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-16" data-fait="T-16"><span>Fait</span></label>
+  </header>
+  <p class="desc">Le devis d'essai 2026_1050 attend dans le compte de démonstration. Se connecter par « Retrouver mon projet » (le code arrive dans la boîte contact@getkoji.io), signer, puis télécharger le PDF. La signature par lien, elle, a déjà été essayée avec succès le 19 novembre.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le devis est signé. Le code, l'e-mail de confirmation et le PDF sont conformes.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-17" data-id="T-17" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-17</span>
+    <h3>Urgences : garantir qu'un seul artisan obtient l'urgence</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-17" data-fait="T-17"><span>Fait</span></label>
+  </header>
+  <p class="desc">Deux artisans qui acceptaient au même instant pouvaient tous deux croire avoir obtenu l'urgence. Le code est livré depuis le 20 novembre : les urgences passent dans une table dédiée de la base, où la première acceptation gagne à coup sûr. Il reste une étape : exécuter dans Supabase le script n° 0014. Tant qu'il n'est pas exécuté, le site garde l'ancien fonctionnement.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique pour exécuter le script n° 0014 dans Supabase. Le développement contrôle ensuite.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">La fonction est en ligne.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Supabase affiche le message de succès et la table existe. Deux acceptations simultanées donnent un seul gagnant : treize tests automatiques le vérifient déjà.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-18" data-id="T-18" data-prio="P1" data-deps="T-07 T-17">
+  <header class="tete">
+    <span class="num">T-18</span>
+    <h3>Urgences : faire un essai réel complet</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-18" data-fait="T-18"><span>Fait</span></label>
+  </header>
+  <p class="desc">Avec les deux comptes de démonstration : commander un dépannage, recevoir l'alerte, accepter, confirmer, suivre l'intervention jusqu'à la facture. Jusqu'ici la fonction n'a été contrôlée qu'avec des données simulées.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique et développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-07" data-dep="T-07">T-07</a> <a class="ref" href="#T-17" data-dep="T-17">T-17</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le parcours complet fonctionne, ou les défauts sont listés.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-19" data-id="T-19" data-prio="P1" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-19</span>
+    <h3>Reporter les décisions de la réunion dans le site et les apps</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-19" data-fait="T-19"><span>Fait</span></label>
+  </header>
+  <p class="desc">Appliquer chaque décision : prix et offres, textes publiés (« entreprises vérifiées », facture électronique, hébergement, horaires du service client), fonctions à retirer ou à construire. Retirer ensuite les points réglés du document de réunion.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le site et les apps disent et font ce qui a été décidé.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-20" data-id="T-20" data-prio="P1" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-20</span>
+    <h3>Corriger la numérotation des factures</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-20" data-fait="T-20"><span>Fait</span></label>
+  </header>
+  <p class="desc">Le numéro d'une facture est aujourd'hui pris dans un compteur commun à toutes les entreprises, dès le brouillon. La loi demande une série continue par entreprise. Passer à une série par entreprise, avec un numéro attribué à l'émission. Fixer avec l'expert-comptable la règle pour les factures déjà émises.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, après la décision de la direction et l'avis de l'expert-comptable.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Chaque facture émise allonge la série à reprendre.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Obligation légale.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Chaque entreprise a sa série, sans trou. La règle pour les anciennes factures est écrite.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-21" data-id="T-21" data-prio="P1" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-21</span>
+    <h3>Back-office : fixer qui peut y agir</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-21" data-fait="T-21"><span>Fait</span></label>
+  </header>
+  <p class="desc">La porte d'entrée du back-office accepte tous les comptes administrateurs, alors que les actions n'acceptent que le compte d'ABL Expert Renov. Choisir la règle et l'appliquer partout. Vérifier aussi qu'une ligne « lecture d'un devis » apparaît dans le journal des accès après l'ouverture d'un devis.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>La direction décide, le développement applique, la responsable technique vérifie le journal.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Une seule règle d'accès. La ligne du journal est confirmée.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-41" data-id="T-41" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-41</span>
+    <h3>Signaler et bloquer : fixer qui traite les signalements, et comment</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-41" data-fait="T-41"><span>Fait</span></label>
+  </header>
+  <p class="desc">Décidé et livré le 20 novembre (5996d5c). 1) Chaque signalement et chaque blocage partent à ablexpertrenov@gmail.com et entreprise@getkoji.io, avec le lien de la fiche dans le back-office. 2) Back-office › Signalements : voir les messages de l'auteur, retirer le contenu, suspendre ou réactiver son compte, classer ; chaque décision est inscrite au journal des accès. Un compte suspendu ne peut plus se connecter ni publier. 3) Le blocage reste sur le téléphone : il survit aux mises à jour de l'app. 4) L'app Koji a maintenant « Signaler » et « Bloquer » dans ses messages avec les entreprises. Il reste à traiter les signalements sous 24 heures, comme l'app le promet.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction, avec la responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">La réponse à Apple (T-12) en dépend.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Condition d'Apple pour les apps où les utilisateurs échangent des contenus.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les signalements arrivent aux deux adresses et se traitent depuis le back-office. Les deux apps ont Signaler et Bloquer.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-42" data-id="T-42" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-42</span>
+    <h3>Ouvrir les abonnements en ligne : créer le webhook Stripe</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-42" data-fait="T-42"><span>Fait</span></label>
+  </header>
+  <p class="desc">Constat du 23 novembre : le site getkoji.io n'a jamais reçu les identifiants de prix Stripe ni le secret du webhook. Les boutons « Essayer Pro » et « Essayer Business » ne peuvent donc pas ouvrir le paiement, et Stripe ne compte encore aucun client. Déjà fait le 23 novembre : prix Business alignés sur le site (69 € par mois, 660 € par an), portail client « Gérer mon abonnement » créé, back-office à jour. Il reste une étape dans Stripe, en mode réel : Développeurs › Webhooks › Ajouter une destination, adresse https://getkoji.io/api/webhooks/stripe, version d'API 2026-07-29.dahlia, événements checkout.session.completed, customer.subscription.updated et customer.subscription.deleted. Supprimer l'ancienne destination vers kojibuild.com s'il y en a une. Poser ensuite le secret de signature dans le fichier .env.local du projet, sous le nom STRIPE_WEBHOOK_SECRET. Le développement pose alors le secret et les quatre identifiants de prix dans Vercel, redéploie et contrôle.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique (Stripe), puis développement (Vercel et contrôle).</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Prévu le 24 novembre.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Aucun abonnement ne peut être vendu avant.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Un achat réel de la formule Pro à 29 € active la formule sur le compte, puis il est remboursé et annulé. « Gérer mon abonnement » ouvre le portail.</dd></div>
+  </dl>
+</article>
+</section>
+
+<section class="niveau" id="P2" aria-labelledby="titre-P2">
+  <div class="bandeau">
+    <span class="prio grand p2">P2</span>
+    <div>
+      <h2 id="titre-P2">À planifier</h2>
+      <p>Solidité et qualité du service. Sprint suivant.</p>
+    </div>
+    <p class="compte"><b>12</b> tâches<span class="avance" data-compte="P2" hidden></span></p>
+  </div>
+  
+<article class="tache" id="T-22" data-id="T-22" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-22</span>
+    <h3>Mettre en service le suivi des erreurs</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-22" data-fait="T-22"><span>Fait</span></label>
+  </header>
+  <p class="desc">Le code du suivi des erreurs (Sentry) est en place mais inactif. Créer le projet sous le compte d'ABL Expert Renov et poser son adresse dans Vercel.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Sans lui, une panne chez un utilisateur passe inaperçue.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Une erreur du site apparaît dans le tableau de suivi.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-23" data-id="T-23" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-23</span>
+    <h3>Mettre tous les comptes au nom d'ABL Expert Renov</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-23" data-fait="T-23"><span>Fait</span></label>
+  </header>
+  <p class="desc">Règle du projet : ABL Expert Renov est propriétaire de chaque compte et la responsable technique en est la deuxième administratrice. À vérifier compte par compte : Supabase (l'organisation n'est pas encore au nom de l'entreprise), les anciens projets Firebase, GitHub, Vercel, Google Play, Apple, Stripe, Hostinger.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction et responsable technique, avec les titulaires actuels des comptes pour les transferts.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Un compte personnel peut couper l'accès à tout le service.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Chaque compte a ABL Expert Renov comme propriétaire.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-24" data-id="T-24" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-24</span>
+    <h3>Supabase : décider du plafond de dépense</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-24" data-fait="T-24"><span>Fait</span></label>
+  </header>
+  <p class="desc">L'offre payante est active depuis le 16 novembre, avec un plafond de dépense. Si la consommation dépasse le quota inclus, la base peut ralentir ou s'arrêter. Suivre la consommation et décider de garder ou de lever le plafond.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction et responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Une règle décidée, et une alerte avant d'atteindre le quota.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-25" data-id="T-25" data-prio="P2" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-25</span>
+    <h3>Faire relire les textes juridiques et comptables</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-25" data-fait="T-25"><span>Fait</span></label>
+  </header>
+  <p class="desc">Avocat : rétractation, signature, conditions générales pour les professionnels, statut de plateforme pour les Urgences, titres « Compagnon » et « Maître », prix recommandé affiché aux professionnels. Expert-comptable : choix du taux de TVA, acomptes, mentions obligatoires des factures. Les points précis sont dans la section Juridique du document de réunion.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>La direction mandate, le développement applique les corrections.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les textes sont validés, ou corrigés en ligne.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-26" data-id="T-26" data-prio="P2" data-deps="T-05 T-08 T-10">
+  <header class="tete">
+    <span class="num">T-26</span>
+    <h3>Renforcer le contrôle de la signature dans les apps</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-26" data-fait="T-26"><span>Fait</span></label>
+  </header>
+  <p class="desc">Lier chaque signature faite dans l'app à une session vérifiée du devis, comme sur le site. Cela demande un second correctif de base, à passer une fois les nouvelles apps publiées.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, puis responsable technique pour le correctif.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-05" data-dep="T-05">T-05</a> <a class="ref" href="#T-08" data-dep="T-08">T-08</a> <a class="ref" href="#T-10" data-dep="T-10">T-10</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Une signature sans session valide est refusée.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-27" data-id="T-27" data-prio="P2" data-deps="T-07">
+  <header class="tete">
+    <span class="num">T-27</span>
+    <h3>Refaire les captures d'écran des stores avec la vraie app</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-27" data-fait="T-27"><span>Fait</span></label>
+  </header>
+  <p class="desc">Les fiches Google Play et App Store montrent encore des captures tirées de la maquette. Les refaire avec l'app réelle, maintenant conforme à la maquette.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement et responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-07" data-dep="T-07">T-07</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les fiches des deux stores montrent l'app telle qu'elle est.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-28" data-id="T-28" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-28</span>
+    <h3>Confirmer les e-mails de compte par un essai</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-28" data-fait="T-28"><span>Fait</span></label>
+  </header>
+  <p class="desc">Créer un compte et demander un mot de passe oublié avec une adresse d'essai. Vérifier que les e-mails arrivent et que les modèles en français s'affichent bien, pour Koji et pour Koji Pro.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les deux e-mails arrivent, en français, avec le bon nom d'app.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-29" data-id="T-29" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-29</span>
+    <h3>Vérifier l'adresse des liens de signature</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-29" data-fait="T-29"><span>Fait</span></label>
+  </header>
+  <p class="desc">Contrôler dans Vercel le réglage qui fixe l'adresse des liens de signature envoyés aux clients.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Un lien de signature reçu par e-mail s'ouvre sur la bonne adresse.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-30" data-id="T-30" data-prio="P2" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-30</span>
+    <h3>Garder les journaux d'hébergement plus de 12 heures</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-30" data-fait="T-30"><span>Fait</span></label>
+  </header>
+  <p class="desc">L'offre Vercel actuelle ne garde les journaux que 12 heures. Lors de l'incident du back-office, les sept premières heures n'ont pas pu être vérifiées. Choisir une offre qui les garde plus longtemps.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>La direction décide, la responsable technique applique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les journaux couvrent au moins plusieurs jours.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-31" data-id="T-31" data-prio="P2" data-deps="T-08">
+  <header class="tete">
+    <span class="num">T-31</span>
+    <h3>Retirer les chantiers de test du Radar</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-31" data-fait="T-31"><span>Fait</span></label>
+  </header>
+  <p class="desc">Les testeurs des apps créent des chantiers « TEST » dans le Radar réel. Les retirer à la fin des tests.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique, avec le développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-08" data-dep="T-08">T-08</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le Radar ne montre plus aucun chantier de test.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-32" data-id="T-32" data-prio="P2" data-deps="T-03 T-04">
+  <header class="tete">
+    <span class="num">T-32</span>
+    <h3>Supprimer les anciennes sauvegardes et les journaux sensibles</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-32" data-fait="T-32"><span>Fait</span></label>
+  </header>
+  <p class="desc">Sur le poste de travail du projet, la sauvegarde d'avant la purge du 20 octobre contient d'anciens mots de passe, et les journaux de l'outil de développement contiennent les anciennes clés. Les supprimer une fois les clés remplacées.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-03" data-dep="T-03">T-03</a> <a class="ref" href="#T-04" data-dep="T-04">T-04</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Plus aucun ancien secret sur le poste.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-43" data-id="T-43" data-prio="P2" data-deps="">
+  <header class="tete">
+    <span class="num">T-43</span>
+    <h3>Logo « KOJI PRO » et nouvelle icône de l'app Koji Pro</h3>
+    <span class="prio p2">P2</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-43" data-fait="T-43"><span>Fait</span></label>
+  </header>
+  <p class="desc">Fait le 27 novembre (commit 8f31dce). Dans tout l'espace entreprise, le logo devient « KOJI PRO » : symbole et « PRO » en jaune, « KOJI » en blanc. Sur le site : connexion et inscription, barre latérale, barre du haut sur téléphone, icône d'onglet. Dans l'app : écran de démarrage, connexion, bandeaux Devis et Chantiers, menu. Nouvelle icône de l'app Koji Pro sur Android et sur iPhone, livrée dans Android version 86 et iPhone build 68. Les pages des particuliers et l'app Koji gardent le logo Koji. Vérifié de 320 à 1 440 pixels de large. La vérification sur téléphone est suivie dans le rapport des anomalies (KPRO-60).</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le logo et l'icône sont en ligne et dans les derniers builds.</dd></div>
+  </dl>
+</article>
+</section>
+
+<section class="niveau" id="P3" aria-labelledby="titre-P3">
+  <div class="bandeau">
+    <span class="prio grand p3">P3</span>
+    <div>
+      <h2 id="titre-P3">Plus tard</h2>
+      <p>Confort, contenu, évolutions. Quand le reste est fait.</p>
+    </div>
+    <p class="compte"><b>10</b> tâches<span class="avance" data-compte="P3" hidden></span></p>
+  </div>
+  
+<article class="tache" id="T-33" data-id="T-33" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-33</span>
+    <h3>Mettre à jour le cahier des charges</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-33" data-fait="T-33"><span>Fait</span></label>
+  </header>
+  <p class="desc">La présentation du cahier des charges date du 31 octobre. Elle ne décrit pas la refonte de novembre.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Le cahier des charges décrit l'application telle qu'elle est en ligne.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-34" data-id="T-34" data-prio="P3" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-34</span>
+    <h3>Écrire et valider les contenus du site</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-34" data-fait="T-34"><span>Fait</span></label>
+  </header>
+  <p class="desc">Sept pages Métiers (seule la page Plombier est publiée), la page À propos, quatre fiches Ressources à faire relire par un expert-comptable avant le lancement, l'outil d'envoi de la lettre mensuelle, l'outil de prise de rendez-vous pour une démonstration.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Direction d'ABL Expert Renov pour le fond, développement pour la mise en ligne.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les pages sont publiées, sans texte provisoire.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-35" data-id="T-35" data-prio="P3" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-35</span>
+    <h3>Mon parcours : mettre en service les talents restants</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-35" data-fait="T-35"><span>Fait</span></label>
+  </header>
+  <p class="desc">Un seul talent sur huit fonctionne : la plaque de chantier. Les sept autres attendent des décisions sur les jetons offerts, l'accès anticipé au Radar, la mise en avant et le nom de domaine.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, après décision.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Chaque talent affiché donne réellement son avantage.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-36" data-id="T-36" data-prio="P3" data-deps="T-02">
+  <header class="tete">
+    <span class="num">T-36</span>
+    <h3>Koji Client : compléments proposés</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-36" data-fait="T-36"><span>Fait</span></label>
+  </header>
+  <p class="desc">E-mails au particulier : nouvelle version du devis, visite confirmée, réserve levée, récapitulatif quotidien. Garder aussi le texte d'origine des messages traduits dans le fil d'un devis.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, après décision.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-02" data-dep="T-02">T-02</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les compléments retenus sont en ligne, sur le site et dans l'app.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-37" data-id="T-37" data-prio="P3" data-deps="T-08 T-10">
+  <header class="tete">
+    <span class="num">T-37</span>
+    <h3>Ouvrir un lien de signature directement dans l'app</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-37" data-fait="T-37"><span>Fait</span></label>
+  </header>
+  <p class="desc">Aujourd'hui, le lien reçu par e-mail s'ouvre dans le navigateur. Pour qu'il ouvre l'app quand elle est installée, il faut des réglages chez Apple et Google et des fichiers sur le domaine.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, avec la direction pour le compte Apple.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><a class="ref" href="#T-08" data-dep="T-08">T-08</a> <a class="ref" href="#T-10" data-dep="T-10">T-10</a></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Sur un téléphone où l'app est installée, le lien ouvre l'app.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-38" data-id="T-38" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-38</span>
+    <h3>Nettoyage technique</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-38" data-fait="T-38"><span>Fait</span></label>
+  </header>
+  <p class="desc">Retirer le code lié à une table d'abonnements qui n'a jamais été créée. Regrouper huit fichiers présents en double dans le dépôt.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement, avec l'accord de la responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Moins de code inutile. Les tests passent.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-39" data-id="T-39" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-39</span>
+    <h3>Décider du sort de deux ouvrages sans propriétaire</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-39" data-fait="T-39"><span>Fait</span></label>
+  </header>
+  <p class="desc">« Pose vitrine » et « Protection des sols et du mobilier restant » n'appartiennent à aucun compte. Personne ne les voit. Les rattacher à un compte ou les supprimer.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>La responsable technique décide, le développement applique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Plus aucun ouvrage orphelin dans la bibliothèque.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-40" data-id="T-40" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-40</span>
+    <h3>Rediriger l'ancienne adresse du back-office</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-40" data-fait="T-40"><span>Fait</span></label>
+  </header>
+  <p class="desc">admin.kojibuild.com répond encore. La rediriger vers admin.getkoji.io.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique (Vercel).</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>L'ancienne adresse renvoie vers la nouvelle.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-44" data-id="T-44" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-44</span>
+    <h3>Connecter Remote Control pour recevoir les alertes sur téléphone</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-44" data-fait="T-44"><span>Fait</span></label>
+  </header>
+  <p class="desc">Les fins de build et les points qui demandent une réponse peuvent arriver en notification sur le téléphone, mais seulement si Remote Control est connecté dans Claude Code. Le 27 novembre, la notification de fin de build n'a pas pu partir pour cette raison. La connexion se fait depuis le poste de la responsable technique : le développement ne peut pas l'activer lui-même.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>La prochaine fin de build arrive en notification sur le téléphone.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-45" data-id="T-45" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-45</span>
+    <h3>Mettre le nouveau logo dans le profil de l'entreprise</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-45" data-fait="T-45"><span>Fait</span></label>
+  </header>
+  <p class="desc">La carte du compte, en bas de la barre latérale, affiche le logo enregistré dans le profil de l'entreprise : c'est encore l'ancien, en bleu. Le nouveau logo aux couleurs Koji Pro (graphite, symbole jaune, « KOJI PRO ») est prêt dans le fichier koji-pro-logo.png, sur le bureau du poste de travail. Le téléverser dans Profil, à l'emplacement du logo de l'entreprise.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>La carte du compte montre le logo KOJI PRO.</dd></div>
+  </dl>
+</article>
+</section>
+
+<section class="bloc cote" aria-labelledby="t-cote">
+  <h2 id="t-cote">Mis de côté sur décision</h2>
+  <p><b>SMS.</b> Connexion par code SMS et envois par SMS : décision du 19 novembre, « pas maintenant ». Ce point reste hors de la liste tant que la décision ne change pas.</p>
+</section>
+</div>
+
+<script>
+// Cases « Fait » : l'avancement est gardé hors de la page (capacité db, collection « taches »),
+// partagé entre les personnes qui ouvrent la page. Sans cette capacité, la page reste un document à lire.
+(function () {
+  var taches = Array.prototype.slice.call(document.querySelectorAll(".tache"));
+  var cases = Array.prototype.slice.call(document.querySelectorAll("input[data-fait]"));
+  var message = document.getElementById("etat-db");
+  var etat = {};      // identifiant -> true quand la tâche est faite
+  var enCours = {};   // identifiant -> true pendant un enregistrement
+  var lectureSeule = false;
+
+  function dire(texte) { message.textContent = texte; message.hidden = !texte; }
+
+  function peindre() {
+    taches.forEach(function (a) {
+      var id = a.dataset.id;
+      var fait = etat[id] === true;
+      a.classList.toggle("faite", fait);
+      var c = a.querySelector("input[data-fait]");
+      if (c && !enCours[id]) c.checked = fait;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-dep]"), function (d) {
+      d.classList.toggle("dep-faite", etat[d.dataset.dep] === true);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-compte]"), function (s) {
+      var liste = taches.filter(function (a) { return a.dataset.prio === s.dataset.compte; });
+      var n = liste.filter(function (a) { return etat[a.dataset.id] === true; }).length;
+      s.textContent = n + " sur " + liste.length + " faites";
+      s.hidden = false;
+    });
+  }
+
+  function verrouiller(texte) {
+    lectureSeule = true;
+    cases.forEach(function (c) { c.disabled = true; });
+    dire(texte);
+  }
+
+  async function demarrer() {
+    if (!window.claude || typeof window.claude.use !== "function") return;
+    var db = await window.claude.use("db");
+    if (!db) return;
+
+    var peutEcrire = null;
+    try {
+      var user = await window.claude.use("user");
+      peutEcrire = user ? await user.can("data.write") : null;
+    } catch (e) { peutEcrire = null; }
+    lectureSeule = peutEcrire === false;
+
+    cases.forEach(function (c) {
+      c.closest(".coche").hidden = false;
+      c.disabled = lectureSeule;
+      c.addEventListener("change", async function () {
+        var id = c.dataset.fait;
+        var voulu = c.checked;
+        if (enCours[id]) return;
+        enCours[id] = true;
+        c.disabled = true;
+        dire("");
+        try {
+          await db.doc("taches/" + id).set({ fait: voulu, le: new Date().toISOString() });
+          if (voulu) etat[id] = true; else delete etat[id];
+        } catch (err) {
+          c.checked = !voulu;
+          if (err && err.code === "invalid_argument") verrouiller("Vous pouvez suivre l'avancement. Seules les personnes invitées comme contributrices peuvent cocher une tâche.");
+          else dire("La case n'a pas été enregistrée. Réessayez dans un instant.");
+        } finally {
+          enCours[id] = false;
+          if (!lectureSeule) c.disabled = false;
+          peindre();
+        }
+      });
+    });
+    if (lectureSeule) dire("Vous pouvez suivre l'avancement. Seules les personnes invitées comme contributrices peuvent cocher une tâche.");
+
+    db.collection("taches").onSnapshot(function (snap) {
+      var neuf = {};
+      snap.docs.forEach(function (d) {
+        var v = d.data();
+        if (v && v.fait === true) neuf[d.id] = true;
+      });
+      etat = neuf;
+      peindre();
+    }, function () {
+      verrouiller("L'avancement n'est plus synchronisé. Rechargez la page pour le retrouver.");
+    });
+  }
+
+  demarrer();
+})();
+
+</script>
