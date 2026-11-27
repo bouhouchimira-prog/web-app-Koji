@@ -144,7 +144,7 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
             style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
           ),
           pw.SizedBox(height: 2),
-          // Page number (left) and the small "Créé par Kôji" mark (right side).
+          // Page number (left) and the small "Créé par Koji" mark (right side).
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
@@ -165,7 +165,7 @@ class _QuoteSuccessScreenState extends State<QuoteSuccessScreen> {
                 pw.SizedBox(width: 2),
               ],
               pw.Text(
-                'Kôji',
+                'Koji',
                 style: pw.TextStyle(
                     fontSize: 7,
                     fontWeight: pw.FontWeight.bold,

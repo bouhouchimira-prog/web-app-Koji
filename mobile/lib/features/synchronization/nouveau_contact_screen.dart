@@ -222,7 +222,7 @@ class _NouveauContactScreenState extends State<NouveauContactScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  "Ce contact sera ajouté à votre carnet d'adresses Kôji et pourra être invité sur vos chantiers immédiatement.",
+                                  "Ce contact sera ajouté à votre carnet d'adresses Koji et pourra être invité sur vos chantiers immédiatement.",
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: const Color(0xFF2E65F3).withValues(alpha: 0.8),
