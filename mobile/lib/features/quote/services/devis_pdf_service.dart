@@ -47,8 +47,13 @@ class DevisPdfService {
     String? logoPath,
     Uint8List? signatureBytes,
     PdfPageFormat format = PdfPageFormat.a4,
+    // Tests (KPRO-49) : polices fournies et PDF non compressé, pour lire le
+    // texte de chaque page sans télécharger les polices.
+    ({pw.Font regular, pw.Font bold, pw.Font italic, pw.Font boldItalic})?
+        polices,
+    bool compresser = true,
   }) async {
-    final pdf = pw.Document();
+    final pdf = pw.Document(compress: compresser);
 
     final company = quoteData['company'] ?? {};
     final client = quoteData['client'] ?? {};
@@ -66,14 +71,15 @@ class DevisPdfService {
         ? Map<String, dynamic>.from(quoteData['lotTotals'] as Map)
         : <String, dynamic>{};
 
-    final fontRegular = await PdfGoogleFonts.interRegular();
-    final fontBold = await PdfGoogleFonts.interBold();
+    final fontRegular = polices?.regular ?? await PdfGoogleFonts.interRegular();
+    final fontBold = polices?.bold ?? await PdfGoogleFonts.interBold();
     // Italic variants must be supplied explicitly — otherwise pw.Text with
     // fontStyle: italic falls back to Helvetica, which has no Unicode support
     // and cannot draw glyphs like "Œ" (MAIN D'ŒUVRE). Registering all four as
     // fontFallback guarantees every glyph resolves through Inter.
-    final fontItalic = await PdfGoogleFonts.interItalic();
-    final fontBoldItalic = await PdfGoogleFonts.interBoldItalic();
+    final fontItalic = polices?.italic ?? await PdfGoogleFonts.interItalic();
+    final fontBoldItalic =
+        polices?.boldItalic ?? await PdfGoogleFonts.interBoldItalic();
     const colorNavy = PdfColor.fromInt(_navyInt);
     const colorAccent = PdfColor.fromInt(_accentInt);
     const colorLine = PdfColor.fromInt(_lineInt);
@@ -285,90 +291,104 @@ class DevisPdfService {
 
             pw.SizedBox(height: 16),
 
-            _buildPaymentTerms(company, totals, colorNavy, colorAccent,
-                validity: quoteData['validity']?.toString() ?? '',
-                colorLine: colorLine),
+            // KPRO-49 : conditions de paiement, mentions TVA, signatures et
+            // validité forment un seul bloc. S'il ne tient pas en bas de la
+            // page, il part en entier sur la suivante : les signatures n'y
+            // sont plus jamais seules. (Une rangée ne se coupe pas entre deux
+            // pages, une colonne si.)
+            pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                  _buildPaymentTerms(company, totals, colorNavy, colorAccent,
+                      validity: quoteData['validity']?.toString() ?? '',
+                      colorLine: colorLine),
 
-            // ── Mentions TVA (maquette PRO-03.5) ──
-            ..._mentionsTva(quoteData, totals),
+                  // ── Mentions TVA (maquette PRO-03.5) ──
+                  ..._mentionsTva(quoteData, totals),
 
-            pw.SizedBox(height: 20),
+                  pw.SizedBox(height: 20),
 
-            // ── Signatures ──
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Expanded(
-                  child: pw.Column(
+                  // ── Signatures ──
+                  pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text("Signature du client",
-                          style: pw.TextStyle(
-                              fontSize: 9,
-                              fontWeight: pw.FontWeight.bold,
-                              color: colorNavy)),
-                      pw.SizedBox(height: 4),
-                      pw.Text(_faitALe(quoteData),
-                          style: const pw.TextStyle(
-                              fontSize: 8, color: PdfColors.grey600)),
-                      pw.SizedBox(height: 4),
-                      // Signé sur place (maquette PRO-03.7) : lieu, cases
-                      // cochées par le client, signature dessinée.
-                      if (quoteData['signeSurPlace'] is Map) ...[
-                        for (final l in ((quoteData['signeSurPlace'] as Map)['lignes'] as List? ?? const []))
-                          pw.Text('$l', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-                        if ((quoteData['signeSurPlace'] as Map)['png'] is Uint8List)
-                          pw.Container(
-                              height: 50,
-                              width: 150,
-                              child: pw.Image(pw.MemoryImage((quoteData['signeSurPlace'] as Map)['png'] as Uint8List),
-                                  fit: pw.BoxFit.contain)),
-                      ] else ...[
-                      pw.Text("Mention manuscrite obligatoire :",
-                          style: const pw.TextStyle(
-                              fontSize: 8, color: PdfColors.grey600)),
-                      pw.Text("« Lu et approuvé, bon pour accord »",
-                          style: pw.TextStyle(
-                              fontSize: 9,
-                              fontStyle: pw.FontStyle.italic,
-                              fontWeight: pw.FontWeight.bold,
-                              color: colorNavy)),
-                      pw.SizedBox(height: 40),
-                      ],
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text("Signature du client",
+                                style: pw.TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: colorNavy)),
+                            pw.SizedBox(height: 4),
+                            pw.Text(_faitALe(quoteData),
+                                style: const pw.TextStyle(
+                                    fontSize: 8, color: PdfColors.grey600)),
+                            pw.SizedBox(height: 4),
+                            // Signé sur place (maquette PRO-03.7) : lieu, cases
+                            // cochées par le client, signature dessinée.
+                            if (quoteData['signeSurPlace'] is Map) ...[
+                              for (final l in ((quoteData['signeSurPlace'] as Map)['lignes'] as List? ?? const []))
+                                pw.Text('$l', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                              if ((quoteData['signeSurPlace'] as Map)['png'] is Uint8List)
+                                pw.Container(
+                                    height: 50,
+                                    width: 150,
+                                    child: pw.Image(pw.MemoryImage((quoteData['signeSurPlace'] as Map)['png'] as Uint8List),
+                                        fit: pw.BoxFit.contain)),
+                            ] else ...[
+                            pw.Text("Mention manuscrite obligatoire :",
+                                style: const pw.TextStyle(
+                                    fontSize: 8, color: PdfColors.grey600)),
+                            pw.Text("« Lu et approuvé, bon pour accord »",
+                                style: pw.TextStyle(
+                                    fontSize: 9,
+                                    fontStyle: pw.FontStyle.italic,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: colorNavy)),
+                            pw.SizedBox(height: 40),
+                            ],
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(width: 24),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Text("Signature de l'entreprise",
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: colorNavy)),
+                          pw.SizedBox(height: 8),
+                          if (signatureBytes != null)
+                            pw.Container(
+                                height: 50,
+                                width: 90,
+                                child: pw.Image(pw.MemoryImage(signatureBytes),
+                                    fit: pw.BoxFit.contain))
+                          else
+                            pw.SizedBox(height: 50),
+                        ],
+                      ),
                     ],
                   ),
-                ),
-                pw.SizedBox(width: 24),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text("Signature de l'entreprise",
-                        style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                            color: colorNavy)),
-                    pw.SizedBox(height: 8),
-                    if (signatureBytes != null)
-                      pw.Container(
-                          height: 50,
-                          width: 90,
-                          child: pw.Image(pw.MemoryImage(signatureBytes),
-                              fit: pw.BoxFit.contain))
-                    else
-                      pw.SizedBox(height: 50),
+
+                  pw.SizedBox(height: 12),
+                  pw.Center(
+                    child: pw.Text(
+                        "Ce devis est valable 30 jours. Merci pour votre confiance.",
+                        style: const pw.TextStyle(
+                            fontSize: 8, color: PdfColors.grey500)),
+                  ),
                   ],
                 ),
-              ],
-            ),
-
-            pw.SizedBox(height: 12),
-            pw.Center(
-              child: pw.Text(
-                  "Ce devis est valable 30 jours. Merci pour votre confiance.",
-                  style: const pw.TextStyle(
-                      fontSize: 8, color: PdfColors.grey500)),
-            ),
+              ),
+            ]),
             // Client particulier (maquette PRO-03.7) : information sur la
             // rétractation et formulaire, sauf signature dans les locaux.
             if (quoteData['retractation'] is Map) ..._retractation(quoteData['retractation'] as Map, company),

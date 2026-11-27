@@ -114,8 +114,8 @@ footer { color: var(--muted); font-size: 13px; }
     <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 88, iPhone build 70. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
     <div class="stats" id="stats">
       <div class="stat"><b id="n-total">61</b><span>tickets au backlog</span></div>
-      <div class="stat"><b id="n-valider">39</b><span>corrigés, à livrer ou à valider</span></div>
-      <div class="stat"><b id="n-faire">13</b><span>à faire ou en cours</span></div>
+      <div class="stat"><b id="n-valider">40</b><span>corrigés, à livrer ou à valider</span></div>
+      <div class="stat"><b id="n-faire">12</b><span>à faire ou en cours</span></div>
       <div class="stat"><b id="n-termine">9</b><span>terminés (recette passée)</span></div>
     </div>
   </div>
@@ -142,6 +142,8 @@ footer { color: var(--muted); font-size: 13px; }
   <p class="intro">Les dernières nouvelles en premier.</p>
   <div class="box">
     <div class="log">
+      <time datetime="2026-11-27">27 nov. 2026</time>
+      <p>KPRO-49 corrigé et testé : dans le PDF du devis, les signatures restent avec les conditions, sur le site comme dans l'app. Défaut reproduit puis corrigé par des devis de 1 à 60 lignes. Passe à « Prêt à livrer ».</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
       <p>KPRO-47, étape 2 : la fiche d'un chantier s'ouvre en une seule requête (commit c2859ef). En ligne, 1,28 seconde contre 1,62 côté serveur. Livrée dans Android version 88 et iPhone build 70, avec iOS 15 minimum. KPRO-47 passe à « À valider ».</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
@@ -295,7 +297,7 @@ footer { color: var(--muted); font-size: 13px; }
       <li><b>Fiche chantier (KPRO-22, KPRO-47).</b> Depuis Android version 88 et iPhone build 70, elle s'ouvre en une seule requête. Côté serveur, une lecture prend encore plus d'une seconde, à cause de la taille du bloc de données : la réduire demanderait de sortir des données du bloc, un chantier plus large.</li>
       <li><b>Contacts (KPRO-26).</b> Un client connu par son seul e-mail apparaît « Sans nom ». Ticket KPRO-55.</li>
       <li><b>Frais du devis (KPRO-30).</b> Les 23 % par défaut sont toujours appliqués : voir D-7. L'app ne connaît que trois frais en pourcentage ; les majorations au forfait du compte ne sont pas reprises : ticket KPRO-48.</li>
-      <li><b>PDF (KPRO-30).</b> Le bloc des signatures part encore seul sur une deuxième page : ticket KPRO-49. L'adresse du chantier et le nom du client n'y figurent que s'ils ont été saisis dans le devis : ticket KPRO-52.</li>
+      <li><b>PDF (KPRO-30).</b> Le bloc des signatures ne part plus seul sur une deuxième page depuis KPRO-49 (prêt à livrer). L'adresse du chantier et le nom du client n'y figurent que s'ils ont été saisis dans le devis : ticket KPRO-52.</li>
       <li><b>Numéro de devis (KPRO-33).</b> Deux téléphones qui enregistrent au même instant peuvent encore obtenir le même numéro. Ticket KPRO-50, voir D-8.</li>
     </ul>
   </div>
@@ -607,6 +609,31 @@ notify pgrst, 'reload schema';</pre>
 </section>
 
 <section>
+  <h2>KPRO-49 : signatures jamais seules sur une page</h2>
+  <p class="intro">Corrigé le 27 novembre 2026. « Prêt à livrer » : 566 tests passent côté site et 372 côté app, dont un nouveau de chaque côté. La partie site s'appliquera dès la mise en ligne ; la partie app demande un nouveau build.</p>
+  <div class="box ticket">
+    <span class="id">KPRO-49</span>
+    <h3>PDF du devis : le bloc des signatures part seul sur une deuxième page</h3>
+    <div class="fields"><span class="type">Bug</span><span class="pr pr-3">Moyenne</span><span>Composant : Devis</span><span>Epic C4</span><span class="pill st-pret">Prêt à livrer</span></div>
+    <dl>
+      <dt>Constat</dt><dd>Quand les signatures ne tiennent plus en bas de la page, elles partent seules sur la page suivante, coupées des conditions qu'elles acceptent.</dd>
+      <dt>Reproduit</dt><dd>Par des devis de 1 à 60 lignes, avant la correction. PDF du site : signatures séparées des conditions pour 19 à 25 lignes et pour 55 à 60 lignes. PDF de l'app : pour 7 à 13 lignes et pour 37 à 43 lignes. Des tailles de devis courantes.</dd>
+      <dt>Cause</dt><dd>Les deux générateurs de PDF passent à la page suivante au dernier moment, bloc par bloc, sans garder les signatures avec ce qui les précède.</dd>
+      <dt>Résolution</dt><dd>Conditions de paiement, mentions, droit de rétractation et signatures forment un seul bloc. S'il ne tient pas dans la place qui reste, il part en entier sur la page suivante. Un bloc plus haut qu'une page entière se coupe comme avant. Site : <code>lib/document-generator</code>. App : <code>devis_pdf_service.dart</code>.</dd>
+      <dt>Vérification</dt><dd>Deux tests automatiques fabriquent de vrais devis de 1 à 60 lignes et vérifient que la page des signatures porte aussi les conditions : ils échouaient avant la correction, ils passent après. Un devis de 22 lignes du site a été relu sur image, avant et après.</dd>
+      <dt>Reste</dt><dd>Mettre en ligne la partie site, puis faire un nouveau build pour la partie app. Le PDF de l'app n'a pas été relu sur image, seulement par le test.</dd>
+    </dl>
+  </div>
+  <div class="box">
+    <h3>Critères d'acceptation de la recette</h3>
+    <ol class="steps">
+      <li><b>Site.</b> Ouvrir le PDF d'un devis d'une vingtaine de lignes : les cases de signature sont sur la même page que les conditions.</li>
+      <li><b>App, après le prochain build.</b> Même contrôle sur le PDF d'un devis d'une dizaine de lignes fait dans l'app.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
   <h2>KPRO-47 : fiche chantier plus rapide</h2>
   <p class="intro">Livré le 27 novembre 2026 en deux étapes. Étape 1 côté site (commit <code>b565c1c</code>). Étape 2 côté site et app (commit <code>c2859ef</code>), livrée dans Android version 88 et iPhone build 70. 565 tests passent côté site et 371 côté app. Le ticket passe à « À valider ».</p>
   <div class="box ticket">
@@ -761,7 +788,7 @@ var TICKETS = [
   [33, "Bug", "Le numéro de devis 2026-0001 est réutilisé", 2, "valider", 3, "Devis", "C1", ""],
   [34, "Amélioration", "Bibliothèque : expliquer « confiance C »", 4, "valider", 3, "Bibliothèque", "C4", ""],
   [48, "Bug", "Les majorations au forfait du compte (déplacement, intervention minimum) ne sont pas reprises par l'app", 3, "faire", 5, "Devis", "C2", "KPRO-30"],
-  [49, "Bug", "PDF du devis : le bloc des signatures part seul sur une deuxième page", 3, "faire", 5, "Devis", "C4", "KPRO-30"],
+  [49, "Bug", "PDF du devis : le bloc des signatures part seul sur une deuxième page", 3, "pret", 5, "Devis", "C4", "KPRO-30"],
   [50, "Tâche", "Numéro de devis : unicité garantie par la base, une seule suite pour l'app et le site", 2, "faire", 5, "Devis", "C1", "D-8"],
   [51, "Tâche", "Interventions : rebrancher la liste sur les données du site (entrée masquée au sprint 1)", 4, "faire", 5, "Interventions", "C1", "KPRO-14"],
   [52, "Bug", "Devis fait depuis un chantier : reprendre l'adresse et le client du chantier, jusque sur le PDF", 3, "faire", 5, "Devis", "C2", "KPRO-30"],
