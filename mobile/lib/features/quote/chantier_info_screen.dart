@@ -116,7 +116,7 @@ class _ChantierInfoScreenState extends ConsumerState<ChantierInfoScreen> {
                     _buildChantierDetailsCard(),
                     const SizedBox(height: 16),
 
-                    // L'équipe Kôji
+                    // L'équipe Koji
                     _buildTeamCard(),
 
                     const SizedBox(height: 40),

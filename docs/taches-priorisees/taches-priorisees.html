@@ -159,7 +159,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
 <header class="entete">
   <p class="sur">Koji et Koji Pro · liste établie le 20 novembre 2026, mise à jour le 27 novembre</p>
   <h1>Tâches priorisées</h1>
-  <p class="chapo">Tout ce qui reste à faire après la refonte, classé de la tâche la plus urgente à la moins prioritaire. 47 tâches, quatre niveaux de priorité. Les points de décision détaillés restent dans le document des points à valider.</p>
+  <p class="chapo">Tout ce qui reste à faire après la refonte, classé de la tâche la plus urgente à la moins prioritaire. 50 tâches, quatre niveaux de priorité. Les points de décision détaillés restent dans le document des points à valider.</p>
   <p class="etat" id="etat-db" role="status" hidden></p>
 </header>
 
@@ -177,9 +177,9 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <thead><tr><th scope="col">Niveau</th><th scope="col">Nom</th><th scope="col">Ce qu'on y range</th><th scope="col">Quand</th><th scope="col" class="nb">Tâches</th></tr></thead>
     <tbody>
 <tr><td><a class="prio p0" href="#P0">P0</a></td><th scope="row">Critique</th><td>Échéance légale ou sécurité.</td><td>À traiter tout de suite.</td><td class="nb">5</td></tr>
-<tr><td><a class="prio p1" href="#P1">P1</a></td><th scope="row">Important</th><td>Nécessaire pour livrer aux utilisateurs.</td><td>Sprint en cours.</td><td class="nb">19</td></tr>
+<tr><td><a class="prio p1" href="#P1">P1</a></td><th scope="row">Important</th><td>Nécessaire pour livrer aux utilisateurs.</td><td>Sprint en cours.</td><td class="nb">21</td></tr>
 <tr><td><a class="prio p2" href="#P2">P2</a></td><th scope="row">À planifier</th><td>Solidité et qualité du service.</td><td>Sprint suivant.</td><td class="nb">13</td></tr>
-<tr><td><a class="prio p3" href="#P3">P3</a></td><th scope="row">Plus tard</th><td>Confort, contenu, évolutions.</td><td>Quand le reste est fait.</td><td class="nb">10</td></tr>
+<tr><td><a class="prio p3" href="#P3">P3</a></td><th scope="row">Plus tard</th><td>Confort, contenu, évolutions.</td><td>Quand le reste est fait.</td><td class="nb">11</td></tr>
     </tbody>
   </table>
   </div>
@@ -194,7 +194,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
 
 <section class="bloc" aria-labelledby="t-ordre">
   <h2 id="t-ordre">Par où commencer</h2>
-  <p><b>Sprint 1, cette semaine.</b> Les cinq tâches P0, puis les tâches P1 qui ne dépendent de rien : <a class="ref" href="#T-06" data-dep="T-06">T-06</a> <a class="ref" href="#T-09" data-dep="T-09">T-09</a> <a class="ref" href="#T-13" data-dep="T-13">T-13</a> <a class="ref" href="#T-16" data-dep="T-16">T-16</a> <a class="ref" href="#T-17" data-dep="T-17">T-17</a> <a class="ref" href="#T-41" data-dep="T-41">T-41</a> <a class="ref" href="#T-42" data-dep="T-42">T-42</a> <a class="ref" href="#T-47" data-dep="T-47">T-47</a>. La direction est attendue en premier sur <a class="ref" href="#T-01" data-dep="T-01">T-01</a>, <a class="ref" href="#T-02" data-dep="T-02">T-02</a> et <a class="ref" href="#T-09" data-dep="T-09">T-09</a>.</p>
+  <p><b>Sprint 1, cette semaine.</b> Les cinq tâches P0, puis les tâches P1 qui ne dépendent de rien : <a class="ref" href="#T-06" data-dep="T-06">T-06</a> <a class="ref" href="#T-09" data-dep="T-09">T-09</a> <a class="ref" href="#T-13" data-dep="T-13">T-13</a> <a class="ref" href="#T-16" data-dep="T-16">T-16</a> <a class="ref" href="#T-17" data-dep="T-17">T-17</a> <a class="ref" href="#T-41" data-dep="T-41">T-41</a> <a class="ref" href="#T-42" data-dep="T-42">T-42</a> <a class="ref" href="#T-47" data-dep="T-47">T-47</a> <a class="ref" href="#T-48" data-dep="T-48">T-48</a> <a class="ref" href="#T-49" data-dep="T-49">T-49</a>. La direction est attendue en premier sur <a class="ref" href="#T-01" data-dep="T-01">T-01</a>, <a class="ref" href="#T-02" data-dep="T-02">T-02</a> et <a class="ref" href="#T-09" data-dep="T-09">T-09</a>.</p>
   <p><b>Sprint 2.</b> Le reste des P1, dans l'ordre des enchaînements ci-dessous. Les P2 et les P3 viennent ensuite.</p>
   <h3 class="sous">Enchaînements à respecter</h3>
   <dl class="chaines">
@@ -311,7 +311,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
       <h2 id="titre-P1">Important</h2>
       <p>Nécessaire pour livrer aux utilisateurs. Sprint en cours.</p>
     </div>
-    <p class="compte"><b>19</b> tâches<span class="avance" data-compte="P1" hidden></span></p>
+    <p class="compte"><b>21</b> tâches<span class="avance" data-compte="P1" hidden></span></p>
   </div>
   
 <article class="tache" id="T-06" data-id="T-06" data-prio="P1" data-deps="">
@@ -636,6 +636,40 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <div class="resultat"><dt>Résultat attendu</dt><dd>Les quatre fiches (Koji et Koji Pro, Android et iPhone) pointent vers https://getkoji.io/legal/confidentialite et affichent la bonne adresse de contact.</dd></div>
   </dl>
 </article>
+
+<article class="tache" id="T-48" data-id="T-48" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-48</span>
+    <h3>Corriger la fiche publique Google Play avant l'envoi</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-48" data-fait="T-48"><span>Fait</span></label>
+  </header>
+  <p class="desc">Relecture de la Play Console du 27 novembre. Quatre corrections, pour Koji et pour Koji Pro. 1) Nom du développeur : il affiche le nom d'une personne. Mettre ABL EXPERT RENOV (Paramètres › Profil de développeur). Si Google exige un compte d'organisation, la direction fait le changement de type de compte. 2) Coordonnées publiques : remplacer l'e-mail et le portable personnels par contact@getkoji.io (Koji) et entreprise@getkoji.io (Koji Pro), et par un numéro de l'entreprise. Sans numéro d'entreprise, laisser le champ vide. 3) Site web de la fiche : remplacer koji-signature.vercel.app par https://getkoji.io. 4) Fautes : « près de chez vous » dans la description courte, et « Koji » au lieu de « Kôji » dans la description complète.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique (Play Console), avec la direction pour le nom du compte et le numéro de téléphone de l'entreprise.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Avant l'envoi en production.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Ces informations sont publiques sur Google Play.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les fiches affichent ABL EXPERT RENOV, les adresses getkoji.io, le site getkoji.io, et ne contiennent plus de faute.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-49" data-id="T-49" data-prio="P1" data-deps="">
+  <header class="tete">
+    <span class="num">T-49</span>
+    <h3>Remplacer le compte de démonstration déclaré à Google</h3>
+    <span class="prio p1">P1</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-49" data-fait="T-49"><span>Fait</span></label>
+  </header>
+  <p class="desc">Les informations de connexion déclarées à Google (Contenu de l'application › Accès aux applications) utilisent encore un ancien compte de démonstration, au nom d'une personne. Si Google ne peut pas se connecter, l'app est refusée. Le remplacer par les comptes de démonstration actuels, essayés avec succès le 19 novembre : contact@getkoji.io pour Koji, entreprise@getkoji.io pour Koji Pro. Ils contiennent des devis et un chantier de démonstration. Se connecter une fois avec chacun avant l'envoi.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span> <span class="note">Avant l'envoi en production.</span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv4"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class="plein"></i></span><b>Très haute</b></span> <span class="note">Sans connexion possible, Google refuse l'app.</span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Les deux apps déclarent un compte de démonstration qui se connecte et montre des données.</dd></div>
+  </dl>
+</article>
 </section>
 
 <section class="niveau" id="P2" aria-labelledby="titre-P2">
@@ -877,7 +911,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
       <h2 id="titre-P3">Plus tard</h2>
       <p>Confort, contenu, évolutions. Quand le reste est fait.</p>
     </div>
-    <p class="compte"><b>10</b> tâches<span class="avance" data-compte="P3" hidden></span></p>
+    <p class="compte"><b>11</b> tâches<span class="avance" data-compte="P3" hidden></span></p>
   </div>
   
 <article class="tache" id="T-33" data-id="T-33" data-prio="P3" data-deps="">
@@ -1047,6 +1081,23 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
     <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
     <div class="resultat"><dt>Résultat attendu</dt><dd>La carte du compte montre le logo KOJI PRO.</dd></div>
+  </dl>
+</article>
+
+<article class="tache" id="T-50" data-id="T-50" data-prio="P3" data-deps="">
+  <header class="tete">
+    <span class="num">T-50</span>
+    <h3>Écrire « Koji » sans accent dans l'app</h3>
+    <span class="prio p3">P3</span>
+    <label class="coche" hidden><input type="checkbox" id="fait-T-50" data-fait="T-50"><span>Fait</span></label>
+  </header>
+  <p class="desc">Fait le 27 novembre. Deux textes de l'app écrivaient encore « Kôji » : la mention « Créé par Koji » en pied de page des devis PDF, et le message affiché à l'ajout d'un contact. Les deux sont corrigés. La correction sera visible dans le prochain build des apps.</p>
+  <dl class="fiche">
+    <div><dt>Qui</dt><dd>Développement.</dd></div>
+    <div><dt>Urgence</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Importance</dt><dd><span class="niv niv1"><span class="points" aria-hidden="true"><i class="plein"></i><i class=""></i><i class=""></i><i class=""></i></span><b>Basse</b></span></dd></div>
+    <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Plus aucun « Kôji » visible dans l'app ni dans les devis PDF.</dd></div>
   </dl>
 </article>
 </section>
