@@ -480,13 +480,13 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <span class="prio p1">P1</span>
     <label class="coche" hidden><input type="checkbox" id="fait-T-12" data-fait="T-12"><span>Fait</span></label>
   </header>
-  <p class="desc">Apple a refusé Koji Pro le 9 novembre et demande des informations : un enregistrement d'écran et six notes. Les notes sont prêtes. Décision du 20 novembre : répondre avec les nouveaux builds, qui portent la refonte et les mises à jour Signaler / Bloquer (T-41), pas avec le build 62. Répondre ensuite avec l'enregistrement d'écran et le compte de démonstration, puis soumettre de nouveau.</p>
+  <p class="desc">Apple a refusé Koji Pro le 9 novembre et demande des informations : un enregistrement d'écran et six notes. Les notes sont prêtes. Décision du 20 novembre : répondre avec les nouveaux builds, qui portent la refonte et les mises à jour Signaler / Bloquer (T-41), pas avec le build 62. Répondre ensuite avec l'enregistrement d'écran et le compte de démonstration, puis soumettre de nouveau. <b>Point du 27 novembre :</b> la version 1.0 attendait la vérification depuis le 20 novembre avec le build 64, celui des retours du testeur. Elle porte maintenant le build 74 (sprints 1 à 4, Signaler / Bloquer, fait avec Xcode 27, sans avertissement d'Apple) et elle est « Prête pour la vérification », avec un brouillon de soumission en place. L'app n'est plus proposée qu'en France (Apple applique le changement sous 24 heures). La section « 6. REGIONS » des remarques pour Apple disait encore 27 pays de l'UE et la Tunisie. Elle est corrigée : « The app is available in France only. French interface; quotes follow French rules. » Il reste à cliquer sur « Envoyer pour vérification », de préférence après un tour rapide du build 74 par le testeur avec le compte de démonstration entreprise@getkoji.io.</p>
   <dl class="fiche">
     <div><dt>Qui</dt><dd>Responsable technique.</dd></div>
     <div><dt>Urgence</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
     <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
     <div><dt>Dépend de</dt><dd><a class="ref" href="#T-11" data-dep="T-11">T-11</a> <a class="ref" href="#T-41" data-dep="T-41">T-41</a> <span class="note">Le build iPhone de Koji Pro doit contenir le code du 20 novembre (main fusionné dans release avant le build).</span></dd></div>
-    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji Pro est de nouveau en revue chez Apple.</dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji Pro est de nouveau en revue chez Apple, avec le build 74 ou plus récent.</dd></div>
   </dl>
 </article>
 
@@ -497,13 +497,13 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     <span class="prio p1">P1</span>
     <label class="coche" hidden><input type="checkbox" id="fait-T-13" data-fait="T-13"><span>Fait</span></label>
   </header>
-  <p class="desc">La version 1.0 de Koji a été soumise le 9 novembre, avec publication automatique à l'approbation. Vérifier où en est la revue et répondre à Apple en cas de refus. Faire aussi, sur le compte Apple de l'entreprise, la déclaration de commerçant demandée par le règlement européen sur les services numériques.</p>
+  <p class="desc">La version 1.0 de Koji a été soumise le 9 novembre, avec publication automatique à l'approbation. Vérifier où en est la revue et répondre à Apple en cas de refus. Faire aussi, sur le compte Apple de l'entreprise, la déclaration de commerçant demandée par le règlement européen sur les services numériques. <b>Point du 27 novembre :</b> l'app n'est plus proposée qu'en France (Apple applique le changement sous 24 heures). La section « 6. REGIONS » des remarques pour Apple est corrigée : « The app is available in France only. French interface. » La soumission est encore bloquée par trois lignes des remarques à vérifier : la création de compte, le signalement et le blocage. Le code de l'app Koji les contient : « Créer un compte » à la connexion, ainsi que « Signaler la conversation » et « Bloquer » dans les messages avec les entreprises et les artisans, depuis le 20 novembre (5996d5c). Le build envoyé à Apple doit donc être le build 65 ou un build plus récent : les builds d'avant le 22 novembre n'ont pas Signaler / Bloquer. La déclaration de commerçant (DSA) est « En cours de vérification » chez Apple. La France fait partie de l'Union européenne : la publication en dépend toujours.</p>
   <dl class="fiche">
     <div><dt>Qui</dt><dd>Direction et responsable technique.</dd></div>
     <div><dt>Urgence</dt><dd><span class="niv niv2"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class=""></i><i class=""></i></span><b>Moyenne</b></span></dd></div>
     <div><dt>Importance</dt><dd><span class="niv niv3"><span class="points" aria-hidden="true"><i class="plein"></i><i class="plein"></i><i class="plein"></i><i class=""></i></span><b>Haute</b></span></dd></div>
     <div><dt>Dépend de</dt><dd><span class="rien">Rien, peut commencer tout de suite.</span></dd></div>
-    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji est publiée sur l'App Store. La déclaration est faite.</dd></div>
+    <div class="resultat"><dt>Résultat attendu</dt><dd>Koji est publiée sur l'App Store, en France. La déclaration de commerçant est validée par Apple.</dd></div>
   </dl>
 </article>
 
