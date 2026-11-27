@@ -153,6 +153,36 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
   html { scroll-behavior: smooth; }
 }
 
+/* Backlog en tête (27 nov., demande d'Amira) : un tableau par niveau, construit
+   à partir des fiches ci-dessous et des cases « Fait ». */
+.bl-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--line); border-top: 2px solid var(--ink); }
+.bl-stat { background: var(--bg); padding: .75rem .9rem .75rem 0; }
+.bl-stat + .bl-stat { padding-left: .9rem; }
+.bl-stat b { display: block; font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bl-stat span { color: var(--muted); font-size: .875rem; }
+.bl-filtres { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.bl-filtres .lib { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-right: .25rem; }
+.bl-filtres button { font: inherit; font-size: .875rem; font-weight: 500; padding: .35rem .75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.bl-filtres button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+.bl-tete { display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: baseline; justify-content: space-between; margin-top: 1rem; }
+.bl-tete h3 { font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; }
+.bl-tete span { color: var(--muted); font-size: .875rem; }
+.bl-table { width: 100%; min-width: 46rem; border-collapse: collapse; font-size: .9rem; background: var(--surface); border: 1px solid var(--line); }
+.bl-table th { text-align: left; font-size: .6875rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: .55rem .65rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.bl-table td { padding: .55rem .65rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.bl-table tr:last-child td { border-bottom: 0; }
+.bl-table td.cle a { font-weight: 700; font-variant-numeric: tabular-nums; text-decoration: none; white-space: nowrap; }
+.bl-table td.cle a:hover { text-decoration: underline; }
+.bl-table td.titre { min-width: 16rem; }
+.bl-table tr.faite td.titre { text-decoration: line-through; color: var(--muted); }
+.bl-table .role { display: inline-block; font-size: .75rem; padding: .05rem .4rem; border: 1px solid var(--line); border-radius: 4px; margin: 0 .2rem .2rem 0; white-space: nowrap; }
+.bl-table .niv-mot { font-size: .8125rem; font-weight: 700; white-space: nowrap; }
+.statut { display: inline-block; font-size: .75rem; font-weight: 700; padding: .2rem .5rem; border-radius: 999px; white-space: nowrap; }
+.statut.faite { background: var(--ok-bg); color: var(--ok); }
+.statut.prete { background: var(--p1-bg); color: var(--p1); }
+.statut.attente { background: var(--p3-bg); color: var(--p3); }
+.bl-legende { font-size: .875rem; color: var(--muted); }
+.bl-legende b { color: var(--ink); }
 </style>
 
 <div class="page">
@@ -162,6 +192,33 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
   <p class="chapo">Tout ce qui reste à faire après la refonte, classé de la tâche la plus urgente à la moins prioritaire. 52 tâches, quatre niveaux de priorité. Les points de décision détaillés restent dans le document des points à valider.</p>
   <p class="etat" id="etat-db" role="status" hidden></p>
 </header>
+
+<section class="bloc" id="backlog" aria-labelledby="t-backlog">
+  <h2 id="t-backlog">Backlog</h2>
+  <p class="petit">Toutes les tâches en un coup d'œil, par niveau de priorité. Cliquer sur une clé ouvre sa fiche plus bas. Le tableau suit les cases « Fait » des fiches.</p>
+  <div class="bl-stats">
+    <div class="bl-stat"><b id="bl-total">–</b><span>tâches</span></div>
+    <div class="bl-stat"><b id="bl-prete">–</b><span>prêtes à faire maintenant</span></div>
+    <div class="bl-stat"><b id="bl-attente">–</b><span>en attente d'une autre tâche</span></div>
+    <div class="bl-stat"><b id="bl-faite">–</b><span>faites</span></div>
+  </div>
+  <p class="bl-legende"><b>Prête</b> : rien ne la bloque, elle peut commencer. <b>En attente</b> : elle dépend d'une tâche qui n'est pas encore faite. <b>Faite</b> : cochée dans sa fiche.</p>
+  <div class="bl-filtres" role="group" aria-label="Filtrer par statut">
+    <span class="lib">Statut</span>
+    <button type="button" data-statut="tous" aria-pressed="true">Toutes</button>
+    <button type="button" data-statut="prete" aria-pressed="false">Prêtes</button>
+    <button type="button" data-statut="attente" aria-pressed="false">En attente</button>
+    <button type="button" data-statut="faite" aria-pressed="false">Faites</button>
+  </div>
+  <div class="bl-filtres" role="group" aria-label="Filtrer par rôle">
+    <span class="lib">Qui</span>
+    <button type="button" data-role="tous" aria-pressed="true">Tous les rôles</button>
+    <button type="button" data-role="Direction" aria-pressed="false">Direction</button>
+    <button type="button" data-role="Responsable technique" aria-pressed="false">Responsable technique</button>
+    <button type="button" data-role="Développement" aria-pressed="false">Développement</button>
+  </div>
+  <div id="bl-tables"></div>
+</section>
 
 <section class="bloc" aria-labelledby="t-mode">
   <h2 id="t-mode">Comment se servir de cette liste</h2>
@@ -1172,7 +1229,88 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
       s.textContent = n + " sur " + liste.length + " faites";
       s.hidden = false;
     });
+    peindreBacklog();
   }
+
+
+  // ── Backlog en tête : construit à partir des fiches et de l'état des cases ──
+  var NIVEAUX = [["P0", "Critique"], ["P1", "Important"], ["P2", "À planifier"], ["P3", "Plus tard"]];
+  var STATUTS = { prete: "Prête", attente: "En attente", faite: "Faite" };
+  var filtreStatut = "tous";
+  var filtreRole = "tous";
+
+  function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+  function champ(a, libelle) {
+    var dts = a.querySelectorAll(".fiche dt");
+    for (var i = 0; i < dts.length; i++) if (dts[i].textContent.trim() === libelle) return dts[i].nextElementSibling;
+    return null;
+  }
+
+  function infos(a) {
+    var id = a.dataset.id;
+    var deps = (a.dataset.deps || "").split(/\s+/).filter(Boolean);
+    var qui = champ(a, "Qui");
+    var quiTexte = qui ? qui.textContent.trim() : "";
+    var roles = [];
+    if (/direction/i.test(quiTexte)) roles.push("Direction");
+    if (/responsable technique/i.test(quiTexte)) roles.push("Responsable technique");
+    if (/d[ée]veloppement/i.test(quiTexte)) roles.push("Développement");
+    var niveau = function (lib) { var d = champ(a, lib); var b = d && d.querySelector("b"); var n = d && d.querySelector(".niv"); return { mot: b ? b.textContent.trim() : "", classe: n ? n.className.replace("niv ", "") : "" }; };
+    var ouvertes = deps.filter(function (d) { return etat[d] !== true; });
+    return {
+      id: id,
+      titre: (a.querySelector("h3") || {}).textContent || "",
+      prio: a.dataset.prio,
+      quiTexte: quiTexte,
+      roles: roles,
+      urgence: niveau("Urgence"),
+      importance: niveau("Importance"),
+      deps: deps,
+      statut: etat[id] === true ? "faite" : ouvertes.length ? "attente" : "prete"
+    };
+  }
+
+  function peindreBacklog() {
+    var liste = taches.map(infos);
+    var compte = function (st) { return liste.filter(function (t) { return t.statut === st; }).length; };
+    document.getElementById("bl-total").textContent = liste.length;
+    document.getElementById("bl-prete").textContent = compte("prete");
+    document.getElementById("bl-attente").textContent = compte("attente");
+    document.getElementById("bl-faite").textContent = compte("faite");
+
+    var html = "";
+    NIVEAUX.forEach(function (n) {
+      var tous = liste.filter(function (t) { return t.prio === n[0]; });
+      var lignes = tous.filter(function (t) {
+        return (filtreStatut === "tous" || t.statut === filtreStatut) && (filtreRole === "tous" || t.roles.indexOf(filtreRole) >= 0);
+      });
+      if (!lignes.length) return;
+      var faites = tous.filter(function (t) { return t.statut === "faite"; }).length;
+      html += '<div class="bl-tete"><h3><a class="prio ' + n[0].toLowerCase() + '" href="#' + n[0] + '">' + n[0] + "</a>" + esc(n[1]) + "</h3><span>" + faites + " faites sur " + tous.length + "</span></div>";
+      html += '<div class="deroule"><table class="bl-table"><thead><tr><th>Clé</th><th>Tâche</th><th>Qui</th><th>Urgence</th><th>Importance</th><th>Dépend de</th><th>Statut</th></tr></thead><tbody>';
+      lignes.forEach(function (t) {
+        var roles = t.roles.length ? t.roles.map(function (r) { return '<span class="role">' + esc(r) + "</span>"; }).join("") : esc(t.quiTexte);
+        var deps = t.deps.length ? t.deps.map(function (d) { return '<a class="ref' + (etat[d] === true ? " dep-faite" : "") + '" href="#' + d + '">' + d + "</a>"; }).join(" ") : '<span class="rien">—</span>';
+        html += '<tr class="' + t.statut + '"><td class="cle"><a href="#' + t.id + '">' + t.id + '</a></td><td class="titre">' + esc(t.titre.trim()) + "</td><td>" + roles +
+          '</td><td><span class="niv-mot ' + t.urgence.classe + '">' + esc(t.urgence.mot) + '</span></td><td><span class="niv-mot ' + t.importance.classe + '">' + esc(t.importance.mot) +
+          "</span></td><td>" + deps + '</td><td><span class="statut ' + t.statut + '">' + STATUTS[t.statut] + "</span></td></tr>";
+      });
+      html += "</tbody></table></div>";
+    });
+    document.getElementById("bl-tables").innerHTML = html || '<p class="petit">Aucune tâche avec ces filtres.</p>';
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".bl-filtres"), function (groupe) {
+    groupe.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      Array.prototype.forEach.call(groupe.querySelectorAll("button"), function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      if (b.dataset.statut) filtreStatut = b.dataset.statut;
+      if (b.dataset.role) filtreRole = b.dataset.role;
+      peindreBacklog();
+    });
+  });
 
   function verrouiller(texte) {
     lectureSeule = true;
@@ -1231,6 +1369,7 @@ h2 { font-family: var(--titre); font-weight: 700; font-size: 1.5rem; line-height
     });
   }
 
+  peindreBacklog();
   demarrer();
 })();
 
