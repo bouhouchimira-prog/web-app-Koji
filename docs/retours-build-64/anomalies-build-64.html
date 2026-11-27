@@ -111,17 +111,62 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="wrap">
     <p class="eyebrow">Koji Pro · version affectée : build 64 (iPhone)</p>
     <h1>Anomalies et backlog de correction</h1>
-    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 25 novembre 2026. Sprint 0 validé, sprint 1 livré dans un build, sprints 2 et 3 poussés, en attente d'un build. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
+    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 86, iPhone build 68. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
     <div class="stats" id="stats">
-      <div class="stat"><b id="n-total">57</b><span>tickets au backlog</span></div>
-      <div class="stat"><b id="n-valider">25</b><span>corrigés, à livrer ou à valider</span></div>
-      <div class="stat"><b id="n-faire">23</b><span>à faire ou en cours</span></div>
+      <div class="stat"><b id="n-total">60</b><span>tickets au backlog</span></div>
+      <div class="stat"><b id="n-valider">37</b><span>corrigés, à livrer ou à valider</span></div>
+      <div class="stat"><b id="n-faire">14</b><span>à faire ou en cours</span></div>
       <div class="stat"><b id="n-termine">9</b><span>terminés (recette passée)</span></div>
     </div>
   </div>
 </header>
 
 <main class="wrap">
+
+<section>
+  <h2>Backlog</h2>
+  <p class="intro">Tous les tickets, par sprint. Rapporteur : Testeur. Responsable : Développement, sauf mention contraire. Version affectée : build 64.</p>
+  <div class="filters" id="filters" role="group" aria-label="Filtrer par statut">
+    <button type="button" id="f-tous" data-f="tous" aria-pressed="true">Tous</button>
+    <button type="button" id="f-valider" data-f="valider" aria-pressed="false">À valider</button>
+    <button type="button" id="f-faire" data-f="faire" aria-pressed="false">À faire</button>
+    <button type="button" id="f-cours" data-f="cours" aria-pressed="false">En cours</button>
+    <button type="button" id="f-pret" data-f="pret" aria-pressed="false">Prêt à livrer</button>
+    <button type="button" id="f-termine" data-f="termine" aria-pressed="false">Terminé</button>
+  </div>
+  <div id="backlog"></div>
+</section>
+
+<section>
+  <h2>Journal du rapport</h2>
+  <p class="intro">Les dernières nouvelles en premier.</p>
+  <div class="box">
+    <div class="log">
+      <time datetime="2026-11-27">27 nov. 2026</time>
+      <p>Logo « KOJI PRO » et nouvelle icône de l'app (commit 8f31dce), livrés dans Android version 86 et iPhone build 68 avec les sprints 1 à 4. Deux nouveaux tickets, KPRO-59 et KPRO-60, à « À valider ».</p>
+      <time datetime="2026-11-25">25 nov. 2026</time>
+      <p>Sprint 4 poussé (commit e5553b6). Sprints 2, 3 et 4 livrés dans Android version 85 et iPhone build 67 : leurs 23 tickets corrigés passent à « À valider ».</p>
+      <time datetime="2026-11-25">25 nov. 2026</time>
+      <p>Sprint 4 corrigé et testé : dix tickets passent à « Prêt à livrer » (KPRO-35, KPRO-38 à KPRO-46). KPRO-36 et KPRO-37 restent bloqués par D-2 et D-4. Nouveau ticket KPRO-58. D-3 appliquée selon la recommandation, à confirmer.</p>
+      <time datetime="2026-11-25">25 nov. 2026</time>
+      <p>Sprint 3 poussé : commit 48c0a76. Section « Points ouverts » ajoutée. Neuf tickets ouverts (KPRO-49 à KPRO-57) et trois décisions (D-7 à D-9) ; KPRO-47 et KPRO-48 rangés dans « À planifier ».</p>
+      <time datetime="2026-11-25">25 nov. 2026</time>
+      <p>Sprint 3 corrigé et testé : KPRO-30 à KPRO-34 passent à « Prêt à livrer ». Nouveau ticket KPRO-48. D-5 reste ouverte.</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 2 poussé : commit f122e17, quatre déploiements réussis. La partie site est en ligne ; la partie app attend un build.</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 2 corrigé et testé : KPRO-22 à KPRO-29 passent à « Prêt à livrer ». Nouveau ticket KPRO-47, issu de la mesure de la lenteur de la fiche.</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 1 livré : commit f326299, Android version 84 (brouillon sur Google Play), iPhone build 66 (TestFlight). KPRO-9 à KPRO-20 passent à « À valider ». Sprint 2 démarré : KPRO-22 à KPRO-29 passent à « En cours ».</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 1 corrigé et testé : KPRO-9 à KPRO-20 passent à « Prêt à livrer ». Nouveau statut ajouté au vocabulaire. D-1 appliquée selon la recommandation, à confirmer.</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Sprint 0 validé par la Responsable technique : les neuf tickets passent à « Terminé ». Sprint 1 démarré : KPRO-9 à KPRO-20 passent à « En cours ».</p>
+      <time datetime="2026-11-24">24 nov. 2026</time>
+      <p>Création du rapport. Analyse des causes, plan de sprints, six décisions ouvertes, 46 tickets. Sprint 0 livré : neuf tickets passent à « À valider » (KPRO-1 à KPRO-8, KPRO-21).</p>
+    </div>
+  </div>
+</section>
 
 <section>
   <h2>Vocabulaire du rapport</h2>
@@ -184,9 +229,10 @@ footer { color: var(--muted); font-size: 13px; }
       <tbody>
         <tr><td class="id">Sprint 0</td><td class="sum">Corrections côté serveur : enregistrement du devis, invitation d'un compagnon, assistant devis, Calendrier, procès-verbal, jetons, liens du parcours.</td><td>Serveur, 24 nov. 2026</td><td><span class="pill st-termine">Terminé</span></td></tr>
         <tr><td class="id">Sprint 1</td><td class="sum">Les blocages dans l'app : messages techniques, écrans sans issue, création de chantier, règle de clôture, lignes en double, clavier. Un seul nouveau build à la fin.</td><td>Android version 84, iOS build 66 (24 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
-        <tr><td class="id">Sprint 2</td><td class="sum">Cohérence des chantiers : fiche fidèle à la saisie et rapide à ouvrir, une seule source pour les tâches, formulaire Nouveau chantier refait, équipe, contacts, avenants.</td><td>Prochain build</td><td><span class="pill st-pret">Prêt à livrer</span></td></tr>
-        <tr><td class="id">Sprint 3</td><td class="sum">Cohérence des devis : frais visibles, taux horaire de la bibliothèque, PDF en français, numéro unique.</td><td>Prochain build</td><td><span class="pill st-pret">Prêt à livrer</span></td></tr>
-        <tr><td class="id">Sprint 4</td><td class="sum">Textes et design : nom de l'offre, fautes, bouton ✦, barre d'état, onglets, écrans restés dans l'ancienne direction artistique.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
+        <tr><td class="id">Sprint 2</td><td class="sum">Cohérence des chantiers : fiche fidèle à la saisie et rapide à ouvrir, une seule source pour les tâches, formulaire Nouveau chantier refait, équipe, contacts, avenants.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
+        <tr><td class="id">Sprint 3</td><td class="sum">Cohérence des devis : frais visibles, taux horaire de la bibliothèque, PDF en français, numéro unique.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
+        <tr><td class="id">Sprint 4</td><td class="sum">Textes et design : nom de l'offre, fautes, bouton ✦, barre d'état, onglets, écrans restés dans l'ancienne direction artistique.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
+        <tr><td class="id">Hors sprint</td><td class="sum">Logo « KOJI PRO » et nouvelle icône de l'app, onglets de connexion sur petit écran.</td><td>Android version 86, iOS build 68 (27 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">À planifier</td><td class="sum">Tickets ouverts pendant les sprints : ce que les corrections livrées ne couvrent pas encore.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
       </tbody>
     </table>
@@ -199,7 +245,7 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="grid2">
     <div class="box"><span class="id">D-1 · bloque KPRO-10, KPRO-20</span><h3>Quand un chantier est-il clôturé ?</h3><p>Le testeur demande un devis signé avant la clôture. Cela empêcherait pour toujours de clôturer un chantier ajouté à la main, « trouvé ailleurs », que le même testeur propose de garder.</p><p><b>Recommandation :</b> exiger le procès-verbal signé, pas le devis.</p><p><b>État :</b> la recommandation est appliquée au sprint 1 (KPRO-10), pour ne pas laisser l'anomalie en place. Elle reste à confirmer. Deux choix provisoires vont avec : un procès-verbal se signe dès qu'il y a un devis signé ou une tâche faite, et les jetons ne sont attribués que si le devis est signé.</p><p class="fields">Responsable : Direction</p></div>
     <div class="box"><span class="id">D-2 · bloque KPRO-36</span><h3>Quel message sur l'écran Urgences ?</h3><p>Le testeur croit la fonction pas encore prête. Dans le code elle est active et réservée aux offres payantes.</p><p><b>À décider :</b> « Bientôt disponible » ou « Réservé aux offres Pro et Business ».</p><p class="fields">Responsable : Direction</p></div>
-    <div class="box"><span class="id">D-3 · bloque KPRO-35</span><h3>Un seul nom pour l'offre gratuite</h3><p>Elle s'appelle « Essai gratuit », « Koji Essai » ou « Offre Start » selon l'écran.</p><p><b>Recommandation :</b> « Start », comme sur le site.</p><p class="fields">Responsable : Direction</p></div>
+    <div class="box"><span class="id">D-3 · bloque KPRO-35</span><h3>Un seul nom pour l'offre gratuite</h3><p>Elle s'appelle « Essai gratuit », « Koji Essai » ou « Offre Start » selon l'écran.</p><p><b>Recommandation :</b> « Start », comme sur le site.</p><p><b>État :</b> la recommandation est appliquée au sprint 4 (KPRO-35) : « Offre Start » partout. Elle reste à confirmer.</p><p class="fields">Responsable : Direction</p></div>
     <div class="box"><span class="id">D-4 · bloque KPRO-37</span><h3>Les renvois « sur le site » passent-ils chez Apple ?</h3><p>Neuf écrans de l'app invitent à changer d'offre sur le site. Apple encadre les renvois vers un paiement hors de l'app.</p><p><b>À décider :</b> garder, reformuler ou retirer ces textes.</p><p class="fields">Responsable : Direction</p></div>
     <div class="box"><span class="id">D-5 · bloque KPRO-30</span><h3>Quel calcul pour les frais du devis ?</h3><p>Le site et l'app ne calculent pas l'assurance décennale sur la même base, donc pas le même total.</p><p><b>À décider :</b> le calcul de référence, puis les deux s'alignent.</p><p><b>État :</b> depuis le sprint 3, le site relit les frais d'un devis de l'app avec le calcul de l'app, donc chaque devis donne le même total des deux côtés. Reste à choisir le calcul d'un devis neuf.</p><p class="fields">Responsable : Direction et Responsable technique</p></div>
     <div class="box"><span class="id">D-6 · suite de KPRO-1</span><h3>Plafond de devis de l'offre gratuite dans l'app</h3><p>Les fonctions créées au sprint 0 répondent toujours « autorisé ». L'app ne limite donc pas le nombre de devis enregistrés.</p><p><b>À confirmer :</b> pas de plafond dans l'app pour l'instant, ou un plafond à définir.</p><p class="fields">Responsable : Direction</p></div>
@@ -211,20 +257,19 @@ footer { color: var(--muted); font-size: 13px; }
 
 <section>
   <h2>Points ouverts</h2>
-  <p class="intro">Tout ce qui n'est pas fermé au 25 novembre 2026 : ce qui attend une action, ce que les corrections livrées ne couvrent pas, et ce qui n'est pas commencé. Chaque point technique a son ticket dans le backlog. Les décisions sont dans la section précédente.</p>
+  <p class="intro">Tout ce qui n'est pas fermé au 27 novembre 2026 : ce qui attend une action, ce que les corrections livrées ne couvrent pas, et ce qui n'est pas commencé. Chaque point technique a son ticket dans le backlog. Les décisions sont dans la section précédente.</p>
   <div class="box">
     <h3>Actions en attente</h3>
     <ul class="plain">
-      <li><b>Déployer Android.</b> Koji Pro version 84 est sur Google Play en test interne, à l'état de brouillon. Il se déploie depuis la Play Console. Responsable : Responsable technique.</li>
-      <li><b>Recette du sprint 1.</b> KPRO-9 à KPRO-20 attendent d'être rejoués sur Android version 84 ou iPhone build 66 pour passer à « Terminé ». Responsable : Responsable technique, Testeur.</li>
-      <li><b>Prochain build.</b> Les sprints 2 et 3 sont poussés, mais dans aucun build : leur partie app n'est pas chez les testeurs. Treize tickets attendent ce build. Responsable : Responsable technique.</li>
+      <li><b>Déployer Android.</b> Koji Pro version 86 est sur Google Play en test interne, à l'état de brouillon. Elle contient les sprints 1 à 4 et se déploie depuis la Play Console. Responsable : Responsable technique.</li>
+      <li><b>Recette des sprints 1 à 4.</b> Les 37 tickets « À valider » attendent d'être rejoués sur Android version 86 ou iPhone build 68 pour passer à « Terminé ». Responsable : Responsable technique, Testeur.</li>
       <li><b>Décisions D-1 à D-9.</b> Aucune n'a encore reçu de réponse. Responsable : Direction.</li>
     </ul>
   </div>
   <div class="box">
     <h3>Ce qui n'est pas prouvé</h3>
     <ul class="plain">
-      <li>Depuis la validation du sprint 0, rien n'a été rejoué sur un téléphone. Les sprints 1 à 3 reposent sur les tests automatiques.</li>
+      <li>Depuis la validation du sprint 0, rien n'a été rejoué sur un téléphone. Les sprints 1 à 4 reposent sur les tests automatiques.</li>
       <li><b>Assistant devis (KPRO-4).</b> Le respect des consignes dépend du modèle. À rouvrir si une consigne n'est pas suivie en usage réel.</li>
       <li><b>Clavier (KPRO-17).</b> Le blocage n'a pas pu être reproduit hors appareil.</li>
       <li><b>Fiche chantier (KPRO-22).</b> Le gain de temps réel n'est pas chronométré.</li>
@@ -251,14 +296,17 @@ footer { color: var(--muted); font-size: 13px; }
     <ul class="plain">
       <li>Les outils du chantier (budget, documents, suivi des compagnons, « À faire ») lisent toujours les anciennes données. Ticket KPRO-53.</li>
       <li>Planning, l'ancien outil Équipe et Interventions sont sortis du menu, mais leur code est toujours dans l'app. Ticket KPRO-56.</li>
-      <li>Profil Entreprise, Budget, Infos Chantier et Archives restent dans l'ancienne direction artistique. Ticket KPRO-39, sprint 4.</li>
+      <li>Profil Entreprise, Budget et Infos Chantier ont pris les couleurs et les angles de la nouvelle direction artistique, mais gardent leur ancienne construction. Ticket KPRO-58.</li>
     </ul>
   </div>
   <div class="box">
-    <h3>Sprint 4 : pas commencé</h3>
+    <h3>Sprint 4 : deux tickets bloqués, une refonte à faire</h3>
     <ul class="plain">
-      <li>Douze tickets, KPRO-35 à KPRO-46. Trois attendent une décision : le nom de l'offre (D-3), le message de l'écran Urgences (D-2), les renvois « sur le site » (D-4).</li>
-      <li>Déjà fait en passant, à compter lors du sprint 4 : « SIGNÉ POUR LE CLIENT », « Date de début », « L'équipe Koji », le menu « Factures ». Les fautes de l'ancien formulaire Nouveau chantier ont disparu avec lui. Le nouveau formulaire dit à quoi il sert et sa barre d'état est lisible.</li>
+      <li><b>Urgences (KPRO-36).</b> Non traité : le message dépend de D-2.</li>
+      <li><b>Renvois « sur le site » (KPRO-37).</b> Non traité : neuf écrans attendent D-4.</li>
+      <li><b>Anciens écrans (KPRO-39).</b> Leurs couleurs et leurs formes sont alignées, sans les avoir vus à l'écran. La refonte d'après la maquette reste à faire : ticket KPRO-58.</li>
+      <li><b>Bouton ✦ (KPRO-38).</b> Sur l'accueil, il peut encore passer au-dessus d'un élément de la liste pendant le défilement.</li>
+      <li><b>Nom de l'offre (KPRO-35).</b> « Offre Start » est un choix provisoire : voir D-3.</li>
     </ul>
   </div>
   <div class="box">
@@ -467,7 +515,7 @@ notify pgrst, 'reload schema';</pre>
 
 <section>
   <h2>Rapport du sprint 2</h2>
-  <p class="intro">Corrigé le 24 novembre 2026. Les huit tickets sont « Prêt à livrer » : l'analyse ne signale aucune erreur, 357 tests passent côté app et 552 côté site. Commit <code>f122e17</code> poussé le 24 novembre, quatre déploiements réussis : la partie site est en ligne, la partie app attend un nouveau build.</p>
+  <p class="intro">Corrigé le 24 novembre 2026. Les huit tickets ont été corrigés et testés : l'analyse ne signale aucune erreur, 357 tests passent côté app et 552 côté site. Commit <code>f122e17</code> poussé le 24 novembre, quatre déploiements réussis : la partie site est en ligne. La partie app est livrée le 25 novembre dans Android version 85 et iPhone build 67 : les tickets passent à « À valider ».</p>
   <div class="box">
     <h3>Mesure de la lenteur de la fiche (KPRO-22)</h3>
     <ul class="plain">
@@ -484,20 +532,20 @@ notify pgrst, 'reload schema';</pre>
     </ul>
   </div>
   <div class="grid2">
-    <div class="box ticket"><span class="id">KPRO-22 · Bug · Haute</span><h3>Fiche chantier lente à s'ouvrir</h3><p><b>Résolution :</b> la fiche s'affiche tout de suite avec ce que la liste connaît déjà (nom, client, tâches, factures), un filet de progression en haut. Les dix appels partent tous en même temps. Le nom du chantier est dans le bandeau dès l'ouverture.</p><p><b>Reste :</b> KPRO-47.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-23 · Bug · Haute</span><h3>Infos du chantier différentes de la saisie</h3><p><b>Résolution :</b> la fiche montre l'adresse, le client et le type de bien saisis. Les outils du chantier reçoivent le chantier complet : plus de « Mon Chantier », de « Référence : Nouveau chantier » ni de « Adresse non renseignée ». La date de fin n'est plus inventée : « à définir » tant que l'artisan ne l'a pas donnée.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-24 · Bug · Moyenne</span><h3>Tâches qui se contredisent</h3><p><b>Résolution :</b> sans devis, le sous-titre de l'avancement compte les tâches (« 1 tâche faite sur 1 ») au lieu de « aucune tâche planifiée ». L'onglet Planning dit « Tout ce qui était prévu est fait. » quand c'est le cas. Une tâche à affecter montre son jour : « à affecter · mar. 24 · sem. 48 ». Mêmes textes sur le site et dans l'app.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-25 · Bug · Moyenne</span><h3>Deux outils Équipe</h3><p><b>Résolution :</b> le lien vers l'ancien outil Équipe est retiré. « Planning », ancien écran qui ne voyait ni les compagnons ni les tâches, est retiré du menu : on planifie depuis le Calendrier, comme sur le site. « Ouvrier » devient « compagnon » dans les écrans de la nouvelle génération.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-26 · Bug · Moyenne</span><h3>Contacts sans le client du chantier</h3><p><b>Résolution :</b> le client d'un chantier entre dans le carnet, rattaché à ce chantier. Les chantiers déjà créés y entrent à la première ouverture des contacts. Un nouveau contact est « Client » par défaut. Carnet vide : un seul bouton « Ajouter ».</p><p><b>Limite :</b> un client connu par son seul e-mail apparaît « Sans nom » jusqu'à ce qu'on le complète.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-27 · Bug · Moyenne</span><h3>Avenants et bouton introuvable</h3><p><b>Résolution :</b> un avenant modifie un devis signé, donc le bouton « Avenant » de la fiche n'apparaît qu'après la signature. La page le dit : « une fois le devis signé (bouton « Avenant ») ». Liste vide : « aucun avenant ».</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-28 · Amélioration · Moyenne</span><h3>Formulaire Nouveau chantier</h3><p><b>Résolution :</b> formulaire refait dans la nouvelle direction artistique. Nom, téléphone et e-mail du client. Adresses proposées pendant la saisie, par la Base Adresse Nationale, déjà utilisée par le site. Erreur affichée sous le champ concerné. Une phrase dit à quoi sert l'écran. L'ancien formulaire est supprimé.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-29 · Bug · Moyenne</span><h3>Nom affiché différent selon l'écran</h3><p><b>Résolution :</b> sous un chantier s'affiche le nom du client, sinon son e-mail en entier, jamais son début. L'accueil dit « Bonjour, » suivi du prénom ; sans prénom connu, « Bonjour. », jamais le nom de l'entreprise.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-22 · Bug · Haute</span><h3>Fiche chantier lente à s'ouvrir</h3><p><b>Résolution :</b> la fiche s'affiche tout de suite avec ce que la liste connaît déjà (nom, client, tâches, factures), un filet de progression en haut. Les dix appels partent tous en même temps. Le nom du chantier est dans le bandeau dès l'ouverture.</p><p><b>Reste :</b> KPRO-47.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-23 · Bug · Haute</span><h3>Infos du chantier différentes de la saisie</h3><p><b>Résolution :</b> la fiche montre l'adresse, le client et le type de bien saisis. Les outils du chantier reçoivent le chantier complet : plus de « Mon Chantier », de « Référence : Nouveau chantier » ni de « Adresse non renseignée ». La date de fin n'est plus inventée : « à définir » tant que l'artisan ne l'a pas donnée.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-24 · Bug · Moyenne</span><h3>Tâches qui se contredisent</h3><p><b>Résolution :</b> sans devis, le sous-titre de l'avancement compte les tâches (« 1 tâche faite sur 1 ») au lieu de « aucune tâche planifiée ». L'onglet Planning dit « Tout ce qui était prévu est fait. » quand c'est le cas. Une tâche à affecter montre son jour : « à affecter · mar. 24 · sem. 48 ». Mêmes textes sur le site et dans l'app.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-25 · Bug · Moyenne</span><h3>Deux outils Équipe</h3><p><b>Résolution :</b> le lien vers l'ancien outil Équipe est retiré. « Planning », ancien écran qui ne voyait ni les compagnons ni les tâches, est retiré du menu : on planifie depuis le Calendrier, comme sur le site. « Ouvrier » devient « compagnon » dans les écrans de la nouvelle génération.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-26 · Bug · Moyenne</span><h3>Contacts sans le client du chantier</h3><p><b>Résolution :</b> le client d'un chantier entre dans le carnet, rattaché à ce chantier. Les chantiers déjà créés y entrent à la première ouverture des contacts. Un nouveau contact est « Client » par défaut. Carnet vide : un seul bouton « Ajouter ».</p><p><b>Limite :</b> un client connu par son seul e-mail apparaît « Sans nom » jusqu'à ce qu'on le complète.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-27 · Bug · Moyenne</span><h3>Avenants et bouton introuvable</h3><p><b>Résolution :</b> un avenant modifie un devis signé, donc le bouton « Avenant » de la fiche n'apparaît qu'après la signature. La page le dit : « une fois le devis signé (bouton « Avenant ») ». Liste vide : « aucun avenant ».</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-28 · Amélioration · Moyenne</span><h3>Formulaire Nouveau chantier</h3><p><b>Résolution :</b> formulaire refait dans la nouvelle direction artistique. Nom, téléphone et e-mail du client. Adresses proposées pendant la saisie, par la Base Adresse Nationale, déjà utilisée par le site. Erreur affichée sous le champ concerné. Une phrase dit à quoi sert l'écran. L'ancien formulaire est supprimé.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-29 · Bug · Moyenne</span><h3>Nom affiché différent selon l'écran</h3><p><b>Résolution :</b> sous un chantier s'affiche le nom du client, sinon son e-mail en entier, jamais son début. L'accueil dit « Bonjour, » suivi du prénom ; sans prénom connu, « Bonjour. », jamais le nom de l'entreprise.</p><span class="pill st-valider">À valider</span></div>
   </div>
 </section>
 
 <section>
   <h2>Rapport du sprint 3</h2>
-  <p class="intro">Corrigé le 25 novembre 2026. Les cinq tickets sont « Prêt à livrer » : l'analyse ne signale aucune erreur, 361 tests passent côté app et 557 côté site. Commit <code>48c0a76</code> poussé le 25 novembre : la partie site est en ligne, la partie app attend un nouveau build.</p>
+  <p class="intro">Corrigé le 25 novembre 2026. Les cinq tickets ont été corrigés et testés : l'analyse ne signale aucune erreur, 361 tests passent côté app et 557 côté site. Commit <code>48c0a76</code> poussé le 25 novembre : la partie site est en ligne. La partie app est livrée le même jour dans Android version 85 et iPhone build 67 : les tickets passent à « À valider ».</p>
   <div class="box">
     <h3>Ce que l'analyse a montré</h3>
     <ul class="plain">
@@ -515,50 +563,75 @@ notify pgrst, 'reload schema';</pre>
     </ul>
   </div>
   <div class="grid2">
-    <div class="box ticket"><span class="id">KPRO-30 · Bug · Haute</span><h3>Frais invisibles dans l'app, PDF à reprendre</h3><p><b>Résolution :</b> le résumé du devis guidé montre le sous-total des lignes, puis chaque frais avec son taux et son montant, et un lien « Retirer » ou « Remettre ». Un devis neuf prend les taux réglés par l'entreprise dans « Mes prix », comme sur le site. Le site reconnaît maintenant les frais d'un devis de l'app, au centime près. PDF : pied de page « Édité avec Koji », montants avec une virgule, plus de « À compléter » ni de « Client » en doublon dans le PDF de secours.</p><p><b>Reste :</b> D-5, KPRO-48, et le bloc des signatures.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-31 · Bug · Moyenne</span><h3>Taux horaire différent selon l'écran</h3><p><b>Résolution :</b> un ouvrage sans taux propre ni taux de métier prend le taux du profil, celui que le devis applique. La référence de la famille ne sert que si le profil n'a pas de taux. Même règle dans la bibliothèque de l'app et dans celle du site.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-32 · Bug · Moyenne</span><h3>Deux boutons, deux parcours</h3><p><b>Résolution :</b> « Démarrer un devis guidé » ouvre partout le même parcours, la discussion avec l'assistant.</p><p><b>Reste :</b> le choix des pièces reste accessible par « Plus → Photo ».</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-33 · Bug · Haute</span><h3>Numéro de devis réutilisé</h3><p><b>Résolution :</b> le numéro affiché à l'ouverture est provisoire. Le numéro du devis est pris juste avant son premier enregistrement, après les devis déjà enregistrés. Si cette lecture échoue, le devis n'est pas enregistré plutôt que de risquer un doublon.</p><p><b>Limite :</b> deux téléphones qui enregistrent au même instant peuvent encore obtenir le même numéro. L'app numérote en « 2026-0002 », le site en « 2026_1050 » : deux suites séparées.</p><span class="pill st-pret">Prêt à livrer</span></div>
-    <div class="box ticket"><span class="id">KPRO-34 · Amélioration · Basse</span><h3>« Confiance C » inexpliqué</h3><p><b>Résolution :</b> la lettre est remplacée par ce qu'elle veut dire : « temps chronométré » (A), « temps recalé » (B), « temps estimé » (C). Sur le site aussi.</p><span class="pill st-pret">Prêt à livrer</span></div>
+    <div class="box ticket"><span class="id">KPRO-30 · Bug · Haute</span><h3>Frais invisibles dans l'app, PDF à reprendre</h3><p><b>Résolution :</b> le résumé du devis guidé montre le sous-total des lignes, puis chaque frais avec son taux et son montant, et un lien « Retirer » ou « Remettre ». Un devis neuf prend les taux réglés par l'entreprise dans « Mes prix », comme sur le site. Le site reconnaît maintenant les frais d'un devis de l'app, au centime près. PDF : pied de page « Édité avec Koji », montants avec une virgule, plus de « À compléter » ni de « Client » en doublon dans le PDF de secours.</p><p><b>Reste :</b> D-5, KPRO-48, et le bloc des signatures.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-31 · Bug · Moyenne</span><h3>Taux horaire différent selon l'écran</h3><p><b>Résolution :</b> un ouvrage sans taux propre ni taux de métier prend le taux du profil, celui que le devis applique. La référence de la famille ne sert que si le profil n'a pas de taux. Même règle dans la bibliothèque de l'app et dans celle du site.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-32 · Bug · Moyenne</span><h3>Deux boutons, deux parcours</h3><p><b>Résolution :</b> « Démarrer un devis guidé » ouvre partout le même parcours, la discussion avec l'assistant.</p><p><b>Reste :</b> le choix des pièces reste accessible par « Plus → Photo ».</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-33 · Bug · Haute</span><h3>Numéro de devis réutilisé</h3><p><b>Résolution :</b> le numéro affiché à l'ouverture est provisoire. Le numéro du devis est pris juste avant son premier enregistrement, après les devis déjà enregistrés. Si cette lecture échoue, le devis n'est pas enregistré plutôt que de risquer un doublon.</p><p><b>Limite :</b> deux téléphones qui enregistrent au même instant peuvent encore obtenir le même numéro. L'app numérote en « 2026-0002 », le site en « 2026_1050 » : deux suites séparées.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-34 · Amélioration · Basse</span><h3>« Confiance C » inexpliqué</h3><p><b>Résolution :</b> la lettre est remplacée par ce qu'elle veut dire : « temps chronométré » (A), « temps recalé » (B), « temps estimé » (C). Sur le site aussi.</p><span class="pill st-valider">À valider</span></div>
   </div>
 </section>
 
 <section>
-  <h2>Backlog</h2>
-  <p class="intro">Tous les tickets, par sprint. Rapporteur : Testeur. Responsable : Développement, sauf mention contraire. Version affectée : build 64.</p>
-  <div class="filters" id="filters" role="group" aria-label="Filtrer par statut">
-    <button type="button" id="f-tous" data-f="tous" aria-pressed="true">Tous</button>
-    <button type="button" id="f-valider" data-f="valider" aria-pressed="false">À valider</button>
-    <button type="button" id="f-faire" data-f="faire" aria-pressed="false">À faire</button>
-    <button type="button" id="f-cours" data-f="cours" aria-pressed="false">En cours</button>
-    <button type="button" id="f-pret" data-f="pret" aria-pressed="false">Prêt à livrer</button>
-    <button type="button" id="f-termine" data-f="termine" aria-pressed="false">Terminé</button>
-  </div>
-  <div id="backlog"></div>
-</section>
-
-<section>
-  <h2>Journal du rapport</h2>
+  <h2>Rapport du sprint 4</h2>
+  <p class="intro">Corrigé le 25 novembre 2026. Dix tickets sur douze ont été corrigés et testés : l'analyse ne signale aucune erreur, 367 tests passent côté app et 557 côté site. Deux tickets attendent une décision. Commit <code>e5553b6</code> poussé le 25 novembre, livré le même jour dans Android version 85 et iPhone build 67 : les dix tickets corrigés passent à « À valider ».</p>
   <div class="box">
-    <div class="log">
-      <time datetime="2026-11-24">24 nov. 2026</time>
-      <p>Création du rapport. Analyse des causes, plan de sprints, six décisions ouvertes, 46 tickets. Sprint 0 livré : neuf tickets passent à « À valider » (KPRO-1 à KPRO-8, KPRO-21).</p>
-      <time datetime="2026-11-24">24 nov. 2026</time>
-      <p>Sprint 0 validé par la Responsable technique : les neuf tickets passent à « Terminé ». Sprint 1 démarré : KPRO-9 à KPRO-20 passent à « En cours ».</p>
-      <time datetime="2026-11-24">24 nov. 2026</time>
-      <p>Sprint 1 corrigé et testé : KPRO-9 à KPRO-20 passent à « Prêt à livrer ». Nouveau statut ajouté au vocabulaire. D-1 appliquée selon la recommandation, à confirmer.</p>
-      <time datetime="2026-11-24">24 nov. 2026</time>
-      <p>Sprint 1 livré : commit f326299, Android version 84 (brouillon sur Google Play), iPhone build 66 (TestFlight). KPRO-9 à KPRO-20 passent à « À valider ». Sprint 2 démarré : KPRO-22 à KPRO-29 passent à « En cours ».</p>
-      <time datetime="2026-11-24">24 nov. 2026</time>
-      <p>Sprint 2 corrigé et testé : KPRO-22 à KPRO-29 passent à « Prêt à livrer ». Nouveau ticket KPRO-47, issu de la mesure de la lenteur de la fiche.</p>
-      <time datetime="2026-11-24">24 nov. 2026</time>
-      <p>Sprint 2 poussé : commit f122e17, quatre déploiements réussis. La partie site est en ligne ; la partie app attend un build.</p>
-      <time datetime="2026-11-25">25 nov. 2026</time>
-      <p>Sprint 3 corrigé et testé : KPRO-30 à KPRO-34 passent à « Prêt à livrer ». Nouveau ticket KPRO-48. D-5 reste ouverte.</p>
-      <time datetime="2026-11-25">25 nov. 2026</time>
-      <p>Sprint 3 poussé : commit 48c0a76. Section « Points ouverts » ajoutée. Neuf tickets ouverts (KPRO-49 à KPRO-57) et trois décisions (D-7 à D-9) ; KPRO-47 et KPRO-48 rangés dans « À planifier ».</p>
-    </div>
+    <h3>Ce qui n'est pas encore prouvé ni fait</h3>
+    <ul class="plain">
+      <li>Aucun ticket n'a été rejoué sur un téléphone. Trois écrans ont été relus sur image : le nouveau formulaire, le résumé des frais, les onglets de Fournitures.</li>
+      <li>KPRO-39 : les anciens écrans n'ont pas pu être affichés hors appareil. Le changement de couleurs est à relire à la recette.</li>
+      <li>KPRO-36 et KPRO-37 ne sont pas traités : ils dépendent de D-2 et de D-4.</li>
+    </ul>
   </div>
+  <div class="grid2">
+    <div class="box ticket"><span class="id">KPRO-35 · Bug · Moyenne</span><h3>Nom de l'offre</h3><p><b>Résolution :</b> un seul nom partout : « Offre Start » dans le menu, les Paramètres et KojiPage ; « Offre Pro », « Offre Business » pour les autres.</p><p><b>Reste :</b> la confirmation de D-3.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-38 · Bug · Moyenne</span><h3>Bouton ✦ sur d'autres boutons</h3><p><b>Résolution :</b> le bouton s'efface sur les écrans qui ont leur propre bouton en bas (procès-verbal, nouvel article, nouveau chantier, outils du chantier) et quand le clavier est ouvert.</p><p><b>Limite :</b> sur l'accueil, il peut encore passer au-dessus d'un élément pendant le défilement.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-39 · Bug · Moyenne</span><h3>Écrans dans l'ancien style</h3><p><b>Résolution :</b> Nouveau chantier est refait (sprint 2). Profil Entreprise, Budget, Infos Chantier et les outils du chantier prennent les couleurs de la nouvelle direction artistique (graphite à la place du bleu) et ses angles droits : 135 couleurs remplacées, grands arrondis et ombres retirés.</p><p><b>Reste :</b> ce n'est pas une refonte. Ticket KPRO-58.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-40 · Bug · Basse</span><h3>Fautes et coquilles</h3><p><b>Résolution :</b> « Bibliothèque Koji », « 1 étape », « 1 jeton », « SIGNÉ POUR LE CLIENT », « Date de début », « L'équipe Koji ». « Code postale », « Référence  du chantier » et « Numéro /Rue » ont disparu avec l'ancien formulaire.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-41 · Bug · Basse</span><h3>Mots coupés, onglet illisible</h3><p><b>Résolution :</b> une barre d'onglets dont un libellé ne tient pas défile au lieu de couper le mot. « Conditionnement » a la largeur qu'il lui faut. Une puce sélectionnée écrit son texte en clair sur son fond sombre.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-42 · Bug · Basse</span><h3>Profil Entreprise : point et mode sombre</h3><p><b>Résolution :</b> « 75,00 € / h », « 750 », « 10 ». Le mode sombre est déplacé dans Paramètres.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-43 · Bug · Basse</span><h3>Heure et batterie illisibles</h3><p><b>Résolution :</b> les dix écrans à bandeau sombre (fiche chantier, liste des chantiers, devis, tâches, clôture, réserves…) passent l'heure, le réseau et la batterie en clair.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-44 · Bug · Moyenne</span><h3>« Finir le démarrage guidé »</h3><p><b>Résolution :</b> le lien ouvre le parcours guidé, et non plus le Profil Entreprise. « 1 étape sur 6 ».</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-45 · Amélioration · Basse</span><h3>Jetons du premier mois</h3><p><b>Résolution :</b> la carte de l'accueil écrit « Premier mois · 1 étape sur 8 », « 1 jeton gagné sur 16 », et dit ce que rapporte la prochaine étape : « Compléter mon entreprise · 2 jetons ».</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-46 · Amélioration · Basse</span><h3>À quoi sert « Nouveau chantier »</h3><p><b>Résolution :</b> le texte de la liste vide le dit, dans l'app et sur le site : « Vous avez un chantier trouvé ailleurs ? Ajoutez-le avec « Nouveau chantier » pour le suivre dans Koji. » Le formulaire le rappelle.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-36 · Bug · Moyenne</span><h3>Urgences</h3><p><b>Non traité.</b> Dans le code, la fonction est active et réservée aux offres payantes : l'écran dit donc vrai. Le message à afficher dépend de D-2.</p><span class="pill st-faire">À faire</span></div>
+    <div class="box ticket"><span class="id">KPRO-37 · Tâche · Haute</span><h3>Renvois « sur le site »</h3><p><b>Non traité.</b> Neuf écrans invitent à changer d'offre sur le site. Les garder, les reformuler ou les retirer relève de D-4.</p><span class="pill st-faire">À faire</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Livraison du 27 novembre</h2>
+  <p class="intro">Hors des retours du build 64, à la demande de la Direction : l'espace entreprise affiche partout le logo « KOJI PRO ». Commit <code>8f31dce</code> sur la branche principale, quatre déploiements réussis, 367 tests passent côté app. Livré dans Android version 86 et iPhone build 68, qui contiennent aussi les sprints 1 à 4.</p>
+  <div class="box">
+    <h3>Versions corrigées</h3>
+    <ul class="plain">
+      <li><b>Android :</b> Koji Pro, version 86, sur Google Play en test interne, à l'état de brouillon. À déployer depuis la Play Console par la Responsable technique.</li>
+      <li><b>iPhone :</b> Koji Pro, build 68, envoyé sur TestFlight. Apple le rend disponible aux testeurs après son traitement.</li>
+      <li><b>Site :</b> le logo et l'icône d'onglet sont en ligne.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Ce qui n'est pas encore prouvé</h3>
+    <ul class="plain">
+      <li>Rien n'a été rejoué sur un téléphone. Les écrans ont été vérifiés sur image, de 320 à 1 440 pixels de large.</li>
+      <li>Le menu du téléphone a un fond blanc : le logo y est en graphite et jaune. Aucune image de test ne couvre cet écran.</li>
+      <li>La nouvelle icône n'apparaît sur un téléphone qu'après l'installation de la version 86 ou du build 68.</li>
+    </ul>
+  </div>
+  <div class="grid2">
+    <div class="box ticket"><span class="id">KPRO-59 · Bug · Basse</span><h3>Onglets de connexion coupés sur petit écran</h3><p><b>Constat :</b> trouvé pendant la vérification du logo. Sur un téléphone de 320 pixels de large, la rangée « Se connecter · Créer un compte » dépassait de 18 pixels.</p><p><b>Résolution :</b> sur un écran trop étroit, le texte des onglets rétrécit au lieu de dépasser. Aucun changement sur un téléphone de taille courante.</p><span class="pill st-valider">À valider</span></div>
+    <div class="box ticket"><span class="id">KPRO-60 · Amélioration · Moyenne</span><h3>Logo « KOJI PRO » et icône de l'app</h3><p><b>Résolution :</b> le symbole et « PRO » en jaune, « KOJI » en blanc. Sur le site : connexion et inscription, barre latérale, barre du haut sur téléphone, icône d'onglet. Dans l'app : écran de démarrage, connexion, bandeaux Devis et Chantiers, menu, initiales du compte en jaune sur graphite. Nouvelle icône de l'app Koji Pro sur Android et sur iPhone. L'app Koji et les pages des particuliers gardent le logo Koji.</p><p><b>Limite :</b> sur un écran de 320 pixels, le logo de l'écran de démarrage rétrécit pour tenir.</p><span class="pill st-valider">À valider</span></div>
+  </div>
+  <div class="box">
+    <h3>Critères d'acceptation de la recette</h3>
+    <ol class="steps">
+      <li><b>Icône (KPRO-60).</b> Après l'installation, l'icône de Koji Pro montre le symbole jaune et « KOJI PRO » sur fond graphite.</li>
+      <li><b>Logo (KPRO-60).</b> « KOJI PRO » apparaît sur l'écran de démarrage, la connexion, les bandeaux Devis et Chantiers et le menu, sans être coupé.</li>
+      <li><b>Onglets (KPRO-59).</b> Sur le plus petit téléphone disponible, « Se connecter » et « Créer un compte » sont lisibles en entier.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
   <footer>Source : document « Mes retours sur Koji Pro, build 64 » (21 pages, recette sur iPhone). Ce rapport est mis à jour à chaque sprint livré et à chaque recette.</footer>
 </section>
 
@@ -590,21 +663,21 @@ var TICKETS = [
   [19, "Bug", "Les étapes du parcours n'ouvrent pas l'onglet Devis ou Chantiers", 3, "valider", 1, "Parcours", "C2", "KPRO-8"],
   [20, "Bug", "L'écran du procès-verbal reste ouvert sur un chantier vide et écrit « devis »", 3, "valider", 1, "Clôture", "C3", "D-1"],
 
-  [22, "Bug", "La fiche d'un chantier met 10 à 15 secondes à s'ouvrir", 2, "pret", 2, "Chantiers", "C2", ""],
-  [23, "Bug", "Les infos du chantier ne correspondent pas à ce qui a été saisi", 2, "pret", 2, "Chantiers", "C2", ""],
-  [24, "Bug", "Les tâches du chantier se contredisent d'un écran à l'autre", 3, "pret", 2, "Chantiers", "C2", ""],
-  [25, "Bug", "Deux outils Équipe qui ne se parlent pas (ouvrier, compagnon)", 3, "pret", 2, "Équipe", "C2", ""],
-  [26, "Bug", "Contacts ne récupère pas le client du chantier", 3, "pret", 2, "Contacts", "C2", ""],
-  [27, "Bug", "Avenants renvoie vers un bouton qui n'existe pas", 3, "pret", 2, "Avenants", "C4", ""],
-  [28, "Amélioration", "Nouveau chantier : adresses proposées, nom et téléphone du client, erreur sous le champ", 3, "pret", 2, "Chantiers", "C2", ""],
-  [29, "Bug", "Le nom affiché change selon l'écran (début de l'e-mail, nom de l'entreprise)", 3, "pret", 2, "Chantiers", "C2", ""],
+  [22, "Bug", "La fiche d'un chantier met 10 à 15 secondes à s'ouvrir", 2, "valider", 2, "Chantiers", "C2", ""],
+  [23, "Bug", "Les infos du chantier ne correspondent pas à ce qui a été saisi", 2, "valider", 2, "Chantiers", "C2", ""],
+  [24, "Bug", "Les tâches du chantier se contredisent d'un écran à l'autre", 3, "valider", 2, "Chantiers", "C2", ""],
+  [25, "Bug", "Deux outils Équipe qui ne se parlent pas (ouvrier, compagnon)", 3, "valider", 2, "Équipe", "C2", ""],
+  [26, "Bug", "Contacts ne récupère pas le client du chantier", 3, "valider", 2, "Contacts", "C2", ""],
+  [27, "Bug", "Avenants renvoie vers un bouton qui n'existe pas", 3, "valider", 2, "Avenants", "C4", ""],
+  [28, "Amélioration", "Nouveau chantier : adresses proposées, nom et téléphone du client, erreur sous le champ", 3, "valider", 2, "Chantiers", "C2", ""],
+  [29, "Bug", "Le nom affiché change selon l'écran (début de l'e-mail, nom de l'entreprise)", 3, "valider", 2, "Chantiers", "C2", ""],
   [47, "Tâche", "Fiche chantier : une seule lecture côté serveur au lieu de dix", 3, "faire", 5, "Chantiers", "C2", "KPRO-22"],
 
-  [30, "Bug", "Des frais s'ajoutent au devis sans apparaître dans l'appli, PDF à reprendre", 2, "pret", 3, "Devis", "C4", "D-5"],
-  [31, "Bug", "Le taux horaire n'est pas le même dans la bibliothèque et dans le devis", 3, "pret", 3, "Bibliothèque", "C4", ""],
-  [32, "Bug", "Deux boutons identiques ouvrent deux parcours de devis différents", 3, "pret", 3, "Devis", "C2", ""],
-  [33, "Bug", "Le numéro de devis 2026-0001 est réutilisé", 2, "pret", 3, "Devis", "C1", ""],
-  [34, "Amélioration", "Bibliothèque : expliquer « confiance C »", 4, "pret", 3, "Bibliothèque", "C4", ""],
+  [30, "Bug", "Des frais s'ajoutent au devis sans apparaître dans l'appli, PDF à reprendre", 2, "valider", 3, "Devis", "C4", "D-5"],
+  [31, "Bug", "Le taux horaire n'est pas le même dans la bibliothèque et dans le devis", 3, "valider", 3, "Bibliothèque", "C4", ""],
+  [32, "Bug", "Deux boutons identiques ouvrent deux parcours de devis différents", 3, "valider", 3, "Devis", "C2", ""],
+  [33, "Bug", "Le numéro de devis 2026-0001 est réutilisé", 2, "valider", 3, "Devis", "C1", ""],
+  [34, "Amélioration", "Bibliothèque : expliquer « confiance C »", 4, "valider", 3, "Bibliothèque", "C4", ""],
   [48, "Bug", "Les majorations au forfait du compte (déplacement, intervention minimum) ne sont pas reprises par l'app", 3, "faire", 5, "Devis", "C2", "KPRO-30"],
   [49, "Bug", "PDF du devis : le bloc des signatures part seul sur une deuxième page", 3, "faire", 5, "Devis", "C4", "KPRO-30"],
   [50, "Tâche", "Numéro de devis : unicité garantie par la base, une seule suite pour l'app et le site", 2, "faire", 5, "Devis", "C1", "D-8"],
@@ -615,19 +688,23 @@ var TICKETS = [
   [55, "Amélioration", "Contacts : faire compléter un client connu par son seul e-mail (« Sans nom »)", 4, "faire", 5, "Contacts", "C4", "KPRO-26"],
   [56, "Tâche", "Retirer du code les anciens écrans sortis du menu (Planning, ancien outil Équipe, Interventions)", 4, "faire", 5, "Toute l'app", "C2", "KPRO-25"],
   [57, "Bug", "App Koji (particuliers) : des messages techniques peuvent encore s'afficher", 4, "faire", 5, "App Koji", "C1", "KPRO-9"],
+  [58, "Tâche", "Refaire d'après la maquette Profil Entreprise, Budget, Infos Chantier et Archives", 3, "faire", 5, "Design", "C2", "KPRO-39"],
 
-  [35, "Bug", "L'offre change de nom selon l'écran", 3, "faire", 4, "Abonnement", "C4", "D-3"],
+  [35, "Bug", "L'offre change de nom selon l'écran", 3, "valider", 4, "Abonnement", "C4", "D-3"],
   [36, "Bug", "Urgences : rien ne dit pourquoi l'interrupteur est grisé", 3, "faire", 4, "Urgences", "C4", "D-2"],
   [37, "Tâche", "Valider pour Apple les neuf textes qui renvoient « sur le site »", 2, "faire", 4, "Abonnement", "C4", "D-4"],
-  [38, "Bug", "Le bouton ✦ recouvre d'autres boutons", 3, "faire", 4, "Design", "C4", ""],
-  [39, "Bug", "Plusieurs écrans restent dans l'ancienne direction artistique", 3, "faire", 4, "Design", "C2", ""],
-  [40, "Bug", "Fautes et coquilles (« Code postale », « 1 étapes », « Kôji »…)", 4, "faire", 4, "Textes", "C2", ""],
-  [41, "Bug", "Des mots coupés en deux dans les onglets, onglet actif illisible", 4, "faire", 4, "Design", "C4", ""],
-  [42, "Bug", "Profil Entreprise : point au lieu de virgule, mode sombre mal rangé", 4, "faire", 4, "Profil", "C2", ""],
-  [43, "Bug", "L'heure et la batterie sont illisibles en haut de la fiche chantier", 4, "faire", 4, "Design", "C4", ""],
-  [44, "Bug", "« Finir le démarrage guidé » ouvre le Profil Entreprise", 3, "faire", 4, "Accueil", "C2", ""],
-  [45, "Amélioration", "Expliquer les jetons du premier mois sur l'accueil", 4, "faire", 4, "Accueil", "C4", ""],
-  [46, "Amélioration", "Préciser à quoi sert « Nouveau chantier »", 4, "faire", 4, "Chantiers", "C4", ""]
+  [38, "Bug", "Le bouton ✦ recouvre d'autres boutons", 3, "valider", 4, "Design", "C4", ""],
+  [39, "Bug", "Plusieurs écrans restent dans l'ancienne direction artistique", 3, "valider", 4, "Design", "C2", ""],
+  [40, "Bug", "Fautes et coquilles (« Code postale », « 1 étapes », « Kôji »…)", 4, "valider", 4, "Textes", "C2", ""],
+  [41, "Bug", "Des mots coupés en deux dans les onglets, onglet actif illisible", 4, "valider", 4, "Design", "C4", ""],
+  [42, "Bug", "Profil Entreprise : point au lieu de virgule, mode sombre mal rangé", 4, "valider", 4, "Profil", "C2", ""],
+  [43, "Bug", "L'heure et la batterie sont illisibles en haut de la fiche chantier", 4, "valider", 4, "Design", "C4", ""],
+  [44, "Bug", "« Finir le démarrage guidé » ouvre le Profil Entreprise", 3, "valider", 4, "Accueil", "C2", ""],
+  [45, "Amélioration", "Expliquer les jetons du premier mois sur l'accueil", 4, "valider", 4, "Accueil", "C4", ""],
+  [46, "Amélioration", "Préciser à quoi sert « Nouveau chantier »", 4, "valider", 4, "Chantiers", "C4", ""],
+
+  [59, "Bug", "Les onglets de connexion dépassent de l'écran sur un téléphone de 320 pixels", 4, "valider", 6, "Connexion", "C4", ""],
+  [60, "Amélioration", "Logo « KOJI PRO » et nouvelle icône de l'app", 3, "valider", 6, "Design", "C4", ""]
 ];
 var SPRINTS = [
   ["Sprint 0", "Corrections côté serveur, sans nouveau build"],
@@ -635,7 +712,8 @@ var SPRINTS = [
   ["Sprint 2", "Cohérence des chantiers"],
   ["Sprint 3", "Cohérence des devis"],
   ["Sprint 4", "Textes et design"],
-  ["À planifier", "Tickets ouverts pendant les sprints"]
+  ["À planifier", "Tickets ouverts pendant les sprints"],
+  ["Hors sprint", "Livraison du 27 novembre : logo et petit écran"]
 ];
 var STATUTS = { valider: "À valider", faire: "À faire", cours: "En cours", pret: "Prêt à livrer", termine: "Terminé" };
 var PRIORITES = { 1: "Très haute", 2: "Haute", 3: "Moyenne", 4: "Basse" };
