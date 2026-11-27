@@ -111,11 +111,11 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="wrap">
     <p class="eyebrow">Koji Pro · version affectée : build 64 (iPhone)</p>
     <h1>Anomalies et backlog de correction</h1>
-    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 86, iPhone build 68. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
+    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 88, iPhone build 70. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
     <div class="stats" id="stats">
-      <div class="stat"><b id="n-total">60</b><span>tickets au backlog</span></div>
-      <div class="stat"><b id="n-valider">37</b><span>corrigés, à livrer ou à valider</span></div>
-      <div class="stat"><b id="n-faire">14</b><span>à faire ou en cours</span></div>
+      <div class="stat"><b id="n-total">61</b><span>tickets au backlog</span></div>
+      <div class="stat"><b id="n-valider">39</b><span>corrigés, à livrer ou à valider</span></div>
+      <div class="stat"><b id="n-faire">13</b><span>à faire ou en cours</span></div>
       <div class="stat"><b id="n-termine">9</b><span>terminés (recette passée)</span></div>
     </div>
   </div>
@@ -142,6 +142,10 @@ footer { color: var(--muted); font-size: 13px; }
   <p class="intro">Les dernières nouvelles en premier.</p>
   <div class="box">
     <div class="log">
+      <time datetime="2026-11-27">27 nov. 2026</time>
+      <p>KPRO-47, étape 2 : la fiche d'un chantier s'ouvre en une seule requête (commit c2859ef). En ligne, 1,28 seconde contre 1,62 côté serveur. Livrée dans Android version 88 et iPhone build 70, avec iOS 15 minimum. KPRO-47 passe à « À valider ».</p>
+      <time datetime="2026-11-27">27 nov. 2026</time>
+      <p>Nouveau build de Koji Pro : Android version 87 et iPhone build 69 (commit e8d5ccf sur la branche release). Nouveau ticket KPRO-61 (« Kôji » restant dans l'app), corrigé et livré dans ce build : « À valider ». L'étape 2 de KPRO-47 n'est pas dans ce build.</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
       <p>KPRO-47, étape 1 en ligne (commit b565c1c). Mesurée en ligne, elle ne raccourcit pas l'ouverture de la fiche : le ticket repasse à « En cours ». L'étape 2 (un seul appel, nouveau build) attend un accord.</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
@@ -236,7 +240,7 @@ footer { color: var(--muted); font-size: 13px; }
         <tr><td class="id">Sprint 2</td><td class="sum">Cohérence des chantiers : fiche fidèle à la saisie et rapide à ouvrir, une seule source pour les tâches, formulaire Nouveau chantier refait, équipe, contacts, avenants.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">Sprint 3</td><td class="sum">Cohérence des devis : frais visibles, taux horaire de la bibliothèque, PDF en français, numéro unique.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">Sprint 4</td><td class="sum">Textes et design : nom de l'offre, fautes, bouton ✦, barre d'état, onglets, écrans restés dans l'ancienne direction artistique.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
-        <tr><td class="id">Hors sprint</td><td class="sum">Logo « KOJI PRO » et nouvelle icône de l'app, onglets de connexion sur petit écran.</td><td>Android version 86, iOS build 68 (27 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
+        <tr><td class="id">Hors sprint</td><td class="sum">Logo « KOJI PRO » et nouvelle icône de l'app, onglets de connexion sur petit écran, « Koji » sans accent.</td><td>Android version 86, 87 puis 88, iOS build 68, 69 puis 70 (27 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">À planifier</td><td class="sum">Tickets ouverts pendant les sprints : ce que les corrections livrées ne couvrent pas encore.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
       </tbody>
     </table>
@@ -265,8 +269,8 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="box">
     <h3>Actions en attente</h3>
     <ul class="plain">
-      <li><b>Déployer Android.</b> Koji Pro version 86 est sur Google Play en test interne, à l'état de brouillon. Elle contient les sprints 1 à 4 et se déploie depuis la Play Console. Responsable : Responsable technique.</li>
-      <li><b>Recette des sprints 1 à 4.</b> Les 37 tickets « À valider » attendent d'être rejoués sur Android version 86 ou iPhone build 68 pour passer à « Terminé ». Responsable : Responsable technique, Testeur.</li>
+      <li><b>Déployer Android.</b> Koji Pro version 88 est sur Google Play en test interne, à l'état de brouillon. Elle contient les sprints 1 à 4 et toutes les livraisons du 27 novembre, dont la fiche chantier en une seule requête (KPRO-47), et se déploie depuis la Play Console. Les versions 86 et 87 n'ont plus besoin d'être déployées. Responsable : Responsable technique.</li>
+      <li><b>Recette des sprints 1 à 4.</b> Les 39 tickets « À valider » attendent d'être rejoués sur Android version 88 ou iPhone build 70 pour passer à « Terminé ». Responsable : Responsable technique, Testeur.</li>
       <li><b>Décisions D-1 à D-9.</b> Aucune n'a encore reçu de réponse. Responsable : Direction.</li>
     </ul>
   </div>
@@ -288,7 +292,7 @@ footer { color: var(--muted); font-size: 13px; }
       <li><b>Chantier sans devis (KPRO-10).</b> Il reste dans « À planifier » tant que toutes ses tâches ne sont pas faites. Ticket KPRO-54.</li>
       <li><b>Site (KPRO-10).</b> Un chantier à 100 % sans procès-verbal signé y est revenu dans « En cours ».</li>
       <li><b>Interventions (KPRO-14).</b> L'entrée est masquée, pas réparée. Ticket KPRO-51.</li>
-      <li><b>Fiche chantier (KPRO-22).</b> Elle lance toujours dix appels au site, et reste aussi lente en ligne (1,6 à 2,7 secondes mesurées le 27 novembre). La vraie correction demande un appel unique et un nouveau build : KPRO-47, voir sa section.</li>
+      <li><b>Fiche chantier (KPRO-22, KPRO-47).</b> Depuis Android version 88 et iPhone build 70, elle s'ouvre en une seule requête. Côté serveur, une lecture prend encore plus d'une seconde, à cause de la taille du bloc de données : la réduire demanderait de sortir des données du bloc, un chantier plus large.</li>
       <li><b>Contacts (KPRO-26).</b> Un client connu par son seul e-mail apparaît « Sans nom ». Ticket KPRO-55.</li>
       <li><b>Frais du devis (KPRO-30).</b> Les 23 % par défaut sont toujours appliqués : voir D-7. L'app ne connaît que trois frais en pourcentage ; les majorations au forfait du compte ne sont pas reprises : ticket KPRO-48.</li>
       <li><b>PDF (KPRO-30).</b> Le bloc des signatures part encore seul sur une deuxième page : ticket KPRO-49. L'adresse du chantier et le nom du client n'y figurent que s'ils ont été saisis dans le devis : ticket KPRO-52.</li>
@@ -604,24 +608,26 @@ notify pgrst, 'reload schema';</pre>
 
 <section>
   <h2>KPRO-47 : fiche chantier plus rapide</h2>
-  <p class="intro">Première étape en ligne le 27 novembre 2026 (commit <code>b565c1c</code>, quatre déploiements réussis, 562 tests passants dont cinq nouveaux). Mesurée en ligne, elle ne suffit pas : le ticket reste « En cours ».</p>
+  <p class="intro">Livré le 27 novembre 2026 en deux étapes. Étape 1 côté site (commit <code>b565c1c</code>). Étape 2 côté site et app (commit <code>c2859ef</code>), livrée dans Android version 88 et iPhone build 70. 565 tests passent côté site et 371 côté app. Le ticket passe à « À valider ».</p>
   <div class="box ticket">
     <span class="id">KPRO-47</span>
     <h3>Fiche chantier : une seule lecture côté serveur au lieu de dix</h3>
-    <div class="fields"><span class="type">Tâche</span><span class="pr pr-3">Moyenne</span><span>Composant : Chantiers</span><span>Epic C2</span><span class="pill st-cours">En cours</span></div>
+    <div class="fields"><span class="type">Tâche</span><span class="pr pr-3">Moyenne</span><span>Composant : Chantiers</span><span>Epic C2</span><span class="pill st-valider">À valider</span></div>
     <dl>
       <dt>Constat</dt><dd>À l'ouverture d'une fiche, l'app lance dix appels au site en même temps. Neuf d'entre eux relisent le bloc de données entier, de 2,1 Mo : neuf lectures complètes pour un seul écran.</dd>
       <dt>Mesure avant</dt><dd>Les neuf appels, lancés ensemble : 1,5 à 2,3 secondes sur le site en ligne, environ 1,45 seconde sur le poste de développement.</dd>
       <dt>Étape 1, en ligne</dt><dd>Quand plusieurs appels demandent le bloc en même temps sur le même serveur, une seule lecture part et chacun en reçoit sa propre copie. Toute écriture coupe ce partage : une lecture faite après une écriture ne reçoit jamais l'état d'avant. Cela vaut pour toutes les pages du site et de l'app, pas seulement la fiche (<code>lib/lecture-partagee.js</code>).</dd>
       <dt>Vérification</dt><dd>Cinq tests automatiques : une seule lecture pour neuf appels, copies séparées, pas d'état d'avant une écriture, relecture après un échec. Sur le poste de développement, les neuf appels passent de 1,45 à 0,8–0,9 seconde. <b>En ligne, pas de gain net</b> : 1,6 à 2,7 secondes sur huit essais. L'hébergeur répartit les appels sur plusieurs serveurs, et le partage ne joue que lorsqu'ils tombent sur le même.</dd>
-      <dt>Reste</dt><dd>Étape 2 : un seul appel au site pour toute la fiche, qui lit les données une fois et renvoie tout. Elle demande de modifier l'app, donc un nouveau build, et attend l'accord de la Responsable technique. Une lecture seule prend encore près d'une seconde, à cause de la taille du bloc : la réduire demanderait de sortir des données du bloc, un chantier plus large.</dd>
+      <dt>Étape 2, livrée</dt><dd>Nouvelle route <code>/api/fiche-chantier</code> : elle appelle les dix routes de la fiche avec la même session, les mêmes contrôles d'accès et la même logique, rien n'est recopié, et elles partagent une seule lecture du bloc. L'app ouvre la fiche avec cette seule requête. Si elle échoue, l'app retombe sur les dix lectures d'avant, qui donnent le même résultat.</dd>
+      <dt>Mesure après</dt><dd>En ligne, au même moment, sur huit essais : l'appel unique prend 1,28 seconde en médiane, contre 1,62 pour les neuf appels séparés, soit environ 20 % de moins côté serveur. Au premier essai, quand les serveurs dorment : 1,2 seconde contre 3 secondes. Sur un téléphone, le gain devrait être plus grand : une seule requête sur le réseau mobile au lieu de dix. Non mesuré sur téléphone.</dd>
+      <dt>Reste</dt><dd>Une lecture prend encore plus d'une seconde, à cause de la taille du bloc : la réduire demanderait de sortir des données du bloc, un chantier plus large. À ouvrir comme un nouveau ticket si la fiche reste trop lente à la recette.</dd>
     </dl>
   </div>
   <div class="box">
     <h3>Critères d'acceptation de la recette</h3>
     <ol class="steps">
-      <li><b>Fiche (KPRO-47), après l'étape 2.</b> Ouvrir trois fiches de chantier de suite sur le téléphone : chacune est complète, avec ses photos, ses réserves et ses documents, en moins de temps qu'avant.</li>
-      <li><b>Pas de retour en arrière, dès maintenant.</b> Cocher une tâche, puis rouvrir la fiche : la tâche est bien cochée.</li>
+      <li><b>Fiche (KPRO-47), sur Android version 88 ou iPhone build 70.</b> Ouvrir trois fiches de chantier de suite : chacune est complète, avec ses photos, ses réserves, ses documents et l'accès client, et s'ouvre plus vite qu'avant.</li>
+      <li><b>Pas de retour en arrière.</b> Cocher une tâche, puis rouvrir la fiche : la tâche est bien cochée.</li>
     </ol>
   </div>
 </section>
@@ -655,6 +661,54 @@ notify pgrst, 'reload schema';</pre>
       <li><b>Icône (KPRO-60).</b> Après l'installation, l'icône de Koji Pro montre le symbole jaune et « KOJI PRO » sur fond graphite.</li>
       <li><b>Logo (KPRO-60).</b> « KOJI PRO » apparaît sur l'écran de démarrage, la connexion, les bandeaux Devis et Chantiers et le menu, sans être coupé.</li>
       <li><b>Onglets (KPRO-59).</b> Sur le plus petit téléphone disponible, « Se connecter » et « Créer un compte » sont lisibles en entier.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2>Livraison du 27 novembre, troisième build</h2>
+  <p class="intro">Branche principale fusionnée dans la branche release (commit <code>b1dfece</code>). Ce build reprend tout ce que contenaient Android version 87 et iPhone build 69.</p>
+  <div class="box">
+    <h3>Versions corrigées</h3>
+    <ul class="plain">
+      <li><b>Android :</b> Koji Pro, version 88, sur Google Play en test interne, à l'état de brouillon. À déployer depuis la Play Console par la Responsable technique. Elle remplace les versions 86 et 87.</li>
+      <li><b>iPhone :</b> Koji Pro, build 70, envoyé sur TestFlight sans le test sur simulateur.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Ce que ce build ajoute</h3>
+    <ul class="plain">
+      <li><b>KPRO-47.</b> La fiche d'un chantier s'ouvre en une seule requête : voir la section KPRO-47.</li>
+      <li><b>iPhone : iOS 15 minimum</b> au lieu d'iOS 13, en réponse à l'avertissement d'Apple reçu sur le build 68. Hors des retours du build 64 : suivi dans les Tâches priorisées (T-51).</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Livraison du 27 novembre, deuxième build</h2>
+  <p class="intro">Hors des retours du build 64. Ce build reprend tout ce que contenaient Android version 86 et iPhone build 68, avec une correction de texte en plus. Branche principale fusionnée dans la branche release (commit <code>e8d5ccf</code>), analyse du code de l'app sans erreur.</p>
+  <div class="box">
+    <h3>Versions corrigées</h3>
+    <ul class="plain">
+      <li><b>Android :</b> Koji Pro, version 87, sur Google Play en test interne, à l'état de brouillon. À déployer depuis la Play Console par la Responsable technique. Elle remplace la version 86, qui n'a plus besoin d'être déployée.</li>
+      <li><b>iPhone :</b> Koji Pro, build 69, envoyé sur TestFlight sans le test sur simulateur, comme le build 68.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Ce que ce build ne contient pas</h3>
+    <ul class="plain">
+      <li>L'étape 2 de KPRO-47 (un seul appel pour la fiche chantier) : elle est en cours et n'est pas encore validée.</li>
+      <li>L'étape 1 de KPRO-47 est côté site : elle est en ligne, sans lien avec un build.</li>
+    </ul>
+  </div>
+  <div class="grid2">
+    <div class="box ticket"><span class="id">KPRO-61 · Bug · Basse</span><h3>« Kôji » encore écrit dans l'app</h3><p><b>Constat :</b> relevé pendant la relecture de la fiche Google Play. Après KPRO-40, deux textes de l'app écrivaient encore « Kôji » : la mention « Créé par » en pied de page des devis PDF, et le message affiché à l'ajout d'un contact.</p><p><b>Résolution :</b> les deux textes écrivent « Koji » (commit <code>fc497f7</code>). Les fautes de la fiche Google Play elle-même se corrigent dans la Play Console, pas dans l'app.</p><span class="pill st-valider">À valider</span></div>
+  </div>
+  <div class="box">
+    <h3>Critères d'acceptation de la recette</h3>
+    <ol class="steps">
+      <li><b>Devis PDF (KPRO-61).</b> Créer un devis et ouvrir son PDF : le pied de page dit « Créé par Koji ».</li>
+      <li><b>Contact (KPRO-61).</b> Ajouter un contact : le message parle du « carnet d'adresses Koji ».</li>
     </ol>
   </div>
 </section>
@@ -699,7 +753,7 @@ var TICKETS = [
   [27, "Bug", "Avenants renvoie vers un bouton qui n'existe pas", 3, "valider", 2, "Avenants", "C4", ""],
   [28, "Amélioration", "Nouveau chantier : adresses proposées, nom et téléphone du client, erreur sous le champ", 3, "valider", 2, "Chantiers", "C2", ""],
   [29, "Bug", "Le nom affiché change selon l'écran (début de l'e-mail, nom de l'entreprise)", 3, "valider", 2, "Chantiers", "C2", ""],
-  [47, "Tâche", "Fiche chantier : une seule lecture côté serveur au lieu de dix", 3, "cours", 5, "Chantiers", "C2", "KPRO-22"],
+  [47, "Tâche", "Fiche chantier : une seule lecture côté serveur au lieu de dix", 3, "valider", 5, "Chantiers", "C2", "KPRO-22"],
 
   [30, "Bug", "Des frais s'ajoutent au devis sans apparaître dans l'appli, PDF à reprendre", 2, "valider", 3, "Devis", "C4", "D-5"],
   [31, "Bug", "Le taux horaire n'est pas le même dans la bibliothèque et dans le devis", 3, "valider", 3, "Bibliothèque", "C4", ""],
@@ -732,7 +786,8 @@ var TICKETS = [
   [46, "Amélioration", "Préciser à quoi sert « Nouveau chantier »", 4, "valider", 4, "Chantiers", "C4", ""],
 
   [59, "Bug", "Les onglets de connexion dépassent de l'écran sur un téléphone de 320 pixels", 4, "valider", 6, "Connexion", "C4", ""],
-  [60, "Amélioration", "Logo « KOJI PRO » et nouvelle icône de l'app", 3, "valider", 6, "Design", "C4", ""]
+  [60, "Amélioration", "Logo « KOJI PRO » et nouvelle icône de l'app", 3, "valider", 6, "Design", "C4", ""],
+  [61, "Bug", "« Kôji » encore écrit dans le pied du devis PDF et à l'ajout d'un contact", 4, "valider", 6, "Textes", "C4", "KPRO-40"]
 ];
 var SPRINTS = [
   ["Sprint 0", "Corrections côté serveur, sans nouveau build"],
@@ -741,7 +796,7 @@ var SPRINTS = [
   ["Sprint 3", "Cohérence des devis"],
   ["Sprint 4", "Textes et design"],
   ["À planifier", "Tickets ouverts pendant les sprints"],
-  ["Hors sprint", "Livraison du 27 novembre : logo et petit écran"]
+  ["Hors sprint", "Livraisons du 27 novembre : logo, petit écran et textes"]
 ];
 var STATUTS = { valider: "À valider", faire: "À faire", cours: "En cours", pret: "Prêt à livrer", termine: "Terminé" };
 var PRIORITES = { 1: "Très haute", 2: "Haute", 3: "Moyenne", 4: "Basse" };
