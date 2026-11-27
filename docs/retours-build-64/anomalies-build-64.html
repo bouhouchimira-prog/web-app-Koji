@@ -114,8 +114,8 @@ footer { color: var(--muted); font-size: 13px; }
     <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 86, iPhone build 68. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
     <div class="stats" id="stats">
       <div class="stat"><b id="n-total">60</b><span>tickets au backlog</span></div>
-      <div class="stat"><b id="n-valider">37</b><span>corrigés, à livrer ou à valider</span></div>
-      <div class="stat"><b id="n-faire">14</b><span>à faire ou en cours</span></div>
+      <div class="stat"><b id="n-valider">38</b><span>corrigés, à livrer ou à valider</span></div>
+      <div class="stat"><b id="n-faire">13</b><span>à faire ou en cours</span></div>
       <div class="stat"><b id="n-termine">9</b><span>terminés (recette passée)</span></div>
     </div>
   </div>
@@ -142,6 +142,8 @@ footer { color: var(--muted); font-size: 13px; }
   <p class="intro">Les dernières nouvelles en premier.</p>
   <div class="box">
     <div class="log">
+      <time datetime="2026-11-27">27 nov. 2026</time>
+      <p>KPRO-47 corrigé et testé : les appels simultanés partagent une seule lecture des données. Passe à « Prêt à livrer ». Gain mesuré sur le poste de développement : de 1,45 à 0,8–0,9 seconde. À mesurer en ligne après la mise en ligne.</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
       <p>Logo « KOJI PRO » et nouvelle icône de l'app (commit 8f31dce), livrés dans Android version 86 et iPhone build 68 avec les sprints 1 à 4. Deux nouveaux tickets, KPRO-59 et KPRO-60, à « À valider ».</p>
       <time datetime="2026-11-25">25 nov. 2026</time>
@@ -284,7 +286,7 @@ footer { color: var(--muted); font-size: 13px; }
       <li><b>Chantier sans devis (KPRO-10).</b> Il reste dans « À planifier » tant que toutes ses tâches ne sont pas faites. Ticket KPRO-54.</li>
       <li><b>Site (KPRO-10).</b> Un chantier à 100 % sans procès-verbal signé y est revenu dans « En cours ».</li>
       <li><b>Interventions (KPRO-14).</b> L'entrée est masquée, pas réparée. Ticket KPRO-51.</li>
-      <li><b>Fiche chantier (KPRO-22).</b> Elle lance toujours dix appels au site. Ticket KPRO-47.</li>
+      <li><b>Fiche chantier (KPRO-22).</b> Elle lance toujours dix appels au site. Depuis KPRO-47, les appels simultanés partagent une seule lecture des données ; le gain réel en ligne reste à mesurer.</li>
       <li><b>Contacts (KPRO-26).</b> Un client connu par son seul e-mail apparaît « Sans nom ». Ticket KPRO-55.</li>
       <li><b>Frais du devis (KPRO-30).</b> Les 23 % par défaut sont toujours appliqués : voir D-7. L'app ne connaît que trois frais en pourcentage ; les majorations au forfait du compte ne sont pas reprises : ticket KPRO-48.</li>
       <li><b>PDF (KPRO-30).</b> Le bloc des signatures part encore seul sur une deuxième page : ticket KPRO-49. L'adresse du chantier et le nom du client n'y figurent que s'ils ont été saisis dans le devis : ticket KPRO-52.</li>
@@ -599,6 +601,30 @@ notify pgrst, 'reload schema';</pre>
 </section>
 
 <section>
+  <h2>Correctif KPRO-47 : fiche chantier plus rapide</h2>
+  <p class="intro">Corrigé le 27 novembre 2026. « Prêt à livrer » : 562 tests passent côté site, dont cinq nouveaux. La correction ne touche que le site : aucun nouveau build n'est nécessaire.</p>
+  <div class="box ticket">
+    <span class="id">KPRO-47</span>
+    <h3>Fiche chantier : une seule lecture côté serveur au lieu de dix</h3>
+    <div class="fields"><span class="type">Tâche</span><span class="pr pr-3">Moyenne</span><span>Composant : Chantiers</span><span>Epic C2</span><span class="pill st-pret">Prêt à livrer</span></div>
+    <dl>
+      <dt>Constat</dt><dd>À l'ouverture d'une fiche, l'app lance dix appels au site en même temps. Neuf d'entre eux relisent le bloc de données entier, de 2,1 Mo : neuf lectures complètes pour un seul écran.</dd>
+      <dt>Mesure avant</dt><dd>Les neuf appels, lancés ensemble : 1,5 à 2,3 secondes sur le site en ligne, environ 1,45 seconde sur le poste de développement.</dd>
+      <dt>Résolution</dt><dd>Quand plusieurs appels demandent le bloc en même temps sur le même serveur, une seule lecture part et chacun en reçoit sa propre copie. Toute écriture coupe ce partage : une lecture faite après une écriture ne reçoit jamais l'état d'avant. Cela vaut pour toutes les pages du site et de l'app, pas seulement la fiche (<code>lib/lecture-partagee.js</code>).</dd>
+      <dt>Vérification</dt><dd>Cinq tests automatiques : une seule lecture pour neuf appels, copies séparées, pas d'état d'avant une écriture, relecture après un échec. Sur le poste de développement, les neuf appels passent de 1,45 à 0,8–0,9 seconde.</dd>
+      <dt>Reste</dt><dd>Mesurer le gain sur le site en ligne après la mise en ligne. Il dépend de la façon dont l'hébergeur répartit les appels : il est maximal quand ils arrivent sur le même serveur. Une lecture seule prend encore près d'une seconde, à cause de la taille du bloc : réduire cette taille demanderait de sortir des données du bloc, ce qui est un chantier plus large.</dd>
+    </dl>
+  </div>
+  <div class="box">
+    <h3>Critères d'acceptation de la recette</h3>
+    <ol class="steps">
+      <li><b>Fiche (KPRO-47).</b> Ouvrir trois fiches de chantier de suite sur le téléphone : chacune est complète, avec ses photos, ses réserves et ses documents, en moins de temps qu'avant.</li>
+      <li><b>Pas de retour en arrière.</b> Cocher une tâche, puis rouvrir la fiche : la tâche est bien cochée.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
   <h2>Livraison du 27 novembre</h2>
   <p class="intro">Hors des retours du build 64, à la demande de la Direction : l'espace entreprise affiche partout le logo « KOJI PRO ». Commit <code>8f31dce</code> sur la branche principale, quatre déploiements réussis, 367 tests passent côté app. Livré dans Android version 86 et iPhone build 68, qui contiennent aussi les sprints 1 à 4.</p>
   <div class="box">
@@ -671,7 +697,7 @@ var TICKETS = [
   [27, "Bug", "Avenants renvoie vers un bouton qui n'existe pas", 3, "valider", 2, "Avenants", "C4", ""],
   [28, "Amélioration", "Nouveau chantier : adresses proposées, nom et téléphone du client, erreur sous le champ", 3, "valider", 2, "Chantiers", "C2", ""],
   [29, "Bug", "Le nom affiché change selon l'écran (début de l'e-mail, nom de l'entreprise)", 3, "valider", 2, "Chantiers", "C2", ""],
-  [47, "Tâche", "Fiche chantier : une seule lecture côté serveur au lieu de dix", 3, "faire", 5, "Chantiers", "C2", "KPRO-22"],
+  [47, "Tâche", "Fiche chantier : une seule lecture côté serveur au lieu de dix", 3, "pret", 5, "Chantiers", "C2", "KPRO-22"],
 
   [30, "Bug", "Des frais s'ajoutent au devis sans apparaître dans l'appli, PDF à reprendre", 2, "valider", 3, "Devis", "C4", "D-5"],
   [31, "Bug", "Le taux horaire n'est pas le même dans la bibliothèque et dans le devis", 3, "valider", 3, "Bibliothèque", "C4", ""],
