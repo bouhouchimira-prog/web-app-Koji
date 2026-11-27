@@ -52,6 +52,48 @@ class DonneesFiche {
 final proFicheChantierProvider = FutureProvider.autoDispose
     .family<DonneesFiche?, String>((ref, projectId) async {
   final api = ref.watch(proKojiWebProvider);
+  // KPRO-47 : une seule requête (/api/fiche-chantier), le site ne lit ses
+  // données qu'une fois. En cas d'échec (chantier introuvable, site pas
+  // encore à jour, réseau), on retombe sur les dix lectures d'avant, qui
+  // donnent le même résultat.
+  try {
+    return donneesFicheDepuis(await api.ficheChantier(projectId));
+  } catch (_) {
+    return _ficheEnDixLectures(api, projectId);
+  }
+});
+
+/// Réponse de /api/fiche-chantier → données de la fiche (null sans chantier).
+DonneesFiche? donneesFicheDepuis(Map<String, dynamic> json) {
+  final projet = json['project'];
+  if (projet is! Map) return null;
+  List<Map<String, dynamic>> liste(String cle) {
+    final brut = json[cle];
+    if (brut is! List) return const [];
+    return brut
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  final devis = liste('quotes');
+  final acces = json['access'];
+  return DonneesFiche(
+    projet: Map<String, dynamic>.from(projet),
+    devis: devis.isEmpty ? null : devis.first,
+    taches: liste('tasks'),
+    factures: liste('invoices'),
+    rdv: liste('calendarEvents'),
+    alertes: liste('alerts'),
+    documents: liste('projectDocuments'),
+    photos: liste('photos').map(PhotoChantier.fromJson).toList(),
+    reserves: liste('reserves').map(Reserve.new).toList(),
+    acces: acces is Map ? Map<String, dynamic>.from(acces) : null,
+  );
+}
+
+Future<DonneesFiche?> _ficheEnDixLectures(
+    ProKojiWebClient api, String projectId) async {
   Future<List<Map<String, dynamic>>> lire(String path, String key) =>
       api.liste(path, key).catchError((_) => <Map<String, dynamic>>[]);
   // Tout part en même temps : l'accès client, les photos et les réserves
@@ -91,7 +133,7 @@ final proFicheChantierProvider = FutureProvider.autoDispose
     reserves: reserves.map(Reserve.new).toList(),
     acces: acces,
   );
-});
+}
 
 /// Fiche montrée tout de suite, avec ce que la liste des chantiers a déjà lu :
 /// chantier, devis, tâches, factures, rendez-vous, alertes. Les documents,

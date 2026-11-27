@@ -559,6 +559,14 @@ class ProKojiWebClient {
           '/api/avenants?quoteId=${Uri.encodeQueryComponent(quoteId)}'),
       'avenants');
 
+  /// Fiche d'un chantier en une seule requête (KPRO-47) : le site lit ses
+  /// données une fois au lieu de neuf. Réponse déjà filtrée sur le chantier.
+  Future<Map<String, dynamic>> ficheChantier(String projectId) async {
+    final data = await _send('GET',
+        '/api/fiche-chantier?projectId=${Uri.encodeQueryComponent(projectId)}');
+    return data is Map ? Map<String, dynamic>.from(data) : const {};
+  }
+
   /// Accès Koji Client du chantier (null s'il n'existe pas encore).
   Future<Map<String, dynamic>?> accesClient(String projectId) async {
     final data = await _send('GET',
