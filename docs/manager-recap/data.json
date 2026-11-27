@@ -1506,6 +1506,12 @@
       "theme": "Koji Pro (novembre 2026)",
       "title": "Une seule politique de confidentialité, celle de getkoji.io, pour le site et les stores",
       "detail": "L’ancienne copie du back-office (koji-admin-three.vercel.app) affichait encore une politique de confidentialité sans le nom de la société ni d’adresse de contact. C’est pourtant l’adresse déclarée à Google Play et à l’App Store. Elle renvoie maintenant vers https://getkoji.io/legal/confidentialite, qui nomme ABL EXPERT RENOV et donne contact@getkoji.io. Toutes les autres pages de cette ancienne copie renvoient vers getkoji.io : l’ancien back-office n’est plus accessible. Le back-office actuel, admin.getkoji.io, n’a pas changé. Dans l’app Koji Pro, « Koji » s’écrit maintenant sans accent dans le pied de page des devis PDF et à l’ajout d’un contact."
+    },
+    {
+      "category": "backend",
+      "theme": "Koji Pro (novembre 2026)",
+      "title": "Apps iPhone construites avec Xcode 27 : les exigences d’Apple pour avril 2027 sont remplies",
+      "detail": "Apple avait signalé deux points sur le build 68 de Koji Pro : l’app acceptait encore les iPhone sous iOS 13, et elle était construite avec le SDK iOS 26.5. À partir d’avril 2027, Apple exigera iOS 15 au minimum et le SDK iOS 27. Les deux sont réglés en avance : version minimum passée à iOS 15, et builds iPhone faits sur la machine GitHub qui a Xcode 27.2 (Xcode 26 reste disponible en secours). Les bibliothèques de l’app, que Xcode 27 refusait, sont réglées sur iOS 15. Le build 74 de Koji Pro, fait de cette façon, est disponible dans TestFlight, sans aucun avertissement d’Apple."
     }
   ]
 }

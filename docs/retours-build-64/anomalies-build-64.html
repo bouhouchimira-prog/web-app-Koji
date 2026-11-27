@@ -111,7 +111,7 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="wrap">
     <p class="eyebrow">Koji Pro · version affectée : build 64 (iPhone)</p>
     <h1>Anomalies et backlog de correction</h1>
-    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 89, iPhone build 71. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
+    <p class="lead">Les retours de la recette du build 64, ramenés à leurs causes, puis le backlog des tickets de correction et le rapport de chaque sprint livré. Dernière mise à jour : 27 novembre 2026. Sprint 0 validé, sprints 1 à 4 livrés dans un build, recette à faire. Dernier build : Android version 89, iPhone build 74. Tout ce qui reste ouvert est rassemblé dans « Points ouverts ».</p>
     <div class="stats" id="stats">
       <div class="stat"><b id="n-total">61</b><span>tickets au backlog</span></div>
       <div class="stat"><b id="n-valider">40</b><span>corrigés, à livrer ou à valider</span></div>
@@ -142,6 +142,8 @@ footer { color: var(--muted); font-size: 13px; }
   <p class="intro">Les dernières nouvelles en premier.</p>
   <div class="box">
     <div class="log">
+      <time datetime="2026-11-27">27 nov. 2026</time>
+      <p>iPhone build 74 de Koji Pro, construit avec Xcode 27 (release b49cce5), disponible dans TestFlight. Aucun avertissement d'Apple : les exigences d'avril 2027 (iOS 15 minimum, SDK iOS 27) sont remplies. C'est le build iPhone à utiliser pour la recette.</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
       <p>KPRO-49 livré : partie site en ligne (commit 7b01600), partie app dans Android version 89 et iPhone build 71 (release a8c6fe8). Passe à « À valider ».</p>
       <time datetime="2026-11-27">27 nov. 2026</time>
@@ -244,7 +246,7 @@ footer { color: var(--muted); font-size: 13px; }
         <tr><td class="id">Sprint 2</td><td class="sum">Cohérence des chantiers : fiche fidèle à la saisie et rapide à ouvrir, une seule source pour les tâches, formulaire Nouveau chantier refait, équipe, contacts, avenants.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">Sprint 3</td><td class="sum">Cohérence des devis : frais visibles, taux horaire de la bibliothèque, PDF en français, numéro unique.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">Sprint 4</td><td class="sum">Textes et design : nom de l'offre, fautes, bouton ✦, barre d'état, onglets, écrans restés dans l'ancienne direction artistique.</td><td>Android version 85, iOS build 67 (25 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
-        <tr><td class="id">Hors sprint</td><td class="sum">Logo « KOJI PRO » et nouvelle icône de l'app, onglets de connexion sur petit écran, « Koji » sans accent.</td><td>Android version 86 à 89, iOS build 68 à 71 (27 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
+        <tr><td class="id">Hors sprint</td><td class="sum">Logo « KOJI PRO » et nouvelle icône de l'app, onglets de connexion sur petit écran, « Koji » sans accent.</td><td>Android version 86 à 89, iOS build 68 à 74 (27 nov. 2026)</td><td><span class="pill st-valider">À valider</span></td></tr>
         <tr><td class="id">À planifier</td><td class="sum">Tickets ouverts pendant les sprints : ce que les corrections livrées ne couvrent pas encore.</td><td>À planifier</td><td><span class="pill st-faire">À faire</span></td></tr>
       </tbody>
     </table>
@@ -274,7 +276,7 @@ footer { color: var(--muted); font-size: 13px; }
     <h3>Actions en attente</h3>
     <ul class="plain">
       <li><b>Déployer Android.</b> Koji Pro version 89 est sur Google Play en test interne, à l'état de brouillon. Elle contient les sprints 1 à 4 et toutes les livraisons du 27 novembre, dont la fiche chantier en une seule requête (KPRO-47) et les signatures du PDF (KPRO-49), et se déploie depuis la Play Console. Les versions 86 à 88 n'ont plus besoin d'être déployées. Responsable : Responsable technique.</li>
-      <li><b>Recette des sprints 1 à 4.</b> Les 40 tickets « À valider » attendent d'être rejoués sur Android version 89 ou iPhone build 71 pour passer à « Terminé ». Responsable : Responsable technique, Testeur.</li>
+      <li><b>Recette des sprints 1 à 4.</b> Les 40 tickets « À valider » attendent d'être rejoués sur Android version 89 ou iPhone build 74 pour passer à « Terminé ». Responsable : Responsable technique, Testeur.</li>
       <li><b>Décisions D-1 à D-9.</b> Aucune n'a encore reçu de réponse. Responsable : Direction.</li>
     </ul>
   </div>
@@ -691,6 +693,25 @@ notify pgrst, 'reload schema';</pre>
       <li><b>Logo (KPRO-60).</b> « KOJI PRO » apparaît sur l'écran de démarrage, la connexion, les bandeaux Devis et Chantiers et le menu, sans être coupé.</li>
       <li><b>Onglets (KPRO-59).</b> Sur le plus petit téléphone disponible, « Se connecter » et « Créer un compte » sont lisibles en entier.</li>
     </ol>
+  </div>
+</section>
+
+<section>
+  <h2>Livraison du 27 novembre, cinquième build (iPhone seul)</h2>
+  <p class="intro">Branche principale fusionnée dans la branche release (commit <code>b49cce5</code>). Ce build reprend tout ce que contenait iPhone build 71. Il ne change rien à l'app elle-même : seule la façon de la construire change. Android n'a pas été reconstruit, la version 89 reste la dernière.</p>
+  <div class="box">
+    <h3>Versions corrigées</h3>
+    <ul class="plain">
+      <li><b>iPhone :</b> Koji Pro, build 74, construit avec Xcode 27.2 et envoyé sur TestFlight sans le test sur simulateur (run n° 18). Disponible dans TestFlight le 27 novembre. Les numéros 72 et 73 ont servi à deux builds d'essai, non envoyés.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Ce que ce build ajoute</h3>
+    <ul class="plain">
+      <li><b>Xcode 27 et SDK iOS 27</b> (commit <code>73e98bd</code>), en réponse à l'avertissement ITMS-90725 d'Apple reçu sur le build 68. Le build iPhone se fait maintenant sur la machine GitHub « xcode-27 », avec Xcode 26 en secours.</li>
+      <li><b>Bibliothèques réglées sur iOS 15</b> (commit <code>7061707</code>) : Xcode 27 refusait les bibliothèques encore réglées pour iOS 9 à 13.</li>
+      <li><b>Résultat :</b> aucun e-mail d'avertissement d'Apple sur le build 74. Les avertissements ITMS-90068 (iOS 15 minimum) et ITMS-90725 (Xcode 27) sont levés, avant l'échéance d'avril 2027. Hors des retours du build 64 : suivi dans les Tâches priorisées (T-51 et T-52, cochées).</li>
+    </ul>
   </div>
 </section>
 
